@@ -125,16 +125,20 @@ SA.UI = (() => {
 
   // ---------- 属性条 ----------
   function statBars(s) {
-    const pmax = Math.max(s.cap, s.supply, s.demand, 1);
+    const pmax = Math.max(s.supply, s.demand, 1);
+    const wmax = Math.max(s.load, s.weight, 1);
     const pct = (x, m) => `${Math.max(0, Math.min(100, (x / m) * 100))}%`;
     const oh = s.overheat === Infinity ? '不会烧干' : `全力开火 ${Math.round(s.overheat)} 秒后烧干`;
     const heatShare = Math.min(1, (s.heatGen + SA.K.IDLE_HEAT) / Math.max(0.1, SA.K.DISSIPATE + s.cool));
     return h('div', { class: 'bars' },
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '动力'),
         h('div', { class: 'bar power' }, h('i', { style: `width:${pct(s.demand, pmax)}` }),
-          h('span', { class: 'mark', style: `left:${pct(s.supply, pmax)}`, title: '锅炉供给' }),
-          h('span', { class: 'cap', style: `left:calc(${pct(s.cap, pmax)} - 2px)`, title: '底盘承载上限' }))),
-      h('div', { class: 'bar-note' }, `需求 ${s.demand} · 锅炉供给 ${s.supply}（白线）· 底盘上限 ${s.cap}（红线）`),
+          h('span', { class: 'mark', style: `left:${pct(s.supply, pmax)}`, title: '锅炉供给' }))),
+      h('div', { class: 'bar-note' }, `需求 ${s.demand}（设备 ${s.equip} + 行驶 ${s.drive}）· 锅炉供给 ${s.supply}（白线）`),
+      h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '重量'),
+        h('div', { class: `bar weight ${s.weight > s.load ? 'over' : ''}` }, h('i', { style: `width:${pct(s.weight, wmax)}` }),
+          h('span', { class: 'cap', style: `left:calc(${pct(s.load, wmax)} - 2px)`, title: '底盘承重' }))),
+      h('div', { class: 'bar-note' }, `总重 ${SA.tons(s.weight)} · 底盘承重 ${SA.tons(s.load)}（红线）· 每吨要 ${SA.K.DRIVE_PER_T} 动力才能跑满速`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量'),
         h('div', { class: 'bar heat' }, h('i', { style: `width:${pct(heatShare, 1)}` }))),
       h('div', { class: 'bar-note' }, `产热 ${(s.heatGen + SA.K.IDLE_HEAT).toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ≤${s.cool}/秒 · ${oh}`),
@@ -154,7 +158,8 @@ SA.UI = (() => {
     const parts = [`耐久 ${m.hp}`];
     if (m.power) parts.push(`动力 -${m.power}`);
     if (m.supply) parts.push(`动力 +${m.supply}`, `产热 ≤${m.heatRate}/秒`);
-    if (m.cap) parts.push(`承载 ${m.cap}`);
+    if (m.load) parts.push(`承重 ${SA.tons(m.load)}`);
+    parts.push(`重量 ${SA.tons(SA.weightOf({ id }))}`);
     if (m.dmg) parts.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛 · 指哪打哪' : `直射 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°`, `热 +${m.heat}/发`);
     if (m.ram) parts.push(`撞击 ${m.ram}×速度`);
     if (m.punch) parts.push(`活塞 ${m.punch}/${m.punchCd}s`);
@@ -164,7 +169,7 @@ SA.UI = (() => {
     return parts.join(' · ');
   }
 
-  function vehiclePreview(v, scale = 4, view = 'pixel') {
+  function vehiclePreview(v, scale = 4) {
     const cv = h('canvas', { class: 'px' });
     // 裁到载具包围盒，让车在预览里尽量大
     const C = SA.K.CELL;
@@ -177,14 +182,12 @@ SA.UI = (() => {
     cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
     const draw = (t) => {
-      g.fillStyle = view === 'blueprint' ? '#10335c' : P.bg[2];
+      g.fillStyle = P.bg[2];
       g.fillRect(0, 0, W, H);
-      if (view !== 'blueprint') {
-        g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
-        g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
-      }
+      g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
+      g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
       const st = SA.V.stats(v);
-      g.drawImage(SA.SPR.renderVehicle(v, { key: 'preview', t, view, heat: 0.3, water: 1, showWrecks: true, showBlocked: true, blocked: st.blocked }), -sx, -sy);
+      g.drawImage(SA.SPR.renderVehicle(v, { key: 'preview', t, heat: 0.3, water: 1, showWrecks: true, showBlocked: true, blocked: st.blocked }), -sx, -sy);
     };
     draw(0);
     cv.style.maxWidth = `${W * scale}px`;

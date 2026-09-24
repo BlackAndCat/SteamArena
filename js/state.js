@@ -47,7 +47,7 @@ SA.S = (() => {
   function repairCost(cell) {
     // 修满只要原价的 1/20，按损伤比例计；报废的也按修满算
     const m = SA.MODULES[cell.id];
-    const lost = 1 - Math.max(0, cell.hp) / (cell.max || m.hp);
+    const lost = 1 - Math.max(0, cell.hp) / SA.V.maxHp(cell);
     return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * m.price / 20));
   }
 

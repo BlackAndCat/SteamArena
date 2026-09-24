@@ -6,7 +6,8 @@ SA.V = (() => {
   const grid = () => Array.from({ length: K.ROWS }, () => Array(K.COLS).fill(null));
   const create = (name = '原型机') => ({ name, body: grid(), side: grid() });
   const layerOf = (id) => (M[id].layer === 'side' ? 'side' : 'body');
-  const maxHp = (cell) => cell.max || M[cell.id].hp;
+  // 满耐久：改装（炮盾 / 附加装甲）每级按比例加；参战副本直接带 max
+  const maxHp = (cell) => cell.max || Math.round(M[cell.id].hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
   const alive = (cell) => cell && cell.hp > 0;
 
   const ASCII = { T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar', M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston' };
@@ -185,27 +186,32 @@ SA.V = (() => {
 
   function stats(v) {
     const s = {
-      demand: 0, supply: 0, cap: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
+      demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0,
     };
     each(v, (cell, r, c) => {
       const m = M[cell.id];
       s.value += m.price; s.count++;
+      for (let k = 1; k <= (cell.lv || 0); k++) s.value += SA.upCost(cell.id, k);
       s.byId[cell.id] = (s.byId[cell.id] || 0) + (cell.hp > 0 ? 1 : 0);
       if (cell.hp <= 0) { s.broken++; return; }
       if (cell.hp < maxHp(cell)) s.damaged++;
       s.height = Math.max(s.height, K.ROWS - r);
       s.hp += cell.hp; s.maxHp += maxHp(cell);
-      s.demand += m.power || 0;
+      s.equip += m.power || 0;
+      s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
-      if (m.layer === 'chassis') { s.chassis++; s.cap += m.cap; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; }
+      if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; }
       if (m.ram) s.rams++;
       if (cell.id === 'cockpit') s.cockpits++;
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water) { s.tanks++; s.water += m.water; s.cool += m.cool; }
     });
     if (s.chassis) { s.evade /= s.chassis; s.acc /= s.chassis; s.speed /= s.chassis; }
+    // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
+    s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
+    s.demand = Math.round((s.equip + s.drive) * 10) / 10;
     s.blocked = blockedList(v);
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
@@ -228,14 +234,14 @@ SA.V = (() => {
     if (!s.chassis) s.problems.push('没有底盘');
     if (!s.cockpits) s.problems.push('没有可用的驾驶舱');
     if (!s.boilers) s.problems.push('没有锅炉，机器无法启动');
-    if (s.demand > s.cap) s.problems.push(`动力需求 ${s.demand} 超过底盘承载上限 ${s.cap}`);
+    if (s.chassis && s.weight > s.load) s.problems.push(`超重：总重 ${SA.tons(s.weight)} 超过底盘承重 ${SA.tons(s.load)}`);
     // 履带是一个整体：有一段被毁就整条掉链，修好之前开不动
     s.issues = issues(v);
     if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（车间里红色闪烁），接好才能出战`);
     s.thrown = v.body[K.ROWS - 1].some(cell => cell && cell.id === 'track' && cell.hp <= 0);
     if (s.thrown) s.problems.push('履带掉链（有一段被打断），在车间修好才能开');
     s.warnings = [];
-    if (s.demand > s.supply && s.boilers) s.warnings.push(`动力不足：武器装填速度降至 ${Math.round(s.power * 100)}%`);
+    if (s.demand > s.supply && s.boilers) s.warnings.push(`动力不足：车速和装填降至 ${Math.round(s.power * 100)}%`);
     if (s.blocked.length) s.warnings.push(`${s.blocked.length} 门武器被己方模块挡住，无法开火`);
     if (!s.weapons) s.warnings.push('没有武器');
     if (s.overheat < 60) s.warnings.push(`全力开火约 ${Math.round(s.overheat)} 秒后烧干`);
@@ -252,8 +258,8 @@ SA.V = (() => {
     const b = create(v.name);
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
-      const max = Math.round(M[cell.id].hp * hpMul);
-      b[layer][r][c] = { id: cell.id, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      const max = Math.round(maxHp(cell) * hpMul);
+      b[layer][r][c] = { id: cell.id, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
     });
     return b;
   }

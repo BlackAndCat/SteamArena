@@ -579,28 +579,6 @@ SA.SPR = (() => {
     });
   }
 
-  // ---------- 蓝图视图：灰度造型 + 类别色块 ----------
-  const BP = { bg: '#10335c', grid: '#1d4b80', line: '#e8f1ff' };
-  function blueprintModule(g, x, y, id, o) {
-    const m = SA.MODULES[id], k = SA.CAT[m.cat];
-    ctx = g;
-    if (m.heatRate) { g.fillStyle = 'rgba(239,122,33,0.25)'; g.fillRect(x - 8, y - 8, C + 16, C + 16); }
-    g.save();
-    g.globalAlpha = 0.55;
-    g.filter = 'grayscale(1) brightness(1.5)';
-    g.drawImage(sprite(id, quant(id, { heat: 0.3, water: 1 })), x, y);
-    g.restore();
-    g.save();
-    g.globalAlpha = 0.35; g.fillStyle = k.plate; g.fillRect(x + 3, y + 3, C - 6, C - 6);
-    g.restore();
-    if (m.layer === 'side') {
-      for (let i = 0; i < C - 6; i += 4) { R(x + 3 + i, y + 3, 2, 1, BP.line); R(x + 3 + i, y + C - 4, 2, 1, BP.line); R(x + 3, y + 3 + i, 1, 2, BP.line); R(x + C - 4, y + 3 + i, 1, 2, BP.line); }
-    } else {
-      R(x + 2, y + 2, C - 4, 1, k.plate); R(x + 2, y + C - 3, C - 4, 1, k.plate); R(x + 2, y + 2, 1, C - 4, k.plate); R(x + C - 3, y + 2, 1, C - 4, k.plate);
-    }
-    if (o.blocked) R(x + C, y + 26, m.barrel, 2, P.fire[1]);
-  }
-
   // ---------- 整车渲染 ----------
   const pool = {};
   function vehCanvas(key) {
@@ -622,14 +600,6 @@ SA.SPR = (() => {
     const isBlocked = (r, c) => blocked.some(b => b.r === r && b.c === c);
     const cx = (c) => PADX + c * C, cy = (r) => r * C;
 
-    if (o.view === 'blueprint') {
-      R(0, 0, cv.width, cv.height, BP.bg);
-      for (let c = 0; c <= K.COLS; c++) R(PADX + c * C, 0, 1, cv.height, BP.grid);
-      for (let r = 0; r <= K.ROWS; r++) R(0, r * C, cv.width, 1, BP.grid);
-      eachCell(veh.body, (cell, r, c) => { if (cell.hp > 0) blueprintModule(g, cx(c), cy(r), cell.id, { blocked: isBlocked(r, c) }); });
-      eachCell(veh.side, (cell, r, c) => { if (cell.hp > 0) blueprintModule(g, cx(c), cy(r), cell.id, {}); });
-      return cv;
-    }
 
     // 底盘行：履带任意一段被毁 → 整条掉链；腿式底盘的步态决定机身下沉量 bd
     const base = veh.body[K.ROWS - 1];
@@ -742,6 +712,23 @@ SA.SPR = (() => {
     R(x - 2, y - 2, 2, h + 4, inner); R(x + w, y - 2, 2, h + 4, inner);
   }
 
+  // ---------- 改装军衔杠：lv 条实心黄铜 V 字，其余空槽（最多 max 条），画在格子左上角 ----------
+  function chevrons(c2d, x, y, lv, max = 3) {
+    ctx = c2d;
+    R(x + 2, y + 2, 16, 5 + max * 6, 'rgba(7,8,12,0.75)');
+    for (let i = 0; i < max; i++) {
+      const on = i < lv, yy = y + 4 + (max - 1 - i) * 6;
+      const col = on ? P.brass[3] : P.iron[1], edge = on ? P.brass[0] : P.dark[0];
+      // V 字：左右两条斜杠，3 像素厚
+      for (let k = 0; k < 6; k++) {
+        R(x + 4 + k, yy + Math.floor(k / 2), 2, 3, edge); R(x + 16 - k - 2, yy + Math.floor(k / 2), 2, 3, edge);
+      }
+      for (let k = 0; k < 6; k++) {
+        R(x + 4 + k, yy + Math.floor(k / 2), 1, 2, col); R(x + 16 - k - 1, yy + Math.floor(k / 2), 1, 2, col);
+      }
+    }
+  }
+
   // ---------- UI 图标（9×9，顶栏导航等）----------
   const ICONS = {
     coin: ['..#####..', '.#.....#.', '#...##..#', '#..#....#', '#.####..#', '#..#....#', '#.#####.#', '.#.....#.', '..#####..'],
@@ -806,7 +793,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text,
+    PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons,
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };
 })();

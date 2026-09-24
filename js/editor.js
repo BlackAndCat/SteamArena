@@ -12,8 +12,11 @@ SA.Editor = (() => {
   const DRAG_PX = 6;
   // sel：从库存选中、准备放置的模块 id；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
-  const st = { layer: 'body', view: 'pixel', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
-    dock: 'mods', bp: null, bpFilter: 'all', shop: false };   // shop：「商店」开关，打开后列表里也显示没有库存的模块
+  const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
+    dock: 'mods', bp: null, bpFilter: 'all', shop: false, fold: loadFold() };
+  // 商店分组的折叠状态记在本机
+  function loadFold() { try { return new Set(JSON.parse(localStorage.getItem('steam_arena_fold_v1')) || []); } catch (e) { return new Set(); } }
+  function saveFold() { try { localStorage.setItem('steam_arena_fold_v1', JSON.stringify([...st.fold])); } catch (e) { /* ignore */ } }   // shop：「商店」开关，打开后列表里也显示没有库存的模块
   let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro;
 
   const d = () => SA.S.d;
@@ -185,11 +188,30 @@ SA.Editor = (() => {
     renderAll();
   }
 
-  // 拆下来的模块：完好的回库存，报废的按原价 10% 回收
+  // 拆下来的模块：完好的回库存，报废的按原价 10% 回收；改装件拆掉按一半折价回收
   function stash(cell) {
-    if (cell.hp <= 0) { const x = Math.round(M[cell.id].price * 0.1); d().money += x; return x; }
-    SA.S.addInv(cell.id, 1);
-    return 0;
+    let back = 0;
+    for (let k = 1; k <= (cell.lv || 0); k++) back += Math.round(SA.upCost(cell.id, k) * 0.5);
+    if (cell.hp <= 0) back += Math.round(M[cell.id].price * 0.1);
+    else SA.S.addInv(cell.id, 1);
+    d().money += back;
+    return back;
+  }
+
+  // 改装：炮盾 / 附加装甲，每级加耐久和重量
+  function upgrade(cell) {
+    const lv = (cell.lv || 0) + 1, cost = SA.upCost(cell.id, lv), name = SA.upName(cell.id);
+    SA.UI.pay({ title: `改装 · ${name}`, amount: cost, okLabel: `装上${name}`,
+      lines: [h('p', { style: 'margin-top:0' }, `${M[cell.id].name} 升到 ${lv} 级：耐久 +${Math.round(SA.upHp(cell.id) * 100)}%（按原耐久算），重量 +${SA.K.UP_KG} kg。`),
+        h('p', { class: 'muted' }, '纯属性升级，不占格子。拆下模块时改装件按一半价格回收。')],
+      onPaid: () => {
+        const before = SA.V.maxHp(cell);
+        cell.lv = lv;
+        if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+        st.pick = null;
+        say(`${M[cell.id].name} 装上${name}，${'▲'.repeat(lv)}`);
+        changed();
+      } });
   }
 
   // 库存不够就问要不要买（钱不够再问要不要贷款）
@@ -218,7 +240,7 @@ SA.Editor = (() => {
       st.sel = null; st.pick = null;   // 放置完成即取消选中
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
-      say(old ? `${M[old.id].name} → ${m.name}${scrap ? `，损毁件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
+      say(old ? `${M[old.id].name} → ${m.name}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
       changed();
     });
   }
@@ -228,7 +250,7 @@ SA.Editor = (() => {
     if (!res.ok) { say(res.reason, true); return; }
     let scrap = 0;
     for (const cell of res.removed) scrap += stash(cell);
-    say(`拆下 ${res.removed.map(x => M[x.id].name).join('、')}${scrap ? `，损毁件回收 ${money(scrap)}` : '，已放回库存'}`);
+    say(`拆下 ${res.removed.map(x => M[x.id].name).join('、')}，已放回库存${scrap ? `；损毁件 / 改装件回收 ${money(scrap)}` : ''}`);
     st.pick = null;
     changed();
   }
@@ -282,20 +304,23 @@ SA.Editor = (() => {
       h('div', { class: 'plate-head' }, nameIn,
         h('button', { class: 'plate-toggle', title: st.plateOpen ? '收起性能' : '展开性能', onclick: () => { st.plateOpen = !st.plateOpen; renderPlate(); } },
           h('span', { class: 'rating' }, `评分 ${s.rating}`),
+          h('span', { class: `weight ${s.weight > s.load ? 'bad' : ''}`, title: `总重 / 底盘承重 ${SA.tons(s.load)}` }, SA.tons(s.weight)),
           h('span', { class: `flag ${bad ? 'bad' : ''}` }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战'),
           h('span', { class: 'fold' }, st.plateOpen ? '▴' : '▾'))),
       hurtList.length ? h('button', { class: 'btn small plate-fix', onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
       st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s)) : null].filter(Boolean));
   }
 
-  // 画布右上角：看哪一层、用什么视图
+  // 画布右上角：看哪一层 + 蓝图库开关（右侧面板在模块清单和蓝图库之间切换）
+  function setDock(k) { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); }
   function renderView() {
     viewEl.innerHTML = '';
     const seg = (items, cur, set) => h('span', { class: 'seg' }, items.map(([k, n]) =>
       h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
     viewEl.append(
       seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(st.sel) !== k) st.sel = null; }),
-      seg([['pixel', '像素'], ['blueprint', '图纸']], st.view, (k) => { st.view = k; }));
+      h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，云车库也在这里',
+        onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库'));
   }
 
   // ---------- 底部操作栏 ----------
@@ -323,11 +348,16 @@ SA.Editor = (() => {
       const iss = issueAt(layer, r, c);
       const fix = [pk, layer === 'body' && v.side[r][c]].filter(x => x && x.hp < SA.V.maxHp(x));
       const cost = fix.reduce((a, x) => a + SA.S.repairCost(x), 0);
+      const lv = pk.lv || 0, upName = SA.upName(pk.id);
       ctxEl.append(thumb(pk.id),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ', h('span', { class: 'muted' }, where(r, c))),
+          h('div', {}, h('b', {}, m.name), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ',
+            h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`), ' ',
+            h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
           iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, '点空格子移动；拖到别的模块上对调；拖出车外放回库存')),
         h('div', { class: 'acts' },
+          pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small primary', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
+            `${upName} ${lv + 1} 级 · ${money(SA.upCost(pk.id, lv + 1))}`) : null,
           fix.length ? h('button', { class: 'btn small', onclick: () => repair(fix) }, `修理 ${money(cost)}`) : null,
           h('button', { class: 'btn small', title: 'Delete', onclick: () => removeAt(st.pick) }, pk.hp <= 0 ? `报废 +${money(M[pk.id].price * 0.1)}` : '拆下'),
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.pick = null; renderDock(); } }, '取消')));
@@ -346,10 +376,9 @@ SA.Editor = (() => {
   // ---------- 右侧面板：页签 + 「商店」开关 / 蓝图筛选 ----------
   function renderTools() {
     toolsEl.innerHTML = '';
-    const dockSeg = h('div', { class: 'seg dock-seg' }, [['mods', '模块'], ['bps', '蓝图库']].map(([k, n]) =>
-      h('button', { class: `btn ${st.dock === k ? 'on' : ''}`, onclick: () => { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); } }, n)));
+    const title = (t, extra) => h('div', { class: 'panel-title' }, h('b', {}, t), extra);
     if (st.dock === 'bps') {
-      toolsEl.append(dockSeg,
+      toolsEl.append(title('蓝图库', h('button', { class: 'btn small', onclick: () => setDock('mods') }, '← 模块清单')),
         h('div', { class: 'panel-row' },
           h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '云端']].map(([k, n]) =>
             h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
@@ -357,9 +386,9 @@ SA.Editor = (() => {
       return;
     }
     const owned = SA.MODULE_ORDER.reduce((a, id) => a + (d().inv[id] || 0), 0);
-    toolsEl.append(dockSeg,
+    toolsEl.append(title('模块清单', h('span', { class: 'muted' }, `库存 ${owned} 件`)),
       h('div', { class: 'panel-row' },
-        h('span', { class: 'muted' }, `库存 ${owned} 件`),
+        h('span', { class: 'muted' }, st.shop ? '也列出没有库存的模块' : '只列出有库存的模块'),
         h('label', { class: `switch ${st.shop ? 'on' : ''}`, title: '打开后也列出没有库存的模块，放到车上即购买' },
           h('input', { type: 'checkbox', checked: st.shop, onchange: (e) => { st.shop = e.target.checked; renderTools(); renderInv(); } }),
           h('span', { class: 'knob' }), '商店')));
@@ -368,13 +397,14 @@ SA.Editor = (() => {
   // 模块最关键的两三项数值，做成小标签
   function keyStats(id) {
     const m = M[id], out = [];
-    if (m.layer === 'chassis') out.push(`承载 ${m.cap}`, `速度 ${m.speed}`, m.evade ? `闪避 +${Math.round(m.evade * 100)}%` : m.acc ? `命中 +${Math.round(m.acc * 100)}%` : `耐久 ${m.hp}`);
+    if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, `速度 ${m.speed}`, m.evade ? `闪避 +${Math.round(m.evade * 100)}%` : m.acc ? `命中 +${Math.round(m.acc * 100)}%` : `耐久 ${m.hp}`);
     else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`);
     else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
     else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
     else if (m.ram) out.push(`撞击 ${m.ram}`, m.punch ? `活塞 ${m.punch}` : `耐久 ${m.hp}`);
     else out.push(`耐久 ${m.hp}`);
     if (m.power) out.push(`动力 -${m.power}`);
+    out.push(SA.tons(SA.weightOf({ id })));
     return out;
   }
 
@@ -388,7 +418,17 @@ SA.Editor = (() => {
     for (const cat of CAT_ORDER) {
       const ids = SA.MODULE_ORDER.filter(id => M[id].cat === cat && (st.shop || inv[id] > 0));
       if (!ids.length) continue;
-      invEl.append(h('div', { class: `grp cat-${cat}` }, h('i', { style: `background:${SA.CAT[cat].plate}` }), SA.CAT[cat].name));
+      // 折叠条：齿轮 + 铆钉钢条 + 铜色描边；折起来齿轮转半圈
+      const folded = st.fold.has(cat);
+      const have = ids.reduce((a, id) => a + (inv[id] || 0), 0);
+      invEl.append(h('button', { class: `grp cat-${cat} ${folded ? 'folded' : ''}`, 'aria-expanded': String(!folded),
+        onclick: () => { if (folded) st.fold.delete(cat); else st.fold.add(cat); saveFold(); renderInv(); } },
+        h('span', { class: 'gear l' }, SA.SPR.iconCanvas('gear', '#c8834a', 3)),
+        h('i', { style: `background:${SA.CAT[cat].plate}` }),
+        h('span', { class: 'gname' }, SA.CAT[cat].name),
+        h('span', { class: 'gcnt' }, st.shop ? `${ids.length} 种` : `${have} 件`),
+        h('span', { class: 'gear r' }, SA.SPR.iconCanvas('gear', '#c8834a', 3))));
+      if (folded) { shown += ids.length; continue; }
       for (const id of ids) {
         shown++;
         const m = M[id], n = inv[id] || 0;
@@ -514,6 +554,7 @@ SA.Editor = (() => {
       H('操作'),
       h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块，放置时自动购买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
       H('摆放规则'),
+      h('p', {}, '重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
       h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行，其他模块叠在底盘或模块上，最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲前）必须是这一行最前端。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
       H('战斗里的颜色'),
       h('p', {}, h('b', {}, '白框'), ' 准星对准的模块 · ', h('b', { style: 'color:var(--magenta)' }, '洋红'), ' 准星对准的侧炮 · 虚线框 = 炮弹会先打中的模块 · ', h('b', { style: 'color:var(--fire2)' }, '橙'), ' 热量 · ', h('b', { style: 'color:var(--water2)' }, '青'), ' 水 · ', h('b', { style: 'color:var(--gauge2)' }, '绿'), ' 动力 · ', h('b', { style: 'color:var(--brass2)' }, '黄铜'), ' 火力。准星旁的小沙漏 = 装填进度。'),
@@ -590,27 +631,25 @@ SA.Editor = (() => {
     const m = M[cell.id], layer = cell === side ? 'side' : 'body';
     const iss = issueAt(layer, hv.r, hv.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
-    return { text: `${m.name}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)} · ${SA.UI.statLine(cell.id).split(' · ').slice(1).join(' · ')}` };
+    const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
+    return { text: `${m.name}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id).split(' · ').slice(1).join(' · ')}` };
   }
 
   function draw(t) {
     const v = veh();
-    const bp = st.view === 'blueprint';
-    g.fillStyle = bp ? '#10335c' : P.bg[2];
+    g.fillStyle = P.bg[2];
     g.fillRect(0, 0, W, H);
-    if (!bp) {
-      g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
-      g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
-      g.fillStyle = P.bg[1];
-      for (let c = 0; c <= K.COLS; c++) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
-      for (let r = 0; r <= K.ROWS; r++) g.fillRect(PADX, r * C, K.COLS * C, 1);
-      g.fillStyle = 'rgba(111,207,106,0.06)';
-      for (let c = 0; c < K.COLS; c++) if (v.body[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
-    }
+    g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
+    g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
+    g.fillStyle = P.bg[1];
+    for (let c = 0; c <= K.COLS; c++) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
+    for (let r = 0; r <= K.ROWS; r++) g.fillRect(PADX, r * C, K.COLS * C, 1);
+    g.fillStyle = 'rgba(111,207,106,0.06)';
+    for (let c = 0; c < K.COLS; c++) if (v.body[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
     const drag = st.drag && st.drag.kind === 'cell' ? st.drag : null;
     const vc = SA.SPR.renderVehicle(v, {
-      key: 'editor', t, view: st.view, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,
-      blocked: st.stats.blocked, dimBody: st.layer === 'side' && !bp, dimCell: drag && drag.layer === 'body' ? drag : null,
+      key: 'editor', t, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,
+      blocked: st.stats.blocked, dimBody: st.layer === 'side', dimCell: drag && drag.layer === 'body' ? drag : null,
     });
     g.drawImage(vc, 0, 0);
 
@@ -655,6 +694,9 @@ SA.Editor = (() => {
       const [x, y] = cellXY(st.pick.r, st.pick.c);
       tint(fromVeh(vc, x, y), x, y, GREEN, pulse(t, 0.25, 0.6));
     }
+    // 鼠标停在模块上（或选中它）：显示改装军衔杠
+    const rankAt = (p) => { const cell = p && (v[p.layer || st.layer][p.r][p.c] || v.body[p.r][p.c]); if (cell) SA.SPR.chevrons(g, ...cellXY(p.r, p.c), cell.lv || 0, K.UP_MAX); };
+    if (!drag && !st.sel) { if (hv) rankAt(hv); if (st.pick && !(hv && hv.r === st.pick.r && hv.c === st.pick.c)) rankAt(st.pick); }
 
     const tip = tipText();
     const text = tip ? tip.text : '';

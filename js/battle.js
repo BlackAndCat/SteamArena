@@ -22,19 +22,19 @@ SA.Battle = (() => {
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false };
     refresh(s);
     s.water = s.waterMax;
-    s.armed = s.weapons.length > 0;   // 开局有武器：武器全被打光就判负
+    s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
     return s;
   }
 
   function refresh(s) {
-    let supply = 0, demand = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, mass = 0, rams = 0, minCol = K.COLS, frontCol = -1;
+    let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const m = M[cell.id];
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c);
-      supply += m.supply || 0; demand += m.power || 0; heatRate += m.heatRate || 0;
-      cool += m.cool || 0; waterMax += m.water || 0; mass += m.mass || 1;
+      supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
+      cool += m.cool || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
       if (m.layer === 'chassis') { ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; }
       if (m.layer === 'ram') rams++;
       if (cell.id === 'cockpit') cock++;
@@ -42,7 +42,9 @@ SA.Battle = (() => {
     // 履带是一个整体：任意一段被毁 = 掉链子，整车趴窝
     let thrown = false;
     SA.V.each(s.v, (cell) => { if (cell.id === 'track' && cell.hp <= 0) thrown = true; });
-    Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass: Math.max(1, mass), thrown,
+    // mass = 车重（吨）：决定加速、起步、碰撞和撞击伤害；动力需求 = 设备耗能 + 车重 × 行驶系数
+    const mass = Math.max(0.5, kg / 1000);
+    Object.assign(s, { supply, demand: equip + mass * K.DRIVE_PER_T, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock });
     s.water = Math.min(s.water, waterMax);
     const blocked = SA.V.blockedList(s.v);
@@ -196,7 +198,7 @@ SA.Battle = (() => {
 
   // ---------- 移动与撞击 ----------
   // 起步：停稳后要先让锅炉「库吃库吃」憋几口蒸汽，才开得动；越重憋得越久
-  const spoolTime = (s) => clamp(0.3 + s.mass * 0.02, 0.4, 0.8);
+  const spoolTime = (s) => clamp(0.3 + s.mass * 0.05, 0.4, 0.9);
   function chuff(s, dt) {
     s.chuffT -= dt;
     if (s.chuffT > 0) return;
@@ -223,7 +225,7 @@ SA.Battle = (() => {
     } else if (!dir) s.spoolDir = 0;
     s.rock = Math.max(0, s.rock - dt * 6);
     const top = dir * s.speed * (s.power || 0);
-    const k = clamp(Math.sqrt(14 / s.mass), 0.6, 1.4);
+    const k = clamp(Math.sqrt(5.5 / s.mass), 0.55, 1.4);   // 越重加速、刹车越慢
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     const acc = (braking ? K.BRAKE : K.ACCEL) * k;
     s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
@@ -276,9 +278,12 @@ SA.Battle = (() => {
       let knockP = 0, knockE = 0;
       for (const [a, d] of [[p, e], [e, p]]) {
         for (const { r, ma, dc } of contactPairs(a, d)) {
-          const dmg = (M[ma.id].ram || 6) * f;
+          // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
+          const fc = a.frontCol;
+          const dmg = (M[ma.id].ram || 6) * f * clamp(Math.sqrt(a.mass / 6), 0.7, 1.6);
           const target = d.v.body[r][dc];
           damage(d, a, { layer: 'body', r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
+          if (alive(a.v.body[r][fc])) damage(a, null, { layer: 'body', r, c: fc }, dmg * K.RAM_SELF);
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
         }
       }
@@ -465,8 +470,9 @@ SA.Battle = (() => {
 
     if (!B.ending) {
       // 武器打光：一方开局有武器、现在全被摧毁，而另一方还有 → 判负；两边同时打光走下面的平手
-      const out = (s) => s.armed && !s.weapons.length;
-      if (!B.p.dead && !B.e.dead && out(B.p) !== out(B.e)) kill(out(B.p) ? B.p : B.e, '武器全部被打光，失去战斗力');
+      // 敌方判负：武器打光 + 水烧干 + 没有近战（撞击件）。这条只对敌方生效，玩家不会因此判负
+      const e = B.e;
+      if (!e.dead && !B.p.dead && e.armed && !e.weapons.length && e.water <= 0 && !e.rams) kill(e, '武器打光、水也烧干，又没有近战手段，失去战斗力');
       // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 1.5 秒
       const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
       B.drawT = both ? (B.drawT || 0) + dt : 0;
@@ -566,6 +572,8 @@ SA.Battle = (() => {
     g.restore();
 
     if (aimT) SA.SPR.outline(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), C, C, aimT.layer === 'side' ? P.magenta : P.white, P.black);
+    // 准星停在模块上：显示它的改装军衔杠
+    if (aimT) SA.SPR.chevrons(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), B.e.v[aimT.layer][aimT.r][aimT.c].lv || 0, K.UP_MAX);
     B.previewInfo = null;
     if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
 

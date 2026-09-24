@@ -104,6 +104,8 @@ button.res:hover { border-color: var(--brass1); background: var(--dark2); }
 .heat > i { background: var(--fire2); }
 .water > i { background: var(--water2); }
 .hp > i { background: var(--text); }
+.weight > i { background: var(--iron4); }
+.weight.over > i { background: #ff3b2f; }
 .warn { font-size: 12px; padding: 6px 8px; background: var(--dark1); border-left: 3px solid var(--fire2); margin-top: 4px; }
 .warn.bad { border-left-color: var(--magenta); color: #fff; }
 
@@ -383,9 +385,6 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .switch:focus-within .knob { outline: 2px solid var(--brass3); outline-offset: 1px; }
 /* 模块清单 */
 .panel-list { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px 12px; display: grid; gap: 6px; align-content: start; touch-action: pan-y; }
-.grp { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; font-weight: 900; letter-spacing: 3px; color: var(--muted); }
-.grp i { width: 10px; height: 10px; border: 1px solid var(--dark0); }
-.grp::after { content: ""; flex: 1; height: 1px; background: var(--dark3); }
 .mrow { all: unset; box-sizing: border-box; cursor: grab; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px 6px 6px;
   background: var(--iron1); border: 2px solid var(--dark0); border-left: 5px solid var(--iron3); box-shadow: inset 2px 2px 0 var(--iron2); user-select: none; -webkit-user-select: none; }
 .mrow:hover { background: var(--iron2); }
@@ -444,3 +443,35 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 @media (max-width: 640px) {
   .brass-plate.closed { max-width: calc(100% - 16px); }
 }
+
+/* 商店分组折叠条：厚重的铆钉钢条 + 齿轮 + 铜色描边；折起时齿轮转半圈 */
+.grp { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 10px; min-height: 40px;
+  color: var(--text); font-size: 14px; font-weight: 900; letter-spacing: 4px; user-select: none;
+  background:
+    radial-gradient(circle at 8px 50%, var(--iron4) 0 1.5px, var(--iron0) 2px 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 8px) 50%, var(--iron4) 0 1.5px, var(--iron0) 2px 3px, transparent 3.5px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .04) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, var(--iron3), var(--iron1) 55%, var(--iron0));
+  border: 2px solid #b87333; outline: 2px solid var(--dark0); outline-offset: 0;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .18), inset 0 -3px 0 rgba(0, 0, 0, .45), 0 3px 0 var(--dark0); }
+.grp:hover { border-color: #e0995a; }
+.grp:focus-visible { outline-color: var(--brass3); }
+.grp .gear { display: inline-flex; margin: 0 2px; transition: transform .35s; filter: drop-shadow(1px 1px 0 #000); }
+.grp .gear.l { margin-left: 8px; }
+.grp.folded .gear.l { transform: rotate(-180deg); }
+.grp.folded .gear.r { transform: rotate(180deg); }
+.grp i { width: 10px; height: 10px; border: 1px solid var(--dark0); flex: none; }
+.grp .gname { text-shadow: 2px 2px 0 var(--dark0); }
+.grp .gcnt { margin-left: auto; font-size: 11px; letter-spacing: 1px; font-weight: 700; color: #e0995a; }
+.grp.folded { box-shadow: inset 0 2px 0 rgba(255, 255, 255, .12), inset 0 -3px 0 rgba(0, 0, 0, .45), 0 2px 0 var(--dark0); }
+.grp.folded .gname { color: var(--iron4); }
+.panel-list .grp { grid-column: 1 / -1; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-title b { font-size: 17px; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--dark0); }
+.panel-title .muted { font-size: 12px; }
+.ed-view .bp-btn { display: inline-flex; align-items: center; gap: 6px; }
+.chip.rank { color: var(--muted); letter-spacing: 1px; }
+.chip.rank.on { color: var(--brass3); border-color: var(--brass1); }
+.brass-plate .plate-toggle .weight { font-size: 11px; font-weight: 700; padding: 1px 5px; background: rgba(78, 53, 16, .25); color: #3d2708; }
+.brass-plate .plate-toggle .weight.bad { background: var(--magenta); color: #fff; }
+.vs-chips { display: flex; gap: 4px; }

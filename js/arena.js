@@ -91,7 +91,9 @@ SA.Arena = (() => {
   function card(v, name, sub, rating, flip) {
     const cv = SA.UI.vehiclePreview(v, 2);
     if (flip) cv.style.transform = 'scaleX(-1)';
-    return h('div', { class: 'vs-card' }, h('div', { class: 'vs-pic' }, cv), h('b', {}, name), h('span', { class: 'muted' }, sub), h('span', { class: 'chip' }, `评分 ${rating}`));
+    const w = SA.V.stats(v).weight;
+    return h('div', { class: 'vs-card' }, h('div', { class: 'vs-pic' }, cv), h('b', {}, name), h('span', { class: 'muted' }, sub),
+      h('span', { class: 'vs-chips' }, h('span', { class: 'chip' }, `评分 ${rating}`), h('span', { class: 'chip' }, SA.tons(w))));
   }
 
   function readiness(s) {
