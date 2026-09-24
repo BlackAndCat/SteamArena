@@ -690,5 +690,5 @@ SA.LEGLAB = (() => {
   // 地面高度（格子坐标）：胯 + 腿长 × 倍率；现役精灵不缩放
   const groundY = (e, k) => (e.d.game ? 47 : (e.d.hipY || 14) + (47 - (e.d.hipY || 14)) * k);
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY };
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, U: { NEAR, FAR, gait, ik, bone, frame, gear, rivet, flat } };
 })();

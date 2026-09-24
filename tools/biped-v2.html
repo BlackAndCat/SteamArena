@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>真双足 · 视觉语言样机</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding: 16px; overflow-y: auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 900px; line-height: 1.6; margin: 0 0 12px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 12px; }
+  .seg { display: inline-flex; border: 2px solid var(--dark0); }
+  .seg button { background: var(--dark2); border: 0; padding: 4px 10px; cursor: pointer; }
+  .seg button.on { background: var(--brass1); color: var(--text); }
+  .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  .bar select { background: var(--dark2); color: var(--text); border: 2px solid var(--dark0); padding: 3px 6px; font: inherit; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 680px), 1fr)); gap: 16px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; }
+  .card header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .card header b { font-size: 17px; }
+  .card canvas { background: var(--bg2); max-width: 100%; height: auto; }
+  .bal { margin-top: 8px; font-weight: 700; }
+  .bal.ok { color: var(--gauge2); } .bal.lean { color: var(--brass3); } .bal.bad { color: var(--fire2); } .bal.none { color: var(--muted); }
+  .bal small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .note { line-height: 1.65; margin: 6px 0 0; }
+  .tag { font-size: 12px; font-weight: 900; padding: 1px 7px; border: 2px solid currentColor; }
+</style></head>
+<body>
+<h1>真双足 · 视觉语言样机</h1>
+<p class="lead">一台车只有一对腿。底盘占两行：最底行是腿区（不放模块），倒数第二行中间是胯，里面装着平衡用的黄铜陀螺仪，胯两侧各一个腰挂位；
+躯干坐在胯上，最宽 3 格。重心相对胯的位置决定姿态：平衡、前倾冲锋、后仰炮台、失衡。四足改成蜘蛛，用膝盖高度区分型号。
+规格见 docs/true-biped.md。</p>
+
+<div class="bar">
+  <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
+  <label>双足的腿 <select id="legs"><option value="">各自默认</option></select></label>
+  <label><input type="checkbox" id="far" checked> 远侧腿</label>
+  <label><input type="checkbox" id="hud" checked> 平衡指示</label>
+  <label><input type="checkbox" id="grid"> 规则分区</label>
+</div>
+<div class="cards" id="cards"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script src="biped-lab.js"></script><script src="biped-v2.js"></script>
+<script>
+(() => {
+  const { BUILDS, render, VW, VH } = SA.BIPED2;
+  const st = { mv: true, phase: 0, t: 0, far: true, hud: true, grid: false, legs: '', mode: 'walk' };
+  const sel = document.getElementById('legs');
+  for (const e of SA.LEGLAB.DESIGNS) if (!e.d.game) sel.append(new Option(e.name, e.id));
+
+  const views = [];
+  const CARDS = document.getElementById('cards');
+  for (const b of BUILDS) {
+    const card = document.createElement('section'); card.className = 'card';
+    const hd = document.createElement('header');
+    const tag = document.createElement('span'); tag.className = 'tag';
+    tag.textContent = b.pc != null ? '双足' : '四足 · 蜘蛛'; tag.style.color = b.pc != null ? 'var(--brass2)' : 'var(--iron4)';
+    const nm = document.createElement('b'); nm.textContent = b.name;
+    hd.append(tag, nm);
+    const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = VW; cv.height = VH; cv.style.width = VW * 2 + 'px';
+    const bal = document.createElement('div');
+    if (b.bal) {
+      bal.className = 'bal ' + b.bal.tone; bal.textContent = b.bal.state;
+      const sm = document.createElement('small');
+      sm.textContent = `重心偏${b.bal.d >= 0 ? '前' : '后'} ${Math.abs(b.bal.d).toFixed(2)} 格 · 高出腰 ${b.bal.h.toFixed(1)} 行 · ${SA.tons(b.bal.kg)}${b.bal.top ? ' · 头重脚轻' : ''}`;
+      bal.append(sm);
+    } else { bal.className = 'bal none'; bal.textContent = '蜘蛛底盘不算平衡：矮、宽、稳，但只能慢慢爬'; }
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = b.note;
+    card.append(hd, cv, bal, p); CARDS.append(card);
+    views.push({ cv, b });
+  }
+
+  const vis = new Set();
+  const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
+  views.forEach(v => io.observe(v.cv));
+  const redraw = (all) => { for (const v of views) if (all || vis.has(v.cv)) render(v.cv, v.b, st); };
+  window.labRedraw = () => redraw(true);   // 调试：强制重画屏幕外的画布
+
+  let last = performance.now(), key = '';
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    st.t += dt;
+    if (st.mode === 'walk') st.phase += 58 * dt;
+    // 陀螺仪一直在转：按 16 fps 的节奏重画
+    const k = [Math.floor(st.t * 16), SA.Dyn.frame(st.phase, 12, 5), st.mode, st.far, st.hud, st.grid, st.legs].join('|');
+    if (k !== key) { key = k; redraw(false); }
+    requestAnimationFrame(tick);
+  }
+  document.getElementById('mode').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    for (const x of btn.parentNode.children) x.classList.toggle('on', x === btn);
+    st.mode = btn.dataset.v; st.mv = st.mode !== 'stand';
+  });
+  sel.addEventListener('change', () => { st.legs = sel.value; });
+  for (const id of ['far', 'hud', 'grid']) document.getElementById(id).addEventListener('change', (ev) => { st[id] = ev.target.checked; });
+  redraw(true);
+  requestAnimationFrame(tick);
+})();
+</script></body></html>
