@@ -78,7 +78,7 @@ SA.MODULES = {
   cannon: {
     name: '直射火炮', cat: 'firepower', layer: 'body',
     price: 170, hp: 150, power: 3, kg: 350, q: 2,
-    dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 2, arc: 'low',
+    dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 12, arc: 'low',
     elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0, aimT: 1.2,
     rcPx: 9, back: 0.05, ret: 2.2, kick: 70,   // 制退行程 px、打到底停顿、复进速度、对车身的反冲
     piv: [34, 27], blen: 40,                   // 耳轴（格内坐标）与耳轴到炮口的长度：炮管绕它转
@@ -95,7 +95,7 @@ SA.MODULES = {
   mg: {
     name: '机枪', cat: 'firepower', layer: 'body',
     price: 110, hp: 130, power: 2, kg: 150, q: 1,
-    dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 2.8, arc: 'low',
+    dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 10, arc: 'low',
     elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
     rcPx: 2, back: 0, ret: 14, kick: 5, piv: [34, 29], blen: 26,
     desc: '高射速低伤害。前方同样不能有遮挡。',
@@ -103,7 +103,7 @@ SA.MODULES = {
   side_cannon: {
     name: '侧炮', cat: 'firepower', layer: 'side',
     price: 150, hp: 120, power: 2, kg: 200, q: 2,
-    dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 6, arc: 'low',
+    dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 15, arc: 'low',
     elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,
     rcPx: 7, back: 0.04, ret: 2.6, kick: 55, piv: [18, 34], blen: 48,
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
