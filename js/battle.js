@@ -85,11 +85,12 @@ SA.Battle = (() => {
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
   }
+  // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
     const x0 = cellX(s, w.c), y0 = cellY(w.r);
-    if (w.cell.id === 'mortar') return [isP(s) ? x0 + 36 : x0 + C - 36, y0 + 8];
-    const y = y0 + (w.cell.id === 'side_cannon' ? 34 : w.cell.id === 'mg' ? 29 : 27);
-    return [isP(s) ? x0 + C + w.m.barrel : x0 - w.m.barrel, y];
+    const [px, py] = w.m.piv, a = barrel(s, w) * Math.PI / 180;
+    const dx = Math.cos(a) * w.m.blen, dy = -Math.sin(a) * w.m.blen;
+    return isP(s) ? [x0 + px + dx, y0 + py + dy] : [x0 + C - px - dx, y0 + py + dy];
   }
   // 准星优先级：侧挂层 > 主体层
   function targetAt(def, x, y) {
@@ -278,43 +279,51 @@ SA.Battle = (() => {
     }
   }
 
-  // 每一行：attacker 最前端的模块 撞 defender 同一行最前端的模块
-  function contactPairs(a, d) {
-    const out = [];
+  // ---------- 逐行碰撞 ----------
+  // 两车只在「同一高度的行」上相撞：每一行各自最前端的模块互相顶住。
+  // 这样底盘伸得再长也只在底盘那一行挡路，上层的撞角可以从光秃秃的底盘上方越过去撞到后面的模块。
+  const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) if (alive(s.v.body[r][c])) return c; return -1; };
+  const rowEdge = (s, r, c) => (isP(s) ? cellX(s, c) + C : cellX(s, c));
+  // 返回 { gap, rows }：最小间距，以及贴得最近（在 1px 内）的那些行
+  function rowContact(p, e) {
+    let gap = Infinity;
+    const rows = [];
     for (let r = 0; r < K.ROWS; r++) {
-      const ma = a.v.body[r][a.frontCol];
-      if (!alive(ma)) continue;
-      let dc = -1;
-      for (let k = K.COLS - 1; k >= 0; k--) if (alive(d.v.body[r][k])) { dc = k; break; }
-      if (dc >= 0 && dc >= d.frontCol - 1) out.push({ r, ma, dc });
+      const pc = rowFront(p, r), ec = rowFront(e, r);
+      if (pc < 0 || ec < 0) continue;
+      const g0 = rowEdge(e, r, ec) - rowEdge(p, r, pc);
+      rows.push({ r, g: g0, pc, ec });
+      gap = Math.min(gap, g0);
     }
-    return out;
+    return { gap, rows: rows.filter(x => x.g <= gap + 1) };
   }
 
   function collide() {
     const p = B.p, e = B.e;
     if (p.frontCol < 0 || e.frontCol < 0) return;
-    const gap = frontEdge(e) - frontEdge(p);
+    const { gap, rows } = rowContact(p, e);
+    B.contactRows = gap <= 1 ? rows.map(x => x.r) : [];
     B.contact = gap <= 1;
     if (gap > 0) return;
     const closing = p.vx - e.vx;
-    const cx = (frontEdge(p) + frontEdge(e)) / 2;
+    const cx = (rowEdge(p, rows[0].r, rows[0].pc) + rowEdge(e, rows[0].r, rows[0].ec)) / 2;
     if (closing > 25 && B.ramCd <= 0) {
       B.ramCd = 0.35;
       const f = closing / 60;
       let knockP = 0, knockE = 0;
       for (const [a, d] of [[p, e], [e, p]]) {
-        for (const { r, ma, dc } of contactPairs(a, d)) {
+        for (const x of rows) {
+          const ac = a === p ? x.pc : x.ec, dc = a === p ? x.ec : x.pc;
+          const ma = a.v.body[x.r][ac];
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
-          const fc = a.frontCol;
           const dmg = (M[ma.id].ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
-          const target = d.v.body[r][dc];
-          damage(d, a, { layer: 'body', r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
-          if (alive(a.v.body[r][fc])) damage(a, null, { layer: 'body', r, c: fc }, dmg * K.RAM_SELF);
+          const target = d.v.body[x.r][dc];
+          damage(d, a, { layer: 'body', r: x.r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
+          if (alive(a.v.body[x.r][ac])) damage(a, null, { layer: 'body', r: x.r, c: ac }, dmg * K.RAM_SELF);
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
         }
       }
-      for (let i = 0; i < 16; i++) part('spark', cx, cellY(K.ROWS - 2) + rnd(-90, 60), rnd(-300, 300), rnd(-300, 0), rnd(0.2, 0.4));
+      for (let i = 0; i < 16; i++) part('spark', cx, cellY(rows[0].r) + HALF + rnd(-30, 30), rnd(-300, 300), rnd(-300, 0), rnd(0.2, 0.4));
       B.shake = Math.max(B.shake, 5 + f * 4);
       // 一维碰撞：恢复系数 0.25，铲斗额外击退
       const mp = p.mass, me = e.mass, vp = p.vx, ve = e.vx;
@@ -337,7 +346,8 @@ SA.Battle = (() => {
     for (const k in s.punch) s.punch[k] = Math.max(0, s.punch[k] - dt * 4);
     if (s.dead || o.dead || !B.contact) return;
     for (const pc of s.pistons) {
-      if (pc.c !== s.frontCol || !alive(pc.cell)) continue;
+      // 撞锤要在自己这一行的最前端，并且这一行正顶着对方
+      if (pc.c !== rowFront(s, pc.r) || !alive(pc.cell) || !(B.contactRows || []).includes(pc.r)) continue;
       const key = `${pc.r},${pc.c}`;
       s.punchT[key] = (s.punchT[key] || 0) - dt;
       if (s.punchT[key] > 0) continue;
@@ -623,7 +633,7 @@ SA.Battle = (() => {
     for (const s of [B.p, B.e]) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, GROUND - 3, (K.COLS - s.minCol) * C + 16, 8);
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, punch: s.punch, moving: s.moving, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { dimCell: aimT && aimT.layer === 'side' ? aimT : null }));
     drawVehicle(B.p, pc); drawVehicle(B.e, ec);

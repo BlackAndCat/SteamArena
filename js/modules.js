@@ -74,6 +74,7 @@ SA.MODULES = {
     dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 2, arc: 'low',
     elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0, aimT: 1.2,
     rcPx: 9, back: 0.05, ret: 2.2, kick: 70,   // 制退行程 px、打到底停顿、复进速度、对车身的反冲
+    piv: [34, 27], blen: 40,                   // 耳轴（格内坐标）与耳轴到炮口的长度：炮管绕它转
     desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。',
   },
   mortar: {
@@ -81,7 +82,7 @@ SA.MODULES = {
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
     dmg: 38, reload: 3.4, heat: 7, proj: 'shell', barrel: 0, v: 780, g: 1, spread: 0, arc: 'high', indirect: true,
     elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
-    rcPx: 6, back: 0.06, ret: 2.5, kick: 40,
+    rcPx: 6, back: 0.06, ret: 2.5, kick: 40, piv: [20, 30], blen: 27,
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
   mg: {
@@ -89,7 +90,7 @@ SA.MODULES = {
     price: 110, hp: 130, power: 2, kg: 150, q: 1,
     dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 2.8, arc: 'low',
     elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
-    rcPx: 2, back: 0, ret: 14, kick: 5,
+    rcPx: 2, back: 0, ret: 14, kick: 5, piv: [34, 29], blen: 26,
     desc: '高射速低伤害。前方同样不能有遮挡。',
   },
   side_cannon: {
@@ -97,7 +98,7 @@ SA.MODULES = {
     price: 150, hp: 120, power: 2, kg: 200, q: 2,
     dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 6, arc: 'low',
     elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,
-    rcPx: 7, back: 0.04, ret: 2.6, kick: 55,
+    rcPx: 7, back: 0.04, ret: 2.6, kick: 55, piv: [18, 34], blen: 48,
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
   },
   boiler: {
@@ -116,14 +117,14 @@ SA.MODULES = {
     desc: '装在底盘正前方。撞击伤害中等但极其结实，能把对手铲退很远。',
   },
   spike: {
-    name: '撞角', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy'],
+    name: '撞角', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
     price: 130, hp: 160, power: 0, kg: 600, q: 2, ram: 40, knock: 1,
-    desc: '装在装甲正前方的实心钢角，比铲斗重得多。伤害随撞击速度和车重大幅提升，全速冲撞最痛。',
+    desc: '装在装甲或底盘正前方的实心钢角，比铲斗重得多。装在底盘前能顶到对手的履带和腿；伤害随撞击速度和车重大幅提升，全速冲撞最痛。',
   },
   piston: {
-    name: '蒸汽撞锤', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy'],
+    name: '蒸汽撞锤', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
     price: 170, hp: 150, power: 2, kg: 700, q: 3, ram: 16, punch: 26, punchCd: 1.5, heat: 3,
-    desc: '装在装甲正前方。贴身时每 1.5 秒用蒸汽活塞猛击一次，不依赖速度。',
+    desc: '装在装甲或底盘正前方。贴身时每 1.5 秒用蒸汽活塞猛击一次，不依赖速度。',
   },
 };
 

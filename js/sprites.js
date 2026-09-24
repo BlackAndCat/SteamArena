@@ -60,6 +60,22 @@ SA.SPR = (() => {
     rivet(x + 6, y + 17); rivet(x + 6, y + 34);
   }
 
+  // 可转动的炮组：先在离屏按「水平」画好，再以耳轴为支点转到仰角 a（度，向上为正）贴回来；最近邻缩放保持像素风
+  const gunLayer = document.createElement('canvas');
+  gunLayer.width = 112; gunLayer.height = 64;
+  function turn(px, py, a, draw) {
+    const main = ctx, lg = gunLayer.getContext('2d');
+    lg.clearRect(0, 0, 112, 64);
+    ctx = lg;
+    draw(40 - px, 32 - py);          // 画的时候支点落在离屏 (40, 32)
+    ctx = main;
+    main.save();
+    main.imageSmoothingEnabled = false;
+    main.translate(px, py); main.rotate(-(a || 0) * Math.PI / 180);
+    main.drawImage(gunLayer, -40, -32);
+    main.restore();
+  }
+
   // 后坐量化档 k（0~8）→ 该武器的制退位移（px）
   const rcPx = (id, k) => Math.round((k || 0) / 8 * (SA.MODULES[id].rcPx || 0));
 
@@ -138,6 +154,35 @@ SA.SPR = (() => {
     R(x, y + h - 1, C, 1, P.iron[0]);
   }
 
+  // Q 版小黑炭球：毛茸茸的圆身子 + 萌萌的大眼睛 + 两只小短手。不是纯黑：身子带色、上沿有亮边、毛尖更深
+  // pal = [毛尖, 身子, 亮边]；look = 眼珠朝向（-1 左 / 1 右）；blink = 眨眼；hands = [[肩x, 肩y, 手x, 手y], …]
+  function soot(cx, cy, rad, pal, o = {}) {
+    const [tip, body, rim] = pal;
+    for (let i = 0; i < 16; i++) {   // 毛刺
+      const a = i / 16 * Math.PI * 2 + (i % 2) * 0.2, rr = rad + 1.5 + (i % 3 === 0 ? 1.5 : 0);
+      R(Math.round(cx + Math.cos(a) * rr) - 1, Math.round(cy + Math.sin(a) * rr) - 1, 2, 2, tip);
+    }
+    disc(cx, cy, rad + 0.6, tip);
+    disc(cx, cy, rad - 0.4, body);
+    for (let i = 0; i <= 6; i++) {   // 左上亮边
+      const a = Math.PI * (1.05 + i * 0.07);
+      R(Math.round(cx + Math.cos(a) * (rad - 1.5)), Math.round(cy + Math.sin(a) * (rad - 1.5)), 1, 1, rim);
+    }
+    for (const [sx, sy, hx, hy] of o.hands || []) {   // 小短手：两像素粗，末端一颗圆拳
+      line(sx, sy, hx, hy, 3, tip); line(sx, sy, hx, hy, 1, body);
+      disc(hx, hy, 1.6, tip); R(Math.round(hx) - 1, Math.round(hy) - 1, 1, 1, rim);
+    }
+    const look = o.look || 0, ey = cy - 1, er = rad * 0.42, gap = rad * 0.45;
+    for (const ex of [cx - gap, cx + gap]) {   // 大眼睛：白底 + 黑瞳 + 高光
+      if (o.blink) { R(Math.round(ex - er), Math.round(ey), Math.round(er * 2) + 1, 1, P.steam[2]); continue; }
+      disc(ex, ey, er + 0.8, P.black); disc(ex, ey, er, P.white);
+      R(Math.round(ex + look) - 1, Math.round(ey) - 1, 3, 4, P.black);
+      R(Math.round(ex + look) - 1, Math.round(ey) - 1, 1, 1, P.white);
+    }
+  }
+  const SOOT_PILOT = ['#141824', '#2f3850', '#6a7a9c'];     // 驾驶员：蓝灰炭球
+  const SOOT_CO = ['#1c1318', '#4a3040', '#8a6078'];        // 副驾驶：暖棕紫炭球
+
   const DRAW = {
     armor(x, y) {
       box(x + 3, y + 3, 42, 42, IRONL);
@@ -157,7 +202,7 @@ SA.SPR = (() => {
       for (let k = 8; k < 42; k += 8) { rivet(x + k, y + 4, P.iron[3]); rivet(x + k, y + 41, P.iron[3]); rivet(x + 4, y + k, P.iron[3]); rivet(x + 41, y + k, P.iron[3]); }
     },
     cockpit(x, y, o) {
-      // 剖面：黄铜拱门框 + 空洞舱室 + Q 版驾驶员
+      // 剖面：黄铜拱门框 + 空洞舱室 + Q 版小黑炭球驾驶员
       box(x + 3, y + 3, 42, 42, IRON);
       arch(x + 24, y + 5, y + 44, 18, P.brass[0]);
       arch(x + 24, y + 6, y + 43, 17, P.brass[2]);
@@ -175,69 +220,32 @@ SA.SPR = (() => {
       disc(x + 32, y + 15, 3.3, P.brass[2]); disc(x + 32, y + 15, 2.3, P.steam[2]); R(x + 32, y + 14, 1, 2, P.dark[0]);
       R(x + 10, y + 37, 28, 4, P.leather[1]); R(x + 10, y + 37, 28, 1, P.leather[2]);
       for (const px of [16, 24, 32]) R(x + px, y + 38, 1, 3, P.leather[0]);
-      const f = o.lv || 0, lv = [0, 1, 2, 1][f], K0 = P.black;
-      // 椅子
-      R(x + 11, y + 26, 3, 11, P.leather[1]); R(x + 11, y + 26, 1, 11, P.leather[2]);
-      R(x + 11, y + 34, 13, 2, P.leather[1]);
+      const f = o.lv || 0, lv = [0, 1, 2, 1][f];
       // 操纵杆（轻微摆动）
       box(x + 29, y + 32, 6, 5, DARK);
       line(x + 32, y + 32, x + 30 + lv, y + 25, 2, P.brass[2]);
       disc(x + 30.5 + lv, y + 24.5, 1.8, P.brass[3]);
-      // Q 版驾驶员：大圆头 + 皮飞行帽 + 黄铜护目镜 + 飘动的围巾，黑描边保证远看也是一团清楚的剪影
-      // 围巾尾巴（在身后飘）
-      const w = [0, 1, 1, 0][f];
-      R(x + 12, y + 28 + w, 5, 4, K0); R(x + 13, y + 29 + w, 3, 2, P.brass[2]); R(x + 13, y + 30 + w, 3, 1, P.brass[1]);
-      // 身体（连体工装）+ 腿
-      R(x + 15, y + 28, 11, 9, K0);
-      R(x + 16, y + 29, 9, 7, P.glass[1]); R(x + 16, y + 29, 1, 7, P.glass[2]); R(x + 16, y + 35, 9, 1, P.glass[0]);
-      R(x + 22, y + 32, 7, 5, K0); R(x + 23, y + 33, 5, 2, P.glass[1]);
-      R(x + 26, y + 34, 4, 3, P.dark[0]); R(x + 26, y + 34, 3, 1, P.dark[3]);
-      // 胸口黄铜齿轮徽章
-      R(x + 18, y + 31, 3, 3, P.brass[1]); R(x + 19, y + 30, 1, 5, P.brass[1]); R(x + 17, y + 32, 5, 1, P.brass[1]);
-      R(x + 19, y + 32, 1, 1, P.brass[3]);
-      // 围巾结
-      R(x + 16, y + 27, 10, 3, K0); R(x + 17, y + 28, 8, 1, P.brass[2]); R(x + 17, y + 28, 3, 1, P.brass[3]);
-      // 头：黑描边 → 脸 → 飞行帽（上半 + 后侧护耳）
-      const hx = x + 20.5, hy = y + 20.5;
-      disc(hx, hy, 8.2, K0);
-      disc(hx, hy, 7.2, P.steam[2]);
-      ctx.save(); ctx.beginPath(); ctx.rect(x, y, C, 19); ctx.clip();
-      disc(hx, hy, 7.2, P.leather[1]);
-      ctx.restore();
-      R(x + 13, y + 19, 4, 6, P.leather[1]); R(x + 13, y + 24, 4, 1, P.leather[0]);
-      R(x + 16, y + 14, 4, 1, P.leather[2]); R(x + 15, y + 15, 1, 2, P.leather[2]);
-      R(x + 18, y + 26, 6, 1, P.steam[1]);
-      // 护目镜推在帽檐上：一对黄铜圈 + 亮玻璃
-      R(x + 13, y + 18, 14, 1, P.leather[0]);
-      for (const gx of [21.5, 25.5]) {
-        disc(x + gx, y + 17, 2.6, K0); disc(x + gx, y + 17, 2, P.brass[2]);
-        disc(x + gx, y + 17, 1.2, P.glass[2]); R(Math.floor(x + gx) - 1, y + 16, 1, 1, P.glass[3]);
-      }
-      // 豆豆眼 + 腮红 + 小嘴
-      R(x + 21, y + 20, 1, 2, K0); R(x + 25, y + 20, 1, 2, K0);
-      R(x + 19, y + 23, 2, 1, P.rust[3]); R(x + 26, y + 23, 1, 1, P.rust[3]);
-      R(x + 23, y + 24, 2, 1, P.leather[0]);
-      // 手臂握住操纵杆
-      line(x + 22, y + 31, x + 29 + lv, y + 26, 3, K0);
-      line(x + 22, y + 31, x + 29 + lv, y + 26, 1, P.glass[2]);
-      disc(x + 30.5 + lv, y + 25.5, 1.9, K0); disc(x + 30.5 + lv, y + 25.5, 1.1, P.leather[2]);
+      // 小黑炭球驾驶员：坐在舱里，两只小短手够着操纵杆
+      const bob = f === 1 || f === 2 ? 1 : 0;
+      soot(x + 19, y + 28 + bob, 9.5, SOOT_PILOT, {
+        look: 1, blink: f === 3 && (o.seed || 0) % 2 === 0,
+        hands: [[x + 26, y + 29 + bob, x + 30 + lv, y + 25], [x + 26, y + 33 + bob, x + 30 + lv, y + 29]],
+      });
     },
     copilot(x, y, o) {
-      // 副驾驶：圆舷窗里戴圆顶礼帽、留八字胡的领航员，举着黄铜望远镜；下方两根拉杆
+      // 副驾驶：圆舷窗里的暖棕紫小黑炭球，扶着黄铜望远镜往外看；下方两根拉杆
       box(x + 3, y + 3, 42, 42, IRON);
       disc(x + 24, y + 20, 15, P.black); disc(x + 24, y + 20, 14, P.brass[1]); disc(x + 24, y + 20, 12.5, P.brass[2]);
       disc(x + 24, y + 20, 11, P.iron[1]);
       for (let a = 0; a < 8; a++) { const ang = a / 8 * Math.PI * 2; R(Math.round(x + 24 + Math.cos(ang) * 13), Math.round(y + 20 + Math.sin(ang) * 13), 1, 1, P.brass[3]); }
-      const K0 = P.black, bob = [0, 1, 1, 0][o.lv || 0];
-      // 头 + 圆顶礼帽
-      disc(x + 22, y + 22 + bob, 6.5, K0); disc(x + 22, y + 22 + bob, 5.6, P.steam[2]);
-      R(x + 15, y + 15 + bob, 14, 2, K0); R(x + 17, y + 10 + bob, 10, 6, K0); R(x + 18, y + 11 + bob, 8, 4, P.dark[2]); R(x + 16, y + 15 + bob, 12, 1, P.dark[3]);
-      R(x + 18, y + 14 + bob, 8, 1, P.rust[2]);
-      // 八字胡 + 眼
-      R(x + 20, y + 21 + bob, 1, 2, K0); R(x + 19, y + 25 + bob, 7, 1, P.leather[0]); R(x + 18, y + 26 + bob, 2, 1, P.leather[0]); R(x + 25, y + 26 + bob, 2, 1, P.leather[0]);
-      // 望远镜（伸向前方）
-      line(x + 26, y + 21 + bob, x + 35, y + 19, 4, K0); line(x + 26, y + 21 + bob, x + 35, y + 19, 2, P.brass[2]);
-      R(x + 34, y + 17, 3, 5, P.brass[3]);
+      const bob = [0, 1, 1, 0][o.lv || 0];
+      // 望远镜架在舷窗上，小黑炭球（暖棕紫）用两只小短手扶着往外看
+      line(x + 26, y + 18, x + 37, y + 15, 4, P.black); line(x + 26, y + 18, x + 37, y + 15, 2, P.brass[2]);
+      R(x + 36, y + 13, 3, 5, P.brass[3]);
+      soot(x + 21, y + 21 + bob, 8.5, SOOT_CO, {
+        look: 1, blink: (o.lv || 0) === 3,
+        hands: [[x + 27, y + 20 + bob, x + 29, y + 16], [x + 27, y + 25 + bob, x + 32, y + 17]],
+      });
       // 下方：拉杆 + 小仪表
       box(x + 8, y + 34, 32, 9, DARK);
       for (const lx of [14, 20]) { line(x + lx, y + 38, x + lx + (lx === 14 ? bob : -bob), y + 31, 2, P.brass[2]); disc(x + lx + (lx === 14 ? bob : -bob), y + 31, 1.6, P.fire[2]); }
@@ -313,21 +321,25 @@ SA.SPR = (() => {
       R(x + 11, y + 40, 26, 1, lv >= 2 ? P.fire[1] : P.fire[0]);
     },
     cannon(x, y, o) {
-      // 分件：固定的摇架 + 驻退筒；炮管整体后坐 d 像素，复进杆随之伸缩；炮口制退器两侧开槽
+      // 分件：炮塔座固定；摇架 + 驻退筒 + 炮管绕耳轴 (34,27) 转到仰角；炮管整体后坐 d 像素，复进杆随之伸缩
       housing(x, y, true);
       const d = rcPx('cannon', o.k);
-      box(x + 26, y + 15, 16, 24, BRASS);
-      R(x + 29, y + 17, 1, 20, P.brass[3]);
-      R(x + 40, y + 33, 12, 5, P.dark[0]); R(x + 40, y + 34, 12, 3, P.iron[2]); R(x + 40, y + 34, 12, 1, P.iron[4]);
-      const lug = x + 58 - d;
-      if (lug > x + 52) { R(x + 52, y + 35, lug - x - 52, 2, P.iron[0]); R(x + 52, y + 35, lug - x - 52, 1, P.brass[3]); }
-      R(lug - 1, y + 31, 3, 6, P.brass[1]); R(lug - 1, y + 31, 1, 6, P.brass[3]);
-      const bx = x + 38 - d;
-      R(bx, y + 22, 30, 10, P.iron[0]); R(bx, y + 23, 30, 8, P.iron[3]); R(bx, y + 23, 30, 1, P.iron[4]); R(bx, y + 30, 30, 1, P.iron[2]);
-      for (const hb of [8, 18]) { R(bx + hb, y + 21, 3, 12, P.brass[1]); R(bx + hb, y + 21, 1, 12, P.brass[3]); }
-      R(bx + 28, y + 19, 8, 16, P.iron[0]); R(bx + 29, y + 20, 6, 14, P.iron[3]); R(bx + 29, y + 20, 6, 1, P.iron[4]);
-      for (const sy of [22, 26, 30]) R(bx + 30, y + sy, 4, 2, P.dark[0]);
-      if ((o.k || 0) >= 7) { R(bx + 36, y + 23, 3, 8, P.fire[3]); R(bx + 39, y + 25, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
+      turn(x + 34, y + 27, o.a, (X, Y) => {
+        X += x; Y += y;
+        box(X + 26, Y + 15, 16, 24, BRASS);
+        R(X + 29, Y + 17, 1, 20, P.brass[3]);
+        R(X + 40, Y + 33, 12, 5, P.dark[0]); R(X + 40, Y + 34, 12, 3, P.iron[2]); R(X + 40, Y + 34, 12, 1, P.iron[4]);
+        const lug = X + 58 - d;
+        if (lug > X + 52) { R(X + 52, Y + 35, lug - X - 52, 2, P.iron[0]); R(X + 52, Y + 35, lug - X - 52, 1, P.brass[3]); }
+        R(lug - 1, Y + 31, 3, 6, P.brass[1]); R(lug - 1, Y + 31, 1, 6, P.brass[3]);
+        const bx = X + 38 - d;
+        R(bx, Y + 22, 30, 10, P.iron[0]); R(bx, Y + 23, 30, 8, P.iron[3]); R(bx, Y + 23, 30, 1, P.iron[4]); R(bx, Y + 30, 30, 1, P.iron[2]);
+        for (const hb of [8, 18]) { R(bx + hb, Y + 21, 3, 12, P.brass[1]); R(bx + hb, Y + 21, 1, 12, P.brass[3]); }
+        R(bx + 28, Y + 19, 8, 16, P.iron[0]); R(bx + 29, Y + 20, 6, 14, P.iron[3]); R(bx + 29, Y + 20, 6, 1, P.iron[4]);
+        for (const sy of [22, 26, 30]) R(bx + 30, Y + sy, 4, 2, P.dark[0]);
+        if ((o.k || 0) >= 7) { R(bx + 36, Y + 23, 3, 8, P.fire[3]); R(bx + 39, Y + 25, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
+      });
+      disc(x + 34, y + 27, 3, P.brass[0]); disc(x + 34, y + 27, 2, P.brass[3]);   // 耳轴
     },
     mortar(x, y, o) {
       // 朝天粗管：一眼看出“往上打”
@@ -335,7 +347,8 @@ SA.SPR = (() => {
       R(x + 4, y + 39, 40, 1, P.brass[2]);
       box(x + 11, y + 22, 7, 12, DARK); box(x + 24, y + 22, 7, 12, DARK);
       const k = rcPx('mortar', o.k);
-      const dx = 0.574, dy = -0.819, px = x + 20 - dx * k, py = y + 30 - dy * k, L = 27;
+      const ang = (o.a == null ? 55 : o.a) * Math.PI / 180;
+      const dx = Math.cos(ang), dy = -Math.sin(ang), px = x + 20 - dx * k, py = y + 30 - dy * k, L = 27;
       for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 6, P.iron[0]);
       for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 5, P.iron[3]);
       for (let t = 0; t <= L; t += 1) disc(px + dx * t + 2.6, py + dy * t + 1.8, 1.4, P.iron[2]);
@@ -353,22 +366,26 @@ SA.SPR = (() => {
       disc(x + 13, y + 29, 6, P.brass[2]);
       R(x + 9, y + 22, 4, 1, P.brass[3]); R(x + 7, y + 24, 1, 3, P.brass[3]);
       disc(x + 14, y + 30, 2, P.brass[0]);
-      box(x + 28, y + 15, 13, 27, BRASS);
-      for (let i = 0; i < 5; i++) R(x + 31, y + 19 + i * 4, 7, 1, P.brass[0]);
-      // 三管轮转：每打一发转一格（亮的那根换位），整组后坐 k 像素；弹鼓下挂的供弹链逐发前移
       const k = rcPx('mg', o.k), f = o.f || 0;
-      [19, 27, 35].forEach((yy, i) => {
-        const lit = (i + f) % 3 === 0;
-        R(x + 41 - k, y + yy, 19, 4, P.iron[0]);
-        R(x + 41 - k, y + yy + 1, 19, 2, lit ? P.iron[4] : P.iron[3]);
-        R(x + 41 - k, y + yy + 1, 19, 1, P.iron[4]);
+      // 机匣 + 三管绕 (34,29) 转到仰角；三管轮转：每打一发转一格（亮的那根换位），整组后坐 k 像素
+      turn(x + 34, y + 29, o.a, (X, Y) => {
+        X += x; Y += y;
+        box(X + 28, Y + 15, 13, 27, BRASS);
+        for (let i = 0; i < 5; i++) R(X + 31, Y + 19 + i * 4, 7, 1, P.brass[0]);
+        [19, 27, 35].forEach((yy, i) => {
+          const lit = (i + f) % 3 === 0;
+          R(X + 41 - k, Y + yy, 19, 4, P.iron[0]);
+          R(X + 41 - k, Y + yy + 1, 19, 2, lit ? P.iron[4] : P.iron[3]);
+          R(X + 41 - k, Y + yy + 1, 19, 1, P.iron[4]);
+        });
+        R(X + 57 - k, Y + 18, 3, 22, P.iron[0]); R(X + 57 - k, Y + 19, 2, 20, P.brass[1]);
+        if ((o.k || 0) >= 6) R(X + 60 - k, Y + 26, 3, 4, P.fire[3]);   // 枪口焰
       });
-      R(x + 57 - k, y + 18, 3, 22, P.iron[0]); R(x + 57 - k, y + 19, 2, 20, P.brass[1]);
+      // 弹鼓下挂的供弹链：逐发前移
       for (let i = 0; i < 6; i++) {
         const bx = x + 4 + ((i * 4 + f) % 24);
         R(bx, y + 41, 3, 4, P.dark[0]); R(bx, y + 41, 2, 3, P.brass[2]); R(bx, y + 41, 2, 1, P.brass[3]);
       }
-      if ((o.k || 0) >= 6) { R(x + 60 - k, y + 26, 3, 4, P.fire[3]); }   // 枪口焰
     },
     side_cannon(x, y, o) {
       // 外挂支架：侧挂层独有的剪影
@@ -378,15 +395,18 @@ SA.SPR = (() => {
       R(x + 14, y + 11, 4, 20, P.iron[2]);
       R(x + 14, y + 11, 1, 20, P.iron[3]);
       const k = rcPx('side_cannon', o.k);
-      R(x + 26 - k, y + 28, 40, 12, P.dark[0]);
-      R(x + 26 - k, y + 29, 40, 10, P.iron[3]);
-      R(x + 26 - k, y + 29, 40, 1, P.iron[4]);
-      R(x + 26 - k, y + 37, 40, 1, P.iron[2]);
-      for (const bx of [40, 54]) { R(x + bx - k, y + 27, 4, 14, P.brass[1]); R(x + bx - k, y + 27, 1, 14, P.brass[3]); }
-      disc(x + 18, y + 34, 11, P.dark[0]);
-      disc(x + 18, y + 34, 10, P.brass[1]);
-      disc(x + 17, y + 33, 7, P.brass[2]);
-      R(x + 11, y + 26, 3, 2, P.brass[3]);
+      turn(x + 18, y + 34, o.a, (X, Y) => {
+        X += x; Y += y;
+        R(X + 26 - k, Y + 28, 40, 12, P.dark[0]);
+        R(X + 26 - k, Y + 29, 40, 10, P.iron[3]);
+        R(X + 26 - k, Y + 29, 40, 1, P.iron[4]);
+        R(X + 26 - k, Y + 37, 40, 1, P.iron[2]);
+        for (const bx of [40, 54]) { R(X + bx - k, Y + 27, 4, 14, P.brass[1]); R(X + bx - k, Y + 27, 1, 14, P.brass[3]); }
+        disc(X + 18, Y + 34, 11, P.dark[0]);
+        disc(X + 18, Y + 34, 10, P.brass[1]);
+        disc(X + 17, Y + 33, 7, P.brass[2]);
+        R(X + 11, Y + 26, 3, 2, P.brass[3]);
+      });
     },
     bucket(x, y) {
       // 铲斗：装在底盘前方，弧形推土板 + 齿
@@ -533,14 +553,17 @@ SA.SPR = (() => {
 
   // ---------- 缓存：量化参数 → 离屏精灵 ----------
   const cache = new Map();
+  const TOP = 16;
+  const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
   function quant(id, o) {
     const q = {};
     switch (id) {
       case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
       case 'cockpit': case 'copilot': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
-      case 'cannon': case 'side_cannon': case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); break;
-      case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); break;
+      case 'cannon': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
+      case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
+      case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; break;
       case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
@@ -552,16 +575,17 @@ SA.SPR = (() => {
     let cv = cache.get(key);
     if (!cv) {
       if (cache.size > 800) cache.clear();
+      // 上方留 TOP 像素：炮管抬起来时不会被裁掉
       cv = document.createElement('canvas');
-      cv.width = C + 32; cv.height = C;
+      cv.width = C + 32; cv.height = C + TOP;
       ctx = cv.getContext('2d');
-      DRAW[id](0, 0, q);
+      DRAW[id](0, TOP, q);
       cache.set(key, cv);
     }
     return cv;
   }
   function drawModule(c2d, id, x, y, o = {}) {
-    c2d.drawImage(sprite(id, quant(id, o)), x, y);
+    c2d.drawImage(sprite(id, quant(id, o)), x, y - TOP);
     ctx = c2d;
   }
 
@@ -657,6 +681,7 @@ SA.SPR = (() => {
         t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd,
         recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
+        a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
         phase,
         connL: c > 0 && same(c - 1),
@@ -713,9 +738,9 @@ SA.SPR = (() => {
       g.save();
       g.globalAlpha = o.dimSide ? 0.35 : 1;
       g.filter = 'brightness(0) opacity(0.55)';
-      g.drawImage(img, cx(c) + 3, cy(r) + 3 + bd);
+      g.drawImage(img, cx(c) + 3, cy(r) + 3 + bd - TOP);
       g.filter = 'none';
-      g.drawImage(img, cx(c), cy(r) + bd);
+      g.drawImage(img, cx(c), cy(r) + bd - TOP);
       g.restore();
       ctx = g;
       damage(cx(c), cy(r) + bd, cell.hp / (cell.max || SA.MODULES[cell.id].hp), r * 8 + c + 3);
