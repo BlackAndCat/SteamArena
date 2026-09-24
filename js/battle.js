@@ -29,7 +29,7 @@ SA.Battle = (() => {
 
   function refresh(s) {
     let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
-    let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0;
+    let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const m = M[cell.id];
@@ -41,6 +41,7 @@ SA.Battle = (() => {
       if (m.layer === 'ram') rams++;
       if (cell.id === 'cockpit') cock++;
       if (cell.id === 'copilot') cop++;
+      aimSh += m.aimShrink || 0; aimSp += m.aimSpeed || 0;
     });
     // 履带是一个整体：任意一段被毁 = 掉链子，整车趴窝
     let thrown = false;
@@ -50,6 +51,9 @@ SA.Battle = (() => {
     const demand = equip + mass * K.DRIVE_PER_T;
     // 底盘手感（多种底盘取平均）：accelK 起步、brakeK 刹车、sway 移动时的晃动、spoolK 起步憋气时间
     const avg = (x, d) => (ch ? x / ch : d);
+    // 瞄准能力：基础值 + 瞄准类部件加成（以后的瞄准镜等）
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + aimSh);
+    s.aimSpeed = K.AIM_SPEED + aimSp;
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1), spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
@@ -113,7 +117,7 @@ SA.Battle = (() => {
   const shakeOf = (s) => s.sway * (Math.min(1, Math.abs(s.vx) / 60) * 1.6 + Math.min(1.5, s.jolt) * 2.2);
   // 散布（最大偏角，度）：只有直射武器有；高抛指哪打哪。边走边打、刹车时散布更大；按住蓄力（focus）能把散布缩到 30%
   const spreadDeg = (s, o, w, focus = s.focus) => (w.m.indirect ? 0
-    : (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - (1 - K.FOCUS_MIN) * focus) + o.evade * 20);
+    : (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - s.aimShrink * focus) + o.evade * 20);
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
   function aimAngle(s, w, tx, ty) {
     const [x0, y0] = muzzle(s, w);
@@ -176,7 +180,6 @@ SA.Battle = (() => {
     const push = (w.m.kick || 0) / s.mass;
     s.vx -= dir * push * (up ? 0.3 : 1);
     SA.Dyn.kick(s.anim.body, -push * (up ? 2 : 4));
-    s.jolt = Math.min(1.5, s.jolt + push / 60);
     if (w.m.proj === 'shell') B.shake = Math.max(B.shake, 1.5 + push / 6);
     for (let i = 0; i < (w.m.proj === 'shell' ? 10 : 3); i++) part('flash', sh.x + dir * rnd(0, 10), sh.y + rnd(-3, 3) - (up ? rnd(0, 8) : 0), dir * rnd(30, 110), up ? rnd(-140, -40) : rnd(-30, 30), rnd(0.06, 0.14));
     if (w.m.proj === 'shell') {
@@ -255,7 +258,9 @@ SA.Battle = (() => {
     const vx0 = s.vx;
     s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
-    if (dt > 0) s.jolt += (Math.min(1.5, Math.abs(s.vx - vx0) / dt / 60) - s.jolt) * Math.min(1, dt * 6);
+    // 颠簸：当前速度和「平滑速度」的差（起步、刹车、撞击时大；开火的小后坐几乎不算）
+    s.vxs = (s.vxs == null ? s.vx : s.vxs + (s.vx - s.vxs) * Math.min(1, dt * 4));
+    if (dt > 0) s.jolt += (Math.min(1.5, Math.abs(s.vx - s.vxs) / 25) - s.jolt) * Math.min(1, dt * 6);
     if (braking && Math.abs(s.vx) > 30) {
       s.brakeT -= dt;
       if (s.brakeT <= 0) {
@@ -387,13 +392,14 @@ SA.Battle = (() => {
     // 瞄准稳定度：按住就慢慢蓄满（准星收紧、散布缩小），车身晃动会拖慢蓄力并不断把它抖散
     const selW = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
     const shake = shakeOf(s);
-    if (aiming) s.focus += dt / (selW ? selW.m.aimT : 1) / (1 + shake);
+    if (aiming) s.focus += dt * s.aimSpeed / (selW ? selW.m.aimT : 1) / (1 + shake);
     s.focus = clamp(s.focus - dt * (aiming ? shake * 0.2 : 2.5), 0, 1);
     // 扳机延迟（AI 用）：按住开火后要等一小会儿才打出第一发；换武器组重新计时
     if (s.sel !== s.lastSel) { s.lastSel = s.sel; s.heldT = 0; s.focus = 0; }
     s.heldT = aiming ? s.heldT + dt : 0;
     // 玩家：稳定度蓄满（绿光）自动开火，或者松手立刻开火
-    const ready = (w) => (isP(s) ? s.focus >= 1 || s.release : s.heldT >= w.m.windup);
+    // 快枪（机枪）：按住装好就打，不用等蓄满；稳定度照样影响散布，每发后坐会把它震掉一些
+    const ready = (w) => (isP(s) ? s.focus >= 1 || s.release || w.m.reload < K.FAST_RELOAD : s.heldT >= w.m.windup);
     // 副驾驶：每个副驾驶接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
     s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
@@ -686,7 +692,8 @@ SA.Battle = (() => {
 
   // 准星：装填中 = 来回摆动的沙漏（外面一圈淡淡的稳定度环）；装好了 = 黄铜齿轮。
   // 机枪这类快枪（装填 < 1 秒）不切沙漏：齿轮每打一发咔哒转一齿，领头的齿闪一下，内圈细弧显示装填
-  const reticleR = (focus) => Math.round(9 + (1 - focus) * 15);
+  // 准星半径跟实际缩圈幅度走：前期只能缩一点，加装瞄准镜后能缩得更紧
+  const reticleR = (focus) => Math.round(24 - 15 * focus * (B.p.aimShrink / K.AIM_SHRINK_MAX));
   function reticle(x, y, aimT) {
     const p = B.p;
     const group = p.weapons.filter(w => w.cell.id === p.sel && !w.blocked);
@@ -712,7 +719,7 @@ SA.Battle = (() => {
   function gearReticle(x, y, focus, aimT, mg) {
     const full = focus >= 1;
     const r = reticleR(focus);
-    const rot = focus * Math.PI / 2 + (mg ? mg.ticks * Math.PI / 4 : B.t * (full ? 2 : 0.3));
+    const rot = focus * Math.PI / 2 + (mg ? mg.ticks * Math.PI / 4 + (B.p.fireHeld ? B.t * 9 : 0) : B.t * (full ? 2 : 0.3));   // 快枪按住时齿轮飞转
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 12);
     const col = full ? (pulse > 0.5 ? '#9dff8a' : '#6fcf6a') : aimT && aimT.layer === 'side' ? P.magenta : P.brass[2];
     const hi = full ? '#e8ffd9' : P.brass[3];
@@ -809,12 +816,17 @@ SA.Battle = (() => {
     const big = w.m.proj === 'shell';
     SA.SPR.useCtx(g);
     const sp = spreadDeg(p, B.e, w);
+    // 扇区显示用的散布角做平滑，不随每一帧的颠簸抖动
+    const now = B.t, dtv = Math.min(0.1, now - (B.fanT || now));
+    B.fanT = now;
+    B.fanSp = B.fanSp == null || B.fanW !== w.key ? sp : B.fanSp + (sp - B.fanSp) * Math.min(1, dtv * 6);
+    B.fanW = w.key;
     if (sp > 0) {
-      const lo = predict(p, B.e, w, cur, side, -sp), hi = predict(p, B.e, w, cur, side, sp);
-      // 扇区：两条边界弹道之间半透明填充
-      g.save(); g.globalAlpha = 0.14; g.fillStyle = col; g.beginPath();
-      [...lo.pts, lo.end].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-      [hi.end, ...hi.pts.slice().reverse()].forEach(([x, y]) => g.lineTo(x, y));
+      // 扇区：两条边界弹道（不做碰撞，统一截到瞄准点的距离）之间半透明填充——稳稳罩在目标上
+      const lo = arcTo(p, w, cur, -B.fanSp, B.aim[0]), hi = arcTo(p, w, cur, B.fanSp, B.aim[0]);
+      g.save(); g.globalAlpha = 0.16; g.fillStyle = col; g.beginPath();
+      lo.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      for (let i = hi.length - 1; i >= 0; i--) g.lineTo(hi[i][0], hi[i][1]);
       g.closePath(); g.fill(); g.restore();
       if (aimT) {
         let n = 0;
@@ -837,6 +849,18 @@ SA.Battle = (() => {
       info.hit = pr.hit;
       if (!sameCell(pr.hit, aimT)) SA.SPR.outline(g, Math.round(cellX(B.e, pr.hit.c)), cellY(pr.hit.r), C, C, P.white, P.black, Math.floor(B.t * 16));
     }
+  }
+
+  // 不做碰撞的弹道：飞到 stopX（瞄准点的横坐标）或落地为止，扇区的两条边用它
+  function arcTo(s, w, deg, jitter, stopX) {
+    const sh = launch(s, w, deg, jitter), dir = isP(s) ? 1 : -1;
+    const pts = [[sh.x, sh.y]];
+    for (let i = 0; i < 900; i++) {
+      sh.x += sh.vx / 120; sh.y += sh.vy / 120; sh.vy += sh.g / 120;
+      if ((sh.x - stopX) * dir >= 0 || sh.y >= GROUND) { pts.push([sh.x, Math.min(sh.y, GROUND)]); break; }
+      if (i % 3 === 0) pts.push([sh.x, sh.y]);
+    }
+    return pts;
   }
 
   const tintC = document.createElement('canvas');
@@ -923,7 +947,7 @@ SA.Battle = (() => {
     if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) parts.push(`弹道中心先打到 <b>「${M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name}」</b>（虚线框）${alt}`);
     if (aimT && pi && pi.chance != null) parts.push(`命中率约 <b>${pi.chance}%</b>（扇区 = 散布范围）`);
     else if (aimT && pi && M[p.sel].indirect) parts.push('高抛：指哪打哪（对方移动会躲开）');
-    if (p.fireHeld) parts.push(p.focus >= 1 ? '<b style="color:#6fcf6a">准星稳住了！</b>' : `稳住准星… ${Math.round(p.focus * 100)}%${shakeOf(p) > 0.4 ? '（车身在晃，停稳更快）' : ''}`);
+    if (p.fireHeld) parts.push(p.focus >= 1 ? `<b style="color:#6fcf6a">准星稳住了！</b>散布 -${Math.round(p.aimShrink * 100)}%` : `瞄准 ${Math.round(p.focus * 100)}%（散布 -${Math.round(p.aimShrink * p.focus * 100)}%）${shakeOf(p) > 0.4 ? ' · 车身在晃，停稳更快' : ''}`);
     return parts.join(' · ');
   }
 

@@ -186,6 +186,7 @@ SA.V = (() => {
 
   function stats(v) {
     const s = {
+      aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0,
@@ -200,6 +201,7 @@ SA.V = (() => {
       s.height = Math.max(s.height, K.ROWS - r);
       s.hp += cell.hp; s.maxHp += maxHp(cell);
       s.equip += m.power || 0;
+      s.aimShrink += m.aimShrink || 0; s.aimSpeed += m.aimSpeed || 0;
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
       if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
@@ -208,6 +210,7 @@ SA.V = (() => {
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water) { s.tanks++; s.water += m.water; s.cool += m.cool; }
     });
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, s.aimShrink);
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
