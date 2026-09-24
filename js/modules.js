@@ -13,7 +13,9 @@ SA.K = {
   ACCEL: 48,          // 起步加速度 px/s²（按质量缩放；撞击需要助跑）
   BRAKE: 62,          // 制动减速度 px/s²：松开按键会滑行一大段才停下；反向要先停稳再重新起步
   HEAT_MAX: 100,
-  DISSIPATE: 3,       // 自然散热 /秒
+  DISSIPATE: 1.2,     // 自然散热 /秒
+  IDLE_HEAT: 0.8,     // 机器只要在运转就会产热 /秒（站着不动也会慢慢变热）
+  COOL_FULL: 30,      // 热量到这个值时水箱全力冷却；越凉冷却越弱，所以热量会缓慢积累
   WATER_PER_HEAT: 0.25, // 每冷却 1 点热量消耗的水
   BATTLE_TIME: 100,
 };
@@ -111,4 +113,6 @@ SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
 SA.QUALITY = { 1: { name: '普通', star: '★' }, 2: { name: '精良', star: '★★' }, 3: { name: '稀有', star: '★★★' } };
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
+// 水箱这一刻能带走多少热量 /秒：越热冷却越猛（最低 15%）
+SA.coolRate = (cool, heat) => cool * Math.max(0.15, Math.min(1, heat / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';

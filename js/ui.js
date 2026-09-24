@@ -91,30 +91,35 @@ SA.UI = (() => {
   }
 
 
-  // ---------- 顶栏：两个主页面（车间 / 出战）+ 资源 ----------
+  // ---------- 侧边栏：两块铆钉钢板导航（车间 / 出战）+ 资源 ----------
   // 徽标：车间 = 出战前必须处理的问题数；出战 = 可交付的委托 / 军方邀约
+  // 函数名沿用 topbar()：各处改完数据都调用它刷新
   function topbar() {
     const d = S();
-    const bar = $('#topbar');
+    const bar = $('#side');
     bar.innerHTML = '';
     const cur = SA.current;
     const s = SA.V.stats(d.vehicle);
     const fix = s.problems.length;
     const offer = SA.S.militaryOffer();
     const ready = SA.ORDERS.filter(o => d.orders.includes(o.id) && d.rep >= o.rep && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n)).length;
-    const tab = (key, icon, label, badge, bad) => h('button', { class: `nav ${cur === key ? 'on' : ''}`, disabled: cur === 'battle', onclick: () => SA.nav(key) },
-      SA.SPR.iconCanvas(icon, cur === key ? '#2a1a05' : P.brass[3], 2), h('span', {}, label), badge ? h('span', { class: `badge ${bad ? 'bad' : ''}` }, badge) : null);
+    const plate = (key, icon, label, sub, badge, bad) => h('button', { class: `nav-plate ${cur === key ? 'on' : ''}`, 'aria-current': cur === key ? 'page' : null, onclick: () => SA.nav(key) },
+      h('span', { class: 'rivets' }),
+      SA.SPR.iconCanvas(icon, cur === key ? '#2a1a05' : '#d9a441', 4),
+      h('span', { class: 'nm' }, label),
+      h('span', { class: 'sub' }, sub),
+      badge ? h('span', { class: `badge ${bad ? 'bad' : ''}` }, badge) : null);
     bar.append(
-      h('span', { class: 'title' }, '蒸汽竞技场'),
-      h('nav', { class: 'navs' },
-        tab('garage', 'wrench', '车间', fix ? `${fix}` : null, true),
-        tab('arena', 'swords', '出战', offer ? '军方' : ready ? `${ready}` : null)),
-      h('span', { class: 'spacer' }),
-      h('button', { class: 'res money', title: '银行：借款 / 还款', disabled: cur === 'battle', onclick: openBank },
-        h('span', { class: 'k' }, '资金'), h('b', {}, money(d.money)),
-        d.debt ? h('span', { class: 'debt' }, `债 ${money(d.debt)}`) : null),
-      h('span', { class: 'res' }, h('span', { class: 'k' }, '声望'), h('b', {}, '★'.repeat(Math.min(d.rep, 8)) || '—'), d.rep > 8 ? `×${d.rep}` : null),
-      h('span', { class: 'res season' }, h('span', { class: 'k' }, '赛季'), h('b', {}, `${d.season} · ${d.round + 1}/6`)),
+      h('div', { class: 'side-title' }, '蒸汽', h('br'), '竞技场'),
+      h('nav', { class: 'side-nav' },
+        plate('garage', 'wrench', '车间', '改装 · 商店 · 蓝图', fix ? `${fix} 项问题` : null, true),
+        plate('arena', 'swords', '出战', `锦标赛第 ${d.round + 1} 轮`, offer ? '军方邀约' : ready ? `${ready} 份委托` : null)),
+      h('div', { class: 'side-res' },
+        h('button', { class: 'res money', title: '银行：借款 / 还款', onclick: openBank },
+          h('span', { class: 'k' }, '资金'), h('b', {}, money(d.money)),
+          d.debt ? h('span', { class: 'debt' }, `债 ${money(d.debt)}`) : null),
+        h('span', { class: 'res' }, h('span', { class: 'k' }, '声望'), h('b', {}, '★'.repeat(Math.min(d.rep, 8)) || '—'), d.rep > 8 ? `×${d.rep}` : null),
+        h('span', { class: 'res season' }, h('span', { class: 'k' }, '赛季'), h('b', {}, `${d.season} · ${d.round + 1}/6`))),
     );
   }
 
@@ -123,7 +128,7 @@ SA.UI = (() => {
     const pmax = Math.max(s.cap, s.supply, s.demand, 1);
     const pct = (x, m) => `${Math.max(0, Math.min(100, (x / m) * 100))}%`;
     const oh = s.overheat === Infinity ? '不会烧干' : `全力开火 ${Math.round(s.overheat)} 秒后烧干`;
-    const heatShare = Math.min(1, s.heatGen / Math.max(0.1, SA.K.DISSIPATE + s.cool));
+    const heatShare = Math.min(1, (s.heatGen + SA.K.IDLE_HEAT) / Math.max(0.1, SA.K.DISSIPATE + s.cool));
     return h('div', { class: 'bars' },
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '动力'),
         h('div', { class: 'bar power' }, h('i', { style: `width:${pct(s.demand, pmax)}` }),
@@ -132,7 +137,7 @@ SA.UI = (() => {
       h('div', { class: 'bar-note' }, `需求 ${s.demand} · 锅炉供给 ${s.supply}（白线）· 底盘上限 ${s.cap}（红线）`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量'),
         h('div', { class: 'bar heat' }, h('i', { style: `width:${pct(heatShare, 1)}` }))),
-      h('div', { class: 'bar-note' }, `产热 ${s.heatGen.toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ${s.cool}/秒 · ${oh}`),
+      h('div', { class: 'bar-note' }, `产热 ${(s.heatGen + SA.K.IDLE_HEAT).toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ≤${s.cool}/秒 · ${oh}`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '水'),
         h('div', { class: 'bar water' }, h('i', { style: `width:${pct(s.water, 250)}` }))),
       h('div', { class: 'bar-note' }, `${s.tanks} 只水箱 · 共 ${s.water} 单位`),

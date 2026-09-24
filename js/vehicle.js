@@ -171,10 +171,10 @@ SA.V = (() => {
   function overheatTime(gen, coolRate, water, drain = 0) {
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
-      heat += (gen - K.DISSIPATE) * 0.5;
+      heat += (gen + K.IDLE_HEAT - K.DISSIPATE) * 0.5;
       water = Math.max(0, water - drain * 0.5);
       if (water > 0 && heat > 0) {
-        const c = Math.min(heat, coolRate * 0.5);
+        const c = Math.min(heat, SA.coolRate(coolRate, heat) * 0.5);
         heat -= c; water -= c * K.WATER_PER_HEAT;
       }
       heat = Math.max(0, heat);

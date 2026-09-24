@@ -22,6 +22,7 @@ SA.Battle = (() => {
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false };
     refresh(s);
     s.water = s.waterMax;
+    s.armed = s.weapons.length > 0;   // 开局有武器：武器全被打光就判负
     return s;
   }
 
@@ -328,9 +329,9 @@ SA.Battle = (() => {
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     s.power = s.supply <= 0 ? 0 : s.demand ? Math.min(1, s.supply / s.demand) : 1;
     drive(s, dt);
-    s.heat += (s.heatRate * Math.max(0.3, util) - K.DISSIPATE) * dt;
+    s.heat += (s.heatRate * Math.max(0.3, util) + K.IDLE_HEAT - K.DISSIPATE) * dt;
     if (s.water > 0 && s.heat > 0) {
-      const c = Math.min(s.heat, s.cool * dt);
+      const c = Math.min(s.heat, SA.coolRate(s.cool, s.heat) * dt);
       s.heat -= c; s.water = Math.max(0, s.water - c * K.WATER_PER_HEAT);
     }
     s.heat = Math.max(0, s.heat);
@@ -463,6 +464,9 @@ SA.Battle = (() => {
     B.shake = Math.max(0, B.shake - dt * 14);
 
     if (!B.ending) {
+      // 武器打光：一方开局有武器、现在全被摧毁，而另一方还有 → 判负；两边同时打光走下面的平手
+      const out = (s) => s.armed && !s.weapons.length;
+      if (!B.p.dead && !B.e.dead && out(B.p) !== out(B.e)) kill(out(B.p) ? B.p : B.e, '武器全部被打光，失去战斗力');
       // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 1.5 秒
       const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
       B.drawT = both ? (B.drawT || 0) + dt : 0;
@@ -644,7 +648,7 @@ SA.Battle = (() => {
   const sameCell = (a, b) => a && b && a.layer === b.layer && a.r === b.r && a.c === b.c;
 
   // 当前武器组的弹道预览：按炮管「当前」仰角画（炮管转动有延迟）。
-  // 直射：中心点线 + 散布扇区 + 落点范围括号 + 命中率；高抛：点线 + 落点 ×（指哪打哪）
+  // 直射：中心点线 + 散布扇区 + 命中率；高抛：点线 + 落点 ×（指哪打哪）
   function drawPreview(aimT) {
     const side = aimT && aimT.layer === 'side';
     const info = { hit: null, reach: true, blocked: false };
@@ -669,11 +673,6 @@ SA.Battle = (() => {
       [...lo.pts, lo.end].forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
       [hi.end, ...hi.pts.slice().reverse()].forEach(([x, y]) => g.lineTo(x, y));
       g.closePath(); g.fill(); g.restore();
-      for (const e of [lo, hi]) e.pts.forEach(([x, y], i) => { if (i % 5 === 2) { g.fillStyle = col; g.globalAlpha = 0.55; g.fillRect(Math.round(x), Math.round(y), 2, 2); g.globalAlpha = 1; } });
-      // 落点范围：两端之间的括号
-      const [ax, ay] = lo.end.map(Math.round), [bx, by] = hi.end.map(Math.round);
-      SA.SPR.line(ax, ay, bx, by, 4, P.black); SA.SPR.line(ax, ay, bx, by, 2, col);
-      for (const [x, y] of [[ax, ay], [bx, by]]) { g.fillStyle = P.black; g.fillRect(x - 4, y - 4, 9, 9); g.fillStyle = col; g.fillRect(x - 3, y - 3, 7, 7); g.fillStyle = P.black; g.fillRect(x - 1, y - 1, 3, 3); }
       if (aimT) {
         let n = 0;
         for (const q of QS) if (sameCell(predict(p, B.e, w, cur, side, q * sp).hit, aimT)) n++;

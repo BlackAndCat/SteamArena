@@ -9,12 +9,11 @@ SA.Editor = (() => {
   const h = SA.h, K = SA.K, M = SA.MODULES, P = SA.PAL;
   const PADX = SA.SPR.PADX, C = K.CELL;
   const W = K.COLS * C + PADX * 2, H = K.ROWS * C + 12;
-  const TABS = [['all', '全部'], ['mobility', '底盘'], ['firepower', '火力'], ['ram', '撞击'], ['structure', '结构'], ['energy', '能源'], ['cooling', '冷却'], ['control', '控制']];
   const DRAG_PX = 6;
   // sel：从库存选中、准备放置的模块 id；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', view: 'pixel', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
-    dock: 'mods', bp: null, bpFilter: 'all' };
+    dock: 'mods', bp: null, bpFilter: 'all', shop: false };   // shop：「商店」开关，打开后列表里也显示没有库存的模块
   let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro;
 
   const d = () => SA.S.d;
@@ -30,7 +29,7 @@ SA.Editor = (() => {
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
     Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null });
-    if (st.plateOpen == null) st.plateOpen = window.innerWidth >= 1100;
+    if (st.plateOpen == null) st.plateOpen = window.innerWidth >= 1700;   // 展开的铭牌会盖住格子，默认收成一行
     st.stats = SA.V.stats(veh());
 
     cv = h('canvas', { class: 'px', width: W, height: H });
@@ -40,11 +39,12 @@ SA.Editor = (() => {
     viewEl = h('div', { class: 'ed-view' });
     stage = h('div', { class: 'ed-stage' }, cv, plateEl, viewEl, tipEl,
       h('button', { class: 'ed-help', title: '图例与规则', 'aria-label': '图例与规则', onclick: openHelp }, '?'));
+    // 中间：画布 + 下方操作栏；右边：模块清单 / 蓝图库（拖出车外的模块丢到这里就回库存）
     ctxEl = h('div', { class: 'dock-ctx' });
-    toolsEl = h('div', { class: 'dock-tools' });
-    invEl = h('div', { class: 'dock-inv' });
-    dockEl = h('div', { class: 'ed-dock' }, h('div', { class: 'dock-inner' }, ctxEl, toolsEl, invEl));
-    screen.append(h('div', { class: 'ed' }, stage, dockEl));
+    toolsEl = h('div', { class: 'panel-tools' });
+    invEl = h('div', { class: 'panel-list' });
+    dockEl = h('aside', { class: 'ed-panel' }, toolsEl, invEl);
+    screen.append(h('div', { class: 'ed' }, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), dockEl));
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
@@ -52,10 +52,6 @@ SA.Editor = (() => {
     cv.addEventListener('pointercancel', cancelPress);
     cv.addEventListener('pointerleave', () => { if (!st.press) st.hover = null; });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    // 桌面端：滚轮横向滚动库存条
-    invEl.addEventListener('wheel', (e) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { invEl.scrollLeft += e.deltaY; e.preventDefault(); }
-    }, { passive: false });
     document.addEventListener('keydown', onKey);
     if (ro) ro.disconnect();
     ro = new ResizeObserver(fit);
@@ -343,52 +339,80 @@ SA.Editor = (() => {
     const s = st.stats;
     ctxEl.append(h('div', { class: 'info' },
       s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, '车已就绪'), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
-      h('div', { class: 'sub' }, '选下面的模块再点格子放置（没货会问你买）；拖动车上的模块可移动 / 对调，拖出车外放回库存。')),
+      h('div', { class: 'sub' }, '从模块清单选一个，再点格子放置；拖动车上的模块可移动 / 对调，拖回清单就放回库存。')),
     s.canDeploy ? h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => SA.nav('arena') }, '去出战 →')) : '');
   }
 
+  // ---------- 右侧面板：页签 + 「商店」开关 / 蓝图筛选 ----------
   function renderTools() {
     toolsEl.innerHTML = '';
-    const inv = d().inv;
-    const stockOf = (k) => SA.MODULE_ORDER.filter(id => k === 'all' || M[id].cat === k).reduce((a, id) => a + (inv[id] || 0), 0);
-    const dockSeg = h('span', { class: 'seg dock-seg' }, [['mods', '模块'], ['bps', '蓝图库']].map(([k, n]) =>
-      h('button', { class: `btn small ${st.dock === k ? 'on' : ''}`, onclick: () => { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); } }, n)));
+    const dockSeg = h('div', { class: 'seg dock-seg' }, [['mods', '模块'], ['bps', '蓝图库']].map(([k, n]) =>
+      h('button', { class: `btn ${st.dock === k ? 'on' : ''}`, onclick: () => { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); } }, n)));
     if (st.dock === 'bps') {
       toolsEl.append(dockSeg,
-        h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '云端']].map(([k, n]) =>
-          h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
-        h('button', { class: 'btn small', onclick: importDialog }, '导入分享码'));
+        h('div', { class: 'panel-row' },
+          h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '云端']].map(([k, n]) =>
+            h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
+          h('button', { class: 'btn small', onclick: importDialog }, '导入分享码')));
       return;
     }
-    toolsEl.append(
-      dockSeg,
-      h('div', { class: 'inv-tabs' }, TABS.map(([k, n]) =>
-        h('button', { class: `tab ${st.tab === k ? 'on' : ''} ${k !== 'all' ? `cat-${k}` : ''}`, onclick: () => { st.tab = k; renderTools(); renderInv(); } },
-          n, h('span', { class: 'cnt' }, stockOf(k))))),
-    );
+    const owned = SA.MODULE_ORDER.reduce((a, id) => a + (d().inv[id] || 0), 0);
+    toolsEl.append(dockSeg,
+      h('div', { class: 'panel-row' },
+        h('span', { class: 'muted' }, `库存 ${owned} 件`),
+        h('label', { class: `switch ${st.shop ? 'on' : ''}`, title: '打开后也列出没有库存的模块，放到车上即购买' },
+          h('input', { type: 'checkbox', checked: st.shop, onchange: (e) => { st.shop = e.target.checked; renderTools(); renderInv(); } }),
+          h('span', { class: 'knob' }), '商店')));
   }
 
+  // 模块最关键的两三项数值，做成小标签
+  function keyStats(id) {
+    const m = M[id], out = [];
+    if (m.layer === 'chassis') out.push(`承载 ${m.cap}`, `速度 ${m.speed}`, m.evade ? `闪避 +${Math.round(m.evade * 100)}%` : m.acc ? `命中 +${Math.round(m.acc * 100)}%` : `耐久 ${m.hp}`);
+    else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`);
+    else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
+    else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
+    else if (m.ram) out.push(`撞击 ${m.ram}`, m.punch ? `活塞 ${m.punch}` : `耐久 ${m.hp}`);
+    else out.push(`耐久 ${m.hp}`);
+    if (m.power) out.push(`动力 -${m.power}`);
+    return out;
+  }
+
+  const CAT_ORDER = ['mobility', 'control', 'energy', 'cooling', 'structure', 'firepower', 'ram'];
   function renderInv() {
-    const keep = invEl.scrollLeft;
+    const keep = invEl.scrollTop;
     invEl.innerHTML = '';
-    if (st.dock === 'bps') { renderBps(); invEl.scrollLeft = keep; return; }
+    if (st.dock === 'bps') { renderBps(); invEl.scrollTop = keep; return; }
     const inv = d().inv;
-    const list = SA.MODULE_ORDER.filter(id => st.tab === 'all' || M[id].cat === st.tab);
-    for (const id of list) {
-      const m = M[id], n = inv[id] || 0;
-      const tile = h('button', { class: `tile cat-${m.cat} ${st.sel === id ? 'sel' : ''} ${n ? '' : 'empty'}`,
-        title: `${m.name}（${SA.QUALITY[m.q].name}）\n${m.desc}\n${SA.UI.statLine(id)}`,
-        onclick: () => selectInv(id) },
-      SA.SPR.moduleCanvas(id, 0.75),
-      h('span', { class: 'nm' }, m.name),
-      n ? h('span', { class: 'n' }, `×${n}`) : h('span', { class: 'n price' }, money(m.price)));
-      tile.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id }); });
-      tile.addEventListener('pointermove', onMove);
-      tile.addEventListener('pointerup', onUp);
-      tile.addEventListener('pointercancel', cancelPress);
-      invEl.append(tile);
+    let shown = 0;
+    for (const cat of CAT_ORDER) {
+      const ids = SA.MODULE_ORDER.filter(id => M[id].cat === cat && (st.shop || inv[id] > 0));
+      if (!ids.length) continue;
+      invEl.append(h('div', { class: `grp cat-${cat}` }, h('i', { style: `background:${SA.CAT[cat].plate}` }), SA.CAT[cat].name));
+      for (const id of ids) {
+        shown++;
+        const m = M[id], n = inv[id] || 0;
+        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === id ? 'sel' : ''} ${n ? '' : 'unowned'}`,
+          title: `${m.desc}\n${SA.UI.statLine(id)}`, onclick: () => selectInv(id) },
+        h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1)),
+        h('span', { class: 'mid' },
+          h('span', { class: 'nm' }, m.name, ' ', h('span', { class: `q q${m.q}` }, SA.QUALITY[m.q].star)),
+          h('span', { class: 'ks' }, keyStats(id).map(t => h('span', {}, t)))),
+        n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, '库存'))
+          : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
+        row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id }); });
+        row.addEventListener('pointermove', onMove);
+        row.addEventListener('pointerup', onUp);
+        row.addEventListener('pointercancel', cancelPress);
+        invEl.append(row);
+      }
     }
-    invEl.scrollLeft = keep;
+    if (!shown) invEl.append(h('div', { class: 'empty' },
+      h('b', {}, '库存是空的'),
+      h('span', { class: 'muted' }, '车上的模块拖到这里会放回库存。想买新模块，打开「商店」。'),
+      h('button', { class: 'btn primary', onclick: () => { st.shop = true; renderTools(); renderInv(); } }, '打开商店')));
+    else if (st.shop) invEl.prepend(h('div', { class: 'shop-note' }, '商店已打开：选中没有库存的模块，放到车上就自动购买。'));
+    invEl.scrollTop = keep;
   }
 
   function renderDock() { renderCtx(); renderInv(); }
@@ -405,21 +429,22 @@ SA.Editor = (() => {
 
   function renderBps() {
     const nextName = `${veh().name} 方案 ${SA.Blueprints.mine().length + 1}`;
-    invEl.append(h('button', { class: 'tile bp-tile add', title: '把当前车辆存成一张蓝图', onclick: () => {
+    invEl.append(h('button', { class: 'bprow add', title: '把当前车辆存成一张蓝图', onclick: () => {
       SA.Blueprints.save(nextName);
       st.bpFilter = st.bpFilter === 'official' || st.bpFilter === 'cloud' ? 'all' : st.bpFilter;
       st.bp = SA.Blueprints.all().find(b => b.kind === 'mine').key;
       say(`已存为蓝图「${nextName}」`);
       renderAll();
-    } }, h('span', { class: 'plus' }, '＋'), h('span', { class: 'nm' }, '存为蓝图'), h('span', { class: 'muted' }, '保存当前车辆')));
+    } }, h('span', { class: 'plus' }, '＋'), h('span', { class: 'mid' }, h('span', { class: 'nm' }, '存为蓝图'), h('span', { class: 'muted' }, '把当前车辆存一份，随时一键换回来'))));
     for (const bp of bpList()) {
       const p = SA.Blueprints.plan(bp);
-      invEl.append(h('button', { class: `tile bp-tile ${st.bp === bp.key ? 'sel' : ''}`, title: bp.desc || bp.name,
+      invEl.append(h('button', { class: `bprow ${st.bp === bp.key ? 'sel' : ''}`, title: bp.desc || bp.name,
         onclick: () => { st.bp = st.bp === bp.key ? null : bp.key; renderDock(); } },
-      h('span', { class: `n kind-${bp.kind}` }, KIND[bp.kind]),
       bpPic(bp, 1),
-      h('span', { class: 'nm' }, bp.name),
-      h('span', { class: `cost ${p.cost ? 'price' : ''}` }, p.cost ? `需 ${money(p.cost)}` : '库存够用')));
+      h('span', { class: 'mid' },
+        h('span', { class: 'nm' }, bp.name),
+        h('span', { class: 'ks' }, h('span', { class: `kind-${bp.kind}` }, bp.kind === 'cloud' ? `云端 · ${bp.author}` : KIND[bp.kind]),
+          h('span', { class: p.cost ? 'gold' : '' }, p.cost ? `需 ${money(p.cost)}` : '库存够用')))));
     }
   }
 
@@ -428,7 +453,7 @@ SA.Editor = (() => {
     if (!bp) {
       ctxEl.append(h('div', { class: 'info' },
         h('div', {}, h('b', {}, '蓝图库 · 云车库')),
-        h('div', { class: 'sub' }, '选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「导入分享码」把别人的车存进来。')));
+        h('div', { class: 'sub' }, '在右边选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「导入分享码」把别人的车存进来。')));
       return;
     }
     const v = SA.V.fromLayout(bp.name, bp), s = SA.V.stats(v), p = SA.Blueprints.plan(bp);
@@ -487,7 +512,7 @@ SA.Editor = (() => {
       H('车间里的颜色'),
       h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
       H('操作'),
-      h('p', {}, '选底部模块再点格子放置；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖出车外放回库存。没货的模块放置时会问你买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
+      h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块，放置时自动购买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
       H('摆放规则'),
       h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行，其他模块叠在底盘或模块上，最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲前）必须是这一行最前端。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
       H('战斗里的颜色'),
