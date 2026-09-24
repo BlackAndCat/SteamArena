@@ -841,7 +841,7 @@ SA.Battle = (() => {
     let flawless = true;
     SA.V.each(B.p.v, (cell) => { if (cell.id === 'cockpit' && cell.hp < SA.V.maxHp(cell)) flawless = false; });
     SA.UI.afterBattle({
-      mode: B.opts.mode, win, prize: B.opts.prize || 0, enemyName: B.e.name,
+      mode: B.opts.mode, opts: B.opts, win, prize: B.opts.prize || 0, enemyName: B.e.name,
       reason: win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`,
       playerVehicle: shiftVeh(B.p.v, -B.pShift), dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
     });

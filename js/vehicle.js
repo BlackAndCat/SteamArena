@@ -229,7 +229,7 @@ SA.V = (() => {
     if (s.demand > s.cap) s.problems.push(`动力需求 ${s.demand} 超过底盘承载上限 ${s.cap}`);
     // 履带是一个整体：有一段被毁就整条掉链，修好之前开不动
     s.issues = issues(v);
-    if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（改装页红框标出），接好才能出战`);
+    if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（改装页红色闪烁标出），接好才能出战`);
     s.thrown = v.body[K.ROWS - 1].some(cell => cell && cell.id === 'track' && cell.hp <= 0);
     if (s.thrown) s.problems.push('履带掉链（有一段被打断），先去「修理」接上');
     s.warnings = [];
@@ -254,6 +254,26 @@ SA.V = (() => {
       b[layer][r][c] = { id: cell.id, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
     });
     return b;
+  }
+
+  // 布局（本地蓝图用）：原样记录每一格，悬空的也保留
+  function layout(v) {
+    const b = [], s = [];
+    each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push([r, c, cell.id]));
+    return { b, s };
+  }
+  function fromLayout(name, L) {
+    const v = create(name);
+    for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
+      for (const [r, c, id] of list)
+        if (M[id] && inGrid(r, c) && layerOf(id) === layer) v[layer][r][c] = { id, hp: M[id].hp };
+    return v;
+  }
+  // 布局需要的模块数量 { id: n }
+  function countIds(v) {
+    const n = {};
+    each(v, (cell) => { n[cell.id] = (n[cell.id] || 0) + 1; });
+    return n;
   }
 
   // 分享码：SA1.<base64>
@@ -281,5 +301,5 @@ SA.V = (() => {
     } catch (e) { return null; }
   }
 
-  return { create, fromAscii, each, canPlace, place, canPut, put, remove, move, issues, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
+  return { create, fromAscii, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
 })();

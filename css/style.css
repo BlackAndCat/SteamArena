@@ -45,7 +45,8 @@ button { font: inherit; color: inherit; }
 .btn.primary { background: var(--brass2); color: #2a1a05;
   box-shadow: inset 2px 2px 0 var(--brass3), inset -2px -2px 0 var(--brass1); }
 .btn.primary:hover { background: var(--brass3); }
-.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn.small { padding: 4px 10px; font-size: 13px; white-space: nowrap; }
+.dialog-actions .btn { white-space: nowrap; }
 .btn.on { background: var(--brass1); color: var(--text); box-shadow: inset 2px 2px 0 var(--brass0), inset -2px -2px 0 var(--brass2); }
 .seg { display: inline-flex; gap: 0; }
 .seg .btn + .btn { border-left: 0; }
@@ -60,7 +61,7 @@ button { font: inherit; color: inherit; }
 .hub-btn .lbl { font-size: 17px; font-weight: 900; letter-spacing: 1px; }
 .hub-btn .sub { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 .hub-btn.primary .sub { color: #5a3d12; }
-.hub-btn.fight { grid-column: span 2; min-height: 84px; }
+.hub-btn.fight { min-height: 76px; }
 .hub-btn .badge { margin-left: auto; background: var(--fire2); color: #2a0c05; font-size: 12px; font-weight: 900; padding: 2px 6px; }
 .news { grid-column: 1 / -1; padding: 10px 14px; color: var(--muted); }
 .news b { color: var(--brass2); margin-right: 8px; }
@@ -98,8 +99,8 @@ button { font: inherit; color: inherit; }
 .card .nm { font-weight: 900; }
 .card .cat { font-size: 11px; color: var(--muted); }
 .card .st { font-size: 12px; color: var(--muted); line-height: 1.5; }
-.card .ft { display: flex; align-items: center; gap: 8px; margin-top: auto; }
-.card .price { color: var(--brass3); font-weight: 700; margin-right: auto; }
+.card .ft { display: flex; align-items: center; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+.card .price { color: var(--brass3); font-weight: 700; margin-right: auto; white-space: nowrap; }
 .cat-firepower { border-left-color: var(--brass2); }
 .cat-energy { border-left-color: var(--fire2); }
 .cat-cooling { border-left-color: var(--water2); }
@@ -168,6 +169,10 @@ body[data-screen=editor] #screen { min-height: 0; }
 .tile .nm { font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .tile .n { position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 700; color: var(--text); text-shadow: 1px 1px 0 #000; }
 .tile .n.price { color: var(--brass3); }
+.btn.danger { background: var(--fire1); color: #fff; box-shadow: inset 2px 2px 0 var(--fire2), inset -2px -2px 0 #6e1f0e; }
+.card.street .top, .card.bp .top { flex-wrap: wrap; }
+.card.street .top .price { margin-left: auto; color: var(--brass3); font-weight: 700; }
+.card.street canvas, .card.bp canvas { width: 100%; height: auto; background: var(--bg1); border: 2px solid var(--dark0); }
 .tile.empty canvas { opacity: .45; filter: grayscale(.6); }
 .tile.empty .nm { color: var(--muted); }
 .tile.sel { background: var(--iron3); outline: 2px solid var(--brass3); outline-offset: -2px; }

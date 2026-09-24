@@ -86,7 +86,7 @@ SA.UI = (() => {
     }
     dialog('资金不足', [lines,
       h('p', {}, `现有 ${money(d.money)}，还差 `, h('b', { class: 'gold' }, money(short)), '。要向伦敦蒸汽银行贷款吗？'),
-      h('p', { class: 'muted' }, `借 ${money(loan)}：债务 ${money(d.debt)} → ${money(d.debt + loan)}，每打一场比赛加收 10% 利息。`)],
+      h('p', { class: 'muted' }, `借 ${money(loan)}：债务 ${money(d.debt)} → ${money(d.debt + loan)}，每打一场锦标赛加收 10% 利息。`)],
     [{ label: `贷款 ${money(loan)} 并${okLabel}`, primary: true, onClick: () => { SA.S.borrow(loan); done(); } }]);
   }
 
@@ -207,7 +207,8 @@ SA.UI = (() => {
         btn('dice', '下注', d.bet ? `已押 ${money(d.bet.amount)} @ ${d.bet.odds}` : `赔率 ${SA.S.odds()}`, () => openBet()),
         btn('cloud', '云车库', '分享载具 · 挑战其他玩家', () => openCloud()),
         btn('eye', '图例', '看懂模块的颜色与铭牌', () => openLegend()),
-        btn('swords', '出战', `第 ${d.round + 1} 轮 · 对手「${op.name}」· 奖金 ${money(op.prize)}`, () => deploy(), { cls: 'primary fight' }),
+        btn('flag', '街头赛', `评分上限 ${SA.STREET_TIERS.map(t => t.cap).join('/')} · 赚点外快`, () => SA.Street.open()),
+        btn('swords', '锦标赛出战', `第 ${d.round + 1} 轮 · 对手「${op.name}」· 奖金 ${money(op.prize)}`, () => deploy(), { cls: 'primary fight' }),
       ),
       h('section', { class: 'panel news' }, h('b', {}, '号外'), d.news),
     ));
@@ -248,7 +249,7 @@ SA.UI = (() => {
     } else {
       const cap = SA.S.LOAN_CAP;
       body = h('div', { class: 'list' },
-        h('div', { class: 'panel row' }, h('span', { class: 'grow' }, '伦敦蒸汽银行：每打一场比赛，未还清的债务加收 10% 利息。上限 ', money(cap), '。'),
+        h('div', { class: 'panel row' }, h('span', { class: 'grow' }, '伦敦蒸汽银行：每打一场锦标赛，未还清的债务加收 10% 利息。上限 ', money(cap), '。'),
           h('b', {}, `当前债务 ${money(d.debt)}`)),
         h('div', { class: 'panel row' },
           h('button', { class: 'btn primary', disabled: SA.S.loanRoom() < 300, onclick: () => { SA.S.borrow(300); SA.S.save(); topbar(); openShop('loan'); } }, '借 £300'),
@@ -362,7 +363,7 @@ SA.UI = (() => {
       parts.unshift(h('div', { class: 'panel scout', style: 'padding:12px;margin-bottom:12px' },
         h('div', {}, holder, h('div', { class: 'seg', style: 'margin-top:8px' },
           h('button', { class: 'btn small', onclick: () => show('pixel') }, '像素'),
-          h('button', { class: 'btn small', onclick: () => show('blueprint') }, '蓝图'))),
+          h('button', { class: 'btn small', onclick: () => show('blueprint') }, '图纸'))),
         h('div', { class: 'bars' }, h('b', {}, op.name), h('span', { class: 'muted', style: 'font-size:12px' }, op.blurb),
           h('span', { style: 'font-size:12px' }, `耐久 ${st.hp} · 火力 ${st.dps.toFixed(1)}/秒 · 侧炮 ${st.byId.side_cannon || 0} · 锅炉 ${st.boilers} · 水箱 ${st.tanks}`),
           h('span', { style: 'font-size:12px' }, `闪避 ${Math.round(st.evade * 100)}% · 烧干时间 ${st.overheat === Infinity ? '∞' : Math.round(st.overheat) + ' 秒'}`))));
@@ -479,7 +480,7 @@ SA.UI = (() => {
   function afterBattle(res) {
     const d = S();
     const lines = [];
-    if (res.mode === 'tournament') {
+    if (res.mode === 'tournament' || res.mode === 'street') {
       d.battles++;
       // 损伤带回工坊
       SA.V.each(d.vehicle, (cell, r, c, layer) => {
@@ -487,6 +488,22 @@ SA.UI = (() => {
         const b = res.playerVehicle[layer][r][c];
         cell.hp = b ? Math.max(0, b.hp) : 0;
       });
+    }
+    if (res.mode === 'street') {
+      const tier = SA.STREET_TIERS[res.opts.streetTier];
+      if (res.win) {
+        d.money += res.prize; d.wins++;
+        lines.push(`奖金 +${money(res.prize)}`);
+        d.news = `「${d.vehicle.name}」在${tier.name}赢了「${res.enemyName}」，进账 ${money(res.prize)}。`;
+      } else {
+        d.losses++;
+        d.news = `「${d.vehicle.name}」在${tier.name}输给了「${res.enemyName}」。`;
+      }
+      lines.push('街头赛不计声望，也不影响锦标赛进度。');
+      SA.Street.consume(res.opts.streetTier);
+      const st = SA.V.stats(d.vehicle);
+      if (st.damaged + st.broken) lines.push(`${st.damaged + st.broken} 个模块受损，记得去「修理」。`);
+    } else if (res.mode === 'tournament') {
       if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${money(add)}`); }
       if (res.win) {
         d.money += res.prize; d.wins++;

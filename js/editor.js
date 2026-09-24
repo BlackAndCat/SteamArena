@@ -215,6 +215,7 @@ SA.Editor = (() => {
       if (old) { v[layer][r][c] = null; scrap = stash(old); }
       SA.V.put(v, id, r, c);
       SA.S.addInv(id, -1);
+      st.sel = null; st.pick = null;   // 放置完成即取消选中
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
       say(old ? `${M[old.id].name} → ${m.name}${scrap ? `，损毁件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
@@ -228,7 +229,7 @@ SA.Editor = (() => {
     let scrap = 0;
     for (const cell of res.removed) scrap += stash(cell);
     say(`拆下 ${res.removed.map(x => M[x.id].name).join('、')}${scrap ? `，损毁件回收 ${money(scrap)}` : '，已放回库存'}`);
-    if (st.pick && st.pick.layer === layer && st.pick.r === r && st.pick.c === c) st.pick = null;
+    st.pick = null;
     changed();
   }
 
@@ -237,14 +238,14 @@ SA.Editor = (() => {
     const res = SA.V.move(v, from.layer, from.r, from.c, to.r, to.c);
     if (!res.ok) { if (res.reason) say(res.reason, true); return; }
     say(res.swapped ? `对调：${M[v[from.layer][to.r][to.c].id].name} ⇄ ${M[v[from.layer][from.r][from.c].id].name}` : `移到${where(to.r, to.c)}`);
-    st.pick = { layer: from.layer, r: to.r, c: to.c };
+    st.pick = null;   // 移动完成即取消选中
     changed();
   }
 
   function repair(cells) {
     const cost = cells.reduce((a, x) => a + SA.S.repairCost(x), 0);
     SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false,
-      onPaid: () => { for (const x of cells) x.hp = SA.V.maxHp(x); say(`修好了，花费 ${money(cost)}`); changed(); } });
+      onPaid: () => { for (const x of cells) x.hp = SA.V.maxHp(x); st.pick = null; say(`修好了，花费 ${money(cost)}`); changed(); } });
   }
 
   function buyOne(id) {
@@ -275,6 +276,7 @@ SA.Editor = (() => {
       h('button', { class: `status ${bad ? 'bad' : 'ok'}`, title: '展开/收起性能铭牌', onclick: () => { st.plateOpen = !st.plateOpen; renderPlate(); } },
         h('span', { class: 'rating' }, `评分 ${s.rating}`),
         h('span', { class: 'flag' }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战')),
+      h('button', { class: 'btn small', title: '保存 / 应用改装蓝图', onclick: () => SA.Blueprints.open(() => { st.sel = null; st.pick = null; changed(); }) }, '蓝图库'),
       h('button', { class: 'btn small', title: '改装规则', onclick: openRules }, '?'),
       h('button', { class: 'btn small primary', onclick: () => close(() => SA.UI.deploy()) }, '出战'),
     );
@@ -304,7 +306,7 @@ SA.Editor = (() => {
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', h('span', { class: `q q${m.q}` }, SA.QUALITY[m.q].star), ' ',
             n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(m.price)}`)),
-          h('div', { class: 'sub' }, n ? '点格子放置；点已有模块直接替换；再点同款模块拆下' : '点格子即可购买并安装')),
+          h('div', { class: 'sub' }, n ? '点格子放置；点已有模块直接替换，点同款模块拆下' : '点格子即可购买并安装')),
         h('div', { class: 'acts' },
           h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`),
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.sel = null; renderAll(); } }, '取消')));
@@ -329,7 +331,7 @@ SA.Editor = (() => {
     st.pick = null;
     const n = st.stats.issues.length;
     ctxEl.append(h('div', { class: 'info' },
-      n ? h('div', { class: 'err' }, `${n} 个模块悬空或摆放不合规（红框），出战前要接好`) : h('div', {}, h('b', {}, '改装台')),
+      n ? h('div', { class: 'err' }, `${n} 个模块悬空或摆放不合规（红色闪烁），出战前要接好`) : h('div', {}, h('b', {}, '改装台')),
       h('div', { class: 'sub' }, '选下面的模块，再点格子放置；拖动车上的模块可以移动/对调，拖出车外放回库存。没有库存的模块可以直接购买。')));
   }
 
@@ -341,7 +343,7 @@ SA.Editor = (() => {
     const stockOf = (k) => SA.MODULE_ORDER.filter(id => k === 'all' || M[id].cat === k).reduce((a, id) => a + (inv[id] || 0), 0);
     toolsEl.append(
       seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(st.sel) !== k) st.sel = null; }),
-      seg([['pixel', '像素'], ['blueprint', '蓝图']], st.view, (k) => { st.view = k; }),
+      seg([['pixel', '像素'], ['blueprint', '图纸']], st.view, (k) => { st.view = k; }),
       h('div', { class: 'inv-tabs' }, TABS.map(([k, n]) =>
         h('button', { class: `tab ${st.tab === k ? 'on' : ''} ${k !== 'all' ? `cat-${k}` : ''}`, onclick: () => { st.tab = k; renderTools(); renderInv(); } },
           n, h('span', { class: 'cnt' }, stockOf(k))))),
@@ -376,9 +378,11 @@ SA.Editor = (() => {
   function openRules() {
     SA.UI.openModal('改装规则', [
       h('div', { class: 'list rules' },
-        h('div', {}, h('b', {}, '操作'), '：选底部的模块再点格子放置；点已有模块会直接替换（换下的放回库存），再点同款模块就拆下。点车上的模块可选中它（修理 / 拆下）；拖动可以移动或对调，拖出车外放回库存。右键 = 拆下，Esc = 取消，Delete = 拆下选中的模块。'),
+        h('div', {}, h('b', {}, '操作'), '：选底部的模块再点格子放置；点已有模块会直接替换（换下的放回库存），点同款模块就拆下。点车上的模块可选中它（修理 / 拆下）；拖动可以移动或对调，拖出车外放回库存。每次放置、移动、拆下完成后自动取消选中。右键 = 拆下，Esc = 取消，Delete = 拆下选中的模块。'),
+        h('div', {}, h('b', {}, '颜色'), '：绿色闪烁 = 选中 / 可以放；红色闪烁 = 悬空、不合规或不能放；空格上的淡绿 = 能稳稳装上的位置。'),
+        h('div', {}, h('b', {}, '蓝图库'), '：把当前车辆存成本地蓝图，随时一键换装；官方蓝图提供履带、四足、双足的基础构型，不能删除。'),
         h('div', {}, h('b', {}, '购买'), '：没有库存的模块也能直接放，确认后自动购买；钱不够会询问是否向银行贷款。'),
-        h('div', {}, h('b', {}, '悬空'), '：改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘，红框标出的模块要先接好。'),
+        h('div', {}, h('b', {}, '悬空'), '：改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘，红色闪烁的模块要先接好。'),
         h('div', {}, h('b', {}, '主体层'), '：底盘只能放最底行；其他模块必须叠在底盘或其他模块上，最高 6 层。直射火炮、机枪的同一行前方不能有己方模块；高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角/撞锤装在装甲前）必须是这一行的最前端，上面不能叠东西。'),
         h('div', {}, h('b', {}, '侧挂层'), '：侧炮挂在任意主体模块上，射击不会被己方挡住，但命中率低。被瞄准时敌人只打侧炮；下面的模块被毁，侧炮也会掉落。'),
         h('div', { class: 'legend' }, Object.values(SA.CAT).map(c => h('span', {}, h('i', { style: `background:${c.plate}` }), c.name)))),
@@ -386,11 +390,28 @@ SA.Editor = (() => {
   }
 
   // ---------- 绘制 ----------
-  function corners(x, y, col) {
-    SA.SPR.useCtx(g);
-    const e = C - 1, L = 6;
-    for (const [dx, dy, w, hh] of [[1, 1, L, 2], [1, 1, 2, L], [e - L, 1, L, 2], [e - 1, 1, 2, L], [1, e - 1, L, 2], [1, e - L, 2, L], [e - L, e - 1, L, 2], [e - 1, e - L, 2, L]])
-      SA.SPR.R(x + dx, y + dy, w, hh, col);
+  // 状态提示：整格缓慢闪烁的颜色（红 = 不可用/悬空，绿 = 选中/可放置），不再描边
+  const RED = '#ff3b2f', GREEN = '#6fcf6a', WHITE = '#ffffff';
+  const pulse = (t, lo, hi, per = 1.6) => lo + (hi - lo) * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 / per));
+  const tmp = document.createElement('canvas');
+  tmp.width = C; tmp.height = C;
+  const tg = tmp.getContext('2d');
+  // 把 paint(tg) 画出来的像素整体染色后叠到画布上（只染模块本身，不染背景）
+  function tint(paint, x, y, color, a) {
+    tg.globalCompositeOperation = 'source-over';
+    tg.clearRect(0, 0, C, C);
+    paint(tg);
+    tg.globalCompositeOperation = 'source-atop';
+    tg.fillStyle = color;
+    tg.fillRect(0, 0, C, C);
+    g.globalAlpha = a;
+    g.drawImage(tmp, x, y);
+    g.globalAlpha = 1;
+  }
+  const fromVeh = (vc, x, y) => (c2d) => c2d.drawImage(vc, x, y, C, C, 0, 0, C, C);
+  const fromModule = (id, t) => (c2d) => SA.SPR.drawModule(c2d, id, 0, 0, { t, heat: 0.3, water: 1 });
+  function fillCell(x, y, color, a) {
+    g.globalAlpha = a; g.fillStyle = color; g.fillRect(x + 1, y + 1, C - 1, C - 1); g.globalAlpha = 1;
   }
   function cross(x, y) {
     SA.SPR.useCtx(g);
@@ -399,6 +420,18 @@ SA.Editor = (() => {
     SA.SPR.line(x + b, y + a, x + a, y + b, 5, P.black);
     SA.SPR.line(x + a, y + a, x + b, y + b, 3, P.white);
     SA.SPR.line(x + b, y + a, x + a, y + b, 3, P.white);
+  }
+
+  // 拖动到某格后，那一格会不会悬空（按悬停格缓存，避免每帧克隆）
+  let dropMemo = { key: '', bad: false };
+  function dropBad(drag, hv) {
+    const key = `${drag.layer}${drag.r}${drag.c}>${hv.r}${hv.c}`;
+    if (dropMemo.key !== key) {
+      const v = SA.V.clone(veh());
+      SA.V.move(v, drag.layer, drag.r, drag.c, hv.r, hv.c);
+      dropMemo = { key, bad: SA.V.issues(v).some(x => x.r === hv.r && x.c === hv.c) };
+    }
+    return dropMemo.bad;
   }
 
   function tipText() {
@@ -444,44 +477,53 @@ SA.Editor = (() => {
       for (let c = 0; c < K.COLS; c++) if (v.body[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
     }
     const drag = st.drag && st.drag.kind === 'cell' ? st.drag : null;
-    g.drawImage(SA.SPR.renderVehicle(v, {
+    const vc = SA.SPR.renderVehicle(v, {
       key: 'editor', t, view: st.view, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,
       blocked: st.stats.blocked, dimBody: st.layer === 'side' && !bp, dimCell: drag && drag.layer === 'body' ? drag : null,
-    }), 0, 0);
+    });
+    g.drawImage(vc, 0, 0);
 
-    // 悬空 / 不合规：洋红虚线框 + 感叹号
-    const dash = Math.floor(t * 8);
+    const cellXY = (r, c) => [PADX + c * C, r * C];
+
+    // 悬空 / 不合规：整格红色闪烁 + 感叹号
     for (const x of st.stats.issues) {
-      const px = PADX + x.c * C, py = x.r * C;
-      SA.SPR.outline(g, px + 2, py + 2, C - 4, C - 4, SA.PAL.magenta, P.black, dash);
-      SA.SPR.text(g, '!', px + C - 8, py + 5, SA.PAL.magenta, 2);
+      const [px, py] = cellXY(x.r, x.c);
+      tint(fromVeh(vc, px, py), px, py, RED, pulse(t, 0.2, 0.65));
+      SA.SPR.text(g, '!', px + C - 8, py + 5, RED, 2);
     }
 
     const hv = st.hover;
     const id = drag ? drag.id : st.sel;
     if (id) {
-      // 合规位置打角标，方便一眼找到能稳稳装上的格子
+      // 能稳稳装上的空格：淡淡的绿色呼吸
       if (!drag) for (let r = 0; r < K.ROWS; r++)
         for (let c = 0; c < K.COLS; c++)
-          if (SA.V.canPlace(v, id, r, c).ok) corners(PADX + c * C, r * C, P.white);
+          if (SA.V.canPlace(v, id, r, c).ok) fillCell(...cellXY(r, c), GREEN, pulse(t, 0.06, 0.2, 2));
       if (hv) {
-        const x = PADX + hv.c * C, y = hv.r * C;
+        const [x, y] = cellXY(hv.r, hv.c);
         const cur = v[SA.V.layerOf(id)][hv.r][hv.c];
         const home = drag && drag.r === hv.r && drag.c === hv.c;
-        if (!st.drag && cur && cur.id === id) cross(x, y);
-        else if (!home) {
-          g.globalAlpha = cur ? 0.85 : 0.7;
+        if (!drag && cur && cur.id === id) {           // 同款：再点一次拆下
+          tint(fromVeh(vc, x, y), x, y, RED, pulse(t, 0.3, 0.7, 1));
+          cross(x, y);
+        } else if (!home) {
+          const bad = drag ? dropBad(drag, hv) : (cur ? hurt(cur) : !SA.V.canPlace(v, id, hv.r, hv.c).ok);
           if (cur) { g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(x, y, C, C); }
+          g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1 });
           g.globalAlpha = 1;
+          tint(fromModule(id, t), x, y, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
         }
-        SA.SPR.outline(g, x, y, C, C, P.white, P.black);
       }
-    } else if (hv) {
-      const cell = v[st.layer][hv.r][hv.c];
-      if (cell) SA.SPR.outline(g, PADX + hv.c * C, hv.r * C, C, C, st.layer === 'side' ? SA.PAL.magenta : P.white, P.black);
+    } else if (hv && v[st.layer][hv.r][hv.c]) {
+      const [x, y] = cellXY(hv.r, hv.c);
+      tint(fromVeh(vc, x, y), x, y, WHITE, 0.18);
     }
-    if (st.pick && !drag) SA.SPR.outline(g, PADX + st.pick.c * C, st.pick.r * C, C, C, st.pick.layer === 'side' ? SA.PAL.magenta : P.brass[3], P.black, dash);
+    // 选中：整格绿色闪烁
+    if (st.pick && !drag) {
+      const [x, y] = cellXY(st.pick.r, st.pick.c);
+      tint(fromVeh(vc, x, y), x, y, GREEN, pulse(t, 0.25, 0.6));
+    }
 
     const tip = tipText();
     const text = tip ? tip.text : '';
