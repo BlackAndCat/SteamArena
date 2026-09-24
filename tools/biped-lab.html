@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>双足底盘升级版 · 设计探索</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding: 16px; overflow-y: auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  h2 { color: var(--brass2); font-size: 15px; margin: 24px 0 10px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 900px; line-height: 1.6; margin: 0 0 12px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 2px solid var(--dark0); }
+  .seg button { background: var(--dark2); border: 0; padding: 4px 10px; cursor: pointer; }
+  .seg button.on { background: var(--brass1); color: var(--text); }
+  .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  .bar input[type=range] { width: 110px; }
+  .lineup { display: flex; flex-wrap: wrap; gap: 10px; }
+  .lu { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
+  .lu canvas, .stage canvas { background: var(--bg2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 820px), 1fr)); gap: 16px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; }
+  .card header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card header b { font-size: 17px; }
+  .card header .sub { color: var(--muted); }
+  .chip { font-size: 12px; font-weight: 900; padding: 1px 7px; border: 2px solid currentColor; letter-spacing: 1px; }
+  .stages { display: flex; flex-wrap: wrap; gap: 10px; }
+  .stage { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); max-width: 100%; }
+  .stage canvas { max-width: 100%; height: auto; }
+  .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 900px; line-height: 1.6; margin-bottom: 12px; }
+  .find b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
+  .note { color: var(--text); line-height: 1.65; margin: 10px 0 0; max-width: 780px; }
+  body.sil canvas.px { filter: brightness(0); }
+  body.gray canvas.px { filter: grayscale(1); }
+  .myth { background: linear-gradient(90deg, var(--brass3), var(--fire2)); -webkit-background-clip: text; background-clip: text; color: transparent !important; border-color: var(--fire2) !important; }
+</style></head>
+<body>
+<h1>双足底盘升级版 · 设计探索</h1>
+<p class="lead">以现役双足底盘为基础：六个品质各一款升级版（腿越来越帅，不再是两根小铁棍），再加五款探索版。
+每款同一份造型代码按三个轴对比：<b>像素密度</b>（1× 原生 48px / 2× 精细 96px：车体按 2 倍放大、只有腿是精细像素，两边显示成一样大）、
+<b>腿长</b>（×1 = 现在的格高；×1.5 ≈ 整车抬高 16px）、<b>腿的分布</b>（每格一对 / 整段底盘只要一对巨腿）。「剪影 / 灰度」是 docs/art-direction.md 里的验收测试。</p>
+<div class="find"><b>初步结论</b>
+<ol>
+<li>限制主要不在像素密度，而在腿只能待在底盘这一格里（胯到地面只有 33px）。整车里腿只占四分之一高度，画得再细也显小。</li>
+<li>腿长 ×1.5（原生 48px 像素、整车抬高约 16px）就能把圣骑、龙骑画出层次，不需要混用两种像素密度。</li>
+<li>「整段一对巨腿」最像双足机甲；每格一对腿在三格底盘上是六条腿，像蜈蚣。代价：底盘的受击 / 毁坏表现要改成按整条腿算（例如大腿、膝、小腿分别对应不同格）。</li>
+<li>2× 精细的细节更好（马刺星轮、齿轮齿、鳞片），但车体是放大的粗像素、腿是细像素，同屏两种像素大小，违反 art-direction §9「全游戏只能有一种像素大小」。建议不用，或者整套美术一起升到 96px。</li>
+</ol></div>
+
+<div class="bar">
+  <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
+  <span class="seg" id="step"><button data-v="-1">◀ 帧</button><button data-v="1">帧 ▶</button></span>
+  <label>速度 <input type="range" id="spd" min="15" max="120" value="58"><span id="spdv"></span></label>
+  <span class="seg" id="frames"><button data-v="12" class="on">12 帧步态</button><button data-v="24">24 帧</button></span>
+  <span class="seg" id="legk"><button data-v="1" class="on">腿长 ×1</button><button data-v="1.25">×1.25</button><button data-v="1.5">×1.5</button></span>
+  <span class="seg" id="giant"><button data-v="" class="on">每格一对腿</button><button data-v="1">整段一对巨腿</button></span>
+  <label><input type="checkbox" id="far" checked> 远侧腿</label>
+  <span class="seg" id="test"><button data-v="" class="on">正常</button><button data-v="sil">剪影</button><button data-v="gray">灰度</button></span>
+</div>
+
+<h2>并排一览（2× 精细，单格底盘）</h2>
+<div class="lineup" id="lineup"></div>
+
+<h2>逐款对比（1× 原生 vs 2× 精细，三格底盘 + 车体）</h2>
+<div class="cards" id="cards"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script src="biped-lab.js"></script>
+<script>
+(() => {
+  const { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY } = SA.LEGLAB, P = SA.PAL;
+  // 品质：现有三档之后续三档（建议色：金属等级，避开语义色里的绿 / 青 / 炉火橙）
+  const Q = {
+    0: ['现役', 'var(--muted)'], '-1': ['探索', 'var(--iron4)'],
+    1: ['★ 普通', 'var(--muted)'], 2: ['★★ 精良', 'var(--text)'], 3: ['★★★ 稀有', 'var(--brass2)'],
+    4: ['★4 史诗', '#e0875a'], 5: ['★5 传说', 'var(--brass3)'], 6: ['★6 神话', 'myth'],
+  };
+  const st = { mv: true, phase: 0, t: 0, speed: 58, frames: 12, far: true, mode: 'walk', k: 1, giant: false };
+
+  // 车体：官方起步车，底盘行留空（腿由本页画）
+  const veh = SA.V.fromAscii('lab', ['........', '........', '........', '...KC...', '...OWA..', '........']);
+  const vc = SA.SPR.renderVehicle(veh, { key: 'lab' });
+  const BODY = document.createElement('canvas'); BODY.width = vc.width; BODY.height = vc.height; BODY.getContext('2d').drawImage(vc, 0, 0);
+
+  const pens = new Map();
+  const penFor = (cv) => { const k = cv.width + 'x' + cv.height; if (!pens.has(k)) pens.set(k, Pen(cv.width, cv.height)); return pens.get(k); };
+  const mkCanvas = (uw, uh, s, css) => {
+    const cv = document.createElement('canvas'); cv.className = 'px';
+    cv.width = uw * s; cv.height = uh * s; cv.style.width = uw * css + 'px';
+    return cv;
+  };
+
+  // 三格底盘 + 车体：单位坐标里截取 x 124..318、y 132..322（下方留出加长腿的空间）
+  const SX = 124, SY = 132, SW = 194, SH = 190;
+  const GIANT_K = 1.8;   // 整段一对巨腿：三格底盘只画一条近侧腿 + 一条远侧腿，放大 1.8 倍
+  function renderStage(cv, e, s) {
+    const g = cv.getContext('2d'), pn = penFor(cv).at(s, -SX, -SY);
+    g.clearRect(0, 0, cv.width, cv.height);
+    const giant = st.giant && !e.d.game, k = giant ? GIANT_K : st.k;
+    const gy = 240 + groundY(e, k);
+    pn.fill(SX, gy, SW, SY + SH - gy, P.bg[4]).fill(SX, gy, SW, 1, P.bg[5]);
+    const os = [0, 1, 2].map(ri => cellOpts(e, st, ri, 3, { top: true, noLegs: giant }));
+    // 巨腿挂点：近侧在整段前 1/3 偏后，远侧往后错开
+    const go = { ...cellOpts(e, st, 0, 1, { top: true }) };
+    if (st.far) {
+      os.forEach((o, ri) => drawCell(pn, g, e.d, (3 + ri) * 48, 240, o, 'far'));
+      if (giant) drawLeg(pn, e.d, legAt(e.d, true, 3 * 48, 240, go, 3 * 48 + 104), go, k);
+    }
+    pn.flush(g);
+    pn.blit(g, BODY, -SX0(), os[0].bd);
+    os.forEach((o, ri) => drawCell(pn, g, e.d, (3 + ri) * 48, 240, o, 'near'));
+    if (giant) drawLeg(pn, e.d, legAt(e.d, false, 3 * 48, 240, go, 3 * 48 + 44), go, k);
+    pn.flush(g);
+  }
+  const SX0 = () => SA.SPR.PADX;
+  // 单格：单位坐标 x -8..62、y -4..68
+  function renderCell(cv, e, s) {
+    const g = cv.getContext('2d'), pn = penFor(cv).at(s, 8, 4);
+    g.clearRect(0, 0, cv.width, cv.height);
+    const gy = groundY(e, st.k);
+    pn.fill(-8, gy, 70, 68 - gy, P.bg[4]).fill(-8, gy, 70, 1, P.bg[5]);
+    const o = cellOpts(e, st, 0, 1, { top: false });
+    drawCell(pn, g, e.d, 0, 0, o, st.far ? undefined : 'near');
+    pn.flush(g);
+  }
+
+  const chip = (q) => { const [t, c] = Q[q]; const el = document.createElement('span'); el.className = 'chip' + (c === 'myth' ? ' myth' : ''); el.textContent = t; if (c !== 'myth') el.style.color = c; return el; };
+  const views = [];
+  const LU = document.getElementById('lineup'), CARDS = document.getElementById('cards');
+  for (const e of DESIGNS) {
+    const cv = mkCanvas(70, 72, 2, 2);
+    const d = document.createElement('div'); d.className = 'lu';
+    const nm = document.createElement('div'); nm.append(chip(e.q), ' ', e.name);
+    d.append(cv, nm); LU.append(d);
+    views.push({ cv, draw: () => renderCell(cv, e, 2) });
+
+    const card = document.createElement('section'); card.className = 'card';
+    const hd = document.createElement('header');
+    const b = document.createElement('b'); b.textContent = e.name;
+    const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = e.sub;
+    hd.append(chip(e.q), b, sub);
+    const row = document.createElement('div'); row.className = 'stages';
+    for (const [s, label] of [[1, '1× 原生 48px'], [2, '2× 精细 96px']]) {
+      const c2 = mkCanvas(SW, SH, s, 2);
+      const w = document.createElement('div'); w.className = 'stage'; w.append(label, c2); row.append(w);
+      views.push({ cv: c2, draw: () => renderStage(c2, e, s) });
+    }
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = e.note;
+    card.append(hd, row, p); CARDS.append(card);
+  }
+
+  // 只重画看得见的
+  const vis = new Set();
+  const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
+  views.forEach(v => io.observe(v.cv));
+
+  let last = performance.now(), key = '';
+  const redraw = (all) => { for (const v of views) if (all || vis.has(v.cv)) v.draw(); };
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    st.t += dt;
+    if (st.mode === 'walk') st.phase += st.speed * dt;
+    const gf = SA.Dyn.frame(st.phase, st.frames, 60 / st.frames);
+    const k = [st.mode, gf, Math.floor(st.t * 8) % 4, st.far, st.frames, st.k, st.giant].join('|');
+    if (k !== key) { key = k; redraw(false); }
+    requestAnimationFrame(tick);
+  }
+
+  const seg = (id, fn) => document.getElementById(id).addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    if (id !== 'step') for (const x of btn.parentNode.children) x.classList.toggle('on', x === btn);
+    fn(btn.dataset.v); key = '';
+  });
+  seg('mode', (v) => { st.mode = v; st.mv = v !== 'stand'; });
+  seg('step', (v) => { if (st.mode === 'walk') return; st.mv = true; st.phase += (60 / st.frames) * +v; });
+  seg('frames', (v) => { st.frames = +v; });
+  seg('legk', (v) => { st.k = +v; });
+  seg('giant', (v) => { st.giant = !!v; });
+  seg('test', (v) => { document.body.classList.remove('sil', 'gray'); if (v) document.body.classList.add(v); });
+  const spd = document.getElementById('spd'), spdv = document.getElementById('spdv');
+  const upd = () => { st.speed = +spd.value; spdv.textContent = SA.kmh(st.speed); };
+  spd.addEventListener('input', upd); upd();
+  document.getElementById('far').addEventListener('change', (ev) => { st.far = ev.target.checked; key = ''; });
+  window.labRedraw = () => redraw(true);   // 调试：强制重画屏幕外的画布
+  redraw(true);
+  requestAnimationFrame(tick);
+})();
+</script></body></html>

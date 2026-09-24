@@ -10,7 +10,7 @@
 python -m http.server 5173
 ```
 
-然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html
+然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html
 
 控制台输入 `SA.reset()` 可清空存档重来。
 
