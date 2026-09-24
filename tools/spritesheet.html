@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>模块精灵表</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>body{padding:16px} .sheet{display:flex;flex-wrap:wrap;gap:16px} .it{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px}
+.row2{display:flex;gap:16px;margin-top:16px;flex-wrap:wrap}</style></head>
+<body>
+<h2 style="color:var(--brass2)">模块精灵表（原生 48px × 2 倍）</h2>
+<div class="sheet" id="s"></div>
+<div class="row2" id="g"></div>
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script>
+const S = document.getElementById('s');
+for (const id of SA.MODULE_ORDER) {
+  const cv = document.createElement('canvas'); cv.width = 84; cv.height = 52; cv.className = 'px';
+  cv.style.width = 84*2+'px'; cv.style.height = 52*2+'px'; cv.style.background = SA.PAL.bg[2];
+  SA.SPR.drawModule(cv.getContext('2d'), id, 2, 2, { heat: 0.6, water: 0.6, t: 0.3 });
+  const d = document.createElement('div'); d.className = 'it'; d.append(cv, SA.MODULES[id].name); S.append(d);
+}
+const G = document.getElementById('g');
+for (const [name, rows, sides] of [['女王号', SA.OPPONENTS[5].rows, SA.OPPONENTS[5].sides], ['夜行者', SA.CLOUD_PRESETS[2].rows, SA.CLOUD_PRESETS[2].sides]]) {
+  for (const view of ['pixel', 'blueprint']) {
+    const v = SA.V.fromAscii(name, rows, sides);
+    const src = SA.SPR.renderVehicle(v, { key: name + view, view, heat: .5, water: .6, blocked: SA.V.blockedList(v) });
+    const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height; cv.className = 'px';
+    const g = cv.getContext('2d'); g.fillStyle = SA.PAL.bg[2]; g.fillRect(0,0,cv.width,cv.height); g.drawImage(src, 0, 0);
+    cv.style.width = src.width+'px'; G.append(cv);
+  }
+}
+</script></body></html>
