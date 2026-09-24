@@ -55,8 +55,10 @@ SA.V = (() => {
     if (m.layer === 'body') {
       if (r === K.ROWS - 1) return no('最底行只能放底盘');
       if (v.body[r][c]) return no('这里已经有模块');
-      if (!v.body[r + 1][c]) return no('下方没有支撑：需要底盘或模块托住');
-      if (isRamCell(v.body[r + 1][c])) return no('撞击武器上面不能叠模块');
+      // 上下左右只要挨着一个（非撞击件的）模块就能塞进去；是否一路连到底盘由 issues() 检查
+      const near = [[r + 1, c], [r, c - 1], [r, c + 1], [r - 1, c]].map(([rr, cc]) => rr >= 0 && cc >= 0 && cc < K.COLS && v.body[rr] && v.body[rr][cc]).filter(Boolean);
+      if (!near.length) return no('悬空：上下左右都没有模块可以依靠');
+      if (near.every(isRamCell)) return no('撞击武器不能当支撑');
       if (ramBehind()) return no('撞击武器前方不能再放模块');
       return { ok: true };
     }
@@ -117,12 +119,24 @@ SA.V = (() => {
     return { ok: true, swapped: !!v[layer][r1][c1] };
   }
 
-  // 出战检查：逐格找出悬空（没有一路连到底盘）或摆放不合规的模块
+  // 出战检查：逐格找出悬空（没有一路连到底盘）或摆放不合规的模块。
+  // 连通规则：从最底行的底盘出发，上下左右相邻的主体模块都算连上（可以侧挂、可以悬挑）；撞击件不传导支撑
   function issues(v) {
     const out = [];
     const B = v.body, last = K.ROWS - 1;
-    const ok = grid();   // 该主体格已稳稳连到底盘
+    const ok = grid();   // 该主体格已连到底盘
     const flag = (layer, r, c, reason) => out.push({ layer, r, c, reason });
+    const isBody = (cell, r) => cell && M[cell.id].layer === 'body' && r !== last;
+    const queue = [];
+    for (let c = 0; c < K.COLS; c++) if (B[last][c] && M[B[last][c].id].layer === 'chassis') { ok[last][c] = true; queue.push([last, c]); }
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      for (const [rr, cc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
+        if (rr < 0 || rr > last || cc < 0 || cc >= K.COLS || ok[rr][cc]) continue;
+        if (!isBody(B[rr][cc], rr)) continue;
+        ok[rr][cc] = true; queue.push([rr, cc]);
+      }
+    }
     for (let r = last; r >= 0; r--)
       for (let c = 0; c < K.COLS; c++) {
         const cell = B[r][c];
@@ -130,7 +144,6 @@ SA.V = (() => {
         const m = M[cell.id];
         if (m.layer === 'chassis') {
           if (r !== last) flag('body', r, c, '底盘只能放在最底行');
-          else ok[r][c] = true;
         } else if (m.layer === 'ram') {
           const back = c > 0 && B[r][c - 1];
           if (!back || !m.mount.includes(back.id) || !ok[r][c - 1]) flag('body', r, c, `${m.name}要装在${m.mount.map(x => M[x].name).join('/')}的正前方（右侧）`);
@@ -138,12 +151,9 @@ SA.V = (() => {
           else ok[r][c] = true;
         } else if (r === last) {
           flag('body', r, c, '最底行只能放底盘');
-        } else {
+        } else if (!ok[r][c]) {
           const below = B[r + 1][c];
-          if (!below) flag('body', r, c, '悬空：下方没有支撑');
-          else if (isRamCell(below)) flag('body', r, c, '撞击武器上面不能叠模块');
-          else if (!ok[r + 1][c]) flag('body', r, c, '悬空：下方的模块没有连到底盘');
-          else ok[r][c] = true;
+          flag('body', r, c, below && isRamCell(below) ? '悬空：撞击武器不能当支撑' : '悬空：上下左右都没连到底盘');
         }
       }
     for (let r = 0; r < K.ROWS; r++)
@@ -227,7 +237,7 @@ SA.V = (() => {
       if (!alive(cell) || !m.dmg) return;
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
-      s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.07 + s.acc)) / m.reload * s.power;
+      s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.03 + s.acc)) / m.reload * s.power;
       weaponHeat += m.heat / m.reload * s.power;
       weaponWater += m.heat * K.FIRE_WATER / m.reload * s.power;
     });

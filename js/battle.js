@@ -11,7 +11,8 @@ SA.Battle = (() => {
   let B = null, cv, g, dg, wc, bg, wrap, hud = {};
 
   const rnd = (a, b) => a + Math.random() * (b - a);
-  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+  // 散布分布：两个均匀数相加（三角分布），中间密、边缘稀，但扇区边缘确实会打到
+  const gauss = () => Math.random() + Math.random() - 1;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
   // ---------- 阵营 ----------
@@ -169,7 +170,7 @@ SA.Battle = (() => {
   // 按炮管当前仰角开火：炮管还没转到位就扣扳机，炮弹就飞向炮管指的地方
   function fire(s, o, w, side, focus = s.focus) {
     let jit = gauss() * spreadDeg(s, o, w, focus);
-    if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1.4, 2.6) * w.m.spread; // 偏弹
+    if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
     const sh = launch(s, w, barrel(s, w), jit);
     B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, big: w.m.proj === 'shell' });
     s.heat += w.m.heat;
@@ -333,8 +334,11 @@ SA.Battle = (() => {
       // 一维碰撞：恢复系数 0.25，铲斗额外击退
       const mp = p.mass, me = e.mass, vp = p.vx, ve = e.vx;
       const vcm = (mp * vp + me * ve) / (mp + me);
-      p.vx = vcm - 0.25 * (vp - vcm) - knockP * 45 * f;
-      e.vx = vcm - 0.25 * (ve - vcm) + knockE * 45 * f;
+      p.vx = vcm - 0.25 * (vp - vcm);
+      e.vx = vcm - 0.25 * (ve - vcm);
+      // 铲斗 / 撞角的额外击退：两车之间的一对冲量，谁重谁的速度变化小
+      if (knockE) shove(p, e, knockE * 22 * f);
+      if (knockP) shove(e, p, knockP * 22 * f);
     } else if (closing > 0) {
       // 顶牛：按质量合成速度
       const v = (p.mass * p.vx + e.mass * e.vx) / (p.mass + e.mass);
@@ -344,6 +348,14 @@ SA.Battle = (() => {
     const ov = -gap;
     p.x -= ov * e.mass / (p.mass + e.mass);
     e.x += ov * p.mass / (p.mass + e.mass);
+  }
+
+  // a 把 t 往前推：动量守恒的一对冲量。dv 是两车一样重时各自的速度变化；
+  // 质量不同时按质量反比分摊，重车的速度变化永远比轻车小（以前只推对方、还按比例截断，重车会被推得比轻车更远）
+  function shove(a, t, dv) {
+    const dir = isP(a) ? 1 : -1, sum = a.mass + t.mass;
+    t.vx += dir * dv * 2 * a.mass / sum;
+    a.vx -= dir * dv * 2 * t.mass / sum;
   }
 
   // 蒸汽撞锤：贴身时周期性猛击
@@ -363,7 +375,7 @@ SA.Battle = (() => {
       s.punch[key] = 1;
       s.heat += M.piston.heat;
       damage(o, s, { layer: 'body', r: pc.r, c: dc }, M.piston.punch);
-      o.vx += (isP(s) ? 1 : -1) * 60;
+      shove(s, o, 30);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
       const x = frontEdge(s), y = cellY(pc.r) + HALF;
       for (let i = 0; i < 10; i++) part('steam', x, y, rnd(-90, 90), rnd(-120, -15), rnd(0.4, 0.8));
       B.shake = Math.max(B.shake, 4);
@@ -641,10 +653,10 @@ SA.Battle = (() => {
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
-    const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { dimCell: aimT && aimT.layer === 'side' ? aimT : null }));
-    drawVehicle(B.p, pc); drawVehicle(B.e, ec);
+    const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be'));
+    drawVehicle(B.p, pc); drawVehicle(B.e, ec, aimT);
+    overhead(B.p); overhead(B.e);
 
-    if (aimT) SA.SPR.outline(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), C, C, aimT.layer === 'side' ? P.magenta : P.white, P.black);
     // 准星停在模块上：显示它的改装军衔杠
     if (aimT) SA.SPR.chevrons(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), B.e.v[aimT.layer][aimT.r][aimT.c].lv || 0, K.UP_MAX);
     B.previewInfo = null;
@@ -684,10 +696,20 @@ SA.Battle = (() => {
     if (B.aim) {
       const [mx, my] = B.aim.map(Math.round);
       reticle(mx, my, aimT);
+      reticleAlerts(mx, my);
     }
     const cam = B.cam;
     dg.imageSmoothingEnabled = false;
     dg.drawImage(wc, cam.x, cam.y, cam.w, cam.h, 0, 0, W, H);
+    // 过热：屏幕四周红光呼吸，余光就能看到
+    if (!B.p.dead && B.p.heat > 75) {
+      const a = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(B.t * 8))) * Math.min(1, (B.p.heat - 75) / 15 + 0.4);
+      for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, 0, 0, 60, 0, 0, W, 60], [0, H, 0, H - 60, 0, H - 60, W, 60], [0, 0, 60, 0, 0, 0, 60, H], [W, 0, W - 60, 0, W - 60, 0, 60, H]]) {
+        const gr = dg.createLinearGradient(x0, y0, x1, y1);
+        gr.addColorStop(0, `rgba(255,40,30,${a})`); gr.addColorStop(1, 'rgba(255,40,30,0)');
+        dg.fillStyle = gr; dg.fillRect(rx, ry, rw, rh);
+      }
+    }
   }
 
   // 准星：装填中 = 来回摆动的沙漏（外面一圈淡淡的稳定度环）；装好了 = 黄铜齿轮。
@@ -715,9 +737,9 @@ SA.Battle = (() => {
     let ticks = 0, flash = 0;
     for (const w of group) { ticks += p.anim.feedOf(w.key); flash = Math.max(flash, p.anim.flashOf(w.key)); }
     gearReticle(x, y, p.focus, aimT, { fast, ticks, flash, rl });
-    if (aimT && aimT.layer === 'side') {   // 洋红 = 瞄的是侧挂层的侧炮：标一下，免得看不懂
+    if (aimT && aimT.layer === 'side') {   // 瞄的是侧挂层的侧炮：标一下
       g.font = 'bold 13px sans-serif'; g.textAlign = 'left';
-      g.fillStyle = P.black; g.fillText('侧炮', x + 29, y - 13); g.fillStyle = P.magenta; g.fillText('侧炮', x + 28, y - 14);
+      g.fillStyle = P.black; g.fillText('侧炮', x + 29, y - 13); g.fillStyle = P.white; g.fillText('侧炮', x + 28, y - 14);
     }
   }
 
@@ -727,7 +749,7 @@ SA.Battle = (() => {
     const r = reticleR(focus);
     const rot = focus * Math.PI / 2 + (mg.fast ? mg.ticks * Math.PI / 4 + (B.p.fireHeld ? B.t * 9 : 0) : B.t * (full ? 2 : 0.3));   // 快枪按住时齿轮飞转
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 12);
-    const col = full ? (pulse > 0.5 ? '#9dff8a' : '#6fcf6a') : aimT && aimT.layer === 'side' ? P.magenta : P.brass[2];
+    const col = full ? (pulse > 0.5 ? '#9dff8a' : '#6fcf6a') : P.brass[2];
     const hi = full ? '#e8ffd9' : P.brass[3];
     g.save();
     if (full) {   // 绿色光晕
@@ -786,7 +808,76 @@ SA.Battle = (() => {
   }
 
   // 画一辆车：起步憋气的颠簸 + 开火反作用的前后晃动与抬头（动态模块里的车身弹簧）；敌方整体镜像
-  function drawVehicle(s, cvs) {
+  // 一辆车当前的警报（按紧急程度排序）
+  function alertsOf(s) {
+    if (s.dead) return [];
+    const out = [];
+    if (s.heat > 75) out.push(['过热！', '#d8261b']);
+    if (s.waterMax && s.water <= 0) out.push(['没水了', '#1c7f99']);
+    else if (s.waterMax && s.water / s.waterMax < 0.2) out.push(['水快没了', '#1c7f99']);
+    if (s.supply <= 0) out.push(['失去动力', '#d8261b']);
+    if (s.thrown) out.push(['履带掉链', '#d8261b']);
+    if (!s.weapons.some(w => !w.blocked)) out.push(['没有能开火的武器', '#d8261b']);
+    return out;
+  }
+  // 车顶的小仪表：耐久 / 热量 / 水 三条细条 + 警报字，跟着车走，视线不用离开战场
+  function overhead(s) {
+    let top = K.ROWS, lo = 1e9, hi = -1e9;
+    SA.V.each(s.v, (cell, r, c) => { if (!alive(cell)) return; top = Math.min(top, r); const x = cellX(s, c); lo = Math.min(lo, x); hi = Math.max(hi, x + C); });
+    if (hi < lo) return;
+    let a = 0, m = 0;
+    SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
+    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = VY + top * C - 30;
+    const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
+    const bar = (yy, f, col, flash) => {
+      g.fillStyle = 'rgba(7,8,12,0.8)'; g.fillRect(x - 1, yy - 1, w + 2, 6);
+      g.fillStyle = flash && pulse > 0.5 ? '#ffffff' : col; g.fillRect(x, yy, Math.round(w * clamp(f, 0, 1)), 4);
+    };
+    bar(y, a / Math.max(1, m), '#e4e0d6');
+    bar(y + 7, s.heat / K.HEAT_MAX, s.heat > 75 ? '#ff3b2f' : '#ef7a21', s.heat > 75);
+    bar(y + 14, s.waterMax ? s.water / s.waterMax : 0, '#46c2c9', s.waterMax && s.water / s.waterMax < 0.2);
+    const al = alertsOf(s);
+    if (al.length) chips(al, x + w / 2, y - 26, 16);
+  }
+  // 警报牌：实色底 + 白字 + 黑描边，一排居中，底色随脉冲闪（比细字醒目得多）
+  function chips(al, cx, y, size) {
+    const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
+    g.font = `bold ${size}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const pad = 6, hgt = size + 8, gap = 6;
+    const ws = al.map(([t]) => Math.ceil(g.measureText(t).width) + pad * 2);
+    let x = Math.round(cx - (ws.reduce((a, b) => a + b, 0) + gap * (ws.length - 1)) / 2);
+    al.forEach(([t, col], i) => {
+      g.fillStyle = P.black; g.fillRect(x - 2, y - 2, ws[i] + 4, hgt + 4);
+      g.fillStyle = col; g.globalAlpha = 0.7 + 0.3 * pulse; g.fillRect(x, y, ws[i], hgt); g.globalAlpha = 1;
+      if (pulse > 0.5) { g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, ws[i] - 2, hgt - 2); }
+      g.fillStyle = P.black; g.fillText(t, x + ws[i] / 2 + 1, y + hgt / 2 + 2);
+      g.fillStyle = '#ffffff'; g.fillText(t, x + ws[i] / 2, y + hgt / 2 + 1);
+      x += ws[i] + gap;
+    });
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  }
+  // 准星下方：玩家自己最要紧的一两条警报（盯着准星也能看到）
+  function reticleAlerts(x, y) {
+    const al = alertsOf(B.p).slice(0, 2);
+    if (al.length) chips(al, x, y + 34, 14);
+  }
+
+  // 瞄准高亮：整格白色闪烁 + 白描边，侧炮和普通模块一样，不分颜色
+  const hlC = document.createElement('canvas');
+  hlC.width = C + 8; hlC.height = C + 8;
+  function highlight(cvs, lx, ly) {
+    const x = hlC.getContext('2d');
+    x.globalCompositeOperation = 'source-over';
+    x.clearRect(0, 0, C + 8, C + 8);
+    x.drawImage(cvs, lx - 4, ly - 4, C + 8, C + 8, 0, 0, C + 8, C + 8);
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, C + 8, C + 8);
+    const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
+    g.globalAlpha = 0.3 + 0.45 * pulse; g.drawImage(hlC, lx - 4, ly - 4); g.globalAlpha = 1;
+    g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(lx - 1, ly - 1, C + 2, C + 2);
+  }
+
+  function drawVehicle(s, cvs, hl) {
     const w = s.anim.body.x;                       // 本地坐标：负 = 被往后推
     const px = VW / 2, py = K.ROWS * C;            // 以车底中点为支点
     g.save();
@@ -796,6 +887,7 @@ SA.Battle = (() => {
     g.rotate(clamp(w * 0.012, -0.06, 0.06));      // 往后坐时车头微微抬起
     g.drawImage(cvs, -px, -py);
     if (s.dead) g.drawImage(tint(cvs), -px, -py);
+    if (hl) { g.translate(-px, -py); highlight(cvs, PADX + hl.c * C, hl.r * C); }   // 本地坐标：跟着车身晃动、敌方镜像
     g.restore();
   }
 
@@ -818,7 +910,7 @@ SA.Battle = (() => {
     info.slewing = Math.abs(want.a - cur) > 1;
     info.windup = p.fireHeld && p.heldT < w.m.windup;
     const pr = predict(p, B.e, w, cur, side);
-    const col = side ? P.magenta : P.white;
+    const col = P.white;
     const big = w.m.proj === 'shell';
     SA.SPR.useCtx(g);
     const sp = spreadDeg(p, B.e, w);
@@ -837,7 +929,7 @@ SA.Battle = (() => {
       }
       const lens = rays.map(pathLen);
       const same = B.fanLens && B.fanLW === w.key;
-      B.fanLens = same ? B.fanLens.map((L0, i) => L0 + (lens[i] - L0) * Math.min(1, dtv * 10)) : lens;
+      B.fanLens = same ? B.fanLens.map((L0, i) => L0 + clamp((lens[i] - L0) * Math.min(1, dtv * 10), -1200 * dtv, 1200 * dtv)) : lens;   // 扇区宽了以后跳变更大，再限个速
       B.fanLW = w.key;
       g.save(); g.globalAlpha = 0.16; g.fillStyle = col; g.beginPath();
       pathUpTo(rays[0], B.fanLens[0]).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
@@ -934,7 +1026,10 @@ SA.Battle = (() => {
       if (Math.abs(s.vx) > 2) st.push(`${SA.kmh(Math.abs(s.vx))}`);
       if (!s.isAI && s.fireHeld) st.push('开火中');
     }
-    el.state.textContent = st.join(' · ');
+    // 警报用醒目的闪烁标签，普通状态是灰字
+    el.state.innerHTML = '';
+    for (const [t] of alertsOf(s)) el.state.append(h('span', { class: 'alert' }, t));
+    el.state.append(st.filter(x => !/即将烧干|水已耗尽|履带掉链|失去动力|没有能开火/.test(x)).join(' · '));
   }
 
   // 武器组槽位：只有 ≥2 组时才显示，数字键切换

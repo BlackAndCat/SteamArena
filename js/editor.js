@@ -218,8 +218,9 @@ SA.Editor = (() => {
   function withStock(id, then) {
     if (d().inv[id] > 0) { then(); return; }
     const m = M[id];
+    // 钱够就直接买，不弹确认；钱不够才会问要不要贷款
     SA.UI.pay({
-      title: `购买 ${m.name}`, amount: m.price, okLabel: '购买并安装',
+      title: `购买 ${m.name}`, amount: m.price, okLabel: '购买并安装', confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
       onPaid: () => { SA.S.addInv(id, 1); then(); },
     });
@@ -237,7 +238,9 @@ SA.Editor = (() => {
       if (old) { v[layer][r][c] = null; scrap = stash(old); }
       SA.V.put(v, id, r, c);
       SA.S.addInv(id, -1);
-      st.sel = null; st.pick = null;   // 放置完成即取消选中
+      // 库存还有就保持选中，可以接着放；用完了才取消选中
+      if (!(d().inv[id] > 0)) st.sel = null;
+      st.pick = null;
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
       say(old ? `${M[old.id].name} → ${m.name}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
@@ -272,7 +275,7 @@ SA.Editor = (() => {
 
   function buyOne(id) {
     const m = M[id];
-    SA.UI.pay({ title: `购买 ${m.name}`, amount: m.price, okLabel: '购买',
+    SA.UI.pay({ title: `购买 ${m.name}`, amount: m.price, okLabel: '购买', confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
       onPaid: () => { SA.S.addInv(id, 1); say(`购入 ${m.name}，库存 ${d().inv[id]}`); changed(); } });
   }
@@ -335,7 +338,7 @@ SA.Editor = (() => {
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', h('span', { class: `q q${m.q}` }, SA.QUALITY[m.q].star), ' ',
             n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(m.price)}`)),
-          h('div', { class: 'sub' }, n ? '点格子放置；点已有模块直接替换，点同款模块拆下' : '点格子即可购买并安装')),
+          h('div', { class: 'sub' }, n ? '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下' : '点格子即可直接购买并安装')),
         h('div', { class: 'acts' },
           h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`),
           n ? h('button', { class: 'btn small', onclick: () => sellOne(id) }, `卖 ${money(m.price * 0.5)}`) : null,
@@ -556,7 +559,7 @@ SA.Editor = (() => {
       H('摆放规则'),
       h('p', {}, '副驾驶：车上每有一个副驾驶，就会替你操作一组你当前没在用的武器（你切换武器组，他跟着接手剩下的），自己挑目标，但没你准。'),
       h('p', {}, '速度：最高速度 = 底盘速度 × 动力比（锅炉富余最多超速 25%），单位 km/h。底盘手感：双足起步和刹车最快但走起来最晃，四足刹车最慢但移动时最平稳，履带居中。重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
-      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行，其他模块叠在底盘或模块上，最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是这一行最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那一行挡路，高处的撞角能越过它撞到后面。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
+      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行；其他模块上下左右挨着已连上的模块就行（可以侧挂、悬挑，撞击件不算支撑），最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是这一行最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那一行挡路，高处的撞角能越过它撞到后面。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
       H('战斗里的颜色'),
       h('p', {}, h('b', {}, '白框'), ' 准星对准的模块 · ', h('b', { style: 'color:var(--magenta)' }, '洋红'), ' 准星对准的侧炮 · 虚线框 = 炮弹会先打中的模块 · ', h('b', { style: 'color:var(--fire2)' }, '橙'), ' 热量 · ', h('b', { style: 'color:var(--water2)' }, '青'), ' 水 · ', h('b', { style: 'color:var(--gauge2)' }, '绿'), ' 动力 · ', h('b', { style: 'color:var(--brass2)' }, '黄铜'), ' 火力。准星旁的小沙漏 = 装填进度。'),
     ));
