@@ -20,7 +20,7 @@ SA.Battle = (() => {
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
-      focus: 0, jolt: 0, release: false, kick: false };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
+      focus: 0, jolt: 0, release: false, kick: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     refresh(s);
     s.water = s.waterMax;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
@@ -414,12 +414,12 @@ SA.Battle = (() => {
       if (s.timers[w.key] == null) s.timers[w.key] = rnd(0.2, 0.8) * w.m.reload;
       s.timers[w.key] -= dt * s.power;
       if (s.timers[w.key] <= 0) {
-        if (mine && firing && ready(w)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * rnd(0.92, 1.08); s.kick = true; }
+        if (mine && firing && ready(w)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * rnd(0.92, 1.08); s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
         else if (co && coPt && Math.abs(want - cur) < 3) { fire(s, o, w, !!coAt && coAt.layer === 'side', 0.4); s.timers[w.key] = w.m.reload * rnd(1, 1.2); }
         else s.timers[w.key] = 0;
       }
     }
-    if (s.kick) { s.focus *= K.FOCUS_KICK; s.kick = false; }   // 后坐力把准星震开
+    if (s.kick) { s.focus *= s.kick; s.kick = 0; }   // 后坐力把准星震开（快枪只震掉一点）
     s.release = false;
     s.smokeT -= dt;
     if (s.smokeT <= 0) {
@@ -693,13 +693,15 @@ SA.Battle = (() => {
   // 准星：装填中 = 来回摆动的沙漏（外面一圈淡淡的稳定度环）；装好了 = 黄铜齿轮。
   // 机枪这类快枪（装填 < 1 秒）不切沙漏：齿轮每打一发咔哒转一齿，领头的齿闪一下，内圈细弧显示装填
   // 准星半径跟实际缩圈幅度走：前期只能缩一点，加装瞄准镜后能缩得更紧
-  const reticleR = (focus) => Math.round(24 - 15 * focus * (B.p.aimShrink / K.AIM_SHRINK_MAX));
+  // 准星半径 = 瞄准度（0→100% 从 24 收到 9）；实际散布缩多少由车的缩圈幅度决定，扇区会如实反映
+  const reticleR = (focus) => Math.round(24 - 15 * focus);
   function reticle(x, y, aimT) {
     const p = B.p;
     const group = p.weapons.filter(w => w.cell.id === p.sel && !w.blocked);
     const fast = group.length && group[0].m.reload < 1;
     const rl = reloadFrac(p);
-    if (rl != null && !fast) {
+    // 没按住、正在装填：沙漏；按住（瞄准中）永远显示齿轮，装填进度画成内圈细弧
+    if (rl != null && !fast && !p.fireHeld) {
       // 稳定度环：装填时按住也在蓄力，环跟着收紧
       g.save(); g.globalAlpha = 0.45; g.lineWidth = 2; g.strokeStyle = P.brass[2];
       g.beginPath(); g.arc(x, y, reticleR(p.focus), 0, Math.PI * 2); g.stroke(); g.restore();
@@ -712,14 +714,18 @@ SA.Battle = (() => {
     }
     let ticks = 0, flash = 0;
     for (const w of group) { ticks += p.anim.feedOf(w.key); flash = Math.max(flash, p.anim.flashOf(w.key)); }
-    gearReticle(x, y, p.focus, aimT, fast ? { ticks, flash, rl } : null);
+    gearReticle(x, y, p.focus, aimT, { fast, ticks, flash, rl });
+    if (aimT && aimT.layer === 'side') {   // 洋红 = 瞄的是侧挂层的侧炮：标一下，免得看不懂
+      g.font = 'bold 13px sans-serif'; g.textAlign = 'left';
+      g.fillStyle = P.black; g.fillText('侧炮', x + 29, y - 13); g.fillStyle = P.magenta; g.fillText('侧炮', x + 28, y - 14);
+    }
   }
 
   // 黄铜齿轮准星：按住蓄力时齿轮收紧、转动；蓄满（稳定度 100%）闪绿光
   function gearReticle(x, y, focus, aimT, mg) {
     const full = focus >= 1;
     const r = reticleR(focus);
-    const rot = focus * Math.PI / 2 + (mg ? mg.ticks * Math.PI / 4 + (B.p.fireHeld ? B.t * 9 : 0) : B.t * (full ? 2 : 0.3));   // 快枪按住时齿轮飞转
+    const rot = focus * Math.PI / 2 + (mg.fast ? mg.ticks * Math.PI / 4 + (B.p.fireHeld ? B.t * 9 : 0) : B.t * (full ? 2 : 0.3));   // 快枪按住时齿轮飞转
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 12);
     const col = full ? (pulse > 0.5 ? '#9dff8a' : '#6fcf6a') : aimT && aimT.layer === 'side' ? P.magenta : P.brass[2];
     const hi = full ? '#e8ffd9' : P.brass[3];
@@ -734,8 +740,8 @@ SA.Battle = (() => {
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
     g.lineWidth = 1; g.strokeStyle = hi;
     g.beginPath(); g.arc(x, y, r - 1, Math.PI * 1.05, Math.PI * 1.6); g.stroke();
-    // 快枪：内圈细弧 = 装填进度
-    if (mg && mg.rl != null) {
+    // 内圈细弧 = 装填进度（装好了就不画）
+    if (mg.rl != null) {
       g.globalAlpha = 0.8; g.lineWidth = 2; g.strokeStyle = hi;
       g.beginPath(); g.arc(x, y, Math.max(3, r - 5), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * mg.rl); g.stroke(); g.globalAlpha = 1;
     }
@@ -744,7 +750,7 @@ SA.Battle = (() => {
     for (let i = 0; i < 8; i++) {
       g.rotate(Math.PI / 4);
       g.fillStyle = P.black; g.fillRect(-4, -r - 8, 8, 8);
-      g.fillStyle = mg && i === 7 && mg.flash > 0.3 ? '#ffffff' : col; g.fillRect(-2.5, -r - 6.5, 5, 5);
+      g.fillStyle = mg.fast && i === 7 && mg.flash > 0.3 ? '#ffffff' : col; g.fillRect(-2.5, -r - 6.5, 5, 5);
     }
     g.restore();
     // 中心：十字小点
@@ -822,11 +828,22 @@ SA.Battle = (() => {
     B.fanSp = B.fanSp == null || B.fanW !== w.key ? sp : B.fanSp + (sp - B.fanSp) * Math.min(1, dtv * 6);
     B.fanW = w.key;
     if (sp > 0) {
-      // 扇区：两条边界弹道（不做碰撞，统一截到瞄准点的距离）之间半透明填充——稳稳罩在目标上
-      const lo = arcTo(p, w, cur, -B.fanSp, B.aim[0]), hi = arcTo(p, w, cur, B.fanSp, B.aim[0]);
+      // 扇区：散布范围内均匀取 9 条弹道，各自飞到真正撞上的模块（或落地）为止；
+      // 每条的长度随时间平滑，终点在模块表面慢慢滑动，不会一帧撞上一帧没撞上地闪
+      const N = 9, rays = [];
+      for (let i = 0; i < N; i++) {
+        const r0 = predict(p, B.e, w, cur, side, -B.fanSp + 2 * B.fanSp * i / (N - 1));
+        rays.push([...r0.pts, r0.end]);
+      }
+      const lens = rays.map(pathLen);
+      const same = B.fanLens && B.fanLW === w.key;
+      B.fanLens = same ? B.fanLens.map((L0, i) => L0 + (lens[i] - L0) * Math.min(1, dtv * 10)) : lens;
+      B.fanLW = w.key;
       g.save(); g.globalAlpha = 0.16; g.fillStyle = col; g.beginPath();
-      lo.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-      for (let i = hi.length - 1; i >= 0; i--) g.lineTo(hi[i][0], hi[i][1]);
+      pathUpTo(rays[0], B.fanLens[0]).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      for (let i = 1; i < N; i++) { const [x, y] = pointAt(rays[i], B.fanLens[i]); g.lineTo(x, y); }
+      const back = pathUpTo(rays[N - 1], B.fanLens[N - 1]);
+      for (let i = back.length - 1; i >= 0; i--) g.lineTo(back[i][0], back[i][1]);
       g.closePath(); g.fill(); g.restore();
       if (aimT) {
         let n = 0;
@@ -851,16 +868,24 @@ SA.Battle = (() => {
     }
   }
 
-  // 不做碰撞的弹道：飞到 stopX（瞄准点的横坐标）或落地为止，扇区的两条边用它
-  function arcTo(s, w, deg, jitter, stopX) {
-    const sh = launch(s, w, deg, jitter), dir = isP(s) ? 1 : -1;
-    const pts = [[sh.x, sh.y]];
-    for (let i = 0; i < 900; i++) {
-      sh.x += sh.vx / 120; sh.y += sh.vy / 120; sh.vy += sh.g / 120;
-      if ((sh.x - stopX) * dir >= 0 || sh.y >= GROUND) { pts.push([sh.x, Math.min(sh.y, GROUND)]); break; }
-      if (i % 3 === 0) pts.push([sh.x, sh.y]);
+  // 折线工具：总长、按长度取点、截到某个长度
+  function pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+  function pointAt(pts, L) {
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (L <= d) { const t = d ? L / d : 0; return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]; }
+      L -= d;
     }
-    return pts;
+    return pts[pts.length - 1];
+  }
+  function pathUpTo(pts, L) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (L <= d) { out.push(pointAt([pts[i - 1], pts[i]], L)); return out; }
+      L -= d; out.push(pts[i]);
+    }
+    return out;
   }
 
   const tintC = document.createElement('canvas');
@@ -976,6 +1001,17 @@ SA.Battle = (() => {
     }
   }
 
+  // 游戏速度：整场战斗的时间流速（移动、装填、热量、AI、动画全部按它缩放）
+  const SPEED_KEY = 'steam_arena_speed_v1';
+  function gameSpeed() { try { const v = parseFloat(localStorage.getItem(SPEED_KEY)); return v > 0 ? v : K.GAME_SPEED; } catch (e) { return K.GAME_SPEED; } }
+  function speedSlider() {
+    const out = h('b', {}, `${gameSpeed().toFixed(2)}×`);
+    const range = h('input', { type: 'range', min: 0.3, max: 1.5, step: 0.05, value: gameSpeed(), 'aria-label': '游戏速度',
+      oninput: () => { B.speed = +range.value; out.textContent = `${B.speed.toFixed(2)}×`; try { localStorage.setItem(SPEED_KEY, String(B.speed)); } catch (e) { /* ignore */ } },
+      onchange: () => range.blur() });
+    return h('label', { class: 'bt-speed', title: '游戏速度：拖动试试什么节奏合适' }, '速度', range, out);
+  }
+
   function holdBtn(label, key) {
     const b = h('button', { class: 'btn' }, label);
     const set = (v) => (e) => { e.preventDefault(); if (B) B.keys[key] = v; };
@@ -991,7 +1027,7 @@ SA.Battle = (() => {
     const pv = shiftVeh(SA.V.battleCopy(d.vehicle, 1, opts.mode === 'friendly'), pShift);
     const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, opts.hpMul || 1, true), frontShift(opts.enemyVehicle));
     B = { opts, pShift, t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
-      keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
+      speed: gameSpeed(), keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
     bg = buildBg();
@@ -1020,7 +1056,7 @@ SA.Battle = (() => {
       wrap,
       h('div', { class: 'bt-bottom' },
         h('div', { class: 'bt-ctrl' }, holdBtn('◀ 后退', 'left'), holdBtn('前进 ▶', 'right'), holdBtn('开火', 'fire')),
-        hud.slots, hud.info, hud.vent,
+        hud.slots, hud.info, speedSlider(), hud.vent,
         h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => kill(B.p, '主动撤出比赛') }], '继续比赛'); } }, '撤退'))));
 
     const toNative = (e) => {
@@ -1044,10 +1080,11 @@ SA.Battle = (() => {
     fit();
     camera(1);
     let last = performance.now();
+    const mine = B;   // 每场战斗一个循环：换了新的一场，旧循环自己退出
     const loop = (now) => {
-      if (SA.current !== 'battle' || B.done) return;
+      if (SA.current !== 'battle' || B !== mine || B.done) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      step(dt);
+      if (!B.frozen) step(dt * B.speed);   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
       draw();
       hudTick(dt);
       requestAnimationFrame(loop);
