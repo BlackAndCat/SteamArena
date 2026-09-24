@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机甲套件 · 视觉验证</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding: 16px; overflow-y: auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  h2 { color: var(--brass2); font-size: 15px; margin: 22px 0 10px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 900px; line-height: 1.6; margin: 0 0 12px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 2px solid var(--dark0); }
+  .seg button { background: var(--dark2); border: 0; padding: 4px 10px; cursor: pointer; }
+  .seg button.on { background: var(--brass1); color: var(--text); }
+  .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  .sheet { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+  .sheet .rowh { flex-basis: 100%; color: var(--brass2); font-weight: 700; margin-top: 6px; }
+  .part { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .part canvas, .card canvas { background: var(--bg2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 16px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; }
+  .card b { font-size: 16px; display: block; margin-bottom: 8px; }
+  .card canvas { max-width: 100%; height: auto; }
+  .note { line-height: 1.65; margin: 8px 0 0; }
+  .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 900px; line-height: 1.6; margin-bottom: 12px; }
+  .find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
+</style></head>
+<body>
+<h1>机甲套件 · 视觉验证</h1>
+<p class="lead">模块缩小到 1/4：一个旧格（48px）分成 2×2 个子格（24px），像素大小不变。以轻骑（鹭步腿）和圣骑（蒸汽圣骑腿）为核心，
+各画一套头盔驾驶舱、燃炉、水罐、机械臂、盾牌、甲片，看模块化拼装能不能拼出协调匀称的双足机甲。只做视觉，不涉及数值。
+机械臂、臂炮、盾牌放在<b>肢体层</b>（相当于现在的侧挂层，画在车体前面）。</p>
+<div class="find"><b>验证结论</b>
+<ol>
+<li><b>兼容。</b>用 1/4 子格加肢体层，能拼出协调的双足机甲。子格让躯干缩到 3×3 子格（1.5×1.5 旧格），和长腿的比例对得上。不需要放弃双足机甲。</li>
+<li><b>机甲感主要来自肢体层。</b>手臂、盾、臂炮画在车体前面，可以盖住胸口、伸出车体外。现在的侧挂层直接扩展成肢体层就行，规则上已经有「另一个平面」的概念。</li>
+<li><b>协调感来自同一套母题。</b>圣骑的护膝、肘甲是同款黄铜扇翼，肩甲、胸甲、盾是同样的亮钢加黄铜包边。每个品质做一个零件套装，拼出来就像一台机器。</li>
+<li><b>24px 零件照样能认出来。</b>水罐是青色，炉火是橙色，驾驶舱是舷窗或目缝里的一对眼睛。代价是细节少了：驾驶员只剩眼睛。</li>
+<li><b>旧 48px 模块和子格零件混用不协调。</b>旧驾驶舱比整个胸口还宽，细节密度也对不上。要走子格，就得把所有模块重画成子格版。</li>
+<li>往外多堆一圈仍然会变成箱子，但难看是一点一点加重的。再配合「躯干最宽 3 格」的限制就够了。</li>
+</ol></div>
+
+<div class="bar">
+  <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
+  <label><input type="checkbox" id="hull" checked> 车体框架</label>
+  <label><input type="checkbox" id="far" checked> 远侧腿 / 臂</label>
+  <label><input type="checkbox" id="grid"> 子格网格（白 = 子格，黄铜 = 旧格，洋红 = 肢体层）</label>
+</div>
+
+<h2>零件表（原生像素 × 3）</h2>
+<div class="sheet" id="sheet"></div>
+
+<h2>整机（原生像素 × 2）</h2>
+<div class="cards" id="cards"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script src="biped-lab.js"></script><script src="biped-v2.js"></script><script src="mech-kit.js"></script>
+<script>
+(() => {
+  const K = SA.MECHKIT, S = K.S;
+  const st = { mv: true, phase: 0, t: 0, far: true, hull: true, grid: false, mode: 'walk' };
+  const views = [];
+
+  const SHEET = document.getElementById('sheet');
+  for (const sty of ['L', 'K']) {
+    const h = document.createElement('div'); h.className = 'rowh'; h.textContent = K.STYLE[sty].name + ' 套件'; SHEET.append(h);
+    for (const id of Object.keys(K.PARTS)) {
+      const pt = K.PARTS[id];
+      const cv = document.createElement('canvas'); cv.className = 'px';
+      cv.width = pt.w * S + 16 + (id === 'armgun' ? 12 : 0); cv.height = pt.h * S + 16; cv.style.width = cv.width * 3 + 'px';
+      const d = document.createElement('div'); d.className = 'part';
+      d.append(cv, `${pt.name} ${pt.w}×${pt.h}${pt.layer === 'limb' ? ' · 肢体层' : ''}`);
+      SHEET.append(d);
+      views.push({ cv, draw: () => K.renderPart(cv, id, sty, st) });
+    }
+  }
+
+  const CARDS = document.getElementById('cards');
+  for (const m of K.MECHS) {
+    const card = document.createElement('section'); card.className = 'card';
+    const b = document.createElement('b'); b.textContent = m.name;
+    const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = K.VW; cv.height = K.VH; cv.style.width = K.VW * 2 + 'px';
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = m.note;
+    card.append(b, cv, p); CARDS.append(card);
+    views.push({ cv, draw: () => K.render(cv, m, st) });
+  }
+  // 对照：同样的腿，躯干用现在的 48px 模块（真双足样机里的轻骑 / 圣骑）
+  const B2 = SA.BIPED2;
+  for (const [i, name] of [[0, '对照 · 轻骑（48px 旧模块）'], [1, '对照 · 圣骑（48px 旧模块）']]) {
+    const card = document.createElement('section'); card.className = 'card';
+    const b = document.createElement('b'); b.textContent = name;
+    const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = B2.VW; cv.height = B2.VH; cv.style.width = B2.VW * 2 * K.VH / B2.VH + 'px';
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = '同一双腿，躯干用现在的整格模块：比例更粗笨，没有手臂，读起来更像背着箱子的腿。';
+    card.append(b, cv, p); CARDS.append(card);
+    views.push({ cv, draw: () => B2.render(cv, B2.BUILDS[i], { ...st, hud: false, grid: false, legs: '' }) });
+  }
+
+  const vis = new Set();
+  const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
+  views.forEach(v => io.observe(v.cv));
+  const redraw = (all) => { for (const v of views) if (all || vis.has(v.cv)) v.draw(); };
+  window.labRedraw = () => redraw(true);   // 调试：强制重画屏幕外的画布
+
+  let last = performance.now(), key = '';
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    st.t += dt;
+    if (st.mode === 'walk') st.phase += 58 * dt;
+    const k = [Math.floor(st.t * 16), SA.Dyn.frame(st.phase, 12, 5), st.mode, st.far, st.hull, st.grid].join('|');
+    if (k !== key) { key = k; redraw(false); }
+    requestAnimationFrame(tick);
+  }
+  document.getElementById('mode').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    for (const x of btn.parentNode.children) x.classList.toggle('on', x === btn);
+    st.mode = btn.dataset.v; st.mv = st.mode !== 'stand';
+  });
+  for (const id of ['far', 'hull', 'grid']) document.getElementById(id).addEventListener('change', (ev) => { st[id] = ev.target.checked; });
+  redraw(true);
+  requestAnimationFrame(tick);
+})();
+</script></body></html>

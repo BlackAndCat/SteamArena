@@ -172,13 +172,8 @@ SA.BIPED2 = (() => {
     const bal = b.bal;
     const lean = Math.max(-1.3, Math.min(1.3, bal.d / 0.6)) * 4 + (st.mv ? 1.5 : 0) + (bal.tone === 'bad' ? Math.sin(st.t * 5) * 2 : 0);
     const off = (r) => Math.round(lean * (4 - r) * 0.5);
-    const cx = PADX + b.pc * C + 24, hy = HIP + bd, k = (GROUND - HIP) / (47 - (D.hipY || 14));
-    const leg = (far) => {
-      const L = legAt(D, far, cx - 24, 0, o, far ? cx + 6 : cx - 2);
-      L.hy = hy - (far ? 3 : 0); L.gy = L.hy + (GROUND - (far ? 3 : 0) - L.hy) / k;
-      return L;
-    };
-    if (st.far) drawLeg(pn, D, leg(true), o, k);
+    const cx = PADX + b.pc * C + 24, k = legK(D);
+    if (st.far) bipedLeg(pn, D, cx, o, true);
     pn.flush(g);
     blitTorso(bd, off);
     pelvis(pn, b, e.id, st, bd);
@@ -186,10 +181,18 @@ SA.BIPED2 = (() => {
       const top = Y4 + bd + 30, back = pn.around(k * 0.8, cx + 2, top);
       D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, o); back();
     }
-    drawLeg(pn, D, leg(false), o, k);
+    bipedLeg(pn, D, cx, o, false);
     if (st.hud) hud(pn, b, cx, off, bd);
     pn.flush(g);
     if (st.grid) grid(g, b);
+  }
+
+  // 真双足的一条腿：胯在 (cx, HIP + 起伏)，以胯为支点放大到地面；远侧腿右移 6、上移 3
+  const legK = (D) => (GROUND - HIP) / (47 - (D.hipY || 14));
+  function bipedLeg(pn, D, cx, o, far) {
+    const k = legK(D), L = legAt(D, far, cx - 24, 0, o, far ? cx + 6 : cx - 2);
+    L.hy = HIP + o.bd - (far ? 3 : 0); L.gy = L.hy + (GROUND - (far ? 3 : 0) - L.hy) / k;
+    drawLeg(pn, D, L, o, k);
   }
 
   function renderSpider(pn, g, b, st, o, a, blitTorso) {
@@ -258,5 +261,5 @@ SA.BIPED2 = (() => {
       note: '同一套蜘蛛腿，膝盖高出机身一大截：用膝高区分四足型号，和直立的双足拉开剪影。' },
   ].map(parse);
 
-  return { BUILDS, render, VW, VH };
+  return { BUILDS, render, VW, VH, pelvis, bipedLeg, legDesign, HIP, GROUND, Y4 };
 })();
