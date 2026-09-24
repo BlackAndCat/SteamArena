@@ -105,6 +105,7 @@ button.res:hover { border-color: var(--brass1); background: var(--dark2); }
 .water > i { background: var(--water2); }
 .hp > i { background: var(--text); }
 .weight > i { background: var(--iron4); }
+.speed > i { background: var(--glass2); }
 .weight.over > i { background: #ff3b2f; }
 .warn { font-size: 12px; padding: 6px 8px; background: var(--dark1); border-left: 3px solid var(--fire2); margin-top: 4px; }
 .warn.bad { border-left-color: var(--magenta); color: #fff; }

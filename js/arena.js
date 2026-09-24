@@ -91,9 +91,9 @@ SA.Arena = (() => {
   function card(v, name, sub, rating, flip) {
     const cv = SA.UI.vehiclePreview(v, 2);
     if (flip) cv.style.transform = 'scaleX(-1)';
-    const w = SA.V.stats(v).weight;
+    const st2 = SA.V.stats(v);
     return h('div', { class: 'vs-card' }, h('div', { class: 'vs-pic' }, cv), h('b', {}, name), h('span', { class: 'muted' }, sub),
-      h('span', { class: 'vs-chips' }, h('span', { class: 'chip' }, `评分 ${rating}`), h('span', { class: 'chip' }, SA.tons(w))));
+      h('span', { class: 'vs-chips' }, h('span', { class: 'chip' }, `评分 ${rating}`), h('span', { class: 'chip' }, SA.tons(st2.weight)), h('span', { class: 'chip' }, SA.kmh(st2.topSpeed))));
   }
 
   function readiness(s) {
@@ -146,7 +146,7 @@ SA.Arena = (() => {
       readiness(s),
       betRow(e),
       h('button', { class: 'btn primary go', disabled: !!why, onclick: () => { document.querySelector('#modal').hidden = true; e.start(); } }, why || label),
-      h('div', { class: 'keys' }, h('kbd', {}, 'A'), h('kbd', {}, 'D'), ' 移动（起步先憋气）· 鼠标瞄准 · 按住', h('kbd', {}, '左键'), '开火 · ', h('kbd', {}, '1'), '–', h('kbd', {}, '9'), ' 换武器'),
+      h('div', { class: 'keys' }, h('kbd', {}, 'A'), h('kbd', {}, 'D'), ' 移动（起步先憋气）· 鼠标瞄准 · 按住', h('kbd', {}, '左键'), '稳住准星，绿光自动开火、松手立刻开火 · ', h('kbd', {}, '1'), '–', h('kbd', {}, '9'), ' 换武器'),
     ];
   }
 

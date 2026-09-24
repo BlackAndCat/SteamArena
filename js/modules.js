@@ -26,23 +26,27 @@ SA.K = {
   UP_MAX: 3,
   UP_KG: 120,         // 每级增加的重量 kg
   UP_COST: 0.25,      // 第 n 级价格 = 模块原价 × 该系数 × n
+  KMH: 0.1125,        // 速度换算：1 px/s ≈ 0.1125 km/h（一格 48px ≈ 1.5 m）
+  SPEED_BOOST: 1.25,  // 锅炉富余时最多超速到底盘基础速度的 125%
+  FOCUS_KICK: 0.35,   // 开火后瞄准稳定度保留的比例（后坐力）
+  FOCUS_MIN: 0.3,     // 瞄准稳定度满时，散布缩到原来的 30%
 };
 
 SA.MODULES = {
   track: {
     name: '履带底盘', cat: 'mobility', layer: 'chassis',
-    price: 150, hp: 200, power: 0, load: 3500, speed: 48, kg: 600, q: 2,
+    price: 150, hp: 200, power: 0, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
     desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
   },
   quad: {
     name: '四足底盘', cat: 'mobility', layer: 'chassis',
-    price: 140, hp: 140, power: 0, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2,
-    desc: '平稳的射击平台：弹道散布 -30%，速度中等。',
+    price: 140, hp: 140, power: 0, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
+    desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
     name: '双足底盘', cat: 'mobility', layer: 'chassis',
-    price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1,
-    desc: '跑得最快，摇摆步态让敌方弹道散布更大。',
+    price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1, accel: 1.5, brake: 1.7, sway: 1.5, spool: 0.55,
+    desc: '起步、刹车、跑得都最快，摇摆步态让敌人难以命中；但自己走起来晃得厉害，移动射击散布最大。',
   },
   cockpit: {
     name: '驾驶舱', cat: 'control', layer: 'body',
@@ -63,28 +67,28 @@ SA.MODULES = {
     name: '直射火炮', cat: 'firepower', layer: 'body',
     price: 170, hp: 150, power: 3, kg: 350, q: 2,
     dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 2, arc: 'low',
-    elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0,
+    elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0, aimT: 1.2,
     desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
     dmg: 38, reload: 3.4, heat: 7, proj: 'shell', barrel: 0, v: 780, g: 1, spread: 0, arc: 'high', indirect: true,
-    elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55,
+    elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
   mg: {
     name: '机枪', cat: 'firepower', layer: 'body',
     price: 110, hp: 130, power: 2, kg: 150, q: 1,
     dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 2.8, arc: 'low',
-    elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0,
+    elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
     desc: '高射速低伤害。前方同样不能有遮挡。',
   },
   side_cannon: {
     name: '侧炮', cat: 'firepower', layer: 'side',
     price: 150, hp: 120, power: 2, kg: 200, q: 2,
     dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 6, arc: 'low',
-    elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0,
+    elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
   },
   boiler: {
@@ -125,6 +129,7 @@ SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
 SA.weightOf = (cell) => SA.K.WEIGHT_BASE + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG;
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
 SA.tons = fmtT;
+SA.kmh = (pxs) => `${(pxs * SA.K.KMH).toFixed(1)} km/h`;
 // 改装：武器加炮盾，底盘加裙板，撞击件加厚撞面，其余加附加装甲
 SA.upName = (id) => (SA.isWeapon(id) ? '炮盾' : SA.MODULES[id].layer === 'chassis' ? '加固裙板' : SA.MODULES[id].layer === 'ram' ? '加厚撞面' : '附加装甲');
 SA.upHp = (id) => (SA.isWeapon(id) ? 0.3 : 0.25);   // 每级耐久 +%

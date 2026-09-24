@@ -188,7 +188,7 @@ SA.V = (() => {
     const s = {
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
-      value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0,
+      value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0,
     };
     each(v, (cell, r, c) => {
       const m = M[cell.id];
@@ -202,17 +202,20 @@ SA.V = (() => {
       s.equip += m.power || 0;
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
-      if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; }
+      if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
       if (cell.id === 'cockpit') s.cockpits++;
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water) { s.tanks++; s.water += m.water; s.cool += m.cool; }
     });
-    if (s.chassis) { s.evade /= s.chassis; s.acc /= s.chassis; s.speed /= s.chassis; }
+    if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
     s.blocked = blockedList(v);
+    // 最高速度 = 底盘基础速度 × 动力比（锅炉富余时可以超速，最多 125%）
+    s.speedMul = s.demand ? Math.min(K.SPEED_BOOST, s.supply / s.demand) : (s.supply ? 1 : 0);
+    s.topSpeed = s.speed * s.speedMul;
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     let weaponHeat = 0, weaponWater = 0;

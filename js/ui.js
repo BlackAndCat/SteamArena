@@ -139,6 +139,10 @@ SA.UI = (() => {
         h('div', { class: `bar weight ${s.weight > s.load ? 'over' : ''}` }, h('i', { style: `width:${pct(s.weight, wmax)}` }),
           h('span', { class: 'cap', style: `left:calc(${pct(s.load, wmax)} - 2px)`, title: '底盘承重' }))),
       h('div', { class: 'bar-note' }, `总重 ${SA.tons(s.weight)} · 底盘承重 ${SA.tons(s.load)}（红线）· 每吨要 ${SA.K.DRIVE_PER_T} 动力才能跑满速`),
+      h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '速度'),
+        h('div', { class: 'bar speed' }, h('i', { style: `width:${pct(s.topSpeed, 100)}` }),
+          h('span', { class: 'mark', style: `left:${pct(s.speed, 100)}`, title: '底盘基础速度' }))),
+      h('div', { class: 'bar-note' }, `最高 ${SA.kmh(s.topSpeed)}（底盘 ${SA.kmh(s.speed)} × 动力 ${Math.round((s.speedMul || 0) * 100)}%，锅炉富余最多 ${Math.round(SA.K.SPEED_BOOST * 100)}%）· 刹车 ×${(s.brake || 0).toFixed(2)} · 晃动 ×${(s.sway || 0).toFixed(2)}`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量'),
         h('div', { class: 'bar heat' }, h('i', { style: `width:${pct(heatShare, 1)}` }))),
       h('div', { class: 'bar-note' }, `产热 ${(s.heatGen + SA.K.IDLE_HEAT).toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ≤${s.cool}/秒 · ${oh}`),
@@ -158,7 +162,7 @@ SA.UI = (() => {
     const parts = [`耐久 ${m.hp}`];
     if (m.power) parts.push(`动力 -${m.power}`);
     if (m.supply) parts.push(`动力 +${m.supply}`, `产热 ≤${m.heatRate}/秒`);
-    if (m.load) parts.push(`承重 ${SA.tons(m.load)}`);
+    if (m.load) parts.push(`承重 ${SA.tons(m.load)}`, `速度 ${SA.kmh(m.speed)}`, `起步 ×${m.accel}`, `刹车 ×${m.brake}`, `晃动 ×${m.sway}`);
     parts.push(`重量 ${SA.tons(SA.weightOf({ id }))}`);
     if (m.dmg) parts.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛 · 指哪打哪' : `直射 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°`, `热 +${m.heat}/发`);
     if (m.ram) parts.push(`撞击 ${m.ram}×速度`);
