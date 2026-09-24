@@ -72,18 +72,88 @@ SA.V = (() => {
     return chk;
   }
 
-  // 拆除：返回拆下的模块。受损模块需先修理；报废模块直接清除
+  // ---------- 改装台上的自由摆放：出战前允许悬空、乱放，出战时再由 issues() 把关 ----------
+  const inGrid = (r, c) => r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS;
+  const hurt = (x) => x && x.hp > 0 && x.hp < maxHp(x);
+
+  // 只检查格子是否空着；返回 { ok, reason, fit }，fit 表示这个位置是否已经合规
+  function canPut(v, id, r, c) {
+    if (!inGrid(r, c)) return { ok: false, reason: '超出格子范围' };
+    const layer = layerOf(id);
+    if (v[layer][r][c]) return { ok: false, reason: layer === 'side' ? '侧挂层这里已经有侧炮' : '这里已经有模块' };
+    const chk = canPlace(v, id, r, c);
+    return { ok: true, fit: chk.ok, reason: chk.reason };
+  }
+
+  function put(v, id, r, c) {
+    const chk = canPut(v, id, r, c);
+    if (chk.ok) v[layerOf(id)][r][c] = { id, hp: M[id].hp };
+    return chk;
+  }
+
+  // 拆下：主体模块连同挂在它上面的侧炮一起拆；上方的模块留在原地悬空
+  // 受损模块要先修理；报废模块直接清除（由调用方回收残值）
   function remove(v, layer, r, c) {
-    const cell = v[layer][r] && v[layer][r][c];
+    const cell = inGrid(r, c) && v[layer][r][c];
     if (!cell) return { ok: false, reason: '这里是空的' };
-    if (layer === 'body' && r > 0 && v.body[r - 1][c]) return { ok: false, reason: '上方还有模块，先拆上面的' };
-    if (layer === 'body' && c < K.COLS - 1 && isRamCell(v.body[r][c + 1])) return { ok: false, reason: '前方挂着撞击武器，先拆下它' };
-    const hurt = (x) => x && x.hp > 0 && x.hp < maxHp(x);
     if (hurt(cell) || (layer === 'body' && hurt(v.side[r][c]))) return { ok: false, reason: '受损模块要先修理才能拆下' };
     const out = [cell];
     if (layer === 'body' && v.side[r][c]) { out.push(v.side[r][c]); v.side[r][c] = null; }
     v[layer][r][c] = null;
     return { ok: true, removed: out };
+  }
+
+  // 移动：目标格有模块就对调。主体层连同侧挂层一起搬
+  function move(v, layer, r1, c1, r2, c2) {
+    if (!inGrid(r1, c1) || !inGrid(r2, c2)) return { ok: false, reason: '超出格子范围' };
+    if (r1 === r2 && c1 === c2) return { ok: false, reason: '' };
+    if (!v[layer][r1][c1]) return { ok: false, reason: '这里是空的' };
+    for (const L of layer === 'body' ? ['body', 'side'] : ['side']) {
+      const a = v[L][r1][c1];
+      v[L][r1][c1] = v[L][r2][c2];
+      v[L][r2][c2] = a;
+    }
+    return { ok: true, swapped: !!v[layer][r1][c1] };
+  }
+
+  // 出战检查：逐格找出悬空（没有一路连到底盘）或摆放不合规的模块
+  function issues(v) {
+    const out = [];
+    const B = v.body, last = K.ROWS - 1;
+    const ok = grid();   // 该主体格已稳稳连到底盘
+    const flag = (layer, r, c, reason) => out.push({ layer, r, c, reason });
+    for (let r = last; r >= 0; r--)
+      for (let c = 0; c < K.COLS; c++) {
+        const cell = B[r][c];
+        if (!cell) continue;
+        const m = M[cell.id];
+        if (m.layer === 'chassis') {
+          if (r !== last) flag('body', r, c, '底盘只能放在最底行');
+          else ok[r][c] = true;
+        } else if (m.layer === 'ram') {
+          const back = c > 0 && B[r][c - 1];
+          if (!back || !m.mount.includes(back.id) || !ok[r][c - 1]) flag('body', r, c, `${m.name}要装在${m.mount.map(x => M[x].name).join('/')}的正前方（右侧）`);
+          else if (B[r].some((x, k) => x && k > c)) flag('body', r, c, '撞击武器必须是这一行的最前端');
+          else ok[r][c] = true;
+        } else if (r === last) {
+          flag('body', r, c, '最底行只能放底盘');
+        } else {
+          const below = B[r + 1][c];
+          if (!below) flag('body', r, c, '悬空：下方没有支撑');
+          else if (isRamCell(below)) flag('body', r, c, '撞击武器上面不能叠模块');
+          else if (!ok[r + 1][c]) flag('body', r, c, '悬空：下方的模块没有连到底盘');
+          else ok[r][c] = true;
+        }
+      }
+    for (let r = 0; r < K.ROWS; r++)
+      for (let c = 0; c < K.COLS; c++) {
+        if (!v.side[r][c]) continue;
+        if (r === last) flag('side', r, c, '底盘上不能挂侧炮');
+        else if (!B[r][c]) flag('side', r, c, '悬空：侧炮必须挂在主体模块上');
+        else if (isRamCell(B[r][c])) flag('side', r, c, '撞击武器上不能挂侧炮');
+        else if (!ok[r][c]) flag('side', r, c, '悬空：挂载的模块没有连到底盘');
+      }
+    return out;
   }
 
   // 直射武器：同一行前方（列号更大）有己方存活主体模块 → 被挡；高抛炮不受影响
@@ -158,6 +228,8 @@ SA.V = (() => {
     if (!s.boilers) s.problems.push('没有锅炉，机器无法启动');
     if (s.demand > s.cap) s.problems.push(`动力需求 ${s.demand} 超过底盘承载上限 ${s.cap}`);
     // 履带是一个整体：有一段被毁就整条掉链，修好之前开不动
+    s.issues = issues(v);
+    if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（改装页红框标出），接好才能出战`);
     s.thrown = v.body[K.ROWS - 1].some(cell => cell && cell.id === 'track' && cell.hp <= 0);
     if (s.thrown) s.problems.push('履带掉链（有一段被打断），先去「修理」接上');
     s.warnings = [];
@@ -209,5 +281,5 @@ SA.V = (() => {
     } catch (e) { return null; }
   }
 
-  return { create, fromAscii, each, canPlace, place, remove, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
+  return { create, fromAscii, each, canPlace, place, canPut, put, remove, move, issues, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
 })();

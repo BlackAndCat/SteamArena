@@ -51,6 +51,45 @@ SA.UI = (() => {
     refresh();
   }
 
+  // 小确认框：actions = [{ label, primary, onClick }]，自动附带「取消」
+  function dialog(title, body, actions = [], cancelLabel = '取消') {
+    const m = $('#modal');
+    m.innerHTML = '';
+    const btns = actions.map(a => h('button', { class: `btn ${a.primary ? 'primary' : ''}`, onclick: () => { closeModal(); a.onClick(); } }, a.label));
+    btns.push(h('button', { class: 'btn', onclick: closeModal }, actions.length ? cancelLabel : '知道了'));
+    m.append(h('div', { class: 'panel dialog' },
+      h('div', { class: 'panel-head' }, h('h2', {}, title)),
+      h('div', { class: 'panel-body' }, body),
+      h('div', { class: 'dialog-actions' }, btns)));
+    m.hidden = false;
+    modalOnClose = null;
+    setTimeout(() => btns[0].focus(), 0);
+  }
+
+  // 付钱：钱够就（按需确认后）直接扣款；不够就问要不要向银行贷款补齐差额
+  function pay({ title, amount, lines = [], okLabel = '确认', confirm = true, onPaid }) {
+    const d = S();
+    const done = () => { d.money -= amount; SA.S.save(); topbar(); onPaid(); };
+    if (d.money >= amount) {
+      if (!confirm) { done(); return; }
+      dialog(title, [lines, h('p', {}, `花费 `, h('b', { class: 'gold' }, money(amount)), `，剩余 ${money(d.money - amount)}`)],
+        [{ label: `${okLabel} ${money(amount)}`, primary: true, onClick: done }]);
+      return;
+    }
+    const short = amount - d.money;
+    const loan = Math.ceil(short / 100) * 100;
+    const room = SA.S.loanRoom();
+    if (loan > room) {
+      dialog('资金不足', [lines, h('p', {}, `还差 ${money(short)}，银行也不肯再借了（额度剩 ${money(room)}，上限 ${money(SA.S.LOAN_CAP)}）。`),
+        h('p', { class: 'muted' }, '先去工坊「商店」卖掉些库存，或者打一场比赛再来。')]);
+      return;
+    }
+    dialog('资金不足', [lines,
+      h('p', {}, `现有 ${money(d.money)}，还差 `, h('b', { class: 'gold' }, money(short)), '。要向伦敦蒸汽银行贷款吗？'),
+      h('p', { class: 'muted' }, `借 ${money(loan)}：债务 ${money(d.debt)} → ${money(d.debt + loan)}，每打一场比赛加收 10% 利息。`)],
+    [{ label: `贷款 ${money(loan)} 并${okLabel}`, primary: true, onClick: () => { SA.S.borrow(loan); done(); } }]);
+  }
+
   // ---------- 顶栏 ----------
   function topbar() {
     const d = S();
@@ -196,7 +235,7 @@ SA.UI = (() => {
           h('div', { class: 'st' }, m.desc),
           h('div', { class: 'ft' }, h('span', { class: 'price' }, money(m.price)),
             h('button', { class: 'btn small primary', disabled: d.money < m.price, onclick: () => {
-              d.money -= m.price; SA.S.addInv(id); toast(`购入 ${m.name}`); SA.S.save(); topbar(); openShop('buy');
+              SA.S.buy(id); toast(`购入 ${m.name}`); SA.S.save(); topbar(); openShop('buy');
             } }, '购买')));
       }));
     } else if (tab === 'sell') {
@@ -207,12 +246,12 @@ SA.UI = (() => {
           d.money += Math.round(M[id].price * 0.5); SA.S.addInv(id, -1); SA.S.save(); topbar(); openShop('sell');
         } }, `出售 ${money(M[id].price * 0.5)}`)))) : h('p', { class: 'muted' }, '库存是空的。装在车上的模块要先在「改装」里拆下来。');
     } else {
-      const cap = 1500;
+      const cap = SA.S.LOAN_CAP;
       body = h('div', { class: 'list' },
         h('div', { class: 'panel row' }, h('span', { class: 'grow' }, '伦敦蒸汽银行：每打一场比赛，未还清的债务加收 10% 利息。上限 ', money(cap), '。'),
           h('b', {}, `当前债务 ${money(d.debt)}`)),
         h('div', { class: 'panel row' },
-          h('button', { class: 'btn primary', disabled: d.debt + 300 > cap, onclick: () => { d.debt += 300; d.money += 300; SA.S.save(); topbar(); openShop('loan'); } }, '借 £300'),
+          h('button', { class: 'btn primary', disabled: SA.S.loanRoom() < 300, onclick: () => { SA.S.borrow(300); SA.S.save(); topbar(); openShop('loan'); } }, '借 £300'),
           h('button', { class: 'btn', disabled: !d.debt || d.money < Math.min(100, d.debt), onclick: () => { const x = Math.min(100, d.debt); d.debt -= x; d.money -= x; SA.S.save(); topbar(); openShop('loan'); } }, '还 £100'),
           h('button', { class: 'btn', disabled: !d.debt || d.money < d.debt, onclick: () => { d.money -= d.debt; d.debt = 0; SA.S.save(); topbar(); openShop('loan'); } }, '全部还清')));
     }
@@ -274,7 +313,7 @@ SA.UI = (() => {
     parts.push(h('div', { class: 'list' }, d.orders.map(oid => {
       const o = SA.ORDERS.find(x => x.id === oid);
       const locked = d.rep < o.rep;
-      const ok = !locked && o.req.every(([, f, n]) => f(s) >= n);
+      const ok = !locked && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n);
       return h('div', { class: 'panel row' },
         h('div', { class: 'grow' },
           h('div', {}, h('b', {}, o.who), ' ', locked ? h('span', { class: 'chip no' }, `需要声望 ★${o.rep}`) : null),
@@ -293,6 +332,7 @@ SA.UI = (() => {
           SA.S.save(); topbar(); openOrders();
         } }, '交付图纸'));
     })));
+    if (s.issues.length) parts.push(h('div', { class: 'warn bad' }, `车上有 ${s.issues.length} 个模块悬空或摆放不合规，接好之后才能交付图纸。`));
     if (!d.orders.length) parts.push(h('p', { class: 'muted' }, '暂时没有新委托，打完下一场比赛再来看看。'));
     parts.push(h('p', { class: 'muted', style: 'font-size:12px' }, '民间订单只买图纸授权：满足条件时交付，载具保留在你手里。可以临时改装去满足条件，交付后再改回来。'));
     openModal('订单', parts);
@@ -491,6 +531,6 @@ SA.UI = (() => {
     ]);
   }
 
-  return { toast, openModal, closeModal, topbar, workshop, refresh, statBars, statLine, vehiclePreview, afterBattle, money,
+  return { toast, openModal, closeModal, dialog, pay, deploy, topbar, workshop, refresh, statBars, statLine, vehiclePreview, afterBattle, money,
     get benchCanvas() { return benchCanvas; } };
 })();

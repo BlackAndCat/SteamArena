@@ -28,6 +28,22 @@ SA.S = (() => {
 
   const addInv = (id, n = 1) => { d.inv[id] = (d.inv[id] || 0) + n; if (d.inv[id] <= 0) delete d.inv[id]; };
 
+  // 银行：每场比赛未还清的债务加收 10% 利息
+  const LOAN_CAP = 1500;
+  const loanRoom = () => Math.max(0, LOAN_CAP - d.debt);
+  function borrow(n) {
+    if (n <= 0 || n > loanRoom()) return false;
+    d.debt += n; d.money += n;
+    return true;
+  }
+  // 买下 n 个模块进库存
+  function buy(id, n = 1) {
+    const cost = SA.MODULES[id].price * n;
+    if (d.money < cost) return false;
+    d.money -= cost; addInv(id, n);
+    return true;
+  }
+
   function repairCost(cell) {
     const m = SA.MODULES[cell.id];
     if (cell.hp <= 0) return Math.round(m.price * 0.6);
@@ -72,5 +88,5 @@ SA.S = (() => {
     },
   };
 
-  return { load, save, reset, get d() { return d; }, addInv, repairCost, opponent, odds, militaryOffer, Cloud };
+  return { load, save, reset, get d() { return d; }, addInv, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, militaryOffer, Cloud };
 })();

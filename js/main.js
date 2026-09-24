@@ -21,6 +21,9 @@ window.addEventListener('DOMContentLoaded', () => {
   document.querySelector('#modal').addEventListener('pointerdown', (e) => {
     if (e.target.id === 'modal') SA.UI.closeModal();
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.querySelector('#modal').hidden) SA.UI.closeModal();
+  });
 });
 
 // 调试用：控制台输入 SA.reset() 重开存档
