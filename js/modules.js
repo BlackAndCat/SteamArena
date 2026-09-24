@@ -53,6 +53,11 @@ SA.MODULES = {
     price: 120, hp: 200, power: 1, kg: 150, q: 1,
     desc: '至少需要 1 个。全部被毁即告负。高抛炮能从上方砸下来，记得加顶甲。',
   },
+  copilot: {
+    name: '副驾驶', cat: 'control', layer: 'body',
+    price: 140, hp: 150, power: 1, kg: 150, q: 2,
+    desc: '替你操作一组你当前没在用的武器：你切换武器组，他就接手剩下的。多一个副驾驶就多管一组。枪法不如你准。',
+  },
   armor: {
     name: '铁装甲', cat: 'structure', layer: 'body',
     price: 40, hp: 160, power: 0, kg: 350, q: 1,
@@ -68,6 +73,7 @@ SA.MODULES = {
     price: 170, hp: 150, power: 3, kg: 350, q: 2,
     dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 2, arc: 'low',
     elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0, aimT: 1.2,
+    rcPx: 9, back: 0.05, ret: 2.2, kick: 70,   // 制退行程 px、打到底停顿、复进速度、对车身的反冲
     desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。',
   },
   mortar: {
@@ -75,6 +81,7 @@ SA.MODULES = {
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
     dmg: 38, reload: 3.4, heat: 7, proj: 'shell', barrel: 0, v: 780, g: 1, spread: 0, arc: 'high', indirect: true,
     elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
+    rcPx: 6, back: 0.06, ret: 2.5, kick: 40,
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
   mg: {
@@ -82,6 +89,7 @@ SA.MODULES = {
     price: 110, hp: 130, power: 2, kg: 150, q: 1,
     dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 2.8, arc: 'low',
     elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
+    rcPx: 2, back: 0, ret: 14, kick: 5,
     desc: '高射速低伤害。前方同样不能有遮挡。',
   },
   side_cannon: {
@@ -89,6 +97,7 @@ SA.MODULES = {
     price: 150, hp: 120, power: 2, kg: 200, q: 2,
     dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 6, arc: 'low',
     elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,
+    rcPx: 7, back: 0.04, ret: 2.6, kick: 55,
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
   },
   boiler: {
@@ -119,7 +128,8 @@ SA.MODULES = {
 };
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
-  'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston'];
+  'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
+  'copilot'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 // 品质：编辑器排序与商店标签用
 SA.QUALITY = { 1: { name: '普通', star: '★' }, 2: { name: '精良', star: '★★' }, 3: { name: '稀有', star: '★★★' } };
@@ -130,6 +140,8 @@ SA.weightOf = (cell) => SA.K.WEIGHT_BASE + (SA.MODULES[cell.id].kg || 0) + (cell
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
 SA.tons = fmtT;
 SA.kmh = (pxs) => `${(pxs * SA.K.KMH).toFixed(1)} km/h`;
+// 撞击伤害倍率：跟车重成正比（6 t 为 ×1），0.5 ~ 3 倍
+SA.ramMul = (kg) => Math.max(0.5, Math.min(3, kg / 6000));
 // 改装：武器加炮盾，底盘加裙板，撞击件加厚撞面，其余加附加装甲
 SA.upName = (id) => (SA.isWeapon(id) ? '炮盾' : SA.MODULES[id].layer === 'chassis' ? '加固裙板' : SA.MODULES[id].layer === 'ram' ? '加厚撞面' : '附加装甲');
 SA.upHp = (id) => (SA.isWeapon(id) ? 0.3 : 0.25);   // 每级耐久 +%

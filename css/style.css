@@ -476,3 +476,6 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .brass-plate .plate-toggle .weight { font-size: 11px; font-weight: 700; padding: 1px 5px; background: rgba(78, 53, 16, .25); color: #3d2708; }
 .brass-plate .plate-toggle .weight.bad { background: var(--magenta); color: #fff; }
 .vs-chips { display: flex; gap: 4px; }
+
+.slot.co { border-color: var(--glass2); }
+.slot .co-tag { margin-left: 6px; font-size: 10px; padding: 0 4px; background: var(--glass2); color: #0b0e15; }

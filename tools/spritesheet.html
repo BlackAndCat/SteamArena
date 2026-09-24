@@ -7,7 +7,7 @@
 <h2 style="color:var(--brass2)">模块精灵表（原生 48px × 2 倍）</h2>
 <div class="sheet" id="s"></div>
 <div class="row2" id="g"></div>
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
 <script>
 const S = document.getElementById('s');
@@ -19,12 +19,19 @@ for (const id of SA.MODULE_ORDER) {
 }
 const G = document.getElementById('g');
 for (const [name, rows, sides] of [['女王号', SA.OPPONENTS[5].rows, SA.OPPONENTS[5].sides], ['夜行者', SA.CLOUD_PRESETS[2].rows, SA.CLOUD_PRESETS[2].sides]]) {
-  for (const view of ['pixel', 'blueprint']) {
-    const v = SA.V.fromAscii(name, rows, sides);
-    const src = SA.SPR.renderVehicle(v, { key: name + view, view, heat: .5, water: .6, blocked: SA.V.blockedList(v) });
-    const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height; cv.className = 'px';
-    const g = cv.getContext('2d'); g.fillStyle = SA.PAL.bg[2]; g.fillRect(0,0,cv.width,cv.height); g.drawImage(src, 0, 0);
-    cv.style.width = src.width+'px'; G.append(cv);
+  const v = SA.V.fromAscii(name, rows, sides);
+  const src = SA.SPR.renderVehicle(v, { key: name, heat: .5, water: .6, blocked: SA.V.blockedList(v) });
+  const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height; cv.className = 'px';
+  const g = cv.getContext('2d'); g.fillStyle = SA.PAL.bg[2]; g.fillRect(0,0,cv.width,cv.height); g.drawImage(src, 0, 0);
+  cv.style.width = src.width+'px'; G.append(cv);
+}
+// 动态帧：后坐 0 / 50% / 100%，机枪供弹 0~3
+for (const id of ['cannon', 'side_cannon', 'mortar', 'mg']) {
+  for (const [recoil, feed] of [[0, 0], [0.5, 1], [1, 2]]) {
+    const cv = document.createElement('canvas'); cv.width = 84; cv.height = 52; cv.className = 'px';
+    cv.style.width = 84*2+'px'; cv.style.height = 52*2+'px'; cv.style.background = SA.PAL.bg[2];
+    SA.SPR.drawModule(cv.getContext('2d'), id, 2, 2, { recoil, feed, t: 0 });
+    const d = document.createElement('div'); d.className = 'it'; d.append(cv, `${SA.MODULES[id].name} 后坐 ${recoil * 100}%`); G.append(d);
   }
 }
 </script></body></html>

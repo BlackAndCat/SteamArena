@@ -138,7 +138,7 @@ SA.UI = (() => {
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '重量'),
         h('div', { class: `bar weight ${s.weight > s.load ? 'over' : ''}` }, h('i', { style: `width:${pct(s.weight, wmax)}` }),
           h('span', { class: 'cap', style: `left:calc(${pct(s.load, wmax)} - 2px)`, title: '底盘承重' }))),
-      h('div', { class: 'bar-note' }, `总重 ${SA.tons(s.weight)} · 底盘承重 ${SA.tons(s.load)}（红线）· 每吨要 ${SA.K.DRIVE_PER_T} 动力才能跑满速`),
+      h('div', { class: 'bar-note' }, `总重 ${SA.tons(s.weight)} · 底盘承重 ${SA.tons(s.load)}（红线）· 撞击伤害 ×${SA.ramMul(s.weight).toFixed(2)} · 每吨要 ${SA.K.DRIVE_PER_T} 动力才能跑满速`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '速度'),
         h('div', { class: 'bar speed' }, h('i', { style: `width:${pct(s.topSpeed, 100)}` }),
           h('span', { class: 'mark', style: `left:${pct(s.speed, 100)}`, title: '底盘基础速度' }))),

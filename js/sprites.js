@@ -60,6 +60,9 @@ SA.SPR = (() => {
     rivet(x + 6, y + 17); rivet(x + 6, y + 34);
   }
 
+  // 后坐量化档 k（0~8）→ 该武器的制退位移（px）
+  const rcPx = (id, k) => Math.round((k || 0) / 8 * (SA.MODULES[id].rcPx || 0));
+
   // 履带节：xa..xb 范围内按 8px 节距排布，off 为滚动偏移
   function links(xa, xb, yy, h, off, grouser) {
     R(xa, yy, xb - xa, h, P.dark[0]);
@@ -126,7 +129,7 @@ SA.SPR = (() => {
   }
   // 机身起伏幅度：双足大、四足小；混有履带就不起伏
   const BOB = { biped: 3, quad: 1 };
-  const gfOf = (phase) => ((Math.floor((phase || 0) / 5) % 12) + 12) % 12;
+  const gfOf = (phase) => SA.Dyn.frame(phase, 12, 5);   // 腿的步态帧：每走 5px 换一帧，12 帧一循环
   // 底盘顶部的车体底板：与上方模块的框架同色相接；没有模块压着时才描顶边
   function floor(x, y, o, h = 5) {
     R(x, y, C, h, P.iron[1]);
@@ -219,6 +222,28 @@ SA.SPR = (() => {
       line(x + 22, y + 31, x + 29 + lv, y + 26, 1, P.glass[2]);
       disc(x + 30.5 + lv, y + 25.5, 1.9, K0); disc(x + 30.5 + lv, y + 25.5, 1.1, P.leather[2]);
     },
+    copilot(x, y, o) {
+      // 副驾驶：圆舷窗里戴圆顶礼帽、留八字胡的领航员，举着黄铜望远镜；下方两根拉杆
+      box(x + 3, y + 3, 42, 42, IRON);
+      disc(x + 24, y + 20, 15, P.black); disc(x + 24, y + 20, 14, P.brass[1]); disc(x + 24, y + 20, 12.5, P.brass[2]);
+      disc(x + 24, y + 20, 11, P.iron[1]);
+      for (let a = 0; a < 8; a++) { const ang = a / 8 * Math.PI * 2; R(Math.round(x + 24 + Math.cos(ang) * 13), Math.round(y + 20 + Math.sin(ang) * 13), 1, 1, P.brass[3]); }
+      const K0 = P.black, bob = [0, 1, 1, 0][o.lv || 0];
+      // 头 + 圆顶礼帽
+      disc(x + 22, y + 22 + bob, 6.5, K0); disc(x + 22, y + 22 + bob, 5.6, P.steam[2]);
+      R(x + 15, y + 15 + bob, 14, 2, K0); R(x + 17, y + 10 + bob, 10, 6, K0); R(x + 18, y + 11 + bob, 8, 4, P.dark[2]); R(x + 16, y + 15 + bob, 12, 1, P.dark[3]);
+      R(x + 18, y + 14 + bob, 8, 1, P.rust[2]);
+      // 八字胡 + 眼
+      R(x + 20, y + 21 + bob, 1, 2, K0); R(x + 19, y + 25 + bob, 7, 1, P.leather[0]); R(x + 18, y + 26 + bob, 2, 1, P.leather[0]); R(x + 25, y + 26 + bob, 2, 1, P.leather[0]);
+      // 望远镜（伸向前方）
+      line(x + 26, y + 21 + bob, x + 35, y + 19, 4, K0); line(x + 26, y + 21 + bob, x + 35, y + 19, 2, P.brass[2]);
+      R(x + 34, y + 17, 3, 5, P.brass[3]);
+      // 下方：拉杆 + 小仪表
+      box(x + 8, y + 34, 32, 9, DARK);
+      for (const lx of [14, 20]) { line(x + lx, y + 38, x + lx + (lx === 14 ? bob : -bob), y + 31, 2, P.brass[2]); disc(x + lx + (lx === 14 ? bob : -bob), y + 31, 1.6, P.fire[2]); }
+      disc(x + 32, y + 38, 3, P.brass[2]); disc(x + 32, y + 38, 2, P.steam[2]); R(x + 32, y + 37, 1, 2, P.dark[0]);
+      rivet(x + 6, y + 6); rivet(x + 40, y + 6); rivet(x + 6, y + 40); rivet(x + 40, y + 40);
+    },
     water(x, y, o) {
       // 带水位的方块水箱
       box(x + 19, y + 2, 10, 6, BRASS);
@@ -288,25 +313,28 @@ SA.SPR = (() => {
       R(x + 11, y + 40, 26, 1, lv >= 2 ? P.fire[1] : P.fire[0]);
     },
     cannon(x, y, o) {
+      // 分件：固定的摇架 + 驻退筒；炮管整体后坐 d 像素，复进杆随之伸缩；炮口制退器两侧开槽
       housing(x, y, true);
-      const k = o.k || 0;
-      box(x + 28, y + 16, 14, 22, BRASS);
-      R(x + 31, y + 18, 1, 18, P.brass[3]);
-      R(x + 40 - k, y + 22, 32, 10, P.iron[0]);
-      R(x + 40 - k, y + 23, 32, 8, P.iron[3]);
-      R(x + 40 - k, y + 23, 32, 1, P.iron[4]);
-      R(x + 40 - k, y + 30, 32, 1, P.iron[2]);
-      for (const bx of [48, 58]) { R(x + bx - k, y + 21, 3, 12, P.brass[1]); R(x + bx - k, y + 21, 1, 12, P.brass[3]); }
-      R(x + 66 - k, y + 19, 6, 16, P.iron[0]);
-      R(x + 67 - k, y + 20, 4, 14, P.iron[3]);
-      R(x + 67 - k, y + 20, 4, 1, P.iron[4]);
+      const d = rcPx('cannon', o.k);
+      box(x + 26, y + 15, 16, 24, BRASS);
+      R(x + 29, y + 17, 1, 20, P.brass[3]);
+      R(x + 40, y + 33, 12, 5, P.dark[0]); R(x + 40, y + 34, 12, 3, P.iron[2]); R(x + 40, y + 34, 12, 1, P.iron[4]);
+      const lug = x + 58 - d;
+      if (lug > x + 52) { R(x + 52, y + 35, lug - x - 52, 2, P.iron[0]); R(x + 52, y + 35, lug - x - 52, 1, P.brass[3]); }
+      R(lug - 1, y + 31, 3, 6, P.brass[1]); R(lug - 1, y + 31, 1, 6, P.brass[3]);
+      const bx = x + 38 - d;
+      R(bx, y + 22, 30, 10, P.iron[0]); R(bx, y + 23, 30, 8, P.iron[3]); R(bx, y + 23, 30, 1, P.iron[4]); R(bx, y + 30, 30, 1, P.iron[2]);
+      for (const hb of [8, 18]) { R(bx + hb, y + 21, 3, 12, P.brass[1]); R(bx + hb, y + 21, 1, 12, P.brass[3]); }
+      R(bx + 28, y + 19, 8, 16, P.iron[0]); R(bx + 29, y + 20, 6, 14, P.iron[3]); R(bx + 29, y + 20, 6, 1, P.iron[4]);
+      for (const sy of [22, 26, 30]) R(bx + 30, y + sy, 4, 2, P.dark[0]);
+      if ((o.k || 0) >= 7) { R(bx + 36, y + 23, 3, 8, P.fire[3]); R(bx + 39, y + 25, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
     },
     mortar(x, y, o) {
       // 朝天粗管：一眼看出“往上打”
       box(x + 3, y + 28, 42, 17, IRON);
       R(x + 4, y + 39, 40, 1, P.brass[2]);
       box(x + 11, y + 22, 7, 12, DARK); box(x + 24, y + 22, 7, 12, DARK);
-      const k = (o.k || 0) * 1.2;
+      const k = rcPx('mortar', o.k);
       const dx = 0.574, dy = -0.819, px = x + 20 - dx * k, py = y + 30 - dy * k, L = 27;
       for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 6, P.iron[0]);
       for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 5, P.iron[3]);
@@ -327,12 +355,20 @@ SA.SPR = (() => {
       disc(x + 14, y + 30, 2, P.brass[0]);
       box(x + 28, y + 15, 13, 27, BRASS);
       for (let i = 0; i < 5; i++) R(x + 31, y + 19 + i * 4, 7, 1, P.brass[0]);
-      const k = Math.round((o.k || 0) * 0.5);
-      for (const yy of [19, 27, 35]) {
+      // 三管轮转：每打一发转一格（亮的那根换位），整组后坐 k 像素；弹鼓下挂的供弹链逐发前移
+      const k = rcPx('mg', o.k), f = o.f || 0;
+      [19, 27, 35].forEach((yy, i) => {
+        const lit = (i + f) % 3 === 0;
         R(x + 41 - k, y + yy, 19, 4, P.iron[0]);
-        R(x + 41 - k, y + yy + 1, 19, 2, P.iron[3]);
+        R(x + 41 - k, y + yy + 1, 19, 2, lit ? P.iron[4] : P.iron[3]);
         R(x + 41 - k, y + yy + 1, 19, 1, P.iron[4]);
+      });
+      R(x + 57 - k, y + 18, 3, 22, P.iron[0]); R(x + 57 - k, y + 19, 2, 20, P.brass[1]);
+      for (let i = 0; i < 6; i++) {
+        const bx = x + 4 + ((i * 4 + f) % 24);
+        R(bx, y + 41, 3, 4, P.dark[0]); R(bx, y + 41, 2, 3, P.brass[2]); R(bx, y + 41, 2, 1, P.brass[3]);
       }
+      if ((o.k || 0) >= 6) { R(x + 60 - k, y + 26, 3, 4, P.fire[3]); }   // 枪口焰
     },
     side_cannon(x, y, o) {
       // 外挂支架：侧挂层独有的剪影
@@ -341,7 +377,7 @@ SA.SPR = (() => {
       R(x + 13, y + 11, 6, 20, P.dark[0]);
       R(x + 14, y + 11, 4, 20, P.iron[2]);
       R(x + 14, y + 11, 1, 20, P.iron[3]);
-      const k = o.k || 0;
+      const k = rcPx('side_cannon', o.k);
       R(x + 26 - k, y + 28, 40, 12, P.dark[0]);
       R(x + 26 - k, y + 29, 40, 10, P.iron[3]);
       R(x + 26 - k, y + 29, 40, 1, P.iron[4]);
@@ -502,9 +538,10 @@ SA.SPR = (() => {
     switch (id) {
       case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
-      case 'cockpit': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
-      case 'cannon': case 'mg': case 'side_cannon': case 'mortar': q.k = Math.round((o.recoil || 0) * 4); break;
-      case 'track': q.ph = o.thrown ? 0 : ((Math.floor(o.phase || 0) % 24) + 24) % 24; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; break;
+      case 'cockpit': case 'copilot': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
+      case 'cannon': case 'side_cannon': case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); break;
+      case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); break;
+      case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; break;
       case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
@@ -605,7 +642,9 @@ SA.SPR = (() => {
     const base = veh.body[K.ROWS - 1];
     const thrown = base.some(x => x && x.id === 'track' && x.hp <= 0);
     const amp = base.some(x => x && x.id === 'track') ? 0 : Math.max(0, ...base.map(x => (x && x.hp > 0 && BOB[x.id]) || 0));
-    const bd = amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(o.phase) : 0) / 12 * Math.PI * 2)) * amp);
+    const dyn = o.dyn || null;   // SA.Dyn.animator：战斗里提供行驶相位、后坐、供弹；改装台 / 预览不传就是静止
+    const phase = dyn ? dyn.phase : (o.phase || 0);
+    const bd = amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(phase) : 0) / 12 * Math.PI * 2)) * amp);
     const isChassis = (id) => SA.MODULES[id].layer === 'chassis';
     const dy = (id, r) => (r === K.ROWS - 1 && isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
 
@@ -616,9 +655,10 @@ SA.SPR = (() => {
       const above = r > 0 && veh.body[r - 1][c];
       return {
         t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd,
-        recoil: o.recoil ? (o.recoil[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] || 0) : 0,
+        recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
+        feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
-        phase: o.phase || 0,
+        phase,
         connL: c > 0 && same(c - 1),
         connR: c < K.COLS - 1 && same(c + 1),
         ...run(row, c),

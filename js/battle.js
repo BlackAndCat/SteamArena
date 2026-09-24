@@ -16,7 +16,7 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, recoil: {}, punch: {}, punchT: {}, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -29,7 +29,7 @@ SA.Battle = (() => {
 
   function refresh(s) {
     let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
-    let ak = 0, bk = 0, sw = 0, spk = 0;
+    let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0;
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const m = M[cell.id];
@@ -40,6 +40,7 @@ SA.Battle = (() => {
       if (m.layer === 'chassis') { ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
       if (cell.id === 'cockpit') cock++;
+      if (cell.id === 'copilot') cop++;
     });
     // 履带是一个整体：任意一段被毁 = 掉链子，整车趴窝
     let thrown = false;
@@ -52,7 +53,7 @@ SA.Battle = (() => {
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1), spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
-      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock });
+      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: cop });
     s.water = Math.min(s.water, waterMax);
     const blocked = SA.V.blockedList(s.v);
     s.weapons = [];
@@ -110,8 +111,8 @@ SA.Battle = (() => {
   // 车身不稳的程度：移动速度 + 起步/刹车颠簸，乘底盘晃动系数（四足最稳，双足最晃）
   const shakeOf = (s) => s.sway * (Math.min(1, Math.abs(s.vx) / 60) * 1.6 + Math.min(1.5, s.jolt) * 2.2);
   // 散布（最大偏角，度）：只有直射武器有；高抛指哪打哪。边走边打、刹车时散布更大；按住蓄力（focus）能把散布缩到 30%
-  const spreadDeg = (s, o, w) => (w.m.indirect ? 0
-    : (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - (1 - K.FOCUS_MIN) * s.focus) + o.evade * 20);
+  const spreadDeg = (s, o, w, focus = s.focus) => (w.m.indirect ? 0
+    : (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - (1 - K.FOCUS_MIN) * focus) + o.evade * 20);
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
   function aimAngle(s, w, tx, ty) {
     const [x0, y0] = muzzle(s, w);
@@ -161,17 +162,28 @@ SA.Battle = (() => {
 
   // ---------- 开火与伤害 ----------
   // 按炮管当前仰角开火：炮管还没转到位就扣扳机，炮弹就飞向炮管指的地方
-  function fire(s, o, w, side) {
-    let jit = gauss() * spreadDeg(s, o, w);
+  function fire(s, o, w, side, focus = s.focus) {
+    let jit = gauss() * spreadDeg(s, o, w, focus);
     if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1.4, 2.6) * w.m.spread; // 偏弹
     const sh = launch(s, w, barrel(s, w), jit);
     B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, big: w.m.proj === 'shell' });
     s.heat += w.m.heat;
     s.water = Math.max(0, s.water - w.m.heat * K.FIRE_WATER);
-    s.recoil[w.key] = 1;
+    // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
+    s.anim.gun(w.key, w.m);
+    const push = (w.m.kick || 0) / s.mass;
+    s.vx -= dir * push * (up ? 0.3 : 1);
+    SA.Dyn.kick(s.anim.body, -push * (up ? 2 : 4));
+    s.jolt = Math.min(1.5, s.jolt + push / 60);
+    if (w.m.proj === 'shell') B.shake = Math.max(B.shake, 1.5 + push / 6);
     for (let i = 0; i < (w.m.proj === 'shell' ? 10 : 3); i++) part('flash', sh.x + dir * rnd(0, 10), sh.y + rnd(-3, 3) - (up ? rnd(0, 8) : 0), dir * rnd(30, 110), up ? rnd(-140, -40) : rnd(-30, 30), rnd(0.06, 0.14));
-    if (w.m.proj === 'shell') part('smoke', sh.x, sh.y, dir * 30, -24, 0.9);
+    if (w.m.proj === 'shell') {
+      part('smoke', sh.x, sh.y, dir * 30, -24, 0.9);
+      // 炮口制退器两侧喷出的气浪 + 炮口前方的冲击尘
+      if (!up) for (const vy of [-1, 1]) for (let i = 0; i < 3; i++) part('steam', sh.x - dir * 4, sh.y + vy * 4, -dir * rnd(20, 60), vy * rnd(60, 120), rnd(0.25, 0.45));
+      if (sh.y > GROUND - 120) for (let i = 0; i < 6; i++) part('dust', sh.x + dir * rnd(0, 30), GROUND - 2, dir * rnd(20, 120), rnd(-80, -20), rnd(0.3, 0.6));
+    }
   }
 
   function damage(def, att, imp, dmg) {
@@ -257,6 +269,7 @@ SA.Battle = (() => {
     const nx = clamp(want, lo, hi);
     if (nx !== want) s.vx = 0;
     s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
+    s.anim.phase = s.phase;   // 履带链节 / 腿的步态都读动态模块里的行驶相位
     s.moving = Math.abs(nx - s.x) > 0.02;
     s.x = nx;
     if (s.moving && s.dir) {
@@ -294,7 +307,7 @@ SA.Battle = (() => {
         for (const { r, ma, dc } of contactPairs(a, d)) {
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
           const fc = a.frontCol;
-          const dmg = (M[ma.id].ram || 6) * f * clamp(Math.sqrt(a.mass / 6), 0.7, 1.6);
+          const dmg = (M[ma.id].ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
           const target = d.v.body[r][dc];
           damage(d, a, { layer: 'body', r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
           if (alive(a.v.body[r][fc])) damage(a, null, { layer: 'body', r, c: fc }, dmg * K.RAM_SELF);
@@ -371,20 +384,27 @@ SA.Battle = (() => {
     s.heldT = aiming ? s.heldT + dt : 0;
     // 玩家：稳定度蓄满（绿光）自动开火，或者松手立刻开火
     const ready = (w) => (isP(s) ? s.focus >= 1 || s.release : s.heldT >= w.m.windup);
+    // 副驾驶：每个副驾驶接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
+    s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
+    const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
+    const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
     for (const w of s.weapons) {
       if (w.blocked) continue;
+      const mine = w.cell.id === s.sel, co = !mine && s.coGroups.includes(w.cell.id);
+      const pt = co ? coPt : aimPt;
       // 炮管以有限角速度转向瞄准点
-      const cur = barrel(s, w), want = aimPt ? aimAngle(s, w, aimPt[0], aimPt[1]).a : cur;
+      const cur = barrel(s, w), want = pt ? aimAngle(s, w, pt[0], pt[1]).a : cur;
       s.elev[w.key] = cur + clamp(want - cur, -w.m.slew * dt, w.m.slew * dt);
       if (s.timers[w.key] == null) s.timers[w.key] = rnd(0.2, 0.8) * w.m.reload;
       s.timers[w.key] -= dt * s.power;
       if (s.timers[w.key] <= 0) {
-        if (firing && w.cell.id === s.sel && ready(w)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * rnd(0.92, 1.08); s.kick = true; } else s.timers[w.key] = 0;
+        if (mine && firing && ready(w)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * rnd(0.92, 1.08); s.kick = true; }
+        else if (co && coPt && Math.abs(want - cur) < 3) { fire(s, o, w, !!coAt && coAt.layer === 'side', 0.4); s.timers[w.key] = w.m.reload * rnd(1, 1.2); }
+        else s.timers[w.key] = 0;
       }
     }
     if (s.kick) { s.focus *= K.FOCUS_KICK; s.kick = false; }   // 后坐力把准星震开
     s.release = false;
-    for (const k in s.recoil) s.recoil[k] = Math.max(0, s.recoil[k] - dt * 5);
     s.smokeT -= dt;
     if (s.smokeT <= 0) {
       s.smokeT = 0.45 - Math.min(0.35, s.heat / 280);
@@ -402,22 +422,37 @@ SA.Battle = (() => {
     if (!t) return null;
     return [cellX(o, t.c) + HALF + s.err.x, cellY(t.r) + HALF + s.err.y];
   }
+  // 按权重随机挑一个敌方模块当目标：武器、驾驶舱、锅炉优先
+  function pickTarget(o) {
+    const cands = [];
+    SA.V.each(o.v, (cell, r, c, layer) => {
+      if (!alive(cell)) return;
+      const id = cell.id;
+      const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : id === 'cockpit' ? 2 : id === 'copilot' ? 1.8 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
+      cands.push({ w, t: { layer, r, c } });
+    });
+    let x = Math.random() * cands.reduce((a, b) => a + b.w, 0);
+    for (const cnd of cands) { x -= cnd.w; if (x <= 0) return cnd.t; }
+    return null;
+  }
+  // 副驾驶的瞄准点：自己挑目标，几秒换一次，带固定的手抖误差
+  function copilotAim(s, o, dt) {
+    const co = s.co;
+    co.retarget -= dt;
+    if (!co.target || !alive(o.v[co.target.layer][co.target.r][co.target.c]) || co.retarget <= 0) {
+      co.target = pickTarget(o);
+      co.err = { x: gauss() * 34, y: gauss() * 20 };
+      co.retarget = rnd(3, 6);
+    }
+    return co.target ? [cellX(o, co.target.c) + HALF + co.err.x, cellY(co.target.r) + HALF + co.err.y] : null;
+  }
   function ai(s, o, dt) {
     if (s.dead) return;
     if (s.heat > 72) s.hold = true; else if (s.heat < 45) s.hold = false;
     s.retarget -= dt;
     const tAlive = s.target && alive(o.v[s.target.layer][s.target.r][s.target.c]);
     if (!tAlive || s.retarget <= 0) {
-      const cands = [];
-      SA.V.each(o.v, (cell, r, c, layer) => {
-        if (!alive(cell)) return;
-        const id = cell.id;
-        const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : id === 'cockpit' ? 2 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
-        cands.push({ w, t: { layer, r, c } });
-      });
-      let x = Math.random() * cands.reduce((a, b) => a + b.w, 0);
-      s.target = null;
-      for (const cnd of cands) { x -= cnd.w; if (x <= 0) { s.target = cnd.t; break; } }
+      s.target = pickTarget(o);
       const e = (1 - s.aim) * 100 + 9;
       s.err = { x: gauss() * e, y: gauss() * e * 0.6 };
       s.retarget = rnd(3, 6);
@@ -458,6 +493,7 @@ SA.Battle = (() => {
     ai(B.e, B.p, dt);
     sim(B.p, B.e, dt);
     sim(B.e, B.p, dt);
+    B.p.anim.step(dt); B.e.anim.step(dt);
     collide();
     pistons(B.p, B.e, dt);
     pistons(B.e, B.p, dt);
@@ -587,15 +623,10 @@ SA.Battle = (() => {
     for (const s of [B.p, B.e]) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, GROUND - 3, (K.COLS - s.minCol) * C + 16, 8);
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), recoil: s.recoil, punch: s.punch, phase: s.phase, moving: s.moving, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, punch: s.punch, moving: s.moving, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
-    const rockY = (s) => VY - Math.round(s.rock * 2);   // 起步憋气时车身一颠一颠
-    g.drawImage(pc, Math.round(B.p.x), rockY(B.p));
-    if (B.p.dead) g.drawImage(tint(pc), Math.round(B.p.x), rockY(B.p));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { dimCell: aimT && aimT.layer === 'side' ? aimT : null }));
-    g.save(); g.translate(Math.round(B.e.x) + VW, rockY(B.e)); g.scale(-1, 1); g.drawImage(ec, 0, 0);
-    if (B.e.dead) g.drawImage(tint(ec), 0, 0);
-    g.restore();
+    drawVehicle(B.p, pc); drawVehicle(B.e, ec);
 
     if (aimT) SA.SPR.outline(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), C, C, aimT.layer === 'side' ? P.magenta : P.white, P.black);
     // 准星停在模块上：显示它的改装军衔杠
@@ -636,20 +667,42 @@ SA.Battle = (() => {
 
     if (B.aim) {
       const [mx, my] = B.aim.map(Math.round);
-      gearReticle(mx, my, B.p.focus, aimT);
-      const rl = reloadFrac(B.p);
-      if (rl != null) hourglass(mx + 24, my + 12, rl);
+      reticle(mx, my, aimT);
     }
     const cam = B.cam;
     dg.imageSmoothingEnabled = false;
     dg.drawImage(wc, cam.x, cam.y, cam.w, cam.h, 0, 0, W, H);
   }
 
+  // 准星：装填中 = 来回摆动的沙漏（外面一圈淡淡的稳定度环）；装好了 = 黄铜齿轮。
+  // 机枪这类快枪（装填 < 1 秒）不切沙漏：齿轮每打一发咔哒转一齿，领头的齿闪一下，内圈细弧显示装填
+  const reticleR = (focus) => Math.round(9 + (1 - focus) * 15);
+  function reticle(x, y, aimT) {
+    const p = B.p;
+    const group = p.weapons.filter(w => w.cell.id === p.sel && !w.blocked);
+    const fast = group.length && group[0].m.reload < 1;
+    const rl = reloadFrac(p);
+    if (rl != null && !fast) {
+      // 稳定度环：装填时按住也在蓄力，环跟着收紧
+      g.save(); g.globalAlpha = 0.45; g.lineWidth = 2; g.strokeStyle = P.brass[2];
+      g.beginPath(); g.arc(x, y, reticleR(p.focus), 0, Math.PI * 2); g.stroke(); g.restore();
+      g.fillStyle = P.black; g.fillRect(x - 2, y - 2, 5, 5); g.fillStyle = P.white; g.fillRect(x - 1, y - 1, 3, 3);
+      // 沙漏像钟摆一样挂在准星上方来回摆
+      g.save(); g.translate(x, y - 34); g.rotate(Math.sin(B.t * 4.5) * 0.38);
+      hourglass(-11, 0, rl);
+      g.restore();
+      return;
+    }
+    let ticks = 0, flash = 0;
+    for (const w of group) { ticks += p.anim.feedOf(w.key); flash = Math.max(flash, p.anim.flashOf(w.key)); }
+    gearReticle(x, y, p.focus, aimT, fast ? { ticks, flash, rl } : null);
+  }
+
   // 黄铜齿轮准星：按住蓄力时齿轮收紧、转动；蓄满（稳定度 100%）闪绿光
-  function gearReticle(x, y, focus, aimT) {
+  function gearReticle(x, y, focus, aimT, mg) {
     const full = focus >= 1;
-    const r = Math.round(9 + (1 - focus) * 15);
-    const rot = focus * Math.PI / 2 + B.t * (full ? 2 : 0.3);
+    const r = reticleR(focus);
+    const rot = focus * Math.PI / 2 + (mg ? mg.ticks * Math.PI / 4 : B.t * (full ? 2 : 0.3));
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 12);
     const col = full ? (pulse > 0.5 ? '#9dff8a' : '#6fcf6a') : aimT && aimT.layer === 'side' ? P.magenta : P.brass[2];
     const hi = full ? '#e8ffd9' : P.brass[3];
@@ -664,12 +717,17 @@ SA.Battle = (() => {
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
     g.lineWidth = 1; g.strokeStyle = hi;
     g.beginPath(); g.arc(x, y, r - 1, Math.PI * 1.05, Math.PI * 1.6); g.stroke();
-    // 8 个齿
+    // 快枪：内圈细弧 = 装填进度
+    if (mg && mg.rl != null) {
+      g.globalAlpha = 0.8; g.lineWidth = 2; g.strokeStyle = hi;
+      g.beginPath(); g.arc(x, y, Math.max(3, r - 5), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * mg.rl); g.stroke(); g.globalAlpha = 1;
+    }
+    // 8 个齿（快枪：领头的齿在开火瞬间闪白）
     g.translate(x, y); g.rotate(rot);
     for (let i = 0; i < 8; i++) {
       g.rotate(Math.PI / 4);
       g.fillStyle = P.black; g.fillRect(-4, -r - 8, 8, 8);
-      g.fillStyle = col; g.fillRect(-2.5, -r - 6.5, 5, 5);
+      g.fillStyle = mg && i === 7 && mg.flash > 0.3 ? '#ffffff' : col; g.fillRect(-2.5, -r - 6.5, 5, 5);
     }
     g.restore();
     // 中心：十字小点
@@ -702,6 +760,20 @@ SA.Battle = (() => {
     for (let i = 0; i < top; i++) { const [gx, gw] = glass[4 - i]; R(gx, 7 - i, gw, 1, P.brass[3]); }
     for (let i = 0; i < bot; i++) { const [gx, gw] = glass[10 - i]; R(gx, 13 - i, gw, 1, P.brass[3]); }
     if (f < 1 && Math.floor(B.t * 10) % 2) R(5, 8, 1, 5 - bot, P.brass[3]);   // 漏下来的细流
+  }
+
+  // 画一辆车：起步憋气的颠簸 + 开火反作用的前后晃动与抬头（动态模块里的车身弹簧）；敌方整体镜像
+  function drawVehicle(s, cvs) {
+    const w = s.anim.body.x;                       // 本地坐标：负 = 被往后推
+    const px = VW / 2, py = K.ROWS * C;            // 以车底中点为支点
+    g.save();
+    if (isP(s)) g.translate(Math.round(s.x), VY - Math.round(s.rock * 2));
+    else { g.translate(Math.round(s.x) + VW, VY - Math.round(s.rock * 2)); g.scale(-1, 1); }
+    g.translate(px + w, py);
+    g.rotate(clamp(w * 0.012, -0.06, 0.06));      // 往后坐时车头微微抬起
+    g.drawImage(cvs, -px, -py);
+    if (s.dead) g.drawImage(tint(cvs), -px, -py);
+    g.restore();
   }
 
   // 命中率估算用的固定分位样本（与 gauss() 同分布），每帧结果稳定不闪
@@ -809,15 +881,16 @@ SA.Battle = (() => {
   // 武器组槽位：只有 ≥2 组时才显示，数字键切换
   function renderSlots() {
     const p = B.p;
-    const sig = p.groups.join(',') + '|' + p.sel;
+    const sig = p.groups.join(',') + '|' + p.sel + '|' + (p.coGroups || []).join(',');
     if (hud.slotSig === sig) return;
     hud.slotSig = sig;
     hud.slots.innerHTML = '';
     if (p.groups.length < 2) return;
     p.groups.forEach((id, i) => {
       const n = p.weapons.filter(w => w.cell.id === id).length;
-      hud.slots.append(h('button', { class: `btn small slot ${p.sel === id ? 'on' : ''}`, onclick: () => { p.sel = id; } },
-        h('b', {}, `${i + 1}`), ` ${M[id].name} ×${n}`));
+      const co = (p.coGroups || []).includes(id);
+      hud.slots.append(h('button', { class: `btn small slot ${p.sel === id ? 'on' : ''} ${co ? 'co' : ''}`, title: co ? '副驾驶正在操作这组武器' : '', onclick: () => { p.sel = id; } },
+        h('b', {}, `${i + 1}`), ` ${M[id].name} ×${n}`, co ? h('span', { class: 'co-tag' }, '副驾驶') : null));
     });
   }
 

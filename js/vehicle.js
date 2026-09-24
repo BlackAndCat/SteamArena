@@ -10,7 +10,7 @@ SA.V = (() => {
   const maxHp = (cell) => cell.max || Math.round(M[cell.id].hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
   const alive = (cell) => cell && cell.hp > 0;
 
-  const ASCII = { T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar', M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston' };
+  const ASCII = { T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar', M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot' };
 
   function fromAscii(name, rows, sides = []) {
     const v = create(name);
