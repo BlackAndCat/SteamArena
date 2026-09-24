@@ -1,5 +1,6 @@
-// 改装：格子编辑器（主体层 / 侧挂层，像素 / 蓝图视图）
+// 车间：改装台 + 商店 + 修理 + 蓝图库/云车库，全在这一页（主体层 / 侧挂层，像素 / 图纸视图）
 // 操作集中在底部操作栏：选模块 → 点格子放置；点已有模块直接替换，再点一次同款模块就拆下。
+// 操作栏可切到「蓝图库」：保存 / 应用 / 分享蓝图，云车库里别人的车也能直接套用。
 // 车上的模块可以拖动（空格 = 移动，有模块 = 对调），拖出车外放回库存。
 // 改装台上允许悬空、乱放；只有出战时才要求所有模块都连到底盘（SA.V.issues）。
 window.SA = window.SA || {};
@@ -11,8 +12,10 @@ SA.Editor = (() => {
   const TABS = [['all', '全部'], ['mobility', '底盘'], ['firepower', '火力'], ['ram', '撞击'], ['structure', '结构'], ['energy', '能源'], ['cooling', '冷却'], ['control', '控制']];
   const DRAG_PX = 6;
   // sel：从库存选中、准备放置的模块 id；pick：车上选中的格子 { layer, r, c }
-  const st = { layer: 'body', view: 'pixel', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false };
-  let cv, g, stage, tipEl, headEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro;
+  // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
+  const st = { layer: 'body', view: 'pixel', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
+    dock: 'mods', bp: null, bpFilter: 'all' };
+  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro;
 
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
@@ -21,8 +24,9 @@ SA.Editor = (() => {
   const where = (r, c) => `第 ${K.ROWS - r} 层 第 ${c + 1} 列`;
   const issueAt = (layer, r, c) => st.stats.issues.find(x => x.layer === layer && x.r === r && x.c === c);
 
-  function open() {
-    SA.go('editor');
+  function open(dock) {
+    if (dock) st.dock = dock;
+    SA.go('garage');
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
     Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null });
@@ -33,13 +37,14 @@ SA.Editor = (() => {
     g = cv.getContext('2d');
     tipEl = h('div', { class: 'ed-tip' });
     plateEl = h('div', { class: 'brass-plate' });
-    stage = h('div', { class: 'ed-stage' }, cv, plateEl, tipEl);
-    headEl = h('div', { class: 'ed-head' });
+    viewEl = h('div', { class: 'ed-view' });
+    stage = h('div', { class: 'ed-stage' }, cv, plateEl, viewEl, tipEl,
+      h('button', { class: 'ed-help', title: '图例与规则', 'aria-label': '图例与规则', onclick: openHelp }, '?'));
     ctxEl = h('div', { class: 'dock-ctx' });
     toolsEl = h('div', { class: 'dock-tools' });
     invEl = h('div', { class: 'dock-inv' });
     dockEl = h('div', { class: 'ed-dock' }, h('div', { class: 'dock-inner' }, ctxEl, toolsEl, invEl));
-    screen.append(h('div', { class: 'ed' }, headEl, stage, dockEl));
+    screen.append(h('div', { class: 'ed' }, stage, dockEl));
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
@@ -52,25 +57,24 @@ SA.Editor = (() => {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { invEl.scrollLeft += e.deltaY; e.preventDefault(); }
     }, { passive: false });
     document.addEventListener('keydown', onKey);
+    if (ro) ro.disconnect();
     ro = new ResizeObserver(fit);
     ro.observe(stage);
     renderAll();
     requestAnimationFrame(() => { fit(); loop(); });
   }
 
-  function close(next) {
-    document.removeEventListener('keydown', onKey);
-    if (ro) ro.disconnect();
-    dropGhost();
-    SA.S.save();
-    SA.go('workshop');
-    if (next) next();
+  // 弹窗关闭后由 SA.UI.refresh 调用：钱、库存可能变了
+  function refresh() {
+    if (!cv || !cv.isConnected) return;
+    st.stats = SA.V.stats(veh());
+    renderAll();
   }
 
   function onKey(e) {
-    if (SA.current !== 'editor' || !document.querySelector('#modal').hidden) return;
+    if (SA.current !== 'garage' || !document.querySelector('#modal').hidden) return;
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
-    if (e.key === 'Escape') { st.sel = null; st.pick = null; cancelPress(); renderDock(); }
+    if (e.key === 'Escape') { st.sel = null; st.pick = null; st.bp = null; cancelPress(); renderDock(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && st.pick) { e.preventDefault(); removeAt(st.pick); }
   }
 
@@ -263,35 +267,39 @@ SA.Editor = (() => {
     renderAll();
   }
 
-  // ---------- 顶部：返回、车名、状态、出战 ----------
-  function renderHead() {
-    const s = st.stats;
-    headEl.innerHTML = '';
-    const nameIn = h('input', { type: 'text', value: veh().name, maxLength: 20, 'aria-label': '车名',
-      onchange: () => { veh().name = nameIn.value.trim() || '原型机'; SA.S.save(); } });
-    const bad = s.problems.length;
-    headEl.append(
-      h('button', { class: 'btn small back', title: '返回工坊', onclick: () => close() }, SA.SPR.iconCanvas('back', P.text || '#e4e0d6', 2), h('span', { class: 'wide-only' }, '工坊')),
-      nameIn,
-      h('button', { class: `status ${bad ? 'bad' : 'ok'}`, title: '展开/收起性能铭牌', onclick: () => { st.plateOpen = !st.plateOpen; renderPlate(); } },
-        h('span', { class: 'rating' }, `评分 ${s.rating}`),
-        h('span', { class: 'flag' }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战')),
-      h('button', { class: 'btn small', title: '保存 / 应用改装蓝图', onclick: () => SA.Blueprints.open(() => { st.sel = null; st.pick = null; changed(); }) }, '蓝图库'),
-      h('button', { class: 'btn small', title: '改装规则', onclick: openRules }, '?'),
-      h('button', { class: 'btn small primary', onclick: () => close(() => SA.UI.deploy()) }, '出战'),
-    );
+  // ---------- 黄铜铭牌（画布左上角）：车名、评分、状态、一键修理；展开看性能条 ----------
+  function damagedCells() {
+    const out = [];
+    SA.V.each(veh(), (cell) => { if (cell.hp < SA.V.maxHp(cell)) out.push(cell); });
+    return out;
   }
-
-  // 黄铜性能铭牌：悬浮在画布左上角，可折叠
   function renderPlate() {
     const s = st.stats;
     plateEl.innerHTML = '';
     plateEl.classList.toggle('closed', !st.plateOpen);
-    if (!st.plateOpen) return;
-    plateEl.append(
-      h('button', { class: 'plate-head', title: '收起', onclick: () => { st.plateOpen = false; renderPlate(); } },
-        h('b', {}, '性能'), h('span', { class: 'rating' }, `评分 ${s.rating}`), h('span', { class: 'fold' }, '✕')),
-      h('div', { class: 'plate-body' }, SA.UI.statBars(s)));
+    const nameIn = h('input', { type: 'text', class: 'plate-name', value: veh().name, maxLength: 20, 'aria-label': '车名',
+      onchange: () => { veh().name = nameIn.value.trim() || '原型机'; SA.S.save(); } });
+    const bad = s.problems.length;
+    const hurtList = damagedCells();
+    const cost = hurtList.reduce((a, x) => a + SA.S.repairCost(x), 0);
+    plateEl.append(...[
+      h('div', { class: 'plate-head' }, nameIn,
+        h('button', { class: 'plate-toggle', title: st.plateOpen ? '收起性能' : '展开性能', onclick: () => { st.plateOpen = !st.plateOpen; renderPlate(); } },
+          h('span', { class: 'rating' }, `评分 ${s.rating}`),
+          h('span', { class: `flag ${bad ? 'bad' : ''}` }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战'),
+          h('span', { class: 'fold' }, st.plateOpen ? '▴' : '▾'))),
+      hurtList.length ? h('button', { class: 'btn small plate-fix', onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
+      st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s)) : null].filter(Boolean));
+  }
+
+  // 画布右上角：看哪一层、用什么视图
+  function renderView() {
+    viewEl.innerHTML = '';
+    const seg = (items, cur, set) => h('span', { class: 'seg' }, items.map(([k, n]) =>
+      h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
+    viewEl.append(
+      seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(st.sel) !== k) st.sel = null; }),
+      seg([['pixel', '像素'], ['blueprint', '图纸']], st.view, (k) => { st.view = k; }));
   }
 
   // ---------- 底部操作栏 ----------
@@ -309,6 +317,7 @@ SA.Editor = (() => {
           h('div', { class: 'sub' }, n ? '点格子放置；点已有模块直接替换，点同款模块拆下' : '点格子即可购买并安装')),
         h('div', { class: 'acts' },
           h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`),
+          n ? h('button', { class: 'btn small', onclick: () => sellOne(id) }, `卖 ${money(m.price * 0.5)}`) : null,
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.sel = null; renderAll(); } }, '取消')));
       return;
     }
@@ -329,21 +338,30 @@ SA.Editor = (() => {
       return;
     }
     st.pick = null;
-    const n = st.stats.issues.length;
+    if (st.dock === 'bps') { bpCtx(); return; }
+    // 什么都没选：告诉玩家现在该做什么
+    const s = st.stats;
     ctxEl.append(h('div', { class: 'info' },
-      n ? h('div', { class: 'err' }, `${n} 个模块悬空或摆放不合规（红色闪烁），出战前要接好`) : h('div', {}, h('b', {}, '改装台')),
-      h('div', { class: 'sub' }, '选下面的模块，再点格子放置；拖动车上的模块可以移动/对调，拖出车外放回库存。没有库存的模块可以直接购买。')));
+      s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, '车已就绪'), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
+      h('div', { class: 'sub' }, '选下面的模块再点格子放置（没货会问你买）；拖动车上的模块可移动 / 对调，拖出车外放回库存。')),
+    s.canDeploy ? h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => SA.nav('arena') }, '去出战 →')) : '');
   }
 
   function renderTools() {
     toolsEl.innerHTML = '';
     const inv = d().inv;
-    const seg = (items, cur, set) => h('span', { class: 'seg' }, items.map(([k, n]) =>
-      h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
     const stockOf = (k) => SA.MODULE_ORDER.filter(id => k === 'all' || M[id].cat === k).reduce((a, id) => a + (inv[id] || 0), 0);
+    const dockSeg = h('span', { class: 'seg dock-seg' }, [['mods', '模块'], ['bps', '蓝图库']].map(([k, n]) =>
+      h('button', { class: `btn small ${st.dock === k ? 'on' : ''}`, onclick: () => { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); } }, n)));
+    if (st.dock === 'bps') {
+      toolsEl.append(dockSeg,
+        h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '云端']].map(([k, n]) =>
+          h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
+        h('button', { class: 'btn small', onclick: importDialog }, '导入分享码'));
+      return;
+    }
     toolsEl.append(
-      seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(st.sel) !== k) st.sel = null; }),
-      seg([['pixel', '像素'], ['blueprint', '图纸']], st.view, (k) => { st.view = k; }),
+      dockSeg,
       h('div', { class: 'inv-tabs' }, TABS.map(([k, n]) =>
         h('button', { class: `tab ${st.tab === k ? 'on' : ''} ${k !== 'all' ? `cat-${k}` : ''}`, onclick: () => { st.tab = k; renderTools(); renderInv(); } },
           n, h('span', { class: 'cnt' }, stockOf(k))))),
@@ -353,6 +371,7 @@ SA.Editor = (() => {
   function renderInv() {
     const keep = invEl.scrollLeft;
     invEl.innerHTML = '';
+    if (st.dock === 'bps') { renderBps(); invEl.scrollLeft = keep; return; }
     const inv = d().inv;
     const list = SA.MODULE_ORDER.filter(id => st.tab === 'all' || M[id].cat === st.tab);
     for (const id of list) {
@@ -373,20 +392,107 @@ SA.Editor = (() => {
   }
 
   function renderDock() { renderCtx(); renderInv(); }
-  function renderAll() { renderHead(); renderPlate(); renderCtx(); renderTools(); renderInv(); }
+  function renderAll() { renderPlate(); renderView(); renderCtx(); renderTools(); renderInv(); }
 
-  function openRules() {
-    SA.UI.openModal('改装规则', [
-      h('div', { class: 'list rules' },
-        h('div', {}, h('b', {}, '操作'), '：选底部的模块再点格子放置；点已有模块会直接替换（换下的放回库存），点同款模块就拆下。点车上的模块可选中它（修理 / 拆下）；拖动可以移动或对调，拖出车外放回库存。每次放置、移动、拆下完成后自动取消选中。右键 = 拆下，Esc = 取消，Delete = 拆下选中的模块。'),
-        h('div', {}, h('b', {}, '颜色'), '：绿色闪烁 = 选中 / 可以放；红色闪烁 = 悬空、不合规或不能放；空格上的淡绿 = 能稳稳装上的位置。'),
-        h('div', {}, h('b', {}, '蓝图库'), '：把当前车辆存成本地蓝图，随时一键换装；官方蓝图提供履带、四足、双足的基础构型，不能删除。'),
-        h('div', {}, h('b', {}, '购买'), '：没有库存的模块也能直接放，确认后自动购买；钱不够会询问是否向银行贷款。'),
-        h('div', {}, h('b', {}, '悬空'), '：改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘，红色闪烁的模块要先接好。'),
-        h('div', {}, h('b', {}, '主体层'), '：底盘只能放最底行；其他模块必须叠在底盘或其他模块上，最高 6 层。直射火炮、机枪的同一行前方不能有己方模块；高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角/撞锤装在装甲前）必须是这一行的最前端，上面不能叠东西。'),
-        h('div', {}, h('b', {}, '侧挂层'), '：侧炮挂在任意主体模块上，射击不会被己方挡住，但命中率低。被瞄准时敌人只打侧炮；下面的模块被毁，侧炮也会掉落。'),
-        h('div', { class: 'legend' }, Object.values(SA.CAT).map(c => h('span', {}, h('i', { style: `background:${c.plate}` }), c.name)))),
-    ]);
+  // ---------- 蓝图库 · 云车库（底部操作栏的第二个页签）----------
+  const KIND = { mine: '我的', official: '官方', cloud: '云端' };
+  function bpList() { return SA.Blueprints.all().filter(b => st.bpFilter === 'all' || b.kind === st.bpFilter); }
+  function bpPic(bp, scale) {
+    const cvs = SA.UI.vehiclePreview(SA.V.fromLayout(bp.name, bp), scale);
+    cvs.classList.add('bp-pic');
+    return cvs;
+  }
+
+  function renderBps() {
+    const nextName = `${veh().name} 方案 ${SA.Blueprints.mine().length + 1}`;
+    invEl.append(h('button', { class: 'tile bp-tile add', title: '把当前车辆存成一张蓝图', onclick: () => {
+      SA.Blueprints.save(nextName);
+      st.bpFilter = st.bpFilter === 'official' || st.bpFilter === 'cloud' ? 'all' : st.bpFilter;
+      st.bp = SA.Blueprints.all().find(b => b.kind === 'mine').key;
+      say(`已存为蓝图「${nextName}」`);
+      renderAll();
+    } }, h('span', { class: 'plus' }, '＋'), h('span', { class: 'nm' }, '存为蓝图'), h('span', { class: 'muted' }, '保存当前车辆')));
+    for (const bp of bpList()) {
+      const p = SA.Blueprints.plan(bp);
+      invEl.append(h('button', { class: `tile bp-tile ${st.bp === bp.key ? 'sel' : ''}`, title: bp.desc || bp.name,
+        onclick: () => { st.bp = st.bp === bp.key ? null : bp.key; renderDock(); } },
+      h('span', { class: `n kind-${bp.kind}` }, KIND[bp.kind]),
+      bpPic(bp, 1),
+      h('span', { class: 'nm' }, bp.name),
+      h('span', { class: `cost ${p.cost ? 'price' : ''}` }, p.cost ? `需 ${money(p.cost)}` : '库存够用')));
+    }
+  }
+
+  function bpCtx() {
+    const bp = st.bp && SA.Blueprints.all().find(b => b.key === st.bp);
+    if (!bp) {
+      ctxEl.append(h('div', { class: 'info' },
+        h('div', {}, h('b', {}, '蓝图库 · 云车库')),
+        h('div', { class: 'sub' }, '选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「导入分享码」把别人的车存进来。')));
+      return;
+    }
+    const v = SA.V.fromLayout(bp.name, bp), s = SA.V.stats(v), p = SA.Blueprints.plan(bp);
+    const done = () => { st.bp = null; st.stats = SA.V.stats(veh()); changed(); };
+    const nameIn = bp.kind === 'mine' ? h('input', { type: 'text', class: 'bp-name', value: bp.name, maxLength: 20, 'aria-label': '蓝图名称',
+      onchange: () => { SA.Blueprints.rename(bp.index, nameIn.value.trim() || bp.name); renderInv(); } }) : h('b', {}, bp.name);
+    let armed = false;
+    const del = bp.kind === 'mine' ? h('button', { class: 'btn small', onclick: () => {
+      if (!armed) { armed = true; del.textContent = '确认删除？'; del.classList.add('danger'); return; }
+      SA.Blueprints.del(bp.index); st.bp = null; say('蓝图已删除'); renderAll();
+    } }, '删除') : null;
+    ctxEl.append(bpPic(bp, 0.5),
+      h('div', { class: 'info' },
+        h('div', {}, nameIn, ' ', h('span', { class: `chip kind-${bp.kind}` }, bp.kind === 'cloud' ? `云端 · ${bp.author}` : KIND[bp.kind]), ' ', h('span', { class: 'chip' }, `评分 ${s.rating}`)),
+        h('div', { class: `sub ${s.canDeploy ? '' : 'err'}` }, bp.desc || (s.canDeploy ? '可以直接出战' : s.problems[0]))),
+      h('div', { class: 'acts' },
+        h('button', { class: 'btn small primary', onclick: () => SA.Blueprints.apply(bp, done) }, p.cost ? `应用 · ${money(p.cost)}` : '应用'),
+        bp.kind === 'mine' ? h('button', { class: 'btn small', title: '用当前车辆覆盖这张蓝图', onclick: () => { SA.Blueprints.overwrite(bp.index); say('已用当前车辆覆盖'); renderAll(); } }, '覆盖') : null,
+        bp.kind !== 'official' ? h('button', { class: 'btn small', title: '复制分享码；自己的蓝图会同时上传到云车库', onclick: () => {
+          const code = bp.kind === 'mine' ? SA.Blueprints.share(bp) : bp.code;
+          if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+          say(bp.kind === 'mine' ? '已上传云车库，分享码已复制' : '分享码已复制');
+          if (bp.kind === 'mine') renderInv();
+        } }, bp.kind === 'mine' ? '分享' : '复制码') : null,
+        del));
+  }
+
+  function importDialog() {
+    const box = h('textarea', { rows: 3, placeholder: '粘贴 SA1. 开头的分享码' });
+    SA.UI.dialog('导入分享码', [h('p', { class: 'muted', style: 'margin-top:0' }, '导入的车会存成你自己的蓝图，可以直接应用；想和它打一场，去「出战 → 友谊赛」。'), box],
+      [{ label: '导入', primary: true, onClick: () => {
+        const v = SA.Blueprints.importCode(box.value);
+        if (!v) { SA.UI.toast('分享码无效'); return; }
+        st.dock = 'bps'; st.bpFilter = 'mine'; st.bp = SA.Blueprints.all()[0].key;
+        say(`已导入「${v.name}」`); renderAll();
+      } }]);
+    setTimeout(() => box.focus(), 0);
+  }
+
+  function sellOne(id) {
+    const x = Math.round(M[id].price * 0.5);
+    d().money += x; SA.S.addInv(id, -1);
+    if (!d().inv[id]) st.sel = null;
+    say(`卖出 ${M[id].name}，进账 ${money(x)}`);
+    changed();
+  }
+
+  // 「?」：图例 + 规则，合在一个地方
+  function openHelp() {
+    const H = (t) => h('h3', { class: 'help-h' }, t);
+    SA.UI.openModal('图例与规则', h('div', { class: 'help' },
+      H('模块图例'),
+      h('div', { class: 'help-cats' }, Object.entries(SA.CAT).map(([k, c]) => h('div', { class: `help-cat cat-${k}` },
+        h('b', {}, h('i', { style: `background:${c.plate}` }), c.name),
+        h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
+      H('车间里的颜色'),
+      h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
+      H('操作'),
+      h('p', {}, '选底部模块再点格子放置；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖出车外放回库存。没货的模块放置时会问你买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
+      H('摆放规则'),
+      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行，其他模块叠在底盘或模块上，最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲前）必须是这一行最前端。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
+      H('战斗里的颜色'),
+      h('p', {}, h('b', {}, '白框'), ' 准星对准的模块 · ', h('b', { style: 'color:var(--magenta)' }, '洋红'), ' 准星对准的侧炮 · 虚线框 = 炮弹会先打中的模块 · ', h('b', { style: 'color:var(--fire2)' }, '橙'), ' 热量 · ', h('b', { style: 'color:var(--water2)' }, '青'), ' 水 · ', h('b', { style: 'color:var(--gauge2)' }, '绿'), ' 动力 · ', h('b', { style: 'color:var(--brass2)' }, '黄铜'), ' 火力。准星旁的小沙漏 = 装填进度。'),
+    ));
   }
 
   // ---------- 绘制 ----------
@@ -532,10 +638,10 @@ SA.Editor = (() => {
   }
 
   function loop() {
-    if (SA.current !== 'editor') return;
+    if (SA.current !== 'garage') return;
     draw(performance.now() / 1000);
     requestAnimationFrame(loop);
   }
 
-  return { open };
+  return { open, refresh };
 })();

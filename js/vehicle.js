@@ -231,9 +231,9 @@ SA.V = (() => {
     if (s.demand > s.cap) s.problems.push(`动力需求 ${s.demand} 超过底盘承载上限 ${s.cap}`);
     // 履带是一个整体：有一段被毁就整条掉链，修好之前开不动
     s.issues = issues(v);
-    if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（改装页红色闪烁标出），接好才能出战`);
+    if (s.issues.length) s.problems.push(`${s.issues.length} 个模块悬空或摆放不合规（车间里红色闪烁），接好才能出战`);
     s.thrown = v.body[K.ROWS - 1].some(cell => cell && cell.id === 'track' && cell.hp <= 0);
-    if (s.thrown) s.problems.push('履带掉链（有一段被打断），先去「修理」接上');
+    if (s.thrown) s.problems.push('履带掉链（有一段被打断），在车间修好才能开');
     s.warnings = [];
     if (s.demand > s.supply && s.boilers) s.warnings.push(`动力不足：武器装填速度降至 ${Math.round(s.power * 100)}%`);
     if (s.blocked.length) s.warnings.push(`${s.blocked.length} 门武器被己方模块挡住，无法开火`);

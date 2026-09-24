@@ -854,7 +854,7 @@ SA.Battle = (() => {
       h('div', { class: 'bt-bottom' },
         h('div', { class: 'bt-ctrl' }, holdBtn('◀ 后退', 'left'), holdBtn('前进 ▶', 'right'), holdBtn('开火', 'fire')),
         hud.slots, hud.info, hud.vent,
-        h('button', { class: 'btn', onclick: () => { if (!B.p.dead && confirm('确定撤出比赛？这会判负。')) kill(B.p, '主动撤出比赛'); } }, '撤退'))));
+        h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => kill(B.p, '主动撤出比赛') }], '继续比赛'); } }, '撤退'))));
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();

@@ -2,7 +2,7 @@
 window.SA = window.SA || {};
 
 SA.Street = (() => {
-  const h = SA.h, M = SA.MODULES, K = SA.K;
+  const M = SA.MODULES, K = SA.K;
   const ri = (n) => Math.floor(Math.random() * n);
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = (a) => a[ri(a.length)];
@@ -97,36 +97,5 @@ SA.Street = (() => {
     st.offers[ti] = makeOffer(ti, st.offers.filter((x, j) => x && j !== ti).map(x => x.pilot));
   }
 
-  function fight(ti) {
-    const o = d().street.offers[ti];
-    document.querySelector('#modal').hidden = true;
-    SA.Battle.start({ mode: 'street', streetTier: ti, enemyVehicle: SA.V.fromLayout(o.name, o.layout), enemyName: o.name, aim: o.aim, hpMul: 1, prize: o.prize });
-  }
-
-  function open(force) {
-    const me = SA.V.stats(d().vehicle);
-    const list = offers(force);
-    const money = SA.UI.money;
-    const cards = list.map((o, ti) => {
-      const tier = SA.STREET_TIERS[ti];
-      const over = me.rating > tier.cap;
-      const v = SA.V.fromLayout(o.name, o.layout);
-      const why = over ? `你的评分 ${me.rating} 超过上限 ${tier.cap}` : !me.canDeploy ? me.problems[0] : '';
-      return h('div', { class: 'panel card street' },
-        h('div', { class: 'top' }, h('b', {}, tier.name), h('span', { class: 'chip' }, `评分上限 ${tier.cap}`), h('span', { class: 'price' }, money(o.prize))),
-        SA.UI.vehiclePreview(v, 1),
-        h('div', {}, h('b', {}, `「${o.name}」`), h('span', { class: 'muted' }, ` · ${o.pilot}`)),
-        h('div', { class: 'st' }, `对手评分 ${o.rating} · 你 ${me.rating}${over ? '（超限）' : ''}`),
-        h('div', { class: 'ft' },
-          why ? h('span', { class: 'st', style: 'color:#fff' }, why) : null,
-          h('button', { class: 'btn small primary', disabled: !!why, onclick: () => fight(ti) }, '应战')));
-    });
-    SA.UI.openModal('街头赛', [
-      h('p', { class: 'muted', style: 'font-size:12px;margin-top:0' }, '锦标赛之外赚点外快：对手是街坊邻居随手拼的小车，评分和你差不多。每档有评分上限，车太强进不了场。赢了拿奖金，不计声望、不影响赛程；损伤照样带回工坊。'),
-      h('div', { class: 'cards' }, cards),
-      h('p', {}, h('button', { class: 'btn small', onclick: () => open(true) }, '换一批对手')),
-    ]);
-  }
-
-  return { open, offers, consume, build };
+  return { offers, consume, build };
 })();

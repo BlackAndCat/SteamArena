@@ -14,7 +14,7 @@ SA.S = (() => {
       bet: null,
       orders: ['farmer', 'post', 'mill'], ordersDone: [],
       wins: 0, losses: 0, battles: 0, champion: 0,
-      news: '欢迎来到蒸汽竞技场。先去「改装」看看你的原型机，再去「赛事」侦察对手。',
+      news: '欢迎来到蒸汽竞技场。先在「车间」看看你的原型机，再去「出战」挑一场比赛。',
     };
   }
 

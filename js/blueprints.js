@@ -1,5 +1,5 @@
-// 改装蓝图库：官方基础蓝图（不能删除）+ 玩家保存在本地的蓝图
-// 蓝图只记录布局；应用时先拆回当前车上的模块，缺的模块按原价补买
+// 蓝图库：我的蓝图（本地）+ 官方基础蓝图（不能删除）+ 云车库（其他玩家分享的车）
+// 蓝图只记录布局；应用时先拆回当前车上的模块，缺的模块按原价补买。界面在车间底部操作栏里
 window.SA = window.SA || {};
 
 SA.Blueprints = (() => {
@@ -25,6 +25,7 @@ SA.Blueprints = (() => {
     store(list);
   }
   function del(i) { const list = mine(); list.splice(i, 1); store(list); }
+  function rename(i, name) { const list = mine(); if (list[i]) { list[i].name = name; store(list); } }
 
   // 应用蓝图要花多少钱：优先复用车上的模块（受损的先用上，保留原耐久），再用库存，最后补买
   function plan(bp) {
@@ -77,40 +78,33 @@ SA.Blueprints = (() => {
     SA.UI.pay({ title: '应用蓝图', amount: p.cost, lines, okLabel: '应用', onPaid: run });
   }
 
-  // 蓝图库弹窗；onApplied 在应用蓝图后回调（改装页用来刷新）
-  function open(onApplied) {
-    const reopen = () => open(onApplied);
-    const nameIn = h('input', { type: 'text', maxLength: 20, value: `${d().vehicle.name} 方案 ${mine().length + 1}`, 'aria-label': '蓝图名称' });
-    const card = (bp, i) => {
-      const v = SA.V.fromLayout(bp.name, bp);
-      const s = SA.V.stats(v);
-      const p = plan(bp);
-      let armed = false;
-      const delBtn = !bp.official && h('button', { class: 'btn small', onclick: () => {
-        if (!armed) { armed = true; delBtn.textContent = '确认删除？'; delBtn.classList.add('danger'); return; }
-        del(i); reopen();
-      } }, '删除');
-      return h('div', { class: 'panel card bp' },
-        h('div', { class: 'top' }, h('b', {}, bp.name), bp.official ? h('span', { class: 'chip next' }, '官方') : null),
-        SA.UI.vehiclePreview(v, 1),
-        h('div', { class: 'st' }, bp.official ? bp.desc : `保存于 ${new Date(bp.at).toLocaleString()}`),
-        h('div', { class: 'st' }, `评分 ${s.rating} · ${s.issues.length ? `${s.issues.length} 个模块悬空` : s.canDeploy ? '可出战' : s.problems[0]}`),
-        h('div', { class: 'ft' },
-          h('span', { class: 'price' }, p.cost ? `需 ${money(p.cost)}` : '库存够用'),
-          !bp.official ? h('button', { class: 'btn small', title: '用当前车辆覆盖这张蓝图', onclick: () => { overwrite(i); SA.UI.toast('已覆盖'); reopen(); } }, '覆盖') : null,
-          delBtn,
-          h('button', { class: 'btn small primary', onclick: () => apply(bp, onApplied) }, '应用')));
-    };
-    SA.UI.openModal('蓝图库', [
-      h('div', { class: 'panel', style: 'padding:12px;display:grid;gap:8px;margin-bottom:12px' },
-        h('b', {}, '把当前车辆存为蓝图'),
-        h('div', { style: 'display:flex;gap:8px' }, nameIn, h('button', { class: 'btn primary', style: 'flex:none;white-space:nowrap', onclick: () => {
-          save(nameIn.value.trim() || d().vehicle.name); SA.UI.toast('蓝图已保存'); reopen();
-        } }, '保存')),
-        h('span', { class: 'muted', style: 'font-size:12px' }, '蓝图只保存在这台设备的浏览器里，悬空的布局也会原样保存。应用蓝图时，车上的模块拆回库存，缺的模块按原价补买。')),
-      h('div', { class: 'cards' }, mine().map(card), official().map(bp => card(bp))),
-    ]);
+  // 统一列表：我的 → 官方 → 云车库（云端的也能当蓝图直接应用）
+  function all() {
+    const out = [];
+    mine().forEach((b, i) => out.push({ ...b, kind: 'mine', index: i, key: `m${b.at}` }));
+    official().forEach((b, i) => out.push({ ...b, kind: 'official', key: `o${i}` }));
+    SA.S.Cloud.list().forEach((e, i) => {
+      const v = SA.V.decode(e.code);
+      if (v) out.push({ name: e.name, author: e.author, code: e.code, kind: 'cloud', key: `c${i}${e.name}`, ...SA.V.layout(v) });
+    });
+    return out;
   }
 
-  return { open, save, mine, official, plan, apply };
+  // 导入分享码：存成自己的蓝图
+  function importCode(code) {
+    const v = SA.V.decode(code);
+    if (!v) return null;
+    const list = mine();
+    list.unshift({ name: v.name, ...SA.V.layout(v), at: Date.now() });
+    store(list);
+    return v;
+  }
+
+  // 分享：生成分享码并上传到云车库
+  function share(bp) {
+    const v = SA.V.fromLayout(bp.name, bp);
+    return SA.S.Cloud.upload(bp.name, v).code;
+  }
+
+  return { all, save, overwrite, del, rename, mine, official, plan, apply, importCode, share };
 })();
