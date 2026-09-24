@@ -168,10 +168,11 @@ SA.V = (() => {
     return out;
   }
 
-  function overheatTime(gen, coolRate, water) {
+  function overheatTime(gen, coolRate, water, drain = 0) {
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
       heat += (gen - K.DISSIPATE) * 0.5;
+      water = Math.max(0, water - drain * 0.5);
       if (water > 0 && heat > 0) {
         const c = Math.min(heat, coolRate * 0.5);
         heat -= c; water -= c * K.WATER_PER_HEAT;
@@ -208,7 +209,7 @@ SA.V = (() => {
     s.blocked = blockedList(v);
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
-    let weaponHeat = 0;
+    let weaponHeat = 0, weaponWater = 0;
     each(v, (cell, r, c, layer) => {
       const m = M[cell.id];
       if (!alive(cell) || !m.dmg) return;
@@ -216,10 +217,11 @@ SA.V = (() => {
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
       s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.07 + s.acc)) / m.reload * s.power;
       weaponHeat += m.heat / m.reload * s.power;
+      weaponWater += m.heat * K.FIRE_WATER / m.reload * s.power;
     });
     s.boilerHeat = s.heatRate * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
-    s.overheat = overheatTime(s.heatGen, s.cool, s.water);
+    s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater);
     s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
 
     s.problems = [];

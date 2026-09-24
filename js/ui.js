@@ -273,7 +273,7 @@ SA.UI = (() => {
       SA.S.save(); topbar(); openRepair();
     };
     const body = items.length ? [
-      h('div', { class: 'panel row' }, h('span', { class: 'grow' }, `共 ${items.length} 个模块需要修理。损毁的模块修理费是原价的 60%。`),
+      h('div', { class: 'panel row' }, h('span', { class: 'grow' }, `共 ${items.length} 个模块需要修理。修满只要原价的 1/20，按损伤程度计费。`),
         h('button', { class: 'btn primary', disabled: d.money < total, onclick: () => fix(items) }, `全部修理 ${money(total)}`)),
       h('div', { class: 'list' }, items.map(it => {
         const m = M[it.cell.id];
@@ -468,7 +468,7 @@ SA.UI = (() => {
     openModal(`出战 · 第 ${d.round + 1} 轮`, [
       h('p', {}, `对手：「${op.name}」（${op.pilot}）· 奖金 ${money(op.prize)}${d.bet ? ` · 你押了 ${money(d.bet.amount)}` : ''}`),
       s.warnings.map(w => h('div', { class: 'warn' }, w)),
-      h('p', { class: 'muted', style: 'font-size:13px' }, '操作：A/D 左右移动——机器有惯性，起步要加速、松手会滑行一段（加速冲撞可造成撞击伤害）；移动鼠标瞄准，炮管会慢慢转过去，按住左键开火（第一发要点火片刻），松开停火降温；直射武器有射界和散布，不保证指哪打哪，高抛火炮则指哪打哪；有多种武器时用数字键切换。履带被打断会掉链趴窝。锅炉烧干就会停机，驾驶舱全毁即告负。'),
+      h('p', { class: 'muted', style: 'font-size:13px' }, '操作：A/D 左右移动——停稳后起步要先等锅炉「库吃库吃」憋几口蒸汽，机器有惯性，松手会滑行一大段，反向要先停稳（加速冲撞可造成撞击伤害）；行驶和开火都会产热、耗水；移动鼠标瞄准，炮管会慢慢转过去，按住左键开火（第一发要点火片刻），松开停火降温；直射武器有射界和散布，不保证指哪打哪，高抛火炮则指哪打哪；有多种武器时用数字键切换。准星旁的小沙漏是当前武器的装填进度。履带被打断会掉链趴窝。锅炉烧干就会停机，驾驶舱全毁即告负；双方都没了动力或能开火的武器则判平手，各拿一点出场费。'),
       h('button', { class: 'btn primary', onclick: () => {
         $('#modal').hidden = true;
         SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, hpMul: op.hpMul, prize: op.prize });
@@ -477,6 +477,7 @@ SA.UI = (() => {
   }
 
   // ---------- 战后结算 ----------
+  const drawFee = (prize) => Math.max(5, Math.round(prize * 0.1 / 5) * 5);   // 平手：各拿奖金的一成
   function afterBattle(res) {
     const d = S();
     const lines = [];
@@ -491,7 +492,12 @@ SA.UI = (() => {
     }
     if (res.mode === 'street') {
       const tier = SA.STREET_TIERS[res.opts.streetTier];
-      if (res.win) {
+      if (res.draw) {
+        const fee = drawFee(res.prize);
+        d.money += fee;
+        lines.push(`平手：双方各拿出场费 ${money(fee)}`);
+        d.news = `「${d.vehicle.name}」在${tier.name}和「${res.enemyName}」打成平手。`;
+      } else if (res.win) {
         d.money += res.prize; d.wins++;
         lines.push(`奖金 +${money(res.prize)}`);
         d.news = `「${d.vehicle.name}」在${tier.name}赢了「${res.enemyName}」，进账 ${money(res.prize)}。`;
@@ -505,7 +511,13 @@ SA.UI = (() => {
       if (st.damaged + st.broken) lines.push(`${st.damaged + st.broken} 个模块受损，记得去「修理」。`);
     } else if (res.mode === 'tournament') {
       if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${money(add)}`); }
-      if (res.win) {
+      if (res.draw) {
+        const fee = drawFee(res.prize);
+        d.money += fee;
+        lines.push(`平手：双方各拿出场费 ${money(fee)}，这一轮要重赛`);
+        if (d.bet) { d.money += d.bet.amount; lines.push(`平局退还赌注 ${money(d.bet.amount)}`); }
+        d.news = `「${d.vehicle.name}」和「${res.enemyName}」打成平手，第 ${d.round + 1} 轮择日重赛。`;
+      } else if (res.win) {
         d.money += res.prize; d.wins++;
         const rep = res.flawless ? 2 : 1;
         d.rep += rep;
@@ -541,7 +553,7 @@ SA.UI = (() => {
     }
     SA.S.save();
     SA.go('workshop');
-    openModal(res.win ? '胜利！' : '战败', [
+    openModal(res.draw ? '平手' : res.win ? '胜利！' : '战败', [
       h('p', { style: 'font-size:16px' }, h('b', {}, res.reason)),
       h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
       lines.map(l => h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, l)),

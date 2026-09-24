@@ -19,7 +19,7 @@ SA.Battle = (() => {
     const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, recoil: {}, punch: {}, punchT: {}, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
-      elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0 };
+      elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false };
     refresh(s);
     s.water = s.waterMax;
     return s;
@@ -154,6 +154,7 @@ SA.Battle = (() => {
     const sh = launch(s, w, barrel(s, w), jit);
     B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, big: w.m.proj === 'shell' });
     s.heat += w.m.heat;
+    s.water = Math.max(0, s.water - w.m.heat * K.FIRE_WATER);
     s.recoil[w.key] = 1;
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
     for (let i = 0; i < (w.m.proj === 'shell' ? 10 : 3); i++) part('flash', sh.x + dir * rnd(0, 10), sh.y + rnd(-3, 3) - (up ? rnd(0, 8) : 0), dir * rnd(30, 110), up ? rnd(-140, -40) : rnd(-30, 30), rnd(0.06, 0.14));
@@ -193,9 +194,34 @@ SA.Battle = (() => {
   }
 
   // ---------- 移动与撞击 ----------
-  // 惯性：起步要加速，松开/反向要先制动滑行；越重越慢
+  // 起步：停稳后要先让锅炉「库吃库吃」憋几口蒸汽，才开得动；越重憋得越久
+  const spoolTime = (s) => clamp(0.3 + s.mass * 0.02, 0.4, 0.8);
+  function chuff(s, dt) {
+    s.chuffT -= dt;
+    if (s.chuffT > 0) return;
+    s.chuffT = 0.2;
+    s.rock = 1;
+    s.heat += 0.3;
+    s.water = Math.max(0, s.water - K.CHUFF_WATER);
+    SA.V.each(s.v, (cell, r, c, layer) => {
+      if (layer !== 'body' || !alive(cell) || cell.id !== 'boiler') return;
+      const x = isP(s) ? cellX(s, c) + 37 : cellX(s, c) + 11, y = cellY(r);
+      for (let i = 0; i < 7; i++) part('steam', x + rnd(-5, 5), y, rnd(-50, 50), rnd(-170, -80), rnd(0.5, 0.9));
+    });
+    const back = cellX(s, isP(s) ? s.minCol : s.frontCol);
+    for (let i = 0; i < 3; i++) part('steam', back + (isP(s) ? 0 : C), GROUND - 16, (isP(s) ? -1 : 1) * rnd(40, 90), rnd(-40, -10), rnd(0.4, 0.7));
+  }
+
+  // 惯性：起步要憋气再加速，松开/反向要先制动滑行；越重越慢
   function drive(s, dt) {
-    const top = s.dead ? 0 : s.dir * s.speed * (s.power || 0);
+    let dir = s.dead ? 0 : s.dir;
+    s.spooling = false;
+    if (dir && Math.abs(s.vx) < 4 && s.speed > 0 && s.power > 0) {
+      if (s.spoolDir !== dir) { s.spoolDir = dir; s.spool = spoolTime(s); s.chuffT = 0; }
+      if (s.spool > 0) { s.spool -= dt; s.spooling = true; chuff(s, dt); dir = 0; }
+    } else if (!dir) s.spoolDir = 0;
+    s.rock = Math.max(0, s.rock - dt * 6);
+    const top = dir * s.speed * (s.power || 0);
     const k = clamp(Math.sqrt(14 / s.mass), 0.6, 1.4);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     const acc = (braking ? K.BRAKE : K.ACCEL) * k;
@@ -216,7 +242,10 @@ SA.Battle = (() => {
     s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
     s.moving = Math.abs(nx - s.x) > 0.02;
     s.x = nx;
-    if (s.moving && s.dir) s.heat += K.MOVE_HEAT * dt;
+    if (s.moving && s.dir) {
+      s.heat += K.MOVE_HEAT * dt;
+      s.water = Math.max(0, s.water - K.MOVE_WATER * dt);
+    }
   }
 
   // 每一行：attacker 最前端的模块 撞 defender 同一行最前端的模块
@@ -376,10 +405,17 @@ SA.Battle = (() => {
     if (s.moveT <= 0) {
       s.charge = s.rams > 0 && !s.charge && Math.random() < 0.7;
       s.goalX = s.x - ((frontEdge(s) - frontEdge(o)) - rnd(140, 520));
-      s.moveT = s.charge ? rnd(3, 5) : rnd(2, 5) * (s.speed > 90 ? 0.6 : 1);
+      s.moveT = s.charge ? rnd(3, 5) : rnd(2, 5) * (s.speed > 62 ? 0.6 : 1);
     }
     if (s.charge) { s.dir = -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
     else s.dir = Math.abs(s.goalX - s.x) > 8 ? Math.sign(s.goalX - s.x) : 0;
+  }
+
+  // 失去战斗力：没有动力（锅炉全毁），或者没有能开火的武器。返回原因，否则为 null
+  function crippled(s) {
+    if (s.supply <= 0) return '失去动力';
+    if (!s.weapons.some(w => !w.blocked)) return '没有能开火的武器';
+    return null;
   }
 
   function step(dt) {
@@ -427,11 +463,18 @@ SA.Battle = (() => {
     B.shake = Math.max(0, B.shake - dt * 14);
 
     if (!B.ending) {
-      if (B.t >= K.BATTLE_TIME && !B.p.dead && !B.e.dead) {
+      // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 1.5 秒
+      const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
+      B.drawT = both ? (B.drawT || 0) + dt : 0;
+      if (B.drawT >= 1.5) {
+        B.draw = `双方都${crippled(B.p) === crippled(B.e) ? crippled(B.p) : '失去了战斗力'}，裁判判定平手`;
+        B.ending = 1.8;
+      }
+      if (!B.draw && B.t >= K.BATTLE_TIME && !B.p.dead && !B.e.dead) {
         const frac = (s) => { let a = 0, m = 0; SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); }); return a / Math.max(1, m); };
         kill(frac(B.p) >= frac(B.e) ? B.e : B.p, '时间到，剩余耐久较低，裁判判负');
       }
-      if (B.p.dead || B.e.dead) B.ending = 1.8;
+      if (B.p.dead || B.e.dead) B.ending = B.ending || 1.8;
     } else {
       B.ending -= dt;
       if (B.ending <= 0 && !B.done) finish();
@@ -510,10 +553,11 @@ SA.Battle = (() => {
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), recoil: s.recoil, punch: s.punch, phase: s.phase, moving: s.moving, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
-    g.drawImage(pc, Math.round(B.p.x), VY);
-    if (B.p.dead) g.drawImage(tint(pc), Math.round(B.p.x), VY);
+    const rockY = (s) => VY - Math.round(s.rock * 2);   // 起步憋气时车身一颠一颠
+    g.drawImage(pc, Math.round(B.p.x), rockY(B.p));
+    if (B.p.dead) g.drawImage(tint(pc), Math.round(B.p.x), rockY(B.p));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { dimCell: aimT && aimT.layer === 'side' ? aimT : null }));
-    g.save(); g.translate(Math.round(B.e.x) + VW, VY); g.scale(-1, 1); g.drawImage(ec, 0, 0);
+    g.save(); g.translate(Math.round(B.e.x) + VW, rockY(B.e)); g.scale(-1, 1); g.drawImage(ec, 0, 0);
     if (B.e.dead) g.drawImage(tint(ec), 0, 0);
     g.restore();
 
@@ -560,10 +604,39 @@ SA.Battle = (() => {
       g.fillStyle = col;
       for (const [x, y, w, hh] of [[mx - 18, my - 1, 12, 2], [mx + 6, my - 1, 12, 2], [mx - 1, my - 18, 2, 12], [mx - 1, my + 6, 2, 12]]) g.fillRect(x, y, w, hh);
       g.fillRect(mx - 1, my - 1, 3, 3);
+      const rl = reloadFrac(B.p);
+      if (rl != null) hourglass(mx + 16, my + 10, rl);
     }
     const cam = B.cam;
     dg.imageSmoothingEnabled = false;
     dg.drawImage(wc, cam.x, cam.y, cam.w, cam.h, 0, 0, W, H);
+  }
+
+  // 当前武器组的装填进度（0 → 1）；有一门已经装好就返回 null
+  function reloadFrac(s) {
+    if (s.dead || !s.sel) return null;
+    let best = null;
+    for (const w of s.weapons) {
+      if (w.cell.id !== s.sel || w.blocked) continue;
+      const left = Math.max(0, s.timers[w.key] || 0);
+      const f = 1 - left / w.m.reload;
+      if (best == null || f > best) best = f;
+    }
+    return best == null || best >= 1 ? null : clamp(best, 0, 1);
+  }
+  // 跟着准星走的小沙漏：上半沙子漏到下半 = 装填进度
+  function hourglass(x, y, f) {
+    const S = 2;   // 放大两倍，镜头拉远时也看得清
+    const R = (a, b, w, hh, col) => { g.fillStyle = col; g.fillRect(x + a * S, y + b * S, w * S, hh * S); };
+    R(-1, -1, 13, 19, P.black);                       // 描边
+    R(0, 0, 11, 2, P.brass[2]); R(0, 15, 11, 2, P.brass[2]);   // 上下黄铜盖
+    R(0, 2, 1, 13, P.brass[1]); R(10, 2, 1, 13, P.brass[1]);   // 立柱
+    const glass = [[2, 7], [2, 7], [3, 5], [4, 3], [5, 1], [5, 1], [4, 3], [3, 5], [2, 7], [2, 7], [2, 7]];
+    glass.forEach(([gx, gw], i) => R(gx, 3 + i, gw, 1, P.steam[0]));
+    const top = Math.round((1 - f) * 4), bot = Math.round(f * 4);
+    for (let i = 0; i < top; i++) { const [gx, gw] = glass[4 - i]; R(gx, 7 - i, gw, 1, P.brass[3]); }
+    for (let i = 0; i < bot; i++) { const [gx, gw] = glass[10 - i]; R(gx, 13 - i, gw, 1, P.brass[3]); }
+    if (f < 1 && Math.floor(B.t * 10) % 2) R(5, 8, 1, 5 - bot, P.brass[3]);   // 漏下来的细流
   }
 
   // 命中率估算用的固定分位样本（与 gauss() 同分布），每帧结果稳定不闪
@@ -664,6 +737,9 @@ SA.Battle = (() => {
       else if (s.water <= 0) st.push('水已耗尽');
       if (s.hold) st.push('停火降温中');
       if (s.thrown) st.push('履带掉链，无法移动');
+      if (s.spooling) st.push('锅炉加压中…');
+      const cr = crippled(s);
+      if (cr) st.push(cr);
       if (Math.abs(s.vx) > 5) st.push(`速度 ${Math.round(Math.abs(s.vx))}`);
       if (!s.isAI && s.fireHeld) st.push('开火中');
     }
@@ -837,12 +913,13 @@ SA.Battle = (() => {
     window.removeEventListener('resize', fit);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKey);
-    const win = !B.p.dead && B.e.dead;
+    const draw = !!B.draw;
+    const win = !draw && !B.p.dead && B.e.dead;
     let flawless = true;
     SA.V.each(B.p.v, (cell) => { if (cell.id === 'cockpit' && cell.hp < SA.V.maxHp(cell)) flawless = false; });
     SA.UI.afterBattle({
-      mode: B.opts.mode, opts: B.opts, win, prize: B.opts.prize || 0, enemyName: B.e.name,
-      reason: win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`,
+      mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
+      reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`,
       playerVehicle: shiftVeh(B.p.v, -B.pShift), dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
     });
   }

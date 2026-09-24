@@ -6,9 +6,12 @@ SA.K = {
   ROWS: 6,            // 最高 6 层（含底盘行）
   CELL: 48,           // 原生像素
   GRAVITY: 780,       // 炮弹重力 px/s²
-  MOVE_HEAT: 1.2,     // 行驶额外产热 /秒
-  ACCEL: 70,          // 起步加速度 px/s²（按质量缩放；撞击需要助跑）
-  BRAKE: 95,          // 制动减速度 px/s²：松开按键会滑行一段才停下
+  MOVE_HEAT: 2,       // 行驶额外产热 /秒
+  MOVE_WATER: 0.3,    // 行驶直接耗水 /秒（蒸汽驱动）
+  FIRE_WATER: 0.15,   // 开火耗水：每发 = 武器产热 × 该系数
+  CHUFF_WATER: 0.2,   // 起步时锅炉每「库吃」一下耗水
+  ACCEL: 48,          // 起步加速度 px/s²（按质量缩放；撞击需要助跑）
+  BRAKE: 62,          // 制动减速度 px/s²：松开按键会滑行一大段才停下；反向要先停稳再重新起步
   HEAT_MAX: 100,
   DISSIPATE: 3,       // 自然散热 /秒
   WATER_PER_HEAT: 0.25, // 每冷却 1 点热量消耗的水
@@ -18,17 +21,17 @@ SA.K = {
 SA.MODULES = {
   track: {
     name: '履带底盘', cat: 'mobility', layer: 'chassis',
-    price: 150, hp: 200, power: 0, cap: 5, speed: 68, mass: 3, q: 2,
+    price: 150, hp: 200, power: 0, cap: 5, speed: 48, mass: 3, q: 2,
     desc: '承载上限高、耐打，但开得慢。所有模块都要站在底盘列上。',
   },
   quad: {
     name: '四足底盘', cat: 'mobility', layer: 'chassis',
-    price: 140, hp: 140, power: 0, cap: 4, acc: 0.06, speed: 90, mass: 2, q: 2,
+    price: 140, hp: 140, power: 0, cap: 4, acc: 0.06, speed: 62, mass: 2, q: 2,
     desc: '平稳的射击平台：弹道散布 -30%，速度中等。',
   },
   biped: {
     name: '双足底盘', cat: 'mobility', layer: 'chassis',
-    price: 120, hp: 110, power: 0, cap: 3, evade: 0.12, speed: 112, mass: 1.5, q: 1,
+    price: 120, hp: 110, power: 0, cap: 3, evade: 0.12, speed: 78, mass: 1.5, q: 1,
     desc: '跑得最快，摇摆步态让敌方弹道散布更大。',
   },
   cockpit: {
