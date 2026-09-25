@@ -65,12 +65,12 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // blurb 写明它的问题和弱点，玩家赛前侦察后去车间调整。mt：整车材料；elite：个别格子的材料（Boss 的史诗件，可以缴获）。
 // style：AI 性格 —— rush 冲锋（有撞击件就一直冲）、kite 拉开距离放风筝、turtle 守在原地、不写 = 在交战距离内游走。
 // terrain：场地（SA.TERRAINS 的键），不写 = 平地。
-// unlock：{ feat: [功能], mods: [模块], aux: [驾驶舱辅助设备], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
+// unlock：{ feat: [功能], mods: [模块], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
 // subs：用子格坐标放置 1×1 / 1×2 / Boss 大件，坐标仍是 24px 最小格；无专用美术的模块由通用占位显示。
 // 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
-SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
+SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
-  garage: '车间', shop: '商店', aux: '驾驶舱辅助设备', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
+  garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
 };
 SA.CAMPAIGN = [
@@ -106,8 +106,8 @@ SA.CAMPAIGN = [
       {
         name: '双管哨兵', pilot: '扒手 机灵杰克', prize: 150, aim: 0.65, style: 'kite',
         blurb: '上下两挺机枪一起扫，跑得还快，专挑没护甲的模块。把锅炉、驾驶舱藏到装甲后面，拉近了打。',
-        rows: ['........', '........', '...M....', '..KAM...', '..OWA...', '..TTT...'],
-        unlock: { aux: ['scope', 'loader'], note: '瞄准镜和装弹仓开放：辅助设备先放进驾驶舱，分别解决命中和持续火力问题。' },
+        rows: ['........', '........', '...M....', '..KAM...', '..OWA...', '..TTT...'], subs: [[4, 10, 'periscope'], [4, 12, 'autoloader']],
+        unlock: { mods: ['periscope', 'autoloader'], note: '观察镜和装弹机开放：装到车上即可改善瞄准和装填，被击毁后效果消失。' },
       },
       {
         name: '煤灰寡妇', pilot: '玛莎·布莱克', prize: 220, terrain: 'crates', aim: 0.75, boss: true,
@@ -116,7 +116,7 @@ SA.CAMPAIGN = [
       },
     ],
     unlock: { mods: ['armor_heavy', 'quad', 'cannon'], mat: 2, grid: { cols: 5, rows: 4 },
-      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。驾驶舱可以加装瞄准镜、装弹仓。街头赛可以刷钱，银行可以贷款。' },
+      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。观察镜和装弹机是可击毁的实体模块。街头赛可以刷钱，银行可以贷款。' },
   },
   {
     name: '第二章 · 码头区', place: '泰晤士河码头',
@@ -125,7 +125,7 @@ SA.CAMPAIGN = [
       {
         name: '推土机', pilot: '码头工 大块头比尔', prize: 180, terrain: 'mud', aim: 0.6, style: 'rush', mt: 2,
         blurb: '宽履带加车头铲斗，一门心思往前推。车头挂重装甲顶住它，或者趁它冲过来的路上多打几炮。',
-        rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'],
+        rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'], subs: [[4, 10, 'mortar_s']],
         unlock: { feat: ['blueprints'], mods: ['condenser'], note: '冷凝器和蓝图库开放：保存一套冷却蓝图，开始把热量当成构筑预算管理。' },
       },
       {
@@ -140,7 +140,7 @@ SA.CAMPAIGN = [
         rows: ['........', '....C...', '...KM...', '..OWAAX.', '..WOAM..', '..BBBB..'], elite: [[3, 6, 3]],
       },
     ],
-    unlock: { mods: ['bucket', 'spike', 'biped'], mat: 3, grid: { cols: 6, rows: 4 },
+    unlock: { mods: ['bucket', 'spike', 'biped', 'mortar_s'], mat: 3, grid: { cols: 6, rows: 4 },
       note: '钢材料开放（×1.45）。撞击件和双足到手：现在轮到你去撞别人了。' },
   },
   {
@@ -150,19 +150,19 @@ SA.CAMPAIGN = [
       {
         name: '烟囱', pilot: '扫烟囱的汤米', prize: 260, terrain: 'yard', aim: 0.7, style: 'turtle', mt: 2,
         blurb: '车头两层重装甲，高抛炮从墙后面往你头上砸。直射打不穿？开着撞角冲上去，把墙顶开。',
-        rows: ['........', '........', '...P....', '..KOH...', '..WOHH..', '..TTTT..'],
-        unlock: { mods: ['flamer'], note: '喷火器开放：贴身撞开掩体后，用持续升温逼迫龟缩车停火。' },
+        rows: ['........', '........', '...P....', '..KOH...', '..WOHH..', '..TTTT..'], subs: [[4, 10, 'flamer'], [4, 12, 'steamjet']],
+        unlock: { mods: ['flamer', 'steamjet'], note: '喷火器和蒸汽喷射器开放：贴身后持续升温，蒸汽喷射还能把对手推开。' },
       },
       {
         name: '齐射', pilot: '钟表匠 老维克', prize: 300, terrain: 'hills', aim: 0.75, style: 'kite', mt: 3,
         blurb: '四足炮台，直射加高抛一起打，还会往后退拉开距离。用双足追上去，别给它从容瞄准的时间。',
-        rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'],
-        unlock: { mods: ['cockpit_pair'], aux: ['gyro', 'ranger'], note: '双人联合驾驶舱、陀螺稳定仪和测距仪开放：多一组自动火力，同时降低移动射击的代价。' },
+        rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'], subs: [[4, 10, 'rangefinder'], [4, 12, 'gyroscope']],
+        unlock: { mods: ['cockpit_pair', 'gyroscope', 'rangefinder'], note: '双人联合驾驶舱、陀螺仪和测距仪开放：多一组自动火力，同时降低移动射击的代价。' },
       },
       {
         name: '黄铜公爵', pilot: '沃德豪斯公爵', prize: 400, terrain: 'hills', aim: 0.85, boss: true, mt: 3,
         blurb: '公爵在侧挂层架了镀镍侧炮，藏在装甲后面放冷枪。侧炮不怕装甲挡，却也只有它自己那点耐久——瞄准洋红色的侧炮。',
-        rows: ['........', '........', '....K...', '...OAZ..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']],
+        rows: ['........', '........', '....K...', '...OAZ..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']], subs: [[4, 14, 'boss_lens']],
       },
     ],
     unlock: { feat: ['side', 'upgrade'], mods: ['mortar', 'side_cannon', 'piston', 'radiator'], mat: 4, grid: { cols: 6, rows: 5 },
@@ -175,19 +175,19 @@ SA.CAMPAIGN = [
       {
         name: '矿车', pilot: '矿工头 霍布斯', prize: 380, terrain: 'mine', aim: 0.75, style: 'rush', mt: 3,
         blurb: '重装甲履带车，车头装着蒸汽撞锤，贴上来就一下一下猛砸。别跟它顶牛，高抛炮越过装甲砸它的锅炉。',
-        rows: ['........', '........', '....K...', '..WOHHY.', '..WOOAC.', '..TTTTT.'],
+        rows: ['........', '........', '....K...', '..WOHHY.', '..WOOAC.', '..TTTTT.'], subs: [[6, 14, 'harpoon']],
         unlock: { mods: ['harpoon'], note: '鱼叉开放：下一场就是风筝车，先用牵引炮把距离问题变成命中问题。' },
       },
       {
         name: '夜枭', pilot: '猎场看守 格雷', prize: 420, terrain: 'hills', aim: 0.85, style: 'kite', mt: 3,
         blurb: '两门侧炮躲在装甲后面，四足平台稳得像块石头，一直往后退。冲上去撞它，或者先敲掉侧炮。',
-        rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..QQQQU.'], sides: [[3, 3], [4, 3]],
+        rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..QQQQU.'], sides: [[3, 3], [4, 3]], subs: [[0, 14, 'harpoon']],
         unlock: { mods: ['rocket_rack'], note: '火箭架开放：散布换来中距离压制，逼风筝车离开安全距离。' },
       },
       {
         name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, terrain: 'mine', aim: 0.88, boss: true, mt: 4,
         blurb: '重装甲堆到第五层，顶上是一门乌兹钢高抛炮，车头还有蒸汽撞锤。赢了能缴获那门史诗火炮。',
-        rows: ['........', '....KP..', '..WOHHY.', '..WOHIC.', '.WOOHAM.', '.TTTTTT.'], sides: [[3, 4], [2, 4]], elite: [[1, 5, 5]],
+        rows: ['........', '....KP..', '..WOHHY.', '..WOHIC.', '.WOOHAM.', '.TTTTTT.'], sides: [[3, 4], [2, 4]], elite: [[1, 5, 5]], subs: [[0, 14, 'rocket_rack'], [8, 14, 'boss_core']],
         drop: { wootz: 1 },
       },
     ],
@@ -201,7 +201,7 @@ SA.CAMPAIGN = [
       {
         name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, terrain: 'crates', aim: 0.9, mt: 4,
         blurb: '三挺机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机枪就只能冒火星。',
-        rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..BBBBB.'],
+        rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..BBBBB.'], subs: [[2, 10, 'mg2']],
       },
       {
         name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, terrain: 'yard', aim: 0.9, boss: true, mt: 4,

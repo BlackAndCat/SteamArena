@@ -226,7 +226,7 @@ SA.MODULES = {
   flamer: {
     name: '喷火器', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '喷火', vis: [1, 5],
     price: 155, hp: 110, power: 2, kg: 240, q: 2,
-    dmg: 4, reload: 0.1, heat: 3, heatToEnemy: 6, heatPerSec: 6, dmgPerSec: 4, range: 170, cone: 10, proj: 'flame', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
+    dmg: 4, reload: 0.1, heat: 3, heatToEnemy: 6, heatPerSec: 3, dmgPerSec: 4, range: 170, cone: 10, proj: 'flame', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
     elev: [-12, 25], slew: 30, windup: 0.2, wild: 0.05, rest: 0, aimT: 0.7,
     rcPx: 3, back: 0.02, ret: 5, kick: 18, piv: [18, 13], blen: 30,
     desc: '射程 170px、±10° 锥形持续喷火：每秒给对手加热 6、对命中模块造成 4 点伤害，自身每秒产热 3。',
@@ -234,7 +234,7 @@ SA.MODULES = {
   steamjet: {
     name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '蒸汽喷射', vis: [1, 5],
     price: 170, hp: 105, power: 2, kg: 230, q: 2,
-    dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 4, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
+    dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 1.5, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
     elev: [-12, 25], slew: 30, windup: 0.1, wild: 0.05, rest: 0, aimT: 0.1,
     rcPx: 3, back: 0.02, ret: 5, kick: 16, piv: [18, 13], blen: 30,
     desc: '喷出短距离蒸汽锥：射程 170px、±10°，每秒给对手加热 4 并小幅击退，模块伤害 3；自身每秒产热 1.5、耗水 0.5。',
@@ -242,8 +242,8 @@ SA.MODULES = {
   // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
   boss_core: {
     name: '圣堂压力核心', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '核心',
-    price: 280, hp: 150, supply: 5, store: 8, water: 24, cool: 3, heatRate: 0, kg: 120, q: 2, special: 'pressure-buffer',
-    desc: '铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放。Boss 战利品。',
+    price: 280, hp: 150, supply: 5, store: 8, water: 24, cool: 3, heatRate: 0, heatMul: 0.9, kg: 120, q: 2, special: 'pressure-buffer',
+    desc: '铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放，锅炉产热 ×0.9。Boss 战利品。',
   },
   boss_lens: {
     name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜',

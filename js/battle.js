@@ -21,7 +21,7 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -36,7 +36,7 @@ SA.Battle = (() => {
   }
 
   function refresh(s) {
-    let supply = 0, equip = 0, heatRate = 0, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, moduleReload = 1, moduleSpread = 1, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1, prism = false;
+    let supply = 0, equip = 0, heatRate = 0, heatMul = 1, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, moduleReload = 1, moduleSpread = 1, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1, prism = false;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     const chIds = {};
     const live = [];
@@ -44,9 +44,10 @@ SA.Battle = (() => {
       if (!alive(cell)) return;
       live.push(cell);
       const m = SA.mod(cell);   // 按材料放大后的属性
+      effect(s, cell.id, 'active');
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c + SA.fp(cell.id).w - 1);
-      supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
+      supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0; heatMul = Math.min(heatMul, m.heatMul || 1);
       cool += m.cool || 0; dryCool += m.dryCool || 0; if (m.waterSave) waterSave = Math.max(0.4, waterSave * m.waterSave);
       storeMax += m.store || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
       if (m.reloadMul) moduleReload = Math.min(moduleReload, m.reloadMul);
@@ -73,7 +74,7 @@ SA.Battle = (() => {
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
-    Object.assign(s, { supply, demand, heatRate, cool, dryCool, waterSave, storeMax, moduleReload, moduleSpread, waterMax, minCol, frontCol, rams, mass, thrown, prism,
+    Object.assign(s, { supply, demand, heatRate, heatMul, cool, dryCool, waterSave, storeMax, moduleReload, moduleSpread, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     s.water = Math.min(s.water, waterMax);
     if (!Number.isFinite(s.store) || s.store > storeMax) s.store = 0;
@@ -321,10 +322,12 @@ SA.Battle = (() => {
     let jit = gauss() * spreadDeg(s, o, w, focus);
     if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
     const count = w.m.salvo || 1, gap = w.m.salvoGap || 0;
+    effect(s, w.cell.id, 'fire', count);
+    const muzzleShot = launch(s, w, barrel(s, w), 0);
     for (let i = 0; i < count; i++) {
       const sh = launch(s, w, barrel(s, w), count > 1 ? gauss() * spreadDeg(s, o, w, focus) : jit);
       const tick = w.m.reload < 1 && w.m.heatPerSec ? w.m.reload : 1;
-      B.shots.push({ ...sh, delay: i * gap, originX: sh.x, originY: sh.y, range: w.m.range || 0, side, from: s, to: o, weapon: w.m, weaponCell: w.cell, dmg: (w.m.dmgPerSec ? w.m.dmgPerSec * tick : w.m.dmg), heatToEnemy: (w.m.heatPerSec ? w.m.heatPerSec * tick : (w.m.heatToEnemy || 0)), big: w.m.proj === 'shell' });
+      B.shots.push({ ...sh, delay: i * gap, originX: sh.x, originY: sh.y, range: w.m.range || 0, side, from: s, to: o, weapon: w.m, weaponCell: w.cell, dmg: (w.m.dmgPerSec ? w.m.dmgPerSec * tick : w.m.dmg), heatToEnemy: (w.m.heatToEnemy ? w.m.heatToEnemy * tick : 0), big: w.m.proj === 'shell' });
     }
     // 连续喷射的 heat 是自身每秒产热，普通武器的 heat 是每轮（齐射也只算一轮）。
     s.heat += w.m.heatPerSec ? w.m.heat * w.m.reload : w.m.heat;
@@ -336,12 +339,12 @@ SA.Battle = (() => {
     s.vx -= dir * push * (up ? 0.3 : 1);
     SA.Dyn.kick(s.anim.body, -push * (up ? 2 : 4));
     if (w.m.proj === 'shell') B.shake = Math.max(B.shake, 1.5 + push / 6);
-    for (let i = 0; i < (w.m.proj === 'shell' ? 10 : 3); i++) part('flash', sh.x + dir * rnd(0, 10), sh.y + rnd(-3, 3) - (up ? rnd(0, 8) : 0), dir * rnd(30, 110), up ? rnd(-140, -40) : rnd(-30, 30), rnd(0.06, 0.14));
+    for (let i = 0; i < (w.m.proj === 'shell' ? 10 : 3); i++) part('flash', muzzleShot.x + dir * rnd(0, 10), muzzleShot.y + rnd(-3, 3) - (up ? rnd(0, 8) : 0), dir * rnd(30, 110), up ? rnd(-140, -40) : rnd(-30, 30), rnd(0.06, 0.14));
     if (w.m.proj === 'shell') {
-      part('smoke', sh.x, sh.y, dir * 30, -24, 0.9);
+      part('smoke', muzzleShot.x, muzzleShot.y, dir * 30, -24, 0.9);
       // 炮口制退器两侧喷出的气浪 + 炮口前方的冲击尘
-      if (!up) for (const vy of [-1, 1]) for (let i = 0; i < 3; i++) part('steam', sh.x - dir * 4, sh.y + vy * 4, -dir * rnd(20, 60), vy * rnd(60, 120), rnd(0.25, 0.45));
-      if (sh.y > groundAt(sh.x) - 120) for (let i = 0; i < 6; i++) part('dust', sh.x + dir * rnd(0, 30), groundAt(sh.x) - 2, dir * rnd(20, 120), rnd(-80, -20), rnd(0.3, 0.6));
+      if (!up) for (const vy of [-1, 1]) for (let i = 0; i < 3; i++) part('steam', muzzleShot.x - dir * 4, muzzleShot.y + vy * 4, -dir * rnd(20, 60), vy * rnd(60, 120), rnd(0.25, 0.45));
+      if (muzzleShot.y > groundAt(muzzleShot.x) - 120) for (let i = 0; i < 6; i++) part('dust', muzzleShot.x + dir * rnd(0, 30), groundAt(muzzleShot.x) - 2, dir * rnd(20, 120), rnd(-80, -20), rnd(0.3, 0.6));
     }
   }
 
@@ -565,6 +568,13 @@ SA.Battle = (() => {
     a.vx -= dir * dv * 2 * t.mass / sum;
   }
 
+  // 只在无画面模拟中读取的模块遥测；普通战斗不显示这些计数。
+  function effect(s, id, key, value = 1) {
+    if (!s || !id || !value) return;
+    const e = s.effects[id] || (s.effects[id] = { active: 0, fire: 0, hit: 0, tether: 0, energy: 0, waterSaved: 0, dryCool: 0 });
+    e[key] = (e[key] || 0) + value;
+  }
+
   // 鱼叉牵引：按两车质量反比分摊收绳冲量，距离过远、目标损毁或超过 4 秒自动断开。
   function updateTether(s, o, dt) {
     const t = s.tether;
@@ -613,20 +623,29 @@ SA.Battle = (() => {
     // 蓄压罐按秒充放：富余动力存入，短缺时每秒最多释放 3 点。
     const baseSupply = s.supply;
     const surplus = Math.max(0, baseSupply - s.demand);
-    if (s.storeMax > 0) s.store = clamp(s.store + surplus * dt, 0, s.storeMax);
+    if (s.storeMax > 0) {
+      s.store = clamp(s.store + surplus * dt, 0, s.storeMax);
+      if (surplus > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).store) effect(s, cell.id, 'energy', surplus * dt); });
+    }
     const release = s.storeMax > 0 && baseSupply < s.demand ? Math.min(3, s.store / Math.max(dt, 1e-6), s.demand - baseSupply) : 0;
-    if (release > 0) s.store = Math.max(0, s.store - release * dt);
+    if (release > 0) {
+      s.store = Math.max(0, s.store - release * dt);
+      SA.V.each(s.v, cell => { if (alive(cell) && (SA.mod(cell).store || 0)) effect(s, cell.id, 'energy', release * dt); });
+    }
     const availableSupply = baseSupply + release;
     const util = availableSupply ? Math.min(1, s.demand / availableSupply) : 0;
     s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
     s.speedMul = availableSupply <= 0 ? 0 : s.demand ? Math.min(K.SPEED_BOOST, availableSupply / s.demand) : 1;
     drive(s, dt);
-    s.heat += (s.heatRate * Math.max(0.3, util) + K.IDLE_HEAT - K.DISSIPATE) * dt;
+    s.heat += (s.heatRate * s.heatMul * Math.max(0.3, util) + K.IDLE_HEAT - K.DISSIPATE) * dt;
     if (s.water > 0 && s.heat > 0) {
       const c = Math.min(s.heat, SA.coolRate(s.cool, s.heat) * dt);
       s.heat -= c; s.water = Math.max(0, s.water - c * K.WATER_PER_HEAT * s.waterSave);
+      const saved = c * K.WATER_PER_HEAT * (1 - s.waterSave);
+      if (saved > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).waterSave) effect(s, cell.id, 'waterSaved', saved); });
     }
     s.heat = Math.max(0, s.heat - s.dryCool * dt);
+    if (s.dryCool > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).dryCool) effect(s, cell.id, 'dryCool', SA.mod(cell).dryCool * dt); });
     s.heat = Math.max(0, s.heat);
     if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
     const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
@@ -846,6 +865,7 @@ SA.Battle = (() => {
         } else if (res !== 'out') {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
           const tc = sh.to.v[res.layer][res.r][res.c];
+          effect(sh.from, sh.weaponCell.id, 'hit');
           damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
           // 火箭架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
           if (sh.weapon && sh.weapon.splash) {
@@ -854,7 +874,7 @@ SA.Battle = (() => {
             SA.V.each(sh.to.v, (oc, rr, cc, layer) => {
               if (!alive(oc) || seen.has(oc)) return;
               const p = modCenter(sh.to, layer, rr, cc), d = Math.hypot(p[0] - hitBox[0], p[1] - hitBox[1]);
-              if (d <= sh.weapon.splash.r) { seen.add(oc); const k = Math.max(0, 1 - d / sh.weapon.splash.r) * sh.weapon.splash.k; if (k > 0) damage(sh.to, sh.from, { layer, r: rr, c: cc }, SA.armorCut(SA.mod(oc), sh.dmg * k)); }
+              if (d <= sh.weapon.splash.r) { seen.add(oc); const k = Math.max(0, 1 - d / sh.weapon.splash.r) * sh.weapon.splash.k; if (k > 0) { effect(sh.from, sh.weaponCell.id, 'hit'); damage(sh.to, sh.from, { layer, r: rr, c: cc }, SA.armorCut(SA.mod(oc), sh.dmg * k)); } }
             });
           }
           // 喷火 / 蒸汽喷射的升温效果与伤害分开结算：命中一次就给目标增加固定热量，
@@ -863,6 +883,7 @@ SA.Battle = (() => {
           if (sh.weapon && sh.weapon.knock) shove(sh.from, sh.to, sh.weapon.knock * 8);
           if (sh.weapon && sh.weapon.tether) {
             sh.from.tether = { layer: res.layer, r: res.r, c: res.c, cell: sh.weaponCell, time: 4 };
+            effect(sh.from, sh.weaponCell.id, 'tether');
           }
           if (sh.big) B.shake = Math.max(B.shake, 3);
         }
@@ -1681,7 +1702,7 @@ SA.Battle = (() => {
     B.done = true;
     if (B.headless) {
       B.result = { winner: B.draw ? 'draw' : B.e.dead && !B.p.dead ? 'p' : B.p.dead && !B.e.dead ? 'e' : 'draw',
-        t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt };
+        t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects } };
       return;
     }
     window.removeEventListener('resize', fit);
@@ -1717,7 +1738,7 @@ SA.Battle = (() => {
       B.e.boss = !!o.eBoss;
       const dt = o.dt || 1 / 30;
       while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);
-      return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt };
+      return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects } };
     } finally { B = keep; }
   }
 
