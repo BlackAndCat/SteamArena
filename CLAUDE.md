@@ -12,4 +12,5 @@
 ## 项目
 
 - 纯 HTML/CSS/JS，无构建步骤、无依赖。运行与代码结构见 `README.md`。
-- 本地预览：`python -m http.server 5173`，打开 http://localhost:5173 。控制台 `SA.reset()` 清空存档。
+- 本地预览：`python tools/serve.py`（禁缓存；用 `python -m http.server 5173` 时浏览器可能缓存旧 JS，需 Ctrl+F5），打开 http://localhost:5173 。控制台 `SA.reset()` 清空存档，`SA.BUILD` 看当前加载的版本。
+- 每次提交改到画面/玩法时，顺手把 `js/main.js` 里的 `SA.BUILD` 更新成当天日期 + 简短标签。

@@ -963,10 +963,10 @@ SA.Battle = (() => {
   // 先按整数倍 n 最近邻放大（每个像素严格 n×n），剩下不到 2 倍的零头用双线性补齐 —— 像素大小一致，只有边缘 1 个设备像素的过渡。
   // 镜头的亚像素位移在这一步平滑处理，车和背景一起移动，不会一顿一顿
   let upC = null;
-  function present(vw, vh, ox, oy) {
+  function present(vw, vh, ox, oy, base) {
     const cam = B.cam, Z = cam.z * DPX, n = Math.max(1, Math.floor(Z + 0.001));
     dg.setTransform(1, 0, 0, 1, 0, 0);
-    dg.fillStyle = P.bg[3]; dg.fillRect(0, 0, cv.width, cv.height);
+    if (base) { dg.fillStyle = P.bg[3]; dg.fillRect(0, 0, cv.width, cv.height); }
     const dx = -(cam.x - ox) * Z, dy = -(cam.y - oy) * Z;
     if (n === 1 && Math.abs(Z - 1) < 0.001) {   // 正好 1:1
       dg.imageSmoothingEnabled = false;
@@ -979,6 +979,7 @@ SA.Battle = (() => {
       if (upC.width < vw * n || upC.height < vh * n) { upC.width = Math.max(upC.width, vw * n); upC.height = Math.max(upC.height, vh * n); }
       const u = upC.getContext('2d');
       u.imageSmoothingEnabled = false;
+      u.clearRect(0, 0, vw * n, vh * n);
       u.drawImage(wc, 0, 0, vw, vh, 0, 0, vw * n, vh * n);
       src = upC;
     }
@@ -999,16 +1000,32 @@ SA.Battle = (() => {
     g.save();
     g.translate(-ox, -oy);
     drawFloor();
+    const shx = B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0, shy = B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0;
     g.save();
-    if (B.shake) g.translate(Math.round(rnd(-B.shake, B.shake)), Math.round(rnd(-B.shake, B.shake)));
+    g.translate(shx, shy);
     drawTerrain();
+    g.restore();
+    g.restore();
+    // 第 1 层：背景 + 地面 + 地形（世界像素）
+    present(vw, vh, ox, oy, true);
 
+    // 第 2 层：车。车会跟着坡度连续倾斜，在世界像素里最近邻旋转会让像素行断成台阶、每帧还跳来跳去（撕裂 / 闪烁），
+    // 所以车直接画在设备分辨率上：车身画布先整数倍最近邻放大，再带着旋转双线性画上去 —— 像素块大小一致，斜边平滑不抖
+    const Z = cam.z * DPX;
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, gnd: s.gnd, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be'));
-    drawVehicle(B.p, pc); drawVehicle(B.e, ec, aimT);
+    dg.setTransform(Z, 0, 0, Z, (shx - cam.x) * Z, (shy - cam.y) * Z);
+    g = dg;
+    drawVehicle(B.p, pc, null, Z); drawVehicle(B.e, ec, aimT, Z);
 
+    // 第 3 层：炮弹、粒子、伤害数字（世界像素，透明底）
+    g = wc.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, vw, vh);
+    g.save();
+    g.translate(shx - ox, shy - oy);
     // 准星停在模块上：显示它的改装军衔杠
     if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
 
@@ -1042,11 +1059,9 @@ SA.Battle = (() => {
     }
     for (const tx of B.texts) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
     g.restore();
-    g.restore();
-    present(vw, vh, ox, oy);
+    present(vw, vh, ox, oy, false);
 
     // 叠加层：直接画在设备分辨率上（文字、细条、准星、弹道扇区都是矢量，不再被放大成糊块）
-    const Z = cam.z * DPX;
     dg.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
     dg.imageSmoothingEnabled = false;
     g = dg;
@@ -1238,18 +1253,38 @@ SA.Battle = (() => {
     g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(dx - 1, dy - 1, w + 2, h + 2);
   }
 
-  function drawVehicle(s, cvs, hl) {
+  // 车身画布按整数倍 n 最近邻放大（每辆车一张缓存画布），再缩回 1/n 用双线性画：旋转也不会出现像素台阶
+  const upV = new Map();
+  function upscaled(key, src, n) {
+    if (n <= 1) return src;
+    let c = upV.get(key);
+    if (!c) { c = document.createElement('canvas'); upV.set(key, c); }
+    if (c.width !== src.width * n || c.height !== src.height * n) { c.width = src.width * n; c.height = src.height * n; }
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = false;
+    x.clearRect(0, 0, c.width, c.height);
+    x.drawImage(src, 0, 0, c.width, c.height);
+    return c;
+  }
+  function blit(key, src, dx, dy, n) {
+    if (n <= 1) { g.drawImage(src, dx, dy); return; }
+    g.drawImage(upscaled(key, src, n), dx, dy, src.width, src.height);
+  }
+
+  function drawVehicle(s, cvs, hl, Z) {
     const w = s.anim.body.x;                        // 后坐：本地坐标里往后挪（负 = 被往后推）
     const py = K.ROWS * C;                          // 车身画布底边 = 车底
     const lp = isP(s) ? s.pivX - s.x : s.x + VW - s.pivX;   // 支点（车底中点）在车身画布里的 x
+    const n = Math.max(1, Math.floor(Z + 0.001));
     g.save();
-    g.translate(Math.round(s.pivX), Math.round(pivY(s)) - Math.round(s.rock * 2));
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'low';
+    g.translate(s.pivX, pivY(s) - s.rock * 2);      // 设备分辨率下不取整：爬坡时平滑移动
     g.rotate(tiltOf(s));                            // 跟着坡度倾斜（整车绕车底中点转）
     if (!isP(s)) g.scale(-1, 1);
     g.translate(w, 0);
     g.rotate(clamp(w * 0.012, -0.06, 0.06));        // 往后坐时车头微微抬起
-    g.drawImage(cvs, -lp, -py);
-    if (s.dead) g.drawImage(tint(cvs), -lp, -py);
+    blit(isP(s) ? 'p' : 'e', cvs, -lp, -py, n);
+    if (s.dead) blit('dead', tint(cvs), -lp, -py, n);
     if (hl) {
       const f = SA.fp(s.v[hl.layer][hl.r][hl.c].id), lx = PADX + hl.c * C, ly = hl.r * C;
       highlight(cvs, lx, ly, f.w * C, f.h * C, lx - lp, ly - py);   // 本地坐标：跟着车身晃动、倾斜、敌方镜像
