@@ -1,6 +1,10 @@
 // 入口与页面切换：两个主页面 车间（garage）/ 出战（arena），外加战斗（battle）
 window.SA = window.SA || {};
 
+// 版本标记：控制台输入 SA.BUILD，或看启动时打印的那行，确认浏览器跑的是不是最新代码
+SA.BUILD = '2026-09-25 render-hires-vehicles';
+console.info(`蒸汽竞技场 build ${SA.BUILD}`);
+
 SA.current = null;
 // 标记当前页面并刷新顶栏；页面自己负责渲染
 SA.go = (name) => {
