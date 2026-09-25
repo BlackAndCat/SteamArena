@@ -1,0 +1,3 @@
+# 进化生成器的运行产物只用于本机复现，不进入仓库。
+tools/out/
+tools/evolve-candidates.json

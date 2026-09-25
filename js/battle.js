@@ -1,5 +1,7 @@
 // 竞技场：加速/撞击、直射与高抛弹道 + 弹道预览、数字键切换武器、侧挂层优先、热量/水、AI
 window.SA = window.SA || {};
+// 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
+SA.RULES_VERSION = '2026-09-25-battle-v1';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -14,14 +16,25 @@ SA.Battle = (() => {
   let DPX = 1;   // 画布后备像素 / 逻辑像素（W × H）：画布按实际设备像素分配，浏览器不再二次缩放
   const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
 
-  const rnd = (a, b) => a + Math.random() * (b - a);
+  // 无画面模拟可以注入固定种子；正常游戏仍使用浏览器的随机数。
+  let random = Math.random;
+  const seededRandom = (seed) => {
+    let state = (Number(seed) >>> 0) || 1;
+    return () => {
+      state = (state + 0x6D2B79F5) | 0;
+      let t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+  const rnd = (a, b) => a + random() * (b - a);
   // 散布分布：两个均匀数相加（三角分布），中间密、边缘稀，但扇区边缘确实会打到
-  const gauss = () => Math.random() + Math.random() - 1;
+  const gauss = () => random() + random() - 1;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, chargedHit: 0, ram: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -31,6 +44,9 @@ SA.Battle = (() => {
     refresh(s);
     settle(s, 1);
     s.water = s.waterMax;
+    s.startHp = SA.V.maxHp ? SA.V.stats(s.v).maxHp : 0;
+    s.maxHeat = 0;
+    s.minWater = s.water;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
     return s;
   }
@@ -194,7 +210,7 @@ SA.Battle = (() => {
     c.shake = 0.2;
     const x = (c.x0 + c.x1) / 2, y = (c.y0 + c.y1) / 2;
     if (!crush) textFx(String(Math.round(dmg)), x + rnd(-9, 9), c.y0 - 10, '#d9b27a');
-    if (!crush || Math.random() < 0.25) for (let i = 0; i < (crush ? 2 : 6); i++) part('debris', x, y, rnd(-120, 120), rnd(-180, -40), rnd(0.4, 0.8), P.leather[1]);
+    if (!crush || random() < 0.25) for (let i = 0; i < (crush ? 2 : 6); i++) part('debris', x, y, rnd(-120, 120), rnd(-180, -40), rnd(0.4, 0.8), P.leather[1]);
     if (c.hp <= 0) {
       c.dead = true;
       for (let i = 0; i < 16; i++) part('debris', x + rnd(-20, 20), y + rnd(-20, 20), rnd(-200, 200), rnd(-260, -60), rnd(0.8, 1.4), i % 2 ? P.leather[1] : P.leather[2]);
@@ -309,7 +325,7 @@ SA.Battle = (() => {
   function textFx(str, x, y, col) { if (!B.headless) B.texts.push({ str, x, y, life: 0.9, col }); }
   function boom(x, y, n = 18) {
     for (let i = 0; i < n; i++) part('fire', x, y, rnd(-130, 130), rnd(-160, 30), rnd(0.3, 0.7));
-    for (let i = 0; i < n / 2; i++) part('debris', x, y, rnd(-160, 160), rnd(-250, -60), rnd(0.8, 1.4), Math.random() < 0.5 ? P.iron[2] : P.dark[3]);
+    for (let i = 0; i < n / 2; i++) part('debris', x, y, rnd(-160, 160), rnd(-250, -60), rnd(0.8, 1.4), random() < 0.5 ? P.iron[2] : P.dark[3]);
     for (let i = 0; i < n / 3; i++) part('smoke', x + rnd(-12, 12), y, rnd(-20, 20), rnd(-70, -30), rnd(1, 1.8));
     B.shake = Math.max(B.shake, 7);
   }
@@ -320,14 +336,16 @@ SA.Battle = (() => {
     // 鱼叉已牵引时保持绳索，直到绳索断开才允许再次发射。
     if (w.cell.id === 'harpoon' && s.tether) return;
     let jit = gauss() * spreadDeg(s, o, w, focus);
-    if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
+    if (random() < (w.m.wild || 0)) jit += (random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
     const count = w.m.salvo || 1, gap = w.m.salvoGap || 0;
     effect(s, w.cell.id, 'fire', count);
+    s.events.fire += count;
+    const charged = focus >= 0.999;
     const muzzleShot = launch(s, w, barrel(s, w), 0);
     for (let i = 0; i < count; i++) {
       const sh = launch(s, w, barrel(s, w), count > 1 ? gauss() * spreadDeg(s, o, w, focus) : jit);
       const tick = w.m.reload < 1 && w.m.heatPerSec ? w.m.reload : 1;
-      B.shots.push({ ...sh, delay: i * gap, originX: sh.x, originY: sh.y, range: w.m.range || 0, side, from: s, to: o, weapon: w.m, weaponCell: w.cell, dmg: (w.m.dmgPerSec ? w.m.dmgPerSec * tick : w.m.dmg), heatToEnemy: (w.m.heatToEnemy ? w.m.heatToEnemy * tick : 0), big: w.m.proj === 'shell' });
+      B.shots.push({ ...sh, delay: i * gap, originX: sh.x, originY: sh.y, range: w.m.range || 0, side, from: s, to: o, weapon: w.m, weaponCell: w.cell, focusAtFire: charged, dmg: (w.m.dmgPerSec ? w.m.dmgPerSec * tick : w.m.dmg), heatToEnemy: (w.m.heatToEnemy ? w.m.heatToEnemy * tick : 0), big: w.m.proj === 'shell' });
     }
     // 连续喷射的 heat 是自身每秒产热，普通武器的 heat 是每轮（齐射也只算一轮）。
     s.heat += w.m.heatPerSec ? w.m.heat * w.m.reload : w.m.heat;
@@ -362,6 +380,7 @@ SA.Battle = (() => {
   function destroy(def, att, imp) {
     const cell = def.v[imp.layer][imp.r][imp.c];
     cell.hp = 0;
+    if (att) att.events.destroyed++;
     const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
     boom(x, y);
     const f = SA.fp(cell.id);
@@ -533,6 +552,7 @@ SA.Battle = (() => {
           const ma = am.cell;
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
           const dmg = (SA.mod(ma).ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
+          if (SA.mod(ma).ram) a.events.ram++;
           damage(d, a, { layer: 'body', r: dm.r, c: dm.c }, SA.isRam(dm.cell.id) ? dmg * 0.5 : dmg);
           if (alive(ma)) damage(a, null, { layer: 'body', r: am.r, c: am.c }, dmg * K.RAM_SELF);
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
@@ -563,6 +583,7 @@ SA.Battle = (() => {
   // 质量不同时按质量反比分摊，重车的速度变化永远比轻车小（以前只推对方、还按比例截断，重车会被推得比轻车更远）
   function shove(a, t, dv) {
     dv = Math.min(dv, K.KNOCK_MAX);   // 击退封顶：一下撞不飞几十米
+    if (a && a.events && dv > 0) a.events.knock++;
     const dir = isP(a) ? 1 : -1, sum = a.mass + t.mass;
     t.vx += dir * dv * 2 * a.mass / sum;
     a.vx -= dir * dv * 2 * t.mass / sum;
@@ -647,6 +668,8 @@ SA.Battle = (() => {
     s.heat = Math.max(0, s.heat - s.dryCool * dt);
     if (s.dryCool > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).dryCool) effect(s, cell.id, 'dryCool', SA.mod(cell).dryCool * dt); });
     s.heat = Math.max(0, s.heat);
+    s.maxHeat = Math.max(s.maxHeat, s.heat);
+    s.minWater = Math.min(s.minWater, s.water);
     if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
     const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
     const aiming = s.fireHeld && aimPt && s.power > 0 && !s.hold && !o.dead;
@@ -706,7 +729,7 @@ SA.Battle = (() => {
       SA.V.each(s.v, (cell, r, c, layer) => {
         if (layer !== 'body' || !alive(cell)) return;
         if (cell.id === 'boiler') part('steam', modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), cellY(r, s), rnd(-12, 12), rnd(-66, -36), rnd(0.8, 1.4));
-        if (cell.hp / SA.V.maxHp(cell) < 0.34 && Math.random() < 0.5) part('smoke', modCenter(s, layer, r, c)[0], cellY(r, s) + 12, rnd(-12, 12), -42, 1.2);
+        if (cell.hp / SA.V.maxHp(cell) < 0.34 && random() < 0.5) part('smoke', modCenter(s, layer, r, c)[0], cellY(r, s) + 12, rnd(-12, 12), -42, 1.2);
       });
     }
   }
@@ -727,7 +750,7 @@ SA.Battle = (() => {
       const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : SA.isCockpit(id) ? 2 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
       cands.push({ w, t: { layer, r, c } });
     });
-    let x = Math.random() * cands.reduce((a, b) => a + b.w, 0);
+    let x = random() * cands.reduce((a, b) => a + b.w, 0);
     for (const cnd of cands) { x -= cnd.w; if (x <= 0) return cnd.t; }
     return null;
   }
@@ -755,7 +778,7 @@ SA.Battle = (() => {
       s.err = { x: gauss() * e, y: gauss() * e * 0.6 };
       s.retarget = rnd(3, 6);
       // 选武器组：直射打得到就直射，否则换高抛
-      s.sel = s.groups[Math.floor(Math.random() * s.groups.length)] || null;
+      s.sel = s.groups[Math.floor(random() * s.groups.length)] || null;
       if (s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
         const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
@@ -769,7 +792,7 @@ SA.Battle = (() => {
     s.moveT -= dt;
     if (s.moveT <= 0) {
       const sty = s.style;
-      s.charge = s.rams > 0 && sty !== 'turtle' && (sty === 'rush' ? !s.charge || Math.random() < 0.35 : !s.charge && Math.random() < (sty === 'kite' ? 0.15 : 0.7));
+      s.charge = s.rams > 0 && sty !== 'turtle' && (sty === 'rush' ? !s.charge || random() < 0.35 : !s.charge && random() < (sty === 'kite' ? 0.15 : 0.7));
       const [lo, hi] = sty === 'kite' ? [400, 640] : sty === 'rush' ? [70, 260] : [140, 520];
       const fwd = isP(s) ? 1 : -1, gap = fwd * (frontEdge(o) - frontEdge(s));   // 两车车头之间的距离
       s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x + fwd * (gap - rnd(lo, hi));
@@ -846,6 +869,15 @@ SA.Battle = (() => {
     collide();
     pistons(B.p, B.e, dt);
     pistons(B.e, B.p, dt);
+    // 进化评分只保存时间摘要，不保存逐帧录像；同一帧由双方共享一份距离统计。
+    if (B.metrics) {
+      const distance = Math.abs(frontEdge(B.e) - frontEdge(B.p));
+      B.metrics.distanceSum += distance * dt;
+      B.metrics.samples += dt;
+      if (distance < 200) B.metrics.nearTime += dt;
+      if (distance > 500) B.metrics.farTime += dt;
+      if (distance > 500 && !B.shots.length && !B.contact) B.metrics.noEngageTime += dt;
+    }
     camera(dt);
 
     for (const sh of B.shots) {
@@ -857,6 +889,7 @@ SA.Battle = (() => {
         if (!res) continue;
         sh.done = true;
         if (res === 'ground') {
+          sh.from.events.terrainBlock++;
           const gy = groundAt(sh.x);
           for (let k = 0; k < 6; k++) part('dust', sh.x, gy, rnd(-75, 75), rnd(-100, -30), rnd(0.3, 0.6));
           if (sh.big) part('smoke', sh.x, gy - 6, 0, -30, 0.8);
@@ -866,6 +899,9 @@ SA.Battle = (() => {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
           const tc = sh.to.v[res.layer][res.r][res.c];
           effect(sh.from, sh.weaponCell.id, 'hit');
+          sh.from.events.hit++;
+          if (sh.focusAtFire) sh.from.events.chargedHit++;
+          if (sh.weapon && sh.weapon.arc === 'high') sh.from.events.highHit++;
           damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
           // 火箭架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
           if (sh.weapon && sh.weapon.splash) {
@@ -922,7 +958,13 @@ SA.Battle = (() => {
         B.ending = 1.8;
       }
       if (!B.draw && B.t >= K.BATTLE_TIME && !B.p.dead && !B.e.dead) {
-        kill(hpFrac(B.p) >= hpFrac(B.e) ? B.e : B.p, '时间到，剩余耐久较低，裁判判负');
+        // 超时按文档的 60 / 40：造成的伤害占对手总耐久 60%，自身剩余耐久 40%。
+        const pScore = (B.p.dealt / Math.max(1, B.e.startHp)) * 0.6 + hpFrac(B.p) * 0.4;
+        const eScore = (B.e.dealt / Math.max(1, B.p.startHp)) * 0.6 + hpFrac(B.e) * 0.4;
+        B.timeout = { p: pScore, e: eScore };
+        if (Math.abs(pScore - eScore) < 0.005) { B.draw = '时间到，双方按伤害与剩余耐久计算后相同，裁判判平手'; B.ending = 1.8; }
+        else if (pScore > eScore) kill(B.e, '时间到，按 60 / 40 评分判负');
+        else kill(B.p, '时间到，按 60 / 40 评分判负');
       }
       if (B.p.dead || B.e.dead) B.ending = B.ending || 1.8;
     } else {
@@ -1702,7 +1744,10 @@ SA.Battle = (() => {
     B.done = true;
     if (B.headless) {
       B.result = { winner: B.draw ? 'draw' : B.e.dead && !B.p.dead ? 'p' : B.p.dead && !B.e.dead ? 'e' : 'draw',
-        t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects } };
+        t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt,
+        effectStats: { p: B.p.effects, e: B.e.effects },
+        events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, minWater: B.p.minWater }, e: { ...B.e.events, maxHeat: B.e.maxHeat, minWater: B.e.minWater } },
+        metrics: { ...B.metrics }, timeout: B.timeout || null };
       return;
     }
     window.removeEventListener('resize', fit);
@@ -1724,11 +1769,14 @@ SA.Battle = (() => {
 
   // ---------- 无画面模拟（tools/sim.html 数值自测用）----------
   // 两边都交给 AI，按固定步长一口气打完，返回 { winner: 'p' | 'e' | 'draw', t, reason, pDealt, eDealt }
-  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, eBoss, terrain, dt }
+  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, eBoss, terrain, dt, seed }
   function simulate(o) {
     const keep = B;
+    const previousRandom = random;
+    random = o && o.seed != null ? seededRandom(o.seed) : Math.random;
     const pS = frontShift(o.p), eS = frontShift(o.e);
     B = { headless: true, opts: { mode: 'sim' }, pShift: pS, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+      metrics: { distanceSum: 0, samples: 0, nearTime: 0, farTime: 0, noEngageTime: 0 },
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
       B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, o.pAim || 0.8, W / 2 - 200 - PADX - K.COLS * C);
@@ -1738,8 +1786,8 @@ SA.Battle = (() => {
       B.e.boss = !!o.eBoss;
       const dt = o.dt || 1 / 30;
       while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);
-      return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects } };
-    } finally { B = keep; }
+      return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects }, events: { p: B.p.events, e: B.e.events }, metrics: { ...B.metrics } };
+    } finally { B = keep; random = previousRandom; }
   }
 
   // 调试：预览环境里 rAF 可能不跑，可手动推进
