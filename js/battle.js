@@ -8,7 +8,8 @@ SA.Battle = (() => {
   const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
   const GROUP_ORDER = ['cannon', 'mortar', 'mg', 'side_cannon'];
-  let B = null, cv, g, dg, wc, bg, wrap, hud = {};
+  let B = null, cv, g, dg, wc, wrap, hud = {};
+  const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   // 散布分布：两个均匀数相加（三角分布），中间密、边缘稀，但扇区边缘确实会打到
@@ -103,7 +104,7 @@ SA.Battle = (() => {
     const crates = (def.crates || []).map(c => { const y1 = at(c.x); return { x0: c.x - c.w / 2, x1: c.x + c.w / 2, y0: y1 - c.h, y1, hp: c.hp, max: c.hp, dead: false }; });
     return { id: key, def, ground, mud: def.mud || [], crates };
   }
-  const groundAt = (x) => (B && B.ter ? B.ter.ground[Math.max(0, Math.min(W, Math.round(x)))] : GROUND);
+  const groundAt = (x) => (B && B.ter && x >= 0 && x <= W ? B.ter.ground[Math.round(x)] : GROUND);   // 地形只在中间这一段，其余都是平地
   const crateAt = (x, y) => (B && B.ter ? B.ter.crates.findIndex(c => !c.dead && x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1) : -1);
   // 整车在世界里的左右边缘
   const span = (s) => (isP(s) ? [cellX(s, s.minCol), cellX(s, s.frontCol) + C] : [cellX(s, s.frontCol), cellX(s, s.minCol) + C]);
@@ -223,7 +224,7 @@ SA.Battle = (() => {
     const cr = crateAt(sh.x, sh.y);
     if (cr >= 0) return { crate: cr };
     if (sh.y >= groundAt(sh.x)) return 'ground';
-    if (sh.x < -80 || sh.x > W + 80 || sh.y > H) return 'out';
+    if (sh.y > H + 100 || (B.cam && (sh.x < B.cam.x - 800 || sh.x > B.cam.x + B.cam.w + 800))) return 'out';
     return null;
   }
   function predict(s, o, w, deg, side, jitter = 0) {
@@ -368,11 +369,8 @@ SA.Battle = (() => {
         part('dust', dx0, groundAt(dx0) - 2, -Math.sign(s.vx) * rnd(10, 60), rnd(-60, -20), rnd(0.3, 0.5));
       }
     }
-    const lo = isP(s) ? -(PADX + s.minCol * C) + 8 : -1e9;
-    const hi = isP(s) ? 1e9 : W - 8 - VW + PADX + s.minCol * C;
-    const want = s.x + s.vx * dt;
-    let nx = clamp(want, lo, hi);
-    if (nx !== want) s.vx = 0;
+    // 场地左右无限延伸：想退多远退多远，不会被堵在角落里（背景看台会跟着转）
+    let nx = s.x + s.vx * dt;
     // 货箱挡路：整车不能穿过没打烂的货箱；带着速度撞上去会撞坏它（有撞击件撞得更狠）
     if (B.ter) {
       const [L, R] = span(s);
@@ -760,24 +758,29 @@ SA.Battle = (() => {
   function camera(dt) {
     const pr = cellX(B.p, B.p.minCol), er = cellX(B.e, B.e.minCol) + C;
     const lob = B.p.sel === 'mortar';
-    const tz = clamp((W - 60) / (er - pr + 360), 1, lob ? 1.25 : 1.8);
+    const tz = clamp((W - 60) / (er - pr + 360), ZMIN, lob ? 1.25 : 1.8);
     const cam = B.cam;
     cam.z += (tz - cam.z) * Math.min(1, dt * 3);
     const sw = W / cam.z, sh = H / cam.z;
-    const tx = clamp((pr + er) / 2 - sw / 2, 0, W - sw);
+    const tx = (pr + er) / 2 - sw / 2;   // 场地无限：镜头只跟着两车的中点走
     cam.x += (tx - cam.x) * Math.min(1, dt * 4);
-    cam.x = clamp(cam.x, 0, W - sw);
-    cam.y = clamp(GROUND + 60 - sh, 0, H - sh);
+    cam.y = GROUND + 60 - sh;          // 地面始终在画面底部附近
     cam.w = sw; cam.h = sh;
     B.aim = B.aimScreen ? [cam.x + B.aimScreen[0] / cam.z, cam.y + B.aimScreen[1] / cam.z] : null;
   }
 
-  // ---------- 背景 ----------
-  function buildBg() {
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const x = c.getContext('2d');
-    const HZ = GROUND - 240;
+  // ---------- 背景：一座圆形竞技场 ----------
+  // 场地左右无限延伸。天空固定；远处的厂房和一圈看台画在「圆筒」上：屏幕中间 1:1、越往两边越压缩，
+  // 镜头跟着车移动时看台跟着转，看起来像车在绕着圆形竞技场跑。地面（和地形）在世界坐标里，跟车 1:1 移动
+  const HZ = GROUND - 240, GS = HZ, GE = GROUND - 110;
+  const TW = 1248;   // 可平铺纹理的周期：人群 6、旗 26、柱 48、地面刻痕 48 都能整除
+  let BD = null;
+  function buildBackdrop() {
+    const mk = (w, hh) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; return [c, c.getContext('2d')]; };
+    let seed = 7;
+    const rr = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    // 天空（固定不动）
+    const [sky, x] = mk(W, HZ);
     const band = (y0, y1, col) => { x.fillStyle = col; x.fillRect(0, y0, W, y1 - y0); };
     const b1 = Math.round(HZ * 0.3), b2 = Math.round(HZ * 0.62);
     band(0, b1, P.bg[3]); band(b1, b2, P.bg[4]); band(b2, HZ, P.bg[5]);
@@ -786,33 +789,71 @@ SA.Battle = (() => {
     x.fillStyle = P.bg[6];
     const sunY = Math.round(HZ * 0.42);
     for (let yy = -40; yy <= 40; yy++) { const w = Math.sqrt(1600 - yy * yy); x.fillRect(Math.round(W * 0.76 - w), sunY + yy, Math.round(w * 2), 1); }
-    let seed = 7;
-    const rr = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    // 远处的厂房：一圈 TW 宽可平铺，画成两圈宽（采样跨过接缝时不用拆两段）
+    const [line, y] = mk(TW * 2, HZ);
     for (let i = 0; i < 18; i++) {
-      const bx = Math.round(rr() * W), bw = Math.round(48 + rr() * 90), bh = Math.round(40 + rr() * 110);
-      x.fillStyle = P.bg[3]; x.fillRect(bx, HZ - bh, bw, bh);
-      x.fillRect(bx + Math.round(bw * 0.3), HZ - bh - 54 - Math.round(rr() * 40), 12, 66);
-      x.fillStyle = P.bg[4];
-      for (let k = 0; k < Math.floor(bw / 18); k++) x.fillRect(bx + 8 + k * 18, HZ - bh + 14, 6, 9);
-    }
-    const GS = HZ, GE = GROUND - 110;
-    x.fillStyle = P.bg[2]; x.fillRect(0, GS, W, GE - GS);
-    for (let y = GS + 8; y < GE - 8; y += 13) {
-      x.fillStyle = P.bg[1]; x.fillRect(0, y + 9, W, 3);
-      for (let i = 0; i < W; i += 6) {
-        const v = rr();
-        if (v < 0.7) { x.fillStyle = v < 0.25 ? P.bg[4] : v < 0.5 ? P.bg[3] : P.bg[5]; x.fillRect(i, y + 2, 4, 6); x.fillRect(i + 1, y, 2, 2); }
+      const bx0 = Math.round(rr() * TW), bw = Math.round(48 + rr() * 90), bh = Math.round(40 + rr() * 110), ch = 54 + Math.round(rr() * 40);
+      for (const bx of [bx0 - TW, bx0, bx0 + TW, bx0 + 2 * TW]) {
+        y.fillStyle = P.bg[3]; y.fillRect(bx, HZ - bh, bw, bh);
+        y.fillRect(bx + Math.round(bw * 0.3), HZ - bh - ch, 12, 66);
+        y.fillStyle = P.bg[4];
+        for (let k = 0; k < Math.floor(bw / 18); k++) y.fillRect(bx + 8 + k * 18, HZ - bh + 14, 6, 9);
       }
     }
-    for (let i = 0; i < W; i += 26) { x.fillStyle = (i / 26) % 2 ? P.bg[5] : P.bg[4]; x.fillRect(i, GS - 5, 16, 4); x.fillRect(i + 3, GS - 1, 10, 3); x.fillRect(i + 6, GS + 2, 4, 3); }
-    x.fillStyle = P.bg[1]; x.fillRect(0, GE, W, 14);
-    for (let i = 0; i < W; i += 64) { x.fillStyle = P.bg[0]; x.fillRect(i, GE - 6, 8, 24); }
-    x.fillStyle = P.bg[3]; x.fillRect(0, GE + 14, W, H - GE - 14);
-    for (let i = 0; i < 900; i++) { x.fillStyle = rr() < 0.5 ? P.bg[2] : P.bg[4]; x.fillRect(Math.round(rr() * W), Math.round(GE + 14 + rr() * (H - GE - 14)), 4, 1); }
-    x.fillStyle = P.bg[2]; x.fillRect(0, GROUND, W, H - GROUND);
-    x.fillStyle = P.bg[4]; x.fillRect(0, GROUND, W, 1);
-    for (let i = 0; i < W; i += 48) { x.fillStyle = P.bg[1]; x.fillRect(i, GROUND + 18, 30, 4); }
-    return c;
+    // 看台：人群、彩旗、围栏（一圈 TW，复制成两圈）
+    const S0 = GS - 5;
+    const [stands, z] = mk(TW * 2, GE + 14 - S0);
+    z.fillStyle = P.bg[2]; z.fillRect(0, GS - S0, TW, GE - GS);
+    for (let yy = GS + 8; yy < GE - 8; yy += 13) {
+      z.fillStyle = P.bg[1]; z.fillRect(0, yy + 9 - S0, TW, 3);
+      for (let i = 0; i < TW; i += 6) {
+        const v = rr();
+        if (v < 0.7) { z.fillStyle = v < 0.25 ? P.bg[4] : v < 0.5 ? P.bg[3] : P.bg[5]; z.fillRect(i, yy + 2 - S0, 4, 6); z.fillRect(i + 1, yy - S0, 2, 2); }
+      }
+    }
+    for (let i = 0; i < TW; i += 26) { z.fillStyle = (i / 26) % 2 ? P.bg[5] : P.bg[4]; z.fillRect(i, 0, 16, 4); z.fillRect(i + 3, 4, 10, 3); z.fillRect(i + 6, 7, 4, 3); }
+    z.fillStyle = P.bg[1]; z.fillRect(0, GE - S0, TW, 14);
+    for (let i = 0; i < TW; i += 48) { z.fillStyle = P.bg[0]; z.fillRect(i, GE - 6 - S0, 8, 20); }
+    z.drawImage(stands, 0, 0, TW, stands.height, TW, 0, TW, stands.height);
+    // 地面：世界坐标里平铺（跟车 1:1 移动）
+    const F0 = GE + 14;
+    const [floor, f] = mk(TW, H - F0);
+    f.fillStyle = P.bg[3]; f.fillRect(0, 0, TW, GROUND - F0);
+    for (let i = 0; i < 900; i++) { f.fillStyle = rr() < 0.5 ? P.bg[2] : P.bg[4]; f.fillRect(Math.round(rr() * TW), Math.round(rr() * (GROUND - F0)), 4, 1); }
+    f.fillStyle = P.bg[2]; f.fillRect(0, GROUND - F0, TW, H - GROUND);
+    f.fillStyle = P.bg[4]; f.fillRect(0, GROUND - F0, TW, 1);
+    for (let i = 0; i < TW; i += 48) { f.fillStyle = P.bg[1]; f.fillRect(i, GROUND - F0 + 18, 30, 4); }
+    return { sky, line, stands, floor, S0, F0 };
+  }
+  // 圆筒映射：屏幕列 sx → 纹理坐标 rot + asin(u·K0)·R（u = 离屏幕中心的比例）。中间一个屏幕像素 = 1/z 个纹理像素（和世界一样的缩放），两边压缩
+  function drum(tex, wy0, rot) {
+    const cam = B.cam, z = cam.z, K0 = 0.82, R = (W / 2) / (K0 * z), per = tex.width / 2, th = tex.height;
+    const y = Math.round((wy0 - cam.y) * z), hh = Math.ceil(th * z), STEP = 4;
+    const tx = (sx) => rot + Math.asin(clamp((sx - W / 2) / (W / 2), -1, 1) * K0) * R;
+    let t0 = tx(0);
+    for (let sx = 0; sx < W; sx += STEP) {
+      const t1 = tx(sx + STEP), u = ((t0 % per) + per) % per;
+      dg.drawImage(tex, u, 0, Math.max(0.5, t1 - t0), th, sx, y, STEP, hh);
+      t0 = t1;
+    }
+  }
+  // 屏幕空间的背景：天空 → 远处厂房（转得慢）→ 看台（像绕着场地转）→ 两边压暗，显出圆筒感
+  function drawBackdrop() {
+    const cam = B.cam, z = cam.z, sy = (wy) => Math.round((wy - cam.y) * z);
+    dg.fillStyle = P.bg[3]; dg.fillRect(0, 0, W, H);
+    const sw = Math.max(W, W * z);
+    dg.drawImage(BD.sky, 0, 0, W, HZ, Math.round(W / 2 - sw / 2), sy(0), Math.ceil(sw), Math.ceil(HZ * z));
+    drum(BD.line, 0, cam.x * 0.12);
+    drum(BD.stands, BD.S0, cam.x * 0.45);
+    const bot = sy(GE + 14);   // 从画面顶部一直压到看台底部，不留硬边
+    const gr = dg.createLinearGradient(0, 0, W, 0);
+    gr.addColorStop(0, 'rgba(7,8,12,0.6)'); gr.addColorStop(0.2, 'rgba(7,8,12,0)'); gr.addColorStop(0.8, 'rgba(7,8,12,0)'); gr.addColorStop(1, 'rgba(7,8,12,0.6)');
+    dg.fillStyle = gr; dg.fillRect(0, 0, W, bot);
+  }
+  // 世界坐标里的地面：按 TW 平铺，镜头走到哪铺到哪
+  function drawFloor() {
+    const cam = B.cam;
+    for (let x = Math.floor((cam.x - 40) / TW) * TW; x < cam.x + cam.w + 40; x += TW) g.drawImage(BD.floor, x, BD.F0);
   }
 
   // ---------- 绘制 ----------
@@ -861,7 +902,13 @@ SA.Battle = (() => {
   function draw() {
     const t = B.t;
     g = wc.getContext('2d');
-    g.drawImage(bg, 0, 0);
+    // 世界画布只装镜头看得到的那一块：先平移到镜头左上角，背景之后在屏幕空间里画
+    const cam = B.cam, ox = Math.floor(cam.x), oy = Math.floor(cam.y);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, wc.width, wc.height);
+    g.save();
+    g.translate(-ox, -oy);
+    drawFloor();
     g.save();
     if (B.shake) g.translate(Math.round(rnd(-B.shake, B.shake)), Math.round(rnd(-B.shake, B.shake)));
     g.fillStyle = 'rgba(7,8,12,0.4)';
@@ -916,9 +963,10 @@ SA.Battle = (() => {
       reticle(mx, my, aimT);
       reticleAlerts(mx, my);
     }
-    const cam = B.cam;
+    g.restore();
+    drawBackdrop();
     dg.imageSmoothingEnabled = false;
-    dg.drawImage(wc, cam.x, cam.y, cam.w, cam.h, 0, 0, W, H);
+    dg.drawImage(wc, cam.x - ox, cam.y - oy, cam.w, cam.h, 0, 0, W, H);
     // 过热：屏幕四周红光呼吸，余光就能看到
     if (!B.p.dead && B.p.heat > 75) {
       const a = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(B.t * 8))) * Math.min(1, (B.p.heat - 75) / 15 + 0.4);
@@ -930,7 +978,8 @@ SA.Battle = (() => {
     }
   }
 
-  // 准星：装填中 = 来回摆动的沙漏（外面一圈淡淡的稳定度环）；装好了 = 黄铜齿轮。
+  // 准星：装填中 = 来回摆动的沙漏（外面一圈稳定度环，按住蓄力时跟着收紧）；装好了 = 黄铜齿轮。
+  // 按住蓄满自动开火后如果还按着，也照样先变沙漏，装好了再变回齿轮、接着蓄力。
   // 机枪这类快枪（装填 < 1 秒）不切沙漏：齿轮每打一发咔哒转一齿，领头的齿闪一下，内圈细弧显示装填
   // 准星半径跟实际缩圈幅度走：前期只能缩一点，加装瞄准镜后能缩得更紧
   // 准星半径 = 瞄准度（0→100% 从 24 收到 9）；实际散布缩多少由车的缩圈幅度决定，扇区会如实反映
@@ -940,10 +989,10 @@ SA.Battle = (() => {
     const group = p.weapons.filter(w => w.cell.id === p.sel && !w.blocked);
     const fast = group.length && group[0].m.reload < 1;
     const rl = reloadFrac(p);
-    // 没按住、正在装填：沙漏；按住（瞄准中）永远显示齿轮，装填进度画成内圈细弧
-    if (rl != null && !fast && !p.fireHeld) {
-      // 稳定度环：装填时按住也在蓄力，环跟着收紧
-      g.save(); g.globalAlpha = 0.45; g.lineWidth = 2; g.strokeStyle = P.brass[2];
+    // 正在装填（慢炮）：沙漏，不管按没按住
+    if (rl != null && !fast) {
+      // 稳定度环：装填时按住也在蓄力，环跟着收紧；蓄满变绿
+      g.save(); g.globalAlpha = p.fireHeld ? 0.75 : 0.45; g.lineWidth = 2; g.strokeStyle = p.focus >= 1 ? '#6fcf6a' : P.brass[2];
       g.beginPath(); g.arc(x, y, reticleR(p.focus), 0, Math.PI * 2); g.stroke(); g.restore();
       g.fillStyle = P.black; g.fillRect(x - 2, y - 2, 5, 5); g.fillStyle = P.white; g.fillRect(x - 1, y - 1, 3, 3);
       // 沙漏像钟摆一样挂在准星上方来回摆
@@ -1134,29 +1183,28 @@ SA.Battle = (() => {
     const big = w.m.proj === 'shell';
     SA.SPR.useCtx(g);
     const sp = spreadDeg(p, B.e, w);
-    // 扇区显示用的散布角做平滑，不随每一帧的颠簸抖动
+    // 扇区宽度：散布变大立刻跟上（扇区永远盖住真实散布），变小时慢慢收（不随每一帧的颠簸抖）
     const now = B.t, dtv = Math.min(0.1, now - (B.fanT || now));
     B.fanT = now;
-    B.fanSp = B.fanSp == null || B.fanW !== w.key ? sp : B.fanSp + (sp - B.fanSp) * Math.min(1, dtv * 6);
+    B.fanSp = B.fanSp == null || B.fanW !== w.key || sp > B.fanSp ? sp : B.fanSp + (sp - B.fanSp) * Math.min(1, dtv * 4);
     B.fanW = w.key;
     if (sp > 0) {
-      // 扇区：散布范围内均匀取 9 条弹道，各自飞到真正撞上的模块（或落地）为止；
-      // 每条的长度随时间平滑，终点在模块表面慢慢滑动，不会一帧撞上一帧没撞上地闪
-      const N = 9, rays = [];
+      // 扇区：散布范围内均匀取 17 条弹道，各自飞到真正撞上的模块 / 货箱 / 地面为止（不做长度平滑，终点就是真实落点）；
+      // 相邻两条弹道之间围成一条条带，所有条带放进同一条路径一次填满（nonzero 规则，重叠处不会叠深），没有缝也没有锯齿
+      const N = 17, rays = [];
       for (let i = 0; i < N; i++) {
         const r0 = predict(p, B.e, w, cur, side, -B.fanSp + 2 * B.fanSp * i / (N - 1));
         rays.push([...r0.pts, r0.end]);
       }
-      const lens = rays.map(pathLen);
-      const same = B.fanLens && B.fanLW === w.key;
-      B.fanLens = same ? B.fanLens.map((L0, i) => L0 + clamp((lens[i] - L0) * Math.min(1, dtv * 10), -1200 * dtv, 1200 * dtv)) : lens;   // 扇区宽了以后跳变更大，再限个速
-      B.fanLW = w.key;
       g.save(); g.globalAlpha = 0.16; g.fillStyle = col; g.beginPath();
-      pathUpTo(rays[0], B.fanLens[0]).forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-      for (let i = 1; i < N; i++) { const [x, y] = pointAt(rays[i], B.fanLens[i]); g.lineTo(x, y); }
-      const back = pathUpTo(rays[N - 1], B.fanLens[N - 1]);
-      for (let i = back.length - 1; i >= 0; i--) g.lineTo(back[i][0], back[i][1]);
-      g.closePath(); g.fill(); g.restore();
+      for (let i = 0; i < N - 1; i++) {
+        const a = rays[i], b = rays[i + 1];
+        g.moveTo(a[0][0], a[0][1]);
+        for (let k = 1; k < a.length; k++) g.lineTo(a[k][0], a[k][1]);
+        for (let k = b.length - 1; k >= 0; k--) g.lineTo(b[k][0], b[k][1]);
+        g.closePath();
+      }
+      g.fill('nonzero'); g.restore();
       if (aimT) {
         let n = 0;
         for (const q of QS) if (sameCell(predict(p, B.e, w, cur, side, q * sp).hit, aimT)) n++;
@@ -1177,28 +1225,22 @@ SA.Battle = (() => {
     if (pr.blocked) info.cover = pr.blocked;   // 弹道被货箱 / 土坡挡住
     if (pr.hit) {
       info.hit = pr.hit;
-      if (!sameCell(pr.hit, aimT)) { const b = modBox(B.e, pr.hit.r, pr.hit.c, B.e.v[pr.hit.layer][pr.hit.r][pr.hit.c].id); SA.SPR.outline(g, Math.round(b.x0), b.y0, b.x1 - b.x0, b.y1 - b.y0, P.white, P.black, Math.floor(B.t * 16)); }
+      if (!sameCell(pr.hit, aimT)) { const b = modBox(B.e, pr.hit.r, pr.hit.c, B.e.v[pr.hit.layer][pr.hit.r][pr.hit.c].id); cornerMark(Math.round(b.x0), Math.round(b.y0), b.x1 - b.x0, b.y1 - b.y0); }
     }
   }
 
-  // 折线工具：总长、按长度取点、截到某个长度
-  function pathLen(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
-  function pointAt(pts, L) {
-    for (let i = 1; i < pts.length; i++) {
-      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (L <= d) { const t = d ? L / d : 0; return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t]; }
-      L -= d;
+  // 「弹道中心会先打到这个模块」：四个橙色角框（黑边），轻轻呼吸
+  function cornerMark(x, y, w, h) {
+    const n = Math.max(6, Math.round(Math.min(w, h) * 0.3)), a = 0.65 + 0.35 * Math.sin(B.t * 6);
+    g.save();
+    for (const [col, lw, off] of [[P.black, 5, 0], ['#ffb347', 3, 0]]) {
+      g.globalAlpha = col === P.black ? 0.8 : a; g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
+      for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]]) {
+        g.moveTo(cx + dx * n, cy + off); g.lineTo(cx, cy); g.lineTo(cx, cy + dy * n);
+      }
+      g.stroke();
     }
-    return pts[pts.length - 1];
-  }
-  function pathUpTo(pts, L) {
-    const out = [pts[0]];
-    for (let i = 1; i < pts.length; i++) {
-      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (L <= d) { out.push(pointAt([pts[i - 1], pts[i]], L)); return out; }
-      L -= d; out.push(pts[i]);
-    }
-    return out;
+    g.restore();
   }
 
   const tintC = document.createElement('canvas');
@@ -1285,7 +1327,7 @@ SA.Battle = (() => {
     if (pi && pi.over) parts.push(pi.over === 'high' ? `<b>超出射界</b>：目标太高/太近，炮管抬不到 ${M[p.sel].elev[1]}° 以上${alt}` : '<b>超出射界</b>：炮管压不了那么低');
     else if (pi && !pi.reach) parts.push('<b>超出射程，靠近一些</b>');
     else if (pi && pi.slewing) parts.push('炮管转动中…');
-    if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) parts.push(`弹道中心先打到 <b>「${M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name}」</b>（虚线框）${alt}`);
+    if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) parts.push(`弹道中心先打到 <b>「${M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name}」</b>（橙色角框）${alt}`);
     if (aimT && pi && pi.cover && !pi.hit) parts.push(pi.cover === 'crate' ? '弹道被<b>货箱</b>挡住：打烂它、绕过去，或者换高抛' : `弹道打在<b>土坡</b>上：靠近一些${alt || '，或者换高抛'}`);
     if (aimT && pi && pi.chance != null) parts.push(`命中率约 <b>${pi.chance}%</b>（扇区 = 散布范围）`);
     else if (aimT && pi && M[p.sel].indirect) parts.push('高抛：指哪打哪（对方移动会躲开）');
@@ -1348,13 +1390,13 @@ SA.Battle = (() => {
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
     B.e.style = opts.style || null;
-    bg = buildBg();
+    BD = BD || buildBackdrop();
 
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
     cv = h('canvas', { class: 'px', width: W, height: H });
     dg = cv.getContext('2d');
-    wc = document.createElement('canvas'); wc.width = W; wc.height = H;
+    wc = document.createElement('canvas'); wc.width = Math.ceil(W / ZMIN) + 4; wc.height = Math.ceil(H / ZMIN) + 4;   // 镜头拉到最远时也装得下
     g = wc.getContext('2d');
     hud.p = sidePanel('player');
     hud.e = sidePanel('enemy');
