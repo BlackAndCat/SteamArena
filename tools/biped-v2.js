@@ -97,12 +97,15 @@ SA.BIPED2 = (() => {
       pn.dot(cx + x * c - y * s, cy + x * s + y * c, Math.sin(a) > 0 ? front : back);
     }
   }
-  function pelvis(pn, b, legId, st, y0) {
-    const cx = PADX + b.pc * C + 24, Y = Y4 + y0, mat = PELVIS_MAT[legId] || 'iron';
+  function pelvis(pn, b, legId, st, y0, cxAt) {
+    const cx = cxAt != null ? cxAt : PADX + b.pc * C + 24, Y = Y4 + y0, mat = PELVIS_MAT[legId] || 'iron';
     const R = mat === 'steel' ? NEAR.steel : mat === 'brass' ? NEAR.brass : NEAR.iron;
     const has = (c) => b.cells.some(k => k.r === 4 && k.c === c);
-    // 腰挂支架：胯两侧各两道黄铜卡箍，夹住腰挂模块
-    for (const side of [-1, 1]) if (has(b.pc + side)) for (const yy of [9, 21]) pn.rect(cx + side * 26 - 3, Y + yy, 6, 4).paint(NEAR.brass, { bevel: 'l' });
+    // 腰挂法兰：胯体向两侧伸出一块和胯同材质的连接板，压在腰挂模块上，一颗大铆钉固定
+    for (const side of [-1, 1]) if (has(b.pc + side)) {
+      pn.poly([[cx + side * 17, Y + 7], [cx + side * 30, Y + 9], [cx + side * 30, Y + 23], [cx + side * 15, Y + 26]]).paint(R);
+      pn.disc(cx + side * 25, Y + 16, 2.4).paint(NEAR.brass);
+    }
     // 回转环：刻痕随步伐转
     pn.rect(cx - 17, Y - 1, 34, 6).paint(NEAR.brass);
     const sp = Math.floor((st.phase || 0) / 3);
@@ -261,5 +264,5 @@ SA.BIPED2 = (() => {
       note: '同一套蜘蛛腿，膝盖高出机身一大截：用膝高区分四足型号，和直立的双足拉开剪影。' },
   ].map(parse);
 
-  return { BUILDS, render, VW, VH, pelvis, bipedLeg, legDesign, HIP, GROUND, Y4 };
+  return { BUILDS, render, VW, VH, pelvis, bipedLeg, legDesign, spiderLeg, carapace, HIP, GROUND, Y4 };
 })();

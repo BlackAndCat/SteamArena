@@ -26,28 +26,28 @@
   .find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
 </style></head>
 <body>
-<h1>机甲套件 · 视觉验证</h1>
-<p class="lead">模块缩小到 1/4：一个旧格（48px）分成 2×2 个子格（24px），像素大小不变。以轻骑（鹭步腿）和圣骑（蒸汽圣骑腿）为核心，
-各画一套头盔驾驶舱、燃炉、水罐、机械臂、盾牌、甲片，看模块化拼装能不能拼出协调匀称的双足机甲。只做视觉，不涉及数值。
-机械臂、臂炮、盾牌放在<b>肢体层</b>（相当于现在的侧挂层，画在车体前面）。</p>
-<div class="find"><b>验证结论</b>
+<h1>全局子格套件 · 视觉验证</h1>
+<p class="lead">所有模块缩小到 1/4：一个旧格（48px）分成 2×2 个子格（24px），像素大小不变。零件是公共的，双足、履带、蜘蛛共用一套，每个零件有铁制 / 钢制两种品质外观。只做视觉，不涉及数值。</p>
+<div class="find"><b>两层，规则对所有底盘一样</b>
 <ol>
-<li><b>兼容。</b>用 1/4 子格加肢体层，能拼出协调的双足机甲。子格让躯干缩到 3×3 子格（1.5×1.5 旧格），和长腿的比例对得上。不需要放弃双足机甲。</li>
-<li><b>机甲感主要来自肢体层。</b>手臂、盾、臂炮画在车体前面，可以盖住胸口、伸出车体外。现在的侧挂层直接扩展成肢体层就行，规则上已经有「另一个平面」的概念。</li>
-<li><b>协调感来自同一套母题。</b>圣骑的护膝、肘甲是同款黄铜扇翼，肩甲、胸甲、盾是同样的亮钢加黄铜包边。每个品质做一个零件套装，拼出来就像一台机器。</li>
-<li><b>24px 零件照样能认出来。</b>水罐是青色，炉火是橙色，驾驶舱是舷窗或目缝里的一对眼睛。代价是细节少了：驾驶员只剩眼睛。</li>
-<li><b>旧 48px 模块和子格零件混用不协调。</b>旧驾驶舱比整个胸口还宽，细节密度也对不上。要走子格，就得把所有模块重画成子格版。</li>
-<li>往外多堆一圈仍然会变成箱子，但难看是一点一点加重的。再配合「躯干最宽 3 格」的限制就够了。</li>
+<li><b>车体层</b>：驾驶舱、燃炉、水罐、甲片。占格、需要支撑，连成一副车体框架（露在外面的角切 4px）。</li>
+<li><b>附加层</b>（原来的侧挂层和肢体层合并）：机械臂（格斗 / 剑 / 锤 / 巨炮 / 盾）、重炮、侧炮。画在车体前面，可以盖住车体格；武器可以伸出格外；必须压在或贴着车体零件上；附加层零件之间不重叠；瞄准时只打附加层（沿用侧炮规则）。</li>
+<li>肩膀属于机械臂模块：关节轴套 + 肩甲，肩甲不超过大臂的两倍宽。</li>
 </ol></div>
-
+<div class="find"><b>这一轮的改动</b>
+<ol>
+<li>原来胯两侧的小金点是「卡箍」（把腰挂模块夹在胯上），看不懂，已删掉。改成胯体向两侧伸出一块同材质的法兰板，压在腰挂模块上，用一颗大铆钉固定。</li>
+<li>头盔居中：胯改成对准一列子格的中心，头盔（1×1）放在同一列就正好在胯的正上方；胸口 3 子格宽，也以这一列为中心。</li>
+<li>机械臂从 1×2 放大到 2×3，肩膀在胸口中间，手到腰的高度。</li>
+</ol></div>
 <div class="bar">
   <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
   <label><input type="checkbox" id="hull" checked> 车体框架</label>
   <label><input type="checkbox" id="far" checked> 远侧腿 / 臂</label>
-  <label><input type="checkbox" id="grid"> 子格网格（白 = 子格，黄铜 = 旧格，洋红 = 肢体层）</label>
+  <label><input type="checkbox" id="grid"> 子格网格（洋红 = 附加层占格）</label>
 </div>
 
-<h2>零件表（原生像素 × 3）</h2>
+<h2>零件表（原生像素 × 2；附加层零件下面垫了一块示意车体）</h2>
 <div class="sheet" id="sheet"></div>
 
 <h2>整机（原生像素 × 2）</h2>
@@ -63,14 +63,16 @@
   const views = [];
 
   const SHEET = document.getElementById('sheet');
-  for (const sty of ['L', 'K']) {
-    const h = document.createElement('div'); h.className = 'rowh'; h.textContent = K.STYLE[sty].name + ' 套件'; SHEET.append(h);
+  for (const [layer, lname] of [['body', '车体层'], ['add', '附加层']]) for (const sty of ['L', 'K']) {
+    const h = document.createElement('div'); h.className = 'rowh'; h.textContent = `${lname} · ${K.LOOK[sty].name}`; SHEET.append(h);
     for (const id of Object.keys(K.PARTS)) {
       const pt = K.PARTS[id];
+      if (pt.layer !== layer) continue;
+      const box = K.partBox(id);
       const cv = document.createElement('canvas'); cv.className = 'px';
-      cv.width = pt.w * S + 16 + (id === 'armgun' ? 12 : 0); cv.height = pt.h * S + 16; cv.style.width = cv.width * 3 + 'px';
+      cv.width = box.w; cv.height = box.h; cv.style.width = cv.width * 2 + 'px';
       const d = document.createElement('div'); d.className = 'part';
-      d.append(cv, `${pt.name} ${pt.w}×${pt.h}${pt.layer === 'limb' ? ' · 肢体层' : ''}`);
+      d.append(cv, `${pt.name} ${pt.w}×${pt.h}`);
       SHEET.append(d);
       views.push({ cv, draw: () => K.renderPart(cv, id, sty, st) });
     }
@@ -85,17 +87,6 @@
     card.append(b, cv, p); CARDS.append(card);
     views.push({ cv, draw: () => K.render(cv, m, st) });
   }
-  // 对照：同样的腿，躯干用现在的 48px 模块（真双足样机里的轻骑 / 圣骑）
-  const B2 = SA.BIPED2;
-  for (const [i, name] of [[0, '对照 · 轻骑（48px 旧模块）'], [1, '对照 · 圣骑（48px 旧模块）']]) {
-    const card = document.createElement('section'); card.className = 'card';
-    const b = document.createElement('b'); b.textContent = name;
-    const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = B2.VW; cv.height = B2.VH; cv.style.width = B2.VW * 2 * K.VH / B2.VH + 'px';
-    const p = document.createElement('p'); p.className = 'note'; p.textContent = '同一双腿，躯干用现在的整格模块：比例更粗笨，没有手臂，读起来更像背着箱子的腿。';
-    card.append(b, cv, p); CARDS.append(card);
-    views.push({ cv, draw: () => B2.render(cv, B2.BUILDS[i], { ...st, hud: false, grid: false, legs: '' }) });
-  }
-
   const vis = new Set();
   const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
   views.forEach(v => io.observe(v.cv));
