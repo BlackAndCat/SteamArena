@@ -10,7 +10,7 @@
 python -m http.server 5173
 ```
 
-然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；数值自测（AI 对 AI 批量对打）：http://localhost:5173/tools/sim.html
+然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；悬挂与爬坡样机：http://localhost:5173/tools/suspension-lab.html ；数值自测（AI 对 AI 批量对打）：http://localhost:5173/tools/sim.html
 
 侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp.js` 的 `DEV_TOOLS` 就会出现在面板上。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱。
 

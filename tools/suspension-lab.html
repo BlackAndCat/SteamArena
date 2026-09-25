@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>悬挂与爬坡样机</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; overflow: auto; }
+  body { padding: 16px; max-width: 1500px; margin: 0 auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  h2 { color: var(--brass2); font-size: 15px; margin: 18px 0 8px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 1100px; line-height: 1.6; margin: 0 0 10px; font-size: 13px; }
+  .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 1100px; line-height: 1.6; margin-bottom: 12px; font-size: 13px; }
+  .find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 8px; font-size: 13px; }
+  .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  .bar select, .bar input[type=range] { background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); font: inherit; }
+  .bar input[type=range] { width: 320px; }
+  .rowg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 1100px) { .rowg { grid-template-columns: 1fr; } }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 8px; }
+  .card b { display: block; font-size: 13px; }
+  .card .muted { display: block; font-size: 11px; margin: 2px 0 6px; min-height: 30px; }
+  .card canvas { width: 100%; height: auto; image-rendering: pixelated; display: block; background: #000; }
+  .meter { font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .card .meter b { display: inline; font-size: 12px; }
+  .ok { color: var(--gauge2); } .meh { color: var(--fire3); } .bad { color: #ff5a4a; }
+</style></head>
+<body>
+<h1>悬挂与爬坡样机</h1>
+<p class="lead">问题：现在整车是一块刚体，只按车头、车尾两处的地面决定倾角，再抬到不插进地面为止，所以跨过凹凸时总有一段底盘悬空。这里对比三种做法：车体（上层模块）始终是刚体、不变形，只有履带的负重轮组、四足和双足的脚各自上下。</p>
+<div class="find"><b>三种方案</b>
+<ol>
+<li><b>A · 现在的刚体</b>：倾角取两端地面高度差，整条车底抬到不插地。</li>
+<li><b>B · 悬挂（车身全跟坡）</b>：所有接地点的地面高度做最小二乘拟合，车身按拟合坡度倾斜；每个接地点（履带每格两组负重轮、腿式每格两只脚）在行程内各自伸缩去够地面。</li>
+<li><b>C · 悬挂（车身只跟一半坡）</b>：同 B，但车身只转拟合坡度的一半，剩下的交给悬挂吃掉——车身更稳，腿 / 轮伸缩更明显。</li>
+</ol>
+接地点标记：<span class="ok">绿 = 贴地</span>，<span class="meh">黄 = 插进地里（超出压缩行程）</span>，<span class="bad">红线 = 悬空</span>（线长就是悬空的像素）。行程（上收 / 下伸）：履带 4 / 8、四足 6 / 12、双足 8 / 14 像素。</div>
+<div class="bar">
+  <label>地形 <select id="ter"></select></label>
+  <label>位置 <input id="pos" type="range" min="250" max="1030" value="560"></label>
+  <label><input id="auto" type="checkbox" checked> 自动来回开</label>
+  <label><input id="marks" type="checkbox" checked> 显示接地点</label>
+</div>
+<div id="rows"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/terrain-art.js"></script>
+<script>
+(() => {
+  const P = SA.PAL, K = SA.K, CS = K.CELL, PADX = SA.SPR.PADX, CH = SA.V.CH;
+  const W = 1280, H = 720, GROUND = 648, VW = 440, VH = 260;   // 每张小图看的世界范围：车左右各 220、地面上 200 下 60
+  const $ = (s) => document.querySelector(s);
+
+  // ---------- 地形 ----------
+  const bell = (g, x0, w, h) => { for (let x = Math.max(0, Math.floor(x0 - w / 2)); x <= Math.min(W, Math.ceil(x0 + w / 2)); x++) g[x] -= h * 0.5 * (1 + Math.cos(Math.PI * (x - x0) / (w / 2))); };
+  const TERR = {
+    hills: { name: '土坡', make: (g) => { for (const hl of SA.TERRAINS.hills.hills) bell(g, hl.x, hl.w, hl.h); } },
+    mine: { name: '矿坑（陡坡）', make: (g) => { for (const hl of SA.TERRAINS.mine.hills) bell(g, hl.x, hl.w, hl.h); } },
+    wash: { name: '搓衣板（连续小包）', make: (g) => { for (let x = 380; x <= 900; x += 64) bell(g, x, 56, 9); } },
+    step: { name: '台阶', make: (g) => { for (let x = 0; x <= W; x++) { const up = Math.max(0, Math.min(1, (x - 600) / 26)), dn = Math.max(0, Math.min(1, (x - 860) / 26)); g[x] -= 22 * (up - dn); } } },
+  };
+  const cache = {};
+  function terrain(key) {
+    if (cache[key]) return cache[key];
+    const ground = new Float32Array(W + 1).fill(GROUND);
+    TERR[key].make(ground);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = P.bg[3]; g.fillRect(0, 0, W, GROUND);
+    g.fillStyle = P.bg[2]; g.fillRect(0, GROUND, W, H - GROUND);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND, W, 1);
+    for (let i = 0; i < W; i += 48) { g.fillStyle = P.bg[1]; g.fillRect(i, GROUND + 18, 30, 4); }
+    g.drawImage(SA.TerrainArt.layer(ground, [], W, H, GROUND), 0, 0);
+    return (cache[key] = { ground, img: c });
+  }
+  const gAt = (ground, x) => (x < 0 || x > W ? GROUND : ground[Math.round(x)]);
+
+  // ---------- 三种底盘 ----------
+  // 接地点：每格底盘两个（在 48px 格子里的 x）；行程：上收 up / 下伸 down（像素）
+  const CHASSIS = [
+    { id: 'track', name: '履带', rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'], pts: [13, 37], up: 4, down: 8 },
+    { id: 'quad', name: '四足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...QQQ..'], pts: [17, 30], up: 6, down: 12 },
+    { id: 'biped', name: '双足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...BBB..'], pts: [16, 30], up: 8, down: 14 },
+  ].map(ch => {
+    const v = SA.V.fromAscii(ch.name, ch.rows);
+    const contacts = [];
+    let lL = 1e9, lR = -1e9;
+    for (let c = 0; c < K.COLS; c++) {
+      const cell = v.body[CH][c];
+      if (!cell) continue;
+      lL = Math.min(lL, PADX + c * CS); lR = Math.max(lR, PADX + (c + 2) * CS);
+      ch.pts.forEach((px, i) => contacts.push({ key: `${CH},${c}`, i, lx: PADX + c * CS + px }));
+    }
+    return { ...ch, v, contacts, lp: (lL + lR) / 2, half: (lR - lL) / 2 };
+  });
+  const PY = K.ROWS * CS;   // 车身画布里车底的 y
+
+  // ---------- 摆姿态 ----------
+  // 返回 { th: 车身倾角, py: 支点（车底中点）的世界 y, d: [每个接地点的伸缩], X }
+  function pose(mode, ch, ground, X) {
+    const xs = ch.contacts.map(p => X + (p.lx - ch.lp)), ys = xs.map(x => gAt(ground, x));
+    if (mode === 'A') {   // 现在游戏里的做法
+      const L = X - ch.half, R = X + ch.half;
+      const k = Math.max(-0.45, Math.min(0.45, (gAt(ground, R - 6) - gAt(ground, L + 6)) / (R - L - 12)));
+      let yc = Infinity;
+      for (let x = L; x <= R; x += 6) yc = Math.min(yc, gAt(ground, x) - k * (x - X));
+      yc = Math.min(yc, gAt(ground, R) - k * (R - X));
+      return { th: Math.atan(k), py: yc, d: ch.contacts.map(() => 0), X };
+    }
+    // 最小二乘拟合接地点下面的地面；车身跟全部（B）或一半（C）坡度
+    const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+    let sxy = 0, sxx = 0;
+    for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
+    const k = Math.max(-0.45, Math.min(0.45, (sxx ? sxy / sxx : 0) * (mode === 'C' ? 0.5 : 1)));
+    // 每个接地点相对车底线的地面高度 r；车底线放在 r 的平均值，但不能让哪只脚插地超过上收行程、也尽量不超过下伸行程
+    const r = xs.map((x, i) => ys[i] - k * (x - X));
+    const lo = Math.max(...r) - ch.down, hi = Math.min(...r) + ch.up;
+    let py = r.reduce((a, b) => a + b, 0) / n;
+    py = lo <= hi ? Math.max(lo, Math.min(hi, py)) : hi;
+    const c = Math.cos(Math.atan(k));
+    return { th: Math.atan(k), py, d: r.map(ri => Math.max(-ch.up, Math.min(ch.down, (ri - py) * c))), X };
+  }
+
+  // ---------- 画 ----------
+  const panels = [];
+  const MODES = [['A', 'A · 现在的刚体', '整车一块，按两端地面倾斜，抬到不插地'], ['B', 'B · 悬挂：车身全跟坡', '车身按拟合坡度倾斜，轮组 / 脚各自伸缩贴地'], ['C', 'C · 悬挂：车身只跟一半坡', '车身更稳，剩下的坡度交给悬挂']];
+  for (const ch of CHASSIS) {
+    const h2 = document.createElement('h2'); h2.textContent = ch.name; $('#rows').append(h2);
+    const row = document.createElement('div'); row.className = 'rowg'; $('#rows').append(row);
+    for (const [mode, title, desc] of MODES) {
+      const card = document.createElement('section'); card.className = 'card';
+      const cv = document.createElement('canvas'); cv.width = VW; cv.height = VH;
+      const meter = document.createElement('div'); meter.className = 'meter';
+      card.innerHTML = `<b>${title}</b><span class="muted">${desc}</span>`;
+      card.append(cv, meter); row.append(card);
+      panels.push({ ch, mode, cv, meter, key: `lab-${ch.id}-${mode}` });
+    }
+  }
+  function drawPanel(pn, T, X, phase, moving, marks) {
+    const g = pn.cv.getContext('2d'), ch = pn.ch;
+    g.imageSmoothingEnabled = false;
+    const ox = X - VW / 2, oy = GROUND - 200;
+    g.drawImage(T.img, ox, oy, VW, VH, 0, 0, VW, VH);
+    const ps = pose(pn.mode, ch, T.ground, X);
+    const gnd = {};
+    ch.contacts.forEach((p, i) => { (gnd[p.key] = gnd[p.key] || [0, 0])[p.i] = ps.d[i]; });
+    const vc = SA.SPR.renderVehicle(ch.v, { key: pn.key, t: performance.now() / 1000, heat: 0.3, water: 1, moving, phase, gnd: pn.mode === 'A' ? null : gnd });
+    g.save();
+    g.translate(Math.round(X - ox), Math.round(ps.py - oy));
+    g.rotate(ps.th);
+    g.drawImage(vc, -ch.lp, -PY);
+    g.restore();
+    // 接地点：车身坐标 (lx, 车底 + 伸缩) 转到世界，和地面比
+    let worst = 0, sum = 0;
+    const c = Math.cos(ps.th), sn = Math.sin(ps.th);
+    ch.contacts.forEach((p, i) => {
+      const lx = p.lx - ch.lp, ly = ps.d[i];
+      const wx = X + lx * c - ly * sn, wy = ps.py + lx * sn + ly * c;
+      const gap = gAt(T.ground, wx) - wy;   // > 0 悬空，< 0 插进地里
+      worst = Math.max(worst, gap); sum += Math.max(0, gap);
+      if (!marks) return;
+      const sx = Math.round(wx - ox), sy = Math.round(wy - oy);
+      if (gap > 1.5) { g.fillStyle = '#ff5a4a'; g.fillRect(sx, sy, 1, Math.round(gap)); g.fillRect(sx - 2, sy, 5, 1); }
+      else if (gap < -1.5) { g.fillStyle = '#ffd166'; g.fillRect(sx - 2, sy - 2, 5, 5); }
+      else { g.fillStyle = '#6fcf6a'; g.fillRect(sx - 1, sy - 1, 3, 3); }
+    });
+    const cls = worst > 4 ? 'bad' : worst > 1.5 ? 'meh' : 'ok';
+    pn.meter.innerHTML = `最大悬空 <b class="${cls}">${worst.toFixed(1)} px</b> · 平均 ${(sum / ch.contacts.length).toFixed(1)} px · 车身倾角 ${(ps.th * 180 / Math.PI).toFixed(1)}°`;
+  }
+
+  // 控制台：LAB.sweep('hills') 沿整条地形每 4px 摆一次姿态，统计每种方案的悬空（最大 / 平均 / 悬空超过 2px 的比例）
+  window.LAB = {
+    sweep(key = 'hills') {
+      const T = terrain(key), out = {};
+      for (const ch of CHASSIS) for (const [mode] of MODES) {
+        let worst = 0, sum = 0, n = 0, bad = 0;
+        for (let X = 250; X <= 1030; X += 4) {
+          const ps = pose(mode, ch, T.ground, X), c = Math.cos(ps.th), sn = Math.sin(ps.th);
+          let w = 0;
+          ch.contacts.forEach((p, i) => { const lx = p.lx - ch.lp, ly = ps.d[i]; const gap = gAt(T.ground, X + lx * c - ly * sn) - (ps.py + lx * sn + ly * c); w = Math.max(w, gap); sum += Math.max(0, gap); n++; });
+          worst = Math.max(worst, w); if (w > 2) bad++;
+        }
+        out[`${ch.name} ${mode}`] = `最大 ${worst.toFixed(1)} · 平均 ${(sum / n).toFixed(2)} · 悬空>2px 的位置 ${Math.round(bad / 196 * 100)}%`;
+      }
+      return out;
+    },
+  };
+
+  // ---------- 控件 / 循环 ----------
+  $('#ter').append(...Object.entries(TERR).map(([k, t]) => { const o = document.createElement('option'); o.value = k; o.textContent = t.name; return o; }));
+  let X = +$('#pos').value, dir = 1, last = performance.now();
+  $('#pos').oninput = () => { X = +$('#pos').value; $('#auto').checked = false; };
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const auto = $('#auto').checked;
+    if (auto) { X += dir * 60 * dt; if (X > 1030) dir = -1; if (X < 250) dir = 1; $('#pos').value = X; }
+    const T = terrain($('#ter').value);
+    for (const pn of panels) drawPanel(pn, T, X, X, auto, $('#marks').checked);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body></html>

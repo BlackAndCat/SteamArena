@@ -471,16 +471,31 @@ SA.SPR = (() => {
       R(fx0, y + 31, fx1 - fx0, 1, P.iron[0]);
       for (let k = fx0 + 6; k < fx1; k += 12) { R(k, y + 13, 1, 17, P.iron[1]); R(k + 1, y + 13, 1, 17, P.iron[3]); }
       for (let k = fx0 + 3; k < fx1 - 1; k += 6) { R(k, y + 14, 1, 1, P.iron[4]); R(k, y + 28, 1, 1, P.iron[4]); }
-      // 成对负重轮（Holt 式转向架）
-      for (const bx of [6, 30]) {
-        if (x + bx < fx0 || x + bx + 12 > (Rr ? x + C + 2 : x + 30)) continue;
-        R(x + bx, y + 32, 14, 2, P.dark[0]);
+      // 成对负重轮（Holt 式转向架）：悬挂时每组各自上下（g0 = 前一组 bx 6、g1 = 后一组 bx 30），转向架和侧框之间露出减震柱
+      const gd = [th ? 0 : o.g0 || 0, th ? 0 : o.g1 || 0];
+      [6, 30].forEach((bx, i) => {
+        if (x + bx < fx0 || x + bx + 12 > (Rr ? x + C + 2 : x + 30)) return;
+        const d = gd[i];
+        if (d > 0) { R(x + bx + 5, y + 32, 4, d, P.dark[0]); R(x + bx + 6, y + 32, 2, d, P.iron[2]); }   // 伸出来的减震柱
+        R(x + bx, y + 32 + d, 14, 2, P.dark[0]);
         for (const wx of [bx + 3, bx + 11]) {
-          disc(x + wx, y + 37, 4.4, P.dark[0]); disc(x + wx, y + 37, 3.5, P.dark[3]); disc(x + wx, y + 37, 1.6, P.dark[2]);
-          R(x + wx, y + 36, 1, 1, P.iron[3]);
+          disc(x + wx, y + 37 + d, 4.4, P.dark[0]); disc(x + wx, y + 37 + d, 3.5, P.dark[3]); disc(x + wx, y + 37 + d, 1.6, P.dark[2]);
+          R(x + wx, y + 36 + d, 1, 1, P.iron[3]);
+        }
+      });
+      // 下段履带：贴着两组轮子，中间用像素台阶过渡
+      if (!th) {
+        const xe = Rr ? x + C : x + 26;
+        if (!gd[0] && !gd[1]) links(fx0, xe, y + 40, 6, -ph, true);
+        else {
+          const mid = Math.min(xe, x + 24);
+          links(fx0, mid - 3, y + 40 + gd[0], 6, -ph, true);
+          if (mid < xe) links(mid + 3, xe, y + 40 + gd[1], 6, -ph, true);
+          const lo = Math.min(gd[0], gd[1]), hi = Math.max(gd[0], gd[1]);
+          for (let k = 0; k < 6; k++) R(mid - 3 + k, y + 40 + Math.round(gd[0] + (gd[1] - gd[0]) * (k + 0.5) / 6), 1, 6, k % 3 ? P.dark[2] : P.dark[0]);
+          if (hi - lo > 0) R(mid - 3, y + 40 + lo, 6, 1, P.dark[0]);
         }
       }
-      if (!th) links(fx0, Rr ? x + C : x + 26, y + 40, 6, -ph, true);
       else {
         const cable = (x0, y0, x1, y1) => { line(x0, y0, x1, y1, 5, P.dark[0]); line(x0, y0, x1, y1, 3, P.dark[2]); };
         const xa = L ? x : x + 2, xb = Rr ? x + C : x + 44;
@@ -497,9 +512,10 @@ SA.SPR = (() => {
       if (!Rr) {
         // 前端上翘（Mark IV）+ 大辐条诱导轮（雷诺 FT）；掉链后只剩诱导轮
         if (!th) {
-          line(x + 24, y + 43, x + 40, y + 27, 8, P.dark[0]);
-          line(x + 24, y + 43, x + 40, y + 27, 6, P.dark[1]);
-          for (let i = 0; i <= 16; i += 4) R(x + 24 + i + 1, y + 43 - i - 3, 2, 2, P.dark[3]);
+          const d1 = o.g1 || 0;   // 上翘段的起点跟着后一组负重轮
+          line(x + 24, y + 43 + d1, x + 40, y + 27, 8, P.dark[0]);
+          line(x + 24, y + 43 + d1, x + 40, y + 27, 6, P.dark[1]);
+          for (let i = 0; i <= 16; i += 4) R(x + 24 + i + 1, y + 43 + Math.round(d1 * (1 - i / 16)) - i - 3, 2, 2, P.dark[3]);
         }
         spokedWheel(x + 36, y + 19, 11, ph / 24 * Math.PI * 2 / 7, 7);
       }
@@ -512,7 +528,7 @@ SA.SPR = (() => {
       const leg = (L, ph) => {
         const hx = x + (L.far ? 28 : 16) + L.dx, hy = y + 14 + bd + L.dy;
         const lift = mv ? Math.round(Math.max(0, Math.sin(a + ph)) * 5) : 0;
-        const fx = Math.round(hx - S * Math.cos(a + ph)), fy = y + 42 + L.dy - lift;
+        const fx = Math.round(hx - S * Math.cos(a + ph)), fy = y + 42 + L.dy - lift + ((L.far ? o.g1 : o.g0) || 0);
         const [kx, ky] = ik(hx, hy, fx, fy, 15, 16);
         line(hx, hy, kx, ky, 5, L.o); line(hx, hy, kx, ky, 3, L.f);
         line(kx, ky, fx, fy, 5, L.o); line(kx, ky, fx, fy, 3, L.f);
@@ -535,7 +551,7 @@ SA.SPR = (() => {
         const hx = x + lx + L.dx, top = y + 15 + bd + L.dy, ky = top + 12;
         const lift = mv ? Math.round(Math.max(0, Math.sin(a + ph)) * 3) : 0;
         const sw = mv ? Math.round(-3 * Math.cos(a + ph)) : 0;
-        const fy = y + 41 + L.dy - lift;
+        const fy = y + 41 + L.dy - lift + ((L.far ? o.g1 : o.g0) || 0);   // 悬挂：脚往下伸 / 往上收，小腿跟着拉长缩短
         R(hx - 3, top, 7, 10, L.o); R(hx - 2, top, 5, 10, L.f);
         line(hx + 4, ky, hx + 4 + sw, fy, 6, L.o); line(hx + 4, ky, hx + 4 + sw, fy, 4, L.f);
         disc(hx + 1, ky, 4, L.o); disc(hx + 1, ky, 3, L.j); R(hx, ky - 1, 1, 1, L.jl);
@@ -555,7 +571,14 @@ SA.SPR = (() => {
   // ---------- 缓存：量化参数 → 离屏精灵 ----------
   const cache = new Map();
   const TOP = 16;
+  const BOT = 14;   // 精灵底下留的空：悬挂伸长时轮子 / 脚落到格子下面也画得下
   const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
+  // 悬挂偏移按整像素缓存；没有偏移就不写进键里（和原来的缓存一致）
+  function gndQ(q, o) {
+    if (!o.gnd) return;
+    const a = Math.round(o.gnd[0] || 0), b = Math.round(o.gnd[1] || 0);
+    if (a || b) { q.g0 = a; q.g1 = b; }
+  }
   function quant(id, o) {
     const q = {};
     switch (id) {
@@ -565,8 +588,8 @@ SA.SPR = (() => {
       case 'cannon': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
-      case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; break;
-      case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; break;
+      case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
+      case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; gndQ(q, o); break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
     if (o.mt > 1) q.mt = o.mt;
@@ -605,7 +628,7 @@ SA.SPR = (() => {
       if (cache.size > 800) cache.clear();
       // 上方留 TOP 像素：炮管抬起来时不会被裁掉
       cv = document.createElement('canvas');
-      cv.width = C + 32; cv.height = C + TOP;
+      cv.width = C + 32; cv.height = C + TOP + BOT;
       ctx = cv.getContext('2d');
       DRAW[id](0, TOP, q);
       if (q.mt > 1) (KEEP_COLOR.has(id) ? markMat : tintMat)(cv, SA.MATS[q.mt], TOP);
@@ -687,7 +710,7 @@ SA.SPR = (() => {
     if (!pool[key]) {
       pool[key] = document.createElement('canvas');
       pool[key].width = K.COLS * S + PADX * 2;
-      pool[key].height = K.ROWS * S;
+      pool[key].height = K.ROWS * S + BOT;   // 底下留边给伸长的悬挂
     }
     return pool[key];
   }
@@ -723,6 +746,7 @@ SA.SPR = (() => {
       if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
       return {
         t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt,
+        gnd: o.gnd && m.layer === 'chassis' ? o.gnd[`${r},${c}`] : null,   // 悬挂：每格两个接地点各自上下（像素，正 = 往下伸）
         recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转

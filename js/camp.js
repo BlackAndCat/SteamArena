@@ -147,6 +147,7 @@ SA.Camp = (() => {
   // 新做的工具页 / 预览页加到 DEV_TOOLS 里就会出现在面板上
   const DEV_TOOLS = [
     { url: 'tools/sim.html', name: '数值自测', desc: 'AI 对 AI 批量对打：战役关卡检验、对战矩阵 + 评分校准、模块性价比' },
+    { url: 'tools/suspension-lab.html', name: '悬挂与爬坡样机', desc: '履带 / 四足 / 双足过坡：刚体 vs 悬挂（轮组、脚各自伸缩贴地），带悬空统计' },
     { url: 'tools/terrain-lab.html', name: '地形美术样机', desc: '土坡、泥地、货箱各阶段、碎木，以及坡上的车身倾斜（像素画法规则）' },
     { url: 'tools/spritesheet.html', name: '模块精灵表', desc: '全部模块的像素图、整车渲染、炮管后坐与供弹动态帧' },
     { url: 'tools/mech-kit.html', name: '机甲套件', desc: '全局子格套件：双足 / 履带 / 蜘蛛共用部件与挂载层的视觉验证' },
