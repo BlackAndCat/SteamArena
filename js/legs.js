@@ -153,8 +153,20 @@ SA.LEGLAB = (() => {
   // 步态：S 步幅、H 抬脚高度。着地时脚往后蹬，抬起时往前摆；抬脚前半程脚尖朝下，后半程脚尖翘起
   function gait(o, ph, S, H) {
     if (!o.mv) return { x: 0, lift: 0, tilt: 0, sn: 0, c: 1 };
+    if (o.plant) return plantGait(o, ph, o.plantS != null ? o.plantS : S, H);
     const a = o.a + ph, c = Math.cos(a), sn = Math.sin(a);
     return { x: -S * c, lift: Math.max(0, sn) * H, tilt: 0.35 * Math.max(0, sn) * c, sn, c };
+  }
+  // 踩实地的步态（新版整件底盘用，o.plant）：前半个周期抬脚往前摆（先快后慢），后半个周期着地、脚相对车身匀速往后蹬。
+  // 一个周期 = 车走 60px，着地那半个周期车走 30px，所以步幅 S = 15 时脚正好钉在地上不打滑（腿放大画的要按放大倍数折算）
+  function plantGait(o, ph, S, H) {
+    const u = ((((o.a + ph) / TAU) % 1) + 1) % 1;
+    if (u < 0.5) {
+      const w = u * 2, e = w * w * (3 - 2 * w), sn = Math.sin(Math.PI * w), c = Math.cos(Math.PI * w);
+      return { x: -S + 2 * S * e, lift: sn * H, tilt: 0.35 * sn * c, sn, c };
+    }
+    const w = (u - 0.5) * 2;
+    return { x: S - 2 * S * w, lift: 0, tilt: 0, sn: -Math.sin(Math.PI * w), c: -Math.cos(Math.PI * w) };
   }
   const yAt = (pts, u) => {
     for (let k = 1; k < pts.length; k++) if (u <= pts[k][0]) {
@@ -696,27 +708,27 @@ SA.LEGLAB = (() => {
   // 每格两条：近侧一条、远侧一条，往前后张开。H.up = 膝盖高出胯多少（用膝高区分型号），H.kx 膝盖往外伸，H.reach 脚往外伸。
   // 脚到膝盖之间的小腿长度可变：悬挂伸缩时脚跟着地面走，小腿自己拉长缩短
   function spiderLeg(pn, M, hx, hy, gy, dir, ph, o, H) {
-    const g = gait(o, ph, 5, 4);
+    const g = gait(o, ph, H.stride || 5, H.lift || 4);
     const fx = hx + dir * H.reach + g.x, fy = gy - g.lift;
     const kx = hx + dir * H.kx + g.x * 0.3, ky = hy - H.up - g.lift * 0.6;
-    const F = bone(hx, hy, kx, ky);
-    pn.poly(F.pts([[0, -2.6], [0, 2.6], [F.len, 3.4], [F.len, -3.4]])).paint(M.leg);
+    const F = bone(hx, hy, kx, ky), t = H.w || 1;   // t：腿的粗细倍数（新版四足用，游戏里现有的蜘蛛腿是 1）
+    pn.poly(F.pts([[0, -2.6 * t], [0, 2.6 * t], [F.len, 3.4 * t], [F.len, -3.4 * t]])).paint(M.leg);
     if (F.len > 14) pn.ln(...F.p(2, 0), ...F.p(F.len - 3, 0), M.leg[3]);
     const B = bone(kx, ky, fx, fy), a = B.len * 0.3;
-    pn.poly(B.pts([[-1, -3.6], [-1, 3.6], [B.len * 0.45, 2.8], [B.len - 3, 1.2], [B.len + 1, 0], [B.len - 3, -1.2], [B.len * 0.45, -2.4]])).paint(M.leg);
-    pn.poly(B.pts([[a - 0.9, -3.1], [a + 0.9, -3.1], [a + 0.9, 3.1], [a - 0.9, 3.1]])).paint(M.brass, { outline: false });
-    pn.disc(kx, ky, 3.4).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
-    pn.disc(hx, hy, 3.2).paint(M.iron); pn.disc(hx, hy, 1.2).paint(M.brass, { outline: false });
+    pn.poly(B.pts([[-1, -3.6 * t], [-1, 3.6 * t], [B.len * 0.45, 2.8 * t], [B.len - 3, 1.2 * t], [B.len + 1, 0], [B.len - 3, -1.2 * t], [B.len * 0.45, -2.4 * t]])).paint(M.leg);
+    pn.poly(B.pts([[a - 0.9, -3.1 * t], [a + 0.9, -3.1 * t], [a + 0.9, 3.1 * t], [a - 0.9, 3.1 * t]])).paint(M.brass, { outline: false });
+    pn.disc(kx, ky, 3.4 * t).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
+    pn.disc(hx, hy, 3.2 * t).paint(M.iron); pn.disc(hx, hy, 1.2 * t).paint(M.brass, { outline: false });
   }
   // 蜘蛛机身（一格）：压低的梯形甲壳，相邻同类格子连成一片
-  function carapace(pn, x, y, connL, connR, top) {
-    pn.fill(x, y, 48, 3, P.iron[1]); pn.fill(x, y + 2, 48, 1, P.iron[0]);
-    if (!top) { pn.fill(x, y, 48, 1, P.iron[0]); pn.fill(x, y + 1, 48, 1, P.iron[3]); }
-    const x0 = connL ? x - 4 : x + 2, x1 = connR ? x + 52 : x + 46;
-    pn.poly([[x0, y + 3], [x1, y + 3], [x1 - (connR ? 0 : 3), y + 14], [x0 + (connL ? 0 : 3), y + 14]]).paint(NEAR.dark, { clip: [x, x + 48] });
-    for (let k = 8; k < 48; k += 16) pn.fill(x + k, y + 5, 1, 8, P.dark[0]);
-    rivet(pn, x + 3, y + 6); rivet(pn, x + 42, y + 6);
-    pn.fill(x0 < x ? x : x0 + 1, y + 11, Math.min(x1, x + 48) - Math.max(x0, x) - 1, 1, P.brass[1]);
+  function carapace(pn, x, y, connL, connR, top, w = 48) {
+    pn.fill(x, y, w, 3, P.iron[1]); pn.fill(x, y + 2, w, 1, P.iron[0]);
+    if (!top) { pn.fill(x, y, w, 1, P.iron[0]); pn.fill(x, y + 1, w, 1, P.iron[3]); }
+    const x0 = connL ? x - 4 : x + 2, x1 = connR ? x + w + 4 : x + w - 2;
+    pn.poly([[x0, y + 3], [x1, y + 3], [x1 - (connR ? 0 : 3), y + 14], [x0 + (connL ? 0 : 3), y + 14]]).paint(NEAR.dark, { clip: [x, x + w] });
+    for (let k = 8; k < w; k += 16) pn.fill(x + k, y + 5, 1, 8, P.dark[0]);
+    rivet(pn, x + 3, y + 6); rivet(pn, x + w - 6, y + 6);
+    pn.fill(x0 < x ? x : x0 + 1, y + 11, Math.min(x1, x + w) - Math.max(x0, x) - 1, 1, P.brass[1]);
   }
   // 蜘蛛型号：伏地蛛 = 四足 T1（矮、宽、稳），高脚蛛 = 膝盖高出机身一大截
   const SPIDERS = {
@@ -724,5 +736,110 @@ SA.LEGLAB = (() => {
     tall: { name: '高脚蛛', up: 30, kx: 12, reach: 24 },
   };
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, U: { NEAR, FAR, gait, ik, bone, frame, gear, rivet, flat } };
+  // ================= 新版整件底盘（四足 4×2、真双足 2×4）：只管外观和动画，坐标都是模块左上角 =================
+
+  // 四足型号：腿形 + 步幅（stride 15 = 踩实地不打滑）。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
+  const QUADS = {
+    crawl: { name: '伏地蛛', up: 22, kx: 18, reach: 30, stride: 15, lift: 8, w: 1.35 },
+    tall: { name: '高脚蛛', up: 36, kx: 14, reach: 24, stride: 15, lift: 9, w: 1.25 },
+  };
+  // 四足 · 4×2（96×48）：一整块压低的蜘蛛甲壳 + 四条腿（近侧后 / 前、远侧后 / 前）。后腿往后张、前腿往前张，
+  // 对角两条同相（近后 + 远前、近前 + 远后）大步交替。远侧腿压暗、往右上错开，画在车体后面。
+  // o：{ mv, a（步态角）, bd（机身起伏）, g: [近后, 近前, 远后, 远前]（悬挂伸缩）, top（上面压着模块）, look: QUADS 的键 }
+  // 接地点（模块内 x，静止时，伏地蛛）：近后 -8、近前 104、远后 0、远前 112；步幅 ±15
+  // part：'far' 只画远侧两条腿 / 'near' 只画甲壳 + 近侧两条腿 / 省略 = 都画
+  const QUAD_HIPS = { nr: [22, 10], nf: [74, 10], fr: [30, 7], ff: [82, 7] };
+  function quadArt(pn, x, y, o, part) {
+    const H = QUADS[o.look] || QUADS.crawl, bd = o.bd || 0, g = o.g || [0, 0, 0, 0], lo = { ...o, plant: true };
+    const leg = (M, [hx, hy], gy, dir, ph) => spiderLeg(pn, M, x + hx, y + hy + bd, gy, dir, ph, lo, H);
+    if (part !== 'near') { leg(FAR, QUAD_HIPS.fr, y + 45 + g[2], -1, Math.PI); leg(FAR, QUAD_HIPS.ff, y + 45 + g[3], 1, 0); }
+    if (part === 'far') return;
+    carapace(pn, x, y + bd, false, false, o.top, 96);
+    pn.fill(x + 44, y + bd + 5, 8, 6, P.dark[0]); pn.fill(x + 45, y + bd + 6, 6, 4, P.brass[1]); pn.fill(x + 45, y + bd + 6, 6, 1, P.brass[3]);   // 甲壳正中的黄铜舱盖
+    leg(NEAR, QUAD_HIPS.nr, y + 48 + g[0], -1, 0); leg(NEAR, QUAD_HIPS.nf, y + 48 + g[1], 1, Math.PI);
+  }
+
+  // 胯：腰部回转环（刻痕随步伐转）+ 倒梯形胯体 + 陀螺仪窗；左右腰挂位有模块时，胯体伸出同材质的法兰板压住，一颗大铆钉固定。
+  // (cx, Y) = 胯列中心、胯顶。o：{ legId（决定胯的材质）, wL, wR, phase, t（陀螺转动）, tilt（陀螺偏向，平衡系统用）, wob（晃动幅度） }
+  const PELVIS_MAT = { knight: 'steel', tabard: 'steel', skirt: 'steel', clock: 'brass', dragon: 'fire' };
+  function ellipse(pn, cx, cy, rx, ry, tilt, front, back) {
+    const n = 36, c = Math.cos(tilt), s = Math.sin(tilt);
+    for (let k = 0; k < n; k++) {
+      const a = k / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+      pn.dot(cx + x * c - y * s, cy + x * s + y * c, Math.sin(a) > 0 ? front : back);
+    }
+  }
+  function pelvis(pn, cx, Y, o = {}) {
+    const mat = PELVIS_MAT[o.legId] || 'iron';
+    const R = mat === 'steel' ? NEAR.steel : mat === 'brass' ? NEAR.brass : NEAR.iron;
+    for (const side of [-1, 1]) if (side < 0 ? o.wL : o.wR) {
+      pn.poly([[cx + side * 17, Y + 7], [cx + side * 30, Y + 9], [cx + side * 30, Y + 23], [cx + side * 15, Y + 26]]).paint(R);
+      pn.disc(cx + side * 25, Y + 16, 2.4).paint(NEAR.brass);
+    }
+    pn.rect(cx - 17, Y - 1, 34, 6).paint(NEAR.brass);
+    const sp = Math.floor((o.phase || 0) / 3);
+    for (let k = 0; k < 6; k++) pn.fill(cx - 16 + ((k * 6 + sp) % 32 + 32) % 32, Y + 1, 1, 3, P.brass[0]);
+    pn.poly([[cx - 20, Y + 5], [cx + 20, Y + 5], [cx + 13, Y + 31], [cx - 13, Y + 31]]).paint(R);
+    pn.poly([[cx - 9, Y + 30], [cx + 9, Y + 30], [cx + 5, Y + 36], [cx - 5, Y + 36]]).paint(NEAR.dark);
+    rivet(pn, cx - 18, Y + 7); rivet(pn, cx + 15, Y + 7);
+    const gy = Y + 18, tilt = (o.wob == null ? 0.04 : o.wob) * Math.sin((o.t || 0) * 9) + (o.tilt || 0);
+    pn.disc(cx, gy, 8.5).paint(NEAR.dark, { bevel: 's' });
+    ellipse(pn, cx, gy, 7, 7, tilt, P.brass[1], P.brass[1]);
+    const spin = (o.t || 0) * 7, rx = 0.8 + 5.5 * Math.abs(Math.cos(spin));
+    ellipse(pn, cx, gy, rx, 5.5, tilt, P.brass[3], P.brass[1]);
+    ellipse(pn, cx, gy, Math.max(0.5, rx - 1), 5.5, tilt, P.brass[2], P.brass[0]);
+    pn.ln(cx - Math.sin(tilt) * -7, gy - Math.cos(tilt) * 7, cx + Math.sin(tilt) * -7, gy + Math.cos(tilt) * 7, P.brass[2]);
+    pn.disc(cx, gy, 1.6).paint(mat === 'fire' ? NEAR.fire : NEAR.brass, { outline: false });
+  }
+
+  // 真双足 · 2×4（48×96）：上两行是胯，下两行是一对长腿。腿型沿用 DESIGNS 的六档，以胯为支点放大到地面（胯关节到地面 67px，约 2 倍），
+  // 仍是原生像素；步幅按放大倍数折算，脚踩实地不打滑。远侧腿压暗、往右 8px 上 3px，画在躯干后面。
+  // o：{ mv, a, bd（起伏，约 4px）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
+  // 接地点（模块内 x，静止时）：近侧 26、远侧 34
+  const BIPED_HIP = 29;
+  function bipedArt(pn, x, y, o, part) {
+    const e = DESIGNS.find(d => d.id === o.legs && !d.d.game) || DESIGNS.find(d => d.id === 'mk2'), D = e.d;
+    const cx = x + 24, bd = o.bd || 0, ground = y + 96, g = o.g || [0, 0];
+    const k = (96 - BIPED_HIP) / (47 - (D.hipY || 14));
+    const lo = { ...o, plant: true, plantS: 15 / k };
+    const leg = (far) => {
+      const L = legAt(D, far, cx - 24, y, lo, far ? cx + 6 : cx - 2);
+      L.hy = y + BIPED_HIP + bd - (far ? 3 : 0);
+      L.gy = L.hy + (ground - (far ? 3 : 0) + (far ? g[1] : g[0]) - L.hy) / k;
+      drawLeg(pn, D, L, lo, k);
+    };
+    if (part !== 'near') leg(true);
+    if (part === 'far') return;
+    pelvis(pn, cx, y + bd, { legId: e.id, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
+    if (D.mid) { const top = y + bd + 30, back = pn.around(k * 0.8, cx + 2, top); D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, lo); back(); }
+    leg(false);
+  }
+
+  // 真双足的躯干切角：画好的车体上，把露在外面的角切成斜角，箱子堆读起来像一副躯干（收腰、切肩）。
+  // 腰挂和再往上两行（第 ROWS-6 ~ ROWS-3 行）的模块：底下和外侧都空着的底角切 12px（腰挂）/ 9px；所有模块顶上和外侧都空着的顶角切 6px。
+  // g = 车体画布（SA.SPR.renderVehicle 的坐标：x = PADX + c × 24，y = r × 24），v = 载具，pc = 胯的列（胯那 2×2 格当作占着）
+  function torsoCuts(g, v, pc, padx) {
+    const K = SA.K, S = K.CELL, O = SA.V.occ(v, 'body');
+    const has = (r, c) => r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS && (!!O[r][c] || (c >= pc && c <= pc + 1 && r >= K.ROWS - 4 && r <= K.ROWS - 3));
+    const cut = (x, y, side, n, top) => {
+      for (let i = 0; i < n; i++) {
+        const w = n - i, yy = top ? y + i : y - 1 - i;
+        if (side < 0) { g.clearRect(x, yy, w, 1); g.fillStyle = P.iron[0]; g.fillRect(x + w, yy, 1, 1); }
+        else { g.clearRect(x - w, yy, w, 1); g.fillStyle = P.iron[0]; g.fillRect(x - w - 1, yy, 1, 1); }
+      }
+    };
+    SA.V.each(v, (cell, r, c, layer) => {
+      if (layer !== 'body' || SA.isRam(cell.id)) return;
+      const f = SA.fp(cell.id), b = r + f.h - 1, x0 = padx + c * S, x1 = padx + (c + f.w) * S;
+      if (b >= K.ROWS - 6 && b <= K.ROWS - 3) {
+        const n = b === K.ROWS - 3 ? 12 : 9;
+        if (!has(b + 1, c) && !has(b, c - 1)) cut(x0, (b + 1) * S, -1, n);
+        if (!has(b + 1, c + f.w - 1) && !has(b, c + f.w)) cut(x1, (b + 1) * S, 1, n);
+      }
+      if (!has(r - 1, c) && !has(r, c - 1) && !has(r - 1, c - 1)) cut(x0, r * S, -1, 6, true);
+      if (!has(r - 1, c + f.w - 1) && !has(r, c + f.w) && !has(r - 1, c + f.w)) cut(x1, r * S, 1, 6, true);
+    });
+  }
+
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
 })();

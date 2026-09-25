@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>整件底盘 · 外观与步态</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding: 16px; overflow-y: auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 920px; line-height: 1.6; margin: 0 0 12px; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 12px; }
+  .seg { display: inline-flex; border: 2px solid var(--dark0); }
+  .seg button { background: var(--dark2); border: 0; padding: 4px 10px; cursor: pointer; }
+  .seg button.on { background: var(--brass1); color: var(--text); }
+  .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  .bar select { background: var(--dark2); color: var(--text); border: 2px solid var(--dark0); padding: 3px 6px; font: inherit; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 600px), 1fr)); gap: 16px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; }
+  .card header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .card header b { font-size: 17px; }
+  .card canvas { background: var(--bg2); max-width: 100%; height: auto; }
+  .note { line-height: 1.65; margin: 6px 0 0; color: var(--muted); }
+  .tag { font-size: 12px; font-weight: 900; padding: 1px 7px; border: 2px solid currentColor; }
+</style></head>
+<body>
+<h1>整件底盘 · 外观与步态</h1>
+<p class="lead">四足是 4×2 格的整件：一块压低的蜘蛛甲壳，四条腿往前后张开，对角两条同相、大步交替。
+双足是 2×4 格的整件（真双足）：上两行是带陀螺仪的胯，胯左右各 2 格是腰挂位，下两行是一对放大约 2 倍的长腿；躯干露在外面的角切斜（收腰、切肩）。
+两种都用「踩实地」的步态：着地的那半个周期，脚相对车身往后蹬的距离正好等于车走的距离，脚钉在地上不打滑（看地上每 24px 一道的刻度）。
+这里只看外观和动画，不涉及游戏数据；画法在 <code>js/legs.js</code> 的 <code>quadArt</code> / <code>bipedArt</code> / <code>torsoCuts</code>。</p>
+
+<div class="bar">
+  <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
+  <label>速度 <input type="range" id="speed" min="10" max="90" value="45"> <span id="speedV">45</span> px/s</label>
+  <span class="seg" id="fr"><button data-v="game" class="on">游戏帧（12 帧 / 周期）</button><button data-v="smooth">平滑</button></span>
+  <label>双足的腿 <select id="legs"><option value="">各自默认</option></select></label>
+  <label>四足型号 <select id="look"><option value="">各自默认</option></select></label>
+  <label><input type="checkbox" id="far" checked> 远侧腿</label>
+  <label><input type="checkbox" id="grid"> 格子</label>
+  <label>放大 <select id="zoom"><option>1</option><option selected>2</option><option>3</option></select></label>
+</div>
+<div class="cards" id="cards"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script>
+(() => {
+  const LL = SA.LEGLAB, K = SA.K, S = K.CELL, PADX = SA.SPR.PADX, TAU = Math.PI * 2, P = SA.PAL;
+  const W = 560, H = 330, GY = H - 30;   // 画布、地面
+  // 每台车：底盘放在哪一格（锚点，格坐标），上面摆哪些模块 [id, 行, 列]（格坐标，只为看效果，不走游戏的摆放规则）
+  const BUILDS = [
+    { type: 'quad', name: '伏地蛛 · 炮台', look: 'crawl', r: 10, c: 5,
+      mods: [['water', 8, 3], ['boiler', 8, 5], ['armor', 8, 7], ['cannon', 8, 9], ['cockpit', 6, 5], ['mg', 6, 7], ['mortar', 4, 5]],
+      note: '四足 T1：矮、宽、稳。膝盖只比甲壳高一点，脚往前后伸出车身外面，站得像一只趴着的蜘蛛。' },
+    { type: 'quad', name: '高脚蛛 · 侦察', look: 'tall', r: 10, c: 5,
+      mods: [['boiler', 8, 5], ['armor', 8, 7], ['cockpit', 6, 5], ['mg', 6, 7]],
+      note: '同一套蜘蛛腿，膝盖高出甲壳一大截：用膝高区分四足的型号（阶段造型候选）。' },
+    { type: 'biped', name: '工装 Mk.II · 轻骑', legs: 'mk2', r: 8, c: 7,
+      mods: [['boiler', 8, 5], ['armor', 8, 9], ['spike', 8, 11], ['cockpit', 6, 7], ['mg', 6, 9]],
+      note: '双足 T1：箱形梁大腿、液压撑杆、带肋平脚。左腰挂锅炉，右腰挂装甲 + 撞角，躯干只有一层。' },
+    { type: 'biped', name: '蒸汽圣骑 · 重装', legs: 'knight', r: 8, c: 7,
+      mods: [['water', 8, 5], ['mg', 8, 9], ['boiler', 6, 5], ['armor_heavy', 6, 7], ['armor', 6, 9], ['cockpit', 4, 7], ['cannon', 4, 9], ['mortar', 2, 7]],
+      note: '哥特板甲腿 + 亮钢胯。腰挂一台机枪当腰炮，躯干三层：看倒三角的剪影和切角。' },
+    { type: 'biped', name: '熔心龙骑', legs: 'dragon', r: 8, c: 7,
+      mods: [['boiler', 8, 5], ['armor', 8, 9], ['water', 6, 5], ['cockpit', 6, 7], ['cannon', 6, 9], ['mg', 4, 7]],
+      note: '三段龙腿、炉膛、三爪，陀螺轴心是炉火色。' },
+  ];
+  const st = { mode: 'walk', mv: true, x: 0, t: 0, speed: 45, smooth: false, legs: '', look: '', far: true, grid: false, zoom: 2 };
+
+  const selLegs = document.getElementById('legs'), selLook = document.getElementById('look');
+  for (const e of LL.DESIGNS) if (!e.d.game) selLegs.append(new Option(e.name, e.id));
+  for (const k in LL.QUADS) selLook.append(new Option(LL.QUADS[k].name, k));
+
+  // 上层车体：直接把模块放进一台空车（不带底盘），用游戏里的整车渲染画出来
+  for (const b of BUILDS) {
+    b.v = SA.V.create(b.name);
+    for (const [id, r, c] of b.mods) b.v.body[r][c] = SA.newCell(id);
+    const O = SA.V.occ(b.v, 'body');
+    if (b.type === 'quad') b.top = [0, 1, 2, 3].some(k => O[b.r - 1][b.c + k]);
+    else { b.wL = !!(O[b.r][b.c - 1] || O[b.r + 1][b.c - 1]); b.wR = !!(O[b.r][b.c + 2] || O[b.r + 1][b.c + 2]); }
+  }
+
+  const views = [], CARDS = document.getElementById('cards');
+  BUILDS.forEach((b, i) => {
+    const card = document.createElement('section'); card.className = 'card';
+    const hd = document.createElement('header');
+    const tag = document.createElement('span'); tag.className = 'tag';
+    tag.textContent = b.type === 'quad' ? '四足 · 4×2' : '双足 · 2×4'; tag.style.color = b.type === 'quad' ? 'var(--iron4)' : 'var(--brass2)';
+    const nm = document.createElement('b'); nm.textContent = b.name;
+    hd.append(tag, nm);
+    const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = W; cv.height = H;
+    const p = document.createElement('p'); p.className = 'note'; p.textContent = b.note;
+    card.append(hd, cv, p); CARDS.append(card);
+    const torso = document.createElement('canvas');
+    views.push({ cv, b, pn: LL.Pen(W, H), torso, key: `chassis-lab-${i}` });
+  });
+  const applyZoom = () => { for (const v of views) v.cv.style.width = `${W * st.zoom}px`; };
+
+  function draw(view) {
+    const { cv, b, pn, torso } = view, g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    // 地面：刻度每 24px 一道，固定在世界里——脚着地时应该钉在刻度上不动
+    g.fillStyle = P.bg[2]; g.fillRect(0, 0, W, H);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GY, W, H - GY);
+    g.fillStyle = P.bg[5]; g.fillRect(0, GY, W, 1);
+    for (let x = 0; x < W; x += 24) { g.fillStyle = P.bg[1]; g.fillRect(x, GY + 1, 1, 6); }
+    // 车在世界里的位置：从左往右走，走出画面就从左边重新进来；行走相位 = 走过的距离
+    const span = W + 420, vx = Math.round(((st.x % span) + span) % span - 420);
+    const phase = st.x, gf = SA.Dyn.frame(phase, 12, 5);
+    const a = st.smooth ? phase / 60 * TAU : gf / 12 * TAU;
+    const amp = b.type === 'biped' ? 4 : 1, bd = st.mv ? amp - Math.round(Math.abs(Math.sin(a)) * amp) : 0;
+    const oy = GY - K.ROWS * S;                                   // 车体画布的上沿（画布底边 = 地面）
+    const x0 = vx + PADX + b.c * S, y0 = oy + b.r * S;            // 底盘模块左上角
+    const o = { mv: st.mv, a, bd, phase, t: st.t, top: b.top, wL: b.wL, wR: b.wR, look: st.look || b.look, legs: st.legs || b.legs };
+    const art = b.type === 'quad' ? LL.quadArt : LL.bipedArt;
+    pn.at(1, 0, 0);
+    if (st.far) art(pn, x0, y0, o, 'far');
+    pn.flush(g);
+    // 上层车体（跟着步态起伏）；双足切角
+    const src = SA.SPR.renderVehicle(b.v, { key: view.key, t: st.t, heat: 0.4, water: 0.8 });
+    torso.width = src.width; torso.height = src.height;
+    const tg = torso.getContext('2d'); tg.clearRect(0, 0, torso.width, torso.height); tg.drawImage(src, 0, 0);
+    if (b.type === 'biped') LL.torsoCuts(tg, b.v, b.c, PADX);
+    g.drawImage(torso, vx, oy + bd);
+    art(pn, x0, y0, o, 'near');
+    pn.flush(g);
+    if (st.grid) {
+      g.fillStyle = 'rgba(255,255,255,0.08)';
+      for (let c = 0; c <= K.COLS; c++) g.fillRect(vx + PADX + c * S, oy, 1, K.ROWS * S);
+      for (let r = 0; r <= K.ROWS; r++) g.fillRect(vx + PADX, oy + r * S, K.COLS * S, 1);
+      const f = b.type === 'quad' ? { w: 4, h: 2 } : { w: 2, h: 4 };
+      g.strokeStyle = P.gauge[2]; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, f.w * S - 1, f.h * S - 1);
+      if (b.type === 'biped') { g.strokeStyle = P.brass[2]; g.strokeRect(vx + PADX + (b.c - 2) * S + 0.5, oy + (K.ROWS - 6) * S + 0.5, 6 * S - 1, 4 * S - 1); }
+    }
+  }
+
+  const vis = new Set();
+  const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
+  views.forEach(v => io.observe(v.cv));
+  let last = performance.now();
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    st.t += dt;
+    if (st.mode === 'walk') st.x += st.speed * dt;
+    for (const v of views) if (vis.has(v.cv)) draw(v);
+    requestAnimationFrame(tick);
+  }
+  const seg = (id, fn) => document.getElementById(id).addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    for (const x of btn.parentNode.children) x.classList.toggle('on', x === btn);
+    fn(btn.dataset.v);
+  });
+  seg('mode', (v) => { st.mode = v; st.mv = v !== 'stand'; });
+  seg('fr', (v) => { st.smooth = v === 'smooth'; });
+  document.getElementById('speed').addEventListener('input', (ev) => { st.speed = +ev.target.value; document.getElementById('speedV').textContent = ev.target.value; });
+  selLegs.addEventListener('change', () => { st.legs = selLegs.value; });
+  selLook.addEventListener('change', () => { st.look = selLook.value; });
+  document.getElementById('far').addEventListener('change', (ev) => { st.far = ev.target.checked; });
+  document.getElementById('grid').addEventListener('change', (ev) => { st.grid = ev.target.checked; });
+  document.getElementById('zoom').addEventListener('change', (ev) => { st.zoom = +ev.target.value; applyZoom(); });
+  window.chassisLab = { st, views, draw, frame: (x) => { st.x = x; views.forEach(draw); } };   // 调试 / 截图用
+  applyZoom();
+  views.forEach(draw);
+  requestAnimationFrame(tick);
+})();
+</script></body></html>

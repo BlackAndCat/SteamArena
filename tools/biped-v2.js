@@ -88,43 +88,14 @@ SA.BIPED2 = (() => {
     }
   }
 
-  // ---------- 胯：腰部回转环 + 倒梯形胯体 + 陀螺仪窗 ----------
-  const PELVIS_MAT = { knight: 'steel', tabard: 'steel', skirt: 'steel', clock: 'brass', dragon: 'fire' };
-  function ellipse(pn, cx, cy, rx, ry, tilt, front, back) {
-    const n = 36, c = Math.cos(tilt), s = Math.sin(tilt);
-    for (let k = 0; k < n; k++) {
-      const a = k / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
-      pn.dot(cx + x * c - y * s, cy + x * s + y * c, Math.sin(a) > 0 ? front : back);
-    }
-  }
+  // ---------- 胯：搬进了 js/legs.js（新版整件双足和样机共用），这里按平衡状态算好陀螺偏向再画 ----------
   function pelvis(pn, b, legId, st, y0, cxAt) {
-    const cx = cxAt != null ? cxAt : PADX + b.pc * C + 24, Y = Y4 + y0, mat = PELVIS_MAT[legId] || 'iron';
-    const R = mat === 'steel' ? NEAR.steel : mat === 'brass' ? NEAR.brass : NEAR.iron;
+    const cx = cxAt != null ? cxAt : PADX + b.pc * C + 24;
     const has = (c) => b.cells.some(k => k.r === 4 && k.c === c);
-    // 腰挂法兰：胯体向两侧伸出一块和胯同材质的连接板，压在腰挂模块上，一颗大铆钉固定
-    for (const side of [-1, 1]) if (has(b.pc + side)) {
-      pn.poly([[cx + side * 17, Y + 7], [cx + side * 30, Y + 9], [cx + side * 30, Y + 23], [cx + side * 15, Y + 26]]).paint(R);
-      pn.disc(cx + side * 25, Y + 16, 2.4).paint(NEAR.brass);
-    }
-    // 回转环：刻痕随步伐转
-    pn.rect(cx - 17, Y - 1, 34, 6).paint(NEAR.brass);
-    const sp = Math.floor((st.phase || 0) / 3);
-    for (let k = 0; k < 6; k++) pn.fill(cx - 16 + ((k * 6 + sp) % 32 + 32) % 32, Y + 1, 1, 3, P.brass[0]);
-    // 胯体
-    pn.poly([[cx - 20, Y + 5], [cx + 20, Y + 5], [cx + 13, Y + 31], [cx - 13, Y + 31]]).paint(R);
-    pn.poly([[cx - 9, Y + 30], [cx + 9, Y + 30], [cx + 5, Y + 36], [cx - 5, Y + 36]]).paint(NEAR.dark);
-    U.rivet(pn, cx - 18, Y + 7); U.rivet(pn, cx + 15, Y + 7);
-    // 陀螺仪：外环固定，转子绕竖轴转（椭圆宽度随角度变），失衡时整个陀螺晃
-    const gy = Y + 18, wob = b.bal.tone === 'bad' ? 0.5 : b.bal.tone === 'lean' ? 0.18 : 0.04;
-    const tilt = wob * Math.sin(st.t * 9) + Math.max(-0.4, Math.min(0.4, b.bal.d * 0.5));
-    pn.disc(cx, gy, 8.5).paint(NEAR.dark, { bevel: 's' });
-    ellipse(pn, cx, gy, 7, 7, tilt, P.brass[1], P.brass[1]);
-    const spin = st.t * 7;
-    const rx = 0.8 + 5.5 * Math.abs(Math.cos(spin));
-    ellipse(pn, cx, gy, rx, 5.5, tilt, P.brass[3], P.brass[1]);
-    ellipse(pn, cx, gy, Math.max(0.5, rx - 1), 5.5, tilt, P.brass[2], P.brass[0]);
-    pn.ln(cx - Math.sin(tilt) * -7, gy - Math.cos(tilt) * 7, cx + Math.sin(tilt) * -7, gy + Math.cos(tilt) * 7, P.brass[2]);
-    pn.disc(cx, gy, 1.6).paint(mat === 'fire' ? NEAR.fire : NEAR.brass, { outline: false });
+    SA.LEGLAB.pelvis(pn, cx, Y4 + y0, {
+      legId, wL: has(b.pc - 1), wR: has(b.pc + 1), phase: st.phase, t: st.t,
+      wob: b.bal.tone === 'bad' ? 0.5 : b.bal.tone === 'lean' ? 0.18 : 0.04, tilt: Math.max(-0.4, Math.min(0.4, b.bal.d * 0.5)),
+    });
     return cx;
   }
 
