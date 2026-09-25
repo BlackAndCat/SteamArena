@@ -41,7 +41,7 @@
   // a 对 b 打 n 局，结果累加到 acc
   function duel(acc, a, b) {
     return () => {
-      const r = SA.Battle.simulate({ p: a.v, e: b.v, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style });
+      const r = SA.Battle.simulate({ p: a.v, e: b.v, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style, terrain: b.terrain || a.terrain || $('#ter').value || 'flat' });
       acc.n++; acc.t += r.t;
       if (r.winner === 'p') acc.w++; else if (r.winner === 'draw') acc.d++;
       const who = r.winner === 'p' ? '对方' : r.winner === 'e' ? '我方' : '平手';
@@ -57,7 +57,7 @@
     const rows = [], jobs = [];
     SA.CAMPAIGN.forEach((ch, ci) => ch.stages.forEach((o, si) => {
       const ev = SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || []);
-      const e = { v: ev, aim: o.aim, style: o.style };
+      const e = { v: ev, aim: o.aim, style: o.style, terrain: $('#ter').value || o.terrain || 'flat' };
       const cur = REF[ci], prev = REF[ci - 1];
       const row = { ci, si, o, er: rating(ev), cur: blank(), prev: prev && o.boss ? blank() : null };
       for (let k = 0; k < n; k++) jobs.push(duel(row.cur, { v: refVeh(cur), aim, style: cur.style }, e));
@@ -76,7 +76,7 @@
             const top = Object.entries(r.cur.reasons).sort((a, b) => b[1] - a[1])[0];
             return h('tr', { class: r.o.boss ? 'boss' : '' },
               h('td', {}, SA.CAMPAIGN[r.ci].name.split(' · ')[0]), h('td', {}, r.si + 1),
-              h('td', {}, r.o.name, r.o.boss ? ' 【Boss】' : ''), h('td', { class: 'num' }, r.er),
+              h('td', {}, r.o.name, r.o.boss ? ' 【Boss】' : '', h('span', { class: 'muted small' }, ` · ${SA.TERRAINS[$('#ter').value || r.o.terrain || 'flat'].name}`)), h('td', { class: 'num' }, r.er),
               h('td', {}, `${REF[r.ci].name}（${rating(refVeh(REF[r.ci]))}）`),
               h('td', { class: `num ${band(r, w)}` }, pct(w)), h('td', { class: 'num' }, pct(r.cur.d / r.cur.n)),
               h('td', { class: 'num' }, `${Math.round(r.cur.t / r.cur.n)} 秒`),
@@ -179,6 +179,7 @@
   $('#run-matrix').onclick = matrix;
   $('#run-value').onclick = value;
   $('#mat').append(...SA.MATS.slice(1).map((m, i) => h('option', { value: i + 1 }, m.name)));
+  $('#ter').append(...SA.TERRAIN_ORDER.map(k => h('option', { value: k }, `全部用「${SA.TERRAINS[k].name}」`)));
   $('#mat').onchange = value;
   if (!myCar()) { $('#mine').disabled = true; $('#mine').parentElement.title = '本机还没有存档'; }
   value();

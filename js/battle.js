@@ -25,6 +25,7 @@ SA.Battle = (() => {
     s.homeX = x;
     s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
     refresh(s);
+    settle(s, 1);
     s.water = s.waterMax;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
     return s;
@@ -33,6 +34,7 @@ SA.Battle = (() => {
   function refresh(s) {
     let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
+    const chIds = {};
     const live = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
@@ -42,7 +44,7 @@ SA.Battle = (() => {
       if (layer === 'body') frontCol = Math.max(frontCol, c + SA.fp(cell.id).w - 1);
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
       cool += m.cool || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
-      if (m.layer === 'chassis') { ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
+      if (m.layer === 'chassis') { chIds[cell.id] = (chIds[cell.id] || 0) + 1; ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
       if (SA.isCockpit(cell.id)) cock++;
       if (cell.id === 'copilot') cop++;
@@ -63,6 +65,7 @@ SA.Battle = (() => {
     s.aimSpeed = K.AIM_SPEED + aimSp + ax.aimSpeed;
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
+    s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
     Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: cop });
     s.water = Math.min(s.water, waterMax);
@@ -84,19 +87,74 @@ SA.Battle = (() => {
   function kill(s, reason) {
     if (s.dead) return;
     s.dead = true; s.reason = reason; s.fireHeld = false; s.dir = 0;
-    for (let i = 0; i < 50; i++) part('steam', s.x + VW / 2 + rnd(-120, 120), VY + 120 + rnd(-90, 90), rnd(-30, 30), rnd(-90, -24), rnd(1, 2.2));
+    for (let i = 0; i < 50; i++) part('steam', s.x + VW / 2 + rnd(-120, 120), VY + (s.yo || 0) + 120 + rnd(-90, 90), rnd(-30, 30), rnd(-90, -24), rnd(1, 2.2));
+  }
+
+  // ---------- 地形 ----------
+  // B.ter：每个像素的地面高度（土坡）、泥地区间、货箱。数据在 SA.TERRAINS；没有地形就是平地
+  const MUD = { track: 0.8, quad: 0.65, biped: 0.45 };   // 泥地里的速度系数（按底盘）
+  function makeTerrain(id) {
+    const key = SA.TERRAINS[id] ? id : 'flat', def = SA.TERRAINS[key];
+    const ground = new Float32Array(W + 1).fill(GROUND);
+    for (const hl of def.hills || [])
+      for (let x = Math.max(0, Math.floor(hl.x - hl.w / 2)); x <= Math.min(W, Math.ceil(hl.x + hl.w / 2)); x++)
+        ground[x] -= hl.h * 0.5 * (1 + Math.cos(Math.PI * (x - hl.x) / (hl.w / 2)));
+    const at = (x) => ground[Math.max(0, Math.min(W, Math.round(x)))];
+    const crates = (def.crates || []).map(c => { const y1 = at(c.x); return { x0: c.x - c.w / 2, x1: c.x + c.w / 2, y0: y1 - c.h, y1, hp: c.hp, max: c.hp, dead: false }; });
+    return { id: key, def, ground, mud: def.mud || [], crates };
+  }
+  const groundAt = (x) => (B && B.ter ? B.ter.ground[Math.max(0, Math.min(W, Math.round(x)))] : GROUND);
+  const crateAt = (x, y) => (B && B.ter ? B.ter.crates.findIndex(c => !c.dead && x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1) : -1);
+  // 整车在世界里的左右边缘
+  const span = (s) => (isP(s) ? [cellX(s, s.minCol), cellX(s, s.frontCol) + C] : [cellX(s, s.frontCol), cellX(s, s.minCol) + C]);
+  // 地形对速度的影响：泥地按底盘减速；上坡慢、下坡快（按车头车尾的高度差）
+  function terrainK(s, dir) {
+    if (!B.ter) return { top: 1, acc: 1 };
+    const [L, R] = span(s), wd = Math.max(1, R - L);
+    let mud = 0;
+    for (const [a, b] of B.ter.mud) mud += Math.max(0, Math.min(R, b) - Math.max(L, a));
+    const mk = 1 - (mud / wd) * (1 - (MUD[s.chassisId] || 0.7));
+    let slope = 1;
+    if (dir) {
+      const front = dir > 0 ? R : L, back = dir > 0 ? L : R;
+      slope = clamp(1 - (groundAt(back) - groundAt(front)) / wd * 2.2, 0.35, 1.35);
+    }
+    return { top: mk * slope, acc: mk };
+  }
+  // 车身跟着地面：取车底下最高的那一点（整车不倾斜），平滑过渡
+  function settle(s, dt) {
+    const [L, R] = span(s);
+    let top = GROUND;
+    for (let x = L; x <= R; x += 12) top = Math.min(top, groundAt(x));
+    top = Math.min(top, groundAt(R));
+    s.yo = (s.yo || 0) + (top - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
+  }
+  // 货箱挨打：碎木屑，打烂了就倒下
+  function hitCrate(k, dmg) {
+    const c = B.ter.crates[k];
+    if (!c || c.dead) return;
+    c.hp -= dmg;
+    const x = (c.x0 + c.x1) / 2, y = (c.y0 + c.y1) / 2;
+    textFx(String(Math.round(dmg)), x + rnd(-9, 9), c.y0 - 10, '#d9b27a');
+    for (let i = 0; i < 6; i++) part('debris', x, y, rnd(-120, 120), rnd(-180, -40), rnd(0.4, 0.8), '#6b4a2b');
+    if (c.hp <= 0) {
+      c.dead = true;
+      for (let i = 0; i < 16; i++) part('debris', x + rnd(-20, 20), y + rnd(-20, 20), rnd(-200, 200), rnd(-260, -60), rnd(0.8, 1.4), i % 2 ? '#6b4a2b' : '#4a321d');
+      for (let i = 0; i < 6; i++) part('dust', x, c.y1 - 4, rnd(-80, 80), rnd(-60, -10), rnd(0.4, 0.8));
+      B.shake = Math.max(B.shake, 4);
+    }
   }
 
   // ---------- 坐标 ----------
   const isP = (s) => s === B.p;
   const isHuman = (s) => s === B.p && !s.isAI;   // 数值自测时玩家这一侧也交给 AI
   const cellX = (s, c) => (isP(s) ? s.x + PADX + c * C : s.x + VW - PADX - (c + 1) * C);
-  const cellY = (r) => VY + r * C;
+  const cellY = (r, s) => VY + (s ? s.yo || 0 : 0) + r * C;   // s.yo：车被地形抬高 / 压低的量（负 = 抬高）
   const frontEdge = (s) => (isP(s) ? cellX(s, s.frontCol) + C : cellX(s, s.frontCol));
   // 模块在世界里的包围盒（敌方镜像：锚点列在世界里是最右边那一列）
   function modBox(s, r, c, id) {
     const f = SA.fp(id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
-    return { x0, x1: x0 + f.w * C, y0: cellY(r), y1: cellY(r) + f.h * C };
+    return { x0, x1: x0 + f.w * C, y0: cellY(r, s), y1: cellY(r, s) + f.h * C };
   }
   function modCenter(s, layer, r, c) {
     const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
@@ -104,7 +162,7 @@ SA.Battle = (() => {
   }
   // 世界坐标 → 子格
   function cellAt(s, x, y) {
-    const r = Math.floor((y - VY) / C);
+    const r = Math.floor((y - VY - (s.yo || 0)) / C);
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
   }
@@ -115,7 +173,7 @@ SA.Battle = (() => {
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
-    const x0 = cellX(s, w.c), y0 = cellY(w.r);
+    const x0 = cellX(s, w.c), y0 = cellY(w.r, s);
     const [px, py] = w.m.piv, a = barrel(s, w) * Math.PI / 180;
     const dx = Math.cos(a) * w.m.blen, dy = -Math.sin(a) * w.m.blen;
     return isP(s) ? [x0 + px + dx, y0 + py + dy] : [x0 + C - px - dx, y0 + py + dy];
@@ -162,7 +220,9 @@ SA.Battle = (() => {
       const hit = modAt(def, sh.side ? 'side' : 'body', cell.r, cell.c);
       if (hit) return hit;
     }
-    if (sh.y >= GROUND) return 'ground';
+    const cr = crateAt(sh.x, sh.y);
+    if (cr >= 0) return { crate: cr };
+    if (sh.y >= groundAt(sh.x)) return 'ground';
     if (sh.x < -80 || sh.x > W + 80 || sh.y > H) return 'out';
     return null;
   }
@@ -172,7 +232,7 @@ SA.Battle = (() => {
     for (let i = 0; i < 600; i++) {
       const res = advance(sh, o, 1 / 120);
       if (i % 4 === 0) pts.push([sh.x, sh.y]);
-      if (res) return { pts, hit: typeof res === 'object' ? res : null, end: [sh.x, sh.y] };
+      if (res) return { pts, hit: res.layer ? res : null, blocked: res.crate != null ? 'crate' : res === 'ground' && sh.y < GROUND - 1 ? 'hill' : null, end: [sh.x, sh.y] };
     }
     return { pts, hit: null, end: [sh.x, sh.y] };
   }
@@ -209,7 +269,7 @@ SA.Battle = (() => {
       part('smoke', sh.x, sh.y, dir * 30, -24, 0.9);
       // 炮口制退器两侧喷出的气浪 + 炮口前方的冲击尘
       if (!up) for (const vy of [-1, 1]) for (let i = 0; i < 3; i++) part('steam', sh.x - dir * 4, sh.y + vy * 4, -dir * rnd(20, 60), vy * rnd(60, 120), rnd(0.25, 0.45));
-      if (sh.y > GROUND - 120) for (let i = 0; i < 6; i++) part('dust', sh.x + dir * rnd(0, 30), GROUND - 2, dir * rnd(20, 120), rnd(-80, -20), rnd(0.3, 0.6));
+      if (sh.y > groundAt(sh.x) - 120) for (let i = 0; i < 6; i++) part('dust', sh.x + dir * rnd(0, 30), groundAt(sh.x) - 2, dir * rnd(20, 120), rnd(-80, -20), rnd(0.3, 0.6));
     }
   }
 
@@ -270,7 +330,7 @@ SA.Battle = (() => {
     s.water = Math.max(0, s.water - K.CHUFF_WATER);
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (layer !== 'body' || !alive(cell) || cell.id !== 'boiler') return;
-      const x = modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), y = cellY(r);
+      const x = modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), y = cellY(r, s);
       for (let i = 0; i < 7; i++) part('steam', x + rnd(-5, 5), y, rnd(-50, 50), rnd(-170, -80), rnd(0.5, 0.9));
     });
     const back = cellX(s, isP(s) ? s.minCol : s.frontCol);
@@ -287,10 +347,12 @@ SA.Battle = (() => {
     } else if (!dir) s.spoolDir = 0;
     s.rock = Math.max(0, s.rock - dt * 6);
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可超速到 125%）
-    const top = dir * s.speed * (s.speedMul || 0);
+    // 地形：泥地减速、上坡慢下坡快
+    const tk = terrainK(s, dir || Math.sign(s.vx));
+    const top = dir * s.speed * (s.speedMul || 0) * tk.top;
     const k = clamp(Math.sqrt(5.5 / s.mass), 0.55, 1.4);   // 越重加速、刹车越慢
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
-    const acc = (braking ? K.BRAKE * s.brakeK : K.ACCEL * s.accelK) * k;
+    const acc = (braking ? K.BRAKE * s.brakeK : K.ACCEL * s.accelK * tk.acc) * k;
     const vx0 = s.vx;
     s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
@@ -302,18 +364,36 @@ SA.Battle = (() => {
       if (s.brakeT <= 0) {
         s.brakeT = 0.08;
         const back = cellX(s, isP(s) ? s.minCol : s.frontCol);
-        part('dust', back + rnd(0, (s.frontCol - s.minCol + 1) * C), GROUND - 2, -Math.sign(s.vx) * rnd(10, 60), rnd(-60, -20), rnd(0.3, 0.5));
+        const dx0 = back + rnd(0, (s.frontCol - s.minCol + 1) * C);
+        part('dust', dx0, groundAt(dx0) - 2, -Math.sign(s.vx) * rnd(10, 60), rnd(-60, -20), rnd(0.3, 0.5));
       }
     }
     const lo = isP(s) ? -(PADX + s.minCol * C) + 8 : -1e9;
     const hi = isP(s) ? 1e9 : W - 8 - VW + PADX + s.minCol * C;
     const want = s.x + s.vx * dt;
-    const nx = clamp(want, lo, hi);
+    let nx = clamp(want, lo, hi);
     if (nx !== want) s.vx = 0;
+    // 货箱挡路：整车不能穿过没打烂的货箱；带着速度撞上去会撞坏它（有撞击件撞得更狠）
+    if (B.ter) {
+      const [L, R] = span(s);
+      for (let k2 = 0; k2 < B.ter.crates.length; k2++) {
+        const cb = B.ter.crates[k2];
+        if (cb.dead) continue;
+        const dx = nx - s.x;
+        let stop = null;
+        if (dx > 0 && R <= cb.x0 + 0.5 && R + dx > cb.x0) stop = s.x + (cb.x0 - R);
+        else if (dx < 0 && L >= cb.x1 - 0.5 && L + dx < cb.x1) stop = s.x + (cb.x1 - L);
+        if (stop == null) continue;
+        const v = Math.abs(s.vx);
+        if (v > 25) hitCrate(k2, (s.rams ? 22 : 8) * v / 60 * SA.ramMul(s.mass * 1000));
+        nx = stop; s.vx = 0;
+      }
+    }
     s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
     s.anim.phase = s.phase;   // 履带链节 / 腿的步态都读动态模块里的行驶相位
     s.moving = Math.abs(nx - s.x) > 0.02;
     s.x = nx;
+    settle(s, dt);
     if (s.moving && s.dir) {
       s.heat += K.MOVE_HEAT * dt;
       s.water = Math.max(0, s.water - K.MOVE_WATER * dt);
@@ -327,24 +407,30 @@ SA.Battle = (() => {
   const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) { const o = s.occ[r][c]; if (o && alive(o.cell)) return o; } return null; };
   const rowEdge = (s, o) => { const b = modBox(s, o.r, o.c, o.cell.id); return isP(s) ? b.x1 : b.x0; };
   // 返回 { gap, rows }：最小间距，以及贴得最近（在 1px 内）的那些行
+  // 两车被地形抬到不同高度时，按世界高度对齐：p 的第 r 行对着 e 的第 r + dr 行
   function rowContact(p, e) {
     let gap = Infinity;
     const rows = [];
+    const dr = Math.round(((p.yo || 0) - (e.yo || 0)) / C);
     for (let r = 0; r < K.ROWS; r++) {
-      const pc = rowFront(p, r), ec = rowFront(e, r);
+      const re = r + dr;
+      if (re < 0 || re >= K.ROWS) continue;
+      const pc = rowFront(p, r), ec = rowFront(e, re);
       if (!pc || !ec) continue;
       const g0 = rowEdge(e, ec) - rowEdge(p, pc);
-      rows.push({ r, g: g0, pc, ec });
+      rows.push({ r, re, g: g0, pc, ec });
       gap = Math.min(gap, g0);
     }
-    return { gap, rows: rows.filter(x => x.g <= gap + 1) };
+    return { gap, dr, rows: rows.filter(x => x.g <= gap + 1) };
   }
 
   function collide() {
     const p = B.p, e = B.e;
     if (p.frontCol < 0 || e.frontCol < 0) return;
-    const { gap, rows } = rowContact(p, e);
+    const { gap, rows, dr } = rowContact(p, e);
     B.contactRows = gap <= 1 ? rows.map(x => x.r) : [];
+    B.contactRowsE = gap <= 1 ? rows.map(x => x.re) : [];
+    B.rowShift = dr;
     B.contact = gap <= 1;
     if (gap > 0) return;
     const closing = p.vx - e.vx;
@@ -367,7 +453,7 @@ SA.Battle = (() => {
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
         }
       }
-      for (let i = 0; i < 16; i++) part('spark', cx, cellY(rows[0].r) + HALF + rnd(-30, 30), rnd(-300, 300), rnd(-300, 0), rnd(0.2, 0.4));
+      for (let i = 0; i < 16; i++) part('spark', cx, cellY(rows[0].r, p) + HALF + rnd(-30, 30), rnd(-300, 300), rnd(-300, 0), rnd(0.2, 0.4));
       B.shake = Math.max(B.shake, 5 + f * 4);
       // 一维碰撞：恢复系数 0.25，铲斗额外击退
       const mp = p.mass, me = e.mass, vp = p.vx, ve = e.vx;
@@ -404,20 +490,22 @@ SA.Battle = (() => {
       // 撞锤要在自己这几行的最前端，并且其中一行正顶着对方
       const f = SA.fp(pc.cell.id);
       let row = -1;
-      for (let i = 0; i < f.h; i++) { const rr = pc.r + i, fr = rowFront(s, rr); if (fr && fr.cell === pc.cell && (B.contactRows || []).includes(rr)) row = rr; }
+      const mine = (isP(s) ? B.contactRows : B.contactRowsE) || [];
+      for (let i = 0; i < f.h; i++) { const rr = pc.r + i, fr = rowFront(s, rr); if (fr && fr.cell === pc.cell && mine.includes(rr)) row = rr; }
       if (!alive(pc.cell) || row < 0) continue;
       const key = `${pc.r},${pc.c}`;
       s.punchT[key] = (s.punchT[key] || 0) - dt;
       if (s.punchT[key] > 0) continue;
       s.punchT[key] = M.piston.punchCd;
-      const tgt = rowFront(o, row);
+      const tr = row + (isP(s) ? 1 : -1) * (B.rowShift || 0);   // 对方那边同一高度的行
+      const tgt = tr >= 0 && tr < K.ROWS ? rowFront(o, tr) : null;
       if (!tgt) continue;
       const dc = tgt.c;
       s.punch[key] = 1;
       s.heat += M.piston.heat;
       damage(o, s, { layer: 'body', r: tgt.r, c: dc }, SA.armorCut(SA.mod(tgt.cell), SA.mod(pc.cell).punch));
       shove(s, o, 30);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
-      const x = frontEdge(s), y = cellY(row) + HALF;
+      const x = frontEdge(s), y = cellY(row, s) + HALF;
       for (let i = 0; i < 10; i++) part('steam', x, y, rnd(-90, 90), rnd(-120, -15), rnd(0.4, 0.8));
       B.shake = Math.max(B.shake, 4);
     }
@@ -479,8 +567,8 @@ SA.Battle = (() => {
       s.smokeT = 0.45 - Math.min(0.35, s.heat / 280);
       SA.V.each(s.v, (cell, r, c, layer) => {
         if (layer !== 'body' || !alive(cell)) return;
-        if (cell.id === 'boiler') part('steam', isP(s) ? cellX(s, c) + 37 : cellX(s, c) + 11, cellY(r), rnd(-12, 12), rnd(-66, -36), rnd(0.8, 1.4));
-        if (cell.hp / SA.V.maxHp(cell) < 0.34 && Math.random() < 0.5) part('smoke', modCenter(s, layer, r, c)[0], cellY(r) + 12, rnd(-12, 12), -42, 1.2);
+        if (cell.id === 'boiler') part('steam', modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), cellY(r, s), rnd(-12, 12), rnd(-66, -36), rnd(0.8, 1.4));
+        if (cell.hp / SA.V.maxHp(cell) < 0.34 && Math.random() < 0.5) part('smoke', modCenter(s, layer, r, c)[0], cellY(r, s) + 12, rnd(-12, 12), -42, 1.2);
       });
     }
   }
@@ -612,8 +700,11 @@ SA.Battle = (() => {
         if (!res) continue;
         sh.done = true;
         if (res === 'ground') {
-          for (let k = 0; k < 6; k++) part('dust', sh.x, GROUND, rnd(-75, 75), rnd(-100, -30), rnd(0.3, 0.6));
-          if (sh.big) part('smoke', sh.x, GROUND - 6, 0, -30, 0.8);
+          const gy = groundAt(sh.x);
+          for (let k = 0; k < 6; k++) part('dust', sh.x, gy, rnd(-75, 75), rnd(-100, -30), rnd(0.3, 0.6));
+          if (sh.big) part('smoke', sh.x, gy - 6, 0, -30, 0.8);
+        } else if (res.crate != null) {
+          hitCrate(res.crate, sh.dmg);
         } else if (res !== 'out') {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
           const tc = sh.to.v[res.layer][res.r][res.c];
@@ -630,7 +721,7 @@ SA.Battle = (() => {
     for (const p of B.parts) {
       p.life -= dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust') { p.vy += 660 * dt; if (p.y > GROUND) { p.y = GROUND; p.vy *= -0.3; p.vx *= 0.6; } }
+      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust') { p.vy += 660 * dt; const gy = groundAt(p.x); if (p.y > gy) { p.y = gy; p.vy *= -0.3; p.vx *= 0.6; } }
       if (p.type === 'smoke' || p.type === 'steam') p.vx *= 0.98;
     }
     B.parts = B.parts.filter(p => p.life > 0);
@@ -725,6 +816,48 @@ SA.Battle = (() => {
   }
 
   // ---------- 绘制 ----------
+  // 地形：土坡填满到地面、泥地一层湿泥、货箱（木板 + 铁包角，越破裂纹越多）
+  function drawTerrain() {
+    const T = B.ter;
+    if (!T) return;
+    if ((T.def.hills || []).length) {
+      for (let x = 0; x < W; x += 2) {
+        const y = Math.round(T.ground[x]);
+        if (y >= GROUND) continue;
+        g.fillStyle = P.bg[2]; g.fillRect(x, y, 2, GROUND - y + 1);
+        g.fillStyle = P.bg[4]; g.fillRect(x, y, 2, 2);
+        if ((x * 7) % 26 < 2 && GROUND - y > 10) { g.fillStyle = P.bg[1]; g.fillRect(x, y + 6 + (x % 9), 3, 2); }
+      }
+    }
+    for (const [a, b] of T.mud) {
+      for (let x = Math.floor(a); x < b; x += 2) {
+        const y = Math.round(T.ground[Math.min(W, x)]);
+        g.fillStyle = '#2e2116'; g.fillRect(x, y - 2, 2, 12);
+        g.fillStyle = (x * 13) % 34 < 4 ? '#6b5237' : '#3f2d1d'; g.fillRect(x, y - 3, 2, 2);
+      }
+    }
+    for (const c of T.crates) drawCrate(c);
+  }
+  function drawCrate(c) {
+    const x = Math.round(c.x0), y = Math.round(c.y0), w = Math.round(c.x1 - c.x0), h = Math.round(c.y1 - c.y0);
+    if (c.dead) {   // 打烂了：一地碎木板
+      g.fillStyle = '#4a321d';
+      for (let i = 0; i < 5; i++) g.fillRect(x + i * (w / 5) - 4, Math.round(c.y1) - 4 - (i % 2) * 3, 14, 3);
+      return;
+    }
+    const f = c.hp / c.max;
+    g.fillStyle = '#1c130b'; g.fillRect(x - 1, y - 1, w + 2, h + 2);
+    g.fillStyle = '#6b4a2b'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#4a321d';
+    for (let yy = y + 12; yy < y + h; yy += 12) g.fillRect(x, yy, w, 2);   // 木板缝
+    SA.SPR.useCtx(g);
+    SA.SPR.line(x + 3, y + h - 3, x + w - 3, y + 3, 3, '#4a321d');           // 斜撑
+    g.fillStyle = P.iron[2];
+    for (const [cx0, cy0] of [[x, y], [x + w - 6, y], [x, y + h - 6], [x + w - 6, y + h - 6]]) g.fillRect(cx0, cy0, 6, 6);   // 铁包角
+    if (f < 0.66) { SA.SPR.line(x + w * 0.3, y + 4, x + w * 0.5, y + h * 0.4, 1, '#1c130b'); SA.SPR.line(x + w * 0.5, y + h * 0.4, x + w * 0.4, y + h * 0.7, 1, '#1c130b'); }
+    if (f < 0.33) { g.fillStyle = 'rgba(7,8,12,0.45)'; g.fillRect(x + 4, y + h * 0.5, w * 0.5, 8); SA.SPR.line(x + w * 0.7, y + h * 0.2, x + w * 0.9, y + h * 0.8, 1, '#1c130b'); }
+  }
+
   function draw() {
     const t = B.t;
     g = wc.getContext('2d');
@@ -732,7 +865,8 @@ SA.Battle = (() => {
     g.save();
     if (B.shake) g.translate(Math.round(rnd(-B.shake, B.shake)), Math.round(rnd(-B.shake, B.shake)));
     g.fillStyle = 'rgba(7,8,12,0.4)';
-    for (const s of [B.p, B.e]) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, GROUND - 3, (K.COLS - s.minCol) * C + 16, 8);
+    drawTerrain();
+    for (const s of [B.p, B.e]) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, Math.round(GROUND + (s.yo || 0)) - 3, (K.COLS - s.minCol) * C + 16, 8);
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
@@ -742,7 +876,7 @@ SA.Battle = (() => {
     overhead(B.p); overhead(B.e);
 
     // 准星停在模块上：显示它的改装军衔杠
-    if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; SA.SPR.chevrons(g, Math.round(modBox(B.e, aimT.r, aimT.c, t0.id).x0), cellY(aimT.r), t0.lv || 0, K.UP_MAX); }
+    if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
     B.previewInfo = null;
     if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
 
@@ -911,7 +1045,7 @@ SA.Battle = (() => {
     if (hi < lo) return;
     let a = 0, m = 0;
     SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
-    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = VY + top * C - 30;
+    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = Math.round(VY + (s.yo || 0) + top * C - 30);
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
     const bar = (yy, f, col, flash) => {
       g.fillStyle = 'rgba(7,8,12,0.8)'; g.fillRect(x - 1, yy - 1, w + 2, 6);
@@ -966,8 +1100,9 @@ SA.Battle = (() => {
     const w = s.anim.body.x;                       // 本地坐标：负 = 被往后推
     const px = VW / 2, py = K.ROWS * C;            // 以车底中点为支点
     g.save();
-    if (isP(s)) g.translate(Math.round(s.x), VY - Math.round(s.rock * 2));
-    else { g.translate(Math.round(s.x) + VW, VY - Math.round(s.rock * 2)); g.scale(-1, 1); }
+    const vy = Math.round(VY + (s.yo || 0)) - Math.round(s.rock * 2);
+    if (isP(s)) g.translate(Math.round(s.x), vy);
+    else { g.translate(Math.round(s.x) + VW, vy); g.scale(-1, 1); }
     g.translate(px + w, py);
     g.rotate(clamp(w * 0.012, -0.06, 0.06));      // 往后坐时车头微微抬起
     g.drawImage(cvs, -px, -py);
@@ -1039,6 +1174,7 @@ SA.Battle = (() => {
       SA.SPR.line(ex - 6, ey - 6, ex + 6, ey + 6, 4, P.black); SA.SPR.line(ex + 6, ey - 6, ex - 6, ey + 6, 4, P.black);
       SA.SPR.line(ex - 5, ey - 5, ex + 5, ey + 5, 2, col); SA.SPR.line(ex + 5, ey - 5, ex - 5, ey + 5, 2, col);
     }
+    if (pr.blocked) info.cover = pr.blocked;   // 弹道被货箱 / 土坡挡住
     if (pr.hit) {
       info.hit = pr.hit;
       if (!sameCell(pr.hit, aimT)) { const b = modBox(B.e, pr.hit.r, pr.hit.c, B.e.v[pr.hit.layer][pr.hit.r][pr.hit.c].id); SA.SPR.outline(g, Math.round(b.x0), b.y0, b.x1 - b.x0, b.y1 - b.y0, P.white, P.black, Math.floor(B.t * 16)); }
@@ -1150,6 +1286,7 @@ SA.Battle = (() => {
     else if (pi && !pi.reach) parts.push('<b>超出射程，靠近一些</b>');
     else if (pi && pi.slewing) parts.push('炮管转动中…');
     if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) parts.push(`弹道中心先打到 <b>「${M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name}」</b>（虚线框）${alt}`);
+    if (aimT && pi && pi.cover && !pi.hit) parts.push(pi.cover === 'crate' ? '弹道被<b>货箱</b>挡住：打烂它、绕过去，或者换高抛' : `弹道打在<b>土坡</b>上：靠近一些${alt || '，或者换高抛'}`);
     if (aimT && pi && pi.chance != null) parts.push(`命中率约 <b>${pi.chance}%</b>（扇区 = 散布范围）`);
     else if (aimT && pi && M[p.sel].indirect) parts.push('高抛：指哪打哪（对方移动会躲开）');
     if (p.fireHeld) parts.push(p.focus >= 1 ? `<b style="color:#6fcf6a">准星稳住了！</b>散布 -${Math.round(p.aimShrink * 100)}%` : `瞄准 ${Math.round(p.focus * 100)}%（散布 -${Math.round(p.aimShrink * p.focus * 100)}%）${shakeOf(p) > 0.4 ? ' · 车身在晃，停稳更快' : ''}`);
@@ -1206,7 +1343,7 @@ SA.Battle = (() => {
     const pShift = frontShift(d.vehicle);
     const pv = shiftVeh(SA.V.battleCopy(d.vehicle, 1, opts.mode === 'friendly'), pShift);
     const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, opts.hpMul || 1, true), frontShift(opts.enemyVehicle));
-    B = { opts, pShift, t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+    B = { opts, pShift, ter: makeTerrain(opts.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       speed: gameSpeed(), keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
@@ -1278,7 +1415,7 @@ SA.Battle = (() => {
     if (B.hudT > 0) return;
     B.hudT = 0.1;
     updPanel(hud.p, B.p); updPanel(hud.e, B.e);
-    hud.timer.textContent = `${Math.max(0, Math.ceil(K.BATTLE_TIME - B.t))}`;
+    hud.timer.innerHTML = `${Math.max(0, Math.ceil(K.BATTLE_TIME - B.t))}<small>${B.ter.def.name}</small>`;
     hud.info.innerHTML = infoText();
     renderSlots();
   }
@@ -1319,11 +1456,11 @@ SA.Battle = (() => {
 
   // ---------- 无画面模拟（tools/sim.html 数值自测用）----------
   // 两边都交给 AI，按固定步长一口气打完，返回 { winner: 'p' | 'e' | 'draw', t, reason, pDealt, eDealt }
-  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, dt }
+  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, terrain, dt }
   function simulate(o) {
     const keep = B;
     const pS = frontShift(o.p), eS = frontShift(o.e);
-    B = { headless: true, opts: { mode: 'sim' }, pShift: pS, t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+    B = { headless: true, opts: { mode: 'sim' }, pShift: pS, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
       B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, o.pAim || 0.8, W / 2 - 200 - PADX - K.COLS * C);

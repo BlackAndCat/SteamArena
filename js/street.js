@@ -84,6 +84,7 @@ SA.Street = (() => {
       tier: ti, pilot, name, base, rating: best.rating, aim: +rnd(0.55, 0.75).toFixed(2),
       prize: Math.round(best.rating * 0.4 / 5) * 5,   // 奖金只看对手强弱
       layout: SA.V.layout(best.v), mt: best.mt,
+      terrain: Math.random() < 0.5 ? 'flat' : pick(SA.TERRAIN_ORDER),   // 街头赛场地随缘
     };
   }
 

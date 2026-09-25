@@ -156,6 +156,8 @@ SA.Camp = (() => {
     const act = (label, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, onclick: () => { SA.UI.closeModal(); fn(); SA.UI.toast(label); } }, label);
     const sel = h('select', {}, SA.CAMPAIGN.map((ch, i) => h('option', { value: i, selected: i === chIndex() }, ch.name)));
     const row = (...kids) => h('div', { class: 'dialog-actions dev-row' }, kids);
+    const terSel = h('select', {}, SA.TERRAIN_ORDER.map(k => h('option', { value: k }, SA.TERRAINS[k].name)));
+    const foeSel = h('select', {}, SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((o, si) => h('option', { value: `${ci},${si}` }, `${ch.name.split(' · ')[0]} · ${o.name}`))));
     SA.UI.openModal('开发者模式', h('div', { class: 'dev-panel' },
       h('h3', { class: 'help-h' }, '开发工具 · 新标签页打开'),
       h('div', { class: 'dev-tools' }, DEV_TOOLS.map(t => h('a', { class: 'dev-tool', href: t.url, target: '_blank', rel: 'noopener' },
@@ -164,7 +166,9 @@ SA.Camp = (() => {
       row(act('一键全部解锁', () => { dev.unlockAll(); dev.money(10000); dev.ingots(5); }, true),
         act('+£1000', () => dev.money(1000)),
         act('乌兹钢锭 / 以太结晶 +3', () => dev.ingots(3))),
-      row(sel, act('跳到这一章', () => dev.goto(+sel.value)), act('清空存档重来', () => SA.reset()))));
+      row(sel, act('跳到这一章', () => dev.goto(+sel.value)), act('清空存档重来', () => SA.reset())),
+      h('h3', { class: 'help-h' }, '地形试驾 · 不结算、不留损伤'),
+      row(terSel, foeSel, act('开打', () => dev.drive(terSel.value, foeSel.value), true))));
   }
 
   const dev = {
@@ -180,6 +184,12 @@ SA.Camp = (() => {
     unlockAll() { dev.goto(SA.CAMPAIGN.length); },
     money(n = 1000) { d().money += n; SA.S.save(); SA.UI.topbar(); },
     ingots(n = 3) { SA.S.addIngots({ wootz: n, aether: n }); SA.S.save(); SA.UI.topbar(); },
+    // 在指定地形上和某一关的对手打一场友谊赛（不结算、不留损伤）
+    drive(terrain = 'crates', foe = '1,0') {
+      const [ci, si] = String(foe).split(',').map(Number), st = stage(ci, si);
+      if (!st) return;
+      SA.Battle.start({ mode: 'friendly', enemyVehicle: st.vehicle, enemyName: st.name, aim: st.aim, style: st.style, terrain, hpMul: 1 });
+    },
     panel: devPanel,
   };
 

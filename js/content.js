@@ -36,10 +36,31 @@ SA.OPPONENTS = [
   },
 ];
 
+// ---------- 地形 ----------
+// 坐标是竞技场世界像素（宽 1280，地面 y = 648）。开局两车车头大约在 x = 440 和 x = 840，地形都摆在中间这一段。
+// hills：土坡（余弦鼓包，x 中心、w 宽、h 高）—— 挡低平的直射炮弹，上坡慢、下坡快，车跟着地面抬高
+// mud：泥地区间 [x0, x1] —— 按底盘减速（履带 0.8、四足 0.65、双足 0.45）
+// crates：货箱（x 中心、w 宽、h 高、hp）—— 挡炮弹、挡路，打烂或撞开才能过去
+SA.TERRAINS = {
+  flat: { name: '平地', desc: '平整的煤渣地，没有遮挡，拼的是火力和装甲。' },
+  crates: { name: '货箱', crates: [{ x: 600, w: 48, h: 72, hp: 240 }, { x: 690, w: 48, h: 48, hp: 160 }],
+    desc: '场地中间堆着货箱：挡住低处的直射炮弹，也挡路。打烂或撞开才能过去；高抛炮可以越过去砸。' },
+  mud: { name: '泥地', mud: [[430, 850]],
+    desc: '中间一大片烂泥：履带速度 ×0.8、四足 ×0.65、双足 ×0.45。冲撞车在泥里跑不起来。' },
+  hills: { name: '土坡', hills: [{ x: 640, w: 320, h: 44 }],
+    desc: '中间隆起一道土坡：低平的直射炮弹会打在坡上；爬坡变慢、下坡变快，翻过去的车会被抬高。' },
+  yard: { name: '工厂后院', hills: [{ x: 510, w: 200, h: 26 }, { x: 790, w: 200, h: 26 }], crates: [{ x: 650, w: 48, h: 96, hp: 320 }],
+    desc: '两道小坡夹着一摞高货箱：正面对射几乎打不着，要么高抛、要么先把货箱拆了。' },
+  mine: { name: '矿坑', hills: [{ x: 640, w: 360, h: 56 }], mud: [[330, 470], [810, 950]],
+    desc: '中间一座矿渣堆，两边是泥坑：出发就陷在泥里，翻过渣堆才能贴身。' },
+};
+SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
+
 // ---------- 战役：从后巷一路打进水晶宫 ----------
 // 每一章 = 一组「考题」对手 + 通关解锁（新模块 / 材料 / 功能 / 更大的改装台）。每一关 = 一道构筑考题：
 // blurb 写明它的问题和弱点，玩家赛前侦察后去车间调整。mt：整车材料；elite：个别格子的材料（Boss 的史诗件，可以缴获）。
 // style：AI 性格 —— rush 冲锋（有撞击件就一直冲）、kite 拉开距离放风筝、turtle 守在原地、不写 = 在交战距离内游走。
+// terrain：场地（SA.TERRAINS 的键），不写 = 平地。
 // unlock：{ feat: [功能], mods: [模块], aux: [驾驶舱辅助设备], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
 // 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
 SA.CAMP_START = { feat: [], mods: ['track', 'cockpit', 'boiler', 'water', 'armor', 'cannon', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
@@ -72,7 +93,7 @@ SA.CAMPAIGN = [
     blurb: '后巷里的地下赛车圈。在这里站稳脚跟，才会有人给你递锦标赛的请柬。',
     stages: [
       {
-        name: '铁皮罐头', pilot: '锅炉工 胖哈利', prize: 130, aim: 0.55, style: 'turtle',
+        name: '铁皮罐头', pilot: '锅炉工 胖哈利', prize: 130, terrain: 'crates', aim: 0.55, style: 'turtle',
         blurb: '车头糊满了铁皮，机枪打上去只冒火星（装甲每发减伤）。用直射火炮把铁皮凿穿，再打它的火炮。',
         rows: ['........', '........', '...K....', '..OWC...', '..OAAA..', '..TTTT..'],
       },
@@ -82,7 +103,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '...M....', '..KAM...', '..OWA...', '..TTT...'],
       },
       {
-        name: '煤灰寡妇', pilot: '玛莎·布莱克', prize: 220, aim: 0.75, boss: true,
+        name: '煤灰寡妇', pilot: '玛莎·布莱克', prize: 220, terrain: 'crates', aim: 0.75, boss: true,
         blurb: '【宿敌】玛莎的四足炮台又稳又准，火炮是熟铁打的；车头的铲斗会把你铲出去。她说后巷只容得下一个人。',
         rows: ['........', '........', '...K....', '...OC...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
       },
@@ -95,7 +116,7 @@ SA.CAMPAIGN = [
     blurb: '码头工人爱玩撞车。这里的车都焊着铲斗和撞角，谁先被顶翻谁输。',
     stages: [
       {
-        name: '推土机', pilot: '码头工 大块头比尔', prize: 180, aim: 0.6, style: 'rush', mt: 2,
+        name: '推土机', pilot: '码头工 大块头比尔', prize: 180, terrain: 'mud', aim: 0.6, style: 'rush', mt: 2,
         blurb: '宽履带加车头铲斗，一门心思往前推。车头挂重装甲顶住它，或者趁它冲过来的路上多打几炮。',
         rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'],
       },
@@ -105,7 +126,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '........', '...KM...', '...OAX..', '...BBB..'],
       },
       {
-        name: '双足舞者', pilot: '伊莎贝拉·雷恩', prize: 300, aim: 0.85, style: 'rush', boss: true, mt: 2,
+        name: '双足舞者', pilot: '伊莎贝拉·雷恩', prize: 300, terrain: 'mud', aim: 0.85, style: 'rush', boss: true, mt: 2,
         blurb: '码头的女王。摇摇晃晃的双足底盘极难命中，撞角是钢打的；你的车头最好够厚。',
         rows: ['........', '....C...', '...KM...', '..OWAAX.', '..WOAM..', '..BBBB..'], elite: [[3, 6, 3]],
       },
@@ -118,17 +139,17 @@ SA.CAMPAIGN = [
     blurb: '烟囱林立的工厂区。这里的车都躲在厚墙后面放炮，站着对射你永远打不过它们。',
     stages: [
       {
-        name: '烟囱', pilot: '扫烟囱的汤米', prize: 260, aim: 0.7, style: 'turtle', mt: 2,
+        name: '烟囱', pilot: '扫烟囱的汤米', prize: 260, terrain: 'yard', aim: 0.7, style: 'turtle', mt: 2,
         blurb: '车头两层重装甲，高抛炮从墙后面往你头上砸。直射打不穿？开着撞角冲上去，把墙顶开。',
         rows: ['........', '........', '...P....', '..KOH...', '..WOHH..', '..TTTT..'],
       },
       {
-        name: '齐射', pilot: '钟表匠 老维克', prize: 300, aim: 0.75, style: 'kite', mt: 3,
+        name: '齐射', pilot: '钟表匠 老维克', prize: 300, terrain: 'hills', aim: 0.75, style: 'kite', mt: 3,
         blurb: '四足炮台，直射加高抛一起打，还会往后退拉开距离。用双足追上去，别给它从容瞄准的时间。',
         rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'],
       },
       {
-        name: '黄铜公爵', pilot: '沃德豪斯公爵', prize: 400, aim: 0.9, boss: true, mt: 3,
+        name: '黄铜公爵', pilot: '沃德豪斯公爵', prize: 400, terrain: 'hills', aim: 0.9, boss: true, mt: 3,
         blurb: '公爵在侧挂层架了镀镍侧炮，藏在装甲后面放冷枪。侧炮不怕装甲挡，却也只有它自己那点耐久——瞄准洋红色的侧炮。',
         rows: ['........', '........', '....K...', '...OAM..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']],
       },
@@ -141,17 +162,17 @@ SA.CAMPAIGN = [
     blurb: '矿业公司的铁疙瘩又厚又重。要么从头顶砸，要么撞穿它。',
     stages: [
       {
-        name: '矿车', pilot: '矿工头 霍布斯', prize: 380, aim: 0.75, style: 'rush', mt: 3,
+        name: '矿车', pilot: '矿工头 霍布斯', prize: 380, terrain: 'mine', aim: 0.75, style: 'rush', mt: 3,
         blurb: '重装甲履带车，车头装着蒸汽撞锤，贴上来就一下一下猛砸。别跟它顶牛，高抛炮越过装甲砸它的锅炉。',
         rows: ['........', '........', '....K...', '..WOHHY.', '..WOOAC.', '..TTTTT.'],
       },
       {
-        name: '夜枭', pilot: '猎场看守 格雷', prize: 420, aim: 0.85, style: 'kite', mt: 3,
+        name: '夜枭', pilot: '猎场看守 格雷', prize: 420, terrain: 'hills', aim: 0.85, style: 'kite', mt: 3,
         blurb: '两门侧炮躲在装甲后面，四足平台稳得像块石头，一直往后退。冲上去撞它，或者先敲掉侧炮。',
         rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..QQQQU.'], sides: [[3, 3], [4, 3]],
       },
       {
-        name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, aim: 0.95, boss: true, mt: 3,
+        name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, terrain: 'mine', aim: 0.95, boss: true, mt: 3,
         blurb: '重装甲堆到第五层，顶上是一门乌兹钢高抛炮，车头还有蒸汽撞锤。赢了能缴获那门史诗火炮。',
         rows: ['........', '....KP..', '..WOHHY.', '..WOHHC.', '.WOOHAM.', '.TTTTTT.'], sides: [[3, 4], [2, 4]], elite: [[1, 5, 5]],
         drop: { wootz: 1 },
@@ -165,12 +186,12 @@ SA.CAMPAIGN = [
     blurb: '帝国蒸汽大奖赛。全英国最好的战车都在这里，卫冕冠军的女王号在决赛等你。',
     stages: [
       {
-        name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, aim: 0.9, mt: 4,
+        name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, terrain: 'crates', aim: 0.9, mt: 4,
         blurb: '三挺机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机枪就只能冒火星。',
         rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..BBBBB.'],
       },
       {
-        name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, aim: 0.9, boss: true, mt: 4,
+        name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, terrain: 'yard', aim: 0.9, boss: true, mt: 4,
         blurb: '【宿敌】玛莎把她的四足换成了乌兹钢火炮，顶上加了高抛炮。这次她是认真的。',
         rows: ['........', '........', '...PK...', '..WOAC..', '..WOAAC.', '..QQQQU.'], elite: [[4, 6, 5], [3, 5, 5]],
       },

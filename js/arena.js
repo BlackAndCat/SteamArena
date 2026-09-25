@@ -34,28 +34,29 @@ SA.Arena = (() => {
       return ch.stages.map((o, i) => {
         const sg = SA.Camp.stage(ci, i);
         const beaten = over || i < C.st, next = !over && i === C.st;
-        return { key: i, name: o.name, pilot: o.pilot, blurb: o.blurb, v: sg.vehicle, raw: sg.vehicle, hpMul: 1, rating: SA.V.stats(sg.vehicle).rating, prize: o.prize, boss: o.boss,
+        return { key: i, name: o.name, pilot: o.pilot, blurb: o.blurb, v: sg.vehicle, raw: sg.vehicle, hpMul: 1, rating: SA.V.stats(sg.vehicle).rating, prize: o.prize, boss: o.boss, terrain: o.terrain || 'flat',
           tag: beaten ? ['ok', '已击败'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${i + 1} 场 · ${o.name}`, lock: beaten ? '已经击败过了' : !next ? `先打完第 ${C.st + 1} 场` : null,
-          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, hpMul: 1, prize: o.prize }) };
+          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
       });
     }
     if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {
       const op = SA.S.opponent(i);
       const bv = SA.V.battleCopy(op.vehicle, op.hpMul, true);
-      return { key: i, name: op.name, pilot: op.pilot, blurb: op.blurb, v: bv, raw: op.vehicle, hpMul: op.hpMul, rating: SA.V.stats(bv).rating, prize: op.prize,
+      const terrain = SA.TERRAIN_ORDER[i % SA.TERRAIN_ORDER.length];   // 终局锦标赛：六轮六种场地
+      return { key: i, name: op.name, pilot: op.pilot, blurb: op.blurb, v: bv, raw: op.vehicle, hpMul: op.hpMul, rating: SA.V.stats(bv).rating, prize: op.prize, terrain,
         tag: i < D.round ? ['ok', '已击败'] : i === D.round ? ['next', '下一场'] : ['no', `第 ${i + 1} 轮`],
         title: `第 ${i + 1} 轮 · ${op.name}`, lock: i !== D.round ? (i < D.round ? '已经击败过了' : `先打完第 ${D.round + 1} 轮`) : null,
-        start: () => SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, hpMul: op.hpMul, prize: op.prize }) };
+        start: () => SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, terrain, hpMul: op.hpMul, prize: op.prize }) };
     });
     if (st.mode === 'street') {
       const me = SA.V.stats(D.vehicle).rating;
       return SA.Street.offers().map((o, i) => {
         const tier = SA.STREET_TIERS[i];
         const v = SA.Street.vehicleOf(o), cap = SA.Street.cap(i);
-        return { key: i, name: o.name, pilot: o.pilot, blurb: '街坊邻居随手拼的小车。赢了拿奖金，不计声望、不影响赛程；损伤照常带回车间。', v, rating: o.rating, prize: o.prize,
+        return { key: i, name: o.name, pilot: o.pilot, blurb: '街坊邻居随手拼的小车。赢了拿奖金，不计声望、不影响赛程；损伤照常带回车间。', v, rating: o.rating, prize: o.prize, terrain: o.terrain || 'flat',
           tag: ['', `上限 ${cap}`], title: `${tier.name} · ${o.name}`, lock: me > cap ? `你的评分 ${me} 超过上限 ${cap}` : null,
-          start: () => SA.Battle.start({ mode: 'street', streetTier: i, enemyVehicle: v, enemyName: o.name, aim: o.aim, hpMul: 1, prize: o.prize }) };
+          start: () => SA.Battle.start({ mode: 'street', streetTier: i, enemyVehicle: v, enemyName: o.name, aim: o.aim, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
       });
     }
     if (st.mode === 'friendly') return SA.S.Cloud.list().map((e, i) => {
@@ -169,6 +170,7 @@ SA.Arena = (() => {
         h('div', { class: 'vs-mid' }, 'VS', e.prize ? h('span', { class: 'gold' }, money(e.prize)) : null),
         card(e.v, e.name, e.pilot, e.rating, true)),
       h('p', { class: 'muted blurb' }, e.blurb),
+      e.terrain ? h('div', { class: 'terrain-note' }, h('b', {}, `场地 · ${SA.TERRAINS[e.terrain].name}`), h('span', { class: 'muted' }, SA.TERRAINS[e.terrain].desc)) : null,
       readiness(s),
       betRow(e),
       h('button', { class: 'btn primary go', disabled: !!why, onclick: () => { document.querySelector('#modal').hidden = true; e.start(); } }, why || label),
