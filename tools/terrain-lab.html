@@ -20,10 +20,10 @@
 </style></head>
 <body>
 <h1>地形美术样机</h1>
-<p class="lead">竞技场地形的像素画法：土坡（矿渣堆）、泥地、木货箱、碎木，以及坡上的车身错切。游戏里就是这一套（<code>js/terrain-art.js</code>），改完刷新本页看效果。全部按原生像素 × 2 显示。</p>
+<p class="lead">竞技场地形的像素画法：土坡（矿渣堆）、泥地、木货箱、碎木，以及坡上的车身倾斜。游戏里就是这一套（<code>js/terrain-art.js</code>），改完刷新本页看效果。全部按原生像素 × 2 显示。</p>
 <div class="find"><b>规则（同 docs/art-direction.md §9）</b>
 <ol>
-<li>全场只有 1px 一种像素，不做抗锯齿、不做运行时旋转。坡上的车用<b>纵向错切</b>：整车切成 2px 竖条，按坡度整像素上下错位，竖线保持竖直。</li>
+<li>全场只有 1px 一种像素，不做抗锯齿。坡上的车<b>整车旋转</b>跟着坡度倾斜（最近邻采样，不做平滑）；模块、零件自己的动作仍然用预画帧，不旋转。</li>
 <li>光从左上 45° 来：朝左上的坡（和坡顶）受光亮一阶，朝右下的坡背光暗一阶；石子亮面在左上、影子在右下。</li>
 <li>外轮廓 1px，取材质的最暗阶（土坡用 bg[1]、木头用 leather[0]），不用纯黑；陡台阶露出的侧面也描上。</li>
 <li>场景只用中低明度（背景色 bg + 木色 leather），不抢载具；细节密度每 4×4 最多 1 个（石子、煤块、钉子）。</li>
@@ -34,7 +34,7 @@
 <div class="cards" id="terrains"></div>
 <h2>货箱：完好 → 裂开 → 重伤 → 碎木</h2>
 <div class="row" id="crates"></div>
-<h2>坡上的车：错切贴地</h2>
+<h2>坡上的车：整车旋转贴地</h2>
 <div class="cards" id="slopes"></div>
 
 <script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
@@ -84,7 +84,7 @@
     }
   { const c = mk(90, 24), g = c.getContext('2d'); g.fillStyle = P.bg[3]; g.fillRect(0, 0, 90, 24); SA.TerrainArt.rubble(g, 12, 72, 20); c.style.width = '180px';
     const d = document.createElement('div'); d.className = 'it'; d.append(c, '碎木（开过去减速）'); CR.append(d); }
-  // 坡上的车：和战斗里同一套错切（2px 竖条整像素错位）
+  // 坡上的车：和战斗里一样，整车绕车底中点旋转 atan(坡度)
   const SL = document.getElementById('slopes');
   const v = SA.V.fromAscii('原型机', SA.STARTER);
   const src = SA.SPR.renderVehicle(v, { key: 'lab', heat: 0.3, water: 1 });
@@ -101,7 +101,7 @@
     let yc = Infinity;
     for (let x = xc - half; x <= xc + half; x += 6) yc = Math.min(yc, ground[Math.round(x)] - kw * (x - xc));
     const lp = PADX + (L + R) / 2 * CS, py = SA.K.ROWS * CS;
-    for (let x = 0; x < src.width; x += 2) g.drawImage(src, x, 0, 2, py, Math.round(xc) + x - lp, Math.round(yc) - py + Math.round(kw * (x + 1 - lp)), 2, py);
+    g.save(); g.imageSmoothingEnabled = false; g.translate(Math.round(xc), Math.round(yc)); g.rotate(Math.atan(kw)); g.drawImage(src, -lp, -py); g.restore();
     const out = mk(360, 230);
     out.getContext('2d').drawImage(world, xc - 180, 440, 360, 230, 0, 0, 360, 230);
     out.style.width = '720px';

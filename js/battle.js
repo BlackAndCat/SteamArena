@@ -124,7 +124,7 @@ SA.Battle = (() => {
     return { top: mk * slope, acc: mk };
   }
   // 车身贴地：车底是一条斜线，坡度 kw（世界里每往右 1px 往下多少 px）取车头车尾两处的地面高度差，
-  // 再把这条线整体抬到不插进地面为止（翻过坡顶时架在坡顶上）。画面上用纵向错切表现，不旋转像素（docs/art-direction.md §9）
+  // 再把这条线整体抬到不插进地面为止（翻过坡顶时架在坡顶上）。画面上整车绕车底中点旋转 atan(kw)
   function settle(s, dt) {
     const [L, R] = span(s), xc = (L + R) / 2;
     const kT = clamp((groundAt(R - 6) - groundAt(L + 6)) / Math.max(1, R - L - 12), -0.45, 0.45);
@@ -135,10 +135,23 @@ SA.Battle = (() => {
     s.pivX = xc;
     s.yo = (s.yo || 0) + (yc - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
   }
-  // 错切：世界 x 处车身比平放时低多少 px
-  const shearAt = (s, x) => (s.kw || 0) * (x - (s.pivX == null ? x : s.pivX));
-  // 车头抬起的斜率（两边都是「抬头为正」）：瞄准和出膛方向要加上它
-  const pitchOf = (s) => (isP(s) ? -1 : 1) * (s.kw || 0);
+  // 车身倾斜：绕支点（车底中点）旋转 atan(kw)。「平放坐标」（cellX / cellY 算出来的）↔ 世界坐标
+  const tiltOf = (s) => Math.atan(s.kw || 0);
+  const pivY = (s) => GROUND + (s.yo || 0);
+  function toWorld(s, x, y) {
+    const a = tiltOf(s);
+    if (!a || s.pivX == null) return [x, y];
+    const dx = x - s.pivX, dy = y - pivY(s), c = Math.cos(a), n = Math.sin(a);
+    return [s.pivX + dx * c - dy * n, pivY(s) + dx * n + dy * c];
+  }
+  function toFlat(s, x, y) {
+    const a = tiltOf(s);
+    if (!a || s.pivX == null) return [x, y];
+    const dx = x - s.pivX, dy = y - pivY(s), c = Math.cos(a), n = Math.sin(a);
+    return [s.pivX + dx * c + dy * n, pivY(s) - dx * n + dy * c];
+  }
+  // 车头抬起的角度（度，两边都是「抬头为正」）：瞄准和出膛方向要加上它
+  const pitchOf = (s) => (isP(s) ? -1 : 1) * tiltOf(s) * 180 / Math.PI;
   // 货箱挨打 / 被碾：一抖、飞木屑，打烂了就散成一地碎木。crush = 被车碾（每帧都有，不飘数字，木屑少一点）
   function hitCrate(k, dmg, crush) {
     const c = B.ter.crates[k];
@@ -165,8 +178,9 @@ SA.Battle = (() => {
   // 模块在世界里的包围盒（敌方镜像：锚点列在世界里是最右边那一列）
   function modBox(s, r, c, id) {
     const f = SA.fp(id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
-    const dy = shearAt(s, x0 + f.w * C / 2);   // 车身随坡度错切，模块跟着上下挪
-    return { x0, x1: x0 + f.w * C, y0: cellY(r, s) + dy, y1: cellY(r, s) + f.h * C + dy };
+    // 车身倾斜时模块中心跟着转（包围盒大小不变，够画角框、军衔杠、特效用）
+    const [cx, cy] = toWorld(s, x0 + f.w * C / 2, cellY(r, s) + f.h * C / 2);
+    return { x0: cx - f.w * C / 2, x1: cx + f.w * C / 2, y0: cy - f.h * C / 2, y1: cy + f.h * C / 2 };
   }
   function modCenter(s, layer, r, c) {
     const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
@@ -174,7 +188,8 @@ SA.Battle = (() => {
   }
   // 世界坐标 → 子格
   function cellAt(s, x, y) {
-    const r = Math.floor((y - shearAt(s, x) - VY - (s.yo || 0)) / C);
+    [x, y] = toFlat(s, x, y);   // 先转回车身平放时的坐标
+    const r = Math.floor((y - VY - (s.yo || 0)) / C);
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
   }
@@ -189,7 +204,7 @@ SA.Battle = (() => {
     const [px, py] = w.m.piv, a = barrel(s, w) * Math.PI / 180;
     const dx = Math.cos(a) * w.m.blen, dy = -Math.sin(a) * w.m.blen;
     const mx = isP(s) ? x0 + px + dx : x0 + C - px - dx;
-    return [mx, y0 + py + dy + shearAt(s, mx)];
+    return toWorld(s, mx, y0 + py + dy);
   }
   // 准星优先级：侧挂层 > 主体层
   function targetAt(def, x, y) {
@@ -216,7 +231,7 @@ SA.Battle = (() => {
     const [x0, y0] = muzzle(s, w);
     const sol = solve(x0, y0, tx, ty, w.m.v, K.GRAVITY * w.m.g, w.m.arc === 'high');
     // 世界里要的仰角 → 炮管相对车身的仰角（车身在坡上抬头 / 低头，射界也跟着车身走）
-    const raw = Math.atan(Math.tan(sol.a) - pitchOf(s)) * 180 / Math.PI, [lo, hi] = w.m.elev;
+    const raw = sol.a * 180 / Math.PI - pitchOf(s), [lo, hi] = w.m.elev;
     return { a: clamp(raw, lo, hi), reach: sol.reach, over: sol.reach && raw > hi ? 'high' : sol.reach && raw < lo ? 'low' : null };
   }
   const barrel = (s, w) => (s.elev[w.key] != null ? s.elev[w.key] : w.m.rest);
@@ -224,9 +239,8 @@ SA.Battle = (() => {
     const [x0, y0] = muzzle(s, w);
     const a = (deg + jitter) * Math.PI / 180;
     const dir = isP(s) ? 1 : -1;
-    // 炮管方向（相对车身）经过车身错切后的世界方向，再按炮口初速归一
-    const ux = Math.cos(a), uy = Math.sin(a) + pitchOf(s) * Math.cos(a), n = Math.hypot(ux, uy) || 1;
-    return { x: x0, y: y0, vx: dir * w.m.v * ux / n, vy: -w.m.v * uy / n, g: K.GRAVITY * w.m.g };
+    const wa = a + pitchOf(s) * Math.PI / 180;   // 炮管仰角（相对车身）+ 车身抬头 = 世界里的仰角
+    return { x: x0, y: y0, vx: dir * w.m.v * Math.cos(wa), vy: -w.m.v * Math.sin(wa), g: K.GRAVITY * w.m.g };
   }
   // 推进一步并检测命中：侧挂模式只和侧挂层碰撞
   function advance(sh, def, dt) {
@@ -920,15 +934,14 @@ SA.Battle = (() => {
     // 世界画布只装镜头看得到的那一块：先平移到镜头左上角，背景之后在屏幕空间里画
     const cam = B.cam, ox = Math.floor(cam.x), oy = Math.floor(cam.y);
     g.setTransform(1, 0, 0, 1, 0, 0);
+    g.imageSmoothingEnabled = false;   // 车身倾斜旋转时用最近邻采样，保持像素块
     g.clearRect(0, 0, wc.width, wc.height);
     g.save();
     g.translate(-ox, -oy);
     drawFloor();
     g.save();
     if (B.shake) g.translate(Math.round(rnd(-B.shake, B.shake)), Math.round(rnd(-B.shake, B.shake)));
-    g.fillStyle = 'rgba(7,8,12,0.4)';
     drawTerrain();
-    for (const s of [B.p, B.e]) if (Math.abs(s.kw || 0) < 0.03) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, Math.round(GROUND + (s.yo || 0)) - 3, (K.COLS - s.minCol) * C + 16, 8);
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
@@ -1109,7 +1122,7 @@ SA.Battle = (() => {
     if (hi < lo) return;
     let a = 0, m = 0;
     SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
-    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = Math.round(VY + (s.yo || 0) + top * C - 30 + shearAt(s, (lo + hi) / 2));
+    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = Math.round(VY + (s.yo || 0) + top * C - 30);
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
     const bar = (yy, f, col, flash) => {
       g.fillStyle = 'rgba(7,8,12,0.8)'; g.fillRect(x - 1, yy - 1, w + 2, 6);
@@ -1164,23 +1177,17 @@ SA.Battle = (() => {
     const w = s.anim.body.x;                        // 后坐：本地坐标里往后挪（负 = 被往后推）
     const py = K.ROWS * C;                          // 车身画布底边 = 车底
     const lp = isP(s) ? s.pivX - s.x : s.x + VW - s.pivX;   // 支点（车底中点）在车身画布里的 x
-    const kw = s.kw || 0, lift = clamp(w * 0.012, -0.06, 0.06);
-    // 画布里第 lx 列往下挪多少：地面坡度（错切）+ 后坐时车头微微抬起
-    const dyAt = (lx) => kw * (isP(s) ? lx - lp : lp - lx) + lift * (lx - lp);
     g.save();
-    g.translate(Math.round(s.pivX), Math.round(GROUND + (s.yo || 0)) - Math.round(s.rock * 2));
+    g.translate(Math.round(s.pivX), Math.round(pivY(s)) - Math.round(s.rock * 2));
+    g.rotate(tiltOf(s));                            // 跟着坡度倾斜（整车绕车底中点转）
     if (!isP(s)) g.scale(-1, 1);
-    g.translate(Math.round(w), 0);
-    // 按 2px 宽的竖条整像素错位地画：竖线仍然竖直，像素不变形、不糊边
-    const blit = (src) => {
-      if (Math.abs(kw) < 0.004 && Math.abs(lift) < 0.004) { g.drawImage(src, -lp, -py); return; }
-      for (let x = 0; x < src.width; x += 2) g.drawImage(src, x, 0, 2, py, x - lp, -py + Math.round(dyAt(x + 1)), 2, py);
-    };
-    blit(cvs);
-    if (s.dead) blit(tint(cvs));
+    g.translate(w, 0);
+    g.rotate(clamp(w * 0.012, -0.06, 0.06));        // 往后坐时车头微微抬起
+    g.drawImage(cvs, -lp, -py);
+    if (s.dead) g.drawImage(tint(cvs), -lp, -py);
     if (hl) {
       const f = SA.fp(s.v[hl.layer][hl.r][hl.c].id), lx = PADX + hl.c * C, ly = hl.r * C;
-      highlight(cvs, lx, ly, f.w * C, f.h * C, lx - lp, ly - py + Math.round(dyAt(lx + f.w * C / 2)));   // 本地坐标：跟着车身晃动、错切、敌方镜像
+      highlight(cvs, lx, ly, f.w * C, f.h * C, lx - lp, ly - py);   // 本地坐标：跟着车身晃动、倾斜、敌方镜像
     }
     g.restore();
   }
