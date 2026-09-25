@@ -43,14 +43,19 @@ SA.V = (() => {
 
   // 关卡 / 官方蓝图的 ASCII 按大格写（6 行 × 8 列，一个字符 = 一个 2×2 模块），锚点换算成子格 (2r, 2c)
   // mt：整车材料；sides / elite 也用大格坐标。elite：个别格子的材料 [[r, c, mt, 'side'?], ...]（Boss 身上的史诗件）
-  function fromAscii(name, rows, sides = [], mt = 1, elite = []) {
+  // subs：子格上的小模块 [[r, c, id], ...]（子格坐标）。
+  // 模块要求的材料比整车高（黄铜车上的直射火炮）时换成 lowAlt（中炮），窄的替代品贴着大格的车头一侧
+  function fromAscii(name, rows, sides = [], mt = 1, elite = [], subs = []) {
     const v = create(name);
     rows.forEach((row, r) => {
       for (let c = 0; c < row.length; c++) {
-        const id = ASCII[row[c]];
-        if (id) v.body[r * 2][c * 2] = SA.newCell(id, mt);
+        let id = ASCII[row[c]], cc = c * 2;
+        if (!id) continue;
+        if (mt < SA.minMt(id) && M[id].lowAlt) { id = M[id].lowAlt; cc += 2 - fp(id).w; }
+        v.body[r * 2][cc] = SA.newCell(id, mt);
       }
     });
+    for (const [r, c, id] of subs) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     sides.forEach(([r, c]) => { v.side[r * 2][c * 2] = SA.newCell('side_cannon', mt); });
     for (const [r, c, t, layer] of elite) { const L = v[layer || 'body'], cell = L[r * 2][c * 2]; if (cell) L[r * 2][c * 2] = SA.newCell(cell.id, t); }
     return v;
@@ -59,7 +64,7 @@ SA.V = (() => {
   function fromBig(name, body, side) {
     const v = create(name);
     for (const [layer, g] of [['body', body], ['side', side || []]])
-      g.forEach((row, r) => row.forEach((cell, c) => { if (cell) v[layer][r * 2][c * 2] = cell; }));
+      g.forEach((row, r) => row.forEach((cell, c) => { if (cell) v[layer][r * 2][c * 2] = SA.fixCell(cell); }));
     return v;
   }
   // 旧存档（6 × 8 大格）→ 子格
@@ -408,7 +413,7 @@ SA.V = (() => {
     const v = create(name), k = L.g === 2 ? 1 : 2;
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
       for (const [r, c, id] of list)
-        if (M[id] && inGrid(r * k, c * k) && layerOf(id) === layer) v[layer][r * k][c * k] = SA.newCell(id);
+        if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) v[layer][r * k][c * k] = SA.newCell(id);
     return v;
   }
   // 布局需要的模块数量 { id: n }
@@ -439,7 +444,7 @@ SA.V = (() => {
       const sideLast = list.filter(x => SA.MODULE_ORDER[x[2]] !== 'side_cannon').concat(list.filter(x => SA.MODULE_ORDER[x[2]] === 'side_cannon'));
       for (const [r, c, i] of sideLast) {
         const id = SA.MODULE_ORDER[i];
-        if (id) place(v, id, r * k, c * k);
+        if (id) place(v, SA.liveId(id), r * k, c * k);
       }
       return v;
     } catch (e) { return null; }

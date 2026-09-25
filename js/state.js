@@ -10,7 +10,7 @@ SA.S = (() => {
     return {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
       inv: { armor: 2, mg: 1 }, ingots: {},
-      vehicle: SA.V.fromAscii('一号原型机', SA.STARTER),
+      vehicle: SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs),
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
       camp: { ch: 0, st: 0, intro: -1, done: false, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
@@ -25,7 +25,18 @@ SA.S = (() => {
     if (!d || !d.vehicle || !d.camp) d = fresh();
     d.ingots = d.ingots || {};
     d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
+    fixModules(d);
     return d;
+  }
+  // 模块表改动后的旧存档修正：副驾驶 → 联合驾驶舱；低于最低材料的（黄铜直射火炮）补到最低材料；开局的新模块补进商店
+  function fixModules(s) {
+    SA.V.each(s.vehicle, (cell) => SA.fixCell(cell));
+    const inv = {};
+    for (const k in s.inv) { const f = SA.fixKey(k); inv[f] = (inv[f] || 0) + s.inv[k]; }
+    s.inv = inv;
+    const C = s.camp, mods = [];
+    for (const id of [...SA.CAMP_START.mods, ...C.mods]) { const f = SA.liveId(id); if (!mods.includes(f)) mods.push(f); }
+    C.mods = mods;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式 */ } }
   function reset() { d = fresh(); save(); return d; }
@@ -52,9 +63,9 @@ SA.S = (() => {
   }
   // 买下 n 个模块进库存
   function buy(id, n = 1) {
-    const cost = SA.MODULES[id].price * n;
+    const cost = SA.buyPrice(id) * n;
     if (d.money < cost) return false;
-    d.money -= cost; addInv(id, n);
+    d.money -= cost; addInv(id, n, SA.buyMt(id));
     return true;
   }
 

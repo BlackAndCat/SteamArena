@@ -15,7 +15,16 @@
     { name: '四章 · 镀镍炮垒', grid: [6, 5], mt: 4, rows: ['........', '...P....', '..KAC...', '.WOAHH..', '.WOOHAY.', '.TTTTTT.'], sides: [[3, 3], [3, 4]] },
     { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]] },
   ];
-  const refVeh = (r) => SA.V.fromAscii(r.name, r.rows, r.sides || [], r.mt, r.elite || []);
+  // 联合驾驶舱第四章通关才解锁：前面几章的参考车把 K 换成 1×1 驾驶舱（车头下角）+ 三块甲片，占格不变
+  const soloK = (rows) => {
+    const subs = [];
+    rows = rows.map((row, R) => row.replace(/K/g, (m, C) => { subs.push([2 * R + 1, 2 * C + 1, 'helmet'], [2 * R, 2 * C, 'plate'], [2 * R, 2 * C + 1, 'plate'], [2 * R + 1, 2 * C, 'plate']); return '.'; }));
+    return { rows, subs };
+  };
+  const refVeh = (r, ci = REF.indexOf(r)) => {
+    const k = ci >= 0 && ci < 5 ? soloK(r.rows) : { rows: r.rows, subs: [] };
+    return SA.V.fromAscii(r.name, k.rows, r.sides || [], r.mt, r.elite || [], k.subs);
+  };
   const rating = (v) => SA.V.stats(v).rating;
   const pct = (x) => `${Math.round(x * 100)}%`;
   const opt = () => ({ n: Math.max(2, +$('#games').value || 20), aim: +$('#aim').value || 0.8 });
@@ -148,7 +157,7 @@
   // ---------- 3. 模块性价比 ----------
   function value() {
     const mt = +$('#mat').value;
-    const rows = SA.MODULE_ORDER.map(id => {
+    const rows = SA.MODULE_ORDER.filter(id => !SA.MODULES[id].retired).map(id => {
       const m = SA.mod(id, mt), price = SA.cellValue({ id, mt }), t = SA.weightOf({ id }) / 1000;
       const dps = m.dmg ? (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.03)) / m.reload : 0;
       return { id, m, price, t, dps, v: {

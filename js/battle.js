@@ -7,7 +7,7 @@ SA.Battle = (() => {
   const VW = K.COLS * C + PADX * 2;
   const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
-  const GROUP_ORDER = ['cannon', 'mortar', 'mg', 'side_cannon'];
+  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon'];
   let B = null, cv, g, dg, wc, wrap, hud = {};
   const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
 
@@ -47,8 +47,7 @@ SA.Battle = (() => {
       cool += m.cool || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
       if (m.layer === 'chassis') { chIds[cell.id] = (chIds[cell.id] || 0) + 1; ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
-      if (SA.isCockpit(cell.id)) cock++;
-      if (cell.id === 'copilot') cop++;
+      if (SA.isCockpit(cell.id)) { cock++; cop += SA.driversOf(cell.id); }
       aimSh += m.aimShrink || 0; aimSp += m.aimSpeed || 0;
     });
     // 履带是一个整体：任意一段被毁 = 掉链子，整车趴窝
@@ -68,7 +67,7 @@ SA.Battle = (() => {
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
     Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
-      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: cop });
+      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     s.water = Math.min(s.water, waterMax);
     const blocked = SA.V.blockedList(s.v);
     s.weapons = [];
@@ -123,17 +122,39 @@ SA.Battle = (() => {
     }
     return { top: mk * slope, acc: mk };
   }
-  // 车身贴地：车底是一条斜线，坡度 kw（世界里每往右 1px 往下多少 px）取车头车尾两处的地面高度差，
-  // 再把这条线整体抬到不插进地面为止（翻过坡顶时架在坡顶上）。画面上整车绕车底中点旋转 atan(kw)
+  // 车身贴地 + 悬挂（见 docs/game-design.md §4.1）：上层车体是刚体，底盘每格两个接地点（履带的两组负重轮、腿式的两只脚）各自在行程内伸缩。
+  // 车底是一条斜线，坡度 kw（世界里每往右 1px 往下多少 px）= 接地点下面地面的最小二乘拟合 × 主底盘的跟坡比例；
+  // 车底放在各点的平均高度，但不让哪一点插进地里超过上收行程（宁可悬空）。被毁的底盘不参与；撞击件最多压进地面 6px。
+  // 画面上整车绕车底中点旋转 atan(kw)，每个接地点的伸缩存进 s.gnd 交给 renderVehicle
   function settle(s, dt) {
     const [L, R] = span(s), xc = (L + R) / 2;
-    const kT = clamp((groundAt(R - 6) - groundAt(L + 6)) / Math.max(1, R - L - 12), -0.45, 0.45);
+    const pts = [], rigid = [];
+    for (let c = 0; c < K.COLS; c++) {
+      const cell = s.v.body[SA.V.CH][c];
+      if (!cell) continue;
+      const m = SA.MODULES[cell.id];
+      if (m.susp && alive(cell)) m.susp.pts.forEach((px, i) => pts.push({ key: `${SA.V.CH},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
+      else if (SA.isRam(cell.id)) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
+    }
+    if (!pts.length) for (let x = L + 6; x <= R - 6; x += 12) pts.push({ x, up: 0, down: 0 });   // 底盘全毁：整车趴在地上
+    for (const p of pts) p.y = groundAt(p.x);
+    const n = pts.length, mx = pts.reduce((a, p) => a + p.x, 0) / n, my = pts.reduce((a, p) => a + p.y, 0) / n;
+    let sxy = 0, sxx = 0;
+    for (const p of pts) { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; }
+    const follow = (SA.MODULES[s.chassisId] && SA.MODULES[s.chassisId].susp || { follow: 1 }).follow;
+    const kT = clamp((sxx ? sxy / sxx : 0) * follow, -0.45, 0.45);
     s.kw = (s.kw || 0) + (kT - (s.kw || 0)) * Math.min(1, dt * 8);
-    let yc = Infinity;
-    for (let x = L; x <= R; x += 6) yc = Math.min(yc, groundAt(x) - s.kw * (x - xc));
-    yc = Math.min(yc, groundAt(R) - s.kw * (R - xc));
+    const rel = (x, y) => y - s.kw * (x - xc);   // 地面相对车底线的高度
+    for (const p of pts) p.r = rel(p.x, p.y);
+    const lo = Math.max(...pts.map(p => p.r - p.down));
+    let hi = Math.min(...pts.map(p => p.r + p.up));
+    for (const x of rigid) hi = Math.min(hi, rel(x, groundAt(x)) + 6);
+    const mean = pts.reduce((a, p) => a + p.r, 0) / n, want = lo <= hi ? clamp(mean, lo, hi) : hi;
     s.pivX = xc;
-    s.yo = (s.yo || 0) + (yc - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
+    s.yo = (s.yo || 0) + (want - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
+    const cs = Math.cos(Math.atan(s.kw)), py = GROUND + s.yo;
+    s.gnd = {};
+    for (const p of pts) if (p.key) (s.gnd[p.key] = s.gnd[p.key] || [0, 0])[p.i] = clamp((p.r - py) * cs, -p.up, p.down);
   }
   // 车身倾斜：绕支点（车底中点）旋转 atan(kw)。「平放坐标」（cellX / cellY 算出来的）↔ 世界坐标
   const tiltOf = (s) => Math.atan(s.kw || 0);
@@ -575,7 +596,7 @@ SA.Battle = (() => {
     // 玩家：稳定度蓄满（绿光）自动开火，或者松手立刻开火
     // 快枪（机枪）：按住装好就打，不用等蓄满；稳定度照样影响散布，每发后坐会把它震掉一些
     const ready = (w) => (isHuman(s) ? s.focus >= 1 || s.release || w.m.reload < K.FAST_RELOAD : s.heldT >= w.m.windup);
-    // 副驾驶：每个副驾驶接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
+    // 多出来的驾驶员：每人接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
     s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
     const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
@@ -585,7 +606,7 @@ SA.Battle = (() => {
       if (s.timers[w.key] == null) s.timers[w.key] = rnd(0.2, 0.8) * w.m.reload;
       s.timers[w.key] -= dt * s.power;
     }
-    // 手操的这一组是齐射：组里每门炮都装好了才一起开火（副驾驶管的组照旧各打各的）
+    // 手操的这一组是齐射：组里每门炮都装好了才一起开火（其他驾驶员管的组照旧各打各的）
     const salvo = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);
     const salvoReady = salvo.length > 0 && salvo.every(w => s.timers[w.key] <= 0);
     const salvoGo = salvoReady && firing && salvo.every(w => ready(w));
@@ -630,14 +651,14 @@ SA.Battle = (() => {
     SA.V.each(o.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const id = cell.id;
-      const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : SA.isCockpit(id) ? 2 : id === 'copilot' ? 1.8 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
+      const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : SA.isCockpit(id) ? 2 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
       cands.push({ w, t: { layer, r, c } });
     });
     let x = Math.random() * cands.reduce((a, b) => a + b.w, 0);
     for (const cnd of cands) { x -= cnd.w; if (x <= 0) return cnd.t; }
     return null;
   }
-  // 副驾驶的瞄准点：自己挑目标，几秒换一次，带固定的手抖误差
+  // 其他驾驶员的瞄准点：自己挑目标，几秒换一次，带固定的手抖误差
   function copilotAim(s, o, dt) {
     const co = s.co;
     co.retarget -= dt;
@@ -663,7 +684,7 @@ SA.Battle = (() => {
       // 选武器组：直射打得到就直射，否则换高抛
       s.sel = s.groups[Math.floor(Math.random() * s.groups.length)] || null;
       if (s.target && s.target.layer === 'body' && s.groups.includes('mortar')) {
-        const w = s.weapons.find(x => !x.blocked && x.cell.id === 'cannon');
+        const w = s.weapons.find(x => !x.blocked && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m'));
         const pt = aiAimPoint(s, o);
         const pr = w && predict(s, o, w, aimAngle(s, w, pt[0], pt[1]).a, false);
         if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = 'mortar';
@@ -944,7 +965,7 @@ SA.Battle = (() => {
     drawTerrain();
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, gnd: s.gnd, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be'));
     drawVehicle(B.p, pc); drawVehicle(B.e, ec, aimT);
@@ -1338,8 +1359,8 @@ SA.Battle = (() => {
     p.groups.forEach((id, i) => {
       const n = p.weapons.filter(w => w.cell.id === id).length;
       const co = (p.coGroups || []).includes(id);
-      hud.slots.append(h('button', { class: `btn small slot ${p.sel === id ? 'on' : ''} ${co ? 'co' : ''}`, title: co ? '副驾驶正在操作这组武器' : '', onclick: () => { p.sel = id; } },
-        h('b', {}, `${i + 1}`), ` ${M[id].name} ×${n}`, co ? h('span', { class: 'co-tag' }, '副驾驶') : null));
+      hud.slots.append(h('button', { class: `btn small slot ${p.sel === id ? 'on' : ''} ${co ? 'co' : ''}`, title: co ? '另一名驾驶员正在操作这组武器' : '', onclick: () => { p.sel = id; } },
+        h('b', {}, `${i + 1}`), ` ${M[id].name} ×${n}`, co ? h('span', { class: 'co-tag' }, '驾驶员') : null));
     });
   }
 

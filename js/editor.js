@@ -235,7 +235,7 @@ SA.Editor = (() => {
     changed();
   }
   function auxRow(pk) {
-    if (pk.id !== 'cockpit' || !has('aux')) return null;
+    if (!SA.isCockpit(pk.id) || !has('aux')) return null;
     const on = pk.aux || [], free = SA.AUX_SLOTS - on.length;
     const avail = SA.AUX_ORDER.filter(k => SA.Camp.hasAux(k) && !on.includes(k));
     return h('div', { class: 'aux-row' },
@@ -298,12 +298,12 @@ SA.Editor = (() => {
   function withStock(key, then) {
     if (d().inv[key] > 0) { then(); return; }
     const id = kid(key), m = M[id];
-    if (kmt(key) > 1 || !buyable(id)) { say(has('shop') ? `${m.name}还没解锁` : '商店还没开张：只能用库存里的模块', true); st.sel = null; renderDock(); return; }
+    if (kmt(key) !== SA.buyMt(id) || !buyable(id)) { say(has('shop') ? `${m.name}还没解锁` : '商店还没开张：只能用库存里的模块', true); st.sel = null; renderDock(); return; }
     // 钱够就直接买，不弹确认；钱不够才会问要不要贷款
     SA.UI.pay({
-      title: `购买 ${m.name}`, amount: m.price, okLabel: '购买并安装', confirm: false,
+      title: `购买 ${fullName(id, SA.buyMt(id))}`, amount: SA.buyPrice(id), okLabel: '购买并安装', confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
-      onPaid: () => { SA.S.addInv(id, 1); then(); },
+      onPaid: () => { SA.S.addInv(id, 1, SA.buyMt(id)); then(); },
     });
   }
 
@@ -372,9 +372,9 @@ SA.Editor = (() => {
   function buyOne(id) {
     const m = M[id];
     if (!buyable(id)) return;
-    SA.UI.pay({ title: `购买 ${m.name}`, amount: m.price, okLabel: '购买', confirm: false,
+    SA.UI.pay({ title: `购买 ${fullName(id, SA.buyMt(id))}`, amount: SA.buyPrice(id), okLabel: '购买', confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
-      onPaid: () => { SA.S.addInv(id, 1); say(`购入 ${m.name}，库存 ${d().inv[id]}`); changed(); } });
+      onPaid: () => { const k = SA.invKey(id, SA.buyMt(id)); SA.S.addInv(id, 1, SA.buyMt(id)); say(`购入 ${fullName(id, SA.buyMt(id))}，库存 ${d().inv[k]}`); changed(); } });
   }
 
   function selectInv(key) {
@@ -434,10 +434,10 @@ SA.Editor = (() => {
       ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(mt), ' ',
-            n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(m.price)}`)),
+            n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`)),
           h('div', { class: 'sub' }, n ? '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下' : '点格子即可直接购买并安装')),
         h('div', { class: 'acts' },
-          mt === 1 && buyable(id) ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`) : null,
+          mt === SA.buyMt(id) && buyable(id) ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(SA.buyPrice(id))}`) : null,
           n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, `卖 ${money(SA.cellValue({ id, mt }) * 0.5)}`) : null,
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.sel = null; renderAll(); } }, '取消')));
       return;
@@ -531,7 +531,7 @@ SA.Editor = (() => {
         if (M[id].cat !== cat) continue;
         for (let mt = SA.MAT_MAX; mt >= 1; mt--) {
           const k = SA.invKey(id, mt);
-          if (inv[k] > 0 || (mt === 1 && shop && buyable(id))) keys.push(k);
+          if (inv[k] > 0 || (mt === SA.buyMt(id) && shop && buyable(id))) keys.push(k);
         }
       }
       if (!keys.length) continue;
@@ -666,7 +666,7 @@ SA.Editor = (() => {
       H('模块图例'),
       h('div', { class: 'help-cats' }, Object.entries(SA.CAT).map(([k, c]) => h('div', { class: `help-cat cat-${k}` },
         h('b', {}, h('i', { style: `background:${c.plate}` }), c.name),
-        h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
+        h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k && !M[id].retired).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
       H('材料'),
       h('p', {}, '模块的品质就是材料：', SA.MATS.slice(1).map((mt, i) => [SA.Camp.matChip(i + 1), ` ×${mt.mul} `]),
         '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，只能靠委托、Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
@@ -680,7 +680,7 @@ SA.Editor = (() => {
       H('操作'),
       h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块，放置时自动购买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
       H('摆放规则'),
-      h('p', {}, '副驾驶：车上每有一个副驾驶，就会替你操作一组你当前没在用的武器（你切换武器组，他跟着接手剩下的），自己挑目标，但没你准。'),
+      h('p', {}, '驾驶员：驾驶舱里坐 1 人，1×2 联合驾驶舱 2 人，2×2 联合驾驶舱 4 人。全车驾驶员每比 1 多一个，就替你操作一组你当前没在用的武器（你切换武器组，他们跟着接手剩下的），自己挑目标，但没你准。'),
       h('p', {}, '速度：最高速度 = 底盘速度 × 动力比（锅炉富余最多超速 25%），单位 km/h。底盘手感：双足起步和刹车最快但走起来最晃，四足刹车最慢但移动时最平稳，履带居中。重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
       h('p', {}, '格子：每个大格分成 2×2 个小格。大模块占 2×2 小格，可以错开半格摆；甲片、小水罐、头盔驾驶舱占 1 个小格，水罐占 1×2，用来补缝。摆放时模块的中心跟着鼠标走，底盘自动贴到最底下两行。'),
       h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底下两行；其他模块四周紧贴已连上的模块就行（可以侧挂、悬挑，撞击件不算支撑），最高 6 层。直射火炮、机枪炮管那一行（模块下半格）前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是它那几行的最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那两行挡路，高处的撞角能越过它撞到后面。侧炮整个挂在主体模块上，不会被己方挡住但命中率低。'),
@@ -753,7 +753,7 @@ SA.Editor = (() => {
         if (sp.hits.length > 1) return { text: '这里压着好几个模块，换不了', err: true };
         return { text: cur ? `对调 ${M[dragCell.id].name} ⇄ ${M[cur.id].name}` : `移到${where(sp.r, sp.c)}` };
       }
-      const buy = d().inv[key] > 0 ? '' : `购买（${money(M[id].price)}）并`;
+      const buy = d().inv[key] > 0 ? '' : `购买（${money(SA.buyPrice(id))}）并`;
       if (sp.hits.length > 1) return { text: '这里压着好几个模块：先拆掉或挪开，再放', err: true };
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: `再点一次：拆下 ${M[id].name}` };
       if (cur && hurt(cur)) return { text: `${M[cur.id].name} 受损，先修理才能替换`, err: true };

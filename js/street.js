@@ -53,7 +53,7 @@ SA.Street = (() => {
   const cap = (ti) => Math.round(SA.STREET_TIERS[ti].cap * (SA.Camp.done() ? 3.8 : CAP_MUL[SA.Camp.chIndex()] || 1) / 10) * 10;
   const baseFor = (ti) => Math.min(myRating(), cap(ti));
   // 街头小车的材料：已解锁的最好材料，或者低一级
-  const withMat = (v, mt) => { if (mt > 1) SA.V.each(v, (cell) => { cell.mt = mt; cell.hp = SA.mod(cell).hp; }); return v; };
+  const withMat = (v, mt) => { SA.V.each(v, (cell) => { if (mt > 1) { cell.mt = mt; cell.hp = SA.mod(cell).hp; } SA.fixCell(cell); }); return v; };
   const vehicleOf = (o) => withMat(SA.V.fromLayout(o.name, o.layout), o.mt || 1);
 
   // 为第 ti 档生成一个对手：多拼几台，取评分最接近目标的那台（不超过上限）

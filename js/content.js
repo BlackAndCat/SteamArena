@@ -1,7 +1,11 @@
 // 内容数据：赛事对手、订单、云车库预置载具
 window.SA = window.SA || {};
 
-SA.STARTER = ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'];
+// 开局的车：大格 ASCII + 子格小模块 [r, c, id]（子格坐标）。1×1 驾驶舱顶上垫一块甲片，前面是 1×2 中炮
+SA.STARTER = {
+  rows: ['........', '........', '........', '........', '...OWA..', '...TTT..'],
+  subs: [[7, 7, 'helmet'], [6, 7, 'plate'], [6, 8, 'cannon_m']],
+};
 
 SA.OPPONENTS = [
   {
@@ -63,7 +67,7 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // terrain：场地（SA.TERRAINS 的键），不写 = 平地。
 // unlock：{ feat: [功能], mods: [模块], aux: [驾驶舱辅助设备], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
 // 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
-SA.CAMP_START = { feat: [], mods: ['track', 'cockpit', 'boiler', 'water', 'armor', 'cannon', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
+SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
   garage: '车间', shop: '商店', aux: '驾驶舱辅助设备', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
@@ -108,7 +112,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '...K....', '...OC...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
       },
     ],
-    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad', 'helmet'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
+    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad', 'cannon'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
       note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。驾驶舱可以加装瞄准镜、装弹仓。街头赛可以刷钱，银行可以贷款。' },
   },
   {
@@ -178,8 +182,8 @@ SA.CAMPAIGN = [
         drop: { wootz: 1 },
       },
     ],
-    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['copilot'], grid: { cols: 7, rows: 5 },
-      note: '副驾驶到手。委托、下注、蓝图库、友谊赛开放：有些委托会付乌兹钢锭。' },
+    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['cockpit'], grid: { cols: 7, rows: 5 },
+      note: '联合驾驶舱到手：四个驾驶员挤在一个舱里，替你操作另外三组武器。委托、下注、蓝图库、友谊赛开放：有些委托会付乌兹钢锭。' },
   },
   {
     name: '第五章 · 水晶宫', place: '海德公园 · 水晶宫',

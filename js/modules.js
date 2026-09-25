@@ -1,4 +1,5 @@
 // 模块注册表。layer: chassis(只能放最底行) | body(主体层) | side(侧挂层，只能挂在主体模块上) | ram(撞击，挂在底盘/装甲正前方)
+// 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）
 window.SA = window.SA || {};
 
 // 格子：子格 24px，全车 16 列 × 12 行（= 以前的 8 × 6 大格，每个大格分成 2×2 子格）。
@@ -47,29 +48,34 @@ SA.K = {
 
 SA.MODULES = {
   track: {
-    name: '履带底盘', cat: 'mobility', layer: 'chassis',
+    name: '履带底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 150, hp: 200, power: 0, armor: 2, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
+    susp: { pts: [13, 37], up: 4, down: 8, follow: 1 },
     desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
   },
   quad: {
-    name: '四足底盘', cat: 'mobility', layer: 'chassis',
+    name: '四足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
+    susp: { pts: [17, 30], up: 6, down: 12, follow: 0.75 },
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
-    name: '双足底盘', cat: 'mobility', layer: 'chassis',
+    name: '双足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1, accel: 1.5, brake: 1.7, sway: 1.5, spool: 0.55,
+    susp: { pts: [16, 30], up: 8, down: 14, follow: 0.5 },
     desc: '起步、刹车、跑得都最快，摇摆步态让敌人难以命中；但自己走起来晃得厉害，移动射击散布最大。',
   },
+  // 驾驶舱：基础款是 1×1（id 仍叫 helmet，分享码按 id 序号编码不能改）；1×2、2×2 是「联合驾驶舱」换皮，舱里的驾驶员一律 1×1 大小。
+  // drivers：驾驶员人数。全车活着的驾驶员比 1 多几个，就能多替你操作几组武器（原来副驾驶的功能）
   cockpit: {
-    name: '驾驶舱', cat: 'control', layer: 'body',
-    price: 120, hp: 200, power: 1, kg: 150, q: 1,
-    desc: '至少需要 1 个。全部被毁即告负。高抛炮能从上方砸下来，记得加顶甲。',
+    name: '联合驾驶舱', cat: 'control', layer: 'body', cockpit: true, drivers: 4, vis: [1, 5],
+    price: 260, hp: 200, power: 1, kg: 150, q: 2,
+    desc: '四个驾驶员挤在一个大舱里：除了你手操的那组武器，另外三组由他们各自瞄准开火（枪法不如你准）。全部驾驶舱被毁即告负。',
   },
   helmet: {
-    name: '头盔驾驶舱', cat: 'control', layer: 'body', w: 1, h: 1, art: 'cockpit', cockpit: true,
-    price: 70, hp: 70, power: 0.5, kg: 40, q: 1,
-    desc: '只占一个小格的驾驶舱：省地方、省动力，也算驾驶舱（全部驾驶舱被毁才判负）；但很脆，也装不了辅助设备。',
+    name: '驾驶舱', cat: 'control', layer: 'body', w: 1, h: 1, art: 'cockpit', cockpit: true, drivers: 1, vis: [1, 5],
+    price: 70, hp: 90, power: 0.5, kg: 40, q: 1,
+    desc: '至少需要 1 个，全部被毁即告负。只占一个小格：目标小，但很脆，记得用甲片护住。多装几个驾驶舱，每多一个驾驶员就能多替你操作一组武器。',
   },
   plate: {
     name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1, art: 'armor',
@@ -86,10 +92,11 @@ SA.MODULES = {
     price: 38, hp: 52, power: 0, water: 25, cool: 2, kg: 150, q: 1,
     desc: '竖着的细水罐，占 1×2 小格：水 25、每秒冷却 2，塞进缝里正好。',
   },
+  // 已取消：功能并入驾驶员人数。定义留着给旧存档 / 旧分享码解码，读进来一律换成联合驾驶舱（SA.RETIRED）
   copilot: {
-    name: '副驾驶', cat: 'control', layer: 'body',
+    name: '副驾驶', cat: 'control', layer: 'body', retired: true,
     price: 140, hp: 150, power: 1, kg: 150, q: 2,
-    desc: '替你操作一组你当前没在用的武器：你切换武器组，他就接手剩下的。多一个副驾驶就多管一组。枪法不如你准。',
+    desc: '已取消，并入联合驾驶舱。',
   },
   armor: {
     name: '铁装甲', cat: 'structure', layer: 'body',
@@ -101,14 +108,25 @@ SA.MODULES = {
     price: 95, hp: 320, power: 0, armor: 6, kg: 750, q: 2,
     desc: '两倍厚度，护甲 6，机枪基本打不动；也重了一倍多：吃掉底盘承重，拖慢车速。',
   },
+  // 火炮家族：小炮 1×1、中炮 1×2、直射火炮 2×2、重炮 2×4、巨炮 4×4（见 docs/module-plan.md）。
+  // minMt：最低材料，低于它的模块不存在（关卡里低材料的车改用 lowAlt）；vis：从哪几级材料开始换外形
   cannon: {
-    name: '直射火炮', cat: 'firepower', layer: 'body',
+    name: '直射火炮', cat: 'firepower', layer: 'body', minMt: 2, lowAlt: 'cannon_m', vis: [1, 3, 5],
     price: 170, hp: 150, power: 3, kg: 350, q: 2,
     dmg: 32, reload: 2.4, heat: 6, proj: 'shell', barrel: 24, v: 840, g: 1, spread: 12, arc: 'low',
     elev: [-8, 30], slew: 24, windup: 0.35, wild: 0.12, rest: 0, aimT: 1.2,
     rcPx: 9, back: 0.05, ret: 2.2, kick: 70,   // 制退行程 px、打到底停顿、复进速度、对车身的反冲
     piv: [34, 27], blen: 40,                   // 耳轴（格内坐标）与耳轴到炮口的长度：炮管绕它转
-    desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。',
+    desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。熟铁起才有。',
+  },
+  cannon_m: {
+    name: '中炮', cat: 'firepower', layer: 'body', w: 1, h: 2, vis: [1, 3, 5],
+    price: 110, hp: 100, power: 2, kg: 200, q: 1,
+    dmg: 26, reload: 2.2, heat: 4.5, proj: 'shell', barrel: 18, v: 820, g: 1, spread: 13, arc: 'low',
+    elev: [-8, 30], slew: 28, windup: 0.3, wild: 0.14, rest: 0, aimT: 1.1,
+    rcPx: 6, back: 0.05, ret: 2.4, kick: 50,
+    piv: [12, 33], blen: 30,
+    desc: '竖着的 1×2 主力火炮：炮管在下半格，前方同样不能有己方模块。比直射火炮轻、便宜，伤害低一些。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
@@ -135,7 +153,7 @@ SA.MODULES = {
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
   },
   boiler: {
-    name: '燃煤锅炉', cat: 'energy', layer: 'body',
+    name: '燃煤锅炉', cat: 'energy', layer: 'body', vis: [1, 5],
     price: 130, hp: 120, power: 0, supply: 6, q: 1, heatRate: 1.5, explode: 40, kg: 550,
     desc: '提供 6 点动力；动力用得越满，产热越多。被击毁会爆炸波及相邻模块。',
   },
@@ -145,17 +163,17 @@ SA.MODULES = {
     desc: '每秒吸收 4 热量并消耗水。水烧干后热量会迅速堆积。',
   },
   bucket: {
-    name: '铲斗', cat: 'ram', layer: 'ram', mount: ['track', 'quad', 'biped'],
+    name: '铲斗', cat: 'ram', layer: 'ram', vis: [1, 5], mount: ['track', 'quad', 'biped'],
     price: 110, hp: 260, power: 0, armor: 5, kg: 450, q: 2, ram: 22, knock: 1.8,
     desc: '装在底盘正前方。撞击伤害中等但极其结实，能把对手铲退很远。',
   },
   spike: {
-    name: '撞角', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
+    name: '撞角', cat: 'ram', layer: 'ram', vis: [1, 5], mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
     price: 130, hp: 160, power: 0, kg: 600, q: 2, ram: 40, knock: 1,
     desc: '装在装甲或底盘正前方的实心钢角，比铲斗重得多。装在底盘前能顶到对手的履带和腿；伤害随撞击速度和车重大幅提升，全速冲撞最痛。',
   },
   piston: {
-    name: '蒸汽撞锤', cat: 'ram', layer: 'ram', mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
+    name: '蒸汽撞锤', cat: 'ram', layer: 'ram', vis: [1, 5], mount: ['armor', 'armor_heavy', 'track', 'quad', 'biped'],
     price: 170, hp: 150, power: 2, kg: 700, q: 3, ram: 16, punch: 26, punchCd: 1.5, heat: 3,
     desc: '装在装甲或底盘正前方。贴身时每 1.5 秒用蒸汽活塞猛击一次，不依赖速度。',
   },
@@ -163,13 +181,20 @@ SA.MODULES = {
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
-  'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+  'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall', 'cannon_m'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
 // 占格：w×h 个子格（默认 2×2）
 SA.fp = (id) => { const m = SA.MODULES[id]; return { w: m.w || 2, h: m.h || 2 }; };
-SA.isCockpit = (id) => id === 'cockpit' || !!SA.MODULES[id].cockpit;
+SA.isCockpit = (id) => !!SA.MODULES[id].cockpit;
+SA.driversOf = (id) => SA.MODULES[id].drivers || 0;
+// 已取消的模块 → 替代品（旧存档、旧分享码、旧蓝图读进来时换掉）
+SA.RETIRED = { copilot: 'cockpit' };
+SA.liveId = (id) => SA.RETIRED[id] || id;
+SA.minMt = (id) => SA.MODULES[id].minMt || 1;
+// 外观阶段：vis 列出换外形的材料等级（默认只有一个造型）。例：[1, 3, 5] → 黄铜 / 熟铁 = 1，钢 / 镀镍 = 2，乌兹钢 / 以太 = 3
+SA.stageOf = (id, mt = 1) => (SA.MODULES[id].vis || [1]).filter(t => t <= mt).length || 1;
 // 模块重量（kg）：基础重量（按面积折算）+ 自身重量 + 改装加重
 SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.w * f.h / 4 + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG; };
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
@@ -219,7 +244,26 @@ SA.mod = (x, mt) => {
   }
   return m;
 };
-SA.newCell = (id, mt = 1) => (mt > 1 ? { id, mt, hp: SA.mod(id, mt).hp } : { id, hp: SA.MODULES[id].hp });
+SA.newCell = (id, mt = 1) => {
+  id = SA.liveId(id); mt = Math.max(mt, SA.minMt(id));
+  return mt > 1 ? { id, mt, hp: SA.mod(id, mt).hp } : { id, hp: SA.MODULES[id].hp };
+};
+// 旧数据修正：已取消的模块换成替代品，材料不够最低要求的补到最低（耐久按比例保留）
+SA.fixCell = (cell) => {
+  if (!cell) return cell;
+  const id = SA.liveId(cell.id), mt = Math.max(cell.mt || 1, SA.minMt(id));
+  if (id === cell.id && mt === (cell.mt || 1)) return cell;
+  const ratio = Math.max(0, Math.min(1, cell.hp / SA.mod(cell).hp));
+  cell.id = id; if (mt > 1) cell.mt = mt;
+  cell.hp = Math.round(SA.mod(cell).hp * ratio);
+  if (cell.aux && !SA.isCockpit(id)) delete cell.aux;
+  return cell;
+};
+// 库存键修正：同上
+SA.fixKey = (k) => { const p = SA.parseKey(k), id = SA.liveId(p.id); return SA.invKey(id, Math.max(p.mt, SA.minMt(id))); };
+// 买一个新模块：材料至少是它的最低材料，价格按那一级的总价值算
+SA.buyMt = (id) => SA.minMt(id);
+SA.buyPrice = (id) => SA.cellValue({ id, mt: SA.buyMt(id) });
 SA.matOf = (cell) => SA.MATS[(cell && cell.mt) || 1];
 SA.matUpCost = (id, toMt) => Math.round(SA.MODULES[id].price * SA.MATS[toMt].cost);
 // 模块总价值：原价 + 材料升级 + 改装件（修理、回收、卖出都按它算）
@@ -251,7 +295,7 @@ SA.AUX_SLOTS = 2;
 SA.auxEffect = (cells) => {
   const e = { aimSpeed: 0, aimShrink: 0, reload: 1, sway: 1, spread: 1 };
   for (const cell of cells) {
-    if (cell.id !== 'cockpit' || !(cell.hp > 0)) continue;
+    if (!SA.isCockpit(cell.id) || !(cell.hp > 0)) continue;
     for (const k of cell.aux || []) {
       const a = SA.AUX[k];
       e.aimSpeed += a.aimSpeed || 0; e.aimShrink += a.aimShrink || 0;

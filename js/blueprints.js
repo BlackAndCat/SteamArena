@@ -43,7 +43,7 @@ SA.Blueprints = (() => {
     let buyCost = 0, fixCost = 0;
     for (const id in need) {
       const miss = Math.max(0, need[id] - (pool[id] || []).length - SA.S.invCount(id));
-      if (miss) { buy[id] = miss; buyCost += miss * M[id].price; }
+      if (miss) { buy[id] = miss; buyCost += miss * SA.buyPrice(id); }
     }
     // 用不上的受损模块要修好才能放回库存
     for (const id in pool) for (const cell of pool[id].slice(need[id] || 0)) if (cell.hp < SA.V.maxHp(cell)) fixCost += SA.S.repairCost(cell);
@@ -53,7 +53,7 @@ SA.Blueprints = (() => {
   function apply(bp, done) {
     const p = plan(bp);
     const run = () => {
-      for (const id in p.buy) SA.S.addInv(id, p.buy[id]);
+      for (const id in p.buy) SA.S.addInv(id, p.buy[id], SA.buyMt(id));
       SA.V.each(p.target, (cell, r, c, layer) => {
         const reuse = p.pool[cell.id] && p.pool[cell.id].shift();
         if (reuse) p.target[layer][r][c] = reuse;
@@ -75,7 +75,7 @@ SA.Blueprints = (() => {
     const lines = [
       h('p', {}, `车上现有的模块会先拆回库存，再按蓝图「${bp.name}」重新组装。`),
       Object.keys(p.buy).length ? h('div', { class: 'list', style: 'margin-bottom:8px' }, Object.entries(p.buy).map(([id, n]) =>
-        h('div', { class: 'dlg-item', style: 'margin:0' }, SA.SPR.moduleCanvas(id, 0.6), `${M[id].name} ×${n}`, h('span', { class: 'gold', style: 'margin-left:auto' }, money(M[id].price * n))))) : null,
+        h('div', { class: 'dlg-item', style: 'margin:0' }, SA.SPR.moduleCanvas(id, 0.6), `${M[id].name} ×${n}`, h('span', { class: 'gold', style: 'margin-left:auto' }, money(SA.buyPrice(id) * n))))) : null,
       p.fixCost ? h('p', { class: 'muted' }, `用不上的受损模块修好后放回库存：${money(p.fixCost)}`) : null,
     ];
     if (!p.cost) {
