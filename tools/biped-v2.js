@@ -1,4 +1,4 @@
-// 真双足 · 视觉语言样机（tools/biped-v2.html 专用）。腿的造型沿用 biped-lab.js 的六档 + 探索版。
+// 真双足 · 视觉语言样机（tools/biped-v2.html 专用）。腿的造型沿用 js/legs.js 的六档 + 探索版。
 // 真双足：一台车只有一对腿，底盘占两行——最底行是腿区（不能放模块），倒数第二行中间是胯（陀螺仪），胯两侧各一格腰挂位；
 // 躯干坐在胯上，最宽 3 格。重心相对胯的偏移决定姿态（平衡 / 前倾冲锋 / 后仰炮台 / 失衡）。
 // 四足改成蜘蛛：每格一对向外张开、膝盖高过机身的腿，用膝高区分型号。
@@ -128,29 +128,8 @@ SA.BIPED2 = (() => {
     return cx;
   }
 
-  // ---------- 蜘蛛腿（四足） ----------
-  // 每格两条：近侧一条、远侧一条；前半段往前张、后半段往后张。H.up = 膝盖高出胯多少（区分型号）
-  function spiderLeg(pn, M, hx, hy, gy, dir, ph, o, H) {
-    const g = gait(o, ph, 5, 4);
-    const fx = hx + dir * H.reach + g.x, fy = gy - g.lift;
-    const kx = hx + dir * H.kx + g.x * 0.3, ky = hy - H.up - g.lift * 0.6;
-    const F = bone(hx, hy, kx, ky);
-    pn.poly(F.pts([[0, -2.6], [0, 2.6], [F.len, 3.4], [F.len, -3.4]])).paint(M.leg);
-    if (F.len > 14) pn.ln(...F.p(2, 0), ...F.p(F.len - 3, 0), M.leg[3]);
-    const B = bone(kx, ky, fx, fy), a = B.len * 0.3;
-    pn.poly(B.pts([[-1, -3.6], [-1, 3.6], [B.len * 0.45, 2.8], [B.len - 3, 1.2], [B.len + 1, 0], [B.len - 3, -1.2], [B.len * 0.45, -2.4]])).paint(M.leg);
-    pn.poly(B.pts([[a - 0.9, -3.1], [a + 0.9, -3.1], [a + 0.9, 3.1], [a - 0.9, 3.1]])).paint(M.brass, { outline: false });
-    pn.disc(kx, ky, 3.4).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
-    pn.disc(hx, hy, 3.2).paint(M.iron); pn.disc(hx, hy, 1.2).paint(M.brass, { outline: false });
-  }
-  function carapace(pn, x, y, connL, connR) {
-    pn.fill(x, y, C, 3, P.iron[1]); pn.fill(x, y + 2, C, 1, P.iron[0]);
-    const x0 = connL ? x - 4 : x + 2, x1 = connR ? x + 52 : x + 46;
-    pn.poly([[x0, y + 3], [x1, y + 3], [x1 - (connR ? 0 : 3), y + 14], [x0 + (connL ? 0 : 3), y + 14]]).paint(NEAR.dark, { clip: [x, x + C] });
-    for (let k = 8; k < C; k += 16) pn.fill(x + k, y + 5, 1, 8, P.dark[0]);
-    U.rivet(pn, x + 3, y + 6); U.rivet(pn, x + 42, y + 6);
-    pn.fill(x0 < x ? x : x0 + 1, y + 11, Math.min(x1, x + C) - Math.max(x0, x) - 1, 1, P.brass[1]);
-  }
+  // ---------- 蜘蛛腿（四足）：搬进了 js/legs.js，游戏和样机共用 ----------
+  const { spiderLeg, carapace } = SA.LEGLAB;
 
   // ---------- 一帧 ----------
   const pens = new Map();
@@ -207,7 +186,7 @@ SA.BIPED2 = (() => {
     if (st.far) cells.forEach((c, ri) => spiderLeg(pn, U.FAR, PADX + c * C + 30, y + 7, GROUND - 3, -dirOf(ri), Math.PI, opt(ri), H));
     pn.flush(g);
     blitTorso(bd, () => 0);
-    cells.forEach((c, ri) => carapace(pn, PADX + c * C, y, ri > 0, ri < rn - 1));
+    cells.forEach((c, ri) => carapace(pn, PADX + c * C, y, ri > 0, ri < rn - 1, true));
     cells.forEach((c, ri) => spiderLeg(pn, NEAR, PADX + c * C + 22, y + 10, GROUND, dirOf(ri), 0, opt(ri), H));
     pn.flush(g);
     if (st.grid) grid(g, b);

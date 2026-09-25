@@ -34,7 +34,7 @@
 <li><b>B · 悬挂（车身全跟坡）</b>：所有接地点的地面高度做最小二乘拟合，车身按拟合坡度倾斜；每个接地点（履带每格两组负重轮、腿式每格两只脚）在行程内各自伸缩去够地面。</li>
 <li><b>C · 悬挂（车身只跟一半坡）</b>：同 B，但车身只转拟合坡度的一半，剩下的交给悬挂吃掉——车身更稳，腿 / 轮伸缩更明显。</li>
 </ol>
-接地点标记：<span class="ok">绿 = 贴地</span>，<span class="meh">黄 = 插进地里（超出压缩行程）</span>，<span class="bad">红线 = 悬空</span>（线长就是悬空的像素）。行程（上收 / 下伸）：履带 4 / 8、四足 6 / 12、双足 8 / 14 像素。</div>
+接地点标记：<span class="ok">绿 = 贴地</span>，<span class="meh">黄 = 插进地里（超出压缩行程）</span>，<span class="bad">红线 = 悬空</span>（线长就是悬空的像素）。行程读游戏里底盘模块的 susp。</div>
 <div class="bar">
   <label>地形 <select id="ter"></select></label>
   <label>位置 <input id="pos" type="range" min="250" max="1030" value="560"></label>
@@ -43,7 +43,7 @@
 </div>
 <div id="rows"></div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/terrain-art.js"></script>
 <script>
 (() => {
@@ -76,22 +76,19 @@
   const gAt = (ground, x) => (x < 0 || x > W ? GROUND : ground[Math.round(x)]);
 
   // ---------- 三种底盘 ----------
-  // 接地点：每格底盘两个（在 48px 格子里的 x）；行程：上收 up / 下伸 down（像素）
+  // 接地点、行程：直接用游戏里底盘模块的 susp（SA.suspPts：每格两个接地点，蜘蛛四足的脚往前后张开）
   const CHASSIS = [
-    { id: 'track', name: '履带', rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'], pts: [13, 37], up: 4, down: 8 },
-    { id: 'quad', name: '四足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...QQQ..'], pts: [17, 30], up: 6, down: 12 },
-    { id: 'biped', name: '双足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...BBB..'], pts: [16, 30], up: 8, down: 14 },
+    { id: 'track', name: '履带', rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'] },
+    { id: 'quad', name: '四足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...QQQ..'] },
+    { id: 'biped', name: '双足', rows: ['........', '........', '........', '...KC...', '...OWA..', '...BBB..'] },
   ].map(ch => {
-    const v = SA.V.fromAscii(ch.name, ch.rows);
+    const v = SA.V.fromAscii(ch.name, ch.rows), sp = SA.MODULES[ch.id].susp;
+    const cols = [];
+    for (let c = 0; c < K.COLS; c++) if (v.body[CH][c]) cols.push(c);
     const contacts = [];
-    let lL = 1e9, lR = -1e9;
-    for (let c = 0; c < K.COLS; c++) {
-      const cell = v.body[CH][c];
-      if (!cell) continue;
-      lL = Math.min(lL, PADX + c * CS); lR = Math.max(lR, PADX + (c + 2) * CS);
-      ch.pts.forEach((px, i) => contacts.push({ key: `${CH},${c}`, i, lx: PADX + c * CS + px }));
-    }
-    return { ...ch, v, contacts, lp: (lL + lR) / 2, half: (lR - lL) / 2 };
+    cols.forEach((c, ri) => SA.suspPts(ch.id, ri, cols.length).forEach((px, i) => contacts.push({ key: `${CH},${c}`, i, lx: PADX + c * CS + px })));
+    const lL = PADX + cols[0] * CS, lR = PADX + (cols[cols.length - 1] + 2) * CS;
+    return { ...ch, v, contacts, up: sp.up, down: sp.down, lp: (lL + lR) / 2, half: (lR - lL) / 2 };
   });
   const PY = K.ROWS * CS;   // 车身画布里车底的 y
 

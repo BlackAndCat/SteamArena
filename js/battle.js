@@ -128,12 +128,16 @@ SA.Battle = (() => {
   // 画面上整车绕车底中点旋转 atan(kw)，每个接地点的伸缩存进 s.gnd 交给 renderVehicle
   function settle(s, dt) {
     const [L, R] = span(s), xc = (L + R) / 2;
-    const pts = [], rigid = [];
+    const pts = [], rigid = [], row = s.v.body[SA.V.CH];
+    const same = (k, id) => k >= 0 && k < K.COLS && row[k] && row[k].id === id;
     for (let c = 0; c < K.COLS; c++) {
-      const cell = s.v.body[SA.V.CH][c];
+      const cell = row[c];
       if (!cell) continue;
-      const m = SA.MODULES[cell.id];
-      if (m.susp && alive(cell)) m.susp.pts.forEach((px, i) => pts.push({ key: `${SA.V.CH},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
+      const m = SA.MODULES[cell.id], w = SA.fp(cell.id).w;
+      let a0 = c, a1 = c;   // 同类底盘连续段（蜘蛛腿按它决定往前还是往后张）
+      while (same(a0 - w, cell.id)) a0 -= w;
+      while (same(a1 + w, cell.id)) a1 += w;
+      if (m.susp && alive(cell)) SA.suspPts(cell.id, (c - a0) / w, (a1 - a0) / w + 1).forEach((px, i) => pts.push({ key: `${SA.V.CH},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
       else if (SA.isRam(cell.id)) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
     }
     if (!pts.length) for (let x = L + 6; x <= R - 6; x += 12) pts.push({ x, up: 0, down: 0 });   // 底盘全毁：整车趴在地上

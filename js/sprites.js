@@ -157,25 +157,20 @@ SA.SPR = (() => {
         } else if (eo > 1 && eg <= 1 && m >= 2 && m <= 4) R(xx, yy, 1, 1, P.dark[3]);
       }
   }
-  // 腿的两层配色与错位：远侧更暗、向右上偏移
-  const LEG = {
-    near: { o: P.dark[0], f: P.dark[3], j: P.iron[3], jl: P.iron[4], pis: P.steam[2], foot: [P.dark[0], P.dark[1], P.dark[2], P.dark[3]], dx: 0, dy: 0 },
-    far: { o: P.black, f: P.dark[2], j: P.iron[1], jl: P.iron[2], pis: P.steam[0], foot: [P.black, P.dark[0], P.dark[1], P.dark[2]], dx: 2, dy: -3, far: true },
-  };
-  const walk = (o) => ({ a: (o.gf || 0) / 12 * Math.PI * 2, mv: !!o.mv, bd: o.bd || 0 });
-  // 腿式底盘的横梁：相邻同类格子连成一根，不画中间的接缝
-  function beam(x0, x1, yy, hh, o) {
-    box(x0, yy, x1 - x0, hh, DARK);
-    if (o.connL) R(x0, yy + 1, 2, hh - 2, P.dark[2]);
-    if (o.connR) R(x1 - 2, yy + 1, 2, hh - 3, P.dark[2]);
+  // 腿式底盘：腿用 js/legs.js 的光栅器画（形状先写进遮罩，再按描边 / 暗面 / 固有色 / 亮面四阶上色，光源左上）。
+  // 外观阶段 1~3 → 腿型：双足取 legs.js 的 DESIGNS，四足取 SPIDERS（T3 / T5 用哪一档待定，先都用 T1）
+  const BIPED_LOOK = ['mk2', 'mk2', 'mk2'];
+  const QUAD_LOOK = ['crawl', 'crawl', 'crawl'];
+  const pens = new Map();
+  function penFor(cv) {
+    const k = `${cv.width}x${cv.height}`;
+    let p = pens.get(k);
+    if (!p) { p = SA.LEGLAB.Pen(cv.width, cv.height); pens.set(k, p); }
+    return p.at(1, 0, 0);
   }
-  // 两段腿 IK，膝盖朝后（-x）
-  function ik(hx, hy, fx, fy, L1, L2) {
-    const dx = fx - hx, dy = fy - hy, d = Math.max(1, Math.min(Math.hypot(dx, dy), L1 + L2 - 0.01));
-    const t = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
-    const ang = Math.atan2(dy, dx) + t;
-    return [Math.round(hx + Math.cos(ang) * L1), Math.round(hy + Math.sin(ang) * L1)];
-  }
+  // 精灵状态 → legs.js 的步态参数：12 帧一循环，相邻格错开半个周期；g0 / g1 = 近侧 / 远侧脚的悬挂伸缩
+  const legOpts = (o) => ({ mv: !!o.mv, a: (o.gf || 0) / 12 * Math.PI * 2 + (o.ri || 0) * Math.PI, bd: o.bd || 0, ri: o.ri || 0, rn: o.rn || 1,
+    connL: !!o.connL, connR: !!o.connR, top: !!o.top, k: 1, fl: 0, g0: o.g0 || 0, g1: o.g1 || 0 });
   // 机身起伏幅度：双足大、四足小；混有履带就不起伏
   const BOB = { biped: 3, quad: 1 };
   const gfOf = (phase) => SA.Dyn.frame(phase, 12, 5);   // 腿的步态帧：每走 5px 换一帧，12 帧一循环
@@ -604,50 +599,23 @@ SA.SPR = (() => {
       }
     },
     // 腿式底盘分两层：近侧腿画在车体前；远侧腿压暗、向右上错位，画在整个车体后面 → 伪立体纵深。
-    // part: 'far' 只画远侧腿 / 'near' 只画横梁+近侧腿 / 省略 = 都画（卡片图标用）。bd = 机身随步态下沉的像素
+    // part: 'far' 只画远侧腿 / 'near' 只画机身 + 近侧腿 / 省略 = 都画（卡片图标用）。bd = 机身随步态下沉的像素
+    // 双足 T1 · 工装 Mk.II：箱形梁大腿 + 液压撑杆 + 双支杆小腿 + 带肋平脚（反关节）
     biped(x, y, o) {
-      // 每格一对腿：原来并排的两条腿，一条留在近侧，另一条退到车体后面（远侧）
-      const { a: a0, mv, bd } = walk(o), S = mv ? 7 : 0, a = a0 + (o.ri || 0) * Math.PI;
-      const leg = (L, ph) => {
-        const hx = x + (L.far ? 28 : 16) + L.dx, hy = y + 14 + bd + L.dy;
-        const lift = mv ? Math.round(Math.max(0, Math.sin(a + ph)) * 5) : 0;
-        const fx = Math.round(hx - S * Math.cos(a + ph)), fy = y + 42 + L.dy - lift + ((L.far ? o.g1 : o.g0) || 0);
-        const [kx, ky] = ik(hx, hy, fx, fy, 15, 16);
-        line(hx, hy, kx, ky, 5, L.o); line(hx, hy, kx, ky, 3, L.f);
-        line(kx, ky, fx, fy, 5, L.o); line(kx, ky, fx, fy, 3, L.f);
-        line(hx - 4, hy + 2, kx - 1, ky - 3, 1, L.pis);
-        disc(kx + 0.5, ky + 0.5, 4, L.o); disc(kx + 0.5, ky + 0.5, 3, L.j); R(kx - 1, ky - 1, 1, 1, L.jl);
-        box(fx - 7, fy, 16, 5, L.foot); R(fx + 8, fy + 2, 2, 3, L.j);
-      };
-      if (o.part !== 'near') leg(LEG.far, Math.PI);
-      if (o.part === 'far') return;
-      floor(x, y + bd, o, 4);
-      const x0 = x + (o.connL ? 0 : 3), x1 = x + C - (o.connR ? 0 : 3);
-      beam(x0, x1, y + 4 + bd, 11, o);
-      rivet(x + 9, y + 8 + bd, P.iron[3]); rivet(x + 37, y + 8 + bd, P.iron[3]);
-      leg(LEG.near, 0);
-      disc(x + 16.5, y + 14.5 + bd, 3.2, P.iron[0]); disc(x + 16.5, y + 14.5 + bd, 2.2, P.iron[3]);
+      const LL = SA.LEGLAB, D = LL.DESIGNS.find(e => e.id === BIPED_LOOK[(o.st || 1) - 1]).d, pn = penFor(ctx.canvas);
+      LL.drawCell(pn, ctx, D, x, y, legOpts(o), o.part || undefined);
+      pn.flush(ctx);
     },
+    // 四足 T1 · 伏地蛛：机身压低，每格一对蜘蛛腿往前后张开，膝盖略高过机身；同一段的前半格往前张、后半格往后张（同 SA.suspPts）
     quad(x, y, o) {
-      const { a: a0, mv, bd } = walk(o), a = a0 + (o.ri || 0) * Math.PI;
-      const leg = (L, lx, ph) => {
-        const hx = x + lx + L.dx, top = y + 15 + bd + L.dy, ky = top + 12;
-        const lift = mv ? Math.round(Math.max(0, Math.sin(a + ph)) * 3) : 0;
-        const sw = mv ? Math.round(-3 * Math.cos(a + ph)) : 0;
-        const fy = y + 41 + L.dy - lift + ((L.far ? o.g1 : o.g0) || 0);   // 悬挂：脚往下伸 / 往上收，小腿跟着拉长缩短
-        R(hx - 3, top, 7, 10, L.o); R(hx - 2, top, 5, 10, L.f);
-        line(hx + 4, ky, hx + 4 + sw, fy, 6, L.o); line(hx + 4, ky, hx + 4 + sw, fy, 4, L.f);
-        disc(hx + 1, ky, 4, L.o); disc(hx + 1, ky, 3, L.j); R(hx, ky - 1, 1, 1, L.jl);
-        box(hx - 3 + sw, fy, 15, 6, L.foot);
-      };
-      // 每格两条腿：一条近侧、一条退到车体后面（远侧），两者反相；相邻格再错开半个周期
-      if (o.part !== 'near') leg(LEG.far, 26, Math.PI);
-      if (o.part === 'far') return;
-      floor(x, y + bd, o, 4);
-      const x0 = x + (o.connL ? 0 : 2), x1 = x + C - (o.connR ? 0 : 2);
-      beam(x0, x1, y + 4 + bd, 12, o);
-      R(x0 + 1, y + 7 + bd, x1 - x0 - 2, 1, P.dark[3]);
-      leg(LEG.near, 14, 0);
+      const LL = SA.LEGLAB, H = LL.SPIDERS[QUAD_LOOK[(o.st || 1) - 1]], pn = penFor(ctx.canvas), lo = legOpts(o), bd = lo.bd;
+      const dir = lo.ri < lo.rn / 2 ? -1 : 1;
+      if (o.part !== 'near') LL.spiderLeg(pn, LL.U.FAR, x + 30, y + 7 + bd, y + 45 + lo.g1, -dir, Math.PI, lo, H);
+      if (o.part !== 'far') {
+        LL.carapace(pn, x, y + bd, lo.connL, lo.connR, lo.top);
+        LL.spiderLeg(pn, LL.U.NEAR, x + 22, y + 10 + bd, y + 48 + lo.g0, dir, 0, lo, H);
+      }
+      pn.flush(ctx);
     },
   };
 
@@ -655,11 +623,14 @@ SA.SPR = (() => {
   const cache = new Map();
   const TOP = 16;
   const BOT = 14;   // 精灵底下留的空：悬挂伸长时轮子 / 脚落到格子下面也画得下
+  const LEFT = 16;  // 精灵左边留的空：蜘蛛腿往后张的脚伸到格子外面也画得下
   const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
   // 悬挂偏移按整像素缓存；没有偏移就不写进键里（和原来的缓存一致）
-  function gndQ(q, o) {
+  // 腿式底盘（step = 2）按 2px 一档：脚最多差 1px，但光栅腿的缓存命中率高得多
+  function gndQ(q, o, step = 1) {
     if (!o.gnd) return;
-    const a = Math.round(o.gnd[0] || 0), b = Math.round(o.gnd[1] || 0), l = Math.round(o.gL || 0), r = Math.round(o.gR || 0);
+    const rq = (v) => Math.round((v || 0) / step) * step;
+    const a = rq(o.gnd[0]), b = rq(o.gnd[1]), l = rq(o.gL), r = rq(o.gR);
     if (a || b) { q.g0 = a; q.g1 = b; }
     if (l) q.gL = l;
     if (r) q.gR = r;
@@ -674,7 +645,7 @@ SA.SPR = (() => {
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
-      case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; gndQ(q, o); break;
+      case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; gndQ(q, o, 2); break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
     if (o.mt > 1) q.mt = o.mt;
@@ -683,8 +654,8 @@ SA.SPR = (() => {
   // 这些模块的颜色本身就是辨识度（驾驶员、炉火、水），不整体换色，只在四角钉上材料色的角铁
   const KEEP_COLOR = new Set(['cockpit', 'copilot', 'helmet', 'boiler', 'water', 'tank_s', 'tank_tall']);
   function markMat(cv, mat, top) {
-    const g = cv.getContext('2d'), W = cv.width - 32, H = cv.height - top - BOT, n = Math.min(W, H) > 24 ? 7 : 4;   // 画布按占格放大过：角铁贴着模块本身的四角
-    for (const [x, y, dx, dy] of [[0, top, 1, 1], [W - 1, top, -1, 1], [0, top + H - 1, 1, -1], [W - 1, top + H - 1, -1, -1]]) {
+    const g = cv.getContext('2d'), W = cv.width - 32 - LEFT, H = cv.height - top - BOT, n = Math.min(W, H) > 24 ? 7 : 4;   // 画布按占格放大过：角铁贴着模块本身的四角
+    for (const [x, y, dx, dy] of [[LEFT, top, 1, 1], [LEFT + W - 1, top, -1, 1], [LEFT, top + H - 1, 1, -1], [LEFT + W - 1, top + H - 1, -1, -1]]) {
       g.fillStyle = '#07080c';
       g.fillRect(dx > 0 ? x : x - n, dy > 0 ? y : y - 2, n + 1, 3); g.fillRect(dx > 0 ? x : x - 2, dy > 0 ? y : y - n, 3, n + 1);
       g.fillStyle = mat.chip;
@@ -708,16 +679,16 @@ SA.SPR = (() => {
   }
   // 外观接口：DRAW[id](x, y, q) 在 (x, y) 画一个占 f.w × f.h 子格的模块；q 是 quant() 量化后的状态，
   // 另外带 q.st = 外观阶段（1~3，按材料算，见 SA.stageOf；只有一个造型的模块永远是 1，不写进 q）。
-  // 画布按占格放大：右边留 32px 给伸出去的炮管，上面留 TOP 给抬起的炮管，下面留 BOT 给伸长的悬挂
+  // 画布按占格放大：右边留 32px 给伸出去的炮管，左边留 LEFT 给往后张的腿，上面留 TOP 给抬起的炮管，下面留 BOT 给伸长的悬挂
   function sprite(id, q, f = { w: 2, h: 2 }) {
     const key = id + JSON.stringify(q);
     let cv = cache.get(key);
     if (!cv) {
       if (cache.size > 800) cache.clear();
       cv = document.createElement('canvas');
-      cv.width = f.w * S + 32; cv.height = f.h * S + TOP + BOT;
+      cv.width = f.w * S + 32 + LEFT; cv.height = f.h * S + TOP + BOT;
       ctx = cv.getContext('2d');
-      DRAW[id](0, TOP, q);
+      DRAW[id](LEFT, TOP, q);
       if (q.mt > 1) (KEEP_COLOR.has(id) ? markMat : tintMat)(cv, SA.MATS[q.mt], TOP);
       cache.set(key, cv);
     }
@@ -732,8 +703,8 @@ SA.SPR = (() => {
   // 有自己画的模块按原生大小贴；借用大模块精灵的小模块（1×1、1×2）暂时缩小画，以后再重画
   function drawModule(c2d, id, x, y, o = {}) {
     const f = SA.fp(id), img = modSprite(id, o);
-    if (!SA.MODULES[id].art || (f.w === 2 && f.h === 2)) c2d.drawImage(img, x, y - TOP);
-    else c2d.drawImage(img, 0, TOP, C, C, x, y, f.w * S, f.h * S);
+    if (!SA.MODULES[id].art || (f.w === 2 && f.h === 2)) c2d.drawImage(img, x - LEFT, y - TOP);
+    else c2d.drawImage(img, LEFT, TOP, C, C, x, y, f.w * S, f.h * S);
     ctx = c2d;
   }
   // 按 48px 设计的叠加层（裂纹、残骸）缩放到模块的实际大小
@@ -901,9 +872,9 @@ SA.SPR = (() => {
       g.save();
       g.globalAlpha = o.dimSide ? 0.35 : 1;
       g.filter = 'brightness(0) opacity(0.55)';
-      g.drawImage(img, cx(c) + 3, cy(r) + 3 + bd - TOP);
+      g.drawImage(img, cx(c) + 3 - LEFT, cy(r) + 3 + bd - TOP);
       g.filter = 'none';
-      g.drawImage(img, cx(c), cy(r) + bd - TOP);
+      g.drawImage(img, cx(c) - LEFT, cy(r) + bd - TOP);
       g.restore();
       ctx = g;
       scaled(g, cx(c), cy(r) + bd, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c + 3));

@@ -1,5 +1,6 @@
 // 模块注册表。layer: chassis(只能放最底行) | body(主体层) | side(侧挂层，只能挂在主体模块上) | ram(撞击，挂在底盘/装甲正前方)
-// 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）
+// 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x，近侧脚在前、远侧脚在后），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）。
+// 蜘蛛四足的脚往外张：splay = 脚离胯多远，hips = 近侧 / 远侧的胯；同一段四足的前半格往前张、后半格往后张（SA.suspPts 算）
 window.SA = window.SA || {};
 
 // 格子：子格 24px，全车 16 列 × 12 行（= 以前的 8 × 6 大格，每个大格分成 2×2 子格）。
@@ -56,13 +57,13 @@ SA.MODULES = {
   quad: {
     name: '四足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
-    susp: { pts: [17, 30], up: 6, down: 12, follow: 0.75 },
+    susp: { splay: 30, hips: [22, 30], up: 6, down: 12, follow: 0.85 },
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
     name: '双足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1, accel: 1.5, brake: 1.7, sway: 1.5, spool: 0.55,
-    susp: { pts: [16, 30], up: 8, down: 14, follow: 0.5 },
+    susp: { pts: [18, 32], up: 8, down: 3, follow: 0.85 },
     desc: '起步、刹车、跑得都最快，摇摆步态让敌人难以命中；但自己走起来晃得厉害，移动射击散布最大。',
   },
   // 驾驶舱：基础款是 1×1（id 仍叫 helmet，分享码按 id 序号编码不能改）；1×2、2×2 是「联合驾驶舱」换皮，舱里的驾驶员一律 1×1 大小。
@@ -189,6 +190,13 @@ SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
 SA.fp = (id) => { const m = SA.MODULES[id]; return { w: m.w || 2, h: m.h || 2 }; };
 SA.isCockpit = (id) => !!SA.MODULES[id].cockpit;
 SA.driversOf = (id) => SA.MODULES[id].drivers || 0;
+// 底盘这一格两个接地点的 x（48px 格内，可以伸出格外）：ri / rn = 这格在同类底盘连续段里的序号和段长
+SA.suspPts = (id, ri = 0, rn = 1) => {
+  const s = SA.MODULES[id].susp;
+  if (!s.splay) return s.pts;
+  const d = ri < rn / 2 ? -1 : 1;
+  return [s.hips[0] + d * s.splay, s.hips[1] - d * s.splay];
+};
 // 已取消的模块 → 替代品（旧存档、旧分享码、旧蓝图读进来时换掉）
 SA.RETIRED = { copilot: 'cockpit' };
 SA.liveId = (id) => SA.RETIRED[id] || id;

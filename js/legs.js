@@ -1,4 +1,5 @@
-// 双足底盘升级版 · 设计探索（只给 tools/biped-lab.html 用；定稿后再把选中的造型并入 js/sprites.js）
+// 腿部套件：游戏里的双足 / 四足底盘（sprites.js 的 biped / quad）和样机页（biped-lab、biped-v2、mech-kit）共用。
+// 双足：六档腿型 + 探索版（DESIGNS），游戏按外观阶段选用；四足：蜘蛛腿（spiderLeg + carapace，SPIDERS 是各型号的腿形参数）。
 // 每个设计都在 48 单位的格子坐标里描述，由一个小光栅器按任意像素密度画出来（1× = 48px 原生，2× = 96px 精细）：
 // 形状先写进遮罩，再统一按「描边 / 暗面 / 固有色 / 亮面」四阶上色（光源左上），两种密度共用同一份造型代码，
 // 只有标了 pn.hi 的细节（刻线、铆钉、齿纹）在 2× 才画。
@@ -658,7 +659,8 @@ SA.LEGLAB = (() => {
   // L = 一条腿的挂点；hx 可覆盖（整段巨腿模式下腿不在格子里的固定位置）
   const legAt = (D, far, x, y, o, hx) => ({
     far, M: far ? FAR : NEAR, x, y: y + o.bd,
-    hx: hx != null ? hx : x + (far ? 30 : 16), hy: y + (D.hipY || 14) + o.bd - (far ? 3 : 0), gy: y + 47 - (far ? 3 : 0),
+    hx: hx != null ? hx : x + (far ? 30 : 16), hy: y + (D.hipY || 14) + o.bd - (far ? 3 : 0),
+    gy: y + 47 - (far ? 3 : 0) + ((far ? o.g1 : o.g0) || 0),   // 悬挂：这只脚往下伸（正）/ 往上收（负）
   });
   // 腿长倍率 k：以胯为支点放大整条腿（和挂在胯上的甲片），横梁不变
   function drawLeg(pn, D, L, o, k) {
@@ -690,5 +692,37 @@ SA.LEGLAB = (() => {
   // 地面高度（格子坐标）：胯 + 腿长 × 倍率；现役精灵不缩放
   const groundY = (e, k) => (e.d.game ? 47 : (e.d.hipY || 14) + (47 - (e.d.hipY || 14)) * k);
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, U: { NEAR, FAR, gait, ik, bone, frame, gear, rivet, flat } };
+  // ---------- 蜘蛛腿（四足） ----------
+  // 每格两条：近侧一条、远侧一条，往前后张开。H.up = 膝盖高出胯多少（用膝高区分型号），H.kx 膝盖往外伸，H.reach 脚往外伸。
+  // 脚到膝盖之间的小腿长度可变：悬挂伸缩时脚跟着地面走，小腿自己拉长缩短
+  function spiderLeg(pn, M, hx, hy, gy, dir, ph, o, H) {
+    const g = gait(o, ph, 5, 4);
+    const fx = hx + dir * H.reach + g.x, fy = gy - g.lift;
+    const kx = hx + dir * H.kx + g.x * 0.3, ky = hy - H.up - g.lift * 0.6;
+    const F = bone(hx, hy, kx, ky);
+    pn.poly(F.pts([[0, -2.6], [0, 2.6], [F.len, 3.4], [F.len, -3.4]])).paint(M.leg);
+    if (F.len > 14) pn.ln(...F.p(2, 0), ...F.p(F.len - 3, 0), M.leg[3]);
+    const B = bone(kx, ky, fx, fy), a = B.len * 0.3;
+    pn.poly(B.pts([[-1, -3.6], [-1, 3.6], [B.len * 0.45, 2.8], [B.len - 3, 1.2], [B.len + 1, 0], [B.len - 3, -1.2], [B.len * 0.45, -2.4]])).paint(M.leg);
+    pn.poly(B.pts([[a - 0.9, -3.1], [a + 0.9, -3.1], [a + 0.9, 3.1], [a - 0.9, 3.1]])).paint(M.brass, { outline: false });
+    pn.disc(kx, ky, 3.4).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
+    pn.disc(hx, hy, 3.2).paint(M.iron); pn.disc(hx, hy, 1.2).paint(M.brass, { outline: false });
+  }
+  // 蜘蛛机身（一格）：压低的梯形甲壳，相邻同类格子连成一片
+  function carapace(pn, x, y, connL, connR, top) {
+    pn.fill(x, y, 48, 3, P.iron[1]); pn.fill(x, y + 2, 48, 1, P.iron[0]);
+    if (!top) { pn.fill(x, y, 48, 1, P.iron[0]); pn.fill(x, y + 1, 48, 1, P.iron[3]); }
+    const x0 = connL ? x - 4 : x + 2, x1 = connR ? x + 52 : x + 46;
+    pn.poly([[x0, y + 3], [x1, y + 3], [x1 - (connR ? 0 : 3), y + 14], [x0 + (connL ? 0 : 3), y + 14]]).paint(NEAR.dark, { clip: [x, x + 48] });
+    for (let k = 8; k < 48; k += 16) pn.fill(x + k, y + 5, 1, 8, P.dark[0]);
+    rivet(pn, x + 3, y + 6); rivet(pn, x + 42, y + 6);
+    pn.fill(x0 < x ? x : x0 + 1, y + 11, Math.min(x1, x + 48) - Math.max(x0, x) - 1, 1, P.brass[1]);
+  }
+  // 蜘蛛型号：伏地蛛 = 四足 T1（矮、宽、稳），高脚蛛 = 膝盖高出机身一大截
+  const SPIDERS = {
+    crawl: { name: '伏地蛛', up: 12, kx: 15, reach: 30 },
+    tall: { name: '高脚蛛', up: 30, kx: 12, reach: 24 },
+  };
+
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, U: { NEAR, FAR, gait, ik, bone, frame, gear, rivet, flat } };
 })();
