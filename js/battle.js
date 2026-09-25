@@ -101,7 +101,7 @@ SA.Battle = (() => {
       for (let x = Math.max(0, Math.floor(hl.x - hl.w / 2)); x <= Math.min(W, Math.ceil(hl.x + hl.w / 2)); x++)
         ground[x] -= hl.h * 0.5 * (1 + Math.cos(Math.PI * (x - hl.x) / (hl.w / 2)));
     const at = (x) => ground[Math.max(0, Math.min(W, Math.round(x)))];
-    const crates = (def.crates || []).map(c => { const y1 = at(c.x); return { x0: c.x - c.w / 2, x1: c.x + c.w / 2, y0: y1 - c.h, y1, hp: c.hp, max: c.hp, dead: false }; });
+    const crates = (def.crates || []).map(c => { const y1 = at(c.x); return { x0: c.x - c.w / 2, x1: c.x + c.w / 2, y0: y1 - c.h, y1, hp: c.hp, max: c.hp, dead: false, shake: 0 }; });
     return { id: key, def, ground, mud: def.mud || [], crates };
   }
   const groundAt = (x) => (B && B.ter && x >= 0 && x <= W ? B.ter.ground[Math.round(x)] : GROUND);   // 地形只在中间这一段，其余都是平地
@@ -112,9 +112,10 @@ SA.Battle = (() => {
   function terrainK(s, dir) {
     if (!B.ter) return { top: 1, acc: 1 };
     const [L, R] = span(s), wd = Math.max(1, R - L);
-    let mud = 0;
+    let mud = 0, junk = 0;
     for (const [a, b] of B.ter.mud) mud += Math.max(0, Math.min(R, b) - Math.max(L, a));
-    const mk = 1 - (mud / wd) * (1 - (MUD[s.chassisId] || 0.7));
+    for (const c of B.ter.crates) if (c.dead) junk += Math.max(0, Math.min(R, c.x1 + 10) - Math.max(L, c.x0 - 10));   // 碎木堆：谁开过去都慢一点
+    const mk = (1 - (mud / wd) * (1 - (MUD[s.chassisId] || 0.7))) * (1 - Math.min(1, junk / wd) * 0.35);
     let slope = 1;
     if (dir) {
       const front = dir > 0 ? R : L, back = dir > 0 ? L : R;
@@ -122,25 +123,34 @@ SA.Battle = (() => {
     }
     return { top: mk * slope, acc: mk };
   }
-  // 车身跟着地面：取车底下最高的那一点（整车不倾斜），平滑过渡
+  // 车身贴地：车底是一条斜线，坡度 kw（世界里每往右 1px 往下多少 px）取车头车尾两处的地面高度差，
+  // 再把这条线整体抬到不插进地面为止（翻过坡顶时架在坡顶上）。画面上用纵向错切表现，不旋转像素（docs/art-direction.md §9）
   function settle(s, dt) {
-    const [L, R] = span(s);
-    let top = GROUND;
-    for (let x = L; x <= R; x += 12) top = Math.min(top, groundAt(x));
-    top = Math.min(top, groundAt(R));
-    s.yo = (s.yo || 0) + (top - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
+    const [L, R] = span(s), xc = (L + R) / 2;
+    const kT = clamp((groundAt(R - 6) - groundAt(L + 6)) / Math.max(1, R - L - 12), -0.45, 0.45);
+    s.kw = (s.kw || 0) + (kT - (s.kw || 0)) * Math.min(1, dt * 8);
+    let yc = Infinity;
+    for (let x = L; x <= R; x += 6) yc = Math.min(yc, groundAt(x) - s.kw * (x - xc));
+    yc = Math.min(yc, groundAt(R) - s.kw * (R - xc));
+    s.pivX = xc;
+    s.yo = (s.yo || 0) + (yc - GROUND - (s.yo || 0)) * Math.min(1, dt * 10);
   }
-  // 货箱挨打：碎木屑，打烂了就倒下
-  function hitCrate(k, dmg) {
+  // 错切：世界 x 处车身比平放时低多少 px
+  const shearAt = (s, x) => (s.kw || 0) * (x - (s.pivX == null ? x : s.pivX));
+  // 车头抬起的斜率（两边都是「抬头为正」）：瞄准和出膛方向要加上它
+  const pitchOf = (s) => (isP(s) ? -1 : 1) * (s.kw || 0);
+  // 货箱挨打 / 被碾：一抖、飞木屑，打烂了就散成一地碎木。crush = 被车碾（每帧都有，不飘数字，木屑少一点）
+  function hitCrate(k, dmg, crush) {
     const c = B.ter.crates[k];
     if (!c || c.dead) return;
     c.hp -= dmg;
+    c.shake = 0.2;
     const x = (c.x0 + c.x1) / 2, y = (c.y0 + c.y1) / 2;
-    textFx(String(Math.round(dmg)), x + rnd(-9, 9), c.y0 - 10, '#d9b27a');
-    for (let i = 0; i < 6; i++) part('debris', x, y, rnd(-120, 120), rnd(-180, -40), rnd(0.4, 0.8), '#6b4a2b');
+    if (!crush) textFx(String(Math.round(dmg)), x + rnd(-9, 9), c.y0 - 10, '#d9b27a');
+    if (!crush || Math.random() < 0.25) for (let i = 0; i < (crush ? 2 : 6); i++) part('debris', x, y, rnd(-120, 120), rnd(-180, -40), rnd(0.4, 0.8), P.leather[1]);
     if (c.hp <= 0) {
       c.dead = true;
-      for (let i = 0; i < 16; i++) part('debris', x + rnd(-20, 20), y + rnd(-20, 20), rnd(-200, 200), rnd(-260, -60), rnd(0.8, 1.4), i % 2 ? '#6b4a2b' : '#4a321d');
+      for (let i = 0; i < 16; i++) part('debris', x + rnd(-20, 20), y + rnd(-20, 20), rnd(-200, 200), rnd(-260, -60), rnd(0.8, 1.4), i % 2 ? P.leather[1] : P.leather[2]);
       for (let i = 0; i < 6; i++) part('dust', x, c.y1 - 4, rnd(-80, 80), rnd(-60, -10), rnd(0.4, 0.8));
       B.shake = Math.max(B.shake, 4);
     }
@@ -155,7 +165,8 @@ SA.Battle = (() => {
   // 模块在世界里的包围盒（敌方镜像：锚点列在世界里是最右边那一列）
   function modBox(s, r, c, id) {
     const f = SA.fp(id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
-    return { x0, x1: x0 + f.w * C, y0: cellY(r, s), y1: cellY(r, s) + f.h * C };
+    const dy = shearAt(s, x0 + f.w * C / 2);   // 车身随坡度错切，模块跟着上下挪
+    return { x0, x1: x0 + f.w * C, y0: cellY(r, s) + dy, y1: cellY(r, s) + f.h * C + dy };
   }
   function modCenter(s, layer, r, c) {
     const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
@@ -163,7 +174,7 @@ SA.Battle = (() => {
   }
   // 世界坐标 → 子格
   function cellAt(s, x, y) {
-    const r = Math.floor((y - VY - (s.yo || 0)) / C);
+    const r = Math.floor((y - shearAt(s, x) - VY - (s.yo || 0)) / C);
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
   }
@@ -177,7 +188,8 @@ SA.Battle = (() => {
     const x0 = cellX(s, w.c), y0 = cellY(w.r, s);
     const [px, py] = w.m.piv, a = barrel(s, w) * Math.PI / 180;
     const dx = Math.cos(a) * w.m.blen, dy = -Math.sin(a) * w.m.blen;
-    return isP(s) ? [x0 + px + dx, y0 + py + dy] : [x0 + C - px - dx, y0 + py + dy];
+    const mx = isP(s) ? x0 + px + dx : x0 + C - px - dx;
+    return [mx, y0 + py + dy + shearAt(s, mx)];
   }
   // 准星优先级：侧挂层 > 主体层
   function targetAt(def, x, y) {
@@ -203,7 +215,8 @@ SA.Battle = (() => {
   function aimAngle(s, w, tx, ty) {
     const [x0, y0] = muzzle(s, w);
     const sol = solve(x0, y0, tx, ty, w.m.v, K.GRAVITY * w.m.g, w.m.arc === 'high');
-    const raw = sol.a * 180 / Math.PI, [lo, hi] = w.m.elev;
+    // 世界里要的仰角 → 炮管相对车身的仰角（车身在坡上抬头 / 低头，射界也跟着车身走）
+    const raw = Math.atan(Math.tan(sol.a) - pitchOf(s)) * 180 / Math.PI, [lo, hi] = w.m.elev;
     return { a: clamp(raw, lo, hi), reach: sol.reach, over: sol.reach && raw > hi ? 'high' : sol.reach && raw < lo ? 'low' : null };
   }
   const barrel = (s, w) => (s.elev[w.key] != null ? s.elev[w.key] : w.m.rest);
@@ -211,7 +224,9 @@ SA.Battle = (() => {
     const [x0, y0] = muzzle(s, w);
     const a = (deg + jitter) * Math.PI / 180;
     const dir = isP(s) ? 1 : -1;
-    return { x: x0, y: y0, vx: dir * w.m.v * Math.cos(a), vy: -w.m.v * Math.sin(a), g: K.GRAVITY * w.m.g };
+    // 炮管方向（相对车身）经过车身错切后的世界方向，再按炮口初速归一
+    const ux = Math.cos(a), uy = Math.sin(a) + pitchOf(s) * Math.cos(a), n = Math.hypot(ux, uy) || 1;
+    return { x: x0, y: y0, vx: dir * w.m.v * ux / n, vy: -w.m.v * uy / n, g: K.GRAVITY * w.m.g };
   }
   // 推进一步并检测命中：侧挂模式只和侧挂层碰撞
   function advance(sh, def, dt) {
@@ -374,7 +389,7 @@ SA.Battle = (() => {
     }
     // 场地左右无限延伸：想退多远退多远，不会被堵在角落里（背景看台会跟着转）
     let nx = s.x + s.vx * dt;
-    // 货箱挡路：整车不能穿过没打烂的货箱；带着速度撞上去会撞坏它（有撞击件撞得更狠）
+    // 货箱：不经撞，车一顶上去就碾碎（车越重、越快碎得越快），碾的时候车速被拖慢；碎了留一堆碎木，开过去再慢一点
     if (B.ter) {
       const [L, R] = span(s);
       for (let k2 = 0; k2 < B.ter.crates.length; k2++) {
@@ -382,16 +397,19 @@ SA.Battle = (() => {
         if (cb.dead) continue;
         const dx = nx - s.x;
         let stop = null;
-        if (dx > 0 && R <= cb.x0 + 0.5 && R + dx > cb.x0) stop = s.x + (cb.x0 - R);
-        else if (dx < 0 && L >= cb.x1 - 0.5 && L + dx < cb.x1) stop = s.x + (cb.x1 - L);
+        if (dx > 0 && R <= cb.x0 + 1.5 && R + dx > cb.x0) stop = s.x + (cb.x0 - R);
+        else if (dx < 0 && L >= cb.x1 - 1.5 && L + dx < cb.x1) stop = s.x + (cb.x1 - L);
         if (stop == null) continue;
-        const v = Math.abs(s.vx);
-        if (v > 25) hitCrate(k2, (s.rams ? 22 : 8) * v / 60 * SA.ramMul(s.mass * 1000));
-        nx = stop; s.vx = 0;
+        const v = Math.abs(s.vx), hit = !cb.touch;   // 刚撞上的那一下另算冲击
+        cb.touch = 0.15;
+        let dmg = s.mass * (8 + v * 0.5) * dt * (s.rams ? 2 : 1);
+        if (hit && v > 10) dmg += s.mass * v * 0.2 * (s.rams ? 1.5 : 1);
+        hitCrate(k2, dmg, true);
+        if (cb.dead) { s.vx *= 0.7; continue; }      // 碾碎了：冲过去，只丢一点速度
+        nx = stop;
+        s.vx = Math.sign(s.vx) * Math.min(Math.abs(s.vx), 18);   // 还没碎：顶着慢慢碾
       }
     }
-    s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
-    s.anim.phase = s.phase;   // 履带链节 / 腿的步态都读动态模块里的行驶相位
     s.moving = Math.abs(nx - s.x) > 0.02;
     s.x = nx;
     settle(s, dt);
@@ -703,6 +721,7 @@ SA.Battle = (() => {
   function step(dt) {
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
+    if (B.ter) for (const c of B.ter.crates) { c.shake = Math.max(0, c.shake - dt); c.touch = Math.max(0, (c.touch || 0) - dt); }
     if (B.p.isAI) ai(B.p, B.e, dt);
     else {
       if (!B.p.dead) B.p.dir = (B.keys.right ? 1 : 0) - (B.keys.left ? 1 : 0);
@@ -887,42 +906,12 @@ SA.Battle = (() => {
   function drawTerrain() {
     const T = B.ter;
     if (!T) return;
-    if ((T.def.hills || []).length) {
-      for (let x = 0; x < W; x += 2) {
-        const y = Math.round(T.ground[x]);
-        if (y >= GROUND) continue;
-        g.fillStyle = P.bg[2]; g.fillRect(x, y, 2, GROUND - y + 1);
-        g.fillStyle = P.bg[4]; g.fillRect(x, y, 2, 2);
-        if ((x * 7) % 26 < 2 && GROUND - y > 10) { g.fillStyle = P.bg[1]; g.fillRect(x, y + 6 + (x % 9), 3, 2); }
-      }
+    if (!T.art && ((T.def.hills || []).length || T.mud.length)) T.art = SA.TerrainArt.layer(T.ground, T.mud, W, H, GROUND);   // 土坡 + 泥地：静态像素层，只画一次
+    if (T.art) g.drawImage(T.art, 0, 0);
+    for (const c of T.crates) {
+      if (c.dead) SA.TerrainArt.rubble(g, c.x0 - 6, c.x1 + 6, c.y1);
+      else SA.TerrainArt.crate(g, c.x0, c.y0, Math.round(c.x1 - c.x0), Math.round(c.y1 - c.y0), c.hp / c.max, c.shake > 0 ? (Math.floor(B.t * 40) % 2 ? 1 : -1) : 0);
     }
-    for (const [a, b] of T.mud) {
-      for (let x = Math.floor(a); x < b; x += 2) {
-        const y = Math.round(T.ground[Math.min(W, x)]);
-        g.fillStyle = '#2e2116'; g.fillRect(x, y - 2, 2, 12);
-        g.fillStyle = (x * 13) % 34 < 4 ? '#6b5237' : '#3f2d1d'; g.fillRect(x, y - 3, 2, 2);
-      }
-    }
-    for (const c of T.crates) drawCrate(c);
-  }
-  function drawCrate(c) {
-    const x = Math.round(c.x0), y = Math.round(c.y0), w = Math.round(c.x1 - c.x0), h = Math.round(c.y1 - c.y0);
-    if (c.dead) {   // 打烂了：一地碎木板
-      g.fillStyle = '#4a321d';
-      for (let i = 0; i < 5; i++) g.fillRect(x + i * (w / 5) - 4, Math.round(c.y1) - 4 - (i % 2) * 3, 14, 3);
-      return;
-    }
-    const f = c.hp / c.max;
-    g.fillStyle = '#1c130b'; g.fillRect(x - 1, y - 1, w + 2, h + 2);
-    g.fillStyle = '#6b4a2b'; g.fillRect(x, y, w, h);
-    g.fillStyle = '#4a321d';
-    for (let yy = y + 12; yy < y + h; yy += 12) g.fillRect(x, yy, w, 2);   // 木板缝
-    SA.SPR.useCtx(g);
-    SA.SPR.line(x + 3, y + h - 3, x + w - 3, y + 3, 3, '#4a321d');           // 斜撑
-    g.fillStyle = P.iron[2];
-    for (const [cx0, cy0] of [[x, y], [x + w - 6, y], [x, y + h - 6], [x + w - 6, y + h - 6]]) g.fillRect(cx0, cy0, 6, 6);   // 铁包角
-    if (f < 0.66) { SA.SPR.line(x + w * 0.3, y + 4, x + w * 0.5, y + h * 0.4, 1, '#1c130b'); SA.SPR.line(x + w * 0.5, y + h * 0.4, x + w * 0.4, y + h * 0.7, 1, '#1c130b'); }
-    if (f < 0.33) { g.fillStyle = 'rgba(7,8,12,0.45)'; g.fillRect(x + 4, y + h * 0.5, w * 0.5, 8); SA.SPR.line(x + w * 0.7, y + h * 0.2, x + w * 0.9, y + h * 0.8, 1, '#1c130b'); }
   }
 
   function draw() {
@@ -939,7 +928,7 @@ SA.Battle = (() => {
     if (B.shake) g.translate(Math.round(rnd(-B.shake, B.shake)), Math.round(rnd(-B.shake, B.shake)));
     g.fillStyle = 'rgba(7,8,12,0.4)';
     drawTerrain();
-    for (const s of [B.p, B.e]) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, Math.round(GROUND + (s.yo || 0)) - 3, (K.COLS - s.minCol) * C + 16, 8);
+    for (const s of [B.p, B.e]) if (Math.abs(s.kw || 0) < 0.03) g.fillRect(Math.round(cellX(s, isP(s) ? s.minCol : K.COLS - 1)) - 8, Math.round(GROUND + (s.yo || 0)) - 3, (K.COLS - s.minCol) * C + 16, 8);
 
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, moving: s.moving, ...extra });
@@ -1120,7 +1109,7 @@ SA.Battle = (() => {
     if (hi < lo) return;
     let a = 0, m = 0;
     SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
-    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = Math.round(VY + (s.yo || 0) + top * C - 30);
+    const w = Math.min(150, hi - lo), x = Math.round((lo + hi) / 2 - w / 2), y = Math.round(VY + (s.yo || 0) + top * C - 30 + shearAt(s, (lo + hi) / 2));
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
     const bar = (yy, f, col, flash) => {
       g.fillStyle = 'rgba(7,8,12,0.8)'; g.fillRect(x - 1, yy - 1, w + 2, 6);
@@ -1158,8 +1147,8 @@ SA.Battle = (() => {
   // 瞄准高亮：整格白色闪烁 + 白描边，侧炮和普通模块一样，不分颜色
   const hlC = document.createElement('canvas');
   hlC.width = K.ART + 8; hlC.height = K.ART + 8;
-  // lx, ly：模块在整车画布里的左上角；w, h：模块像素大小
-  function highlight(cvs, lx, ly, w, h) {
+  // lx, ly：模块在整车画布里的左上角；w, h：模块像素大小；dx, dy：画到哪（当前坐标系）
+  function highlight(cvs, lx, ly, w, h, dx, dy) {
     const x = hlC.getContext('2d');
     x.globalCompositeOperation = 'source-over';
     x.clearRect(0, 0, hlC.width, hlC.height);
@@ -1167,22 +1156,32 @@ SA.Battle = (() => {
     x.globalCompositeOperation = 'source-atop';
     x.fillStyle = '#ffffff'; x.fillRect(0, 0, w + 8, h + 8);
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
-    g.globalAlpha = 0.3 + 0.45 * pulse; g.drawImage(hlC, 0, 0, w + 8, h + 8, lx - 4, ly - 4, w + 8, h + 8); g.globalAlpha = 1;
-    g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(lx - 1, ly - 1, w + 2, h + 2);
+    g.globalAlpha = 0.3 + 0.45 * pulse; g.drawImage(hlC, 0, 0, w + 8, h + 8, dx - 4, dy - 4, w + 8, h + 8); g.globalAlpha = 1;
+    g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(dx - 1, dy - 1, w + 2, h + 2);
   }
 
   function drawVehicle(s, cvs, hl) {
-    const w = s.anim.body.x;                       // 本地坐标：负 = 被往后推
-    const px = VW / 2, py = K.ROWS * C;            // 以车底中点为支点
+    const w = s.anim.body.x;                        // 后坐：本地坐标里往后挪（负 = 被往后推）
+    const py = K.ROWS * C;                          // 车身画布底边 = 车底
+    const lp = isP(s) ? s.pivX - s.x : s.x + VW - s.pivX;   // 支点（车底中点）在车身画布里的 x
+    const kw = s.kw || 0, lift = clamp(w * 0.012, -0.06, 0.06);
+    // 画布里第 lx 列往下挪多少：地面坡度（错切）+ 后坐时车头微微抬起
+    const dyAt = (lx) => kw * (isP(s) ? lx - lp : lp - lx) + lift * (lx - lp);
     g.save();
-    const vy = Math.round(VY + (s.yo || 0)) - Math.round(s.rock * 2);
-    if (isP(s)) g.translate(Math.round(s.x), vy);
-    else { g.translate(Math.round(s.x) + VW, vy); g.scale(-1, 1); }
-    g.translate(px + w, py);
-    g.rotate(clamp(w * 0.012, -0.06, 0.06));      // 往后坐时车头微微抬起
-    g.drawImage(cvs, -px, -py);
-    if (s.dead) g.drawImage(tint(cvs), -px, -py);
-    if (hl) { const f = SA.fp(s.v[hl.layer][hl.r][hl.c].id); g.translate(-px, -py); highlight(cvs, PADX + hl.c * C, hl.r * C, f.w * C, f.h * C); }   // 本地坐标：跟着车身晃动、敌方镜像
+    g.translate(Math.round(s.pivX), Math.round(GROUND + (s.yo || 0)) - Math.round(s.rock * 2));
+    if (!isP(s)) g.scale(-1, 1);
+    g.translate(Math.round(w), 0);
+    // 按 2px 宽的竖条整像素错位地画：竖线仍然竖直，像素不变形、不糊边
+    const blit = (src) => {
+      if (Math.abs(kw) < 0.004 && Math.abs(lift) < 0.004) { g.drawImage(src, -lp, -py); return; }
+      for (let x = 0; x < src.width; x += 2) g.drawImage(src, x, 0, 2, py, x - lp, -py + Math.round(dyAt(x + 1)), 2, py);
+    };
+    blit(cvs);
+    if (s.dead) blit(tint(cvs));
+    if (hl) {
+      const f = SA.fp(s.v[hl.layer][hl.r][hl.c].id), lx = PADX + hl.c * C, ly = hl.r * C;
+      highlight(cvs, lx, ly, f.w * C, f.h * C, lx - lp, ly - py + Math.round(dyAt(lx + f.w * C / 2)));   // 本地坐标：跟着车身晃动、错切、敌方镜像
+    }
     g.restore();
   }
 

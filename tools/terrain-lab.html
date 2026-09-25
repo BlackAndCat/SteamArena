@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地形美术样机</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; overflow: auto; }
+  body { padding: 16px; max-width: 1400px; margin: 0 auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
+  h2 { color: var(--brass2); font-size: 15px; margin: 22px 0 10px; letter-spacing: 2px; }
+  .lead { color: var(--muted); max-width: 980px; line-height: 1.6; margin: 0 0 12px; }
+  .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 980px; line-height: 1.6; margin-bottom: 12px; font-size: 13px; }
+  .find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 620px), 1fr)); gap: 14px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 10px; }
+  .card b { display: block; margin-bottom: 4px; }
+  .card .muted { font-size: 12px; display: block; margin-bottom: 8px; }
+  canvas.px { image-rendering: pixelated; max-width: 100%; height: auto; display: block; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .row .it { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+</style></head>
+<body>
+<h1>地形美术样机</h1>
+<p class="lead">竞技场地形的像素画法：土坡（矿渣堆）、泥地、木货箱、碎木，以及坡上的车身错切。游戏里就是这一套（<code>js/terrain-art.js</code>），改完刷新本页看效果。全部按原生像素 × 2 显示。</p>
+<div class="find"><b>规则（同 docs/art-direction.md §9）</b>
+<ol>
+<li>全场只有 1px 一种像素，不做抗锯齿、不做运行时旋转。坡上的车用<b>纵向错切</b>：整车切成 2px 竖条，按坡度整像素上下错位，竖线保持竖直。</li>
+<li>光从左上 45° 来：朝左上的坡（和坡顶）受光亮一阶，朝右下的坡背光暗一阶；石子亮面在左上、影子在右下。</li>
+<li>外轮廓 1px，取材质的最暗阶（土坡用 bg[1]、木头用 leather[0]），不用纯黑；陡台阶露出的侧面也描上。</li>
+<li>场景只用中低明度（背景色 bg + 木色 leather），不抢载具；细节密度每 4×4 最多 1 个（石子、煤块、钉子）。</li>
+<li>土坡分层：受光边 → 亮层 → 棋盘抖动过渡 → 深层，每隔 7px 一道跟着坡面起伏的地层虚线；和平地接缝处压暗，像埋进地里。</li>
+</ol></div>
+
+<h2>场地（世界 x 280–1000 这一段）</h2>
+<div class="cards" id="terrains"></div>
+<h2>货箱：完好 → 裂开 → 重伤 → 碎木</h2>
+<div class="row" id="crates"></div>
+<h2>坡上的车：错切贴地</h2>
+<div class="cards" id="slopes"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/terrain-art.js"></script>
+<script>
+(() => {
+  const P = SA.PAL, W = 1280, H = 720, GROUND = 648, X0 = 280, X1 = 1000, Y0 = 470, Y1 = 700;
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.className = 'px'; return c; };
+  // 和战斗里一样的地面高度表
+  function groundOf(def) {
+    const ground = new Float32Array(W + 1).fill(GROUND);
+    for (const hl of def.hills || [])
+      for (let x = Math.max(0, Math.floor(hl.x - hl.w / 2)); x <= Math.min(W, Math.ceil(hl.x + hl.w / 2)); x++)
+        ground[x] -= hl.h * 0.5 * (1 + Math.cos(Math.PI * (x - hl.x) / (hl.w / 2)));
+    return ground;
+  }
+  function floor(g) {
+    g.fillStyle = P.bg[3]; g.fillRect(0, 0, W, GROUND);
+    g.fillStyle = P.bg[2]; g.fillRect(0, GROUND, W, H - GROUND);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND, W, 1);
+    for (let i = 0; i < W; i += 48) { g.fillStyle = P.bg[1]; g.fillRect(i, GROUND + 18, 30, 4); }
+  }
+  // 场地卡片
+  const T = document.getElementById('terrains');
+  for (const key of SA.TERRAIN_ORDER) {
+    const def = SA.TERRAINS[key], ground = groundOf(def);
+    const world = mk(W, H), g = world.getContext('2d');
+    floor(g);
+    g.drawImage(SA.TerrainArt.layer(ground, def.mud || [], W, H, GROUND), 0, 0);
+    for (const c of def.crates || []) SA.TerrainArt.crate(g, c.x - c.w / 2, ground[c.x] - c.h, c.w, c.h, 1);
+    const out = mk(X1 - X0, Y1 - Y0);
+    out.getContext('2d').drawImage(world, X0, Y0, X1 - X0, Y1 - Y0, 0, 0, X1 - X0, Y1 - Y0);
+    out.style.width = `${(X1 - X0) * 2}px`;
+    const card = document.createElement('section'); card.className = 'card';
+    card.innerHTML = `<b>${def.name}</b><span class="muted">${def.desc}</span>`;
+    card.append(out); T.append(card);
+  }
+  // 货箱各个阶段
+  const CR = document.getElementById('crates');
+  for (const hh of [48, 72, 96])
+    for (const [f, label] of [[1, '完好'], [0.5, '裂开'], [0.2, '重伤']]) {
+      const c = mk(64, hh + 12), g = c.getContext('2d');
+      g.fillStyle = P.bg[3]; g.fillRect(0, 0, 64, hh + 12);
+      SA.TerrainArt.crate(g, 8, 6, 48, hh, f);
+      c.style.width = `${64 * 2}px`;
+      const d = document.createElement('div'); d.className = 'it'; d.append(c, `48×${hh} · ${label}`); CR.append(d);
+    }
+  { const c = mk(90, 24), g = c.getContext('2d'); g.fillStyle = P.bg[3]; g.fillRect(0, 0, 90, 24); SA.TerrainArt.rubble(g, 12, 72, 20); c.style.width = '180px';
+    const d = document.createElement('div'); d.className = 'it'; d.append(c, '碎木（开过去减速）'); CR.append(d); }
+  // 坡上的车：和战斗里同一套错切（2px 竖条整像素错位）
+  const SL = document.getElementById('slopes');
+  const v = SA.V.fromAscii('原型机', SA.STARTER);
+  const src = SA.SPR.renderVehicle(v, { key: 'lab', heat: 0.3, water: 1 });
+  for (const [xc, label] of [[520, '上坡：车头抬起'], [640, '坡顶：架在坡顶上'], [760, '下坡：车头压低']]) {
+    const def = SA.TERRAINS.hills, ground = groundOf(def);
+    const world = mk(W, H), g = world.getContext('2d');
+    floor(g);
+    g.drawImage(SA.TerrainArt.layer(ground, [], W, H, GROUND), 0, 0);
+    // 车底这一段：左右边缘的高度差 → 坡度；整条线抬到不插进地面
+    let L = W, R = 0;
+    SA.V.each(v, (cell, r, c) => { L = Math.min(L, c); R = Math.max(R, c + SA.fp(cell.id).w); });
+    const PADX = SA.SPR.PADX, CS = SA.K.CELL, half = (R - L) * CS / 2;
+    const kw = Math.max(-0.45, Math.min(0.45, (ground[Math.round(xc + half - 6)] - ground[Math.round(xc - half + 6)]) / (half * 2 - 12)));
+    let yc = Infinity;
+    for (let x = xc - half; x <= xc + half; x += 6) yc = Math.min(yc, ground[Math.round(x)] - kw * (x - xc));
+    const lp = PADX + (L + R) / 2 * CS, py = SA.K.ROWS * CS;
+    for (let x = 0; x < src.width; x += 2) g.drawImage(src, x, 0, 2, py, Math.round(xc) + x - lp, Math.round(yc) - py + Math.round(kw * (x + 1 - lp)), 2, py);
+    const out = mk(360, 230);
+    out.getContext('2d').drawImage(world, xc - 180, 440, 360, 230, 0, 0, 360, 230);
+    out.style.width = '720px';
+    const card = document.createElement('section'); card.className = 'card';
+    card.innerHTML = `<b>${label}</b><span class="muted">坡度 ${kw.toFixed(2)}（每往右 1px 车底下沉多少 px）</span>`;
+    card.append(out); SL.append(card);
+  }
+})();
+</script>
+</body></html>
