@@ -13,91 +13,44 @@
   .seg button.on { background: var(--brass1); color: var(--text); }
   .bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
   .bar select { background: var(--dark2); color: var(--text); border: 2px solid var(--dark0); padding: 3px 6px; font: inherit; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 660px), 1fr)); gap: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 600px), 1fr)); gap: 16px; }
   .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; }
   .card header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
   .card header b { font-size: 17px; }
   .card canvas { background: var(--bg2); max-width: 100%; height: auto; }
   .note { line-height: 1.65; margin: 6px 0 0; color: var(--muted); }
-  .meter { margin-top: 4px; font-size: 13px; color: var(--muted); }
-  .meter b.ok { color: var(--gauge2); } .meter b.meh { color: var(--brass3); } .meter b.bad { color: var(--fire2); }
   .tag { font-size: 12px; font-weight: 900; padding: 1px 7px; border: 2px solid currentColor; }
 </style></head>
 <body>
 <h1>整件底盘 · 外观与步态</h1>
-<p class="lead">四足是 4×2 格的整件：一块压低的蜘蛛甲壳，四条腿往前后张开，对角两条同相、大步交替，机身只轻轻起伏（稳）。
-双足是 2×4 格的整件（真双足）：上两行是带陀螺仪的胯，胯左右各 2 格是腰挂位，下两行是一对放大约 2 倍的长腿，晃得多一些；躯干露在外面的角切斜。
-两种都用「踩实地」的大步态：脚在胯的前后大幅摆动、跨过腿的轴线，步幅跟着速度变；着地时脚往后蹬的距离正好等于车走的距离，脚钉在地上不打滑。
-<b>地形</b>里可以切换爬坡、台阶、搓衣板、货箱、泥地：四足的车身按四只脚拟合坡度整体倾斜；双足的车身基本直立，起伏交给腿；每只脚各自伸缩去够脚下的地面。
-这里只看外观和动画；画法在 <code>js/legs.js</code> 的 <code>quadArt</code> / <code>bipedArt</code> / <code>torsoCuts</code>。</p>
+<p class="lead">四足是 4×2 格的整件：一块压低的蜘蛛甲壳，四条腿往前后张开，对角两条同相、大步交替。
+双足是 2×4 格的整件（真双足）：上两行是带陀螺仪的胯，胯左右各 2 格是腰挂位，下两行是一对放大约 2 倍的长腿；躯干露在外面的角切斜（收腰、切肩）。
+两种都用「踩实地」的大步态：脚在胯的前后大幅摆动、跨过腿的轴线，步幅跟着速度变（慢走小步、快跑大步）；着地的那半个周期，脚往后蹬的距离正好等于车走的距离，脚钉在地上不打滑（看地上每 24px 一道的刻度）；腿往前后伸得越远，胯压得越低。
+这里只看外观和动画，不涉及游戏数据；画法在 <code>js/legs.js</code> 的 <code>quadArt</code> / <code>bipedArt</code> / <code>torsoCuts</code>。</p>
 
 <div class="bar">
   <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
-  <label>地形 <select id="ter"></select></label>
   <label>速度 <input type="range" id="speed" min="10" max="90" value="45"> <span id="speedV">45</span> px/s · 步幅 ±<span id="strideV"></span>px</label>
   <span class="seg" id="fr"><button data-v="game" class="on">游戏帧（12 帧 / 周期）</button><button data-v="smooth">平滑</button></span>
   <label>双足的腿 <select id="legs"><option value="">各自默认</option></select></label>
   <label>四足型号 <select id="look"><option value="">各自默认</option></select></label>
   <label><input type="checkbox" id="far" checked> 远侧腿</label>
-  <label><input type="checkbox" id="marks"> 接地点</label>
   <label><input type="checkbox" id="grid"> 格子</label>
   <label>放大 <select id="zoom"><option>1</option><option selected>2</option><option>3</option></select></label>
 </div>
 <div class="cards" id="cards"></div>
 
 <script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
-<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/terrain-art.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
 <script>
 (() => {
   const LL = SA.LEGLAB, K = SA.K, S = K.CELL, PADX = SA.SPR.PADX, TAU = Math.PI * 2, P = SA.PAL;
-  const W = 720, H = 360, GY = H - 34;                  // 画面、平地的高度
-  const LW = K.COLS * S + PADX * 2, LH = K.ROWS * S + 48, LB = K.ROWS * S;   // 车身画布（车底在 LB）
-
-  // ---------- 地形：地面高度表 + 泥地区间 + 货箱（货箱在这里当成能踩上去的硬块，看腿怎么跨过去） ----------
-  const bell = (g, x0, w, h) => { for (let x = Math.max(0, Math.floor(x0 - w / 2)); x <= Math.min(W, Math.ceil(x0 + w / 2)); x++) g[x] -= h * 0.5 * (1 + Math.cos(Math.PI * (x - x0) / (w / 2))); };
-  const TERR = {
-    flat: { name: '平地', make: () => {} },
-    hills: { name: '土坡', make: (g) => bell(g, 360, 300, 44) },
-    mine: { name: '矿坑（陡坡）', make: (g) => bell(g, 360, 220, 58) },
-    step: { name: '台阶', make: (g) => { for (let x = 0; x <= W; x++) { const up = Math.max(0, Math.min(1, (x - 250) / 12)), dn = Math.max(0, Math.min(1, (x - 470) / 12)); g[x] -= 24 * (up - dn); } } },
-    wash: { name: '搓衣板', make: (g) => { for (let x = 200; x <= 540; x += 48) bell(g, x, 40, 9); } },
-    crates: { name: '货箱', crates: [{ x: 300, w: 48, h: 30 }, { x: 420, w: 48, h: 46 }], make: () => {} },
-    mud: { name: '泥地', mud: [[200, 520]], make: () => {} },
-  };
-  const terCache = {};
-  function terrain(key) {
-    if (terCache[key]) return terCache[key];
-    const T = TERR[key], ground = new Float32Array(W + 1).fill(GY);
-    T.make(ground);
-    const crates = (T.crates || []).map(c => ({ ...c, x0: c.x - c.w / 2, x1: c.x + c.w / 2 }));
-    for (const c of crates) for (let x = Math.ceil(c.x0); x <= Math.floor(c.x1); x++) ground[x] = Math.min(ground[x], GY - c.h);
-    const mud = T.mud || [];
-    const img = document.createElement('canvas'); img.width = W; img.height = H;
-    const g = img.getContext('2d');
-    g.fillStyle = P.bg[2]; g.fillRect(0, 0, W, H);
-    g.fillStyle = P.bg[4]; g.fillRect(0, GY, W, H - GY);
-    g.fillStyle = P.bg[5]; g.fillRect(0, GY, W, 1);
-    for (let x = 0; x < W; x += 24) { g.fillStyle = P.bg[1]; g.fillRect(x, GY + 1, 1, 6); }
-    const hillsOnly = new Float32Array(W + 1).fill(GY); T.make(hillsOnly);
-    g.drawImage(SA.TerrainArt.layer(hillsOnly, mud, W, H, GY), 0, 0);
-    for (const c of crates) SA.TerrainArt.crate(g, c.x0, GY - c.h, c.w, c.h, 1);
-    return (terCache[key] = { ground, mud, img });
-  }
-  const gAt = (T, x) => (x < 0 || x > W ? GY : T.ground[Math.round(x)]);
-  const inMud = (T, x) => T.mud.some(([a, b]) => x >= a && x <= b);
-
-  // ---------- 车 ----------
-  // feet：每只脚静止时在模块里的 x（和 legs.js 注释一致）与相位差；up / down：上收 / 下伸行程；follow：车身跟坡比例；
-  // fit：拟合车身倾角时在车底中点前后取样的位置（双足两只脚只隔 8px，直接拿脚拟合会乱晃，改成看胯前后一段地面，车身基本直立，起伏交给腿）
-  const TYPES = {
-    quad: { w: 4, h: 2, feet: [[0, 0], [96, Math.PI], [8, Math.PI], [104, 0]], up: 6, down: 14, follow: 0.85 },
-    biped: { w: 2, h: 4, feet: [[26, 0], [34, Math.PI]], fit: [-36, -12, 12, 36], up: 10, down: 6, follow: 0.3 },
-  };
-  // 底盘放在哪一格（锚点，格坐标），上面摆哪些模块 [id, 行, 列]（格坐标，只为看效果，不走游戏的摆放规则）
+  const W = 560, H = 330, GY = H - 30;   // 画布、地面
+  // 每台车：底盘放在哪一格（锚点，格坐标），上面摆哪些模块 [id, 行, 列]（格坐标，只为看效果，不走游戏的摆放规则）
   const BUILDS = [
     { type: 'quad', name: '伏地蛛 · 炮台', look: 'crawl', r: 10, c: 5,
       mods: [['water', 8, 3], ['boiler', 8, 5], ['armor', 8, 7], ['cannon', 8, 9], ['cockpit', 6, 5], ['mg', 6, 7], ['mortar', 4, 5]],
-      note: '四足 T1：矮、宽、稳。膝盖高过甲壳，脚在胯下前后大幅摆动；四条腿轮流撑着，机身几乎不颠。' },
+      note: '四足 T1：矮、宽、稳。膝盖只比甲壳高一点，脚往前后伸出车身外面，站得像一只趴着的蜘蛛。' },
     { type: 'quad', name: '高脚蛛 · 侦察', look: 'tall', r: 10, c: 5,
       mods: [['boiler', 8, 5], ['armor', 8, 7], ['cockpit', 6, 5], ['mg', 6, 7]],
       note: '同一套蜘蛛腿，膝盖高出甲壳一大截：用膝高区分四足的型号（阶段造型候选）。' },
@@ -111,13 +64,12 @@
       mods: [['boiler', 8, 5], ['armor', 8, 9], ['water', 6, 5], ['cockpit', 6, 7], ['cannon', 6, 9], ['mg', 4, 7]],
       note: '三段龙腿、炉膛、三爪，陀螺轴心是炉火色。' },
   ];
-  const st = { mode: 'walk', mv: true, x: 0, a: 0, t: 0, speed: 45, smooth: false, legs: '', look: '', ter: 'hills', far: true, marks: false, grid: false, zoom: 2 };
+  const st = { mode: 'walk', mv: true, x: 0, a: 0, t: 0, speed: 45, smooth: false, legs: '', look: '', far: true, grid: false, zoom: 2 };
+  const showStride = () => { document.getElementById('strideV').textContent = Math.round(LL.strideFor(st.speed)); };
 
-  const selLegs = document.getElementById('legs'), selLook = document.getElementById('look'), selTer = document.getElementById('ter');
+  const selLegs = document.getElementById('legs'), selLook = document.getElementById('look');
   for (const e of LL.DESIGNS) if (!e.d.game) selLegs.append(new Option(e.name, e.id));
   for (const k in LL.QUADS) selLook.append(new Option(LL.QUADS[k].name, k));
-  for (const k in TERR) selTer.append(new Option(TERR[k].name, k));
-  selTer.value = st.ter;
 
   // 上层车体：直接把模块放进一台空车（不带底盘），用游戏里的整车渲染画出来
   for (const b of BUILDS) {
@@ -137,92 +89,50 @@
     const nm = document.createElement('b'); nm.textContent = b.name;
     hd.append(tag, nm);
     const cv = document.createElement('canvas'); cv.className = 'px'; cv.width = W; cv.height = H;
-    const meter = document.createElement('div'); meter.className = 'meter';
     const p = document.createElement('p'); p.className = 'note'; p.textContent = b.note;
-    card.append(hd, cv, meter, p); CARDS.append(card);
-    const local = document.createElement('canvas'); local.width = LW; local.height = LH;
+    card.append(hd, cv, p); CARDS.append(card);
     const torso = document.createElement('canvas');
-    views.push({ cv, meter, b, local, torso, pn: LL.Pen(LW, LH), key: `chassis-lab-${i}` });
+    views.push({ cv, b, pn: LL.Pen(W, H), torso, key: `chassis-lab-${i}` });
   });
   const applyZoom = () => { for (const v of views) v.cv.style.width = `${W * st.zoom}px`; };
-  const showStride = () => { document.getElementById('strideV').textContent = Math.round(LL.strideFor(st.speed)); };
-
-  // ---------- 摆姿态：地面的最小二乘拟合 × 跟坡比例；车底放在各脚地面的平均高度，但不让哪只脚插地超过上收行程（同 battle.js 的 settle） ----------
-  function pose(b, T, X) {
-    const ty = TYPES[b.type], x0 = PADX + b.c * S, lp = x0 + ty.w * S / 2;
-    const pts = ty.feet.map(([fx]) => { const x = X + (x0 + fx - lp); return { x, y: gAt(T, x) }; });
-    const fit = ty.fit ? ty.fit.map(dx => ({ x: X + dx, y: gAt(T, X + dx) })) : pts;
-    const n = pts.length, m = fit.length, mx = fit.reduce((a, p) => a + p.x, 0) / m, my = fit.reduce((a, p) => a + p.y, 0) / m;
-    let sxy = 0, sxx = 0;
-    for (const p of fit) { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; }
-    const k = Math.max(-0.45, Math.min(0.45, (sxx ? sxy / sxx : 0) * ty.follow));
-    const r = pts.map(p => p.y - k * (p.x - X));
-    const lo = Math.max(...r) - ty.down, hi = Math.min(...r) + ty.up;
-    const mean = r.reduce((a, v) => a + v, 0) / n, py = lo <= hi ? Math.max(lo, Math.min(hi, mean)) : hi;
-    return { th: Math.atan(k), k, py, lp, x0 };
-  }
 
   function draw(view) {
-    const { cv, b, pn, local, torso, meter } = view, g = cv.getContext('2d'), ty = TYPES[b.type];
-    const T = terrain(st.ter);
+    const { cv, b, pn, torso } = view, g = cv.getContext('2d');
     g.imageSmoothingEnabled = false;
-    g.drawImage(T.img, 0, 0);
-    // 车在世界里的位置（车底中点）：从左往右走，走出画面从左边重新进来
-    const span = W + 400, X = ((st.x % span) + span) % span - 200;
-    const stride = LL.strideFor(st.speed), a = st.smooth ? st.a : Math.round(st.a / (TAU / 12)) * (TAU / 12);
-    const o = { mv: st.mv, a, stride, phase: st.x, t: st.t, top: b.top, wL: b.wL, wR: b.wR, look: st.look || b.look, legs: st.legs || b.legs };
-    o.bd = b.type === 'biped' ? LL.bipedBob(o) : LL.quadBob(o);
-    const ps = pose(b, T, X), cs = Math.cos(ps.th);
-    // 每只脚：它此刻在哪（静止位置 + 步态前后摆动），脚下的地面相对车底线差多少 → 往下伸（正）/ 往上收（负）；泥地里多陷 3px
-    const gnd = ty.feet.map(([fx, ph]) => {
-      const gx = o.mv ? LL.U.plantGait(o, ph, stride, 1).x : 0;
-      const wx = X + (ps.x0 + fx + gx - ps.lp) * cs;
-      return (gAt(T, wx) + (inMud(T, wx) ? 3 : 0) - (ps.py + ps.k * (wx - X))) * cs;
-    });
-    o.g = gnd;
-    // 车身画在自己的画布上（车底 = LB），再整体绕车底中点转到地形上
-    const lg = local.getContext('2d');
-    lg.clearRect(0, 0, LW, LH);
-    const cx0 = ps.x0, cy0 = b.r * S, art = b.type === 'quad' ? LL.quadArt : LL.bipedArt;
+    // 地面：刻度每 24px 一道，固定在世界里——脚着地时应该钉在刻度上不动
+    g.fillStyle = P.bg[2]; g.fillRect(0, 0, W, H);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GY, W, H - GY);
+    g.fillStyle = P.bg[5]; g.fillRect(0, GY, W, 1);
+    for (let x = 0; x < W; x += 24) { g.fillStyle = P.bg[1]; g.fillRect(x, GY + 1, 1, 6); }
+    // 车在世界里的位置：从左往右走，走出画面就从左边重新进来；行走相位 = 走过的距离
+    const span = W + 420, vx = Math.round(((st.x % span) + span) % span - 420);
+    // 步态角按走过的距离推进（tick 里 a += 2π × 距离 / 4×步幅）；「游戏帧」把它量化成 12 帧一周期
+    const phase = st.x, stride = LL.strideFor(st.speed);
+    const a = st.smooth ? st.a : Math.round(st.a / (TAU / 12)) * (TAU / 12);
+    const oy = GY - K.ROWS * S;                                   // 车体画布的上沿（画布底边 = 地面）
+    const x0 = vx + PADX + b.c * S, y0 = oy + b.r * S;            // 底盘模块左上角
+    const o = { mv: st.mv, a, stride, phase, t: st.t, top: b.top, wL: b.wL, wR: b.wR, look: st.look || b.look, legs: st.legs || b.legs };
+    const bd = o.bd = b.type === 'biped' ? LL.bipedBob(o) : LL.quadBob(o);
+    const art = b.type === 'quad' ? LL.quadArt : LL.bipedArt;
     pn.at(1, 0, 0);
-    if (st.far) art(pn, cx0, cy0, o, 'far');
-    pn.flush(lg);
+    if (st.far) art(pn, x0, y0, o, 'far');
+    pn.flush(g);
+    // 上层车体（跟着步态起伏）；双足切角
     const src = SA.SPR.renderVehicle(b.v, { key: view.key, t: st.t, heat: 0.4, water: 0.8 });
     torso.width = src.width; torso.height = src.height;
     const tg = torso.getContext('2d'); tg.clearRect(0, 0, torso.width, torso.height); tg.drawImage(src, 0, 0);
     if (b.type === 'biped') LL.torsoCuts(tg, b.v, b.c, PADX);
-    lg.drawImage(torso, 0, o.bd);
-    art(pn, cx0, cy0, o, 'near');
-    pn.flush(lg);
+    g.drawImage(torso, vx, oy + bd);
+    art(pn, x0, y0, o, 'near');
+    pn.flush(g);
     if (st.grid) {
-      lg.fillStyle = 'rgba(255,255,255,0.08)';
-      for (let c = 0; c <= K.COLS; c++) lg.fillRect(PADX + c * S, 0, 1, K.ROWS * S);
-      for (let r = 0; r <= K.ROWS; r++) lg.fillRect(PADX, r * S, K.COLS * S, 1);
-      lg.strokeStyle = P.gauge[2]; lg.lineWidth = 1; lg.strokeRect(cx0 + 0.5, cy0 + 0.5, ty.w * S - 1, ty.h * S - 1);
-      if (b.type === 'biped') { lg.strokeStyle = P.brass[2]; lg.strokeRect(PADX + (b.c - 2) * S + 0.5, (K.ROWS - 6) * S + 0.5, 6 * S - 1, 4 * S - 1); }
+      g.fillStyle = 'rgba(255,255,255,0.08)';
+      for (let c = 0; c <= K.COLS; c++) g.fillRect(vx + PADX + c * S, oy, 1, K.ROWS * S);
+      for (let r = 0; r <= K.ROWS; r++) g.fillRect(vx + PADX, oy + r * S, K.COLS * S, 1);
+      const f = b.type === 'quad' ? { w: 4, h: 2 } : { w: 2, h: 4 };
+      g.strokeStyle = P.gauge[2]; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, f.w * S - 1, f.h * S - 1);
+      if (b.type === 'biped') { g.strokeStyle = P.brass[2]; g.strokeRect(vx + PADX + (b.c - 2) * S + 0.5, oy + (K.ROWS - 6) * S + 0.5, 6 * S - 1, 4 * S - 1); }
     }
-    g.save();
-    g.translate(Math.round(X), Math.round(ps.py));
-    g.rotate(ps.th);
-    g.drawImage(local, -Math.round(ps.lp), -LB);
-    g.restore();
-    // 接地点：每只着地的脚，脚底到地面的差（红 = 悬空，黄 = 插进地里，绿 = 贴地）
-    let worst = 0;
-    ty.feet.forEach(([fx, ph], i) => {
-      const gg = o.mv ? LL.U.plantGait(o, ph, stride, 1) : { x: 0, lift: 0 };
-      if (gg.lift > 0) return;
-      const lx = ps.x0 + fx + gg.x - ps.lp, want = gnd[i];
-      const reach = b.type === 'biped' ? Math.max(-ty.up, Math.min(ty.down + 4, want)) : want;   // 双足的腿长有限：伸不到就悬空
-      const wx = X + lx * cs - reach * Math.sin(ps.th), wy = ps.py + lx * Math.sin(ps.th) + reach * cs;
-      const gap = gAt(T, wx) + (inMud(T, wx) ? 3 : 0) - wy;
-      worst = Math.max(worst, gap);
-      if (!st.marks) return;
-      g.fillStyle = gap > 1.5 ? '#ff5a4a' : gap < -1.5 ? '#ffd166' : '#6fcf6a';
-      g.fillRect(Math.round(wx) - 1, Math.round(wy) - 1, 3, 3);
-      if (gap > 1.5) g.fillRect(Math.round(wx), Math.round(wy), 1, Math.round(gap));
-    });
-    const cls = worst > 4 ? 'bad' : worst > 1.5 ? 'meh' : 'ok';
-    meter.innerHTML = `车身倾角 ${(ps.th * 180 / Math.PI).toFixed(1)}° · 机身起伏 ${o.bd}px · 着地脚最大悬空 <b class="${cls}">${Math.max(0, worst).toFixed(1)} px</b>`;
   }
 
   const vis = new Set();
@@ -246,10 +156,10 @@
   document.getElementById('speed').addEventListener('input', (ev) => { st.speed = +ev.target.value; document.getElementById('speedV').textContent = ev.target.value; showStride(); });
   selLegs.addEventListener('change', () => { st.legs = selLegs.value; });
   selLook.addEventListener('change', () => { st.look = selLook.value; });
-  selTer.addEventListener('change', () => { st.ter = selTer.value; });
-  for (const id of ['far', 'marks', 'grid']) document.getElementById(id).addEventListener('change', (ev) => { st[id] = ev.target.checked; });
+  document.getElementById('far').addEventListener('change', (ev) => { st.far = ev.target.checked; });
+  document.getElementById('grid').addEventListener('change', (ev) => { st.grid = ev.target.checked; });
   document.getElementById('zoom').addEventListener('change', (ev) => { st.zoom = +ev.target.value; applyZoom(); });
-  window.chassisLab = { st, views, draw, TERR };   // 调试 / 截图用
+  window.chassisLab = { st, views, draw };   // 调试 / 截图用
   showStride();
   applyZoom();
   views.forEach(draw);
