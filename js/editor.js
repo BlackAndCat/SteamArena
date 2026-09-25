@@ -213,36 +213,10 @@ SA.Editor = (() => {
   function stash(cell) {
     let back = 0;
     for (let k = 1; k <= (cell.lv || 0); k++) back += Math.round(SA.upCost(cell.id, k) * 0.5);
-    for (const a of cell.aux || []) back += Math.round(SA.AUX[a].price * 0.5);
     if (cell.hp <= 0) back += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
     else SA.S.addInv(cell.id, 1, cell.mt || 1);
     d().money += back;
     return back;
-  }
-
-  // 驾驶舱辅助设备：装上付全价，卸下半价回收
-  function auxAdd(cell, k) {
-    const a = SA.AUX[k];
-    SA.UI.pay({ title: `加装 ${a.name}`, amount: a.price, okLabel: '加装', confirm: false,
-      onPaid: () => { cell.aux = [...(cell.aux || []), k]; say(`驾驶舱装上${a.name}：${a.desc}`); changed(); } });
-  }
-  function auxRemove(cell, k) {
-    const back = Math.round(SA.AUX[k].price * 0.5);
-    cell.aux = (cell.aux || []).filter(x => x !== k);
-    if (!cell.aux.length) delete cell.aux;
-    d().money += back;
-    say(`卸下${SA.AUX[k].name}，回收 ${money(back)}`);
-    changed();
-  }
-  function auxRow(pk) {
-    if (!SA.isCockpit(pk.id) || !has('aux')) return null;
-    const on = pk.aux || [], free = SA.AUX_SLOTS - on.length;
-    const avail = SA.AUX_ORDER.filter(k => SA.Camp.hasAux(k) && !on.includes(k));
-    return h('div', { class: 'aux-row' },
-      h('span', { class: 'muted' }, `辅助设备 ${on.length}/${SA.AUX_SLOTS}`),
-      on.map(k => h('span', { class: 'chip aux on', title: SA.AUX[k].desc }, SA.AUX[k].name,
-        h('button', { class: 'x', title: `卸下（回收 ${money(SA.AUX[k].price * 0.5)}）`, onclick: () => auxRemove(pk, k) }, '×'))),
-      free > 0 && pk.hp > 0 ? avail.map(k => h('button', { class: 'btn small aux', title: SA.AUX[k].desc, onclick: () => auxAdd(pk, k) }, `+ ${SA.AUX[k].name} ${money(SA.AUX[k].price)}`)) : null);
   }
 
   // 材料升级：黄铜 → 熟铁 → 钢 → 镀镍（花钱，随战役解锁）→ 乌兹钢 / 以太合金（还要消耗锭 / 结晶）
@@ -460,7 +434,7 @@ SA.Editor = (() => {
             has('upgrade') ? h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`) : null, ' ',
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
           iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, matBtn && !mu.ok ? mu.why : '点空格子移动；拖到别的模块上对调；拖出车外放回库存'),
-          auxRow(pk)),
+          ''),
         h('div', { class: 'acts' },
           matBtn,
           has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
@@ -670,9 +644,8 @@ SA.Editor = (() => {
       H('材料'),
       h('p', {}, '模块的品质就是材料：', SA.MATS.slice(1).map((mt, i) => [SA.Camp.matChip(i + 1), ` ×${mt.mul} `]),
         '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，只能靠委托、Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
-      H('驾驶舱辅助设备'),
-      h('p', {}, `选中驾驶舱可以加装辅助设备，每个驾驶舱 ${SA.AUX_SLOTS} 个槽、同一种不能重复：`, SA.AUX_ORDER.map(k => [h('b', {}, SA.AUX[k].name), `（${SA.AUX[k].desc}）`, ' ']),
-        '。效果全车生效，驾驶舱被毁就失效；卸下或拆掉驾驶舱时半价回收。随战役解锁。'),
+      H('实体辅助模块'),
+      h('p', {}, '观察镜、装弹机、陀螺仪和测距仪是可被击毁的 1×1 实体模块，放在车上即可生效。'),
       H('护甲'),
       h('p', {}, '装甲类模块（铁装甲 3、重装甲 6、铲斗 5、履带 2、四足 1，随材料放大）每挨一发先减掉固定伤害，最少保留 25%。机枪一发只有 5 点，打装甲只冒火星，专打没护甲的锅炉、水箱、驾驶舱；直射火炮一发 32 点，才凿得穿装甲。'),
       H('车间里的颜色'),
@@ -767,7 +740,7 @@ SA.Editor = (() => {
     const cell = o.cell, m = M[cell.id], layer = o === so ? 'side' : 'body';
     const iss = issueAt(layer, o.r, o.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
-    const up = (cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '') + (cell.aux ? ` · ${cell.aux.map(k => SA.AUX[k].name).join('、')}` : '');
+    const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
     return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
   }
 

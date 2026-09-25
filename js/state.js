@@ -30,7 +30,14 @@ SA.S = (() => {
   }
   // 模块表改动后的旧存档修正：副驾驶 → 联合驾驶舱；低于最低材料的（黄铜直射火炮）补到最低材料；开局的新模块补进商店
   function fixModules(s) {
-    SA.V.each(s.vehicle, (cell) => SA.fixCell(cell));
+    s.inv = s.inv || {};
+    const oldAux = { scope: 'periscope', loader: 'autoloader', gyro: 'gyroscope', ranger: 'rangefinder' };
+    SA.V.each(s.vehicle, (cell) => {
+      // 旧存档的驾驶舱槽位迁移为库存中的 1×1 实体模块。
+      for (const old of cell.aux || []) if (oldAux[old]) s.inv[oldAux[old]] = (s.inv[oldAux[old]] || 0) + 1;
+      delete cell.aux;
+      SA.fixCell(cell);
+    });
     const inv = {};
     for (const k in s.inv) { const f = SA.fixKey(k); inv[f] = (inv[f] || 0) + s.inv[k]; }
     s.inv = inv;

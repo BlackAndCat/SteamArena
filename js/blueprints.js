@@ -59,10 +59,9 @@ SA.Blueprints = (() => {
         if (reuse) p.target[layer][r][c] = reuse;
         else p.target[layer][r][c] = SA.newCell(cell.id, SA.S.takeBest(cell.id) || 1);
       });
-      // 用不上的模块回库存；驾驶舱上的辅助设备和改装件按半价回收
+      // 用不上的模块回库存；改装件按半价回收
       for (const id in p.pool) for (const cell of p.pool[id]) {
         SA.S.addInv(cell.id, 1, cell.mt || 1);
-        for (const a of cell.aux || []) d().money += Math.round(SA.AUX[a].price * 0.5);
         for (let k = 1; k <= (cell.lv || 0); k++) d().money += Math.round(SA.upCost(cell.id, k) * 0.5);
       }
       d().money += p.scrap;

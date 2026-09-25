@@ -9,7 +9,6 @@ SA.Camp = (() => {
 
   const has = (f) => c().feat.includes(f);
   const hasMod = (id) => c().mods.includes(id);
-  const hasAux = (k) => has('aux') && (c().aux || []).includes(k);
   const maxMat = () => c().mat;
   const grid = () => c().grid;
   const done = () => !!c().done;
@@ -33,8 +32,6 @@ SA.Camp = (() => {
     const C = c();
     for (const f of u.feat || []) if (!C.feat.includes(f)) C.feat.push(f);
     for (const id of u.mods || []) if (!C.mods.includes(id)) C.mods.push(id);
-    C.aux = C.aux || [];
-    for (const k of u.aux || []) if (!C.aux.includes(k)) C.aux.push(k);
     if (u.mat) C.mat = Math.max(C.mat, u.mat);
     if (u.grid) C.grid = { ...u.grid };
     if (!noIngots) SA.S.addIngots(u.ingots);
@@ -53,7 +50,6 @@ SA.Camp = (() => {
     if (u.grid) out.push(`改装台扩建到 ${u.grid.cols} 列 × ${u.grid.rows} 层`);
     if (u.mat) out.push(`材料「${SA.MATS[u.mat].name}」：属性 ×${SA.MATS[u.mat].mul}，选中车上的模块即可升级`);
     if (u.mods && u.mods.length) out.push(`新模块：${u.mods.map(id => M[id].name).join('、')}`);
-    if (u.aux && u.aux.length) out.push(`驾驶舱辅助设备：${u.aux.map(k => SA.AUX[k].name).join('、')}`);
     if (u.feat && u.feat.length) out.push(`新功能：${u.feat.map(f => SA.FEATURES[f]).join('、')}`);
     for (const k in u.ingots || {}) out.push(`${SA.INGOTS[k].name} ×${u.ingots[k]}`);
     return out;
@@ -257,6 +253,6 @@ SA.Camp = (() => {
     panel: devPanel,
   };
 
-  return { backfill, owns, salvageOptions, has, hasMod, hasAux, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { backfill, owns, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
 })();
 SA.dev = SA.Camp.dev;
