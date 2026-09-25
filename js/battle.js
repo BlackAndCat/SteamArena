@@ -8,8 +8,8 @@ SA.Battle = (() => {
   const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
   // 武器组顺序同时决定驾驶员接管顺序。新模块追加到末尾，避免旧分享码的手操顺序变化。
-  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon',
-    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer'];
+  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mortar_s', 'mg', 'mg2', 'side_cannon',
+    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet'];
   let B = null, cv, g, dg, wc, wrap, hud = {};
   let DPX = 1;   // 画布后备像素 / 逻辑像素（W × H）：画布按实际设备像素分配，浏览器不再二次缩放
   const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
@@ -21,7 +21,7 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -36,7 +36,7 @@ SA.Battle = (() => {
   }
 
   function refresh(s) {
-    let supply = 0, equip = 0, heatRate = 0, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
+    let supply = 0, equip = 0, heatRate = 0, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, moduleReload = 1, moduleSpread = 1, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1, prism = false;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     const chIds = {};
     const live = [];
@@ -49,10 +49,13 @@ SA.Battle = (() => {
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
       cool += m.cool || 0; dryCool += m.dryCool || 0; if (m.waterSave) waterSave = Math.max(0.4, waterSave * m.waterSave);
       storeMax += m.store || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
+      if (m.reloadMul) moduleReload = Math.min(moduleReload, m.reloadMul);
+      if (m.spreadMul) moduleSpread = Math.min(moduleSpread, m.spreadMul);
       if (m.layer === 'chassis') { chIds[cell.id] = (chIds[cell.id] || 0) + 1; ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
       if (SA.isCockpit(cell.id)) { cock++; cop += SA.driversOf(cell.id); }
-      aimSh += m.aimShrink || 0; aimSp += m.aimSpeed || 0;
+      if (m.special === 'range-prism') prism = true;
+      aimSh = Math.max(aimSh, m.aimShrink || 0); aimSp = Math.max(aimSp, m.aimSpeed || 0);
     });
     // 履带是一个整体：任意一段被毁 = 掉链子，整车趴窝
     let thrown = false;
@@ -63,14 +66,14 @@ SA.Battle = (() => {
     // 底盘手感（多种底盘取平均）：accelK 起步、brakeK 刹车、sway 移动时的晃动、spoolK 起步憋气时间
     const avg = (x, d) => (ch ? x / ch : d);
     // 瞄准能力：基础值 + 瞄准类部件加成（以后的瞄准镜等）
-    // 驾驶舱辅助设备：只算活着的驾驶舱，驾驶舱被毁设备就失效
+    // 实体辅助模块：只算仍有耐久的模块，被击毁即失效。
     const ax = SA.auxEffect(live);
-    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + aimSh + ax.aimShrink);
-    s.aimSpeed = K.AIM_SPEED + aimSp + ax.aimSpeed;
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + Math.max(aimSh, ax.aimShrink));
+    s.aimSpeed = K.AIM_SPEED + Math.max(aimSp, ax.aimSpeed);
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
-    Object.assign(s, { supply, demand, heatRate, cool, dryCool, waterSave, storeMax, demand, waterMax, minCol, frontCol, rams, mass, thrown,
+    Object.assign(s, { supply, demand, heatRate, cool, dryCool, waterSave, storeMax, moduleReload, moduleSpread, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     s.water = Math.min(s.water, waterMax);
     if (!Number.isFinite(s.store) || s.store > storeMax) s.store = 0;
@@ -79,13 +82,13 @@ SA.Battle = (() => {
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
       const m = SA.mod(cell);
-      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * ax.reload, spread: m.spread * ax.spread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
+      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 && moduleReload === 1 && moduleSpread === 1 ? m : { ...m, reload: m.reload * ax.reload * moduleReload, spread: m.spread * ax.spread * moduleSpread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
     s.groups = GROUP_ORDER.filter(id => s.weapons.some(w => w.cell.id === id));
     if (!s.groups.includes(s.sel)) s.sel = s.groups[0] || null;
     s.pistons = [];
-    SA.V.each(s.v, (cell, r, c, layer) => { if (layer === 'body' && alive(cell) && cell.id === 'piston') s.pistons.push({ cell, r, c }); });
+    SA.V.each(s.v, (cell, r, c, layer) => { if (layer === 'body' && alive(cell) && (cell.id === 'piston' || M[cell.id].special === 'hydraulic-bite')) s.pistons.push({ cell, r, c }); });
     if (!cock) kill(s, '驾驶舱全部被摧毁');
   }
 
@@ -254,8 +257,10 @@ SA.Battle = (() => {
   // 车身不稳的程度：移动速度 + 起步/刹车颠簸，乘底盘晃动系数（四足最稳，双足最晃）
   const shakeOf = (s) => s.sway * (Math.min(1, Math.abs(s.vx) / 60) * 1.6 + Math.min(1.5, s.jolt) * 2.2);
   // 散布（最大偏角，度）：只有直射武器有；高抛指哪打哪。边走边打、刹车时散布更大；按住蓄力（focus）能把散布缩到 30%
-  const spreadDeg = (s, o, w, focus = s.focus) => (w.m.indirect ? 0
-    : (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - s.aimShrink * focus) + o.evade * 20);
+  const spreadDeg = (s, o, w, focus = s.focus) => {
+    if (w.m.indirect || (s.prism && focus >= 1)) return 0;
+    return (w.m.spread * (1 - s.acc * 5) + shakeOf(s) * 1.4) * (1 - s.aimShrink * focus) + o.evade * 20;
+  };
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
   function aimAngle(s, w, tx, ty) {
     const [x0, y0] = muzzle(s, w);
@@ -311,12 +316,19 @@ SA.Battle = (() => {
   // ---------- 开火与伤害 ----------
   // 按炮管当前仰角开火：炮管还没转到位就扣扳机，炮弹就飞向炮管指的地方
   function fire(s, o, w, side, focus = s.focus) {
+    // 鱼叉已牵引时保持绳索，直到绳索断开才允许再次发射。
+    if (w.cell.id === 'harpoon' && s.tether) return;
     let jit = gauss() * spreadDeg(s, o, w, focus);
     if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
-    const sh = launch(s, w, barrel(s, w), jit);
-    B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, heatToEnemy: w.m.heatToEnemy || 0, big: w.m.proj === 'shell' });
-    s.heat += w.m.heat;
-    s.water = Math.max(0, s.water - w.m.heat * K.FIRE_WATER);
+    const count = w.m.salvo || 1, gap = w.m.salvoGap || 0;
+    for (let i = 0; i < count; i++) {
+      const sh = launch(s, w, barrel(s, w), count > 1 ? gauss() * spreadDeg(s, o, w, focus) : jit);
+      const tick = w.m.reload < 1 && w.m.heatPerSec ? w.m.reload : 1;
+      B.shots.push({ ...sh, delay: i * gap, originX: sh.x, originY: sh.y, range: w.m.range || 0, side, from: s, to: o, weapon: w.m, weaponCell: w.cell, dmg: (w.m.dmgPerSec ? w.m.dmgPerSec * tick : w.m.dmg), heatToEnemy: (w.m.heatPerSec ? w.m.heatPerSec * tick : (w.m.heatToEnemy || 0)), big: w.m.proj === 'shell' });
+    }
+    // 连续喷射的 heat 是自身每秒产热，普通武器的 heat 是每轮（齐射也只算一轮）。
+    s.heat += w.m.heatPerSec ? w.m.heat * w.m.reload : w.m.heat;
+    s.water = Math.max(0, s.water - (w.m.waterPerSec ? 0 : w.m.heat * K.FIRE_WATER));
     // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
     s.anim.gun(w.key, w.m);
@@ -365,7 +377,10 @@ SA.Battle = (() => {
     if (cell.id === 'track' && !def.thrown) for (let i = 0; i < 14; i++) part('debris', x + rnd(-40, 40), GROUND - 10, rnd(-140, 140), rnd(-260, -80), rnd(0.8, 1.5), i % 2 ? P.dark[2] : P.dark[3]);
     // 蓄压罐只有在罐内存量超过一半时才会因击毁爆炸；普通爆炸模块保持原规则。
     const pressurized = cell.id === 'pressure_tank' && def.storeMax > 0 && def.store > def.storeMax * 0.5;
-    if (m.explode && (cell.id !== 'pressure_tank' || pressurized)) {
+    const owner = def === B.p ? B.p : B.e;
+    const wkey = `${imp.r},${imp.c},b`;
+    const loaded = !owner || owner.timers[wkey] == null || owner.timers[wkey] <= 0;
+    if (m.explode && (cell.id !== 'pressure_tank' || pressurized) && (cell.id !== 'rocket_rack' || loaded)) {
       boom(x, y, 30);
       // 波及外圈紧贴的每个模块（各炸一次）
       const hit = new Set();
@@ -550,12 +565,24 @@ SA.Battle = (() => {
     a.vx -= dir * dv * 2 * t.mass / sum;
   }
 
+  // 鱼叉牵引：按两车质量反比分摊收绳冲量，距离过远、目标损毁或超过 4 秒自动断开。
+  function updateTether(s, o, dt) {
+    const t = s.tether;
+    if (!t) return;
+    t.time -= dt;
+    const target = o.v[t.layer] && o.v[t.layer][t.r] && o.v[t.layer][t.r][t.c];
+    const dist = Math.abs(o.x - s.x);
+    if (t.time <= 0 || dist > 760 || !target || !alive(target) || !alive(t.cell)) { s.tether = null; return; }
+    if (dist > 18) shove(s, o, Math.min(M.harpoon.tether * dt, 35));
+  }
+
   // 蒸汽撞锤：贴身时周期性猛击
   function pistons(s, o, dt) {
     for (const k in s.punch) s.punch[k] = Math.max(0, s.punch[k] - dt * 4);
     if (s.dead || o.dead || !B.contact) return;
     for (const pc of s.pistons) {
       // 撞锤要在自己这几行的最前端，并且其中一行正顶着对方
+      const pm = SA.mod(pc.cell);
       const f = SA.fp(pc.cell.id);
       let row = -1;
       const mine = (isP(s) ? B.contactRows : B.contactRowsE) || [];
@@ -564,14 +591,14 @@ SA.Battle = (() => {
       const key = `${pc.r},${pc.c}`;
       s.punchT[key] = (s.punchT[key] || 0) - dt;
       if (s.punchT[key] > 0) continue;
-      s.punchT[key] = M.piston.punchCd;
+      s.punchT[key] = pm.punchCd;
       const tr = row + (isP(s) ? 1 : -1) * (B.rowShift || 0);   // 对方那边同一高度的行
       const tgt = tr >= 0 && tr < K.ROWS ? rowFront(o, tr) : null;
       if (!tgt) continue;
       const dc = tgt.c;
       s.punch[key] = 1;
-      s.heat += M.piston.heat;
-      damage(o, s, { layer: 'body', r: tgt.r, c: dc }, SA.armorCut(SA.mod(tgt.cell), SA.mod(pc.cell).punch));
+      s.heat += pm.heat;
+      damage(o, s, { layer: 'body', r: tgt.r, c: dc }, SA.armorCut(SA.mod(tgt.cell), pm.punch));
       shove(s, o, 30);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
       const x = frontEdge(s), y = cellY(row, s) + HALF;
       for (let i = 0; i < 10; i++) part('steam', x, y, rnd(-90, 90), rnd(-120, -15), rnd(0.4, 0.8));
@@ -582,6 +609,7 @@ SA.Battle = (() => {
   // ---------- 模拟 ----------
   function sim(s, o, dt) {
     if (s.dead) { drive(s, dt); return; }
+    updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时每秒最多释放 3 点。
     const baseSupply = s.supply;
     const surplus = Math.max(0, baseSupply - s.demand);
@@ -607,6 +635,10 @@ SA.Battle = (() => {
     const firing = aiming || (isHuman(s) && s.release && aimPt && s.power > 0 && !o.dead);
     const at = firing ? targetAt(o, aimPt[0], aimPt[1]) : null;
     const side = !!at && at.layer === 'side';
+    if (firing) {
+      // 蒸汽喷射器持续工作时额外耗水；普通武器仍按每发 FIRE_WATER 结算。
+      for (const w of s.weapons) if (w.cell.id === s.sel && w.m.waterPerSec) s.water = Math.max(0, s.water - w.m.waterPerSec * dt);
+    }
     // 瞄准稳定度：按住就慢慢蓄满（准星收紧、散布缩小），车身晃动会拖慢蓄力并不断把它抖散
     const selW = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
     const shake = shakeOf(s);
@@ -705,11 +737,11 @@ SA.Battle = (() => {
       s.retarget = rnd(3, 6);
       // 选武器组：直射打得到就直射，否则换高抛
       s.sel = s.groups[Math.floor(Math.random() * s.groups.length)] || null;
-      if (s.target && s.target.layer === 'body' && s.groups.includes('mortar')) {
-        const w = s.weapons.find(x => !x.blocked && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m'));
+      if (s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
+        const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
         const pr = w && predict(s, o, w, aimAngle(s, w, pt[0], pt[1]).a, false);
-        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = 'mortar';
+        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect));
       }
     }
     s.fireHeld = !!s.target;
@@ -724,7 +756,10 @@ SA.Battle = (() => {
       s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x + fwd * (gap - rnd(lo, hi));
       s.moveT = s.charge ? rnd(3, 5) : rnd(2, 5) * (s.speed > 70 ? 0.6 : 1);
     }
-    if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
+    const selected = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
+    const gapNow = selected && selected.m.range ? Math.abs(frontEdge(o) - frontEdge(s)) : 0;
+    if (selected && selected.m.range && gapNow > selected.m.range * 0.9) s.dir = isP(s) ? 1 : -1;
+    else if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
     else s.dir = Math.abs(s.goalX - s.x) > 8 ? Math.sign(s.goalX - s.x) : 0;
   }
 
@@ -796,8 +831,10 @@ SA.Battle = (() => {
 
     for (const sh of B.shots) {
       const n = Math.max(1, Math.ceil(dt * 120));
+      if (sh.delay > 0) { sh.delay -= dt; continue; }
       for (let i = 0; i < n && !sh.done; i++) {
         const res = advance(sh, sh.to, dt / n);
+        if (sh.range && Math.hypot(sh.x - sh.originX, sh.y - sh.originY) > sh.range) { sh.done = true; continue; }
         if (!res) continue;
         sh.done = true;
         if (res === 'ground') {
@@ -810,9 +847,23 @@ SA.Battle = (() => {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
           const tc = sh.to.v[res.layer][res.r][res.c];
           damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
+          // 火箭架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
+          if (sh.weapon && sh.weapon.splash) {
+            const hitBox = modCenter(sh.to, res.layer, res.r, res.c);
+            const seen = new Set([tc]);
+            SA.V.each(sh.to.v, (oc, rr, cc, layer) => {
+              if (!alive(oc) || seen.has(oc)) return;
+              const p = modCenter(sh.to, layer, rr, cc), d = Math.hypot(p[0] - hitBox[0], p[1] - hitBox[1]);
+              if (d <= sh.weapon.splash.r) { seen.add(oc); const k = Math.max(0, 1 - d / sh.weapon.splash.r) * sh.weapon.splash.k; if (k > 0) damage(sh.to, sh.from, { layer, r: rr, c: cc }, SA.armorCut(SA.mod(oc), sh.dmg * k)); }
+            });
+          }
           // 喷火 / 蒸汽喷射的升温效果与伤害分开结算：命中一次就给目标增加固定热量，
           // 热量在下一帧按正常锅炉规则检查，因此不会绕过已有的烧干判负流程。
           if (sh.heatToEnemy) sh.to.heat += sh.heatToEnemy;
+          if (sh.weapon && sh.weapon.knock) shove(sh.from, sh.to, sh.weapon.knock * 8);
+          if (sh.weapon && sh.weapon.tether) {
+            sh.from.tether = { layer: res.layer, r: res.r, c: res.c, cell: sh.weaponCell, time: 4 };
+          }
           if (sh.big) B.shake = Math.max(B.shake, 3);
         }
       }

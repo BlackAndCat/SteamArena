@@ -1,4 +1,7 @@
 // 模块注册表。layer: chassis(只能放最底行) | body(主体层) | side(侧挂层，只能挂在主体模块上) | ram(撞击，挂在底盘/装甲正前方)
+// 通用机制字段：salvo=每轮发射数，salvoGap=轮内间隔；splash={r,k}=命中点溅射半径与衰减；
+// tether=牵引收绳速度；range=持续喷射射程，cone=半角；heatPerSec/dmgPerSec=持续喷射速率；
+// store=蓄压容量，dryCool=不耗水散热，waterSave=冷却耗水倍率；reloadMul/spreadMul=实体辅助效果。
 // 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x，近侧脚在前、远侧脚在后），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）。
 // 蜘蛛四足的脚往外张：splay = 脚离胯多远，hips = 近侧 / 远侧的胯；同一段四足的前半格往前张、后半格往后张（SA.suspPts 算）
 window.SA = window.SA || {};
@@ -207,32 +210,40 @@ SA.MODULES = {
   rocket_rack: {
     name: '火箭架', cat: 'firepower', layer: 'body', art: 'cannon', placeholder: '火箭', vis: [1, 5],
     price: 230, hp: 150, power: 4, kg: 430, q: 3,
-    dmg: 44, reload: 3.6, heat: 8, proj: 'shell', barrel: 22, v: 760, g: 0.65, spread: 20, arc: 'low',
+    dmg: 14, reload: 6, heat: 10, salvo: 4, salvoGap: 0.12, splash: { r: 24, k: 0.5 }, explode: 22, proj: 'shell', barrel: 22, v: 760, g: 0.65, spread: 20, arc: 'low',
     elev: [-8, 38], slew: 22, windup: 0.4, wild: 0.2, rest: 0, aimT: 1.3,
     rcPx: 7, back: 0.05, ret: 2.2, kick: 58, piv: [24, 28], blen: 34,
-    desc: '多联装火箭架，单轮伤害高但散布大；用于在中距离逼退风筝车。',
+    desc: '四发齐射火箭架：每发 14 点伤害，命中点 24px 内溅射，装填 6 秒；装填中的火箭架被击毁会殉爆。',
   },
   harpoon: {
     name: '鱼叉', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '鱼叉', vis: [1, 5],
     price: 175, hp: 105, power: 2, kg: 210, q: 2,
-    dmg: 22, reload: 2.6, heat: 4, proj: 'shell', barrel: 22, v: 720, g: 0.75, spread: 14, arc: 'low',
+    dmg: 10, reload: 2.6, heat: 4, proj: 'shell', barrel: 22, v: 720, g: 0.75, spread: 14, arc: 'low',
     elev: [-10, 28], slew: 28, windup: 0.3, wild: 0.1, rest: 0, aimT: 1.0,
     rcPx: 5, back: 0.04, ret: 2.8, kick: 42, piv: [18, 13], blen: 34, tether: 80,
-    desc: '带绳索的牵引炮。当前数值先按中等火力验证，后续接入场地边缘时可把命中改成拉近或拖拽。',
+    desc: '命中后以 80px/s 收绳牵引敌车，最多持续 4 秒；绳索断开前不能再次发射。',
   },
   flamer: {
     name: '喷火器', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '喷火', vis: [1, 5],
     price: 155, hp: 110, power: 2, kg: 240, q: 2,
-    dmg: 14, reload: 1.1, heat: 5, heatToEnemy: 8, proj: 'steam', barrel: 18, v: 540, g: 0.1, spread: 24, arc: 'low',
+    dmg: 4, reload: 0.1, heat: 3, heatToEnemy: 6, heatPerSec: 6, dmgPerSec: 4, range: 170, cone: 10, proj: 'flame', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
     elev: [-12, 25], slew: 30, windup: 0.2, wild: 0.05, rest: 0, aimT: 0.7,
     rcPx: 3, back: 0.02, ret: 5, kick: 18, piv: [18, 13], blen: 30,
-    desc: '近距离喷射火焰或蒸汽，伤害不高但会把热量灌给对手；和撞击件组成贴身解题组合。',
+    desc: '射程 170px、±10° 锥形持续喷火：每秒给对手加热 6、对命中模块造成 4 点伤害，自身每秒产热 3。',
+  },
+  steamjet: {
+    name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '蒸汽喷射', vis: [1, 5],
+    price: 170, hp: 105, power: 2, kg: 230, q: 2,
+    dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 4, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', barrel: 18, v: 540, g: 0.1, spread: 10, arc: 'low',
+    elev: [-12, 25], slew: 30, windup: 0.1, wild: 0.05, rest: 0, aimT: 0.1,
+    rcPx: 3, back: 0.02, ret: 5, kick: 16, piv: [18, 13], blen: 30,
+    desc: '喷出短距离蒸汽锥：射程 170px、±10°，每秒给对手加热 4 并小幅击退，模块伤害 3；自身每秒产热 1.5、耗水 0.5。',
   },
   // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
   boss_core: {
     name: '圣堂压力核心', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '核心',
-    price: 280, hp: 150, supply: 5, water: 24, cool: 3, heatRate: -0.6, kg: 120, q: 2, special: 'pressure-buffer',
-    desc: '铁甲圣堂的压力核心：提供稳定动力、24 点储水、3 点冷却，并降低一部分基础产热。Boss 战利品。',
+    price: 280, hp: 150, supply: 5, store: 8, water: 24, cool: 3, heatRate: 0, kg: 120, q: 2, special: 'pressure-buffer',
+    desc: '铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放。Boss 战利品。',
   },
   boss_lens: {
     name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜',
@@ -269,6 +280,39 @@ SA.MODULES = {
     price: 170, hp: 150, power: 2, kg: 700, q: 3, ram: 16, punch: 26, punchCd: 1.5, heat: 3,
     desc: '装在装甲或底盘正前方。贴身时每 1.5 秒用蒸汽活塞猛击一次，不依赖速度。',
   },
+  // 补齐计划中的换皮 / 小模块；专用精灵继续沿用 art 借形。
+  mortar_s: {
+    name: '小臼炮', cat: 'firepower', layer: 'body', w: 1, h: 1, art: 'mortar', placeholder: '小臼炮',
+    price: 70, hp: 45, power: 1, kg: 110, q: 2, dmg: 16, reload: 2.6, heat: 3, proj: 'shell', barrel: 0, v: 720, g: 1, spread: 0, arc: 'high', indirect: true,
+    elev: [32, 82], slew: 22, windup: 0.35, wild: 0, rest: 55, aimT: 1.1, rcPx: 4, back: 0.03, ret: 2.7, kick: 24, piv: [12, 13], blen: 18,
+    desc: '占一个小格的间接火力；直射被挡时由 AI 自动切换。',
+  },
+  mg2: {
+    name: '双联机枪', cat: 'firepower', layer: 'body', w: 2, h: 2, art: 'mg', placeholder: '双联机枪',
+    price: 170, hp: 140, power: 3, kg: 220, q: 2, dmg: 5, reload: 0.25, heat: 1.1, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 10, arc: 'low',
+    elev: [-8, 32], slew: 50, windup: 0.1, wild: 0.1, rest: 0, aimT: 0.25, rcPx: 2, back: 0, ret: 14, kick: 5, piv: [34, 29], blen: 26,
+    desc: '两挺机枪合并为一件模块，装填快、动力消耗高，按一组齐射。',
+  },
+  periscope: {
+    name: '观察镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'plate', placeholder: '观察镜',
+    price: 90, hp: 30, kg: 40, q: 1, aimSpeed: 0.25, aimShrink: 0.1,
+    desc: '实体辅助件：全车瞄准速度 +0.25、蓄满缩圈 +0.1；被毁即失效。',
+  },
+  autoloader: {
+    name: '装弹机', cat: 'control', layer: 'body', w: 1, h: 1, art: 'plate', placeholder: '装弹机',
+    price: 110, hp: 30, kg: 60, q: 1, reloadMul: 0.85,
+    desc: '实体辅助件：全车装填时间 ×0.85；被毁即失效。',
+  },
+  rangefinder: {
+    name: '测距仪', cat: 'control', layer: 'body', w: 1, h: 1, art: 'plate', placeholder: '测距仪',
+    price: 100, hp: 30, kg: 40, q: 1, spreadMul: 0.85,
+    desc: '实体辅助件：直射武器散布 ×0.85；被毁即失效。',
+  },
+  gyroscope: {
+    name: '陀螺仪', cat: 'control', layer: 'body', w: 1, h: 1, art: 'plate', placeholder: '陀螺仪',
+    price: 90, hp: 30, kg: 60, q: 1, swayMul: 0.7,
+    desc: '实体辅助件：全车车身晃动 ×0.7；被毁即失效。',
+  },
 };
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
@@ -276,7 +320,7 @@ SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall', 'cannon_m',
   'cannon_s', 'cannon_heavy', 'cannon_giant', 'pressure_tank', 'pressure_chamber', 'cockpit_pair',
   'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer',
-  'boss_core', 'boss_lens', 'boss_ram'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+  'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'steamjet', 'periscope', 'autoloader', 'rangefinder', 'gyroscope'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
@@ -373,7 +417,6 @@ SA.cellValue = (cell) => {
   let v = SA.MODULES[cell.id].price;
   for (let t = 2; t <= (cell.mt || 1); t++) v += SA.matUpCost(cell.id, t);
   for (let k = 1; k <= (cell.lv || 0); k++) v += SA.upCost(cell.id, k);
-  for (const a of cell.aux || []) v += SA.AUX[a].price;
   return v;
 };
 // 护甲：每发炮弹先减掉固定伤害（最少保留 25%）
@@ -382,27 +425,17 @@ SA.armorCut = (m, dmg) => (m.armor ? Math.max(dmg * 0.25, dmg - m.armor) : dmg);
 SA.invKey = (id, mt = 1) => (mt > 1 ? `${id}@${mt}` : id);
 SA.parseKey = (k) => { const [id, t] = String(k).split('@'); return { id, mt: +t || 1 }; };
 
-// ---------- 驾驶舱辅助设备 ----------
-// 只能装在驾驶舱上：每个驾驶舱 AUX_SLOTS 个槽，同一种不能在一个驾驶舱上装两个；效果全车生效（几个驾驶舱装的叠加）。
-// 驾驶舱被毁，它身上的设备就失效。拆下驾驶舱时设备按半价回收。随战役解锁（camp.aux）
-SA.AUX = {
-  scope: { name: '瞄准镜', price: 120, aimSpeed: 0.25, aimShrink: 0.1, desc: '按住蓄力更快（瞄准速度 +0.25），蓄满时准星多缩 10%' },
-  loader: { name: '装弹仓', price: 150, reload: 0.85, desc: '所有武器装填时间 −15%' },
-  gyro: { name: '陀螺稳定仪', price: 110, sway: 0.7, desc: '移动、起步、刹车时车身晃动 −30%，边走边打更准' },
-  ranger: { name: '测距仪', price: 130, spread: 0.85, desc: '直射武器（火炮、机枪、侧炮）散布 −15%' },
-};
-SA.AUX_ORDER = ['scope', 'loader', 'gyro', 'ranger'];
-SA.AUX_SLOTS = 2;
-// 全车的辅助设备效果：只算活着的驾驶舱
+// ---------- 实体辅助模块效果 ----------
+// 观察镜、装弹机、陀螺仪和测距仪都是普通 1×1 模块；只统计仍有耐久的实体。
 SA.auxEffect = (cells) => {
   const e = { aimSpeed: 0, aimShrink: 0, reload: 1, sway: 1, spread: 1 };
   for (const cell of cells) {
-    if (!SA.isCockpit(cell.id) || !(cell.hp > 0)) continue;
-    for (const k of cell.aux || []) {
-      const a = SA.AUX[k];
-      e.aimSpeed += a.aimSpeed || 0; e.aimShrink += a.aimShrink || 0;
-      e.reload *= a.reload || 1; e.sway *= a.sway || 1; e.spread *= a.spread || 1;
-    }
+    if (!(cell.hp > 0)) continue;
+    const m = SA.mod(cell);
+    if (!m.reloadMul && !m.spreadMul && !m.swayMul) continue;
+    e.reload *= m.reloadMul || 1;
+    e.sway *= m.swayMul || 1;
+    e.spread *= m.spreadMul || 1;
   }
   return e;
 };
