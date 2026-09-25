@@ -38,6 +38,7 @@
     if (m.splash) x += (m.dmg || 0) * m.splash.k * Math.PI * m.splash.r * m.splash.r / (SA.K.CELL * SA.K.CELL) * 0.08 / Math.max(0.1, m.reload || 1);
     x += (m.dmgPerSec || 0) + (m.heatToEnemy || 0) * 0.5 + (m.tether || 0) / 10;
     x += (m.store || 0) * 0.15 + (m.dryCool || 0) + (m.waterSave ? (1 - m.waterSave) * 8 : 0);
+    x += (m.ram || 0) / 10 + (m.punch || 0) / 10 + (m.heatMul ? (1 - m.heatMul) * 10 : 0);
     x += m.reloadMul ? (1 - m.reloadMul) * 10 : 0;
     x += m.spreadMul ? (1 - m.spreadMul) * 8 : 0;
     x += m.swayMul ? (1 - m.swayMul) * 8 : 0;
