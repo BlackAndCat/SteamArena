@@ -40,11 +40,11 @@ SA.OPPONENTS = [
 // 每一章 = 一组「考题」对手 + 通关解锁（新模块 / 材料 / 功能 / 更大的改装台）。每一关 = 一道构筑考题：
 // blurb 写明它的问题和弱点，玩家赛前侦察后去车间调整。mt：整车材料；elite：个别格子的材料（Boss 的史诗件，可以缴获）。
 // style：AI 性格 —— rush 冲锋（有撞击件就一直冲）、kite 拉开距离放风筝、turtle 守在原地、不写 = 在交战距离内游走。
-// unlock：{ feat: [功能], mods: [模块], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
+// unlock：{ feat: [功能], mods: [模块], aux: [驾驶舱辅助设备], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
 // 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
-SA.CAMP_START = { feat: [], mods: ['track', 'cockpit', 'boiler', 'water', 'armor', 'cannon', 'mg'], mat: 1, grid: { cols: 4, rows: 3 } };
+SA.CAMP_START = { feat: [], mods: ['track', 'cockpit', 'boiler', 'water', 'armor', 'cannon', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
-  garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
+  garage: '车间', shop: '商店', aux: '驾驶舱辅助设备', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
 };
 SA.CAMPAIGN = [
@@ -86,8 +86,8 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '...K....', '...OC...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
       },
     ],
-    unlock: { feat: ['street', 'bank'], mods: ['armor_heavy', 'quad'], mat: 2, grid: { cols: 5, rows: 4 },
-      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。街头赛可以刷钱，银行可以贷款。' },
+    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
+      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。驾驶舱可以加装瞄准镜、装弹仓。街头赛可以刷钱，银行可以贷款。' },
   },
   {
     name: '第二章 · 码头区', place: '泰晤士河码头',
@@ -132,7 +132,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '....K...', '...OAM..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']],
       },
     ],
-    unlock: { feat: ['side', 'upgrade'], mods: ['mortar', 'side_cannon', 'piston'], mat: 4, grid: { cols: 6, rows: 5 },
+    unlock: { feat: ['side', 'upgrade'], mods: ['mortar', 'side_cannon', 'piston'], aux: ['gyro', 'ranger'], mat: 4, grid: { cols: 6, rows: 5 },
       note: '镀镍材料开放（×1.75）。高抛火炮、侧炮、蒸汽撞锤到手；侧挂层和改装（炮盾 / 附加装甲）开放。' },
   },
   {

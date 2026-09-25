@@ -571,6 +571,17 @@ SA.SPR = (() => {
     if (o.mt > 1) q.mt = o.mt;
     return q;
   }
+  // 这些模块的颜色本身就是辨识度（驾驶员、炉火、水），不整体换色，只在四角钉上材料色的角铁
+  const KEEP_COLOR = new Set(['cockpit', 'copilot', 'boiler', 'water']);
+  function markMat(cv, mat, top) {
+    const g = cv.getContext('2d'), n = 7;
+    for (const [x, y, dx, dy] of [[0, top, 1, 1], [C - 1, top, -1, 1], [0, top + C - 1, 1, -1], [C - 1, top + C - 1, -1, -1]]) {
+      g.fillStyle = '#07080c';
+      g.fillRect(dx > 0 ? x : x - n, dy > 0 ? y : y - 2, n + 1, 3); g.fillRect(dx > 0 ? x : x - 2, dy > 0 ? y : y - n, 3, n + 1);
+      g.fillStyle = mat.chip;
+      g.fillRect(dx > 0 ? x : x - n + 1, dy > 0 ? y : y - 1, n, 2); g.fillRect(dx > 0 ? x : x - 1, dy > 0 ? y : y - n + 1, 2, n);
+    }
+  }
   // 材料换色：'color' 混合只换色相和饱和度、保留原图明暗；再用原图的不透明度把透明处抠回来
   function tintMat(cv, mat) {
     const keep = document.createElement('canvas');
@@ -596,7 +607,7 @@ SA.SPR = (() => {
       cv.width = C + 32; cv.height = C + TOP;
       ctx = cv.getContext('2d');
       DRAW[id](0, TOP, q);
-      if (q.mt > 1) tintMat(cv, SA.MATS[q.mt]);
+      if (q.mt > 1) (KEEP_COLOR.has(id) ? markMat : tintMat)(cv, SA.MATS[q.mt], TOP);
       cache.set(key, cv);
     }
     return cv;

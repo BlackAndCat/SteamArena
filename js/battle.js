@@ -32,8 +32,10 @@ SA.Battle = (() => {
   function refresh(s) {
     let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
+    const live = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
+      live.push(cell);
       const m = SA.mod(cell);   // 按材料放大后的属性
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c);
@@ -54,9 +56,11 @@ SA.Battle = (() => {
     // 底盘手感（多种底盘取平均）：accelK 起步、brakeK 刹车、sway 移动时的晃动、spoolK 起步憋气时间
     const avg = (x, d) => (ch ? x / ch : d);
     // 瞄准能力：基础值 + 瞄准类部件加成（以后的瞄准镜等）
-    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + aimSh);
-    s.aimSpeed = K.AIM_SPEED + aimSp;
-    Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1), spoolK: avg(spk, 1),
+    // 驾驶舱辅助设备：只算活着的驾驶舱，驾驶舱被毁设备就失效
+    const ax = SA.auxEffect(live);
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + aimSh + ax.aimShrink);
+    s.aimSpeed = K.AIM_SPEED + aimSp + ax.aimSpeed;
+    Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: cop });
@@ -65,7 +69,8 @@ SA.Battle = (() => {
     s.weapons = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
-      s.weapons.push({ cell, r, c, layer, m: SA.mod(cell), key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
+      const m = SA.mod(cell);
+      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * ax.reload, spread: m.spread * ax.spread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
     s.groups = GROUP_ORDER.filter(id => s.weapons.some(w => w.cell.id === id));
@@ -518,6 +523,34 @@ SA.Battle = (() => {
     if (!s.weapons.some(w => !w.blocked)) return '没有能开火的武器';
     return null;
   }
+  // 彻底没法打：开不了火，也撞不了人（有撞击件、有动力、能开动就还算能打）
+  const helpless = (s) => !!crippled(s) && !(s.rams && s.supply > 0 && s.speed > 0);
+
+  // 投降：对手彻底没法打、而玩家还能打，持续 1 秒就挂白旗。战斗暂停，玩家选择接受（立即获胜，额外声望）还是继续打
+  // 无画面模拟里两边都是 AI：谁先彻底没法打谁就投降
+  function surrender(dt) {
+    const p = B.p, e = B.e;
+    if (p.dead || e.dead || B.surrender) return;
+    const loser = helpless(e) && !helpless(p) ? e : p.isAI && helpless(p) && !helpless(e) ? p : null;
+    B.surT = loser ? (B.surT || 0) + dt : 0;
+    if (B.surT < 1) return;
+    const why = crippled(loser);
+    if (B.headless) { B.surrender = 'accepted'; kill(loser, `${why}，挂白旗投降`); return; }
+    B.surrender = 'asked';
+    B.frozen = true;
+    B.keys.left = B.keys.right = B.keys.fire = false;
+    for (let i = 0; i < 12; i++) part('steam', e.x + VW / 2 + rnd(-40, 40), VY + rnd(0, 60), rnd(-20, 20), rnd(-60, -20), rnd(1, 2));
+    const resume = (ok) => {
+      B.frozen = false;
+      if (ok) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); textFx('投降', e.x + VW / 2, VY + 40, P.white); }
+      else B.surrender = 'refused';
+    };
+    SA.UI.dialog(`「${e.name}」挂出了白旗`, [
+      h('p', { style: 'margin-top:0' }, `对手${why}，已经没法再打，请求投降。`),
+      h('p', {}, h('b', {}, '接受：'), '立即获胜，对手剩下的零件原样保留（缴获的选择更多），体面收场额外 ', h('b', {}, '声望 +1'), '。'),
+      h('p', { class: 'muted' }, '拒绝：比赛继续，你可以把它拆得更彻底；这场不会再问第二次。'),
+    ], [{ label: '接受投降', primary: true, onClick: () => resume(true) }], '拒绝，继续打', () => resume(false));
+  }
 
   function step(dt) {
     B.t += dt;
@@ -571,6 +604,7 @@ SA.Battle = (() => {
     B.shake = Math.max(0, B.shake - dt * 14);
 
     if (!B.ending) {
+      surrender(dt);
       // 武器打光：一方开局有武器、现在全被摧毁，而另一方还有 → 判负；两边同时打光走下面的平手
       // 敌方判负：武器打光 + 水烧干 + 没有近战（撞击件）。这条只对敌方生效，玩家不会因此判负
       const e = B.e;
@@ -1242,7 +1276,7 @@ SA.Battle = (() => {
     SA.V.each(B.e.v, (cell) => { if (cell.hp > 0) survivors.push({ id: cell.id, mt: cell.mt || 1 }); });
     SA.UI.afterBattle({
       mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
-      reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`,
+      reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`, surrendered: win && B.surrender === 'accepted',
       playerVehicle: shiftVeh(B.p.v, -B.pShift), survivors, dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
     });
   }

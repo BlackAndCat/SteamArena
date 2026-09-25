@@ -198,6 +198,7 @@ SA.cellValue = (cell) => {
   let v = SA.MODULES[cell.id].price;
   for (let t = 2; t <= (cell.mt || 1); t++) v += SA.matUpCost(cell.id, t);
   for (let k = 1; k <= (cell.lv || 0); k++) v += SA.upCost(cell.id, k);
+  for (const a of cell.aux || []) v += SA.AUX[a].price;
   return v;
 };
 // 护甲：每发炮弹先减掉固定伤害（最少保留 25%）
@@ -205,3 +206,28 @@ SA.armorCut = (m, dmg) => (m.armor ? Math.max(dmg * 0.25, dmg - m.armor) : dmg);
 // 库存键：黄铜直接用 id，其余是 id@材料
 SA.invKey = (id, mt = 1) => (mt > 1 ? `${id}@${mt}` : id);
 SA.parseKey = (k) => { const [id, t] = String(k).split('@'); return { id, mt: +t || 1 }; };
+
+// ---------- 驾驶舱辅助设备 ----------
+// 只能装在驾驶舱上：每个驾驶舱 AUX_SLOTS 个槽，同一种不能在一个驾驶舱上装两个；效果全车生效（几个驾驶舱装的叠加）。
+// 驾驶舱被毁，它身上的设备就失效。拆下驾驶舱时设备按半价回收。随战役解锁（camp.aux）
+SA.AUX = {
+  scope: { name: '瞄准镜', price: 120, aimSpeed: 0.25, aimShrink: 0.1, desc: '按住蓄力更快（瞄准速度 +0.25），蓄满时准星多缩 10%' },
+  loader: { name: '装弹仓', price: 150, reload: 0.85, desc: '所有武器装填时间 −15%' },
+  gyro: { name: '陀螺稳定仪', price: 110, sway: 0.7, desc: '移动、起步、刹车时车身晃动 −30%，边走边打更准' },
+  ranger: { name: '测距仪', price: 130, spread: 0.85, desc: '直射武器（火炮、机枪、侧炮）散布 −15%' },
+};
+SA.AUX_ORDER = ['scope', 'loader', 'gyro', 'ranger'];
+SA.AUX_SLOTS = 2;
+// 全车的辅助设备效果：只算活着的驾驶舱
+SA.auxEffect = (cells) => {
+  const e = { aimSpeed: 0, aimShrink: 0, reload: 1, sway: 1, spread: 1 };
+  for (const cell of cells) {
+    if (cell.id !== 'cockpit' || !(cell.hp > 0)) continue;
+    for (const k of cell.aux || []) {
+      const a = SA.AUX[k];
+      e.aimSpeed += a.aimSpeed || 0; e.aimShrink += a.aimShrink || 0;
+      e.reload *= a.reload || 1; e.sway *= a.sway || 1; e.spread *= a.spread || 1;
+    }
+  }
+  return e;
+};

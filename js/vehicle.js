@@ -236,8 +236,14 @@ SA.V = (() => {
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water) { s.tanks++; s.water += m.water; s.cool += m.cool; }
     });
-    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, s.aimShrink);
+    // 驾驶舱辅助设备（瞄准镜 / 装弹仓 / 陀螺稳定仪 / 测距仪）
+    const cells = [];
+    each(v, (cell) => cells.push(cell));
+    const ax = s.aux = SA.auxEffect(cells);
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, s.aimShrink + ax.aimShrink);
+    s.aimSpeed += ax.aimSpeed;
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
+    s.sway *= ax.sway;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
@@ -253,9 +259,10 @@ SA.V = (() => {
       if (!alive(cell) || !m.dmg) return;
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
-      s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.03 + s.acc)) / m.reload * s.power;
-      weaponHeat += m.heat / m.reload * s.power;
-      weaponWater += m.heat * K.FIRE_WATER / m.reload * s.power;
+      const reload = m.reload * ax.reload;
+      s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * ax.spread * 0.03 + s.acc)) / reload * s.power;
+      weaponHeat += m.heat / reload * s.power;
+      weaponWater += m.heat * K.FIRE_WATER / reload * s.power;
     });
     s.boilerHeat = s.heatRate * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
@@ -291,7 +298,7 @@ SA.V = (() => {
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
       const max = Math.round(maxHp(cell) * hpMul);
-      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, aux: cell.aux, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
     });
     return b;
   }

@@ -19,6 +19,7 @@ SA.nav = (name, arg, quiet) => {
 
 window.addEventListener('DOMContentLoaded', () => {
   SA.S.load();
+  SA.Camp.backfill();
   SA.nav(SA.Camp.has('garage') ? 'garage' : 'arena');
   document.querySelector('#modal').addEventListener('pointerdown', (e) => {
     if (e.target.id === 'modal') SA.UI.closeModal();

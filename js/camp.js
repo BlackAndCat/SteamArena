@@ -9,6 +9,7 @@ SA.Camp = (() => {
 
   const has = (f) => c().feat.includes(f);
   const hasMod = (id) => c().mods.includes(id);
+  const hasAux = (k) => has('aux') && (c().aux || []).includes(k);
   const maxMat = () => c().mat;
   const grid = () => c().grid;
   const done = () => !!c().done;
@@ -27,21 +28,32 @@ SA.Camp = (() => {
   const current = () => (done() ? null : stage());
 
   // ---------- 解锁 ----------
-  function applyUnlock(u) {
+  function applyUnlock(u, noIngots) {
     if (!u) return;
     const C = c();
     for (const f of u.feat || []) if (!C.feat.includes(f)) C.feat.push(f);
     for (const id of u.mods || []) if (!C.mods.includes(id)) C.mods.push(id);
+    C.aux = C.aux || [];
+    for (const k of u.aux || []) if (!C.aux.includes(k)) C.aux.push(k);
     if (u.mat) C.mat = Math.max(C.mat, u.mat);
     if (u.grid) C.grid = { ...u.grid };
-    SA.S.addIngots(u.ingots);
+    if (!noIngots) SA.S.addIngots(u.ingots);
     syncLim();
+  }
+  // 读档时补发：已经打过的关卡 / 章节，按现在的数据重新发一遍解锁（以后新加的解锁内容老存档也能拿到；锭不重复发）
+  function backfill() {
+    const C = c();
+    SA.CAMPAIGN.forEach((ch, ci) => {
+      ch.stages.forEach((s, si) => { if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
+      if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
+    });
   }
   function unlockLines(u) {
     const out = [];
     if (u.grid) out.push(`改装台扩建到 ${u.grid.cols} 列 × ${u.grid.rows} 层`);
     if (u.mat) out.push(`材料「${SA.MATS[u.mat].name}」：属性 ×${SA.MATS[u.mat].mul}，选中车上的模块即可升级`);
     if (u.mods && u.mods.length) out.push(`新模块：${u.mods.map(id => M[id].name).join('、')}`);
+    if (u.aux && u.aux.length) out.push(`驾驶舱辅助设备：${u.aux.map(k => SA.AUX[k].name).join('、')}`);
     if (u.feat && u.feat.length) out.push(`新功能：${u.feat.map(f => SA.FEATURES[f]).join('、')}`);
     for (const k in u.ingots || {}) out.push(`${SA.INGOTS[k].name} ×${u.ingots[k]}`);
     return out;
@@ -171,6 +183,6 @@ SA.Camp = (() => {
     panel: devPanel,
   };
 
-  return { owns, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { backfill, owns, salvageOptions, has, hasMod, hasAux, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
 })();
 SA.dev = SA.Camp.dev;

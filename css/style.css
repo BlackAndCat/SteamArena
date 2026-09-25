@@ -505,3 +505,9 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .dev-tool b { color: var(--brass3); font-size: 14px; }
 .dev-tool .ext { color: var(--muted); font-weight: 400; }
 .dev-tool:hover { background: var(--iron1); border-left-color: var(--brass2); }
+
+.aux-row { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: 4px; font-size: 11px; }
+.chip.aux.on { color: var(--gauge2); border-color: var(--gauge1); display: inline-flex; gap: 4px; align-items: center; }
+.chip.aux .x { all: unset; cursor: pointer; color: var(--muted); padding: 0 2px; }
+.chip.aux .x:hover { color: #ff5a4a; }
+.btn.small.aux { font-size: 11px; padding: 2px 6px; }

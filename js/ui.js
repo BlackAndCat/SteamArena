@@ -282,9 +282,9 @@ SA.UI = (() => {
         d.news = `「${d.vehicle.name}」和「${res.enemyName}」打成平手，择日重赛。`;
       } else if (res.win) {
         d.money += res.prize; d.wins++;
-        const rep = res.flawless ? 2 : 1;
+        const rep = (res.flawless ? 2 : 1) + (res.surrendered ? 1 : 0);
         d.rep += rep;
-        lines.push(`奖金 +${money(res.prize)}`, `声望 +${rep}${res.flawless ? '（驾驶舱毫发无损）' : ''}`);
+        lines.push(`奖金 +${money(res.prize)}`, `声望 +${rep}${[res.flawless ? '驾驶舱毫发无损' : '', res.surrendered ? '接受投降，体面收场' : ''].filter(Boolean).map(x => `（${x}）`).join('')}`);
         if (d.bet) { const pay = Math.round(d.bet.amount * d.bet.odds); d.money += pay; lines.push(`赌注兑现 +${money(pay)}`); }
         // 缴获：只有你还没有的零件或史诗 / 传奇件；什么都没有就说一声
         const loot = SA.Camp.salvageOptions(res.survivors || []);
