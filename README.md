@@ -14,6 +14,8 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp.js` 的 `DEV_TOOLS` 就会出现在面板上。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱。
 
+多人 / 多代理协作的规则、分工、Git 流程和工作清单见 [docs/collab.md](docs/collab.md)。
+
 游戏节奏、最终目标和后续阶段见 [docs/game-design.md](docs/game-design.md)；模块清单、外观分级、美术工作量和排期见 [docs/module-plan.md](docs/module-plan.md)。
 
 ## 玩法速览
