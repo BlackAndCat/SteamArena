@@ -44,7 +44,7 @@ SA.V = (() => {
     T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', k: 'helmet', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar',
     M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot',
     L: 'cannon_s', R: 'cannon_heavy', G: 'rocket_rack', J: 'harpoon', F: 'flamer', N: 'pressure_tank',
-    D: 'pressure_chamber', E: 'condenser', I: 'boss_core', Z: 'boss_lens'
+    D: 'pressure_chamber', E: 'condenser', I: 'boss_core', Z: 'boss_lens', a: 'mortar_s', b: 'mg2', c: 'steamjet', d: 'periscope', e: 'autoloader', f: 'rangefinder', g: 'gyroscope'
   };
 
   // 关卡 / 官方蓝图的 ASCII 按大格写（6 行 × 8 列，一个字符 = 一个 2×2 模块），锚点换算成子格 (2r, 2c)
@@ -331,7 +331,7 @@ SA.V = (() => {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
-      value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0,
+      value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
     };
     each(v, (cell, r, c) => {
       const m = SA.mod(cell);
@@ -342,26 +342,30 @@ SA.V = (() => {
       s.height = Math.max(s.height, Math.ceil((K.ROWS - r) / 2));   // 按大格算层数
       s.hp += cell.hp; s.maxHp += maxHp(cell);
       s.equip += m.power || 0;
-      s.aimShrink += m.aimShrink || 0; s.aimSpeed += m.aimSpeed || 0;
+      s.aimShrink = Math.max(s.aimShrink, m.aimShrink || 0); s.aimSpeed = Math.max(s.aimSpeed, m.aimSpeed || 0);
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
       s.store += m.store || 0;
       s.dryCool += m.dryCool || 0;
       if (m.waterSave) s.waterSave = Math.max(0.4, s.waterSave * m.waterSave);
+      if (m.reloadMul) s.reloadMul = Math.min(s.reloadMul || 1, m.reloadMul);
+      if (m.spreadMul) s.spreadMul = Math.min(s.spreadMul || 1, m.spreadMul);
+      if (m.swayMul) s.swayMul = Math.min(s.swayMul || 1, m.swayMul);
       if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
       if (SA.isCockpit(cell.id)) s.cockpits++;
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water || m.cool) { s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
-    // 驾驶舱辅助设备（瞄准镜 / 装弹仓 / 陀螺稳定仪 / 测距仪）
+    // 实体辅助模块（观察镜 / 装弹机 / 陀螺仪 / 测距仪）
     const cells = [];
     each(v, (cell) => cells.push(cell));
     const ax = s.aux = SA.auxEffect(cells);
-    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, s.aimShrink + ax.aimShrink);
-    s.aimSpeed += ax.aimSpeed;
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + Math.max(s.aimShrink - K.AIM_SHRINK, ax.aimShrink));
+    s.aimSpeed = K.AIM_SPEED + Math.max(s.aimSpeed - K.AIM_SPEED, ax.aimSpeed);
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     s.sway *= ax.sway;
+    s.sway *= s.swayMul || 1;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
@@ -377,15 +381,22 @@ SA.V = (() => {
       if (!alive(cell) || !m.dmg) return;
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
-      const reload = m.reload * ax.reload;
-      s.dps += (m.dmg * Math.max(0.4, 0.95 - m.spread * ax.spread * 0.03 + s.acc)) / reload * s.power;
-      weaponHeat += m.heat / reload * s.power;
-      weaponWater += m.heat * K.FIRE_WATER / reload * s.power;
+      const reload = m.reload * ax.reload * (s.reloadMul || 1);
+      const salvo = m.salvo || 1;
+      const shotDps = m.dmgPerSec ? m.dmgPerSec * salvo : m.dmg * salvo / reload;
+      const splash = m.splash ? (m.splash.k * Math.PI * m.splash.r * m.splash.r / (K.CELL * K.CELL)) : 0;
+      s.dps += (shotDps * Math.max(0.4, 0.95 - (m.spread || 0) * ax.spread * (s.spreadMul || 1) * 0.03 + s.acc)) * s.power;
+      s.salvoDps += shotDps * s.power;
+      s.splashDps += shotDps * splash * 0.08 * s.power;
+      s.heatDps += (m.heatPerSec || m.heat / reload) * s.power;
+      s.tether += m.tether ? 12 : 0;
+      weaponHeat += (m.heatPerSec ? m.heat : m.heat / reload) * s.power;
+      weaponWater += (m.waterPerSec || m.heat * K.FIRE_WATER / reload) * s.power;
     });
     s.boilerHeat = s.heatRate * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
     s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater, s.dryCool, s.waterSave);
-    s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
+    s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps * 2 + s.tether + s.store * 0.7 + s.dryCool * 8 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
 
     s.problems = [];
     if (!s.chassis) s.problems.push('没有底盘');
@@ -417,7 +428,7 @@ SA.V = (() => {
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
       const max = Math.round(maxHp(cell) * hpMul);
-      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, aux: cell.aux, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
     });
     return b;
   }
