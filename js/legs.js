@@ -713,13 +713,13 @@ SA.LEGLAB = (() => {
     const fx = hx + dir * H.reach + g.x, fy = gy - g.lift;
     const kx = hx + dir * H.kx + g.x * (H.kf || 0.3), ky = hy - H.up - g.lift * 0.6;   // kf：膝盖跟着脚摆多少
     const F = bone(hx, hy, kx, ky), t = H.w || 1;   // t：腿的粗细倍数（新版四足用，游戏里现有的蜘蛛腿是 1）
+    pn.disc(hx, hy, 3.2 * t).paint(M.iron); pn.disc(hx, hy, 1.2 * t).paint(M.brass, { outline: false });   // 髋关节毂先画：股节、胫节压在它前面
     pn.poly(F.pts([[0, -2.6 * t], [0, 2.6 * t], [F.len, 3.4 * t], [F.len, -3.4 * t]])).paint(M.leg);
     if (F.len > 14) pn.ln(...F.p(2, 0), ...F.p(F.len - 3, 0), M.leg[3]);
     const B = bone(kx, ky, fx, fy), a = B.len * 0.3;
     pn.poly(B.pts([[-1, -3.6 * t], [-1, 3.6 * t], [B.len * 0.45, 2.8 * t], [B.len - 3, 1.2 * t], [B.len + 1, 0], [B.len - 3, -1.2 * t], [B.len * 0.45, -2.4 * t]])).paint(M.leg);
     pn.poly(B.pts([[a - 0.9, -3.1 * t], [a + 0.9, -3.1 * t], [a + 0.9, 3.1 * t], [a - 0.9, 3.1 * t]])).paint(M.brass, { outline: false });
     pn.disc(kx, ky, 3.4 * t).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
-    pn.disc(hx, hy, 3.2 * t).paint(M.iron); pn.disc(hx, hy, 1.2 * t).paint(M.brass, { outline: false });
   }
   // 蜘蛛机身（一格）：压低的梯形甲壳，相邻同类格子连成一片
   function carapace(pn, x, y, connL, connR, top, w = 48) {
@@ -753,7 +753,7 @@ SA.LEGLAB = (() => {
     }
     return Math.round(d);
   }
-  const quadBob = (o) => strideBob(o, 70, [0, Math.PI]);
+  const quadBob = (o) => Math.round(strideBob(o, 70, [0, Math.PI]) * 0.35);   // 四足稳：四条腿轮流撑着，机身只轻轻起伏
   const bipedBob = (o) => strideBob(o, 58, [0, Math.PI], 4);
 
   // 四足型号：腿形。reach = 脚静止时离胯多远（小 → 脚在胯下附近前后大幅摆动），kf = 膝盖跟着脚摆多少。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
