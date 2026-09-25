@@ -446,6 +446,8 @@ SA.Battle = (() => {
       }
     }
     s.moving = Math.abs(nx - s.x) > 0.02;
+    s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
+    s.anim.phase = s.phase;   // 履带链节 / 负重轮 / 腿的步态都读动态模块里的行驶相位
     s.x = nx;
     settle(s, dt);
     if (s.moving && s.dir) {

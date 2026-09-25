@@ -73,22 +73,22 @@ SA.MODULES = {
     desc: '四个驾驶员挤在一个大舱里：除了你手操的那组武器，另外三组由他们各自瞄准开火（枪法不如你准）。全部驾驶舱被毁即告负。',
   },
   helmet: {
-    name: '驾驶舱', cat: 'control', layer: 'body', w: 1, h: 1, art: 'cockpit', cockpit: true, drivers: 1, vis: [1, 5],
+    name: '驾驶舱', cat: 'control', layer: 'body', w: 1, h: 1, cockpit: true, drivers: 1, vis: [1, 5],
     price: 70, hp: 90, power: 0.5, kg: 40, q: 1,
     desc: '至少需要 1 个，全部被毁即告负。只占一个小格：目标小，但很脆，记得用甲片护住。多装几个驾驶舱，每多一个驾驶员就能多替你操作一组武器。',
   },
   plate: {
-    name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1, art: 'armor',
+    name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1,
     price: 12, hp: 45, power: 0, armor: 3, kg: 90, q: 1,
     desc: '四分之一块铁装甲，护甲同样是 3。用来补缝、垫在炮口下面、护住驾驶舱的一角。',
   },
   tank_s: {
-    name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1, art: 'water',
+    name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1,
     price: 20, hp: 28, power: 0, water: 12, cool: 1, kg: 75, q: 1,
     desc: '只占一个小格的水罐：水 12、每秒冷却 1。',
   },
   tank_tall: {
-    name: '水罐', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water',
+    name: '水罐', cat: 'cooling', layer: 'body', w: 1, h: 2,
     price: 38, hp: 52, power: 0, water: 25, cool: 2, kg: 150, q: 1,
     desc: '竖着的细水罐，占 1×2 小格：水 25、每秒冷却 2，塞进缝里正好。',
   },
@@ -108,7 +108,7 @@ SA.MODULES = {
     price: 95, hp: 320, power: 0, armor: 6, kg: 750, q: 2,
     desc: '两倍厚度，护甲 6，机枪基本打不动；也重了一倍多：吃掉底盘承重，拖慢车速。',
   },
-  // 火炮家族：小炮 1×1、中炮 1×2、直射火炮 2×2、重炮 2×4、巨炮 4×4（见 docs/module-plan.md）。
+  // 火炮家族：小炮 1×1、中炮 2×1（横躺）、直射火炮 2×2、重炮 2×4、巨炮 4×4（见 docs/module-plan.md）。
   // minMt：最低材料，低于它的模块不存在（关卡里低材料的车改用 lowAlt）；vis：从哪几级材料开始换外形
   cannon: {
     name: '直射火炮', cat: 'firepower', layer: 'body', minMt: 2, lowAlt: 'cannon_m', vis: [1, 3, 5],
@@ -120,13 +120,13 @@ SA.MODULES = {
     desc: '平射火炮，弹道低平。仰角只有 -8°~30°，太高太近的目标够不着；炮弹有散布，偶尔会打飞。同一行前方不能有己方模块。熟铁起才有。',
   },
   cannon_m: {
-    name: '中炮', cat: 'firepower', layer: 'body', w: 1, h: 2, vis: [1, 3, 5],
+    name: '中炮', cat: 'firepower', layer: 'body', w: 2, h: 1, vis: [1, 3, 5],
     price: 110, hp: 100, power: 2, kg: 200, q: 1,
     dmg: 26, reload: 2.2, heat: 4.5, proj: 'shell', barrel: 18, v: 820, g: 1, spread: 13, arc: 'low',
     elev: [-8, 30], slew: 28, windup: 0.3, wild: 0.14, rest: 0, aimT: 1.1,
     rcPx: 6, back: 0.05, ret: 2.4, kick: 50,
-    piv: [12, 33], blen: 30,
-    desc: '竖着的 1×2 主力火炮：炮管在下半格，前方同样不能有己方模块。比直射火炮轻、便宜，伤害低一些。',
+    piv: [18, 13], blen: 34,
+    desc: '横躺的 2×1 主力火炮，只占一行：前方同样不能有己方模块。比直射火炮轻、便宜，伤害低一些。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',

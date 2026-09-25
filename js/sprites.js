@@ -51,6 +51,21 @@ SA.SPR = (() => {
   const BRASS = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]];
   const RUST = [P.rust[0], P.rust[1], P.rust[2], P.rust[3]];
 
+  // 竖着的水罐（24 宽 × hh 高）：胶囊形罐身 + 黄铜箍 + 注水口 + 水位窗
+  function tankArt(x, y, hh, o) {
+    const top = y + 10, bot = y + hh - 10, rad = hh > 24 ? 9 : 8;
+    R(x + 10, y + 1, 4, 3, P.brass[1]); R(x + 10, y + 1, 4, 1, P.brass[3]);
+    disc(x + 12, top, rad, P.iron[0]); disc(x + 12, bot, rad, P.iron[0]); R(x + 12 - rad, top, rad * 2 + 1, bot - top, P.iron[0]);
+    disc(x + 12, top, rad - 1, P.iron[3]); disc(x + 12, bot, rad - 1, P.iron[3]); R(x + 13 - rad, top, rad * 2 - 1, bot - top, P.iron[3]);
+    R(x + 13 - rad, top - 2, 1, bot - top + 4, P.iron[4]); R(x + 10 + rad, top - 2, 1, bot - top + 4, P.iron[2]);
+    const wy = top - 3, wh = bot - top + 6;
+    R(x + 9, wy, 6, wh, P.iron[0]); R(x + 10, wy + 1, 4, wh - 2, P.glass[0]);
+    const lh = Math.round((wh - 2) * (o.lv == null ? 29 : o.lv) / 29), wb = wy + wh - 1;
+    if (lh > 0) { R(x + 10, wb - lh, 4, lh, P.water[2]); R(x + 10, wb - lh, 4, 1, P.water[3]); }
+    if (lh > 3) R(x + 11 + ((o.fr || 0) % 2), wb - 1 - (((o.fr || 0) * 3) % (lh - 1)), 1, 1, P.water[3]);
+    for (const by of hh > 24 ? [y + 7, y + hh - 8] : [y + hh - 4]) { R(x + 3, by, 18, 2, P.brass[1]); R(x + 3, by, 18, 1, P.brass[2]); }
+  }
+
   // 炮塔外壳（直射炮 / 机枪共用）
   function housing(x, y, cupola) {
     if (cupola) { box(x + 10, y + 7, 22, 10, IRON); R(x + 14, y + 10, 12, 1, P.iron[0]); }
@@ -359,28 +374,57 @@ SA.SPR = (() => {
       });
       disc(x + 34, y + 27, 3, P.brass[0]); disc(x + 34, y + 27, 2, P.brass[3]);   // 耳轴
     },
-    // 中炮 1×2（24×48，临时造型，三个外观阶段以后再画）：上半格弹药柜 + 炮盾，下半格炮座；炮管绕耳轴 (12,33) 转
+    // 中炮 2×1（48×24，横躺，临时造型，三个外观阶段以后再画）：低矮的炮架 + 前挡板；摇架和炮管绕耳轴 (18,13) 转
     cannon_m(x, y, o) {
-      box(x + 3, y + 5, 18, 20, IRON);
-      R(x + 5, y + 9, 14, 1, P.iron[0]); R(x + 5, y + 15, 14, 1, P.iron[0]);
-      R(x + 4, y + 21, 16, 1, P.brass[2]); R(x + 4, y + 22, 16, 1, P.brass[1]);
-      rivet(x + 6, y + 7); rivet(x + 17, y + 7);
-      box(x + 1, y + 24, 22, 21, IRON);
-      R(x + 2, y + 39, 20, 1, P.brass[2]); R(x + 2, y + 40, 20, 1, P.brass[1]);
-      rivet(x + 4, y + 27); rivet(x + 4, y + 36);
+      box(x + 2, y + 10, 26, 13, IRON);
+      R(x + 3, y + 19, 24, 1, P.brass[2]); R(x + 3, y + 20, 24, 1, P.brass[1]);
+      rivet(x + 5, y + 13); rivet(x + 23, y + 13);
+      box(x + 26, y + 12, 5, 11, IRON);
       const d = rcPx('cannon_m', o.k);
-      turn(x + 12, y + 33, o.a, (X, Y) => {
+      turn(x + 18, y + 13, o.a, (X, Y) => {
         X += x; Y += y;
-        box(X + 6, Y + 26, 12, 13, BRASS);
-        R(X + 8, Y + 28, 1, 9, P.brass[3]);
-        const bx = X + 16 - d;
-        R(bx, Y + 30, 24, 7, P.iron[0]); R(bx, Y + 31, 24, 5, P.iron[3]); R(bx, Y + 31, 24, 1, P.iron[4]); R(bx, Y + 35, 24, 1, P.iron[2]);
-        R(bx + 9, Y + 29, 2, 9, P.brass[1]); R(bx + 9, Y + 29, 1, 9, P.brass[3]);
-        R(bx + 22, Y + 28, 6, 11, P.iron[0]); R(bx + 23, Y + 29, 4, 9, P.iron[3]); R(bx + 23, Y + 29, 4, 1, P.iron[4]);
-        if ((o.k || 0) >= 7) { R(bx + 28, Y + 30, 3, 7, P.fire[3]); R(bx + 31, Y + 32, 2, 3, P.fire[2]); }
+        box(X + 10, Y + 7, 14, 11, BRASS);
+        R(X + 12, Y + 9, 1, 7, P.brass[3]);
+        const bx = X + 22 - d;
+        R(bx, Y + 10, 26, 6, P.iron[0]); R(bx, Y + 11, 26, 4, P.iron[3]); R(bx, Y + 11, 26, 1, P.iron[4]); R(bx, Y + 14, 26, 1, P.iron[2]);
+        R(bx + 9, Y + 9, 2, 8, P.brass[1]); R(bx + 9, Y + 9, 1, 8, P.brass[3]);
+        R(bx + 25, Y + 8, 6, 10, P.iron[0]); R(bx + 26, Y + 9, 4, 8, P.iron[3]); R(bx + 26, Y + 9, 4, 1, P.iron[4]);
+        for (const sy of [10, 13]) R(bx + 27, Y + sy, 2, 2, P.dark[0]);
+        if ((o.k || 0) >= 7) { R(bx + 31, Y + 10, 3, 6, P.fire[3]); R(bx + 34, Y + 11, 2, 4, P.fire[2]); }
       });
-      disc(x + 12, y + 33, 2.5, P.brass[0]); disc(x + 12, y + 33, 1.5, P.brass[3]);
+      disc(x + 18, y + 13, 2.5, P.brass[0]); disc(x + 18, y + 13, 1.5, P.brass[3]);
     },
+    // ---------- 小模块：24px 原生画（不再借大模块缩小），像素大小和大模块一样 ----------
+    // 1×1 驾驶舱：铁头盔 + 黄铜舷窗，窗里是小黑炭球驾驶员（联合驾驶舱里的驾驶员也按这个大小）
+    helmet(x, y, o) {
+      arch(x + 12, y + 2, y + 22, 10, P.iron[0]);
+      arch(x + 12, y + 3, y + 21, 9, P.iron[2]);
+      for (const [hx, hy] of [[5, 7], [6, 5], [8, 4], [4, 9], [4, 11]]) R(x + hx, y + hy, 1, 1, P.iron[3]);
+      R(x + 20, y + 9, 1, 9, P.iron[1]);
+      R(x + 8, y + 1, 5, 2, P.brass[0]); R(x + 9, y + 1, 3, 1, P.brass[2]);
+      R(x + 2, y + 18, 20, 4, P.brass[0]); R(x + 3, y + 18, 18, 3, P.brass[1]); R(x + 3, y + 18, 18, 1, P.brass[3]);
+      rivet(x + 4, y + 13);
+      disc(x + 13, y + 11, 6.2, P.black); disc(x + 13, y + 11, 5.4, P.brass[1]);
+      for (const [px, py] of [[9, 7], [11, 6], [8, 9]]) R(x + px, y + py, 1, 1, P.brass[3]);
+      disc(x + 13, y + 11, 4.3, P.glass[0]);
+      const f = o.lv || 0, bob = f === 1 || f === 2 ? 1 : 0;
+      disc(x + 13, y + 12 + bob, 3.3, SOOT_PILOT[0]); disc(x + 13, y + 12 + bob, 2.6, SOOT_PILOT[1]);
+      R(x + 11, y + 10 + bob, 1, 1, SOOT_PILOT[2]);
+      for (const ex of [x + 11, x + 14]) {
+        if (f === 3 && (o.seed || 0) % 2 === 0) { R(ex, y + 12 + bob, 2, 1, P.steam[2]); continue; }
+        R(ex, y + 11 + bob, 2, 2, P.white); R(ex + 1, y + 12 + bob, 1, 1, P.black);
+      }
+      R(x + 10, y + 8, 1, 1, P.glass[3]);
+    },
+    plate(x, y) {
+      box(x + 2, y + 2, 20, 20, IRONL);
+      R(x + 3, y + 11, 18, 1, P.iron[1]); R(x + 3, y + 12, 18, 1, P.iron[4]);
+      for (const [a, b] of [[4, 4], [17, 4], [4, 16], [17, 16]]) rivet(x + a, y + b);
+      R(x + 13, y + 7, 3, 1, P.iron[2]); R(x + 7, y + 17, 2, 1, P.iron[2]);
+    },
+    // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
+    tank_s(x, y, o) { tankArt(x, y, 24, o); },
+    tank_tall(x, y, o) { tankArt(x, y, 48, o); },
     mortar(x, y, o) {
       // 朝天粗管：一眼看出“往上打”
       box(x + 3, y + 28, 42, 17, IRON);
@@ -519,7 +563,8 @@ SA.SPR = (() => {
         R(x + bx, y + 32 + d, 14, 2, P.dark[0]);
         for (const wx of [bx + 3, bx + 11]) {
           disc(x + wx, y + 37 + d, 4.4, P.dark[0]); disc(x + wx, y + 37 + d, 3.5, P.dark[3]); disc(x + wx, y + 37 + d, 1.6, P.dark[2]);
-          R(x + wx, y + 36 + d, 1, 1, P.iron[3]);
+          const wa = ph / 24 * Math.PI * 2 + wx;   // 轮毂上一对螺栓跟着行驶相位转
+          for (const k of [0, Math.PI]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2), 1, 1, P.iron[3]);
         }
       });
       // 下段履带：一条穿过各组负重轮底部的折线。轮组底下是平的；相邻格的轮组偏移由 gL / gR 传进来，跨格也连成一条；
@@ -623,8 +668,8 @@ SA.SPR = (() => {
     const q = {};
     switch (id) {
       case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
-      case 'water': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
-      case 'cockpit': case 'copilot': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
+      case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
+      case 'cockpit': case 'copilot': case 'helmet': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
       case 'cannon': case 'cannon_m': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
@@ -636,10 +681,10 @@ SA.SPR = (() => {
     return q;
   }
   // 这些模块的颜色本身就是辨识度（驾驶员、炉火、水），不整体换色，只在四角钉上材料色的角铁
-  const KEEP_COLOR = new Set(['cockpit', 'copilot', 'boiler', 'water']);
+  const KEEP_COLOR = new Set(['cockpit', 'copilot', 'helmet', 'boiler', 'water', 'tank_s', 'tank_tall']);
   function markMat(cv, mat, top) {
-    const g = cv.getContext('2d'), n = 7;
-    for (const [x, y, dx, dy] of [[0, top, 1, 1], [C - 1, top, -1, 1], [0, top + C - 1, 1, -1], [C - 1, top + C - 1, -1, -1]]) {
+    const g = cv.getContext('2d'), W = cv.width - 32, H = cv.height - top - BOT, n = Math.min(W, H) > 24 ? 7 : 4;   // 画布按占格放大过：角铁贴着模块本身的四角
+    for (const [x, y, dx, dy] of [[0, top, 1, 1], [W - 1, top, -1, 1], [0, top + H - 1, 1, -1], [W - 1, top + H - 1, -1, -1]]) {
       g.fillStyle = '#07080c';
       g.fillRect(dx > 0 ? x : x - n, dy > 0 ? y : y - 2, n + 1, 3); g.fillRect(dx > 0 ? x : x - 2, dy > 0 ? y : y - n, 3, n + 1);
       g.fillStyle = mat.chip;

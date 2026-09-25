@@ -44,15 +44,19 @@ SA.V = (() => {
   // 关卡 / 官方蓝图的 ASCII 按大格写（6 行 × 8 列，一个字符 = 一个 2×2 模块），锚点换算成子格 (2r, 2c)
   // mt：整车材料；sides / elite 也用大格坐标。elite：个别格子的材料 [[r, c, mt, 'side'?], ...]（Boss 身上的史诗件）
   // subs：子格上的小模块 [[r, c, id], ...]（子格坐标）。
-  // 模块要求的材料比整车高（黄铜车上的直射火炮）时换成 lowAlt（中炮），窄的替代品贴着大格的车头一侧
+  // 模块要求的材料比整车高（黄铜车上的直射火炮）时换成 lowAlt（中炮）：小一号的替代品贴着大格的底边和车头一侧，
+  // 上面还压着模块时，大格里剩下的子格用甲片补上，保证上层照样连得到底盘
   function fromAscii(name, rows, sides = [], mt = 1, elite = [], subs = []) {
     const v = create(name);
     rows.forEach((row, r) => {
       for (let c = 0; c < row.length; c++) {
-        let id = ASCII[row[c]], cc = c * 2;
-        if (!id) continue;
-        if (mt < SA.minMt(id) && M[id].lowAlt) { id = M[id].lowAlt; cc += 2 - fp(id).w; }
-        v.body[r * 2][cc] = SA.newCell(id, mt);
+        const id0 = ASCII[row[c]];
+        if (!id0) continue;
+        if (mt >= SA.minMt(id0) || !M[id0].lowAlt) { v.body[r * 2][c * 2] = SA.newCell(id0, mt); continue; }
+        const id = M[id0].lowAlt, f = fp(id), rr = r * 2 + 2 - f.h, cc = c * 2 + 2 - f.w;
+        v.body[rr][cc] = SA.newCell(id, mt);
+        if (r > 0 && ASCII[(rows[r - 1] || '')[c]])
+          for (const [pr, pc] of box(r * 2, c * 2, 2, 2)) if (pr < rr || pc < cc) v.body[pr][pc] = SA.newCell('plate', mt);
       }
     });
     for (const [r, c, id] of subs) v[layerOf(id)][r][c] = SA.newCell(id, mt);
