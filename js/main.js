@@ -1,8 +1,11 @@
 // 入口与页面切换：两个主页面 车间（garage）/ 出战（arena），外加战斗（battle）
 window.SA = window.SA || {};
 
+// 文本管理使用独立 locale JSON，其他 HTML5 游戏只需把 game 改成自己的标识即可复用。
+SA.Text.init({ game: 'steam-arena', locale: 'zh-CN' });
+
 // 版本标记：控制台输入 SA.BUILD，或看启动时打印的那行，确认浏览器跑的是不是最新代码
-SA.BUILD = '2026-09-25 render-hires-vehicles';
+SA.BUILD = '2026-09-25 text-manager';
 console.info(`蒸汽竞技场 build ${SA.BUILD}`);
 
 SA.current = null;

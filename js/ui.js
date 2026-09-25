@@ -129,7 +129,8 @@ SA.UI = (() => {
         h('span', { class: 'res' }, h('span', { class: 'k' }, '声望'), h('b', {}, '★'.repeat(Math.min(d.rep, 8)) || '—'), d.rep > 8 ? `×${d.rep}` : null),
         ingots.length ? h('span', { class: 'res' }, h('span', { class: 'k' }, '材料'), h('b', {}, ingots.map(([k, n]) => `${SA.INGOTS[k].name}×${n}`).join(' '))) : null,
         h('span', { class: 'res season' }, h('span', { class: 'k' }, SA.Camp.done() ? '赛季' : '战役'), h('b', {}, SA.Camp.done() ? `${d.season} · ${d.round + 1}/6` : ch.place)),
-        h('button', { class: 'dev-btn', title: '开发者模式：一键解锁、跳章、加钱', onclick: SA.Camp.dev.panel }, '开发者')),
+        h('button', { class: 'dev-btn', title: '开发者模式：一键解锁、跳章、加钱', onclick: SA.Camp.dev.panel }, '开发者'),
+        h('button', { class: `dev-btn ${SA.Text && SA.Text.isEditing() ? 'on' : ''}`, title: '一键切换文本编辑模式', onclick: () => { SA.Text.toggle(); topbar(); } }, SA.Text && SA.Text.isEditing() ? '完成文本编辑' : '文本编辑')),
     );
   }
 
