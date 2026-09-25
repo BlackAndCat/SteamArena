@@ -25,12 +25,12 @@
 <h1>整件底盘 · 外观与步态</h1>
 <p class="lead">四足是 4×2 格的整件：一块压低的蜘蛛甲壳，四条腿往前后张开，对角两条同相、大步交替。
 双足是 2×4 格的整件（真双足）：上两行是带陀螺仪的胯，胯左右各 2 格是腰挂位，下两行是一对放大约 2 倍的长腿；躯干露在外面的角切斜（收腰、切肩）。
-两种都用「踩实地」的步态：着地的那半个周期，脚相对车身往后蹬的距离正好等于车走的距离，脚钉在地上不打滑（看地上每 24px 一道的刻度）。
+两种都用「踩实地」的大步态：脚在胯的前后大幅摆动、跨过腿的轴线，步幅跟着速度变（慢走小步、快跑大步）；着地的那半个周期，脚往后蹬的距离正好等于车走的距离，脚钉在地上不打滑（看地上每 24px 一道的刻度）；腿往前后伸得越远，胯压得越低。
 这里只看外观和动画，不涉及游戏数据；画法在 <code>js/legs.js</code> 的 <code>quadArt</code> / <code>bipedArt</code> / <code>torsoCuts</code>。</p>
 
 <div class="bar">
   <span class="seg" id="mode"><button data-v="walk" class="on">行走</button><button data-v="hold">定格</button><button data-v="stand">站立</button></span>
-  <label>速度 <input type="range" id="speed" min="10" max="90" value="45"> <span id="speedV">45</span> px/s</label>
+  <label>速度 <input type="range" id="speed" min="10" max="90" value="45"> <span id="speedV">45</span> px/s · 步幅 ±<span id="strideV"></span>px</label>
   <span class="seg" id="fr"><button data-v="game" class="on">游戏帧（12 帧 / 周期）</button><button data-v="smooth">平滑</button></span>
   <label>双足的腿 <select id="legs"><option value="">各自默认</option></select></label>
   <label>四足型号 <select id="look"><option value="">各自默认</option></select></label>
@@ -64,7 +64,8 @@
       mods: [['boiler', 8, 5], ['armor', 8, 9], ['water', 6, 5], ['cockpit', 6, 7], ['cannon', 6, 9], ['mg', 4, 7]],
       note: '三段龙腿、炉膛、三爪，陀螺轴心是炉火色。' },
   ];
-  const st = { mode: 'walk', mv: true, x: 0, t: 0, speed: 45, smooth: false, legs: '', look: '', far: true, grid: false, zoom: 2 };
+  const st = { mode: 'walk', mv: true, x: 0, a: 0, t: 0, speed: 45, smooth: false, legs: '', look: '', far: true, grid: false, zoom: 2 };
+  const showStride = () => { document.getElementById('strideV').textContent = Math.round(LL.strideFor(st.speed)); };
 
   const selLegs = document.getElementById('legs'), selLook = document.getElementById('look');
   for (const e of LL.DESIGNS) if (!e.d.game) selLegs.append(new Option(e.name, e.id));
@@ -105,12 +106,13 @@
     for (let x = 0; x < W; x += 24) { g.fillStyle = P.bg[1]; g.fillRect(x, GY + 1, 1, 6); }
     // 车在世界里的位置：从左往右走，走出画面就从左边重新进来；行走相位 = 走过的距离
     const span = W + 420, vx = Math.round(((st.x % span) + span) % span - 420);
-    const phase = st.x, gf = SA.Dyn.frame(phase, 12, 5);
-    const a = st.smooth ? phase / 60 * TAU : gf / 12 * TAU;
-    const amp = b.type === 'biped' ? 4 : 1, bd = st.mv ? amp - Math.round(Math.abs(Math.sin(a)) * amp) : 0;
+    // 步态角按走过的距离推进（tick 里 a += 2π × 距离 / 4×步幅）；「游戏帧」把它量化成 12 帧一周期
+    const phase = st.x, stride = LL.strideFor(st.speed);
+    const a = st.smooth ? st.a : Math.round(st.a / (TAU / 12)) * (TAU / 12);
     const oy = GY - K.ROWS * S;                                   // 车体画布的上沿（画布底边 = 地面）
     const x0 = vx + PADX + b.c * S, y0 = oy + b.r * S;            // 底盘模块左上角
-    const o = { mv: st.mv, a, bd, phase, t: st.t, top: b.top, wL: b.wL, wR: b.wR, look: st.look || b.look, legs: st.legs || b.legs };
+    const o = { mv: st.mv, a, stride, phase, t: st.t, top: b.top, wL: b.wL, wR: b.wR, look: st.look || b.look, legs: st.legs || b.legs };
+    const bd = o.bd = b.type === 'biped' ? LL.bipedBob(o) : LL.quadBob(o);
     const art = b.type === 'quad' ? LL.quadArt : LL.bipedArt;
     pn.at(1, 0, 0);
     if (st.far) art(pn, x0, y0, o, 'far');
@@ -140,7 +142,7 @@
   function tick(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     st.t += dt;
-    if (st.mode === 'walk') st.x += st.speed * dt;
+    if (st.mode === 'walk') { const dx = st.speed * dt; st.x += dx; st.a += TAU * dx / (4 * LL.strideFor(st.speed)); }
     for (const v of views) if (vis.has(v.cv)) draw(v);
     requestAnimationFrame(tick);
   }
@@ -151,13 +153,14 @@
   });
   seg('mode', (v) => { st.mode = v; st.mv = v !== 'stand'; });
   seg('fr', (v) => { st.smooth = v === 'smooth'; });
-  document.getElementById('speed').addEventListener('input', (ev) => { st.speed = +ev.target.value; document.getElementById('speedV').textContent = ev.target.value; });
+  document.getElementById('speed').addEventListener('input', (ev) => { st.speed = +ev.target.value; document.getElementById('speedV').textContent = ev.target.value; showStride(); });
   selLegs.addEventListener('change', () => { st.legs = selLegs.value; });
   selLook.addEventListener('change', () => { st.look = selLook.value; });
   document.getElementById('far').addEventListener('change', (ev) => { st.far = ev.target.checked; });
   document.getElementById('grid').addEventListener('change', (ev) => { st.grid = ev.target.checked; });
   document.getElementById('zoom').addEventListener('change', (ev) => { st.zoom = +ev.target.value; applyZoom(); });
-  window.chassisLab = { st, views, draw, frame: (x) => { st.x = x; views.forEach(draw); } };   // 调试 / 截图用
+  window.chassisLab = { st, views, draw };   // 调试 / 截图用
+  showStride();
   applyZoom();
   views.forEach(draw);
   requestAnimationFrame(tick);

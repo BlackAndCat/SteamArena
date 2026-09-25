@@ -153,12 +153,13 @@ SA.LEGLAB = (() => {
   // 步态：S 步幅、H 抬脚高度。着地时脚往后蹬，抬起时往前摆；抬脚前半程脚尖朝下，后半程脚尖翘起
   function gait(o, ph, S, H) {
     if (!o.mv) return { x: 0, lift: 0, tilt: 0, sn: 0, c: 1 };
-    if (o.plant) return plantGait(o, ph, o.plantS != null ? o.plantS : S, H);
+    if (o.plant) return plantGait(o, ph, o.plantS != null ? o.plantS : S, o.plantH != null ? o.plantH : H);
     const a = o.a + ph, c = Math.cos(a), sn = Math.sin(a);
     return { x: -S * c, lift: Math.max(0, sn) * H, tilt: 0.35 * Math.max(0, sn) * c, sn, c };
   }
   // 踩实地的步态（新版整件底盘用，o.plant）：前半个周期抬脚往前摆（先快后慢），后半个周期着地、脚相对车身匀速往后蹬。
-  // 一个周期 = 车走 60px，着地那半个周期车走 30px，所以步幅 S = 15 时脚正好钉在地上不打滑（腿放大画的要按放大倍数折算）
+  // 脚在胯前后 ±S 之间摆。步态周期要等于车走 4S（着地那半个周期车走 2S = 脚往后蹬的距离），脚才钉在地上不打滑：
+  // 调用方按车走的距离推进步态角 a += 2π × 距离 / (4S)（腿放大画的，S 要按放大倍数折算）
   function plantGait(o, ph, S, H) {
     const u = ((((o.a + ph) / TAU) % 1) + 1) % 1;
     if (u < 0.5) {
@@ -710,7 +711,7 @@ SA.LEGLAB = (() => {
   function spiderLeg(pn, M, hx, hy, gy, dir, ph, o, H) {
     const g = gait(o, ph, H.stride || 5, H.lift || 4);
     const fx = hx + dir * H.reach + g.x, fy = gy - g.lift;
-    const kx = hx + dir * H.kx + g.x * 0.3, ky = hy - H.up - g.lift * 0.6;
+    const kx = hx + dir * H.kx + g.x * (H.kf || 0.3), ky = hy - H.up - g.lift * 0.6;   // kf：膝盖跟着脚摆多少
     const F = bone(hx, hy, kx, ky), t = H.w || 1;   // t：腿的粗细倍数（新版四足用，游戏里现有的蜘蛛腿是 1）
     pn.poly(F.pts([[0, -2.6 * t], [0, 2.6 * t], [F.len, 3.4 * t], [F.len, -3.4 * t]])).paint(M.leg);
     if (F.len > 14) pn.ln(...F.p(2, 0), ...F.p(F.len - 3, 0), M.leg[3]);
@@ -738,19 +739,37 @@ SA.LEGLAB = (() => {
 
   // ================= 新版整件底盘（四足 4×2、真双足 2×4）：只管外观和动画，坐标都是模块左上角 =================
 
-  // 四足型号：腿形 + 步幅（stride 15 = 踩实地不打滑）。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
+  // 步幅（新版整件底盘，世界像素）：跟着车速变，慢走小步、快跑大步，脚在胯前后 ±步幅之间摆（跨过腿的轴线）
+  const strideFor = (v) => Math.max(16, Math.min(40, 18 + v * 0.25));
+  // 机身起伏：着地的腿像圆规一样绕脚转，脚离胯越远胯越低（R = 胯到脚的腿长）。phs = 各条腿的相位差，dx0 = 脚静止时离胯多远
+  function strideBob(o, R, phs, dx0 = 0) {
+    if (!o.mv) return 0;
+    let d = 0;
+    for (const ph of phs) {
+      const g = plantGait(o, ph, o.stride || 15, 1);
+      if (g.lift > 0) continue;
+      const x = g.x + dx0;
+      d = Math.max(d, R - Math.sqrt(Math.max(0, R * R - x * x)));
+    }
+    return Math.round(d);
+  }
+  const quadBob = (o) => strideBob(o, 70, [0, Math.PI]);
+  const bipedBob = (o) => strideBob(o, 58, [0, Math.PI], 4);
+
+  // 四足型号：腿形。reach = 脚静止时离胯多远（小 → 脚在胯下附近前后大幅摆动），kf = 膝盖跟着脚摆多少。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
   const QUADS = {
-    crawl: { name: '伏地蛛', up: 22, kx: 18, reach: 30, stride: 15, lift: 8, w: 1.35 },
-    tall: { name: '高脚蛛', up: 36, kx: 14, reach: 24, stride: 15, lift: 9, w: 1.25 },
+    crawl: { name: '伏地蛛', up: 26, kx: 20, reach: 22, kf: 0.45, w: 1.35 },
+    tall: { name: '高脚蛛', up: 38, kx: 16, reach: 18, kf: 0.45, w: 1.25 },
   };
   // 四足 · 4×2（96×48）：一整块压低的蜘蛛甲壳 + 四条腿（近侧后 / 前、远侧后 / 前）。后腿往后张、前腿往前张，
   // 对角两条同相（近后 + 远前、近前 + 远后）大步交替。远侧腿压暗、往右上错开，画在车体后面。
-  // o：{ mv, a（步态角）, bd（机身起伏）, g: [近后, 近前, 远后, 远前]（悬挂伸缩）, top（上面压着模块）, look: QUADS 的键 }
-  // 接地点（模块内 x，静止时，伏地蛛）：近后 -8、近前 104、远后 0、远前 112；步幅 ±15
+  // o：{ mv, a（步态角）, stride（步幅，见 strideFor）, bd（机身起伏，见 quadBob）, g: [近后, 近前, 远后, 远前]（悬挂伸缩）, top（上面压着模块）, look: QUADS 的键 }
+  // 接地点（模块内 x，静止时，伏地蛛）：近后 0、近前 96、远后 8、远前 104；走起来在这前后 ±步幅
   // part：'far' 只画远侧两条腿 / 'near' 只画甲壳 + 近侧两条腿 / 省略 = 都画
   const QUAD_HIPS = { nr: [22, 10], nf: [74, 10], fr: [30, 7], ff: [82, 7] };
   function quadArt(pn, x, y, o, part) {
-    const H = QUADS[o.look] || QUADS.crawl, bd = o.bd || 0, g = o.g || [0, 0, 0, 0], lo = { ...o, plant: true };
+    const H = QUADS[o.look] || QUADS.crawl, bd = o.bd || 0, g = o.g || [0, 0, 0, 0], S = o.stride || 15;
+    const lo = { ...o, plant: true, plantS: S, plantH: 5 + 0.3 * S };
     const leg = (M, [hx, hy], gy, dir, ph) => spiderLeg(pn, M, x + hx, y + hy + bd, gy, dir, ph, lo, H);
     if (part !== 'near') { leg(FAR, QUAD_HIPS.fr, y + 45 + g[2], -1, Math.PI); leg(FAR, QUAD_HIPS.ff, y + 45 + g[3], 1, 0); }
     if (part === 'far') return;
@@ -794,14 +813,14 @@ SA.LEGLAB = (() => {
 
   // 真双足 · 2×4（48×96）：上两行是胯，下两行是一对长腿。腿型沿用 DESIGNS 的六档，以胯为支点放大到地面（胯关节到地面 67px，约 2 倍），
   // 仍是原生像素；步幅按放大倍数折算，脚踩实地不打滑。远侧腿压暗、往右 8px 上 3px，画在躯干后面。
-  // o：{ mv, a, bd（起伏，约 4px）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
+  // o：{ mv, a, stride（步幅，世界像素）, bd（起伏，见 bipedBob）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
   // 接地点（模块内 x，静止时）：近侧 26、远侧 34
   const BIPED_HIP = 29;
   function bipedArt(pn, x, y, o, part) {
     const e = DESIGNS.find(d => d.id === o.legs && !d.d.game) || DESIGNS.find(d => d.id === 'mk2'), D = e.d;
     const cx = x + 24, bd = o.bd || 0, ground = y + 96, g = o.g || [0, 0];
     const k = (96 - BIPED_HIP) / (47 - (D.hipY || 14));
-    const lo = { ...o, plant: true, plantS: 15 / k };
+    const S = o.stride || 15, lo = { ...o, plant: true, plantS: S / k, plantH: (4 + 0.3 * S) / k };
     const leg = (far) => {
       const L = legAt(D, far, cx - 24, y, lo, far ? cx + 6 : cx - 2);
       L.hy = y + BIPED_HIP + bd - (far ? 3 : 0);
@@ -841,5 +860,5 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
 })();
