@@ -67,11 +67,22 @@ SA.Camp = (() => {
     return out;
   }
 
-  // ---------- 缴获：从对手还完好的模块里挑一件带走 ----------
-  // Boss 身上的史诗 / 传奇件一定在候选里；其余随机，最多 3 件，同款同材料不重复
+  // ---------- 缴获：只在战役 / 终局锦标赛赢了之后，从对手还完好的模块里挑一件 ----------
+  // 候选只有两种：你还没有的（车上和库存里都没有这种模块，或者只有更差的材料），以及史诗 / 传奇的特殊件
+  // 史诗 / 传奇件排在前面，其余随机，最多 3 件，同款同材料不重复
+  function owns(id, mt) {
+    let yes = false;
+    SA.V.each(d().vehicle, (cell) => { if (cell.id === id && (cell.mt || 1) >= mt) yes = true; });
+    for (const k in d().inv) { const p = SA.parseKey(k); if (p.id === id && p.mt >= mt && d().inv[k] > 0) yes = true; }
+    return yes;
+  }
   function salvageOptions(survivors) {
     const seen = new Set(), pool = [];
-    for (const x of survivors) { const k = SA.invKey(x.id, x.mt); if (!seen.has(k)) { seen.add(k); pool.push(x); } }
+    for (const x of survivors) {
+      const k = SA.invKey(x.id, x.mt);
+      if (seen.has(k) || (x.mt < 5 && owns(x.id, x.mt))) continue;
+      seen.add(k); pool.push(x);
+    }
     pool.sort(() => Math.random() - 0.5);
     pool.sort((a, b) => (b.mt >= 5) - (a.mt >= 5));
     return pool.slice(0, 3);
@@ -81,7 +92,7 @@ SA.Camp = (() => {
     if (!opts.length) { next(); return; }
     const name = (x) => (x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name);
     SA.UI.dialog('缴获战利品', [
-      h('p', { style: 'margin-top:0' }, '对手的车还剩下几件完好的模块，挑一件拖回车间：'),
+      h('p', { style: 'margin-top:0' }, '按赛会规矩，胜者可以从对手车上拆走一件你还没有的零件：'),
       h('div', { class: 'salvage' }, opts.map(x => h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(x.id, 1, x.mt),
         h('div', {}, h('b', {}, name(x)), ' ', matChip(x.mt), h('div', { class: 'muted' }, SA.UI.statLine(x.id, x.mt)))))),
     ], opts.map(x => ({ label: `拿走 ${name(x)}`, primary: x.mt >= 5, onClick: () => {
@@ -120,6 +131,24 @@ SA.Camp = (() => {
 
   // ---------- 调试（控制台）----------
   // SA.dev.goto(3)：直接跳到第 3 章开头（前面各章的解锁全部发放）；SA.dev.unlockAll()：全部解锁；SA.dev.money(n)
+  // 开发者面板：侧边栏底部的「开发者」按钮
+  function devPanel() {
+    const act = (label, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, onclick: () => { SA.UI.closeModal(); fn(); SA.UI.toast(label); } }, label);
+    const sel = h('select', {}, SA.CAMPAIGN.map((ch, i) => h('option', { value: i, selected: i === chIndex() }, ch.name)));
+    SA.UI.openModal('开发者模式', h('div', { class: 'dev-panel' },
+      h('p', { class: 'muted', style: 'margin-top:0' }, '只用于测试：直接改存档。'),
+      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:0' },
+        act('一键全部解锁', () => { dev.unlockAll(); dev.money(10000); dev.ingots(5); }, true),
+        act('+£1000', () => dev.money(1000)),
+        act('乌兹钢锭 / 以太结晶 +3', () => dev.ingots(3))),
+      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:10px 0 0' },
+        sel, act('跳到这一章', () => dev.goto(+sel.value))),
+      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:10px 0 0' },
+        h('a', { class: 'btn', href: 'tools/sim.html', target: '_blank' }, '数值自测 sim.html'),
+        act('清空存档重来', () => SA.reset()))));
+    document.querySelector('#modal > .panel').classList.add('dialog');
+  }
+
   const dev = {
     goto(ci) {
       const C = c();
@@ -132,8 +161,10 @@ SA.Camp = (() => {
     },
     unlockAll() { dev.goto(SA.CAMPAIGN.length); },
     money(n = 1000) { d().money += n; SA.S.save(); SA.UI.topbar(); },
+    ingots(n = 3) { SA.S.addIngots({ wootz: n, aether: n }); SA.S.save(); SA.UI.topbar(); },
+    panel: devPanel,
   };
 
-  return { has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { owns, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
 })();
 SA.dev = SA.Camp.dev;

@@ -128,7 +128,8 @@ SA.UI = (() => {
           d.debt ? h('span', { class: 'debt' }, `债 ${money(d.debt)}`) : null),
         h('span', { class: 'res' }, h('span', { class: 'k' }, '声望'), h('b', {}, '★'.repeat(Math.min(d.rep, 8)) || '—'), d.rep > 8 ? `×${d.rep}` : null),
         ingots.length ? h('span', { class: 'res' }, h('span', { class: 'k' }, '材料'), h('b', {}, ingots.map(([k, n]) => `${SA.INGOTS[k].name}×${n}`).join(' '))) : null,
-        h('span', { class: 'res season' }, h('span', { class: 'k' }, SA.Camp.done() ? '赛季' : '战役'), h('b', {}, SA.Camp.done() ? `${d.season} · ${d.round + 1}/6` : ch.place))),
+        h('span', { class: 'res season' }, h('span', { class: 'k' }, SA.Camp.done() ? '赛季' : '战役'), h('b', {}, SA.Camp.done() ? `${d.season} · ${d.round + 1}/6` : ch.place)),
+        h('button', { class: 'dev-btn', title: '开发者模式：一键解锁、跳章、加钱', onclick: SA.Camp.dev.panel }, '开发者')),
     );
   }
 
@@ -285,10 +286,13 @@ SA.UI = (() => {
         d.rep += rep;
         lines.push(`奖金 +${money(res.prize)}`, `声望 +${rep}${res.flawless ? '（驾驶舱毫发无损）' : ''}`);
         if (d.bet) { const pay = Math.round(d.bet.amount * d.bet.odds); d.money += pay; lines.push(`赌注兑现 +${money(pay)}`); }
+        // 缴获：只有你还没有的零件或史诗 / 传奇件；什么都没有就说一声
+        const loot = SA.Camp.salvageOptions(res.survivors || []);
+        if (loot.length) pre.push((next) => SA.Camp.salvageDialog(res.survivors || [], next));
+        else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
         if (camp) {
           const r = SA.Camp.win();
           lines.push(...r.lines);
-          pre.push((next) => SA.Camp.salvageDialog(res.survivors || [], next));
           for (const u of r.unlocks) pre.push((next) => SA.Camp.unlockDialog(u, next));
           const st = SA.Camp.current();
           d.news = SA.Camp.done() ? `「${d.vehicle.name}」击败女王号，夺得帝国蒸汽大奖赛冠军！`

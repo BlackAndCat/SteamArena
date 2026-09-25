@@ -83,6 +83,7 @@ SA.Battle = (() => {
 
   // ---------- 坐标 ----------
   const isP = (s) => s === B.p;
+  const isHuman = (s) => s === B.p && !s.isAI;   // 数值自测时玩家这一侧也交给 AI
   const cellX = (s, c) => (isP(s) ? s.x + PADX + c * C : s.x + VW - PADX - (c + 1) * C);
   const cellY = (r) => VY + r * C;
   const frontEdge = (s) => (isP(s) ? cellX(s, s.frontCol) + C : cellX(s, s.frontCol));
@@ -158,8 +159,9 @@ SA.Battle = (() => {
   }
 
   // ---------- 特效 ----------
-  function part(type, x, y, vx, vy, life, col) { B.parts.push({ type, x, y, vx, vy, life, max: life, col }); }
-  function textFx(str, x, y, col) { B.texts.push({ str, x, y, life: 0.9, col }); }
+  // 无画面模拟（数值自测）不产生粒子和飘字
+  function part(type, x, y, vx, vy, life, col) { if (!B.headless) B.parts.push({ type, x, y, vx, vy, life, max: life, col }); }
+  function textFx(str, x, y, col) { if (!B.headless) B.texts.push({ str, x, y, life: 0.9, col }); }
   function boom(x, y, n = 18) {
     for (let i = 0; i < n; i++) part('fire', x, y, rnd(-130, 130), rnd(-160, 30), rnd(0.3, 0.7));
     for (let i = 0; i < n / 2; i++) part('debris', x, y, rnd(-160, 160), rnd(-250, -60), rnd(0.8, 1.4), Math.random() < 0.5 ? P.iron[2] : P.dark[3]);
@@ -396,10 +398,10 @@ SA.Battle = (() => {
     }
     s.heat = Math.max(0, s.heat);
     if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
-    const aimPt = isP(s) ? B.aim : aiAimPoint(s, o);
+    const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
     const aiming = s.fireHeld && aimPt && s.power > 0 && !s.hold && !o.dead;
     // 玩家松开按键的这一帧也算开火（提前松手 = 用当前稳定度打出去）
-    const firing = aiming || (isP(s) && s.release && aimPt && s.power > 0 && !o.dead);
+    const firing = aiming || (isHuman(s) && s.release && aimPt && s.power > 0 && !o.dead);
     const at = firing ? targetAt(o, aimPt[0], aimPt[1]) : null;
     const side = !!at && at.layer === 'side';
     // 瞄准稳定度：按住就慢慢蓄满（准星收紧、散布缩小），车身晃动会拖慢蓄力并不断把它抖散
@@ -412,7 +414,7 @@ SA.Battle = (() => {
     s.heldT = aiming ? s.heldT + dt : 0;
     // 玩家：稳定度蓄满（绿光）自动开火，或者松手立刻开火
     // 快枪（机枪）：按住装好就打，不用等蓄满；稳定度照样影响散布，每发后坐会把它震掉一些
-    const ready = (w) => (isP(s) ? s.focus >= 1 || s.release || w.m.reload < K.FAST_RELOAD : s.heldT >= w.m.windup);
+    const ready = (w) => (isHuman(s) ? s.focus >= 1 || s.release || w.m.reload < K.FAST_RELOAD : s.heldT >= w.m.windup);
     // 副驾驶：每个副驾驶接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
     s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
@@ -502,10 +504,11 @@ SA.Battle = (() => {
       const sty = s.style;
       s.charge = s.rams > 0 && sty !== 'turtle' && (sty === 'rush' ? !s.charge || Math.random() < 0.35 : !s.charge && Math.random() < (sty === 'kite' ? 0.15 : 0.7));
       const [lo, hi] = sty === 'kite' ? [400, 640] : sty === 'rush' ? [70, 260] : [140, 520];
-      s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x - ((frontEdge(s) - frontEdge(o)) - rnd(lo, hi));
+      const fwd = isP(s) ? 1 : -1, gap = fwd * (frontEdge(o) - frontEdge(s));   // 两车车头之间的距离
+      s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x + fwd * (gap - rnd(lo, hi));
       s.moveT = s.charge ? rnd(3, 5) : rnd(2, 5) * (s.speed > 70 ? 0.6 : 1);
     }
-    if (s.charge) { s.dir = -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
+    if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
     else s.dir = Math.abs(s.goalX - s.x) > 8 ? Math.sign(s.goalX - s.x) : 0;
   }
 
@@ -519,9 +522,12 @@ SA.Battle = (() => {
   function step(dt) {
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
-    if (!B.p.dead) B.p.dir = (B.keys.right ? 1 : 0) - (B.keys.left ? 1 : 0);
-    if (B.p.fireHeld && !B.keys.fire) B.p.release = true;
-    B.p.fireHeld = B.keys.fire;
+    if (B.p.isAI) ai(B.p, B.e, dt);
+    else {
+      if (!B.p.dead) B.p.dir = (B.keys.right ? 1 : 0) - (B.keys.left ? 1 : 0);
+      if (B.p.fireHeld && !B.keys.fire) B.p.release = true;
+      B.p.fireHeld = B.keys.fire;
+    }
     ai(B.e, B.p, dt);
     sim(B.p, B.e, dt);
     sim(B.e, B.p, dt);
@@ -569,6 +575,9 @@ SA.Battle = (() => {
       // 敌方判负：武器打光 + 水烧干 + 没有近战（撞击件）。这条只对敌方生效，玩家不会因此判负
       const e = B.e;
       if (!e.dead && !B.p.dead && e.armed && !e.weapons.length && e.water <= 0 && !e.rams) kill(e, '武器打光、水也烧干，又没有近战手段，失去战斗力');
+      // 自测时两边都是 AI，这条规则对称生效
+      const p = B.p;
+      if (p.isAI && !p.dead && !e.dead && p.armed && !p.weapons.length && p.water <= 0 && !p.rams) kill(p, '武器打光、水也烧干，又没有近战手段，失去战斗力');
       // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 1.5 秒
       const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
       B.drawT = both ? (B.drawT || 0) + dt : 0;
@@ -1216,6 +1225,11 @@ SA.Battle = (() => {
 
   function finish() {
     B.done = true;
+    if (B.headless) {
+      B.result = { winner: B.draw ? 'draw' : B.e.dead && !B.p.dead ? 'p' : B.p.dead && !B.e.dead ? 'e' : 'draw',
+        t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt };
+      return;
+    }
     window.removeEventListener('resize', fit);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKey);
@@ -1233,6 +1247,25 @@ SA.Battle = (() => {
     });
   }
 
+  // ---------- 无画面模拟（tools/sim.html 数值自测用）----------
+  // 两边都交给 AI，按固定步长一口气打完，返回 { winner: 'p' | 'e' | 'draw', t, reason, pDealt, eDealt }
+  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, dt }
+  function simulate(o) {
+    const keep = B;
+    const pS = frontShift(o.p), eS = frontShift(o.e);
+    B = { headless: true, opts: { mode: 'sim' }, pShift: pS, t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+      speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
+    try {
+      B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, o.pAim || 0.8, W / 2 - 200 - PADX - K.COLS * C);
+      B.p.style = o.pStyle || null;
+      B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, o.eAim || 0.8, W / 2 + 200 - PADX);
+      B.e.style = o.eStyle || null;
+      const dt = o.dt || 1 / 30;
+      while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);
+      return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt };
+    } finally { B = keep; }
+  }
+
   // 调试：预览环境里 rAF 可能不跑，可手动推进
   const debug = {
     step(sec = 1) { for (let i = 0; i < sec * 60; i++) { if (B.done) break; step(1 / 60); } draw(); hudTick(1); return { t: B.t, px: B.p.x, ex: B.e.x, pv: B.p.vx, ev: B.e.vx, ph: B.p.heat, eh: B.e.heat, pd: B.p.dead, ed: B.e.dead }; },
@@ -1240,5 +1273,5 @@ SA.Battle = (() => {
     cellCenter(side, r, c) { const s = side === 'e' ? B.e : B.p; return [cellX(s, c) + HALF, cellY(r) + HALF]; },
     aimWorld(x, y) { const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },
   };
-  return { start, debug };
+  return { start, simulate, debug };
 })();

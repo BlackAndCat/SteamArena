@@ -493,3 +493,7 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .salvage { display: grid; gap: 6px; }
 .salvage .dlg-item { margin: 0; padding: 6px; background: var(--dark1); border: 1px solid var(--dark3); }
 .unlocks { display: grid; gap: 6px; margin: 8px 0; }
+
+.dev-btn { all: unset; cursor: pointer; margin-top: 6px; font-size: 11px; color: var(--muted); border: 1px dashed var(--dark3); padding: 3px 8px; text-align: center; }
+.dev-btn:hover { color: var(--brass3); border-color: var(--brass1); }
+.dev-panel select { background: var(--dark1); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; }

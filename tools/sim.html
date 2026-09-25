@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数值自测</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+html, body { height: auto; overflow: auto; }
+body { padding: 16px; max-width: 1400px; margin: 0 auto; }
+h1 { color: var(--brass2); margin: 0 0 4px; font-size: 22px; }
+h2 { color: var(--brass3); font-size: 16px; margin: 18px 0 6px; }
+.bar-wrap { height: 6px; background: var(--dark1); border: 1px solid var(--dark3); margin: 10px 0 4px; }
+#bar { height: 100%; width: 0; background: var(--brass2); }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 12px; background: var(--dark1); border: 1px solid var(--dark3); }
+.ctl label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+.ctl input[type=number], .ctl select { background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; width: 70px; }
+.ctl select { width: auto; }
+.grp { display: inline-flex; gap: 6px; align-items: center; padding-left: 12px; border-left: 1px solid var(--dark3); }
+table { border-collapse: collapse; font-size: 12px; margin: 6px 0 12px; }
+th, td { border: 1px solid var(--dark3); padding: 4px 8px; text-align: left; white-space: nowrap; }
+th { background: var(--dark2); color: var(--muted); font-weight: 700; }
+th.left { text-align: left; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.boss td { background: rgba(217, 164, 65, 0.06); }
+.small { font-size: 11px; }
+.ok { color: var(--gauge2); } .meh { color: var(--fire3); } .bad { color: #ff5a4a; }
+.hi { background: rgba(111, 207, 106, 0.28); } .mhi { background: rgba(111, 207, 106, 0.12); }
+.mid { background: transparent; } .mlo { background: rgba(239, 122, 33, 0.14); } .lo { background: rgba(216, 38, 27, 0.3); }
+.scroll { overflow-x: auto; }
+.matrix th.vert { text-align: center; min-width: 34px; }
+</style></head>
+<body>
+<h1>数值自测</h1>
+<p class="muted" style="margin:0 0 12px">无画面 AI 对 AI 批量对打，看战役节奏、胜率和评分准不准。玩家那一侧也由 AI 操作（瞄准可调，0.8 ≈ 一般玩家）。改完 <code>js/content.js</code> 或模块数值后刷新本页重跑。参考车定义在 <code>tools/sim.js</code> 的 <code>REF</code>。</p>
+<div class="ctl">
+  <label>每组局数 <input id="games" type="number" min="2" max="200" value="20"></label>
+  <label>玩家瞄准 <input id="aim" type="number" min="0.2" max="1" step="0.05" value="0.8"></label>
+  <span class="grp"><button class="btn primary" id="run-camp">战役关卡检验</button></span>
+  <span class="grp">
+    <select id="pool">
+      <option value="ref">各章参考车</option>
+      <option value="boss">各章 Boss</option>
+      <option value="mix">参考车 + Boss</option>
+      <option value="all">全部战役对手</option>
+      <option value="bp">官方蓝图（黄铜）</option>
+    </select>
+    <label><input id="mine" type="checkbox"> 加入我存档里的车</label>
+    <button class="btn" id="run-matrix">对战矩阵 + 评分校准</button>
+  </span>
+  <span class="grp"><select id="mat"></select><button class="btn" id="run-value">模块性价比</button></span>
+</div>
+<div class="bar-wrap"><div id="bar"></div></div>
+<div class="muted small" id="prog">&nbsp;</div>
+<div id="out"></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/state.js"></script><script src="../js/ui.js"></script>
+<script src="../js/camp.js"></script><script src="../js/battle.js"></script>
+<script src="sim.js"></script>
+</body></html>
