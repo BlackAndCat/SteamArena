@@ -1,10 +1,14 @@
 // 模块注册表。layer: chassis(只能放最底行) | body(主体层) | side(侧挂层，只能挂在主体模块上) | ram(撞击，挂在底盘/装甲正前方)
 window.SA = window.SA || {};
 
+// 格子：子格 24px，全车 16 列 × 12 行（= 以前的 8 × 6 大格，每个大格分成 2×2 子格）。
+// 模块记在左上角那一格（锚点），占 w×h 个子格：现有模块都是 2×2（画面 48px），新增 1×1、1×2 的小模块。
+// 关卡 / 蓝图的 ASCII 仍按大格写，读进来时换算成子格（SA.V.fromAscii）
 SA.K = {
-  COLS: 8,
-  ROWS: 6,            // 最高 6 层（含底盘行）
-  CELL: 48,           // 原生像素
+  COLS: 16,
+  ROWS: 12,           // 最高 6 层大格（含底盘的两行子格）
+  CELL: 24,           // 子格原生像素
+  ART: 48,            // 模块精灵的原生尺寸（2×2 子格）
   GRAVITY: 780,       // 炮弹重力 px/s²
   MOVE_HEAT: 2,       // 行驶额外产热 /秒
   MOVE_WATER: 0.3,    // 行驶直接耗水 /秒（蒸汽驱动）
@@ -20,7 +24,7 @@ SA.K = {
   BATTLE_TIME: 100,
   GAME_SPEED: 0.75,   // 战斗节奏默认放慢到 0.75 倍（战斗界面底部有滑条可调，记在本机）
   // 重量：每个模块 = 基础重量 + 自身重量（kg）；底盘按承重（kg）限制总重
-  WEIGHT_BASE: 250,
+  WEIGHT_BASE: 250,   // 一个 2×2 模块的基础重量；小模块按面积折算
   DRIVE_PER_T: 0.3,   // 每吨车重需要的行驶动力：动力需求 = 设备耗能 + 车重 × 该系数
   RAM_SELF: 0.3,      // 撞击时自己的撞击面承受的反作用伤害（占造成伤害的比例）
   // 模块改装（炮盾 / 附加装甲）：纯属性升级，最多 3 级
@@ -59,6 +63,26 @@ SA.MODULES = {
     name: '驾驶舱', cat: 'control', layer: 'body',
     price: 120, hp: 200, power: 1, kg: 150, q: 1,
     desc: '至少需要 1 个。全部被毁即告负。高抛炮能从上方砸下来，记得加顶甲。',
+  },
+  helmet: {
+    name: '头盔驾驶舱', cat: 'control', layer: 'body', w: 1, h: 1, art: 'cockpit', cockpit: true,
+    price: 70, hp: 70, power: 0.5, kg: 40, q: 1,
+    desc: '只占一个小格的驾驶舱：省地方、省动力，也算驾驶舱（全部驾驶舱被毁才判负）；但很脆，也装不了辅助设备。',
+  },
+  plate: {
+    name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1, art: 'armor',
+    price: 12, hp: 45, power: 0, armor: 3, kg: 90, q: 1,
+    desc: '四分之一块铁装甲，护甲同样是 3。用来补缝、垫在炮口下面、护住驾驶舱的一角。',
+  },
+  tank_s: {
+    name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1, art: 'water',
+    price: 20, hp: 28, power: 0, water: 12, cool: 1, kg: 75, q: 1,
+    desc: '只占一个小格的水罐：水 12、每秒冷却 1。',
+  },
+  tank_tall: {
+    name: '水罐', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water',
+    price: 38, hp: 52, power: 0, water: 25, cool: 2, kg: 150, q: 1,
+    desc: '竖着的细水罐，占 1×2 小格：水 25、每秒冷却 2，塞进缝里正好。',
   },
   copilot: {
     name: '副驾驶', cat: 'control', layer: 'body',
@@ -137,12 +161,15 @@ SA.MODULES = {
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
-  'copilot'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+  'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
-// 模块重量（kg）：基础重量 + 自身重量 + 改装加重
-SA.weightOf = (cell) => SA.K.WEIGHT_BASE + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG;
+// 占格：w×h 个子格（默认 2×2）
+SA.fp = (id) => { const m = SA.MODULES[id]; return { w: m.w || 2, h: m.h || 2 }; };
+SA.isCockpit = (id) => id === 'cockpit' || !!SA.MODULES[id].cockpit;
+// 模块重量（kg）：基础重量（按面积折算）+ 自身重量 + 改装加重
+SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.w * f.h / 4 + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG; };
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
 SA.tons = fmtT;
 SA.kmh = (pxs) => `${(pxs * SA.K.KMH).toFixed(1)} km/h`;

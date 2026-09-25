@@ -5,7 +5,7 @@ SA.Battle = (() => {
   const h = SA.h, K = SA.K, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
   const W = 1280, H = 720, GROUND = 648, VY = GROUND - K.ROWS * C;
   const VW = K.COLS * C + PADX * 2;
-  const HALF = C / 2;
+  const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
   const GROUP_ORDER = ['cannon', 'mortar', 'mg', 'side_cannon'];
   let B = null, cv, g, dg, wc, bg, wrap, hud = {};
@@ -23,6 +23,7 @@ SA.Battle = (() => {
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
       focus: 0, jolt: 0, release: false, kick: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
+    s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
     refresh(s);
     s.water = s.waterMax;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
@@ -38,12 +39,12 @@ SA.Battle = (() => {
       live.push(cell);
       const m = SA.mod(cell);   // 按材料放大后的属性
       minCol = Math.min(minCol, c);
-      if (layer === 'body') frontCol = Math.max(frontCol, c);
+      if (layer === 'body') frontCol = Math.max(frontCol, c + SA.fp(cell.id).w - 1);
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
       cool += m.cool || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
       if (m.layer === 'chassis') { ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
-      if (cell.id === 'cockpit') cock++;
+      if (SA.isCockpit(cell.id)) cock++;
       if (cell.id === 'copilot') cop++;
       aimSh += m.aimShrink || 0; aimSp += m.aimSpeed || 0;
     });
@@ -92,10 +93,25 @@ SA.Battle = (() => {
   const cellX = (s, c) => (isP(s) ? s.x + PADX + c * C : s.x + VW - PADX - (c + 1) * C);
   const cellY = (r) => VY + r * C;
   const frontEdge = (s) => (isP(s) ? cellX(s, s.frontCol) + C : cellX(s, s.frontCol));
+  // 模块在世界里的包围盒（敌方镜像：锚点列在世界里是最右边那一列）
+  function modBox(s, r, c, id) {
+    const f = SA.fp(id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
+    return { x0, x1: x0 + f.w * C, y0: cellY(r), y1: cellY(r) + f.h * C };
+  }
+  function modCenter(s, layer, r, c) {
+    const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
+    return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
+  }
+  // 世界坐标 → 子格
   function cellAt(s, x, y) {
     const r = Math.floor((y - VY) / C);
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
+  }
+  // 子格上活着的模块 → { layer, r, c }（锚点）
+  function modAt(s, layer, r, c) {
+    const o = (layer === 'side' ? s.occS : s.occ)[r][c];
+    return o && alive(o.cell) ? { layer, r: o.r, c: o.c } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
@@ -108,9 +124,7 @@ SA.Battle = (() => {
   function targetAt(def, x, y) {
     const cell = cellAt(def, x, y);
     if (!cell) return null;
-    if (alive(def.v.side[cell.r][cell.c])) return { layer: 'side', ...cell };
-    if (alive(def.v.body[cell.r][cell.c])) return { layer: 'body', ...cell };
-    return null;
+    return modAt(def, 'side', cell.r, cell.c) || modAt(def, 'body', cell.r, cell.c);
   }
 
   // ---------- 弹道 ----------
@@ -145,8 +159,8 @@ SA.Battle = (() => {
     sh.x += sh.vx * dt; sh.y += sh.vy * dt; sh.vy += sh.g * dt;
     const cell = cellAt(def, sh.x, sh.y);
     if (cell) {
-      if (sh.side) { if (alive(def.v.side[cell.r][cell.c])) return { layer: 'side', ...cell }; }
-      else if (alive(def.v.body[cell.r][cell.c])) return { layer: 'body', ...cell };
+      const hit = modAt(def, sh.side ? 'side' : 'body', cell.r, cell.c);
+      if (hit) return hit;
     }
     if (sh.y >= GROUND) return 'ground';
     if (sh.x < -80 || sh.x > W + 80 || sh.y > H) return 'out';
@@ -204,7 +218,7 @@ SA.Battle = (() => {
     if (!alive(cell)) return;
     cell.hp -= dmg;
     def.taken += dmg; if (att) att.dealt += dmg;
-    const x = cellX(def, imp.c) + HALF, y = cellY(imp.r) + 18;
+    const [x, y0] = modCenter(def, imp.layer, imp.r, imp.c), y = y0 - 6;
     textFx(String(Math.round(dmg)), x + rnd(-9, 9), y - 18, imp.layer === 'side' ? P.magenta : P.white);
     for (let i = 0; i < 6; i++) part('spark', x, y + 6, rnd(-130, 130), rnd(-160, 0), rnd(0.15, 0.35));
     if (cell.hp <= 0) destroy(def, att, imp);
@@ -213,19 +227,32 @@ SA.Battle = (() => {
   function destroy(def, att, imp) {
     const cell = def.v[imp.layer][imp.r][imp.c];
     cell.hp = 0;
-    const x = cellX(def, imp.c) + HALF, y = cellY(imp.r) + HALF;
+    const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
     boom(x, y);
+    const f = SA.fp(cell.id);
+    // 挂在这个主体模块上的侧炮一起掉下来
     if (imp.layer === 'body') {
-      const sd = def.v.side[imp.r][imp.c];
-      if (alive(sd)) { sd.hp = 0; for (let i = 0; i < 8; i++) part('debris', x, y, rnd(-90, 90), rnd(-120, 0), 1.2, P.brass[1]); textFx('!', x, y - 40, P.fire[3]); }
+      const seen = new Set();
+      for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) {
+        const o = def.occS[imp.r + i][imp.c + j];
+        if (!o || seen.has(o.cell) || !alive(o.cell)) continue;
+        seen.add(o.cell); o.cell.hp = 0;
+        for (let k = 0; k < 8; k++) part('debris', x, y, rnd(-90, 90), rnd(-120, 0), 1.2, P.brass[1]);
+        textFx('!', x, y - 40, P.fire[3]);
+      }
     }
     const m = M[cell.id];
     if (cell.id === 'track' && !def.thrown) for (let i = 0; i < 14; i++) part('debris', x + rnd(-40, 40), GROUND - 10, rnd(-140, 140), rnd(-260, -80), rnd(0.8, 1.5), i % 2 ? P.dark[2] : P.dark[3]);
     if (m.explode) {
       boom(x, y, 30);
-      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        const r = imp.r + dr, c = imp.c + dc;
-        if (r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS && alive(def.v.body[r][c])) damage(def, att, { layer: 'body', r, c }, m.explode);
+      // 波及外圈紧贴的每个模块（各炸一次）
+      const hit = new Set();
+      for (let i = -1; i <= f.h; i++) for (let j = -1; j <= f.w; j++) {
+        if ((i === -1 || i === f.h) === (j === -1 || j === f.w)) continue;   // 只要上下左右，不要对角和自己
+        const r = imp.r + i, c = imp.c + j;
+        if (r < 0 || r >= K.ROWS || c < 0 || c >= K.COLS) continue;
+        const o = def.occ[r][c];
+        if (o && alive(o.cell) && !hit.has(o.cell)) { hit.add(o.cell); damage(def, att, { layer: 'body', r: o.r, c: o.c }, m.explode); }
       }
     }
     refresh(def);
@@ -243,7 +270,7 @@ SA.Battle = (() => {
     s.water = Math.max(0, s.water - K.CHUFF_WATER);
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (layer !== 'body' || !alive(cell) || cell.id !== 'boiler') return;
-      const x = isP(s) ? cellX(s, c) + 37 : cellX(s, c) + 11, y = cellY(r);
+      const x = modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), y = cellY(r);
       for (let i = 0; i < 7; i++) part('steam', x + rnd(-5, 5), y, rnd(-50, 50), rnd(-170, -80), rnd(0.5, 0.9));
     });
     const back = cellX(s, isP(s) ? s.minCol : s.frontCol);
@@ -296,16 +323,17 @@ SA.Battle = (() => {
   // ---------- 逐行碰撞 ----------
   // 两车只在「同一高度的行」上相撞：每一行各自最前端的模块互相顶住。
   // 这样底盘伸得再长也只在底盘那一行挡路，上层的撞角可以从光秃秃的底盘上方越过去撞到后面的模块。
-  const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) if (alive(s.v.body[r][c])) return c; return -1; };
-  const rowEdge = (s, r, c) => (isP(s) ? cellX(s, c) + C : cellX(s, c));
+  // 每一行子格最前端的活模块（占格表里的 { cell, r, c }），没有就是 null
+  const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) { const o = s.occ[r][c]; if (o && alive(o.cell)) return o; } return null; };
+  const rowEdge = (s, o) => { const b = modBox(s, o.r, o.c, o.cell.id); return isP(s) ? b.x1 : b.x0; };
   // 返回 { gap, rows }：最小间距，以及贴得最近（在 1px 内）的那些行
   function rowContact(p, e) {
     let gap = Infinity;
     const rows = [];
     for (let r = 0; r < K.ROWS; r++) {
       const pc = rowFront(p, r), ec = rowFront(e, r);
-      if (pc < 0 || ec < 0) continue;
-      const g0 = rowEdge(e, r, ec) - rowEdge(p, r, pc);
+      if (!pc || !ec) continue;
+      const g0 = rowEdge(e, ec) - rowEdge(p, pc);
       rows.push({ r, g: g0, pc, ec });
       gap = Math.min(gap, g0);
     }
@@ -320,20 +348,22 @@ SA.Battle = (() => {
     B.contact = gap <= 1;
     if (gap > 0) return;
     const closing = p.vx - e.vx;
-    const cx = (rowEdge(p, rows[0].r, rows[0].pc) + rowEdge(e, rows[0].r, rows[0].ec)) / 2;
+    const cx = (rowEdge(p, rows[0].pc) + rowEdge(e, rows[0].ec)) / 2;
     if (closing > 25 && B.ramCd <= 0) {
       B.ramCd = 0.35;
       const f = closing / 60;
       let knockP = 0, knockE = 0;
+      // 一对模块顶在一起（可能跨好几行子格）只算一次
+      const pairs = [];
+      for (const x of rows) if (!pairs.some(q => q.pc === x.pc && q.ec === x.ec)) pairs.push(x);
       for (const [a, d] of [[p, e], [e, p]]) {
-        for (const x of rows) {
-          const ac = a === p ? x.pc : x.ec, dc = a === p ? x.ec : x.pc;
-          const ma = a.v.body[x.r][ac];
+        for (const x of pairs) {
+          const am = a === p ? x.pc : x.ec, dm = a === p ? x.ec : x.pc;
+          const ma = am.cell;
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
           const dmg = (SA.mod(ma).ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
-          const target = d.v.body[x.r][dc];
-          damage(d, a, { layer: 'body', r: x.r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
-          if (alive(a.v.body[x.r][ac])) damage(a, null, { layer: 'body', r: x.r, c: ac }, dmg * K.RAM_SELF);
+          damage(d, a, { layer: 'body', r: dm.r, c: dm.c }, SA.isRam(dm.cell.id) ? dmg * 0.5 : dmg);
+          if (alive(ma)) damage(a, null, { layer: 'body', r: am.r, c: am.c }, dmg * K.RAM_SELF);
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
         }
       }
@@ -371,20 +401,23 @@ SA.Battle = (() => {
     for (const k in s.punch) s.punch[k] = Math.max(0, s.punch[k] - dt * 4);
     if (s.dead || o.dead || !B.contact) return;
     for (const pc of s.pistons) {
-      // 撞锤要在自己这一行的最前端，并且这一行正顶着对方
-      if (pc.c !== rowFront(s, pc.r) || !alive(pc.cell) || !(B.contactRows || []).includes(pc.r)) continue;
+      // 撞锤要在自己这几行的最前端，并且其中一行正顶着对方
+      const f = SA.fp(pc.cell.id);
+      let row = -1;
+      for (let i = 0; i < f.h; i++) { const rr = pc.r + i, fr = rowFront(s, rr); if (fr && fr.cell === pc.cell && (B.contactRows || []).includes(rr)) row = rr; }
+      if (!alive(pc.cell) || row < 0) continue;
       const key = `${pc.r},${pc.c}`;
       s.punchT[key] = (s.punchT[key] || 0) - dt;
       if (s.punchT[key] > 0) continue;
       s.punchT[key] = M.piston.punchCd;
-      let dc = -1;
-      for (let k = K.COLS - 1; k >= 0; k--) if (alive(o.v.body[pc.r][k])) { dc = k; break; }
-      if (dc < 0) continue;
+      const tgt = rowFront(o, row);
+      if (!tgt) continue;
+      const dc = tgt.c;
       s.punch[key] = 1;
       s.heat += M.piston.heat;
-      damage(o, s, { layer: 'body', r: pc.r, c: dc }, SA.armorCut(SA.mod(o.v.body[pc.r][dc]), SA.mod(pc.cell).punch));
+      damage(o, s, { layer: 'body', r: tgt.r, c: dc }, SA.armorCut(SA.mod(tgt.cell), SA.mod(pc.cell).punch));
       shove(s, o, 30);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
-      const x = frontEdge(s), y = cellY(pc.r) + HALF;
+      const x = frontEdge(s), y = cellY(row) + HALF;
       for (let i = 0; i < 10; i++) part('steam', x, y, rnd(-90, 90), rnd(-120, -15), rnd(0.4, 0.8));
       B.shake = Math.max(B.shake, 4);
     }
@@ -447,7 +480,7 @@ SA.Battle = (() => {
       SA.V.each(s.v, (cell, r, c, layer) => {
         if (layer !== 'body' || !alive(cell)) return;
         if (cell.id === 'boiler') part('steam', isP(s) ? cellX(s, c) + 37 : cellX(s, c) + 11, cellY(r), rnd(-12, 12), rnd(-66, -36), rnd(0.8, 1.4));
-        if (cell.hp / SA.V.maxHp(cell) < 0.34 && Math.random() < 0.5) part('smoke', cellX(s, c) + HALF, cellY(r) + 12, rnd(-12, 12), -42, 1.2);
+        if (cell.hp / SA.V.maxHp(cell) < 0.34 && Math.random() < 0.5) part('smoke', modCenter(s, layer, r, c)[0], cellY(r) + 12, rnd(-12, 12), -42, 1.2);
       });
     }
   }
@@ -456,7 +489,8 @@ SA.Battle = (() => {
   function aiAimPoint(s, o) {
     const t = s.target;
     if (!t) return null;
-    return [cellX(o, t.c) + HALF + s.err.x, cellY(t.r) + HALF + s.err.y];
+    const [x, y] = modCenter(o, t.layer, t.r, t.c);
+    return [x + s.err.x, y + s.err.y];
   }
   // 按权重随机挑一个敌方模块当目标：武器、驾驶舱、锅炉优先
   function pickTarget(o) {
@@ -464,7 +498,7 @@ SA.Battle = (() => {
     SA.V.each(o.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const id = cell.id;
-      const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : id === 'cockpit' ? 2 : id === 'copilot' ? 1.8 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
+      const w = layer === 'side' ? 3 : M[id].dmg ? 2.5 : SA.isCockpit(id) ? 2 : id === 'copilot' ? 1.8 : id === 'boiler' ? 1.6 : id === 'water' ? 1.2 : M[id].layer === 'chassis' ? 0.3 : 0.6;
       cands.push({ w, t: { layer, r, c } });
     });
     let x = Math.random() * cands.reduce((a, b) => a + b.w, 0);
@@ -480,7 +514,9 @@ SA.Battle = (() => {
       co.err = { x: gauss() * 34, y: gauss() * 20 };
       co.retarget = rnd(3, 6);
     }
-    return co.target ? [cellX(o, co.target.c) + HALF + co.err.x, cellY(co.target.r) + HALF + co.err.y] : null;
+    if (!co.target) return null;
+    const [x, y] = modCenter(o, co.target.layer, co.target.r, co.target.c);
+    return [x + co.err.x, y + co.err.y];
   }
   function ai(s, o, dt) {
     if (s.dead) return;
@@ -527,15 +563,14 @@ SA.Battle = (() => {
   const helpless = (s) => !!crippled(s) && !(s.rams && s.supply > 0 && s.speed > 0);
 
   // 投降：对手彻底没法打、而玩家还能打，持续 1 秒就挂白旗。战斗暂停，玩家选择接受（立即获胜，额外声望）还是继续打
-  // 无画面模拟里两边都是 AI：谁先彻底没法打谁就投降
+  // 只有对手会投降（玩家没了武器还能等对手烧干）；无画面模拟里视为玩家接受投降
   function surrender(dt) {
     const p = B.p, e = B.e;
     if (p.dead || e.dead || B.surrender) return;
-    const loser = helpless(e) && !helpless(p) ? e : p.isAI && helpless(p) && !helpless(e) ? p : null;
-    B.surT = loser ? (B.surT || 0) + dt : 0;
+    B.surT = helpless(e) && !helpless(p) ? (B.surT || 0) + dt : 0;
     if (B.surT < 1) return;
-    const why = crippled(loser);
-    if (B.headless) { B.surrender = 'accepted'; kill(loser, `${why}，挂白旗投降`); return; }
+    const why = crippled(e);
+    if (B.headless) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); return; }
     B.surrender = 'asked';
     B.frozen = true;
     B.keys.left = B.keys.right = B.keys.fire = false;
@@ -707,7 +742,7 @@ SA.Battle = (() => {
     overhead(B.p); overhead(B.e);
 
     // 准星停在模块上：显示它的改装军衔杠
-    if (aimT) SA.SPR.chevrons(g, Math.round(cellX(B.e, aimT.c)), cellY(aimT.r), B.e.v[aimT.layer][aimT.r][aimT.c].lv || 0, K.UP_MAX);
+    if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; SA.SPR.chevrons(g, Math.round(modBox(B.e, aimT.r, aimT.c, t0.id).x0), cellY(aimT.r), t0.lv || 0, K.UP_MAX); }
     B.previewInfo = null;
     if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
 
@@ -872,7 +907,7 @@ SA.Battle = (() => {
   // 车顶的小仪表：耐久 / 热量 / 水 三条细条 + 警报字，跟着车走，视线不用离开战场
   function overhead(s) {
     let top = K.ROWS, lo = 1e9, hi = -1e9;
-    SA.V.each(s.v, (cell, r, c) => { if (!alive(cell)) return; top = Math.min(top, r); const x = cellX(s, c); lo = Math.min(lo, x); hi = Math.max(hi, x + C); });
+    SA.V.each(s.v, (cell, r, c) => { if (!alive(cell)) return; top = Math.min(top, r); const b = modBox(s, r, c, cell.id); lo = Math.min(lo, b.x0); hi = Math.max(hi, b.x1); });
     if (hi < lo) return;
     let a = 0, m = 0;
     SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
@@ -913,17 +948,18 @@ SA.Battle = (() => {
 
   // 瞄准高亮：整格白色闪烁 + 白描边，侧炮和普通模块一样，不分颜色
   const hlC = document.createElement('canvas');
-  hlC.width = C + 8; hlC.height = C + 8;
-  function highlight(cvs, lx, ly) {
+  hlC.width = K.ART + 8; hlC.height = K.ART + 8;
+  // lx, ly：模块在整车画布里的左上角；w, h：模块像素大小
+  function highlight(cvs, lx, ly, w, h) {
     const x = hlC.getContext('2d');
     x.globalCompositeOperation = 'source-over';
-    x.clearRect(0, 0, C + 8, C + 8);
-    x.drawImage(cvs, lx - 4, ly - 4, C + 8, C + 8, 0, 0, C + 8, C + 8);
+    x.clearRect(0, 0, hlC.width, hlC.height);
+    x.drawImage(cvs, lx - 4, ly - 4, w + 8, h + 8, 0, 0, w + 8, h + 8);
     x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, C + 8, C + 8);
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, w + 8, h + 8);
     const pulse = 0.5 + 0.5 * Math.sin(B.t * 10);
-    g.globalAlpha = 0.3 + 0.45 * pulse; g.drawImage(hlC, lx - 4, ly - 4); g.globalAlpha = 1;
-    g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(lx - 1, ly - 1, C + 2, C + 2);
+    g.globalAlpha = 0.3 + 0.45 * pulse; g.drawImage(hlC, 0, 0, w + 8, h + 8, lx - 4, ly - 4, w + 8, h + 8); g.globalAlpha = 1;
+    g.lineWidth = 2; g.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * pulse})`; g.strokeRect(lx - 1, ly - 1, w + 2, h + 2);
   }
 
   function drawVehicle(s, cvs, hl) {
@@ -936,7 +972,7 @@ SA.Battle = (() => {
     g.rotate(clamp(w * 0.012, -0.06, 0.06));      // 往后坐时车头微微抬起
     g.drawImage(cvs, -px, -py);
     if (s.dead) g.drawImage(tint(cvs), -px, -py);
-    if (hl) { g.translate(-px, -py); highlight(cvs, PADX + hl.c * C, hl.r * C); }   // 本地坐标：跟着车身晃动、敌方镜像
+    if (hl) { const f = SA.fp(s.v[hl.layer][hl.r][hl.c].id); g.translate(-px, -py); highlight(cvs, PADX + hl.c * C, hl.r * C, f.w * C, f.h * C); }   // 本地坐标：跟着车身晃动、敌方镜像
     g.restore();
   }
 
@@ -1005,7 +1041,7 @@ SA.Battle = (() => {
     }
     if (pr.hit) {
       info.hit = pr.hit;
-      if (!sameCell(pr.hit, aimT)) SA.SPR.outline(g, Math.round(cellX(B.e, pr.hit.c)), cellY(pr.hit.r), C, C, P.white, P.black, Math.floor(B.t * 16));
+      if (!sameCell(pr.hit, aimT)) { const b = modBox(B.e, pr.hit.r, pr.hit.c, B.e.v[pr.hit.layer][pr.hit.r][pr.hit.c].id); SA.SPR.outline(g, Math.round(b.x0), b.y0, b.x1 - b.x0, b.y1 - b.y0, P.white, P.black, Math.floor(B.t * 16)); }
     }
   }
 
@@ -1107,7 +1143,7 @@ SA.Battle = (() => {
     const parts = [head];
     if (pi && pi.blocked) parts.push('<b>这组武器全被己方模块挡住了</b>，换一组武器');
     if (aimT && aimT.layer === 'side') parts.push('瞄准 <span class="side">敌方侧炮（侧挂层）</span>：只打侧炮，不会被前面的装甲挡住');
-    else if (aimT) parts.push(`瞄准 <b>敌方${M[B.e.v.body[aimT.r][aimT.c].id].name}</b>`);
+    else if (aimT) parts.push(`瞄准 <b>敌方${M[B.e.v[aimT.layer][aimT.r][aimT.c].id].name}</b>`);
     else parts.push('准星没有对准敌方模块');
     const alt = p.groups.includes('mortar') && p.sel !== 'mortar' ? ' → 换高抛火炮试试' : '';
     if (pi && pi.over) parts.push(pi.over === 'high' ? `<b>超出射界</b>：目标太高/太近，炮管抬不到 ${M[p.sel].elev[1]}° 以上${alt}` : '<b>超出射界</b>：炮管压不了那么低');
@@ -1123,7 +1159,7 @@ SA.Battle = (() => {
   // ---------- 流程 ----------
   function frontShift(v) {
     let m = -1;
-    SA.V.each(v, (cell, r, c) => { m = Math.max(m, c); });
+    SA.V.each(v, (cell, r, c) => { m = Math.max(m, c + SA.fp(cell.id).w - 1); });
     return m < 0 ? 0 : K.COLS - 1 - m;
   }
   function shiftVeh(v, k) {
@@ -1270,7 +1306,7 @@ SA.Battle = (() => {
     const draw = !!B.draw;
     const win = !draw && !B.p.dead && B.e.dead;
     let flawless = true;
-    SA.V.each(B.p.v, (cell) => { if (cell.id === 'cockpit' && cell.hp < SA.V.maxHp(cell)) flawless = false; });
+    SA.V.each(B.p.v, (cell) => { if (SA.isCockpit(cell.id) && cell.hp < SA.V.maxHp(cell)) flawless = false; });
     // 对手还完好的模块：战役胜利后可以挑一件缴获
     const survivors = [];
     SA.V.each(B.e.v, (cell) => { if (cell.hp > 0) survivors.push({ id: cell.id, mt: cell.mt || 1 }); });
@@ -1304,7 +1340,7 @@ SA.Battle = (() => {
   const debug = {
     step(sec = 1) { for (let i = 0; i < sec * 60; i++) { if (B.done) break; step(1 / 60); } draw(); hudTick(1); return { t: B.t, px: B.p.x, ex: B.e.x, pv: B.p.vx, ev: B.e.vx, ph: B.p.heat, eh: B.e.heat, pd: B.p.dead, ed: B.e.dead }; },
     get B() { return B; },
-    cellCenter(side, r, c) { const s = side === 'e' ? B.e : B.p; return [cellX(s, c) + HALF, cellY(r) + HALF]; },
+    cellCenter(side, r, c, layer = 'body') { const s = side === 'e' ? B.e : B.p; return modCenter(s, layer, r, c); },
     aimWorld(x, y) { const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },
   };
   return { start, simulate, debug };

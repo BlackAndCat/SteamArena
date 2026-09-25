@@ -23,7 +23,7 @@ SA.Editor = (() => {
   const veh = () => d().vehicle;
   const money = (n) => SA.UI.money(n);
   const hurt = (cell) => cell && cell.hp > 0 && cell.hp < SA.V.maxHp(cell);
-  const where = (r, c) => `第 ${K.ROWS - r} 层 第 ${c + 1} 列`;
+  const where = (r, c) => `第 ${K.ROWS - r} 行 第 ${c + 1} 列`;   // 子格坐标，从地面往上数
   const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
   const has = (f) => SA.Camp.has(f);
   // 商店里能买的：商店已开放、战役已解锁这种模块（只卖黄铜，更好的材料在车上升级）
@@ -92,12 +92,25 @@ SA.Editor = (() => {
     cv.style.height = `${Math.round(H * s)}px`;
   }
 
+  // 鼠标 → 子格；fr / fc 是带小数的子格坐标（摆放时让模块中心对准鼠标）
   function cellAtXY(x0, y0) {
     const rc = cv.getBoundingClientRect();
     if (x0 < rc.left || x0 > rc.right || y0 < rc.top || y0 > rc.bottom) return null;
     const x = (x0 - rc.left) / rc.width * W, y = (y0 - rc.top) / rc.height * H;
-    const c = Math.floor((x - PADX) / C), r = Math.floor(y / C);
-    return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
+    const fc = (x - PADX) / C, fr = y / C, c = Math.floor(fc), r = Math.floor(fr);
+    return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c, fr, fc } : null;
+  }
+  // 把模块 id 摆到鼠标位置：模块中心对准鼠标（底盘自动贴到最底两行），返回锚点和会压到的模块（ignore 的锚点除外）
+  function spot(id, hv, v = veh(), ignore = null) {
+    const f = SA.fp(id), clampI = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+    const r = M[id].layer === 'chassis' ? SA.V.CH : clampI(Math.round(hv.fr - f.h / 2), 0, K.ROWS - f.h);
+    const c = clampI(Math.round(hv.fc - f.w / 2), 0, K.COLS - f.w);
+    const O = SA.V.occ(v, SA.V.layerOf(id)), hits = [];
+    for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) {
+      const o = O[r + i][c + j];
+      if (o && !(ignore && o.r === ignore.r && o.c === ignore.c) && !hits.some(x => x.r === o.r && x.c === o.c)) hits.push(o);
+    }
+    return { r, c, w: f.w, h: f.h, hits };
   }
   const overCanvas = (x, y) => { const rc = cv.getBoundingClientRect(); return x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom; };
 
@@ -111,16 +124,16 @@ SA.Editor = (() => {
     if (!cell) { if (st.pick) { st.pick = null; renderDock(); } return; }
     const v = veh();
     if (e.button === 2) {
-      const layer = v[st.layer][cell.r][cell.c] ? st.layer : v.body[cell.r][cell.c] ? 'body' : null;
-      if (layer) removeAt({ layer, ...cell });
+      const layer = SA.V.at(v, st.layer, cell.r, cell.c) ? st.layer : SA.V.at(v, 'body', cell.r, cell.c) ? 'body' : null;
+      if (layer) { const o = SA.V.at(v, layer, cell.r, cell.c); removeAt({ layer, r: o.r, c: o.c }); }
       return;
     }
     if (st.sel) { placeAt(st.sel, cell); return; }
-    const here = v[st.layer][cell.r][cell.c];
-    if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: cell.r, c: cell.c, id: here.id, key: SA.invKey(here.id, here.mt) }); return; }
+    const here = SA.V.at(v, st.layer, cell.r, cell.c);
+    if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: here.r, c: here.c, id: here.cell.id, key: SA.invKey(here.cell.id, here.cell.mt) }); return; }
     // 空格子：已选中车上的模块 → 移过来
     if (st.pick) moveTo(st.pick, cell);
-    else if (st.layer === 'side' && v.body[cell.r][cell.c]) say('侧挂层这里没有侧炮。切回「主体层」才能选中主体模块');
+    else if (st.layer === 'side' && SA.V.at(v, 'body', cell.r, cell.c)) say('侧挂层这里没有侧炮。切回「主体层」才能选中主体模块');
   }
 
   function beginPress(e, src) {
@@ -171,12 +184,14 @@ SA.Editor = (() => {
   function makeGhost(key) {
     dropGhost();
     const s = cv.getBoundingClientRect().width / W;
-    const img = SA.SPR.moduleCanvas(kid(key), s, kmt(key));
+    const id = kid(key), f = SA.fp(id);
+    const img = SA.SPR.moduleCanvas(id, s, kmt(key));
     ghost = h('div', { class: 'ed-ghost' }, img);
-    ghost._off = (C / 2 + 2) * s;
+    // 模块在卡片画布里底边对齐，鼠标对准模块中心
+    ghost._ox = (2 + f.w * C / 2) * s; ghost._oy = (2 + K.ART - f.h * C / 2) * s;
     document.body.append(ghost);
   }
-  function moveGhost(x, y) { if (ghost) ghost.style.transform = `translate(${x - ghost._off}px, ${y - ghost._off}px)`; }
+  function moveGhost(x, y) { if (ghost) ghost.style.transform = `translate(${x - ghost._ox}px, ${y - ghost._oy}px)`; }
   function dropGhost() { if (ghost) ghost.remove(); ghost = null; }
 
   // ---------- 操作 ----------
@@ -292,18 +307,26 @@ SA.Editor = (() => {
     });
   }
 
-  function placeAt(key, { r, c }) {
+  // 把库存里的模块放到鼠标位置：压着一个模块就替换它（同款同材料 = 拆下），压着好几个就不行
+  function placeAt(key, hv) {
     const id = kid(key), mt = kmt(key);
     const v = veh(), layer = SA.V.layerOf(id), m = M[id];
-    if (!SA.V.inRegion(v, r, c)) { say('这一格还没扩建：推进战役会解锁更大的改装台', true); return; }
+    const sp = spot(id, hv, v), { r, c } = sp;
+    if (!SA.V.boxInRegion(v, r, c, sp.w, sp.h)) { say('这一格还没扩建：推进战役会解锁更大的改装台', true); return; }
     if (st.layer !== layer) st.layer = layer;
-    const cur = v[layer][r][c];
-    if (cur && cur.id === id && (cur.mt || 1) === mt) { removeAt({ layer, r, c }); return; }   // 同款再点一次 = 拆下
-    if (cur && hurt(cur)) { say(`${M[cur.id].name} 受损，先修理才能替换`, true); st.pick = { layer, r, c }; st.sel = null; renderDock(); return; }
+    if (sp.hits.length > 1) { say('这里压着好几个模块：先拆掉或挪开，再放', true); return; }
+    const cur = sp.hits[0] || null;
+    if (cur && cur.cell.id === id && (cur.cell.mt || 1) === mt) { removeAt({ layer, r: cur.r, c: cur.c }); return; }   // 同款再点一次 = 拆下
+    if (cur && hurt(cur.cell)) { say(`${M[cur.cell.id].name} 受损，先修理才能替换`, true); st.pick = { layer, r: cur.r, c: cur.c }; st.sel = null; renderDock(); return; }
+    // 换下旧模块后放不放得下（大小可能不一样），先在副本上试
+    const test = SA.V.clone(v);
+    if (cur) test[layer][cur.r][cur.c] = null;
+    const chk = SA.V.canPut(test, id, r, c);
+    if (!chk.ok) { say(chk.reason, true); return; }
     withStock(key, () => {
-      const old = v[layer][r][c];
+      const old = cur && cur.cell;
       let scrap = 0;
-      if (old) { v[layer][r][c] = null; scrap = stash(old); }
+      if (old) { v[layer][cur.r][cur.c] = null; scrap = stash(old); }
       SA.V.put(v, id, r, c, mt);
       SA.S.addInv(id, -1, mt);
       // 库存还有就保持选中，可以接着放；用完了才取消选中
@@ -326,11 +349,16 @@ SA.Editor = (() => {
     changed();
   }
 
-  function moveTo(from, to) {
-    const v = veh();
-    const res = SA.V.move(v, from.layer, from.r, from.c, to.r, to.c);
+  // 把车上的模块（锚点 from）搬到鼠标位置；压着一个模块就对调
+  function moveTo(from, hv) {
+    const v = veh(), cell = v[from.layer][from.r][from.c];
+    if (!cell) return;
+    const sp = spot(cell.id, hv, v, from);
+    if (sp.r === from.r && sp.c === from.c) return;
+    const res = SA.V.move(v, from.layer, from.r, from.c, sp.r, sp.c);
     if (!res.ok) { if (res.reason) say(res.reason, true); return; }
-    say(res.swapped ? `对调：${M[v[from.layer][to.r][to.c].id].name} ⇄ ${M[v[from.layer][from.r][from.c].id].name}` : `移到${where(to.r, to.c)}`);
+    const other = res.swapped && v[from.layer][from.r][from.c];
+    say(other ? `对调：${M[cell.id].name} ⇄ ${M[other.id].name}` : `移到${where(sp.r, sp.c)}`);
     st.pick = null;   // 移动完成即取消选中
     changed();
   }
@@ -654,7 +682,8 @@ SA.Editor = (() => {
       H('摆放规则'),
       h('p', {}, '副驾驶：车上每有一个副驾驶，就会替你操作一组你当前没在用的武器（你切换武器组，他跟着接手剩下的），自己挑目标，但没你准。'),
       h('p', {}, '速度：最高速度 = 底盘速度 × 动力比（锅炉富余最多超速 25%），单位 km/h。底盘手感：双足起步和刹车最快但走起来最晃，四足刹车最慢但移动时最平稳，履带居中。重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
-      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底行；其他模块上下左右挨着已连上的模块就行（可以侧挂、悬挑，撞击件不算支撑），最高 6 层。直射火炮、机枪同一行前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是这一行最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那一行挡路，高处的撞角能越过它撞到后面。侧炮挂在侧挂层的任意主体模块上，不会被己方挡住但命中率低。'),
+      h('p', {}, '格子：每个大格分成 2×2 个小格。大模块占 2×2 小格，可以错开半格摆；甲片、小水罐、头盔驾驶舱占 1 个小格，水罐占 1×2，用来补缝。摆放时模块的中心跟着鼠标走，底盘自动贴到最底下两行。'),
+      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底下两行；其他模块四周紧贴已连上的模块就行（可以侧挂、悬挑，撞击件不算支撑），最高 6 层。直射火炮、机枪炮管那一行（模块下半格）前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是它那几行的最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那两行挡路，高处的撞角能越过它撞到后面。侧炮整个挂在主体模块上，不会被己方挡住但命中率低。'),
       H('战斗里的颜色'),
       h('p', {}, h('b', {}, '白框'), ' 准星对准的模块 · ', h('b', { style: 'color:var(--magenta)' }, '洋红'), ' 准星对准的侧炮 · 虚线框 = 炮弹会先打中的模块 · ', h('b', { style: 'color:var(--fire2)' }, '橙'), ' 热量 · ', h('b', { style: 'color:var(--water2)' }, '青'), ' 水 · ', h('b', { style: 'color:var(--gauge2)' }, '绿'), ' 动力 · ', h('b', { style: 'color:var(--brass2)' }, '黄铜'), ' 火力。准星旁的小沙漏 = 装填进度。'),
     ));
@@ -665,42 +694,45 @@ SA.Editor = (() => {
   const RED = '#ff3b2f', GREEN = '#6fcf6a', WHITE = '#ffffff';
   const pulse = (t, lo, hi, per = 1.6) => lo + (hi - lo) * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 / per));
   const tmp = document.createElement('canvas');
-  tmp.width = C; tmp.height = C;
+  tmp.width = K.ART; tmp.height = K.ART;
   const tg = tmp.getContext('2d');
-  // 把 paint(tg) 画出来的像素整体染色后叠到画布上（只染模块本身，不染背景）
-  function tint(paint, x, y, color, a) {
+  // 把 paint(tg) 画出来的像素整体染色后叠到画布上（只染模块本身，不染背景）；w, h 是模块像素大小
+  function tint(paint, x, y, w, h, color, a) {
     tg.globalCompositeOperation = 'source-over';
-    tg.clearRect(0, 0, C, C);
+    tg.clearRect(0, 0, K.ART, K.ART);
     paint(tg);
     tg.globalCompositeOperation = 'source-atop';
     tg.fillStyle = color;
-    tg.fillRect(0, 0, C, C);
+    tg.fillRect(0, 0, w, h);
     g.globalAlpha = a;
-    g.drawImage(tmp, x, y);
+    g.drawImage(tmp, 0, 0, w, h, x, y, w, h);
     g.globalAlpha = 1;
   }
-  const fromVeh = (vc, x, y) => (c2d) => c2d.drawImage(vc, x, y, C, C, 0, 0, C, C);
+  const fromVeh = (vc, x, y, w, h) => (c2d) => c2d.drawImage(vc, x, y, w, h, 0, 0, w, h);
   const fromModule = (id, t, mt) => (c2d) => SA.SPR.drawModule(c2d, id, 0, 0, { t, heat: 0.3, water: 1, mt });
   function fillCell(x, y, color, a) {
     g.globalAlpha = a; g.fillStyle = color; g.fillRect(x + 1, y + 1, C - 1, C - 1); g.globalAlpha = 1;
   }
-  function cross(x, y) {
+  function cross(x, y, w, h) {
     SA.SPR.useCtx(g);
-    const a = Math.round(C * 0.3), b = Math.round(C * 0.7);
-    SA.SPR.line(x + a, y + a, x + b, y + b, 5, P.black);
-    SA.SPR.line(x + b, y + a, x + a, y + b, 5, P.black);
-    SA.SPR.line(x + a, y + a, x + b, y + b, 3, P.white);
-    SA.SPR.line(x + b, y + a, x + a, y + b, 3, P.white);
+    const x0 = x + Math.round(w * 0.3), x1 = x + Math.round(w * 0.7), y0 = y + Math.round(h * 0.3), y1 = y + Math.round(h * 0.7);
+    SA.SPR.line(x0, y0, x1, y1, 5, P.black);
+    SA.SPR.line(x1, y0, x0, y1, 5, P.black);
+    SA.SPR.line(x0, y0, x1, y1, 3, P.white);
+    SA.SPR.line(x1, y0, x0, y1, 3, P.white);
   }
+  // 模块（锚点）在画布上的位置和像素大小
+  const cellXY = (r, c) => [PADX + c * C, r * C];
+  const boxOf = (v, layer, r, c) => { const cell = v[layer][r][c], f = SA.fp(cell ? cell.id : 'armor'); return [PADX + c * C, r * C, f.w * C, f.h * C]; };
 
-  // 拖动到某格后，那一格会不会悬空（按悬停格缓存，避免每帧克隆）
+  // 拖动到某处后，搬过去的模块会不会悬空 / 放不下（按目标锚点缓存，避免每帧克隆）
   let dropMemo = { key: '', bad: false };
-  function dropBad(drag, hv) {
-    const key = `${drag.layer}${drag.r}${drag.c}>${hv.r}${hv.c}`;
+  function dropBad(drag, sp) {
+    const key = `${drag.layer}${drag.r},${drag.c}>${sp.r},${sp.c}`;
     if (dropMemo.key !== key) {
       const v = SA.V.clone(veh());
-      SA.V.move(v, drag.layer, drag.r, drag.c, hv.r, hv.c);
-      dropMemo = { key, bad: SA.V.issues(v).some(x => x.r === hv.r && x.c === hv.c) };
+      const res = SA.V.move(v, drag.layer, drag.r, drag.c, sp.r, sp.c);
+      dropMemo = { key, bad: !res.ok || SA.V.issues(v).some(x => x.r === sp.r && x.c === sp.c) };
     }
     return dropMemo.bad;
   }
@@ -714,23 +746,26 @@ SA.Editor = (() => {
     const key = st.drag ? st.drag.key : st.sel;
     if (key) {
       const id = kid(key), mt = kmt(key);
-      const layer = SA.V.layerOf(id), cur = v[layer][hv.r][hv.c];
-      if (st.drag && st.drag.kind === 'cell') {
-        if (st.drag.r === hv.r && st.drag.c === hv.c) return { text: '放回原处' };
-        return { text: cur ? `对调 ${M[st.drag.id].name} ⇄ ${M[cur.id].name}` : `移到${where(hv.r, hv.c)}` };
+      const dragCell = st.drag && st.drag.kind === 'cell' ? st.drag : null;
+      const sp = spot(id, hv, v, dragCell), cur = sp.hits.length === 1 ? sp.hits[0].cell : null;
+      if (dragCell) {
+        if (sp.r === dragCell.r && sp.c === dragCell.c) return { text: '放回原处' };
+        if (sp.hits.length > 1) return { text: '这里压着好几个模块，换不了', err: true };
+        return { text: cur ? `对调 ${M[dragCell.id].name} ⇄ ${M[cur.id].name}` : `移到${where(sp.r, sp.c)}` };
       }
       const buy = d().inv[key] > 0 ? '' : `购买（${money(M[id].price)}）并`;
+      if (sp.hits.length > 1) return { text: '这里压着好几个模块：先拆掉或挪开，再放', err: true };
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: `再点一次：拆下 ${M[id].name}` };
       if (cur && hurt(cur)) return { text: `${M[cur.id].name} 受损，先修理才能替换`, err: true };
       if (cur) return { text: `${buy}替换 ${M[cur.id].name} → ${M[id].name}` };
-      const chk = SA.V.canPlace(v, id, hv.r, hv.c);
-      return chk.ok ? { text: `${buy}放置 ${M[id].name}：${where(hv.r, hv.c)}` } : { text: `${buy}放置 ${M[id].name}（会悬空：${chk.reason}）`, err: true };
+      const chk = SA.V.canPlace(v, id, sp.r, sp.c);
+      return chk.ok ? { text: `${buy}放置 ${M[id].name}：${where(sp.r, sp.c)}` } : { text: `${buy}放置 ${M[id].name}（${chk.reason}）`, err: true };
     }
-    const side = v.side[hv.r][hv.c], body = v.body[hv.r][hv.c];
-    const cell = (st.layer === 'side' && side) || body || side;
-    if (!cell) return { text: `${where(hv.r, hv.c)} · 空` };
-    const m = M[cell.id], layer = cell === side ? 'side' : 'body';
-    const iss = issueAt(layer, hv.r, hv.c);
+    const so = SA.V.at(v, 'side', hv.r, hv.c), bo = SA.V.at(v, 'body', hv.r, hv.c);
+    const o = (st.layer === 'side' && so) || bo || so;
+    if (!o) return { text: `${where(hv.r, hv.c)} · 空` };
+    const cell = o.cell, m = M[cell.id], layer = o === so ? 'side' : 'body';
+    const iss = issueAt(layer, o.r, o.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
     const up = (cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '') + (cell.aux ? ` · ${cell.aux.map(k => SA.AUX[k].name).join('、')}` : '');
     return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
@@ -754,11 +789,16 @@ SA.Editor = (() => {
     g.fillRect(0, 0, W, H);
     g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
     g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
+    // 网格：小格细线，大格（2×2 小格）粗一点
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    for (let c = 0; c <= K.COLS; c++) if (c % 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
+    for (let r = 0; r <= K.ROWS; r++) if (r % 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
     g.fillStyle = P.bg[1];
-    for (let c = 0; c <= K.COLS; c++) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
-    for (let r = 0; r <= K.ROWS; r++) g.fillRect(PADX, r * C, K.COLS * C, 1);
+    for (let c = 0; c <= K.COLS; c += 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
+    for (let r = 0; r <= K.ROWS; r += 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
+    const O = SA.V.occ(v, 'body');
     g.fillStyle = 'rgba(111,207,106,0.06)';
-    for (let c = 0; c < K.COLS; c++) if (v.body[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
+    for (let c = 0; c < K.COLS; c++) if (O[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
     // 还没扩建的格子：压暗 + 斜线
     const reg = SA.V.region(v);
     for (let r = 0; r < K.ROWS; r++)
@@ -775,51 +815,61 @@ SA.Editor = (() => {
     });
     g.drawImage(vc, 0, 0);
 
-    const cellXY = (r, c) => [PADX + c * C, r * C];
-
-    // 悬空 / 不合规：整格红色闪烁 + 感叹号
+    // 悬空 / 不合规：整个模块红色闪烁 + 感叹号
     for (const x of st.stats.issues) {
-      const [px, py] = cellXY(x.r, x.c);
-      tint(fromVeh(vc, px, py), px, py, RED, pulse(t, 0.2, 0.65));
-      SA.SPR.text(g, '!', px + C - 8, py + 5, RED, 2);
+      if (!v[x.layer][x.r][x.c]) continue;
+      const [px, py, w, h] = boxOf(v, x.layer, x.r, x.c);
+      tint(fromVeh(vc, px, py, w, h), px, py, w, h, RED, pulse(t, 0.2, 0.65));
+      SA.SPR.text(g, '!', px + w - 8, py + 5, RED, 2);
     }
 
     const hv = st.hover;
     const selKey = drag ? drag.key : st.sel;
     const id = selKey && kid(selKey), selMt = selKey ? kmt(selKey) : 1;
     if (id) {
-      // 能稳稳装上的空格：淡淡的绿色呼吸
-      if (!drag) for (let r = 0; r < K.ROWS; r++)
-        for (let c = 0; c < K.COLS; c++)
-          if (SA.V.canPlace(v, id, r, c).ok) fillCell(...cellXY(r, c), GREEN, pulse(t, 0.06, 0.2, 2));
+      // 能稳稳装上的地方：淡淡的绿色呼吸（所有合规位置盖到的小格）
+      if (!drag) {
+        const f = SA.fp(id), cover = new Set();
+        for (let r = 0; r <= K.ROWS - f.h; r++)
+          for (let c = 0; c <= K.COLS - f.w; c++)
+            if (SA.V.canPlace(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
+        for (const k of cover) fillCell(...cellXY(Math.floor(k / K.COLS), k % K.COLS), GREEN, pulse(t, 0.06, 0.2, 2));
+      }
       if (hv) {
-        const [x, y] = cellXY(hv.r, hv.c);
-        const cur = v[SA.V.layerOf(id)][hv.r][hv.c];
-        const home = drag && drag.r === hv.r && drag.c === hv.c;
-        if (!drag && cur && cur.id === id && (cur.mt || 1) === selMt) {           // 同款：再点一次拆下
-          tint(fromVeh(vc, x, y), x, y, RED, pulse(t, 0.3, 0.7, 1));
-          cross(x, y);
+        const sp = spot(id, hv, v, drag);
+        const [x, y] = cellXY(sp.r, sp.c), w = sp.w * C, h = sp.h * C;
+        const cur = sp.hits.length === 1 ? sp.hits[0] : null;
+        const home = drag && drag.r === sp.r && drag.c === sp.c;
+        if (!drag && cur && cur.cell.id === id && (cur.cell.mt || 1) === selMt) {           // 同款：再点一次拆下
+          const [bx, by, bw, bh] = boxOf(v, 'body' === SA.V.layerOf(id) ? 'body' : 'side', cur.r, cur.c);
+          tint(fromVeh(vc, bx, by, bw, bh), bx, by, bw, bh, RED, pulse(t, 0.3, 0.7, 1));
+          cross(bx, by, bw, bh);
         } else if (!home) {
-          const bad = !SA.V.inRegion(v, hv.r, hv.c) || (drag ? dropBad(drag, hv) : (cur ? hurt(cur) : !SA.V.canPlace(v, id, hv.r, hv.c).ok));
-          if (cur) { g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(x, y, C, C); }
+          const bad = !SA.V.boxInRegion(v, sp.r, sp.c, sp.w, sp.h) || sp.hits.length > 1
+            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !SA.V.canPlace(v, id, sp.r, sp.c).ok));
+          for (const o of sp.hits) { const [bx, by, bw, bh] = boxOf(v, SA.V.layerOf(id), o.r, o.c); g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(bx, by, bw, bh); }
           g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });
           g.globalAlpha = 1;
-          tint(fromModule(id, t, selMt), x, y, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
+          tint(fromModule(id, t, selMt), x, y, w, h, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
         }
       }
-    } else if (hv && v[st.layer][hv.r][hv.c]) {
-      const [x, y] = cellXY(hv.r, hv.c);
-      tint(fromVeh(vc, x, y), x, y, WHITE, 0.18);
+    } else if (hv) {
+      const o = SA.V.at(v, st.layer, hv.r, hv.c);
+      if (o) { const [x, y, w, h] = boxOf(v, st.layer, o.r, o.c); tint(fromVeh(vc, x, y, w, h), x, y, w, h, WHITE, 0.18); }
     }
-    // 选中：整格绿色闪烁
-    if (st.pick && !drag) {
-      const [x, y] = cellXY(st.pick.r, st.pick.c);
-      tint(fromVeh(vc, x, y), x, y, GREEN, pulse(t, 0.25, 0.6));
+    // 选中：整个模块绿色闪烁
+    if (st.pick && !drag && v[st.pick.layer][st.pick.r][st.pick.c]) {
+      const [x, y, w, h] = boxOf(v, st.pick.layer, st.pick.r, st.pick.c);
+      tint(fromVeh(vc, x, y, w, h), x, y, w, h, GREEN, pulse(t, 0.25, 0.6));
     }
     // 鼠标停在模块上（或选中它）：显示改装军衔杠
-    const rankAt = (p) => { const cell = p && (v[p.layer || st.layer][p.r][p.c] || v.body[p.r][p.c]); if (cell) SA.SPR.chevrons(g, ...cellXY(p.r, p.c), cell.lv || 0, K.UP_MAX); };
-    if (!drag && !st.sel && has('upgrade')) { if (hv) rankAt(hv); if (st.pick && !(hv && hv.r === st.pick.r && hv.c === st.pick.c)) rankAt(st.pick); }
+    const rankAt = (o, layer) => { if (o && o.cell) SA.SPR.chevrons(g, ...cellXY(o.r, o.c), o.cell.lv || 0, K.UP_MAX); };
+    if (!drag && !st.sel && has('upgrade')) {
+      const ho = hv && (SA.V.at(v, st.layer, hv.r, hv.c) || SA.V.at(v, 'body', hv.r, hv.c));
+      rankAt(ho);
+      if (st.pick && !(ho && ho.r === st.pick.r && ho.c === st.pick.c)) rankAt({ cell: v[st.pick.layer][st.pick.r][st.pick.c], r: st.pick.r, c: st.pick.c });
+    }
 
     const tip = tipText();
     const text = tip ? tip.text : '';

@@ -64,7 +64,8 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '........', '...KM...', '...OWA..', '...TTT..'],
       },
     ],
-    unlock: { feat: ['shop'], grid: { cols: 5, rows: 3 }, note: '商店开张：没库存的模块直接放上车就是购买。' },
+    unlock: { feat: ['shop'], mods: ['plate', 'tank_s', 'tank_tall'], grid: { cols: 5, rows: 3 },
+      note: '商店开张：没库存的模块直接放上车就是购买。每个大格可以拆成 2×2 小格：甲片、小水罐、水罐这些小模块用来补缝。' },
   },
   {
     name: '第一章 · 后巷', place: '白教堂后巷',
@@ -86,7 +87,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '...K....', '...OC...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
       },
     ],
-    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
+    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad', 'helmet'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
       note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。驾驶舱可以加装瞄准镜、装弹仓。街头赛可以刷钱，银行可以贷款。' },
   },
   {

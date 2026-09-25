@@ -192,9 +192,9 @@ SA.UI = (() => {
     // 裁到载具包围盒，让车在预览里尽量大
     const C = SA.K.CELL;
     let c0 = SA.K.COLS, c1 = -1, r0 = SA.K.ROWS;
-    SA.V.each(v, (cell, r, c) => { c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); });
+    SA.V.each(v, (cell, r, c) => { c0 = Math.min(c0, c); c1 = Math.max(c1, c + SA.fp(cell.id).w - 1); r0 = Math.min(r0, r); });
     if (c1 < 0) { c0 = 0; c1 = SA.K.COLS - 1; r0 = 0; }
-    r0 = Math.min(r0, SA.K.ROWS - 3);
+    r0 = Math.min(r0, SA.K.ROWS - 6);   // 至少露出 3 层大格
     const sx = SA.SPR.PADX + c0 * C - 16, sy = Math.max(0, r0 * C - 12);
     const W = (c1 - c0 + 1) * C + 16 + 20, H = SA.K.ROWS * C - sy + 12;
     cv.width = W; cv.height = H;

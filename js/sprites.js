@@ -4,7 +4,8 @@
 window.SA = window.SA || {};
 
 SA.SPR = (() => {
-  const P = SA.PAL, K = SA.K, C = K.CELL;
+  // C：模块精灵的原生尺寸（48px = 2×2 子格）；S：网格子格（24px）。精灵按 C 画，摆放位置按 S 算
+  const P = SA.PAL, K = SA.K, C = K.ART, S = K.CELL;
   const PADX = 28;               // 左右留白：炮管最多伸出半格（24px）
   let ctx = null;
 
@@ -612,9 +613,19 @@ SA.SPR = (() => {
     }
     return cv;
   }
+  // 小模块（1×1、1×2）暂时借用对应大模块的精灵缩小画（art 字段），以后再重画
   function drawModule(c2d, id, x, y, o = {}) {
-    c2d.drawImage(sprite(id, quant(id, o)), x, y - TOP);
+    const art = SA.MODULES[id].art || id, f = SA.fp(id);
+    const img = sprite(art, quant(art, o));
+    if (f.w === 2 && f.h === 2) c2d.drawImage(img, x, y - TOP);
+    else c2d.drawImage(img, 0, TOP, C, C, x, y, f.w * S, f.h * S);
     ctx = c2d;
+  }
+  // 按 48px 设计的叠加层（裂纹、残骸）缩放到模块的实际大小
+  function scaled(g, x, y, id, fn) {
+    const f = SA.fp(id);
+    if (f.w === 2 && f.h === 2) { fn(x, y); return; }
+    g.save(); g.translate(x, y); g.scale(f.w / 2, f.h / 2); fn(0, 0); g.restore(); ctx = g;
   }
 
   // 通用受损叠加层
@@ -651,20 +662,22 @@ SA.SPR = (() => {
   }
 
   // ---------- 车体框架：把所有舱位连成一台机器 ----------
-  function hull(grid, cx, cy) {
-    const solid = (cell) => cell && !SA.isRam(cell.id);
-    const occ = (r, c) => r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS && solid(grid[r][c]);
-    const body = (fn) => { for (let r = 0; r < K.ROWS - 1; r++) for (let c = 0; c < K.COLS; c++) if (solid(grid[r][c])) fn(r, c, cx(c), cy(r)); };
-    body((r, c, x, y) => R(x, y, C, C, P.iron[1]));
-    body((r, c, x, y) => {
-      if (occ(r, c + 1)) for (const yy of [10, 23, 36]) rivet(x + C - 2, y + yy, P.iron[3]);
-      if (occ(r + 1, c) && r + 1 < K.ROWS - 1) for (const xx of [10, 23, 36]) rivet(x + xx, y + C - 2, P.iron[3]);
+  // 按子格画：同一个模块内部不画缝，相邻两个模块之间打铆钉，露在外面的边描黑
+  function hull(O, cx, cy) {
+    const solid = (o) => o && !SA.isRam(o.cell.id);
+    const at = (r, c) => (r >= 0 && r < K.ROWS - 2 && c >= 0 && c < K.COLS ? O[r][c] : null);
+    const body = (fn) => { for (let r = 0; r < K.ROWS - 2; r++) for (let c = 0; c < K.COLS; c++) if (solid(O[r][c])) fn(r, c, cx(c), cy(r), O[r][c]); };
+    body((r, c, x, y) => R(x, y, S, S, P.iron[1]));
+    body((r, c, x, y, o) => {
+      const rt = at(r, c + 1), dn = at(r + 1, c);
+      if (solid(rt) && rt !== o) for (const yy of [6, 16]) rivet(x + S - 2, y + yy, P.iron[3]);
+      if (solid(dn) && dn !== o) for (const xx of [6, 16]) rivet(x + xx, y + S - 2, P.iron[3]);
     });
     body((r, c, x, y) => {
-      if (!occ(r - 1, c)) { R(x, y, C, 1, P.iron[0]); R(x, y + 1, C, 1, P.iron[3]); }
-      if (!occ(r, c - 1)) { R(x, y, 1, C, P.iron[0]); R(x + 1, y + 1, 1, C - 1, P.iron[2]); }
-      if (!occ(r, c + 1)) R(x + C - 1, y, 1, C, P.iron[0]);
-      if (!occ(r + 1, c)) R(x, y + C - 1, C, 1, P.iron[0]);
+      if (!solid(at(r - 1, c))) { R(x, y, S, 1, P.iron[0]); R(x + 1, y + 1, S - 1, 1, P.iron[3]); }
+      if (!solid(at(r, c - 1))) { R(x, y, 1, S, P.iron[0]); R(x + 1, y + 1, 1, S - 1, P.iron[2]); }
+      if (!solid(at(r, c + 1))) R(x + S - 1, y, 1, S, P.iron[0]);
+      if (!solid(at(r + 1, c))) R(x, y + S - 1, S, 1, P.iron[0]);
     });
   }
 
@@ -673,8 +686,8 @@ SA.SPR = (() => {
   function vehCanvas(key) {
     if (!pool[key]) {
       pool[key] = document.createElement('canvas');
-      pool[key].width = K.COLS * C + PADX * 2;
-      pool[key].height = K.ROWS * C;
+      pool[key].width = K.COLS * S + PADX * 2;
+      pool[key].height = K.ROWS * S;
     }
     return pool[key];
   }
@@ -687,24 +700,27 @@ SA.SPR = (() => {
     const t = o.t || 0;
     const blocked = o.blocked || [];
     const isBlocked = (r, c) => blocked.some(b => b.r === r && b.c === c);
-    const cx = (c) => PADX + c * C, cy = (r) => r * C;
-
+    const cx = (c) => PADX + c * S, cy = (r) => r * S;
+    const O = SA.V.occ(veh, 'body');
+    const CH = K.ROWS - 2;   // 底盘锚点行
 
     // 底盘行：履带任意一段被毁 → 整条掉链；腿式底盘的步态决定机身下沉量 bd
-    const base = veh.body[K.ROWS - 1];
+    const base = veh.body[CH];
     const thrown = base.some(x => x && x.id === 'track' && x.hp <= 0);
     const amp = base.some(x => x && x.id === 'track') ? 0 : Math.max(0, ...base.map(x => (x && x.hp > 0 && BOB[x.id]) || 0));
     const dyn = o.dyn || null;   // SA.Dyn.animator：战斗里提供行驶相位、后坐、供弹；改装台 / 预览不传就是静止
     const phase = dyn ? dyn.phase : (o.phase || 0);
     const bd = amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(phase) : 0) / 12 * Math.PI * 2)) * amp);
     const isChassis = (id) => SA.MODULES[id].layer === 'chassis';
-    const dy = (id, r) => (r === K.ROWS - 1 && isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
+    const dy = (id, r) => (r === CH && isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
 
     const modOpts = (cell, r, c) => {
       const m = SA.MODULES[cell.id];
-      const row = veh.body[r];
-      const same = (k) => row[k] && row[k].id === cell.id;
-      const above = r > 0 && veh.body[r - 1][c];
+      const row = veh.body[r], w = SA.fp(cell.id).w;
+      const same = (k) => k >= 0 && k < K.COLS && row[k] && row[k].id === cell.id;
+      // 正上方紧贴着（非撞击件的）模块：底盘据此画出承托
+      let above = null;
+      if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
       return {
         t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt,
         recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
@@ -712,8 +728,8 @@ SA.SPR = (() => {
         a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
         phase,
-        connL: c > 0 && same(c - 1),
-        connR: c < K.COLS - 1 && same(c + 1),
+        connL: same(c - w),
+        connR: same(c + w),
         ...run(row, c),
         top: !!(above && !SA.isRam(above.id)),
         thrown, snap: cell.id === 'track' && cell.hp <= 0,
@@ -721,11 +737,11 @@ SA.SPR = (() => {
     };
     // 同类底盘连续段：本格在段内的序号与段长（腿按整段分配）
     const run = (row, c) => {
-      const id = row[c].id;
+      const id = row[c].id, w = SA.fp(id).w;
       let a0 = c, a1 = c;
-      while (a0 > 0 && row[a0 - 1] && row[a0 - 1].id === id) a0--;
-      while (a1 < K.COLS - 1 && row[a1 + 1] && row[a1 + 1].id === id) a1++;
-      return { ri: c - a0, rn: a1 - a0 + 1 };
+      while (a0 - w >= 0 && row[a0 - w] && row[a0 - w].id === id) a0 -= w;
+      while (a1 + w < K.COLS && row[a1 + w] && row[a1 + w].id === id) a1 += w;
+      return { ri: (c - a0) / w, rn: (a1 - a0) / w + 1 };
     };
     // 被毁的底盘/撞击件：压暗 + 裂纹，不画成半透明虚影
     const dead = (fn) => { g.save(); g.filter = 'brightness(0.45)'; fn(); g.restore(); ctx = g; };
@@ -733,10 +749,10 @@ SA.SPR = (() => {
     // 远侧腿：在整个车体之前画，被车体遮住一部分
     base.forEach((cell, c) => {
       if (!cell || !BOB[cell.id]) return;
-      const r = K.ROWS - 1, draw = () => drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' });
+      const r = CH, draw = () => drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' });
       if (cell.hp > 0) draw(); else dead(draw);
     });
-    g.save(); g.translate(0, bd); hull(veh.body, cx, cy); g.restore(); ctx = g;
+    g.save(); g.translate(0, bd); hull(O, cx, cy); g.restore(); ctx = g;
     // 主体层：底盘/撞击 → 其他 → 武器（炮管压在相邻格上，被挡时一眼可见）
     const order = (id) => (SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
     for (const pass of [0, 1, 2]) {
@@ -744,20 +760,21 @@ SA.SPR = (() => {
         if (order(cell.id) !== pass) return;
         const x = cx(c), y = cy(r) + dy(cell.id, r);
         const mo = { ...modOpts(cell, r, c), part: 'near' };
+        const f = SA.fp(cell.id);
         if (cell.hp <= 0) {
           ctx = g;
-          if (cell.id === 'track') { drawModule(g, cell.id, x, y, mo); damage(x, y, 0, r * 8 + c); }
-          else if (isChassis(cell.id) || SA.isRam(cell.id)) { dead(() => drawModule(g, cell.id, x, y, mo)); damage(x, y, 0, r * 8 + c); }
-          else wreck(x, y);
+          if (cell.id === 'track') { drawModule(g, cell.id, x, y, mo); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
+          else if (isChassis(cell.id) || SA.isRam(cell.id)) { dead(() => drawModule(g, cell.id, x, y, mo)); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
+          else scaled(g, x, y, cell.id, wreck);
           return;
         }
         drawModule(g, cell.id, x, y, mo);
-        damage(x, y, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c);
-        if (o.showBlocked && isBlocked(r, c)) blockedMark(x + C + 12, y + 27);
+        scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));
+        if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
     }
     if (o.dimBody) { g.fillStyle = 'rgba(7,8,12,0.55)'; g.fillRect(0, 0, cv.width, cv.height); }
-    if (o.dimCell) { g.fillStyle = 'rgba(7,8,12,0.55)'; g.fillRect(cx(o.dimCell.c), cy(o.dimCell.r) + bd, C, C); }
+    if (o.dimCell) { const dc = veh.body[o.dimCell.r][o.dimCell.c], f = dc ? SA.fp(dc.id) : { w: 2, h: 2 }; g.fillStyle = 'rgba(7,8,12,0.55)'; g.fillRect(cx(o.dimCell.c), cy(o.dimCell.r) + bd, f.w * S, f.h * S); }
 
     // 侧挂层：硬阴影 + 本体，明确“在另一个平面”
     eachCell(veh.side, (cell, r, c) => {
@@ -771,7 +788,7 @@ SA.SPR = (() => {
       g.drawImage(img, cx(c), cy(r) + bd - TOP);
       g.restore();
       ctx = g;
-      damage(cx(c), cy(r) + bd, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c + 3);
+      scaled(g, cx(c), cy(r) + bd, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c + 3));
     });
     ctx = g;
     return cv;
@@ -857,8 +874,9 @@ SA.SPR = (() => {
     cv.width = C + 32; cv.height = C + 4;
     const g = cv.getContext('2d');
     ctx = g;
-    if (SA.MODULES[id].layer === 'body') { R(2, 2, C, C, P.iron[1]); R(2, 2, C, 1, P.iron[0]); R(2, 2, 1, C, P.iron[0]); R(C + 1, 2, 1, C, P.iron[0]); R(2, C + 1, C, 1, P.iron[0]); }
-    drawModule(g, id, 2, 2, { heat: 0.5, water: 0.7, t: 0, mt });
+    const f = SA.fp(id), fw = f.w * S, fh = f.h * S, oy = 2 + C - fh;   // 小模块按实际大小画，底边对齐
+    if (SA.MODULES[id].layer === 'body') { R(2, oy, fw, fh, P.iron[1]); R(2, oy, fw, 1, P.iron[0]); R(2, oy, 1, fh, P.iron[0]); R(fw + 1, oy, 1, fh, P.iron[0]); R(2, oy + fh - 1, fw, 1, P.iron[0]); }
+    drawModule(g, id, 2, oy, { heat: 0.5, water: 0.7, t: 0, mt });
     cv.style.width = `${(C + 32) * scale}px`; cv.style.height = `${(C + 4) * scale}px`;
     cv.className = 'px';
     return cv;

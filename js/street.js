@@ -10,9 +10,11 @@ SA.Street = (() => {
   const cell = (id) => ({ id, hp: M[id].hp });
 
   // 随手拼一台小车：底盘 2~4 格，上面 1~3 层逐层变窄；直射武器只放在每行最前端，不会被己方挡住
+  // 按大格（6 × 8）拼，最后换算成子格
   function build(name, big) {
-    const v = SA.V.create(name);
-    const last = K.ROWS - 1, c0 = 2;
+    const bg = () => Array.from({ length: 6 }, () => Array(8).fill(null));
+    const v = { body: bg(), side: bg() };
+    const last = 5, c0 = 2;
     const chassis = pick(['track', 'quad', 'biped']);
     const w = big ? 3 + ri(3) : 2 + ri(3);
     for (let c = c0; c < c0 + w; c++) v.body[last][c] = cell(chassis);
@@ -36,13 +38,13 @@ SA.Street = (() => {
     spots.sort(() => Math.random() - 0.5);
     const [kr, kc] = spots.pop();
     v.body[kr][kc] = cell('cockpit');
-    if (!SA.V.stats(v).boilers) { const [br, bc] = spots.pop(); v.body[br][bc] = cell('boiler'); }
+    if (!v.body.some(row => row.some(x => x && x.id === 'boiler'))) { const [br, bc] = spots.pop(); v.body[br][bc] = cell('boiler'); }
     // 偶尔加点花样：车头铲斗 / 撞角 / 侧炮
     if (chassis !== 'biped' && Math.random() < 0.15) v.body[last][c0 + w] = cell('bucket');
     const r1 = last - 1, fr = v.body[r1].reduce((a, x, c) => (x ? c : a), -1);
     if (fr >= 0 && /^armor/.test(v.body[r1][fr].id) && Math.random() < 0.3) v.body[r1][fr + 1] = cell('spike');
     if (spots.length && Math.random() < 0.15) { const [sr, sc] = pick(spots); if (v.body[sr][sc].id !== 'cockpit') v.side[sr][sc] = cell('side_cannon'); }
-    return v;
+    return SA.V.fromBig(name, v.body, v.side);
   }
 
   const myRating = () => SA.V.stats(d().vehicle).rating;

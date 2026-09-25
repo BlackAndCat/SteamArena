@@ -24,6 +24,7 @@ SA.S = (() => {
     try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) { d = null; }
     if (!d || !d.vehicle || !d.camp) d = fresh();
     d.ingots = d.ingots || {};
+    d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
     return d;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式 */ } }
