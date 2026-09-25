@@ -39,7 +39,13 @@ SA.V = (() => {
   // 某个子格上是哪个模块（点选用）
   const at = (v, layer, r, c) => (inGrid(r, c) ? occ(v, layer)[r][c] : null);
 
-  const ASCII = { T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar', M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot' };
+  // 大格关卡字母。新模块只占用未使用字母；未完成专用美术时由 sprites.js 的 art 借形显示。
+  const ASCII = {
+    T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar',
+    M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot',
+    L: 'cannon_s', R: 'cannon_heavy', G: 'rocket_rack', J: 'harpoon', F: 'flamer', N: 'pressure_tank',
+    D: 'pressure_chamber', E: 'condenser', I: 'boss_core', Z: 'boss_lens'
+  };
 
   // 关卡 / 官方蓝图的 ASCII 按大格写（6 行 × 8 列，一个字符 = 一个 2×2 模块），锚点换算成子格 (2r, 2c)
   // mt：整车材料；sides / elite 也用大格坐标。elite：个别格子的材料 [[r, c, mt, 'side'?], ...]（Boss 身上的史诗件）

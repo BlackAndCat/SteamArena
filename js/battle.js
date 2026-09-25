@@ -7,7 +7,9 @@ SA.Battle = (() => {
   const VW = K.COLS * C + PADX * 2;
   const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
-  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon'];
+  // 武器组顺序同时决定驾驶员接管顺序。新模块追加到末尾，避免旧分享码的手操顺序变化。
+  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon',
+    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer'];
   let B = null, cv, g, dg, wc, wrap, hud = {};
   let DPX = 1;   // 画布后备像素 / 逻辑像素（W × H）：画布按实际设备像素分配，浏览器不再二次缩放
   const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
@@ -227,8 +229,8 @@ SA.Battle = (() => {
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
     const x0 = cellX(s, w.c), y0 = cellY(w.r, s);
-    const [px, py] = w.m.piv, a = barrel(s, w) * Math.PI / 180;
-    const dx = Math.cos(a) * w.m.blen, dy = -Math.sin(a) * w.m.blen;
+    const [px, py] = w.m.piv || [C / 2, C / 2], a = barrel(s, w) * Math.PI / 180;
+    const dx = Math.cos(a) * (w.m.blen || C / 2), dy = -Math.sin(a) * (w.m.blen || C / 2);
     const mx = isP(s) ? x0 + px + dx : x0 + C - px - dx;
     return toWorld(s, mx, y0 + py + dy);
   }
@@ -310,7 +312,7 @@ SA.Battle = (() => {
     let jit = gauss() * spreadDeg(s, o, w, focus);
     if (Math.random() < (w.m.wild || 0)) jit += (Math.random() < 0.5 ? -1 : 1) * rnd(1, 1.4) * w.m.spread; // 偏弹
     const sh = launch(s, w, barrel(s, w), jit);
-    B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, big: w.m.proj === 'shell' });
+    B.shots.push({ ...sh, side, from: s, to: o, dmg: w.m.dmg, heatToEnemy: w.m.heatToEnemy || 0, big: w.m.proj === 'shell' });
     s.heat += w.m.heat;
     s.water = Math.max(0, s.water - w.m.heat * K.FIRE_WATER);
     // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
@@ -795,6 +797,9 @@ SA.Battle = (() => {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
           const tc = sh.to.v[res.layer][res.r][res.c];
           damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
+          // 喷火 / 蒸汽喷射的升温效果与伤害分开结算：命中一次就给目标增加固定热量，
+          // 热量在下一帧按正常锅炉规则检查，因此不会绕过已有的烧干判负流程。
+          if (sh.heatToEnemy) sh.to.heat += sh.heatToEnemy;
           if (sh.big) B.shake = Math.max(B.shake, 3);
         }
       }

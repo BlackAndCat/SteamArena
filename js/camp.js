@@ -23,7 +23,7 @@ SA.Camp = (() => {
   function stage(ci = c().ch, si = c().st) {
     const ch = SA.CAMPAIGN[ci], o = ch && ch.stages[si];
     if (!o) return null;
-    return { ...o, ci, si, chapter: ch, vehicle: SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || []) };
+    return { ...o, ci, si, chapter: ch, vehicle: SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []) };
   }
   const current = () => (done() ? null : stage());
 

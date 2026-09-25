@@ -66,8 +66,9 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // style：AI 性格 —— rush 冲锋（有撞击件就一直冲）、kite 拉开距离放风筝、turtle 守在原地、不写 = 在交战距离内游走。
 // terrain：场地（SA.TERRAINS 的键），不写 = 平地。
 // unlock：{ feat: [功能], mods: [模块], aux: [驾驶舱辅助设备], mat: 最高可升级的材料, grid: { cols, rows } 改装台大小, ingots: { 锭: 数量 } }
+// subs：用子格坐标放置 1×1 / 1×2 / Boss 大件，坐标仍是 24px 最小格；无专用美术的模块由通用占位显示。
 // 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
-SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
+SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], aux: [], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
   garage: '车间', shop: '商店', aux: '驾驶舱辅助设备', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
@@ -89,7 +90,7 @@ SA.CAMPAIGN = [
         rows: ['........', '........', '........', '...KM...', '...OWA..', '...TTT..'],
       },
     ],
-    unlock: { feat: ['shop'], mods: ['plate', 'tank_s', 'tank_tall'], grid: { cols: 5, rows: 3 },
+    unlock: { feat: ['shop'], mods: ['plate', 'tank_s', 'tank_tall', 'cannon_s'], grid: { cols: 5, rows: 3 },
       note: '商店开张：没库存的模块直接放上车就是购买。每个大格可以拆成 2×2 小格：甲片、小水罐、水罐这些小模块用来补缝。' },
   },
   {
@@ -99,20 +100,22 @@ SA.CAMPAIGN = [
       {
         name: '铁皮罐头', pilot: '锅炉工 胖哈利', prize: 130, terrain: 'crates', aim: 0.55, style: 'turtle',
         blurb: '车头糊满了铁皮，机枪打上去只冒火星（装甲每发减伤）。用直射火炮把铁皮凿穿，再打它的火炮。',
-        rows: ['........', '........', '...K....', '..OWC...', '..OAAA..', '..TTTT..'],
+        rows: ['........', '........', '...K....', '..OWL...', '..OWAA..', '..TTTT..'],
+        unlock: { feat: ['street', 'bank'], note: '街头赛和银行开放：先用短赛补足改装预算，再决定把钱投到武器还是冷却。' },
       },
       {
         name: '双管哨兵', pilot: '扒手 机灵杰克', prize: 150, aim: 0.65, style: 'kite',
         blurb: '上下两挺机枪一起扫，跑得还快，专挑没护甲的模块。把锅炉、驾驶舱藏到装甲后面，拉近了打。',
         rows: ['........', '........', '...M....', '..KAM...', '..OWA...', '..TTT...'],
+        unlock: { aux: ['scope', 'loader'], note: '瞄准镜和装弹仓开放：辅助设备先放进驾驶舱，分别解决命中和持续火力问题。' },
       },
       {
         name: '煤灰寡妇', pilot: '玛莎·布莱克', prize: 220, terrain: 'crates', aim: 0.75, boss: true,
         blurb: '【宿敌】玛莎的四足炮台又稳又准，火炮是熟铁打的；车头的铲斗会把你铲出去。她说后巷只容得下一个人。',
-        rows: ['........', '........', '...K....', '...OC...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
+        rows: ['........', '........', '...KZ...', '...OL...', '..WOAA..', '..QQQQU.'], elite: [[3, 4, 2]],
       },
     ],
-    unlock: { feat: ['street', 'bank', 'aux'], mods: ['armor_heavy', 'quad', 'cannon'], aux: ['scope', 'loader'], mat: 2, grid: { cols: 5, rows: 4 },
+    unlock: { mods: ['armor_heavy', 'quad', 'cannon'], mat: 2, grid: { cols: 5, rows: 4 },
       note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。驾驶舱可以加装瞄准镜、装弹仓。街头赛可以刷钱，银行可以贷款。' },
   },
   {
@@ -123,11 +126,13 @@ SA.CAMPAIGN = [
         name: '推土机', pilot: '码头工 大块头比尔', prize: 180, terrain: 'mud', aim: 0.6, style: 'rush', mt: 2,
         blurb: '宽履带加车头铲斗，一门心思往前推。车头挂重装甲顶住它，或者趁它冲过来的路上多打几炮。',
         rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'],
+        unlock: { feat: ['blueprints'], mods: ['condenser'], note: '冷凝器和蓝图库开放：保存一套冷却蓝图，开始把热量当成构筑预算管理。' },
       },
       {
         name: '独角兽', pilot: '邮差 老乔', prize: 200, aim: 0.65, style: 'rush', mt: 2,
         blurb: '双足轻骑，装甲前焊着撞角全速冲锋，身子晃得很难打中。等它冲到脸上再开火，它的装甲很薄。',
         rows: ['........', '........', '........', '...KM...', '...OAX..', '...BBB..'],
+        unlock: { mods: ['pressure_chamber'], note: '加压舱开放：每个小格换来一点动力，但会把热量压力推高。' },
       },
       {
         name: '双足舞者', pilot: '伊莎贝拉·雷恩', prize: 300, terrain: 'mud', aim: 0.85, style: 'rush', boss: true, mt: 2,
@@ -146,19 +151,21 @@ SA.CAMPAIGN = [
         name: '烟囱', pilot: '扫烟囱的汤米', prize: 260, terrain: 'yard', aim: 0.7, style: 'turtle', mt: 2,
         blurb: '车头两层重装甲，高抛炮从墙后面往你头上砸。直射打不穿？开着撞角冲上去，把墙顶开。',
         rows: ['........', '........', '...P....', '..KOH...', '..WOHH..', '..TTTT..'],
+        unlock: { mods: ['flamer'], note: '喷火器开放：贴身撞开掩体后，用持续升温逼迫龟缩车停火。' },
       },
       {
         name: '齐射', pilot: '钟表匠 老维克', prize: 300, terrain: 'hills', aim: 0.75, style: 'kite', mt: 3,
         blurb: '四足炮台，直射加高抛一起打，还会往后退拉开距离。用双足追上去，别给它从容瞄准的时间。',
         rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'],
+        unlock: { mods: ['cockpit_pair'], aux: ['gyro', 'ranger'], note: '双人联合驾驶舱、陀螺稳定仪和测距仪开放：多一组自动火力，同时降低移动射击的代价。' },
       },
       {
-        name: '黄铜公爵', pilot: '沃德豪斯公爵', prize: 400, terrain: 'hills', aim: 0.9, boss: true, mt: 3,
+        name: '黄铜公爵', pilot: '沃德豪斯公爵', prize: 400, terrain: 'hills', aim: 0.85, boss: true, mt: 3,
         blurb: '公爵在侧挂层架了镀镍侧炮，藏在装甲后面放冷枪。侧炮不怕装甲挡，却也只有它自己那点耐久——瞄准洋红色的侧炮。',
-        rows: ['........', '........', '....K...', '...OAM..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']],
+        rows: ['........', '........', '....K...', '...OAZ..', '..WOAAC.', '..TTTTT.'], sides: [[3, 4]], elite: [[3, 4, 4, 'side']],
       },
     ],
-    unlock: { feat: ['side', 'upgrade'], mods: ['mortar', 'side_cannon', 'piston'], aux: ['gyro', 'ranger'], mat: 4, grid: { cols: 6, rows: 5 },
+    unlock: { feat: ['side', 'upgrade'], mods: ['mortar', 'side_cannon', 'piston', 'radiator'], mat: 4, grid: { cols: 6, rows: 5 },
       note: '镀镍材料开放（×1.75）。高抛火炮、侧炮、蒸汽撞锤到手；侧挂层和改装（炮盾 / 附加装甲）开放。' },
   },
   {
@@ -169,20 +176,22 @@ SA.CAMPAIGN = [
         name: '矿车', pilot: '矿工头 霍布斯', prize: 380, terrain: 'mine', aim: 0.75, style: 'rush', mt: 3,
         blurb: '重装甲履带车，车头装着蒸汽撞锤，贴上来就一下一下猛砸。别跟它顶牛，高抛炮越过装甲砸它的锅炉。',
         rows: ['........', '........', '....K...', '..WOHHY.', '..WOOAC.', '..TTTTT.'],
+        unlock: { mods: ['harpoon'], note: '鱼叉开放：下一场就是风筝车，先用牵引炮把距离问题变成命中问题。' },
       },
       {
         name: '夜枭', pilot: '猎场看守 格雷', prize: 420, terrain: 'hills', aim: 0.85, style: 'kite', mt: 3,
         blurb: '两门侧炮躲在装甲后面，四足平台稳得像块石头，一直往后退。冲上去撞它，或者先敲掉侧炮。',
         rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..QQQQU.'], sides: [[3, 3], [4, 3]],
+        unlock: { mods: ['rocket_rack'], note: '火箭架开放：散布换来中距离压制，逼风筝车离开安全距离。' },
       },
       {
-        name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, terrain: 'mine', aim: 0.95, boss: true, mt: 3,
+        name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, terrain: 'mine', aim: 0.88, boss: true, mt: 4,
         blurb: '重装甲堆到第五层，顶上是一门乌兹钢高抛炮，车头还有蒸汽撞锤。赢了能缴获那门史诗火炮。',
-        rows: ['........', '....KP..', '..WOHHY.', '..WOHHC.', '.WOOHAM.', '.TTTTTT.'], sides: [[3, 4], [2, 4]], elite: [[1, 5, 5]],
+        rows: ['........', '....KP..', '..WOHHY.', '..WOHIC.', '.WOOHAM.', '.TTTTTT.'], sides: [[3, 4], [2, 4]], elite: [[1, 5, 5]],
         drop: { wootz: 1 },
       },
     ],
-    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['cockpit'], grid: { cols: 7, rows: 5 },
+    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['cockpit', 'pressure_tank', 'cannon_heavy'], grid: { cols: 7, rows: 5 },
       note: '联合驾驶舱到手：四个驾驶员挤在一个舱里，替你操作另外三组武器。委托、下注、蓝图库、友谊赛开放：有些委托会付乌兹钢锭。' },
   },
   {
@@ -198,15 +207,17 @@ SA.CAMPAIGN = [
         name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, terrain: 'yard', aim: 0.9, boss: true, mt: 4,
         blurb: '【宿敌】玛莎把她的四足换成了乌兹钢火炮，顶上加了高抛炮。这次她是认真的。',
         rows: ['........', '........', '...PK...', '..WOAC..', '..WOAAC.', '..QQQQU.'], elite: [[4, 6, 5], [3, 5, 5]],
+        subs: [[6, 14, 'boss_ram']],
       },
       {
-        name: '维多利亚女王号', pilot: '卫冕冠军 哈灵顿爵士', prize: 1000, aim: 1.0, boss: true, mt: 4,
-        blurb: '六层高的移动堡垒：五座锅炉、三门侧炮、顶层高抛炮，驾驶舱是以太合金。打赢它，你就是帝国冠军。',
-        rows: ['.....K..', '....OHP.', '..WOHHM.', '.WWOHKC.', 'WWOOHAM.', 'TTTTTTTU'], sides: [[2, 4], [3, 4], [4, 4]],
+        name: '维多利亚女王号', pilot: '卫冕冠军 哈灵顿爵士', prize: 1000, aim: 0.98, boss: true, mt: 3,
+        blurb: '六层高的移动堡垒：多座锅炉、一门侧炮、顶层高抛炮和巨炮，驾驶舱是乌兹钢。打赢它，你就是帝国冠军。',
+        rows: ['.....K..', '....OHP.', '..WOHHM.', '.WWOHKC.', 'WWOOHAM.', 'TTTTTTTU'], sides: [[3, 4]],
+        subs: [[0, 0, 'cannon_giant']],
         elite: [[0, 5, 6], [1, 6, 5], [3, 6, 5]], drop: { aether: 1 },
       },
     ],
-    unlock: { feat: ['season'], grid: { cols: 8, rows: 6 }, ingots: { wootz: 1 },
+    unlock: { feat: ['season'], mods: ['cannon_giant'], mat: 6, grid: { cols: 8, rows: 6 }, ingots: { wootz: 1 },
       note: '你是帝国冠军了！改装台扩到 8×6。终局「伦敦蒸汽大奖赛」开放：每个赛季对手更强，夺冠奖励以太结晶。' },
   },
 ];

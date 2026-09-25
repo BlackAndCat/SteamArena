@@ -31,7 +31,7 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
 <h1>数值自测</h1>
 <p class="muted" style="margin:0 0 12px">无画面 AI 对 AI 批量对打，看战役节奏、胜率和评分准不准。玩家那一侧也由 AI 操作（瞄准可调，0.8 ≈ 一般玩家）。改完 <code>js/content.js</code> 或模块数值后刷新本页重跑。参考车定义在 <code>tools/sim.js</code> 的 <code>REF</code>。</p>
 <div class="ctl">
-  <label>每组局数 <input id="games" type="number" min="2" max="200" value="20"></label>
+  <label>每组局数 <input id="games" type="number" min="2" max="200" value="50"></label>
   <label>玩家瞄准 <input id="aim" type="number" min="0.2" max="1" step="0.05" value="0.8"></label>
   <label>场地 <select id="ter"><option value="">关卡自带（矩阵用平地）</option></select></label>
   <span class="grp"><button class="btn primary" id="run-camp">战役关卡检验</button></span>
@@ -47,6 +47,7 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
     <button class="btn" id="run-matrix">对战矩阵 + 评分校准</button>
   </span>
   <span class="grp"><select id="mat"></select><button class="btn" id="run-value">模块性价比</button></span>
+  <span class="grp"><button class="btn" id="run-build">构筑淘汰模拟</button></span>
 </div>
 <div class="bar-wrap"><div id="bar"></div></div>
 <div class="muted small" id="prog">&nbsp;</div>

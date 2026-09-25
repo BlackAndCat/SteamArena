@@ -700,8 +700,23 @@ SA.SPR = (() => {
     if (st > 1) q.st = st;
     return sprite(art, q, m.art ? { w: 2, h: 2 } : SA.fp(id));
   }
+  // 尚无专用美术的模块先画成带中文名称的功能占位，避免借用精灵让玩家误认模块。
+  // 占位仍使用材料色边框，尺寸严格按 24px 子格，后续替换 DRAW 不会影响布局和数值。
+  function placeholderModule(c2d, id, x, y, o = {}) {
+    const f = SA.fp(id), w = f.w * S, h = f.h * S, mat = SA.MATS[o.mt || 1];
+    c2d.save();
+    c2d.fillStyle = '#18232b'; c2d.fillRect(x, y, w, h);
+    c2d.strokeStyle = mat.chip; c2d.lineWidth = 2; c2d.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    let fs = Math.min(12, Math.max(7, Math.floor(Math.min(w, h) * 0.34))), label = SA.MODULES[id].placeholder;
+    c2d.font = `bold ${fs}px sans-serif`;
+    while (fs > 7 && c2d.measureText(label).width > w - 4) { fs--; c2d.font = `bold ${fs}px sans-serif`; }
+    c2d.fillStyle = '#f2f4f7'; c2d.textAlign = 'center'; c2d.textBaseline = 'middle';
+    c2d.fillText(label, x + w / 2, y + h / 2);
+    c2d.restore();
+  }
   // 有自己画的模块按原生大小贴；借用大模块精灵的小模块（1×1、1×2）暂时缩小画，以后再重画
   function drawModule(c2d, id, x, y, o = {}) {
+    if (SA.MODULES[id].placeholder) { placeholderModule(c2d, id, x, y, o); ctx = c2d; return; }
     const f = SA.fp(id), img = modSprite(id, o);
     if (!SA.MODULES[id].art || (f.w === 2 && f.h === 2)) c2d.drawImage(img, x - LEFT, y - TOP);
     else c2d.drawImage(img, LEFT, TOP, C, C, x, y, f.w * S, f.h * S);

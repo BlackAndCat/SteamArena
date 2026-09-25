@@ -78,6 +78,11 @@ SA.MODULES = {
     price: 70, hp: 90, power: 0.5, kg: 40, q: 1,
     desc: '至少需要 1 个，全部被毁即告负。只占一个小格：目标小，但很脆，记得用甲片护住。多装几个驾驶舱，每多一个驾驶员就能多替你操作一组武器。',
   },
+  cockpit_pair: {
+    name: '联合驾驶舱（双人）', cat: 'control', layer: 'body', w: 1, h: 2, cockpit: true, drivers: 2, art: 'helmet', placeholder: '双人',
+    price: 145, hp: 125, power: 0.7, kg: 90, q: 1,
+    desc: '1×2 的联合驾驶舱，容纳两名驾驶员，除手操武器外再自动操作一组；先于四人联合驾驶舱解锁。',
+  },
   plate: {
     name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1,
     price: 12, hp: 45, power: 0, armor: 3, kg: 90, q: 1,
@@ -129,6 +134,32 @@ SA.MODULES = {
     piv: [18, 13], blen: 34,
     desc: '横躺的 2×1 主力火炮，只占一行：前方同样不能有己方模块。比直射火炮轻、便宜，伤害低一些。',
   },
+  // 新增火炮与能源模块：先用已有精灵借形，尺寸和数值接口已经按 24px 子格注册，
+  // 这样战役和模拟可以先验证构筑，不必等待专用美术完成。
+  cannon_s: {
+    name: '小炮', cat: 'firepower', layer: 'body', w: 1, h: 1, art: 'cannon_m', placeholder: '小炮', vis: [1, 3, 5],
+    price: 72, hp: 62, power: 1, kg: 80, q: 1,
+    dmg: 17, reload: 1.8, heat: 3.2, proj: 'shell', barrel: 12, v: 800, g: 1, spread: 16, arc: 'low',
+    elev: [-8, 30], slew: 34, windup: 0.25, wild: 0.16, rest: 0, aimT: 0.9,
+    rcPx: 4, back: 0.03, ret: 2.8, kick: 26, piv: [12, 13], blen: 24,
+    desc: '占一个小格的轻型火炮，便宜、耗能低，适合把早期的缝隙变成第二个射击位。',
+  },
+  cannon_heavy: {
+    name: '重炮', cat: 'firepower', layer: 'body', w: 2, h: 4, minMt: 4, lowAlt: 'cannon', art: 'cannon', placeholder: '重炮', vis: [4, 5],
+    price: 330, hp: 260, power: 6, kg: 900, q: 4,
+    dmg: 58, reload: 4.6, heat: 11, proj: 'shell', barrel: 34, v: 900, g: 1, spread: 10, arc: 'low',
+    elev: [-6, 34], slew: 16, windup: 0.55, wild: 0.08, rest: 0, aimT: 1.8,
+    rcPx: 12, back: 0.08, ret: 1.8, kick: 110, piv: [34, 30], blen: 48,
+    desc: '镀镍材料起才可制造的长身火炮。伤害高、耗能高，占四行，前方必须留出完整炮口通道。',
+  },
+  cannon_giant: {
+    name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', art: 'cannon', placeholder: '巨炮', vis: [6],
+    price: 760, hp: 420, power: 10, kg: 1800, q: 5,
+    dmg: 104, reload: 6.8, heat: 18, proj: 'shell', barrel: 48, v: 960, g: 1, spread: 8, arc: 'low',
+    elev: [-5, 36], slew: 11, windup: 0.8, wild: 0.04, rest: 0, aimT: 2.4,
+    rcPx: 16, back: 0.1, ret: 1.4, kick: 180, piv: [58, 30], blen: 66,
+    desc: '女王号缴获的终局火炮。它把改装台的大块空间换成一次决定性的重击，热量和动力压力都最高。',
+  },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
@@ -152,6 +183,66 @@ SA.MODULES = {
     elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,
     rcPx: 7, back: 0.04, ret: 2.6, kick: 55, piv: [18, 34], blen: 48,
     desc: '挂在侧挂层，可藏在装甲后方，射击不被己方遮挡；但炮身晃动，弹道散布很大。',
+  },
+  pressure_tank: {
+    name: '蓄压罐', cat: 'energy', layer: 'body', w: 1, h: 2, art: 'boiler', placeholder: '蓄压',
+    price: 96, hp: 72, supply: 3, power: 0, heatRate: 0, kg: 190, q: 1,
+    desc: '把锅炉的蒸汽存起来，提供 3 点额外动力，不增加基础产热；适合在高压短战里换速度。',
+  },
+  pressure_chamber: {
+    name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '加压',
+    price: 64, hp: 58, supply: 2, power: 0, heatRate: 1.1, kg: 95, q: 1,
+    desc: '小格加压单元，提供 2 点动力，同时每秒增加 1.1 点产热；动力不足时优先考虑它。',
+  },
+  radiator: {
+    name: '散热片', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water', placeholder: '散热',
+    price: 82, hp: 64, cool: 2.5, kg: 115, q: 1,
+    desc: '镂空格栅式散热片，侧挂层开放后可挂在主体外侧；不储水，只提高持续散热。',
+  },
+  condenser: {
+    name: '冷凝器', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water', placeholder: '冷凝',
+    price: 105, hp: 78, water: 18, cool: 3, kg: 180, q: 1,
+    desc: '把废蒸汽凝回水，提供 18 点水和 3 点冷却，是二章开始解决烧干问题的紧凑件。',
+  },
+  rocket_rack: {
+    name: '火箭架', cat: 'firepower', layer: 'body', art: 'cannon', placeholder: '火箭', vis: [1, 5],
+    price: 230, hp: 150, power: 4, kg: 430, q: 3,
+    dmg: 44, reload: 3.6, heat: 8, proj: 'shell', barrel: 22, v: 760, g: 0.65, spread: 20, arc: 'low',
+    elev: [-8, 38], slew: 22, windup: 0.4, wild: 0.2, rest: 0, aimT: 1.3,
+    rcPx: 7, back: 0.05, ret: 2.2, kick: 58, piv: [24, 28], blen: 34,
+    desc: '多联装火箭架，单轮伤害高但散布大；用于在中距离逼退风筝车。',
+  },
+  harpoon: {
+    name: '鱼叉', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '鱼叉', vis: [1, 5],
+    price: 175, hp: 105, power: 2, kg: 210, q: 2,
+    dmg: 22, reload: 2.6, heat: 4, proj: 'shell', barrel: 22, v: 720, g: 0.75, spread: 14, arc: 'low',
+    elev: [-10, 28], slew: 28, windup: 0.3, wild: 0.1, rest: 0, aimT: 1.0,
+    rcPx: 5, back: 0.04, ret: 2.8, kick: 42, piv: [18, 13], blen: 34, tether: 80,
+    desc: '带绳索的牵引炮。当前数值先按中等火力验证，后续接入场地边缘时可把命中改成拉近或拖拽。',
+  },
+  flamer: {
+    name: '喷火器', cat: 'firepower', layer: 'body', w: 2, h: 1, art: 'cannon_m', placeholder: '喷火', vis: [1, 5],
+    price: 155, hp: 110, power: 2, kg: 240, q: 2,
+    dmg: 14, reload: 1.1, heat: 5, heatToEnemy: 8, proj: 'steam', barrel: 18, v: 540, g: 0.1, spread: 24, arc: 'low',
+    elev: [-12, 25], slew: 30, windup: 0.2, wild: 0.05, rest: 0, aimT: 0.7,
+    rcPx: 3, back: 0.02, ret: 5, kick: 18, piv: [18, 13], blen: 30,
+    desc: '近距离喷射火焰或蒸汽，伤害不高但会把热量灌给对手；和撞击件组成贴身解题组合。',
+  },
+  // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
+  boss_core: {
+    name: '圣堂压力核心', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '核心',
+    price: 280, hp: 150, supply: 5, water: 24, cool: 3, heatRate: -0.6, kg: 120, q: 2, special: 'pressure-buffer',
+    desc: '铁甲圣堂的压力核心：提供稳定动力、24 点储水、3 点冷却，并降低一部分基础产热。Boss 战利品。',
+  },
+  boss_lens: {
+    name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜',
+    price: 250, hp: 86, power: 0.5, kg: 55, q: 1, aimShrink: 0.12, aimSpeed: 0.18, special: 'range-prism',
+    desc: '黄铜公爵的测距棱镜：让全车瞄准更快、更稳。Boss 战利品。',
+  },
+  boss_ram: {
+    name: '寡妇液压撞头', cat: 'ram', layer: 'ram', w: 2, h: 1, art: 'piston', placeholder: '撞头', mount: ['track', 'quad', 'biped', 'armor', 'armor_heavy'],
+    price: 245, hp: 220, armor: 3, kg: 480, q: 3, ram: 34, knock: 1.45, punch: 18, punchCd: 1.8, heat: 2, special: 'hydraulic-bite',
+    desc: '煤灰寡妇改装的液压撞头：兼顾冲撞和短周期活塞打击。Boss 战利品。',
   },
   boiler: {
     name: '燃煤锅炉', cat: 'energy', layer: 'body', vis: [1, 5],
@@ -182,7 +273,10 @@ SA.MODULES = {
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
-  'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall', 'cannon_m'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+  'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall', 'cannon_m',
+  'cannon_s', 'cannon_heavy', 'cannon_giant', 'pressure_tank', 'pressure_chamber', 'cockpit_pair',
+  'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer',
+  'boss_core', 'boss_lens', 'boss_ram'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
