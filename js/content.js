@@ -156,7 +156,7 @@ SA.CAMPAIGN = [
       {
         name: '齐射', pilot: '钟表匠 老维克', prize: 300, terrain: 'hills', aim: 0.75, style: 'kite', mt: 3,
         blurb: '四足炮台，直射加高抛一起打，还会往后退拉开距离。用双足追上去，别给它从容瞄准的时间。',
-        rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'], subs: [[4, 10, 'rangefinder'], [4, 12, 'gyroscope']],
+        rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..QQQQ..'], subs: [[0, 14, 'condenser'], [0, 12, 'radiator'], [4, 10, 'rangefinder'], [4, 12, 'gyroscope']],
         unlock: { mods: ['cockpit_pair', 'gyroscope', 'rangefinder'], note: '双人联合驾驶舱、陀螺仪和测距仪开放：多一组自动火力，同时降低移动射击的代价。' },
       },
       {
@@ -202,6 +202,7 @@ SA.CAMPAIGN = [
         name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, terrain: 'crates', aim: 0.9, mt: 4,
         blurb: '三挺机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机枪就只能冒火星。',
         rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..BBBBB.'], subs: [[2, 10, 'mg2']],
+        unlock: { mods: ['mg2'], note: '双联机枪开放：一件模块提供高射速火力网。' },
       },
       {
         name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, terrain: 'yard', aim: 0.9, boss: true, mt: 4,
@@ -213,7 +214,7 @@ SA.CAMPAIGN = [
         name: '维多利亚女王号', pilot: '卫冕冠军 哈灵顿爵士', prize: 1000, aim: 0.98, boss: true, mt: 3,
         blurb: '六层高的移动堡垒：多座锅炉、一门侧炮、顶层高抛炮和巨炮，驾驶舱是乌兹钢。打赢它，你就是帝国冠军。',
         rows: ['.....K..', '....OHP.', '..WOHHM.', '.WWOHKC.', 'WWOOHAM.', 'TTTTTTTU'], sides: [[3, 4]],
-        subs: [[0, 0, 'cannon_giant']],
+        subs: [[0, 0, 'cannon_giant'], [0, 14, 'pressure_tank']],
         elite: [[0, 5, 6], [1, 6, 5], [3, 6, 5]], drop: { aether: 1 },
       },
     ],

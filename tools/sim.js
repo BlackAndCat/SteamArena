@@ -13,7 +13,7 @@
     { name: '二章 · 熟铁四层', grid: [5, 4], mt: 2, rows: ['........', '........', '...C....', '..KAM...', '.WOOHH..', '.QQQQQ..'], subs: [[2, 6, 'tank_tall'], [8, 12, 'periscope'], [8, 13, 'autoloader']] },
     { name: '三章 · 钢撞角双足', grid: [6, 4], mt: 3, style: 'rush', rows: ['........', '........', '...C....', '..KAM...', '..OWAHX.', '..BBBB..'], subs: [[3, 5, 'condenser'], [1, 5, 'pressure_chamber'], [6, 10, 'mortar_s']] },
     { name: '四章 · 镀镍炮垒', grid: [6, 5], mt: 4, style: 'rush', rows: ['........', '...P....', '..KAC...', '.WOAHH..', '.WOOHAY.', '.TTTTTT.'], sides: [[3, 3], [3, 4]], subs: [[6, 12, 'steamjet'], [8, 14, 'gyroscope'], [8, 15, 'rangefinder']] },
-    { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]], subs: [[0, 6, 'pressure_tank'], [0, 4, 'radiator'], [4, 12, 'rocket_rack'], [6, 14, 'flamer'], [8, 14, 'harpoon']] },
+    { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], lateRows: ['........', '...P....', '..VKAb..', 'WWOAH...', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]], subs: [[0, 6, 'pressure_tank'], [0, 4, 'radiator'], [4, 12, 'rocket_rack'], [6, 14, 'flamer'], [8, 14, 'harpoon']] },
   ];
   // 联合驾驶舱第四章通关才解锁：前面几章的参考车把 K 换成 1×1 驾驶舱（车头下角）+ 三块甲片，占格不变
   const soloK = (rows) => {
@@ -21,9 +21,10 @@
     rows = rows.map((row, R) => row.replace(/K/g, (m, C) => { subs.push([2 * R + 1, 2 * C + 1, 'helmet'], [2 * R, 2 * C, 'plate'], [2 * R, 2 * C + 1, 'plate'], [2 * R + 1, 2 * C, 'plate']); return '.'; }));
     return { rows, subs };
   };
-  const refVeh = (r, ci = REF.indexOf(r)) => {
+  const refVeh = (r, ci = REF.indexOf(r), si = 0) => {
     // 序章到第四章的参考车都用 1×1 驾驶舱 + 甲片，避免提前使用第四章才解锁的联合驾驶舱。
-    const k = (r._solo || (ci >= 0 && ci < 5)) ? soloK(r.rows) : { rows: r.rows, subs: [] };
+    const sourceRows = si > 0 && r.lateRows ? r.lateRows : r.rows;
+    const k = (r._solo || (ci >= 0 && ci < 5)) ? soloK(sourceRows) : { rows: sourceRows, subs: [] };
     return SA.V.fromAscii(r.name, k.rows, r.sides || [], r.mt, r.elite || [], k.subs.concat(r.subs || []));
   };
   const rating = (v) => SA.V.stats(v).rating;
@@ -119,7 +120,7 @@
       const ev = SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []);
       const e = { v: ev, aim: o.aim, style: o.style, boss: o.boss, terrain: $('#ter').value || o.terrain || 'flat' };
       const cur = REF[ci], prev = REF[ci - 1];
-      const curVeh = refVeh(cur), missing = missingMods(curVeh, ci, si);
+      const curVeh = refVeh(cur, ci, si), missing = missingMods(curVeh, ci, si);
       const row = { ci, si, o, er: rating(ev), cur: blank(), prev: prev && o.boss ? blank() : null, missing };
       for (let k = 0; k < n; k++) jobs.push(duel(row.cur, { v: curVeh, aim, style: cur.style }, e));
       if (row.prev) for (let k = 0; k < n; k++) jobs.push(duel(row.prev, { v: refVeh(prev), aim, style: prev.style }, e));
