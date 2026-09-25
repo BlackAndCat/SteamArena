@@ -37,7 +37,7 @@ SA.Arena = (() => {
         return { key: i, name: o.name, pilot: o.pilot, blurb: o.blurb, v: sg.vehicle, raw: sg.vehicle, hpMul: 1, rating: SA.V.stats(sg.vehicle).rating, prize: o.prize, boss: o.boss, terrain: o.terrain || 'flat',
           tag: beaten ? ['ok', '已击败'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${i + 1} 场 · ${o.name}`, lock: beaten ? '已经击败过了' : !next ? `先打完第 ${C.st + 1} 场` : null,
-          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
+          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: o.prize }) };
       });
     }
     if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {
@@ -47,7 +47,7 @@ SA.Arena = (() => {
       return { key: i, name: op.name, pilot: op.pilot, blurb: op.blurb, v: bv, raw: op.vehicle, hpMul: op.hpMul, rating: SA.V.stats(bv).rating, prize: op.prize, terrain,
         tag: i < D.round ? ['ok', '已击败'] : i === D.round ? ['next', '下一场'] : ['no', `第 ${i + 1} 轮`],
         title: `第 ${i + 1} 轮 · ${op.name}`, lock: i !== D.round ? (i < D.round ? '已经击败过了' : `先打完第 ${D.round + 1} 轮`) : null,
-        start: () => SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, terrain, hpMul: op.hpMul, prize: op.prize }) };
+        start: () => SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, terrain, boss: i === SA.OPPONENTS.length - 1, hpMul: op.hpMul, prize: op.prize }) };
     });
     if (st.mode === 'street') {
       const me = SA.V.stats(D.vehicle).rating;

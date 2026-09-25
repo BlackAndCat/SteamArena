@@ -41,7 +41,7 @@
   // a 对 b 打 n 局，结果累加到 acc
   function duel(acc, a, b) {
     return () => {
-      const r = SA.Battle.simulate({ p: a.v, e: b.v, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style, terrain: b.terrain || a.terrain || $('#ter').value || 'flat' });
+      const r = SA.Battle.simulate({ p: a.v, e: b.v, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style, eBoss: b.boss, terrain: b.terrain || a.terrain || $('#ter').value || 'flat' });
       acc.n++; acc.t += r.t;
       if (r.winner === 'p') acc.w++; else if (r.winner === 'draw') acc.d++;
       const who = r.winner === 'p' ? '对方' : r.winner === 'e' ? '我方' : '平手';
@@ -57,7 +57,7 @@
     const rows = [], jobs = [];
     SA.CAMPAIGN.forEach((ch, ci) => ch.stages.forEach((o, si) => {
       const ev = SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || []);
-      const e = { v: ev, aim: o.aim, style: o.style, terrain: $('#ter').value || o.terrain || 'flat' };
+      const e = { v: ev, aim: o.aim, style: o.style, boss: o.boss, terrain: $('#ter').value || o.terrain || 'flat' };
       const cur = REF[ci], prev = REF[ci - 1];
       const row = { ci, si, o, er: rating(ev), cur: blank(), prev: prev && o.boss ? blank() : null };
       for (let k = 0; k < n; k++) jobs.push(duel(row.cur, { v: refVeh(cur), aim, style: cur.style }, e));

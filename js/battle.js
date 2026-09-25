@@ -353,7 +353,10 @@ SA.Battle = (() => {
     const top = dir * s.speed * (s.speedMul || 0) * tk.top;
     const k = clamp(Math.sqrt(5.5 / s.mass), 0.55, 1.4);   // 越重加速、刹车越慢
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
-    const acc = (braking ? K.BRAKE * s.brakeK : K.ACCEL * s.accelK * tk.acc) * k;
+    // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
+    const own = s.speed * (s.speedMul || 0) * tk.top;
+    const skid = braking && Math.abs(s.vx) > own * 1.05 + 4;
+    const acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) : K.ACCEL * s.accelK * tk.acc) * k;
     const vx0 = s.vx;
     s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
@@ -475,6 +478,7 @@ SA.Battle = (() => {
   // a 把 t 往前推：动量守恒的一对冲量。dv 是两车一样重时各自的速度变化；
   // 质量不同时按质量反比分摊，重车的速度变化永远比轻车小（以前只推对方、还按比例截断，重车会被推得比轻车更远）
   function shove(a, t, dv) {
+    dv = Math.min(dv, K.KNOCK_MAX);   // 击退封顶：一下撞不飞几十米
     const dir = isP(a) ? 1 : -1, sum = a.mass + t.mass;
     t.vx += dir * dv * 2 * a.mass / sum;
     a.vx -= dir * dv * 2 * t.mass / sum;
@@ -543,6 +547,17 @@ SA.Battle = (() => {
     s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
     const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
+    // 装填：先把所有炮的装填计时推进一步
+    for (const w of s.weapons) {
+      if (w.blocked) continue;
+      if (s.timers[w.key] == null) s.timers[w.key] = rnd(0.2, 0.8) * w.m.reload;
+      s.timers[w.key] -= dt * s.power;
+    }
+    // 手操的这一组是齐射：组里每门炮都装好了才一起开火（副驾驶管的组照旧各打各的）
+    const salvo = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);
+    const salvoReady = salvo.length > 0 && salvo.every(w => s.timers[w.key] <= 0);
+    const salvoGo = salvoReady && firing && salvo.every(w => ready(w));
+    const again = rnd(0.95, 1.05);   // 同一轮齐射用同一个装填时间，下一轮还是一起好
     for (const w of s.weapons) {
       if (w.blocked) continue;
       const mine = w.cell.id === s.sel, co = !mine && s.coGroups.includes(w.cell.id);
@@ -550,13 +565,12 @@ SA.Battle = (() => {
       // 炮管以有限角速度转向瞄准点
       const cur = barrel(s, w), want = pt ? aimAngle(s, w, pt[0], pt[1]).a : cur;
       s.elev[w.key] = cur + clamp(want - cur, -w.m.slew * dt, w.m.slew * dt);
-      if (s.timers[w.key] == null) s.timers[w.key] = rnd(0.2, 0.8) * w.m.reload;
-      s.timers[w.key] -= dt * s.power;
-      if (s.timers[w.key] <= 0) {
-        if (mine && firing && ready(w)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * rnd(0.92, 1.08); s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
-        else if (co && coPt && Math.abs(want - cur) < 3) { fire(s, o, w, !!coAt && coAt.layer === 'side', 0.4); s.timers[w.key] = w.m.reload * rnd(1, 1.2); }
+      if (s.timers[w.key] > 0) continue;
+      if (mine) {
+        if (salvoGo) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * again; s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
         else s.timers[w.key] = 0;
-      }
+      } else if (co && coPt && Math.abs(want - cur) < 3) { fire(s, o, w, !!coAt && coAt.layer === 'side', 0.4); s.timers[w.key] = w.m.reload * rnd(1, 1.2); }
+      else s.timers[w.key] = 0;
     }
     if (s.kick) { s.focus *= s.kick; s.kick = 0; }   // 后坐力把准星震开（快枪只震掉一点）
     s.release = false;
@@ -650,12 +664,25 @@ SA.Battle = (() => {
 
   // 投降：对手彻底没法打、而玩家还能打，持续 1 秒就挂白旗。战斗暂停，玩家选择接受（立即获胜，额外声望）还是继续打
   // 只有对手会投降（玩家没了武器还能等对手烧干）；无画面模拟里视为玩家接受投降
+  // 剩余耐久比例（含已损毁的模块）
+  const hpFrac = (s) => { let a = 0, m = 0; SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); }); return a / Math.max(1, m); };
+  // 对手想不想投降：返回理由，否则 null
+  // ① 彻底没法打（开不了火、也撞不了人）；② 开不了火、只剩撞击件，耐久不到一半；③ 残血（不到 20%）而你的耐久比例是它的 3 倍以上
+  // Boss 有骨气：只有 ① 才投降
+  function quitReason(e, p) {
+    if (helpless(e)) return crippled(e);
+    if (e.boss) return null;
+    const fe = hpFrac(e);
+    if (crippled(e) && fe < 0.5) return `${crippled(e)}，只剩撞击件`;
+    if (fe < 0.2 && hpFrac(p) >= fe * 3) return '伤得太重，打不下去了';
+    return null;
+  }
   function surrender(dt) {
     const p = B.p, e = B.e;
     if (p.dead || e.dead || B.surrender) return;
-    B.surT = helpless(e) && !helpless(p) ? (B.surT || 0) + dt : 0;
+    const why = helpless(p) ? null : quitReason(e, p);
+    B.surT = why ? (B.surT || 0) + dt : 0;
     if (B.surT < 1) return;
-    const why = crippled(e);
     if (B.headless) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); return; }
     B.surrender = 'asked';
     B.frozen = true;
@@ -744,8 +771,7 @@ SA.Battle = (() => {
         B.ending = 1.8;
       }
       if (!B.draw && B.t >= K.BATTLE_TIME && !B.p.dead && !B.e.dead) {
-        const frac = (s) => { let a = 0, m = 0; SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); }); return a / Math.max(1, m); };
-        kill(frac(B.p) >= frac(B.e) ? B.e : B.p, '时间到，剩余耐久较低，裁判判负');
+        kill(hpFrac(B.p) >= hpFrac(B.e) ? B.e : B.p, '时间到，剩余耐久较低，裁判判负');
       }
       if (B.p.dead || B.e.dead) B.ending = B.ending || 1.8;
     } else {
@@ -1047,17 +1073,17 @@ SA.Battle = (() => {
     g.fillStyle = full ? hi : P.white; g.fillRect(x - 1, y - 1, 3, 3);
   }
 
-  // 当前武器组的装填进度（0 → 1）；有一门已经装好就返回 null
+  // 当前武器组的装填进度（0 → 1）：齐射要等最慢的那门炮，所以取最小值；全部装好才返回 null
   function reloadFrac(s) {
     if (s.dead || !s.sel) return null;
-    let best = null;
+    let worst = null;
     for (const w of s.weapons) {
       if (w.cell.id !== s.sel || w.blocked) continue;
       const left = Math.max(0, s.timers[w.key] || 0);
       const f = 1 - left / w.m.reload;
-      if (best == null || f > best) best = f;
+      if (worst == null || f < worst) worst = f;
     }
-    return best == null || best >= 1 ? null : clamp(best, 0, 1);
+    return worst == null || worst >= 1 ? null : clamp(worst, 0, 1);
   }
   // 跟着准星走的小沙漏：上半沙子漏到下半 = 装填进度
   function hourglass(x, y, f) {
@@ -1390,6 +1416,7 @@ SA.Battle = (() => {
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
     B.e.style = opts.style || null;
+    B.e.boss = !!opts.boss;
     BD = BD || buildBackdrop();
 
     const screen = document.querySelector('#screen');
@@ -1498,7 +1525,7 @@ SA.Battle = (() => {
 
   // ---------- 无画面模拟（tools/sim.html 数值自测用）----------
   // 两边都交给 AI，按固定步长一口气打完，返回 { winner: 'p' | 'e' | 'draw', t, reason, pDealt, eDealt }
-  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, terrain, dt }
+  // o = { p: 载具, e: 载具, pAim, eAim, pStyle, eStyle, eBoss, terrain, dt }
   function simulate(o) {
     const keep = B;
     const pS = frontShift(o.p), eS = frontShift(o.e);
@@ -1509,6 +1536,7 @@ SA.Battle = (() => {
       B.p.style = o.pStyle || null;
       B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, o.eAim || 0.8, W / 2 + 200 - PADX);
       B.e.style = o.eStyle || null;
+      B.e.boss = !!o.eBoss;
       const dt = o.dt || 1 / 30;
       while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);
       return B.result || { winner: 'draw', t: B.t, reason: '超时', pDealt: B.p.dealt, eDealt: B.e.dealt };

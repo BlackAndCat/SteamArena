@@ -156,8 +156,6 @@ SA.Camp = (() => {
     const act = (label, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, onclick: () => { SA.UI.closeModal(); fn(); SA.UI.toast(label); } }, label);
     const sel = h('select', {}, SA.CAMPAIGN.map((ch, i) => h('option', { value: i, selected: i === chIndex() }, ch.name)));
     const row = (...kids) => h('div', { class: 'dialog-actions dev-row' }, kids);
-    const terSel = h('select', {}, SA.TERRAIN_ORDER.map(k => h('option', { value: k }, SA.TERRAINS[k].name)));
-    const foeSel = h('select', {}, SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((o, si) => h('option', { value: `${ci},${si}` }, `${ch.name.split(' · ')[0]} · ${o.name}`))));
     SA.UI.openModal('开发者模式', h('div', { class: 'dev-panel' },
       h('h3', { class: 'help-h' }, '开发工具 · 新标签页打开'),
       h('div', { class: 'dev-tools' }, DEV_TOOLS.map(t => h('a', { class: 'dev-tool', href: t.url, target: '_blank', rel: 'noopener' },
@@ -167,8 +165,71 @@ SA.Camp = (() => {
         act('+£1000', () => dev.money(1000)),
         act('乌兹钢锭 / 以太结晶 +3', () => dev.ingots(3))),
       row(sel, act('跳到这一章', () => dev.goto(+sel.value)), act('清空存档重来', () => SA.reset())),
-      h('h3', { class: 'help-h' }, '地形试驾 · 不结算、不留损伤'),
-      row(terSel, foeSel, act('开打', () => dev.drive(terSel.value, foeSel.value), true))));
+      h('h3', { class: 'help-h' }, '试驾场 · 不结算、不留损伤'),
+      row(h('button', { class: 'btn primary', onclick: sandbox }, '打开试驾场'), h('span', { class: 'muted' }, '任选场地、对手、对手材料 / 性格 / 枪法，用你现在的车打一场'))));
+  }
+
+  // ---------- 试驾场：任选场地和对手 ----------
+  // 对手来源：战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车；可以改材料、AI 性格、枪法。友谊赛：不结算、不留损伤
+  const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '' };   // 记住上一次的选择
+  const SRC = [['camp', '战役各关'], ['tour', '终局锦标赛'], ['bp', '官方蓝图'], ['mine', '我的蓝图'], ['cloud', '云车库'], ['street', '随机街头车']];
+  const STYLES = [['', '按对手默认'], ['roam', '游走'], ['rush', '冲锋'], ['kite', '放风筝'], ['turtle', '龟缩']];
+  // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
+  function foeList(src) {
+    if (src === 'camp') return SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((o, si) => ({ key: `${ci},${si}`, name: `${ch.name.split(' · ')[0]} · ${o.name}${o.boss ? '【Boss】' : ''}`,
+      make: () => ({ v: stage(ci, si).vehicle, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss }) })));
+    if (src === 'tour') return SA.OPPONENTS.map((o, i) => ({ key: String(i), name: `第 ${i + 1} 轮 · ${o.name}`,
+      make: () => { const op = SA.S.opponent(i); return { v: op.vehicle, aim: op.aim, terrain: SA.TERRAIN_ORDER[i % SA.TERRAIN_ORDER.length], boss: i === SA.OPPONENTS.length - 1 }; } }));
+    if (src === 'bp') return SA.OFFICIAL_BLUEPRINTS.map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromAscii(b.name, b.rows, b.sides || []), aim: 0.8 }) }));
+    if (src === 'mine') return SA.Blueprints.mine().map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromLayout(b.name, b), aim: 0.8 }) }));
+    if (src === 'cloud') return SA.S.Cloud.list().map((e, i) => ({ key: String(i), name: `${e.name} · ${e.author}`, make: () => ({ v: SA.V.decode(e.code), aim: 0.85 }) }));
+    return [{ key: 'rand', name: '随手拼一台（每次都不一样）', make: () => { let v = null; for (let k = 0; k < 50 && !v; k++) v = SA.Street.build('街头小车', Math.random() < 0.5); return { v, aim: 0.65 }; } }];
+  }
+  function sandbox() {
+    const list = () => foeList(SB.src);
+    if (!list().some(f => f.key === SB.foe)) SB.foe = (list()[0] || {}).key;
+    const sel = (opts, cur, onchange) => h('select', { onchange: (e) => { onchange(e.target.value); draw(); } }, opts.map(([v, n]) => h('option', { value: v, selected: String(v) === String(cur) }, n)));
+    const body = h('div', { class: 'sandbox' });
+    let foe = null;   // 当前预览的对手（开打时直接用它，随机街头车也是看到的这台）
+    function build() {
+      const f = list().find(x => x.key === SB.foe);
+      const r = f && f.make();
+      if (!r || !r.v) return null;
+      if (+SB.mt) SA.V.each(r.v, (cell) => { cell.mt = +SB.mt; cell.hp = SA.mod(cell).hp; });   // 统一换材料
+      return { ...r, name: f.name.replace(/^.* · /, '').replace('【Boss】', ''), terrain: SB.terrain || r.terrain || 'flat',
+        style: SB.style ? (SB.style === 'roam' ? null : SB.style) : r.style, aim: SB.aim ? +SB.aim : r.aim };
+    }
+    function draw(keepFoe) {
+      if (!keepFoe) foe = build();
+      body.innerHTML = '';
+      const L = list();
+      const field = (label, el) => h('label', { class: 'sb-field' }, h('span', { class: 'muted' }, label), el);
+      body.append(h('div', { class: 'sb-grid' },
+        field('对手来源', sel(SRC, SB.src, (v) => { SB.src = v; SB.foe = (foeList(v)[0] || {}).key; })),
+        field('对手', L.length ? sel(L.map(f => [f.key, f.name]), SB.foe, (v) => { SB.foe = v; }) : h('span', { class: 'muted' }, '这里还没有车')),
+        field('场地', sel([['', '按对手默认'], ...SA.TERRAIN_ORDER.map(k => [k, SA.TERRAINS[k].name])], SB.terrain, (v) => { SB.terrain = v; })),
+        field('对手材料', sel([[0, '保持原样'], ...SA.MATS.slice(1).map((m, i) => [i + 1, m.rank ? `${m.rank} · ${m.name}` : m.name])], SB.mt, (v) => { SB.mt = +v; })),
+        field('AI 性格', sel(STYLES, SB.style, (v) => { SB.style = v; })),
+        field('对手枪法', sel([['', '按对手默认'], ...[0.3, 0.5, 0.65, 0.8, 0.9, 1].map(a => [a, `瞄准 ${a}`])], SB.aim, (v) => { SB.aim = v; }))));
+      if (!foe) { body.append(h('p', { class: 'muted' }, '选一个对手')); return; }
+      const t = SA.TERRAINS[foe.terrain], st = SA.V.stats(foe.v), me = SA.V.stats(d().vehicle);
+      body.append(h('div', { class: 'sb-preview' },
+        h('div', { class: 'vs-pic' }, (() => { const cv = SA.UI.vehiclePreview(foe.v, 2); cv.style.transform = 'scaleX(-1)'; return cv; })()),
+        h('div', { class: 'sb-info' },
+          h('b', {}, foe.name, foe.boss ? ' 【Boss】' : ''),
+          h('div', {}, h('span', { class: 'chip' }, `评分 ${st.rating}`), ' ', h('span', { class: 'chip' }, `你的车 ${me.rating}`), ' ',
+            h('span', { class: 'chip' }, `性格 ${(STYLES.find(x => x[0] === (foe.style || 'roam')) || STYLES[1])[1]}`), ' ', h('span', { class: 'chip' }, `瞄准 ${foe.aim}`)),
+          h('div', { class: 'terrain-note' }, h('b', {}, `场地 · ${t.name}`), h('span', { class: 'muted' }, t.desc)),
+          !me.canDeploy ? h('div', { class: 'warn bad' }, `你的车还不能出战：${me.problems[0]}`) : null)),
+        h('div', { class: 'dialog-actions', style: 'padding:10px 0 0;justify-content:flex-start' },
+          h('button', { class: 'btn primary', disabled: !me.canDeploy, onclick: () => {
+            SA.UI.closeModal();
+            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1 });
+          } }, '开打'),
+          SB.src === 'street' ? h('button', { class: 'btn', onclick: () => draw() }, '换一台') : null));
+    }
+    SA.UI.openModal('试驾场', body);
+    draw();
   }
 
   const dev = {
@@ -184,7 +245,8 @@ SA.Camp = (() => {
     unlockAll() { dev.goto(SA.CAMPAIGN.length); },
     money(n = 1000) { d().money += n; SA.S.save(); SA.UI.topbar(); },
     ingots(n = 3) { SA.S.addIngots({ wootz: n, aether: n }); SA.S.save(); SA.UI.topbar(); },
-    // 在指定地形上和某一关的对手打一场友谊赛（不结算、不留损伤）
+    sandbox,
+    // 在指定地形上和某一关的对手打一场友谊赛（不结算、不留损伤）；控制台用
     drive(terrain = 'crates', foe = '1,0') {
       const [ci, si] = String(foe).split(',').map(Number), st = stage(ci, si);
       if (!st) return;

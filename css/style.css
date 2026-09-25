@@ -515,3 +515,12 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .bt-timer small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; letter-spacing: 1px; }
 .terrain-note { display: grid; gap: 2px; padding: 6px 10px; background: var(--dark1); border-left: 3px solid #6b4a2b; font-size: 12px; }
 .terrain-note b { color: #d9b27a; }
+
+.sandbox { display: grid; gap: 10px; min-width: min(760px, 88vw); }
+.sb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 12px; }
+.sb-field { display: grid; gap: 3px; font-size: 12px; }
+.sb-field select { background: var(--dark1); color: var(--text); border: 1px solid var(--dark3); padding: 5px 6px; font: inherit; }
+.sb-preview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; align-items: start; }
+.sb-preview .vs-pic canvas { width: 100%; height: auto; }
+.sb-info { display: grid; gap: 6px; font-size: 13px; }
+@media (max-width: 640px) { .sb-preview { grid-template-columns: 1fr; } }
