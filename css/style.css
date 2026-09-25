@@ -497,3 +497,11 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .dev-btn { all: unset; cursor: pointer; margin-top: 6px; font-size: 11px; color: var(--muted); border: 1px dashed var(--dark3); padding: 3px 8px; text-align: center; }
 .dev-btn:hover { color: var(--brass3); border-color: var(--brass1); }
 .dev-panel select { background: var(--dark1); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; }
+.dev-panel { display: grid; gap: 4px; min-width: min(640px, 86vw); }
+.dev-panel .help-h:first-child { margin-top: 0; }
+.dev-row { justify-content: flex-start; padding: 4px 0 0; flex-wrap: wrap; }
+.dev-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.dev-tool { display: grid; gap: 4px; padding: 10px 12px; background: var(--dark1); border: 1px solid var(--dark3); border-left: 3px solid var(--brass1); color: var(--text); text-decoration: none; font-size: 12px; }
+.dev-tool b { color: var(--brass3); font-size: 14px; }
+.dev-tool .ext { color: var(--muted); font-weight: 400; }
+.dev-tool:hover { background: var(--iron1); border-left-color: var(--brass2); }

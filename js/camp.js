@@ -131,22 +131,28 @@ SA.Camp = (() => {
 
   // ---------- 调试（控制台）----------
   // SA.dev.goto(3)：直接跳到第 3 章开头（前面各章的解锁全部发放）；SA.dev.unlockAll()：全部解锁；SA.dev.money(n)
-  // 开发者面板：侧边栏底部的「开发者」按钮
+  // 开发者面板：侧边栏底部的「开发者」按钮。上面是开发工具（新标签页打开），下面是存档调试
+  // 新做的工具页 / 预览页加到 DEV_TOOLS 里就会出现在面板上
+  const DEV_TOOLS = [
+    { url: 'tools/sim.html', name: '数值自测', desc: 'AI 对 AI 批量对打：战役关卡检验、对战矩阵 + 评分校准、模块性价比' },
+    { url: 'tools/spritesheet.html', name: '模块精灵表', desc: '全部模块的像素图、整车渲染、炮管后坐与供弹动态帧' },
+    { url: 'tools/mech-kit.html', name: '机甲套件', desc: '全局子格套件：双足 / 履带 / 蜘蛛共用部件与挂载层的视觉验证' },
+    { url: 'tools/biped-v2.html', name: '真双足样机', desc: '一对腿 + 陀螺仪平衡系统的视觉语言样机' },
+    { url: 'tools/biped-lab.html', name: '双足设计探索', desc: '双足底盘升级版：六档品质 + 探索版腿型' },
+  ];
   function devPanel() {
     const act = (label, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, onclick: () => { SA.UI.closeModal(); fn(); SA.UI.toast(label); } }, label);
     const sel = h('select', {}, SA.CAMPAIGN.map((ch, i) => h('option', { value: i, selected: i === chIndex() }, ch.name)));
+    const row = (...kids) => h('div', { class: 'dialog-actions dev-row' }, kids);
     SA.UI.openModal('开发者模式', h('div', { class: 'dev-panel' },
-      h('p', { class: 'muted', style: 'margin-top:0' }, '只用于测试：直接改存档。'),
-      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:0' },
-        act('一键全部解锁', () => { dev.unlockAll(); dev.money(10000); dev.ingots(5); }, true),
+      h('h3', { class: 'help-h' }, '开发工具 · 新标签页打开'),
+      h('div', { class: 'dev-tools' }, DEV_TOOLS.map(t => h('a', { class: 'dev-tool', href: t.url, target: '_blank', rel: 'noopener' },
+        h('b', {}, t.name, h('span', { class: 'ext' }, ' ↗')), h('span', { class: 'muted' }, t.desc)))),
+      h('h3', { class: 'help-h' }, '存档调试 · 直接改存档'),
+      row(act('一键全部解锁', () => { dev.unlockAll(); dev.money(10000); dev.ingots(5); }, true),
         act('+£1000', () => dev.money(1000)),
         act('乌兹钢锭 / 以太结晶 +3', () => dev.ingots(3))),
-      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:10px 0 0' },
-        sel, act('跳到这一章', () => dev.goto(+sel.value))),
-      h('div', { class: 'dialog-actions', style: 'justify-content:flex-start;padding:10px 0 0' },
-        h('a', { class: 'btn', href: 'tools/sim.html', target: '_blank' }, '数值自测 sim.html'),
-        act('清空存档重来', () => SA.reset()))));
-    document.querySelector('#modal > .panel').classList.add('dialog');
+      row(sel, act('跳到这一章', () => dev.goto(+sel.value)), act('清空存档重来', () => SA.reset()))));
   }
 
   const dev = {
