@@ -1,5 +1,5 @@
 // 蓝图库：我的蓝图（本地）+ 官方基础蓝图（不能删除）+ 云车库（其他玩家分享的车）
-// 蓝图只记录布局；应用时先拆回当前车上的模块，缺的模块按原价补买。界面在车间底部操作栏里
+// 蓝图只记录布局（不记材料）；应用时先拆回当前车上的模块，优先用材料最好的库存，缺的按黄铜原价补买。界面在车间底部操作栏里
 window.SA = window.SA || {};
 
 SA.Blueprints = (() => {
@@ -34,14 +34,15 @@ SA.Blueprints = (() => {
     const pool = {};
     let scrap = 0;
     SA.V.each(d().vehicle, (cell) => {
-      if (cell.hp <= 0) scrap += Math.round(M[cell.id].price * 0.1);
+      if (cell.hp <= 0) scrap += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
       else (pool[cell.id] = pool[cell.id] || []).push(cell);
     });
-    for (const id in pool) pool[id].sort((a, b) => a.hp / SA.V.maxHp(a) - b.hp / SA.V.maxHp(b));
+    // 车上的同款模块：材料好的先用，同材料里受损的先用上（保留原耐久）
+    for (const id in pool) pool[id].sort((a, b) => (b.mt || 1) - (a.mt || 1) || a.hp / SA.V.maxHp(a) - b.hp / SA.V.maxHp(b));
     const buy = {};
     let buyCost = 0, fixCost = 0;
     for (const id in need) {
-      const miss = Math.max(0, need[id] - (pool[id] || []).length - (d().inv[id] || 0));
+      const miss = Math.max(0, need[id] - (pool[id] || []).length - SA.S.invCount(id));
       if (miss) { buy[id] = miss; buyCost += miss * M[id].price; }
     }
     // 用不上的受损模块要修好才能放回库存
@@ -56,11 +57,12 @@ SA.Blueprints = (() => {
       SA.V.each(p.target, (cell, r, c, layer) => {
         const reuse = p.pool[cell.id] && p.pool[cell.id].shift();
         if (reuse) p.target[layer][r][c] = reuse;
-        else SA.S.addInv(cell.id, -1);
+        else p.target[layer][r][c] = SA.newCell(cell.id, SA.S.takeBest(cell.id) || 1);
       });
-      for (const id in p.pool) for (const cell of p.pool[id]) SA.S.addInv(cell.id, 1);
+      for (const id in p.pool) for (const cell of p.pool[id]) SA.S.addInv(cell.id, 1, cell.mt || 1);
       d().money += p.scrap;
       d().vehicle = p.target;
+      SA.Camp.syncLim();
       SA.S.save();
       SA.UI.toast(`已按「${bp.name}」改装${p.scrap ? `，损毁件回收 ${money(p.scrap)}` : ''}`);
       if (done) done();

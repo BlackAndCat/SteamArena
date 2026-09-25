@@ -22,6 +22,7 @@ SA.Battle = (() => {
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
       focus: 0, jolt: 0, release: false, kick: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
+    s.homeX = x;
     refresh(s);
     s.water = s.waterMax;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
@@ -33,7 +34,7 @@ SA.Battle = (() => {
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
-      const m = M[cell.id];
+      const m = SA.mod(cell);   // 按材料放大后的属性
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c);
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
@@ -64,7 +65,7 @@ SA.Battle = (() => {
     s.weapons = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
-      s.weapons.push({ cell, r, c, layer, m: M[cell.id], key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
+      s.weapons.push({ cell, r, c, layer, m: SA.mod(cell), key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
     s.groups = GROUP_ORDER.filter(id => s.weapons.some(w => w.cell.id === id));
@@ -322,7 +323,7 @@ SA.Battle = (() => {
           const ac = a === p ? x.pc : x.ec, dc = a === p ? x.ec : x.pc;
           const ma = a.v.body[x.r][ac];
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
-          const dmg = (M[ma.id].ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
+          const dmg = (SA.mod(ma).ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
           const target = d.v.body[x.r][dc];
           damage(d, a, { layer: 'body', r: x.r, c: dc }, SA.isRam(target.id) ? dmg * 0.5 : dmg);
           if (alive(a.v.body[x.r][ac])) damage(a, null, { layer: 'body', r: x.r, c: ac }, dmg * K.RAM_SELF);
@@ -374,7 +375,7 @@ SA.Battle = (() => {
       if (dc < 0) continue;
       s.punch[key] = 1;
       s.heat += M.piston.heat;
-      damage(o, s, { layer: 'body', r: pc.r, c: dc }, M.piston.punch);
+      damage(o, s, { layer: 'body', r: pc.r, c: dc }, SA.armorCut(SA.mod(o.v.body[pc.r][dc]), SA.mod(pc.cell).punch));
       shove(s, o, 30);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
       const x = frontEdge(s), y = cellY(pc.r) + HALF;
       for (let i = 0; i < 10; i++) part('steam', x, y, rnd(-90, 90), rnd(-120, -15), rnd(0.4, 0.8));
@@ -494,11 +495,14 @@ SA.Battle = (() => {
       }
     }
     s.fireHeld = !!s.target;
-    // 移动：有撞击武器就周期性冲撞，否则在交战距离内游走
+    // 移动：按性格来。默认 = 有撞击武器就周期性冲撞，否则在交战距离内游走；
+    // rush 冲锋：几乎一直在冲，退也只退一小段助跑；kite 放风筝：保持远距离，很少冲撞；turtle 龟缩：守在出发点附近
     s.moveT -= dt;
     if (s.moveT <= 0) {
-      s.charge = s.rams > 0 && !s.charge && Math.random() < 0.7;
-      s.goalX = s.x - ((frontEdge(s) - frontEdge(o)) - rnd(140, 520));
+      const sty = s.style;
+      s.charge = s.rams > 0 && sty !== 'turtle' && (sty === 'rush' ? !s.charge || Math.random() < 0.35 : !s.charge && Math.random() < (sty === 'kite' ? 0.15 : 0.7));
+      const [lo, hi] = sty === 'kite' ? [400, 640] : sty === 'rush' ? [70, 260] : [140, 520];
+      s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x - ((frontEdge(s) - frontEdge(o)) - rnd(lo, hi));
       s.moveT = s.charge ? rnd(3, 5) : rnd(2, 5) * (s.speed > 70 ? 0.6 : 1);
     }
     if (s.charge) { s.dir = -1; if (B.contact && Math.abs(s.vx) < 10) s.moveT = Math.min(s.moveT, 0.4); }
@@ -537,7 +541,9 @@ SA.Battle = (() => {
           for (let k = 0; k < 6; k++) part('dust', sh.x, GROUND, rnd(-75, 75), rnd(-100, -30), rnd(0.3, 0.6));
           if (sh.big) part('smoke', sh.x, GROUND - 6, 0, -30, 0.8);
         } else if (res !== 'out') {
-          damage(sh.to, sh.from, res, sh.dmg);
+          // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
+          const tc = sh.to.v[res.layer][res.r][res.c];
+          damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
           if (sh.big) B.shake = Math.max(B.shake, 3);
         }
       }
@@ -1125,6 +1131,7 @@ SA.Battle = (() => {
       speed: gameSpeed(), keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
+    B.e.style = opts.style || null;
     bg = buildBg();
 
     const screen = document.querySelector('#screen');
@@ -1216,10 +1223,13 @@ SA.Battle = (() => {
     const win = !draw && !B.p.dead && B.e.dead;
     let flawless = true;
     SA.V.each(B.p.v, (cell) => { if (cell.id === 'cockpit' && cell.hp < SA.V.maxHp(cell)) flawless = false; });
+    // 对手还完好的模块：战役胜利后可以挑一件缴获
+    const survivors = [];
+    SA.V.each(B.e.v, (cell) => { if (cell.hp > 0) survivors.push({ id: cell.id, mt: cell.mt || 1 }); });
     SA.UI.afterBattle({
       mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
       reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`,
-      playerVehicle: shiftVeh(B.p.v, -B.pShift), dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
+      playerVehicle: shiftVeh(B.p.v, -B.pShift), survivors, dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
     });
   }
 

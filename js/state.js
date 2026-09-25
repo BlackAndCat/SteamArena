@@ -2,31 +2,44 @@
 window.SA = window.SA || {};
 
 SA.S = (() => {
-  const KEY = 'steam_arena_save_v1';
+  const KEY = 'steam_arena_save_v2';   // v2：战役 + 材料（v1 的旧存档不再读取）
   const CLOUD_KEY = 'steam_arena_cloud_v1';
   let d = null;
 
   function fresh() {
     return {
-      money: 400, debt: 0, rep: 0, season: 1, round: 0,
-      inv: { armor: 2, mg: 1 },
+      money: 300, debt: 0, rep: 0, season: 1, round: 0,
+      inv: { armor: 2, mg: 1 }, ingots: {},
       vehicle: SA.V.fromAscii('一号原型机', SA.STARTER),
       bet: null,
+      // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
+      camp: { ch: 0, st: 0, intro: -1, done: false, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
       orders: ['farmer', 'post', 'mill'], ordersDone: [],
       wins: 0, losses: 0, battles: 0, champion: 0,
-      news: '欢迎来到蒸汽竞技场。先在「车间」看看你的原型机，再去「出战」挑一场比赛。',
+      news: '老汤姆的铁匠铺后院：你的第一台原型机已经点着了锅炉。去「出战」打第一场练习赛。',
     };
   }
 
   function load() {
     try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) { d = null; }
-    if (!d || !d.vehicle) d = fresh();
+    if (!d || !d.vehicle || !d.camp) d = fresh();
+    d.ingots = d.ingots || {};
     return d;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式 */ } }
   function reset() { d = fresh(); save(); return d; }
 
-  const addInv = (id, n = 1) => { d.inv[id] = (d.inv[id] || 0) + n; if (d.inv[id] <= 0) delete d.inv[id]; };
+  // 库存按「模块 + 材料」分开记：黄铜的键就是 id，其余是 id@材料（SA.invKey）
+  const addInv = (id, n = 1, mt = 1) => { const k = SA.invKey(id, mt); d.inv[k] = (d.inv[k] || 0) + n; if (d.inv[k] <= 0) delete d.inv[k]; };
+  const invCount = (id) => Object.keys(d.inv).reduce((a, k) => a + (SA.parseKey(k).id === id ? d.inv[k] : 0), 0);
+  // 从库存取出一个该模块，优先拿材料最好的；返回材料等级，没有就返回 0
+  function takeBest(id) {
+    let best = 0;
+    for (const k in d.inv) { const p = SA.parseKey(k); if (p.id === id && d.inv[k] > 0) best = Math.max(best, p.mt); }
+    if (best) addInv(id, -1, best);
+    return best;
+  }
+  const addIngots = (map) => { for (const k in map || {}) d.ingots[k] = (d.ingots[k] || 0) + map[k]; };
 
   // 银行：每场比赛未还清的债务加收 10% 利息
   const LOAN_CAP = 1500;
@@ -46,28 +59,23 @@ SA.S = (() => {
 
   function repairCost(cell) {
     // 修满只要原价的 1/20，按损伤比例计；报废的也按修满算
-    const m = SA.MODULES[cell.id];
     const lost = 1 - Math.max(0, cell.hp) / SA.V.maxHp(cell);
-    return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * m.price / 20));
+    return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * SA.cellValue(cell) / 20));
   }
 
+  // 终局锦标赛（通关战役后开放）：第 1 赛季对手是镀镍，之后每季升一级材料，封顶以太合金后再加耐久
   function opponent(i = d.round) {
     const o = SA.OPPONENTS[i];
-    const mul = 1 + (d.season - 1) * 0.25;
-    return { ...o, index: i, hpMul: mul, prize: Math.round(o.prize * (1 + (d.season - 1) * 0.5)), vehicle: SA.V.fromAscii(o.name, o.rows, o.sides) };
+    const mt = Math.min(SA.MAT_MAX, 3 + d.season);
+    const mul = 1 + Math.max(0, d.season - 3) * 0.2;
+    return { ...o, index: i, hpMul: mul, mt, prize: Math.round(o.prize * (2 + (d.season - 1) * 0.6)), vehicle: SA.V.fromAscii(o.name, o.rows, o.sides, mt) };
   }
 
-  function odds() {
+  // 赔率：对手评分 / 我方评分
+  function odds(ev, hpMul = 1) {
     const me = SA.V.stats(d.vehicle).rating;
-    const op = opponent();
-    const them = SA.V.stats(SA.V.battleCopy(op.vehicle, op.hpMul, true)).rating;
+    const them = SA.V.stats(SA.V.battleCopy(ev, hpMul, true)).rating;
     return Math.max(1.15, Math.min(5, +(1.1 + (them / Math.max(1, me)) * 0.9).toFixed(2)));
-  }
-
-  function militaryOffer() {
-    if (d.rep < 4) return null;
-    const s = SA.V.stats(d.vehicle);
-    return Math.round(s.value * 1.8 + 150 * d.season + 60 * d.rep);
   }
 
   // 云车库：本地模拟，接口留给真正的后端
@@ -89,5 +97,5 @@ SA.S = (() => {
     },
   };
 
-  return { load, save, reset, get d() { return d; }, addInv, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, militaryOffer, Cloud };
+  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, addIngots, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud };
 })();

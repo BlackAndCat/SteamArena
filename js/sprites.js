@@ -568,7 +568,23 @@ SA.SPR = (() => {
       case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
+    if (o.mt > 1) q.mt = o.mt;
     return q;
+  }
+  // 材料换色：'color' 混合只换色相和饱和度、保留原图明暗；再用原图的不透明度把透明处抠回来
+  function tintMat(cv, mat) {
+    const keep = document.createElement('canvas');
+    keep.width = cv.width; keep.height = cv.height;
+    keep.getContext('2d').drawImage(cv, 0, 0);
+    const g = cv.getContext('2d');
+    g.save();
+    g.globalCompositeOperation = 'color'; g.globalAlpha = mat.a; g.fillStyle = mat.tint;
+    g.fillRect(0, 0, cv.width, cv.height);
+    if (mat.dark) { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = mat.dark; g.fillStyle = '#000000'; g.fillRect(0, 0, cv.width, cv.height); }
+    if (mat.lite) { g.globalCompositeOperation = 'screen'; g.globalAlpha = mat.lite; g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height); }
+    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in';
+    g.drawImage(keep, 0, 0);
+    g.restore();
   }
   function sprite(id, q) {
     const key = id + JSON.stringify(q);
@@ -580,6 +596,7 @@ SA.SPR = (() => {
       cv.width = C + 32; cv.height = C + TOP;
       ctx = cv.getContext('2d');
       DRAW[id](0, TOP, q);
+      if (q.mt > 1) tintMat(cv, SA.MATS[q.mt]);
       cache.set(key, cv);
     }
     return cv;
@@ -678,7 +695,7 @@ SA.SPR = (() => {
       const same = (k) => row[k] && row[k].id === cell.id;
       const above = r > 0 && veh.body[r - 1][c];
       return {
-        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd,
+        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt,
         recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
@@ -724,7 +741,7 @@ SA.SPR = (() => {
           return;
         }
         drawModule(g, cell.id, x, y, mo);
-        damage(x, y, cell.hp / (cell.max || SA.MODULES[cell.id].hp), r * 8 + c);
+        damage(x, y, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c);
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + C + 12, y + 27);
       });
     }
@@ -743,7 +760,7 @@ SA.SPR = (() => {
       g.drawImage(img, cx(c), cy(r) + bd - TOP);
       g.restore();
       ctx = g;
-      damage(cx(c), cy(r) + bd, cell.hp / (cell.max || SA.MODULES[cell.id].hp), r * 8 + c + 3);
+      damage(cx(c), cy(r) + bd, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c + 3);
     });
     ctx = g;
     return cv;
@@ -824,13 +841,13 @@ SA.SPR = (() => {
   }
 
   // 模块卡片预览（含炮管伸出），主体模块带一圈车体框架
-  function moduleCanvas(id, scale = 1) {
+  function moduleCanvas(id, scale = 1, mt = 1) {
     const cv = document.createElement('canvas');
     cv.width = C + 32; cv.height = C + 4;
     const g = cv.getContext('2d');
     ctx = g;
     if (SA.MODULES[id].layer === 'body') { R(2, 2, C, C, P.iron[1]); R(2, 2, C, 1, P.iron[0]); R(2, 2, 1, C, P.iron[0]); R(C + 1, 2, 1, C, P.iron[0]); R(2, C + 1, C, 1, P.iron[0]); }
-    drawModule(g, id, 2, 2, { heat: 0.5, water: 0.7, t: 0 });
+    drawModule(g, id, 2, 2, { heat: 0.5, water: 0.7, t: 0, mt });
     cv.style.width = `${(C + 32) * scale}px`; cv.style.height = `${(C + 4) * scale}px`;
     cv.className = 'px';
     return cv;

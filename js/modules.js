@@ -42,12 +42,12 @@ SA.K = {
 SA.MODULES = {
   track: {
     name: '履带底盘', cat: 'mobility', layer: 'chassis',
-    price: 150, hp: 200, power: 0, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
+    price: 150, hp: 200, power: 0, armor: 2, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
     desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
   },
   quad: {
     name: '四足底盘', cat: 'mobility', layer: 'chassis',
-    price: 140, hp: 140, power: 0, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
+    price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
@@ -67,13 +67,13 @@ SA.MODULES = {
   },
   armor: {
     name: '铁装甲', cat: 'structure', layer: 'body',
-    price: 40, hp: 160, power: 0, kg: 350, q: 1,
-    desc: '廉价的挡箭牌，不耗动力但有分量。直射炮弹会先打中弹道上的第一个模块。',
+    price: 40, hp: 160, power: 0, armor: 3, kg: 350, q: 1,
+    desc: '廉价的挡箭牌，不耗动力但有分量。护甲 3：每发炮弹先减掉 3 点伤害，机枪打上去只冒火星。直射炮弹会先打中弹道上的第一个模块。',
   },
   armor_heavy: {
     name: '重装甲', cat: 'structure', layer: 'body',
-    price: 95, hp: 320, power: 0, kg: 750, q: 2,
-    desc: '两倍厚度，也重了一倍多：吃掉底盘承重，拖慢车速。',
+    price: 95, hp: 320, power: 0, armor: 6, kg: 750, q: 2,
+    desc: '两倍厚度，护甲 6，机枪基本打不动；也重了一倍多：吃掉底盘承重，拖慢车速。',
   },
   cannon: {
     name: '直射火炮', cat: 'firepower', layer: 'body',
@@ -98,7 +98,7 @@ SA.MODULES = {
     dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', barrel: 12, v: 1230, g: 0.27, spread: 10, arc: 'low',
     elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
     rcPx: 2, back: 0, ret: 14, kick: 5, piv: [34, 29], blen: 26,
-    desc: '高射速低伤害。前方同样不能有遮挡。',
+    desc: '高射速低伤害，专打没有护甲的锅炉、水箱、驾驶舱；打装甲只冒火星。前方同样不能有遮挡。',
   },
   side_cannon: {
     name: '侧炮', cat: 'firepower', layer: 'side',
@@ -120,7 +120,7 @@ SA.MODULES = {
   },
   bucket: {
     name: '铲斗', cat: 'ram', layer: 'ram', mount: ['track', 'quad', 'biped'],
-    price: 110, hp: 260, power: 0, kg: 450, q: 2, ram: 22, knock: 1.8,
+    price: 110, hp: 260, power: 0, armor: 5, kg: 450, q: 2, ram: 22, knock: 1.8,
     desc: '装在底盘正前方。撞击伤害中等但极其结实，能把对手铲退很远。',
   },
   spike: {
@@ -139,8 +139,6 @@ SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
   'copilot'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
-// 品质：编辑器排序与商店标签用
-SA.QUALITY = { 1: { name: '普通', star: '★' }, 2: { name: '精良', star: '★★' }, 3: { name: '稀有', star: '★★★' } };
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
 // 模块重量（kg）：基础重量 + 自身重量 + 改装加重
@@ -157,3 +155,53 @@ SA.upCost = (id, lv) => Math.round(SA.MODULES[id].price * SA.K.UP_COST * lv);
 // 水箱这一刻能带走多少热量 /秒：越热冷却越猛（最低 15%）
 SA.coolRate = (cool, heat) => cool * Math.max(0.15, Math.min(1, heat / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
+
+// ---------- 材料：模块品质 = 材料 ----------
+// 1~4 用钱在车间升级（随战役解锁）；5 史诗、6 传奇还要消耗特定的锭 / 结晶，只能靠委托、缴获和 Boss 掉落获得
+// mul：耐久、伤害、动力、水、冷却、撞击、活塞、承重、护甲一起放大；产热和重量不变，所以好材料更「省」
+// cost：从上一级升到这一级的费用 = 模块原价 × cost；tint / a / lite / dark：换色（'color' 混合保留原图明暗，再提亮 / 压暗）
+SA.MATS = [null,
+  { key: 'brass', name: '黄铜', mul: 1.00, cost: 0, chip: '#d9a441' },
+  { key: 'iron', name: '熟铁', mul: 1.20, cost: 0.6, chip: '#8d8f96', tint: '#6a6c72', a: 0.9, dark: 0.3 },
+  { key: 'steel', name: '钢', mul: 1.45, cost: 1.0, chip: '#7f9fc4', tint: '#5f86b8', a: 0.75 },
+  { key: 'nickel', name: '镀镍', mul: 1.75, cost: 1.6, chip: '#e2e6ec', tint: '#cfd6de', a: 0.9, lite: 0.22 },
+  { key: 'wootz', name: '乌兹钢', mul: 2.10, cost: 2.2, chip: '#b07ae6', tint: '#8f55d6', a: 0.8, ingot: 'wootz', rank: '史诗' },
+  { key: 'aether', name: '以太合金', mul: 2.50, cost: 3.0, chip: '#4fe3d2', tint: '#2fd6c4', a: 0.85, lite: 0.12, ingot: 'aether', rank: '传奇' },
+];
+SA.MAT_MAX = SA.MATS.length - 1;
+// 史诗 / 传奇材料：升级时每次消耗 1 块
+SA.INGOTS = {
+  wootz: { name: '乌兹钢锭', desc: '印度坩埚钢，花纹像流水。把镀镍模块升到史诗级「乌兹钢」要用 1 块。' },
+  aether: { name: '以太结晶', desc: '女王号锅炉里取出的发光结晶。把乌兹钢模块升到传奇级「以太合金」要用 1 块。' },
+};
+const MAT_SCALED = ['hp', 'dmg', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor'];
+const modCache = new Map();
+// 某一格模块按材料放大后的定义：SA.mod(cell) 或 SA.mod(id, mt)
+SA.mod = (x, mt) => {
+  const id = typeof x === 'object' ? x.id : x;
+  mt = Math.max(1, Math.min(SA.MAT_MAX, (typeof x === 'object' ? x.mt : mt) || 1));
+  const key = `${id}@${mt}`;
+  let m = modCache.get(key);
+  if (!m) {
+    const base = SA.MODULES[id], mul = SA.MATS[mt].mul;
+    m = { ...base, mt };
+    for (const k of MAT_SCALED) if (base[k]) m[k] = k === 'hp' || k === 'load' ? Math.round(base[k] * mul) : Math.round(base[k] * mul * 10) / 10;
+    modCache.set(key, m);
+  }
+  return m;
+};
+SA.newCell = (id, mt = 1) => (mt > 1 ? { id, mt, hp: SA.mod(id, mt).hp } : { id, hp: SA.MODULES[id].hp });
+SA.matOf = (cell) => SA.MATS[(cell && cell.mt) || 1];
+SA.matUpCost = (id, toMt) => Math.round(SA.MODULES[id].price * SA.MATS[toMt].cost);
+// 模块总价值：原价 + 材料升级 + 改装件（修理、回收、卖出都按它算）
+SA.cellValue = (cell) => {
+  let v = SA.MODULES[cell.id].price;
+  for (let t = 2; t <= (cell.mt || 1); t++) v += SA.matUpCost(cell.id, t);
+  for (let k = 1; k <= (cell.lv || 0); k++) v += SA.upCost(cell.id, k);
+  return v;
+};
+// 护甲：每发炮弹先减掉固定伤害（最少保留 25%）
+SA.armorCut = (m, dmg) => (m.armor ? Math.max(dmg * 0.25, dmg - m.armor) : dmg);
+// 库存键：黄铜直接用 id，其余是 id@材料
+SA.invKey = (id, mt = 1) => (mt > 1 ? `${id}@${mt}` : id);
+SA.parseKey = (k) => { const [id, t] = String(k).split('@'); return { id, mt: +t || 1 }; };

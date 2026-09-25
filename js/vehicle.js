@@ -7,22 +7,34 @@ SA.V = (() => {
   const create = (name = '原型机') => ({ name, body: grid(), side: grid() });
   const layerOf = (id) => (M[id].layer === 'side' ? 'side' : 'body');
   // 满耐久：改装（炮盾 / 附加装甲）每级按比例加；参战副本直接带 max
-  const maxHp = (cell) => cell.max || Math.round(M[cell.id].hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
+  const maxHp = (cell) => cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
   const alive = (cell) => cell && cell.hp > 0;
 
   const ASCII = { T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar', M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot' };
 
-  function fromAscii(name, rows, sides = []) {
+  // mt：整车材料；elite：个别格子的材料 [[r, c, mt, 'side'?], ...]（Boss 身上的史诗件）
+  function fromAscii(name, rows, sides = [], mt = 1, elite = []) {
     const v = create(name);
     rows.forEach((row, r) => {
       for (let c = 0; c < K.COLS; c++) {
         const id = ASCII[row[c]];
-        if (id) v.body[r][c] = { id, hp: M[id].hp };
+        if (id) v.body[r][c] = SA.newCell(id, mt);
       }
     });
-    sides.forEach(([r, c]) => { v.side[r][c] = { id: 'side_cannon', hp: M.side_cannon.hp }; });
+    sides.forEach(([r, c]) => { v.side[r][c] = SA.newCell('side_cannon', mt); });
+    for (const [r, c, t, layer] of elite) { const cell = v[layer || 'body'][r][c]; if (cell) v[layer || 'body'][r][c] = SA.newCell(cell.id, t); }
     return v;
   }
+
+  // 改装台的可用区域：战役逐章扩建。v.lim = { cols, rows }（只有玩家的车有），列从中间往两边扩，行从底盘往上扩
+  function region(v) {
+    const L = v && v.lim;
+    if (!L) return { c0: 0, c1: K.COLS - 1, r0: 0 };
+    const c0 = Math.floor((K.COLS - L.cols) / 2);
+    return { c0, c1: c0 + L.cols - 1, r0: K.ROWS - L.rows };
+  }
+  const inRegion = (v, r, c) => { const g = region(v); return r >= g.r0 && c >= g.c0 && c <= g.c1; };
+  const LOCKED = '这一格还没扩建：推进战役会解锁更大的改装台';
 
   function each(v, fn) {
     for (const layer of ['body', 'side'])
@@ -37,6 +49,7 @@ SA.V = (() => {
     const m = M[id];
     const no = (reason) => ({ ok: false, reason });
     if (r < 0 || r >= K.ROWS || c < 0 || c >= K.COLS) return no('超出格子范围');
+    if (!inRegion(v, r, c)) return no(LOCKED);
     // 撞击武器挡在前面时，这一行它前方不能再放东西
     const ramBehind = () => { for (let k = 0; k < c; k++) if (isRamCell(v.body[r][k])) return true; return false; };
     if (m.layer === 'ram') {
@@ -69,9 +82,9 @@ SA.V = (() => {
     return { ok: true };
   }
 
-  function place(v, id, r, c) {
+  function place(v, id, r, c, mt = 1) {
     const chk = canPlace(v, id, r, c);
-    if (chk.ok) v[layerOf(id)][r][c] = { id, hp: M[id].hp };
+    if (chk.ok) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     return chk;
   }
 
@@ -82,15 +95,16 @@ SA.V = (() => {
   // 只检查格子是否空着；返回 { ok, reason, fit }，fit 表示这个位置是否已经合规
   function canPut(v, id, r, c) {
     if (!inGrid(r, c)) return { ok: false, reason: '超出格子范围' };
+    if (!inRegion(v, r, c)) return { ok: false, reason: LOCKED };
     const layer = layerOf(id);
     if (v[layer][r][c]) return { ok: false, reason: layer === 'side' ? '侧挂层这里已经有侧炮' : '这里已经有模块' };
     const chk = canPlace(v, id, r, c);
     return { ok: true, fit: chk.ok, reason: chk.reason };
   }
 
-  function put(v, id, r, c) {
+  function put(v, id, r, c, mt = 1) {
     const chk = canPut(v, id, r, c);
-    if (chk.ok) v[layerOf(id)][r][c] = { id, hp: M[id].hp };
+    if (chk.ok) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     return chk;
   }
 
@@ -110,6 +124,7 @@ SA.V = (() => {
   function move(v, layer, r1, c1, r2, c2) {
     if (!inGrid(r1, c1) || !inGrid(r2, c2)) return { ok: false, reason: '超出格子范围' };
     if (r1 === r2 && c1 === c2) return { ok: false, reason: '' };
+    if (!inRegion(v, r2, c2)) return { ok: false, reason: LOCKED };
     if (!v[layer][r1][c1]) return { ok: false, reason: '这里是空的' };
     for (const L of layer === 'body' ? ['body', 'side'] : ['side']) {
       const a = v[L][r1][c1];
@@ -142,7 +157,8 @@ SA.V = (() => {
         const cell = B[r][c];
         if (!cell) continue;
         const m = M[cell.id];
-        if (m.layer === 'chassis') {
+        if (!inRegion(v, r, c)) flag('body', r, c, LOCKED);
+        else if (m.layer === 'chassis') {
           if (r !== last) flag('body', r, c, '底盘只能放在最底行');
         } else if (m.layer === 'ram') {
           const back = c > 0 && B[r][c - 1];
@@ -159,7 +175,8 @@ SA.V = (() => {
     for (let r = 0; r < K.ROWS; r++)
       for (let c = 0; c < K.COLS; c++) {
         if (!v.side[r][c]) continue;
-        if (r === last) flag('side', r, c, '底盘上不能挂侧炮');
+        if (!inRegion(v, r, c)) flag('side', r, c, LOCKED);
+        else if (r === last) flag('side', r, c, '底盘上不能挂侧炮');
         else if (!B[r][c]) flag('side', r, c, '悬空：侧炮必须挂在主体模块上');
         else if (isRamCell(B[r][c])) flag('side', r, c, '撞击武器上不能挂侧炮');
         else if (!ok[r][c]) flag('side', r, c, '悬空：挂载的模块没有连到底盘');
@@ -202,9 +219,8 @@ SA.V = (() => {
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0,
     };
     each(v, (cell, r, c) => {
-      const m = M[cell.id];
-      s.value += m.price; s.count++;
-      for (let k = 1; k <= (cell.lv || 0); k++) s.value += SA.upCost(cell.id, k);
+      const m = SA.mod(cell);
+      s.value += SA.cellValue(cell); s.count++;
       s.byId[cell.id] = (s.byId[cell.id] || 0) + (cell.hp > 0 ? 1 : 0);
       if (cell.hp <= 0) { s.broken++; return; }
       if (cell.hp < maxHp(cell)) s.damaged++;
@@ -233,7 +249,7 @@ SA.V = (() => {
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     let weaponHeat = 0, weaponWater = 0;
     each(v, (cell, r, c, layer) => {
-      const m = M[cell.id];
+      const m = SA.mod(cell);
       if (!alive(cell) || !m.dmg) return;
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
@@ -275,7 +291,7 @@ SA.V = (() => {
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
       const max = Math.round(maxHp(cell) * hpMul);
-      b[layer][r][c] = { id: cell.id, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
     });
     return b;
   }
@@ -290,7 +306,7 @@ SA.V = (() => {
     const v = create(name);
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
       for (const [r, c, id] of list)
-        if (M[id] && inGrid(r, c) && layerOf(id) === layer) v[layer][r][c] = { id, hp: M[id].hp };
+        if (M[id] && inGrid(r, c) && layerOf(id) === layer) v[layer][r][c] = SA.newCell(id);
     return v;
   }
   // 布局需要的模块数量 { id: n }
@@ -325,5 +341,5 @@ SA.V = (() => {
     } catch (e) { return null; }
   }
 
-  return { create, fromAscii, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
+  return { create, fromAscii, region, inRegion, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
 })();

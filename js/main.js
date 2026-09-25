@@ -5,19 +5,21 @@ SA.current = null;
 // 标记当前页面并刷新顶栏；页面自己负责渲染
 SA.go = (name) => {
   SA.current = name;
+  SA.Camp.syncLim();
   document.body.dataset.screen = name;
   SA.UI.topbar();
 };
-// 主导航：车间 / 出战
-SA.nav = (name, arg) => {
+// 主导航：车间 / 出战。车间要打完第一场练习赛才开放；quiet：出战页先不弹章节开场（战后结算还要弹窗）
+SA.nav = (name, arg, quiet) => {
   document.querySelector('#modal').hidden = true;
-  if (name === 'arena') SA.Arena.open(arg);
+  if (name === 'garage' && !SA.Camp.has('garage')) name = 'arena';
+  if (name === 'arena') SA.Arena.open(arg, quiet);
   else SA.Editor.open(arg);
 };
 
 window.addEventListener('DOMContentLoaded', () => {
   SA.S.load();
-  SA.nav('garage');
+  SA.nav(SA.Camp.has('garage') ? 'garage' : 'arena');
   document.querySelector('#modal').addEventListener('pointerdown', (e) => {
     if (e.target.id === 'modal') SA.UI.closeModal();
   });

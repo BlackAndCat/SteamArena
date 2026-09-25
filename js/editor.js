@@ -10,7 +10,7 @@ SA.Editor = (() => {
   const PADX = SA.SPR.PADX, C = K.CELL;
   const W = K.COLS * C + PADX * 2, H = K.ROWS * C + 12;
   const DRAG_PX = 6;
-  // sel：从库存选中、准备放置的模块 id；pick：车上选中的格子 { layer, r, c }
+  // sel：从库存选中、准备放置的库存键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
     dock: 'mods', bp: null, bpFilter: 'all', shop: false, fold: loadFold() };
@@ -24,6 +24,12 @@ SA.Editor = (() => {
   const money = (n) => SA.UI.money(n);
   const hurt = (cell) => cell && cell.hp > 0 && cell.hp < SA.V.maxHp(cell);
   const where = (r, c) => `第 ${K.ROWS - r} 层 第 ${c + 1} 列`;
+  const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
+  const has = (f) => SA.Camp.has(f);
+  // 商店里能买的：商店已开放、战役已解锁这种模块（只卖黄铜，更好的材料在车上升级）
+  const buyable = (id) => has('shop') && SA.Camp.hasMod(id);
+  const matName = (mt) => SA.MATS[mt].name;
+  const fullName = (id, mt) => (mt > 1 ? `${matName(mt)}${M[id].name}` : M[id].name);
   const issueAt = (layer, r, c) => st.stats.issues.find(x => x.layer === layer && x.r === r && x.c === c);
 
   function open(dock) {
@@ -111,7 +117,7 @@ SA.Editor = (() => {
     }
     if (st.sel) { placeAt(st.sel, cell); return; }
     const here = v[st.layer][cell.r][cell.c];
-    if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: cell.r, c: cell.c, id: here.id }); return; }
+    if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: cell.r, c: cell.c, id: here.id, key: SA.invKey(here.id, here.mt) }); return; }
     // 空格子：已选中车上的模块 → 移过来
     if (st.pick) moveTo(st.pick, cell);
     else if (st.layer === 'side' && v.body[cell.r][cell.c]) say('侧挂层这里没有侧炮。切回「主体层」才能选中主体模块');
@@ -130,7 +136,7 @@ SA.Editor = (() => {
     }
     if (!st.drag && Math.hypot(e.clientX - p.x, e.clientY - p.y) > DRAG_PX) {
       st.drag = p.src;
-      makeGhost(p.src.id);
+      makeGhost(p.src.key);
     }
     if (st.drag) {
       st.hover = cellAtXY(e.clientX, e.clientY);
@@ -150,7 +156,7 @@ SA.Editor = (() => {
     st.noClick = true;   // 拖完松手不再触发库存按钮的 click
     setTimeout(() => { st.noClick = false; }, 0);
     st.hover = target;
-    if (src.kind === 'inv') { if (target) placeAt(src.id, target); return; }
+    if (src.kind === 'inv') { if (target) placeAt(src.key, target); return; }
     if (target) moveTo(src, target);
     else if (!inside) removeAt(src);
   }
@@ -162,10 +168,10 @@ SA.Editor = (() => {
     if (dockEl) dockEl.classList.remove('drop');
   }
 
-  function makeGhost(id) {
+  function makeGhost(key) {
     dropGhost();
     const s = cv.getBoundingClientRect().width / W;
-    const img = SA.SPR.moduleCanvas(id, s);
+    const img = SA.SPR.moduleCanvas(kid(key), s, kmt(key));
     ghost = h('div', { class: 'ed-ghost' }, img);
     ghost._off = (C / 2 + 2) * s;
     document.body.append(ghost);
@@ -188,14 +194,47 @@ SA.Editor = (() => {
     renderAll();
   }
 
-  // 拆下来的模块：完好的回库存，报废的按原价 10% 回收；改装件拆掉按一半折价回收
+  // 拆下来的模块：完好的连同材料回库存，报废的按总价值 10% 回收；改装件拆掉按一半折价回收
   function stash(cell) {
     let back = 0;
     for (let k = 1; k <= (cell.lv || 0); k++) back += Math.round(SA.upCost(cell.id, k) * 0.5);
-    if (cell.hp <= 0) back += Math.round(M[cell.id].price * 0.1);
-    else SA.S.addInv(cell.id, 1);
+    if (cell.hp <= 0) back += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
+    else SA.S.addInv(cell.id, 1, cell.mt || 1);
     d().money += back;
     return back;
+  }
+
+  // 材料升级：黄铜 → 熟铁 → 钢 → 镀镍（花钱，随战役解锁）→ 乌兹钢 / 以太合金（还要消耗锭 / 结晶）
+  function matUpInfo(cell) {
+    const to = (cell.mt || 1) + 1;
+    if (to > SA.MAT_MAX) return { max: true };
+    const mat = SA.MATS[to], cost = SA.matUpCost(cell.id, to);
+    if (mat.ingot) {
+      const n = d().ingots[mat.ingot] || 0;
+      return { to, mat, cost, ok: n > 0, why: n > 0 ? '' : `需要 ${SA.INGOTS[mat.ingot].name}（委托 / Boss 掉落）` };
+    }
+    if (to > SA.Camp.maxMat()) return { to, mat, cost, ok: false, why: `${mat.name}还没解锁（推进战役）` };
+    return { to, mat, cost, ok: true };
+  }
+  function matUpgrade(cell) {
+    const u = matUpInfo(cell);
+    if (!u.ok) { say(u.why, true); return; }
+    const m0 = SA.mod(cell), m1 = SA.mod(cell.id, u.to);
+    const diff = [['耐久', 'hp'], ['伤害', 'dmg'], ['动力', 'supply'], ['水', 'water'], ['冷却', 'cool'], ['撞击', 'ram'], ['活塞', 'punch'], ['承重', 'load'], ['护甲', 'armor']]
+      .filter(([, k]) => m0[k]).map(([n, k]) => `${n} ${k === 'load' ? SA.tons(m0[k]) : m0[k]} → ${k === 'load' ? SA.tons(m1[k]) : m1[k]}`);
+    SA.UI.pay({ title: `升级材料 · ${u.mat.name}`, amount: u.cost, okLabel: `升级为${u.mat.name}`,
+      lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(cell.id, 1, u.to), h('div', {}, h('b', {}, fullName(cell.id, u.to)), ' ', SA.Camp.matChip(u.to),
+        h('div', { class: 'muted' }, diff.join(' · ')))),
+        u.mat.ingot ? h('p', { class: 'muted' }, `同时消耗 ${SA.INGOTS[u.mat.ingot].name} ×1（剩 ${(d().ingots[u.mat.ingot] || 0) - 1}）。`) : null,
+        h('p', { class: 'muted' }, '材料越好，耐久、伤害、动力、冷却等一起放大；重量和产热不变。拆下后材料跟着模块走。')],
+      onPaid: () => {
+        if (u.mat.ingot) d().ingots[u.mat.ingot]--;
+        const before = SA.V.maxHp(cell);
+        cell.mt = u.to;
+        if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+        say(`${M[cell.id].name} 升级为${u.mat.name}`);
+        changed();
+      } });
   }
 
   // 改装：炮盾 / 附加装甲，每级加耐久和重量
@@ -214,10 +253,11 @@ SA.Editor = (() => {
       } });
   }
 
-  // 库存不够就问要不要买（钱不够再问要不要贷款）
-  function withStock(id, then) {
-    if (d().inv[id] > 0) { then(); return; }
-    const m = M[id];
+  // 库存不够就问要不要买（钱不够再问要不要贷款）；商店只卖已解锁的黄铜模块
+  function withStock(key, then) {
+    if (d().inv[key] > 0) { then(); return; }
+    const id = kid(key), m = M[id];
+    if (kmt(key) > 1 || !buyable(id)) { say(has('shop') ? `${m.name}还没解锁` : '商店还没开张：只能用库存里的模块', true); st.sel = null; renderDock(); return; }
     // 钱够就直接买，不弹确认；钱不够才会问要不要贷款
     SA.UI.pay({
       title: `购买 ${m.name}`, amount: m.price, okLabel: '购买并安装', confirm: false,
@@ -226,24 +266,26 @@ SA.Editor = (() => {
     });
   }
 
-  function placeAt(id, { r, c }) {
+  function placeAt(key, { r, c }) {
+    const id = kid(key), mt = kmt(key);
     const v = veh(), layer = SA.V.layerOf(id), m = M[id];
+    if (!SA.V.inRegion(v, r, c)) { say('这一格还没扩建：推进战役会解锁更大的改装台', true); return; }
     if (st.layer !== layer) st.layer = layer;
     const cur = v[layer][r][c];
-    if (cur && cur.id === id) { removeAt({ layer, r, c }); return; }   // 同款再点一次 = 拆下
+    if (cur && cur.id === id && (cur.mt || 1) === mt) { removeAt({ layer, r, c }); return; }   // 同款再点一次 = 拆下
     if (cur && hurt(cur)) { say(`${M[cur.id].name} 受损，先修理才能替换`, true); st.pick = { layer, r, c }; st.sel = null; renderDock(); return; }
-    withStock(id, () => {
+    withStock(key, () => {
       const old = v[layer][r][c];
       let scrap = 0;
       if (old) { v[layer][r][c] = null; scrap = stash(old); }
-      SA.V.put(v, id, r, c);
-      SA.S.addInv(id, -1);
+      SA.V.put(v, id, r, c, mt);
+      SA.S.addInv(id, -1, mt);
       // 库存还有就保持选中，可以接着放；用完了才取消选中
-      if (!(d().inv[id] > 0)) st.sel = null;
+      if (!(d().inv[key] > 0)) st.sel = null;
       st.pick = null;
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
-      say(old ? `${M[old.id].name} → ${m.name}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
+      say(old ? `${fullName(old.id, old.mt || 1)} → ${fullName(id, mt)}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
       changed();
     });
   }
@@ -275,16 +317,17 @@ SA.Editor = (() => {
 
   function buyOne(id) {
     const m = M[id];
+    if (!buyable(id)) return;
     SA.UI.pay({ title: `购买 ${m.name}`, amount: m.price, okLabel: '购买', confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
       onPaid: () => { SA.S.addInv(id, 1); say(`购入 ${m.name}，库存 ${d().inv[id]}`); changed(); } });
   }
 
-  function selectInv(id) {
+  function selectInv(key) {
     if (st.noClick) return;
-    st.sel = st.sel === id ? null : id;
+    st.sel = st.sel === key ? null : key;
     st.pick = null;
-    if (st.sel) st.layer = SA.V.layerOf(id);
+    if (st.sel) st.layer = SA.V.layerOf(kid(key));
     renderAll();
   }
 
@@ -320,28 +363,28 @@ SA.Editor = (() => {
     viewEl.innerHTML = '';
     const seg = (items, cur, set) => h('span', { class: 'seg' }, items.map(([k, n]) =>
       h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
-    viewEl.append(
-      seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(st.sel) !== k) st.sel = null; }),
-      h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，云车库也在这里',
-        onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库'));
+    viewEl.append(...[
+      has('side') ? seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(kid(st.sel)) !== k) st.sel = null; }) : null,
+      has('blueprints') ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，云车库也在这里',
+        onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库') : null].filter(Boolean));
   }
 
   // ---------- 底部操作栏 ----------
-  function thumb(id) { const cvs = SA.SPR.moduleCanvas(id, 0.75); cvs.classList.add('thumb'); return cvs; }
+  function thumb(id, mt) { const cvs = SA.SPR.moduleCanvas(id, 0.75, mt); cvs.classList.add('thumb'); return cvs; }
 
   function renderCtx() {
     ctxEl.innerHTML = '';
     const v = veh(), inv = d().inv;
     if (st.sel) {
-      const id = st.sel, m = M[id], n = inv[id] || 0;
-      ctxEl.append(thumb(id),
+      const key = st.sel, id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
+      ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', h('span', { class: `q q${m.q}` }, SA.QUALITY[m.q].star), ' ',
+          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(mt), ' ',
             n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(m.price)}`)),
           h('div', { class: 'sub' }, n ? '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下' : '点格子即可直接购买并安装')),
         h('div', { class: 'acts' },
-          h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`),
-          n ? h('button', { class: 'btn small', onclick: () => sellOne(id) }, `卖 ${money(m.price * 0.5)}`) : null,
+          mt === 1 && buyable(id) ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(m.price)}`) : null,
+          n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, `卖 ${money(SA.cellValue({ id, mt }) * 0.5)}`) : null,
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.sel = null; renderAll(); } }, '取消')));
       return;
     }
@@ -352,17 +395,23 @@ SA.Editor = (() => {
       const fix = [pk, layer === 'body' && v.side[r][c]].filter(x => x && x.hp < SA.V.maxHp(x));
       const cost = fix.reduce((a, x) => a + SA.S.repairCost(x), 0);
       const lv = pk.lv || 0, upName = SA.upName(pk.id);
-      ctxEl.append(thumb(pk.id),
+      const mu = matUpInfo(pk);
+      // 下一级材料：已解锁或有锭才显示按钮；没解锁的只在提示里说一句
+      const matBtn = pk.hp > 0 && !mu.max && (mu.ok || mu.mat.ingot || mu.to <= SA.Camp.maxMat() + 1) && SA.Camp.maxMat() > 1
+        ? h('button', { class: `btn small ${mu.ok ? 'primary' : ''}`, disabled: !mu.ok, title: mu.why || `属性 ×${mu.mat.mul}`, onclick: () => matUpgrade(pk) },
+          `升级为${mu.mat.name} · ${money(mu.cost)}${mu.mat.ingot ? ` + ${SA.INGOTS[mu.mat.ingot].name}` : ''}`) : null;
+      ctxEl.append(thumb(pk.id, pk.mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ',
-            h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`), ' ',
+          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ',
+            has('upgrade') ? h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`) : null, ' ',
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
-          iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, '点空格子移动；拖到别的模块上对调；拖出车外放回库存')),
+          iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, matBtn && !mu.ok ? mu.why : '点空格子移动；拖到别的模块上对调；拖出车外放回库存')),
         h('div', { class: 'acts' },
-          pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small primary', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
+          matBtn,
+          has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
             `${upName} ${lv + 1} 级 · ${money(SA.upCost(pk.id, lv + 1))}`) : null,
           fix.length ? h('button', { class: 'btn small', onclick: () => repair(fix) }, `修理 ${money(cost)}`) : null,
-          h('button', { class: 'btn small', title: 'Delete', onclick: () => removeAt(st.pick) }, pk.hp <= 0 ? `报废 +${money(M[pk.id].price * 0.1)}` : '拆下'),
+          h('button', { class: 'btn small', title: 'Delete', onclick: () => removeAt(st.pick) }, pk.hp <= 0 ? `报废 +${money(SA.cellValue({ id: pk.id, mt: pk.mt }) * 0.1)}` : '拆下'),
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.pick = null; renderDock(); } }, '取消')));
       return;
     }
@@ -388,24 +437,25 @@ SA.Editor = (() => {
           h('button', { class: 'btn small', onclick: importDialog }, '导入分享码')));
       return;
     }
-    const owned = SA.MODULE_ORDER.reduce((a, id) => a + (d().inv[id] || 0), 0);
+    const owned = Object.values(d().inv).reduce((a, n) => a + n, 0);
     toolsEl.append(title('模块清单', h('span', { class: 'muted' }, `库存 ${owned} 件`)),
-      h('div', { class: 'panel-row' },
+      has('shop') ? h('div', { class: 'panel-row' },
         h('span', { class: 'muted' }, st.shop ? '也列出没有库存的模块' : '只列出有库存的模块'),
         h('label', { class: `switch ${st.shop ? 'on' : ''}`, title: '打开后也列出没有库存的模块，放到车上即购买' },
           h('input', { type: 'checkbox', checked: st.shop, onchange: (e) => { st.shop = e.target.checked; renderTools(); renderInv(); } }),
-          h('span', { class: 'knob' }), '商店')));
+          h('span', { class: 'knob' }), '商店')) : h('div', { class: 'panel-row' }, h('span', { class: 'muted' }, '商店还没开张：先用库存里的模块。')));
   }
 
   // 模块最关键的两三项数值，做成小标签
-  function keyStats(id) {
-    const m = M[id], out = [];
+  function keyStats(id, mt = 1) {
+    const m = SA.mod(id, mt), out = [];
     if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, SA.kmh(m.speed), m.brake >= 1.5 ? '起步刹车最快' : m.brake < 0.8 ? '刹车慢' : '刹车中等', m.sway < 0.6 ? '移动最稳' : m.sway > 1.2 ? '移动晃' : '移动一般');
     else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`);
     else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
     else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
     else if (m.ram) out.push(`撞击 ${m.ram}`, m.punch ? `活塞 ${m.punch}` : `耐久 ${m.hp}`);
     else out.push(`耐久 ${m.hp}`);
+    if (m.armor && !m.load) out.push(`护甲 ${m.armor}`);
     if (m.power) out.push(`动力 -${m.power}`);
     out.push(SA.tons(SA.weightOf({ id })));
     return out;
@@ -417,33 +467,42 @@ SA.Editor = (() => {
     invEl.innerHTML = '';
     if (st.dock === 'bps') { renderBps(); invEl.scrollTop = keep; return; }
     const inv = d().inv;
+    const shop = st.shop && has('shop');
     let shown = 0;
     for (const cat of CAT_ORDER) {
-      const ids = SA.MODULE_ORDER.filter(id => M[id].cat === cat && (st.shop || inv[id] > 0));
-      if (!ids.length) continue;
+      // 每种模块按材料分行：库存里有的都列，材料好的排前面；商店打开时补上能买的黄铜款
+      const keys = [];
+      for (const id of SA.MODULE_ORDER) {
+        if (M[id].cat !== cat) continue;
+        for (let mt = SA.MAT_MAX; mt >= 1; mt--) {
+          const k = SA.invKey(id, mt);
+          if (inv[k] > 0 || (mt === 1 && shop && buyable(id))) keys.push(k);
+        }
+      }
+      if (!keys.length) continue;
       // 折叠条：齿轮 + 铆钉钢条 + 铜色描边；折起来齿轮转半圈
       const folded = st.fold.has(cat);
-      const have = ids.reduce((a, id) => a + (inv[id] || 0), 0);
+      const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
       invEl.append(h('button', { class: `grp cat-${cat} ${folded ? 'folded' : ''}`, 'aria-expanded': String(!folded),
         onclick: () => { if (folded) st.fold.delete(cat); else st.fold.add(cat); saveFold(); renderInv(); } },
         h('span', { class: 'gear l' }, SA.SPR.iconCanvas('gear', '#c8834a', 3)),
         h('i', { style: `background:${SA.CAT[cat].plate}` }),
         h('span', { class: 'gname' }, SA.CAT[cat].name),
-        h('span', { class: 'gcnt' }, st.shop ? `${ids.length} 种` : `${have} 件`),
+        h('span', { class: 'gcnt' }, shop ? `${keys.length} 种` : `${have} 件`),
         h('span', { class: 'gear r' }, SA.SPR.iconCanvas('gear', '#c8834a', 3))));
-      if (folded) { shown += ids.length; continue; }
-      for (const id of ids) {
+      if (folded) { shown += keys.length; continue; }
+      for (const key of keys) {
         shown++;
-        const m = M[id], n = inv[id] || 0;
-        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === id ? 'sel' : ''} ${n ? '' : 'unowned'}`,
-          title: `${m.desc}\n${SA.UI.statLine(id)}`, onclick: () => selectInv(id) },
-        h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1)),
+        const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
+        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === key ? 'sel' : ''} ${n ? '' : 'unowned'}`,
+          title: `${m.desc}\n${SA.UI.statLine(id, mt)}`, onclick: () => selectInv(key) },
+        h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1, mt)),
         h('span', { class: 'mid' },
-          h('span', { class: 'nm' }, m.name, ' ', h('span', { class: `q q${m.q}` }, SA.QUALITY[m.q].star)),
-          h('span', { class: 'ks' }, keyStats(id).map(t => h('span', {}, t)))),
+          h('span', { class: 'nm' }, m.name, ' ', SA.Camp.matChip(mt)),
+          h('span', { class: 'ks' }, keyStats(id, mt).map(t => h('span', {}, t)))),
         n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, '库存'))
           : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
-        row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id }); });
+        row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id, key }); });
         row.addEventListener('pointermove', onMove);
         row.addEventListener('pointerup', onUp);
         row.addEventListener('pointercancel', cancelPress);
@@ -452,9 +511,9 @@ SA.Editor = (() => {
     }
     if (!shown) invEl.append(h('div', { class: 'empty' },
       h('b', {}, '库存是空的'),
-      h('span', { class: 'muted' }, '车上的模块拖到这里会放回库存。想买新模块，打开「商店」。'),
-      h('button', { class: 'btn primary', onclick: () => { st.shop = true; renderTools(); renderInv(); } }, '打开商店')));
-    else if (st.shop) invEl.prepend(h('div', { class: 'shop-note' }, '商店已打开：选中没有库存的模块，放到车上就自动购买。'));
+      h('span', { class: 'muted' }, has('shop') ? '车上的模块拖到这里会放回库存。想买新模块，打开「商店」。' : '车上的模块拖到这里会放回库存。商店打完序章才开张。'),
+      has('shop') ? h('button', { class: 'btn primary', onclick: () => { st.shop = true; renderTools(); renderInv(); } }, '打开商店') : null));
+    else if (shop) invEl.prepend(h('div', { class: 'shop-note' }, '商店已打开：选中没有库存的模块，放到车上就自动购买。'));
     invEl.scrollTop = keep;
   }
 
@@ -536,11 +595,12 @@ SA.Editor = (() => {
     setTimeout(() => box.focus(), 0);
   }
 
-  function sellOne(id) {
-    const x = Math.round(M[id].price * 0.5);
-    d().money += x; SA.S.addInv(id, -1);
-    if (!d().inv[id]) st.sel = null;
-    say(`卖出 ${M[id].name}，进账 ${money(x)}`);
+  function sellOne(key) {
+    const id = kid(key), mt = kmt(key);
+    const x = Math.round(SA.cellValue({ id, mt }) * 0.5);
+    d().money += x; SA.S.addInv(id, -1, mt);
+    if (!d().inv[key]) st.sel = null;
+    say(`卖出 ${fullName(id, mt)}，进账 ${money(x)}`);
     changed();
   }
 
@@ -552,6 +612,11 @@ SA.Editor = (() => {
       h('div', { class: 'help-cats' }, Object.entries(SA.CAT).map(([k, c]) => h('div', { class: `help-cat cat-${k}` },
         h('b', {}, h('i', { style: `background:${c.plate}` }), c.name),
         h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
+      H('材料'),
+      h('p', {}, '模块的品质就是材料：', SA.MATS.slice(1).map((mt, i) => [SA.Camp.matChip(i + 1), ` ×${mt.mul} `]),
+        '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，只能靠委托、Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
+      H('护甲'),
+      h('p', {}, '装甲类模块（铁装甲 3、重装甲 6、铲斗 5、履带 2、四足 1，随材料放大）每挨一发先减掉固定伤害，最少保留 25%。机枪一发只有 5 点，打装甲只冒火星，专打没护甲的锅炉、水箱、驾驶舱；直射火炮一发 32 点，才凿得穿装甲。'),
       H('车间里的颜色'),
       h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
       H('操作'),
@@ -585,7 +650,7 @@ SA.Editor = (() => {
     g.globalAlpha = 1;
   }
   const fromVeh = (vc, x, y) => (c2d) => c2d.drawImage(vc, x, y, C, C, 0, 0, C, C);
-  const fromModule = (id, t) => (c2d) => SA.SPR.drawModule(c2d, id, 0, 0, { t, heat: 0.3, water: 1 });
+  const fromModule = (id, t, mt) => (c2d) => SA.SPR.drawModule(c2d, id, 0, 0, { t, heat: 0.3, water: 1, mt });
   function fillCell(x, y, color, a) {
     g.globalAlpha = a; g.fillStyle = color; g.fillRect(x + 1, y + 1, C - 1, C - 1); g.globalAlpha = 1;
   }
@@ -613,17 +678,19 @@ SA.Editor = (() => {
   function tipText() {
     const v = veh(), hv = st.hover, now = performance.now();
     if (st.drag && st.drag.kind === 'cell' && !hv) return { text: `松手：拆下 ${M[st.drag.id].name}，放回库存` };
+    if (hv && !SA.V.inRegion(v, hv.r, hv.c)) return { text: '这一格还没扩建：推进战役会解锁更大的改装台', err: true };
     if (st.msg && now - st.msg.at < 2600) return st.msg;
     if (!hv) return st.msg && now - st.msg.at < 5000 ? st.msg : null;
-    const id = st.drag ? st.drag.id : st.sel;
-    if (id) {
+    const key = st.drag ? st.drag.key : st.sel;
+    if (key) {
+      const id = kid(key), mt = kmt(key);
       const layer = SA.V.layerOf(id), cur = v[layer][hv.r][hv.c];
       if (st.drag && st.drag.kind === 'cell') {
         if (st.drag.r === hv.r && st.drag.c === hv.c) return { text: '放回原处' };
         return { text: cur ? `对调 ${M[st.drag.id].name} ⇄ ${M[cur.id].name}` : `移到${where(hv.r, hv.c)}` };
       }
-      const buy = d().inv[id] > 0 ? '' : `购买（${money(M[id].price)}）并`;
-      if (cur && cur.id === id) return { text: `再点一次：拆下 ${M[id].name}` };
+      const buy = d().inv[key] > 0 ? '' : `购买（${money(M[id].price)}）并`;
+      if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: `再点一次：拆下 ${M[id].name}` };
       if (cur && hurt(cur)) return { text: `${M[cur.id].name} 受损，先修理才能替换`, err: true };
       if (cur) return { text: `${buy}替换 ${M[cur.id].name} → ${M[id].name}` };
       const chk = SA.V.canPlace(v, id, hv.r, hv.c);
@@ -636,7 +703,19 @@ SA.Editor = (() => {
     const iss = issueAt(layer, hv.r, hv.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
     const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
-    return { text: `${m.name}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id).split(' · ').slice(1).join(' · ')}` };
+    return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
+  }
+
+  // 未扩建格子的斜线纹理（8×8 平铺）
+  let hatchPat = null;
+  function hatch() {
+    if (hatchPat) return hatchPat;
+    const c = document.createElement('canvas');
+    c.width = c.height = 8;
+    const hg = c.getContext('2d');
+    hg.fillStyle = 'rgba(120,110,95,0.22)';
+    for (let i = 0; i < 8; i++) hg.fillRect(7 - i, i, 1, 1);
+    return (hatchPat = g.createPattern(c, 'repeat'));
   }
 
   function draw(t) {
@@ -650,6 +729,15 @@ SA.Editor = (() => {
     for (let r = 0; r <= K.ROWS; r++) g.fillRect(PADX, r * C, K.COLS * C, 1);
     g.fillStyle = 'rgba(111,207,106,0.06)';
     for (let c = 0; c < K.COLS; c++) if (v.body[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
+    // 还没扩建的格子：压暗 + 斜线
+    const reg = SA.V.region(v);
+    for (let r = 0; r < K.ROWS; r++)
+      for (let c = 0; c < K.COLS; c++) {
+        if (r >= reg.r0 && c >= reg.c0 && c <= reg.c1) continue;
+        const x = PADX + c * C, y = r * C;
+        g.fillStyle = 'rgba(7,8,12,0.62)'; g.fillRect(x, y, C, C);
+        g.fillStyle = hatch(); g.fillRect(x, y, C, C);
+      }
     const drag = st.drag && st.drag.kind === 'cell' ? st.drag : null;
     const vc = SA.SPR.renderVehicle(v, {
       key: 'editor', t, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,
@@ -667,7 +755,8 @@ SA.Editor = (() => {
     }
 
     const hv = st.hover;
-    const id = drag ? drag.id : st.sel;
+    const selKey = drag ? drag.key : st.sel;
+    const id = selKey && kid(selKey), selMt = selKey ? kmt(selKey) : 1;
     if (id) {
       // 能稳稳装上的空格：淡淡的绿色呼吸
       if (!drag) for (let r = 0; r < K.ROWS; r++)
@@ -677,16 +766,16 @@ SA.Editor = (() => {
         const [x, y] = cellXY(hv.r, hv.c);
         const cur = v[SA.V.layerOf(id)][hv.r][hv.c];
         const home = drag && drag.r === hv.r && drag.c === hv.c;
-        if (!drag && cur && cur.id === id) {           // 同款：再点一次拆下
+        if (!drag && cur && cur.id === id && (cur.mt || 1) === selMt) {           // 同款：再点一次拆下
           tint(fromVeh(vc, x, y), x, y, RED, pulse(t, 0.3, 0.7, 1));
           cross(x, y);
         } else if (!home) {
-          const bad = drag ? dropBad(drag, hv) : (cur ? hurt(cur) : !SA.V.canPlace(v, id, hv.r, hv.c).ok);
+          const bad = !SA.V.inRegion(v, hv.r, hv.c) || (drag ? dropBad(drag, hv) : (cur ? hurt(cur) : !SA.V.canPlace(v, id, hv.r, hv.c).ok));
           if (cur) { g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(x, y, C, C); }
           g.globalAlpha = 0.8;
-          SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1 });
+          SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });
           g.globalAlpha = 1;
-          tint(fromModule(id, t), x, y, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
+          tint(fromModule(id, t, selMt), x, y, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
         }
       }
     } else if (hv && v[st.layer][hv.r][hv.c]) {
@@ -700,7 +789,7 @@ SA.Editor = (() => {
     }
     // 鼠标停在模块上（或选中它）：显示改装军衔杠
     const rankAt = (p) => { const cell = p && (v[p.layer || st.layer][p.r][p.c] || v.body[p.r][p.c]); if (cell) SA.SPR.chevrons(g, ...cellXY(p.r, p.c), cell.lv || 0, K.UP_MAX); };
-    if (!drag && !st.sel) { if (hv) rankAt(hv); if (st.pick && !(hv && hv.r === st.pick.r && hv.c === st.pick.c)) rankAt(st.pick); }
+    if (!drag && !st.sel && has('upgrade')) { if (hv) rankAt(hv); if (st.pick && !(hv && hv.r === st.pick.r && hv.c === st.pick.c)) rankAt(st.pick); }
 
     const tip = tipText();
     const text = tip ? tip.text : '';

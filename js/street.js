@@ -46,33 +46,42 @@ SA.Street = (() => {
   }
 
   const myRating = () => SA.V.stats(d().vehicle).rating;
-  const baseFor = (tier) => Math.min(myRating(), tier.cap);
+  // 评分上限随战役放大：材料越好，同一档比赛的车也越强
+  const CAP_MUL = [1, 1, 1.35, 1.8, 2.4, 3.1];
+  const cap = (ti) => Math.round(SA.STREET_TIERS[ti].cap * (SA.Camp.done() ? 3.8 : CAP_MUL[SA.Camp.chIndex()] || 1) / 10) * 10;
+  const baseFor = (ti) => Math.min(myRating(), cap(ti));
+  // 街头小车的材料：已解锁的最好材料，或者低一级
+  const withMat = (v, mt) => { if (mt > 1) SA.V.each(v, (cell) => { cell.mt = mt; cell.hp = SA.mod(cell).hp; }); return v; };
+  const vehicleOf = (o) => withMat(SA.V.fromLayout(o.name, o.layout), o.mt || 1);
 
   // 为第 ti 档生成一个对手：多拼几台，取评分最接近目标的那台（不超过上限）
   function makeOffer(ti, used = []) {
-    const tier = SA.STREET_TIERS[ti];
-    const base = baseFor(tier);
-    const goal = Math.min(tier.cap, base * rnd(0.88, 1.08));
+    const top = cap(ti);
+    const base = baseFor(ti);
+    const goal = Math.min(top, base * rnd(0.88, 1.08));
+    const maxMt = SA.Camp.maxMat();
     let best = null;
     for (let k = 0; k < 200; k++) {
-      const v = build('', goal > 280 && k % 2 === 0);
+      const mt = Math.max(1, maxMt - (k % 2));
+      const v = build('', goal / SA.MATS[mt].mul > 280 && k % 4 < 2);
       if (!v) continue;
+      withMat(v, mt);
       const s = SA.V.stats(v);
-      if (!s.canDeploy || s.blocked.length || s.rating > tier.cap) continue;
+      if (!s.canDeploy || s.blocked.length || s.rating > top) continue;
       const diff = Math.abs(s.rating - goal);
-      if (!best || diff < best.diff) best = { diff, v, rating: s.rating };
+      if (!best || diff < best.diff) best = { diff, v, mt, rating: s.rating };
       if (diff < goal * 0.03) break;
     }
     if (!best) {   // 兜底：最朴素的小双足
       const v = SA.V.fromAscii('', ['........', '........', '........', '...KM...', '...OA...', '...BB...']);
-      best = { v, rating: SA.V.stats(v).rating };
+      best = { v, mt: 1, rating: SA.V.stats(v).rating };
     }
     const pool = SA.STREET_PILOTS.filter(p => !used.includes(p[0]));
     const [pilot, name] = pick(pool.length ? pool : SA.STREET_PILOTS);
     return {
       tier: ti, pilot, name, base, rating: best.rating, aim: +rnd(0.55, 0.75).toFixed(2),
       prize: Math.round(best.rating * 0.4 / 5) * 5,   // 奖金只看对手强弱
-      layout: SA.V.layout(best.v),
+      layout: SA.V.layout(best.v), mt: best.mt,
     };
   }
 
@@ -81,7 +90,7 @@ SA.Street = (() => {
     const st = d().street || (d().street = { offers: [] });
     SA.STREET_TIERS.forEach((tier, ti) => {
       const o = st.offers[ti];
-      const base = baseFor(tier);
+      const base = baseFor(ti);
       if (force || !o || Math.abs(o.base - base) > base * 0.15) {
         st.offers[ti] = makeOffer(ti, st.offers.filter((x, j) => x && j !== ti).map(x => x.pilot));
       }
@@ -97,5 +106,5 @@ SA.Street = (() => {
     st.offers[ti] = makeOffer(ti, st.offers.filter((x, j) => x && j !== ti).map(x => x.pilot));
   }
 
-  return { offers, consume, build };
+  return { offers, consume, build, cap, vehicleOf };
 })();

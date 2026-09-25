@@ -162,9 +162,6 @@ body[data-screen=garage] #screen { min-height: 0; }
 .chip.buy { color: var(--brass3); border-color: var(--brass1); }
   background: var(--iron1); border: 2px solid var(--dark0); border-bottom: 4px solid var(--iron3); box-shadow: inset 2px 2px 0 var(--iron2); }
 .btn.danger { background: var(--fire1); color: #fff; box-shadow: inset 2px 2px 0 var(--fire2), inset -2px -2px 0 #6e1f0e; }
-.q1 { color: var(--muted); }
-.q2 { color: var(--text); }
-.q3 { color: var(--brass3); }
 /* 类别标签页：底边色 = 类别色 */
 .inv-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .inv-tabs .tab { cursor: pointer; font-size: 12px; font-weight: 700; padding: 4px 8px; background: var(--dark2); border: 2px solid var(--dark0);
@@ -488,3 +485,11 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .bt-side .state .alert { display: inline-block; margin-right: 6px; padding: 1px 6px; font-weight: 900; color: #fff; background: #b8391b; border: 1px solid #ff3b2f; animation: alertblink .6s steps(2) infinite; }
 @keyframes alertblink { 50% { background: #ff3b2f; } }
 .bt-side .state { font-size: 13px; min-height: 20px; }
+
+/* ---------- 材料 / 战役 ---------- */
+.chip.mat { color: var(--mat); border-color: color-mix(in srgb, var(--mat) 55%, transparent); background: color-mix(in srgb, var(--mat) 12%, var(--dark1)); }
+.ar-chapter { display: grid; gap: 4px; padding: 8px 10px; border-left: 3px solid var(--brass2); background: var(--dark1); font-size: 12px; }
+.ar-chapter b { color: var(--brass3); font-size: 14px; }
+.salvage { display: grid; gap: 6px; }
+.salvage .dlg-item { margin: 0; padding: 6px; background: var(--dark1); border: 1px solid var(--dark3); }
+.unlocks { display: grid; gap: 6px; margin: 8px 0; }
