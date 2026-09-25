@@ -330,7 +330,7 @@ SA.V = (() => {
     const s = {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
-      water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
+      water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
     };
     each(v, (cell, r, c) => {
@@ -345,6 +345,7 @@ SA.V = (() => {
       s.aimShrink = Math.max(s.aimShrink, m.aimShrink || 0); s.aimSpeed = Math.max(s.aimSpeed, m.aimSpeed || 0);
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
+      s.heatMul = Math.min(s.heatMul, m.heatMul || 1);
       s.store += m.store || 0;
       s.dryCool += m.dryCool || 0;
       if (m.waterSave) s.waterSave = Math.max(0.4, s.waterSave * m.waterSave);
@@ -393,7 +394,7 @@ SA.V = (() => {
       weaponHeat += (m.heatPerSec ? m.heat : m.heat / reload) * s.power;
       weaponWater += (m.waterPerSec || m.heat * K.FIRE_WATER / reload) * s.power;
     });
-    s.boilerHeat = s.heatRate * Math.max(0.3, util);
+    s.boilerHeat = s.heatRate * s.heatMul * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
     s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater, s.dryCool, s.waterSave);
     s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps * 2 + s.tether + s.store * 0.7 + s.dryCool * 8 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);

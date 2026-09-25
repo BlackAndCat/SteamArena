@@ -10,10 +10,10 @@
   const REF = [
     { name: '序章 · 原型机', grid: [4, 3], mt: 1, rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'] },
     { name: '一章 · 装甲炮车', grid: [5, 3], mt: 1, rows: ['........', '........', '........', '...KC...', '..WOAA..', '..TTTT..'], subs: [[5, 6, 'cannon_s']] },
-    { name: '二章 · 熟铁四层', grid: [5, 4], mt: 2, rows: ['........', '........', '...C....', '..KAM...', '.WOOHH..', '.TTTTT..'], subs: [[2, 6, 'tank_tall'], [0, 6, 'condenser'], [0, 5, 'pressure_chamber']] },
-    { name: '三章 · 钢撞角双足', grid: [6, 4], mt: 3, style: 'rush', rows: ['........', '........', '...C....', '..KAM...', '..OWAHX.', '..BBBB..'], subs: [[3, 5, 'flamer'], [1, 5, 'radiator']] },
-    { name: '四章 · 镀镍炮垒', grid: [6, 5], mt: 4, rows: ['........', '...P....', '..KAC...', '.WOAHH..', '.WOOHAY.', '.TTTTTT.'], sides: [[3, 3], [3, 4]], subs: [[0, 6, 'pressure_tank']] },
-    { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]], subs: [[0, 6, 'pressure_tank'], [0, 5, 'boss_core'], [0, 4, 'radiator']] },
+    { name: '二章 · 熟铁四层', grid: [5, 4], mt: 2, rows: ['........', '........', '...C....', '..KAM...', '.WOOHH..', '.QQQQQ..'], subs: [[2, 6, 'tank_tall'], [8, 12, 'periscope'], [8, 13, 'autoloader']] },
+    { name: '三章 · 钢撞角双足', grid: [6, 4], mt: 3, style: 'rush', rows: ['........', '........', '...C....', '..KAM...', '..OWAHX.', '..BBBB..'], subs: [[3, 5, 'condenser'], [1, 5, 'pressure_chamber'], [6, 10, 'mortar_s']] },
+    { name: '四章 · 镀镍炮垒', grid: [6, 5], mt: 4, style: 'rush', rows: ['........', '...P....', '..KAC...', '.WOAHH..', '.WOOHAY.', '.TTTTTT.'], sides: [[3, 3], [3, 4]], subs: [[6, 12, 'steamjet'], [8, 14, 'gyroscope'], [8, 15, 'rangefinder']] },
+    { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]], subs: [[0, 6, 'pressure_tank'], [0, 4, 'radiator'], [4, 12, 'rocket_rack'], [6, 14, 'flamer'], [8, 14, 'harpoon']] },
   ];
   // 联合驾驶舱第四章通关才解锁：前面几章的参考车把 K 换成 1×1 驾驶舱（车头下角）+ 三块甲片，占格不变
   const soloK = (rows) => {
@@ -28,6 +28,22 @@
   };
   const rating = (v) => SA.V.stats(v).rating;
   const pct = (x) => `${Math.round(x * 100)}%`;
+  // 机制贡献是可解释的纸面指标：把齐射、溅射、持续伤害 / 升温、牵引和辅助倍率换算成同一列，
+  // 只用于检查新模块确实进入数值链路，不替代战斗模拟中的实际命中统计。
+  const mechanismValue = (m) => {
+    let x = 0;
+    if (m.salvo > 1) x += (m.salvo - 1) * (m.dmg || 0) / Math.max(0.1, m.reload || 1);
+    if (m.indirect) x += 1;
+    if (m.reload && m.reload < SA.K.FAST_RELOAD) x += (SA.K.FAST_RELOAD - m.reload) * 2;
+    if (m.splash) x += (m.dmg || 0) * m.splash.k * Math.PI * m.splash.r * m.splash.r / (SA.K.CELL * SA.K.CELL) * 0.08 / Math.max(0.1, m.reload || 1);
+    x += (m.dmgPerSec || 0) + (m.heatToEnemy || 0) * 0.5 + (m.tether || 0) / 10;
+    x += (m.store || 0) * 0.15 + (m.dryCool || 0) + (m.waterSave ? (1 - m.waterSave) * 8 : 0);
+    x += m.reloadMul ? (1 - m.reloadMul) * 10 : 0;
+    x += m.spreadMul ? (1 - m.spreadMul) * 8 : 0;
+    x += m.swayMul ? (1 - m.swayMul) * 8 : 0;
+    x += (m.aimSpeed || 0) * 4 + (m.aimShrink || 0) * 8;
+    return x;
+  };
   const interval = (wins, n) => {
     if (!n) return [0, 1];
     const z = 1.96, p = wins / n, z2 = z * z, den = 1 + z2 / n;
@@ -36,6 +52,14 @@
   };
   const range = (wins, n) => { const [lo, hi] = interval(wins, n); return `${pct(lo)}–${pct(hi)}`; };
   const opt = () => ({ n: Math.max(2, +$('#games').value || 50), aim: +$('#aim').value || 0.8 });
+  let effectTotals = null;
+  const mergeEffects = (source) => {
+    if (!effectTotals || !source) return;
+    for (const [id, v] of Object.entries(source)) {
+      const e = effectTotals[id] || (effectTotals[id] = { active: 0, fire: 0, hit: 0, tether: 0, energy: 0, waterSaved: 0, dryCool: 0 });
+      for (const k of Object.keys(e)) e[k] += v[k] || 0;
+    }
+  };
 
   // 只累计在当前关卡开始前已经发放的模块；关卡自己的 unlock 要等赢下本关后才生效。
   const availableMods = (ci, si = 0) => {
@@ -78,14 +102,17 @@
       if (r.winner === 'p') acc.w++; else if (r.winner === 'draw') acc.d++;
       const who = r.winner === 'p' ? '对方' : r.winner === 'e' ? '我方' : '平手';
       acc.reasons[`${who}：${r.reason}`] = (acc.reasons[`${who}：${r.reason}`] || 0) + 1;
+      if (r.winner === 'p') acc.fail.enemy++; else if (r.winner === 'e') acc.fail.our++; else if (/双方|同时/.test(r.reason || '')) acc.fail.both++; else acc.fail.draw++;
+      mergeEffects(r.effectStats?.p); mergeEffects(r.effectStats?.e);
     };
   }
-  const blank = () => ({ n: 0, w: 0, d: 0, t: 0, reasons: {} });
+  const blank = () => ({ n: 0, w: 0, d: 0, t: 0, reasons: {}, fail: { our: 0, enemy: 0, both: 0, draw: 0 } });
 
   // ---------- 1. 战役关卡检验 ----------
   // 合格线（见 docs/game-design.md）：本章参考车打普通关 ≥ 70%，打 Boss 60–70%；上一章参考车打 Boss < 30%
   function campaign() {
     const { n, aim } = opt();
+    effectTotals = Object.fromEntries(SA.MODULE_ORDER.map(id => [id, { active: 0, fire: 0, hit: 0, tether: 0, energy: 0, waterSaved: 0, dryCool: 0 }]));
     const rows = [], jobs = [];
     SA.CAMPAIGN.forEach((ch, ci) => ch.stages.forEach((o, si) => {
       const ev = SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []);
@@ -109,13 +136,14 @@
       const totalD = rows.reduce((s, r) => s + r.cur.d, 0);
       const totalT = rows.reduce((s, r) => s + r.cur.t, 0);
       const heatN = rows.reduce((s, r) => s + Object.entries(r.cur.reasons).filter(([k]) => /烧干|热量/.test(k)).reduce((n2, [, v]) => n2 + v, 0), 0);
+      const fail = rows.reduce((s, r) => ({ our: s.our + r.cur.fail.our, enemy: s.enemy + r.cur.fail.enemy, both: s.both + r.cur.fail.both, draw: s.draw + r.cur.fail.draw }), { our: 0, enemy: 0, both: 0, draw: 0 });
       const avgT = totalT / Math.max(1, totalN), heatRate = heatN / Math.max(1, totalN), drawRate = totalD / Math.max(1, totalN);
       out.innerHTML = '';
       out.append(h('h2', {}, '战役关卡检验'),
         h('p', { class: 'muted' }, `每格 ${n} 局，参考车瞄准 ${aim}，对手用关卡里的瞄准和性格。绿 = 达标，黄 = 偏离，红 = 明显不对。本章参考车打普通关目标 ≥ 70%、打 Boss 60–70%；上一章参考车打 Boss 目标 < 30%。${n < 50 ? ` 当前样本较少，建议提高到 50 局以上。` : ''}`),
-        h('p', { class: 'muted small' }, `验收指标：普通关达标 ${normalPass}/${normal.length}；Boss 落在 60–70% ${bossBand}/${bosses.length}；上一章 Boss 胜率低于 30% ${prevPass}/${prevBoss.length}；总体平手 ${pct(drawRate)}；平均用时 ${Math.round(avgT)} 秒；热量/缺水失败 ${pct(heatRate)}。目标分别是平手 < 5%、时长 30–60 秒、热量失败 < 30%。`),
+        h('p', { class: 'muted small' }, `验收指标：普通关达标 ${normalPass}/${normal.length}；Boss 落在 60–70% ${bossBand}/${bosses.length}；上一章 Boss 胜率低于 30% ${prevPass}/${prevBoss.length}；总体平手 ${pct(drawRate)}；平均用时 ${Math.round(avgT)} 秒；热量/缺水失败 ${pct(heatRate)}。目标分别是平手 < 5%、时长 30–60 秒、热量失败 < 30%。失败归因：我方 ${fail.our}、对方 ${fail.enemy}、同时 ${fail.both}、其他平手 ${fail.draw}。`),
         h('table', {},
-          h('tr', {}, ['章', '关', '对手', '评分', '本章参考车', '胜率（95%区间）', '平手', '平均用时', '上一章参考车打它', '主要结局'].map(t => h('th', {}, t))),
+          h('tr', {}, ['章', '关', '对手', '评分', '本章参考车', '胜率（95%区间）', '平手', '平均用时', '上一章参考车打它', '失败（我方 / 对方 / 同时）', '主要结局'].map(t => h('th', {}, t))),
           rows.map(r => {
             const w = r.cur.w / r.cur.n, pw = r.prev ? r.prev.w / r.prev.n : null;
             const top = Object.entries(r.cur.reasons).sort((a, b) => b[1] - a[1])[0];
@@ -126,7 +154,15 @@
               h('td', { class: `num ${band(r, w)}` }, `${pct(w)}（${range(r.cur.w, r.cur.n)}）`), h('td', { class: 'num' }, pct(r.cur.d / r.cur.n)),
               h('td', { class: 'num' }, `${Math.round(r.cur.t / r.cur.n)} 秒`),
               h('td', { class: `num ${pw == null ? '' : pw < 0.3 ? 'ok' : pw < 0.5 ? 'meh' : 'bad'}` }, pw == null ? '—' : pct(pw)),
+              h('td', { class: 'num' }, `${r.cur.fail.our} / ${r.cur.fail.enemy} / ${r.cur.fail.both}`),
               h('td', { class: 'muted small' }, `${top ? `${top[0]}（${top[1]}）` : ''}${r.missing.length ? `；参考车提前使用：${r.missing.map(id => M[id]?.name || id).join('、')}` : ''}`));
+          })),
+        h('h2', {}, '模块生效统计'),
+        h('p', { class: 'muted' }, '统计包含本章参考车和战役对手的整轮模拟；被动模块用“激活”计数，武器同时记录开火、命中，鱼叉记录牵引，蓄压罐/散热片/冷凝器记录对应资源效果。'),
+        h('table', {}, h('tr', {}, ['模块', '激活', '开火', '命中', '牵引', '放出储能', '省水', '无水散热'].map(t => h('th', {}, t))),
+          ['pressure_tank', 'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'periscope', 'autoloader', 'rangefinder', 'gyroscope'].map(id => {
+            const e = effectTotals[id] || {};
+            return h('tr', {}, h('td', {}, M[id].name), h('td', { class: `num ${e.active > 0 ? 'ok' : 'bad'}` }, Math.round(e.active || 0)), h('td', { class: 'num' }, Math.round(e.fire || 0)), h('td', { class: 'num' }, Math.round(e.hit || 0)), h('td', { class: 'num' }, Math.round(e.tether || 0)), h('td', { class: 'num' }, (e.energy || 0).toFixed(1)), h('td', { class: 'num' }, (e.waterSaved || 0).toFixed(1)), h('td', { class: 'num' }, (e.dryCool || 0).toFixed(1)));
           })));
     });
   }
@@ -196,7 +232,7 @@
     const rows = SA.MODULE_ORDER.filter(id => !SA.MODULES[id].retired).map(id => {
       const m = SA.mod(id, mt), price = SA.cellValue({ id, mt }), t = SA.weightOf({ id }) / 1000;
       const dps = m.dmg ? (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.03)) / m.reload : 0;
-      return { id, m, price, t, dps, v: {
+      return { id, m, price, t, dps, effect: mechanismValue(m), v: {
         dpsP: dps ? dps / price * 100 : null, hpP: m.hp / price, hpT: m.hp / t, dpsW: dps && m.power ? dps / m.power : null, dpsT: dps ? dps / t : null,
       } };
     });
@@ -209,13 +245,13 @@
     const cell = (r, k, digits = 2) => { const x = r.v[k]; if (x == null) return h('td', { class: 'num muted' }, '—'); const q = x / med[k]; return h('td', { class: `num ${q > 1.4 ? 'hi' : q < 0.6 ? 'lo' : ''}` }, x.toFixed(digits)); };
     out.innerHTML = '';
     out.append(h('h2', {}, `模块性价比 · ${SA.MATS[mt].name}`),
-      h('p', { class: 'muted' }, '纸面 DPS = 伤害 × 命中系数 ÷ 装填（同评分公式，没算护甲）。价格 = 原价 + 材料升级。绿 = 比同列中位数高 40% 以上，红 = 低 40% 以上。武器之间比 DPS 那几列，装甲之间比耐久那几列。'),
+      h('p', { class: 'muted' }, '纸面 DPS = 伤害 × 命中系数 ÷ 装填（同评分公式，没算护甲）。机制贡献把齐射、溅射、持续伤害 / 升温、牵引、储能、冷却和实体辅助倍率换算成可比较的正值，用于确认机制已接入数值链路。价格 = 原价 + 材料升级。绿 = 比同列中位数高 40% 以上，红 = 低 40% 以上。'),
       h('table', {},
-        h('tr', {}, ['模块', '价格', '重量', '耐久', '护甲', '动力', 'DPS', 'DPS / £100', '耐久 / £', '耐久 / 吨', 'DPS / 动力', 'DPS / 吨'].map(t => h('th', {}, t))),
+        h('tr', {}, ['模块', '价格', '重量', '耐久', '护甲', '动力', 'DPS', '机制贡献', 'DPS / £100', '耐久 / £', '耐久 / 吨', 'DPS / 动力', 'DPS / 吨'].map(t => h('th', {}, t))),
         rows.map(r => h('tr', {},
           h('td', {}, M[r.id].name), h('td', { class: 'num' }, `£${r.price}`), h('td', { class: 'num' }, r.t.toFixed(2)),
           h('td', { class: 'num' }, r.m.hp), h('td', { class: 'num' }, r.m.armor || ''), h('td', { class: 'num' }, r.m.supply ? `+${r.m.supply}` : r.m.power ? `-${r.m.power}` : ''),
-          h('td', { class: 'num' }, r.dps ? r.dps.toFixed(1) : ''),
+          h('td', { class: 'num' }, r.dps ? r.dps.toFixed(1) : ''), h('td', { class: `num ${r.effect > 0 ? 'hi' : 'muted'}` }, r.effect > 0 ? r.effect.toFixed(1) : '—'),
           cell(r, 'dpsP'), cell(r, 'hpP'), cell(r, 'hpT', 0), cell(r, 'dpsW'), cell(r, 'dpsT')))));
   }
 
