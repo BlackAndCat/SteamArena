@@ -186,8 +186,8 @@ SA.MODULES = {
   },
   pressure_tank: {
     name: '蓄压罐', cat: 'energy', layer: 'body', w: 1, h: 2, art: 'boiler', placeholder: '蓄压',
-    price: 96, hp: 72, supply: 3, power: 0, heatRate: 0, kg: 190, q: 1,
-    desc: '把锅炉的蒸汽存起来，提供 3 点额外动力，不增加基础产热；适合在高压短战里换速度。',
+    price: 96, hp: 72, power: 0, store: 20, explode: 20, kg: 190, q: 1,
+    desc: '蓄压罐：动力富余时储存蒸汽，动力不足时每秒最多补 3 点，容量 20；存量过半被毁会爆炸。',
   },
   pressure_chamber: {
     name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '加压',
@@ -195,14 +195,14 @@ SA.MODULES = {
     desc: '小格加压单元，提供 2 点动力，同时每秒增加 1.1 点产热；动力不足时优先考虑它。',
   },
   radiator: {
-    name: '散热片', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water', placeholder: '散热',
-    price: 82, hp: 64, cool: 2.5, kg: 115, q: 1,
+    name: '散热片', cat: 'cooling', layer: 'side', w: 1, h: 2, art: 'water', placeholder: '散热',
+    price: 82, hp: 64, dryCool: 1.2, kg: 115, q: 1,
     desc: '镂空格栅式散热片，侧挂层开放后可挂在主体外侧；不储水，只提高持续散热。',
   },
   condenser: {
     name: '冷凝器', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water', placeholder: '冷凝',
-    price: 105, hp: 78, water: 18, cool: 3, kg: 180, q: 1,
-    desc: '把废蒸汽凝回水，提供 18 点水和 3 点冷却，是二章开始解决烧干问题的紧凑件。',
+    price: 105, hp: 78, cool: 3, waterSave: 0.7, kg: 180, q: 1,
+    desc: '冷凝器：降低全车冷却耗水（多个按乘积叠加，最低 0.4），本身不储水。',
   },
   rocket_rack: {
     name: '火箭架', cat: 'firepower', layer: 'body', art: 'cannon', placeholder: '火箭', vis: [1, 5],

@@ -36,7 +36,7 @@ SA.Battle = (() => {
   }
 
   function refresh(s) {
-    let supply = 0, equip = 0, heatRate = 0, cool = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
+    let supply = 0, equip = 0, heatRate = 0, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     const chIds = {};
     const live = [];
@@ -47,7 +47,8 @@ SA.Battle = (() => {
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c + SA.fp(cell.id).w - 1);
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0;
-      cool += m.cool || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
+      cool += m.cool || 0; dryCool += m.dryCool || 0; if (m.waterSave) waterSave = Math.max(0.4, waterSave * m.waterSave);
+      storeMax += m.store || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
       if (m.layer === 'chassis') { chIds[cell.id] = (chIds[cell.id] || 0) + 1; ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
       if (SA.isCockpit(cell.id)) { cock++; cop += SA.driversOf(cell.id); }
@@ -69,9 +70,10 @@ SA.Battle = (() => {
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
-    Object.assign(s, { supply, demand, heatRate, cool, waterMax, minCol, frontCol, rams, mass, thrown,
+    Object.assign(s, { supply, demand, heatRate, cool, dryCool, waterSave, storeMax, demand, waterMax, minCol, frontCol, rams, mass, thrown,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     s.water = Math.min(s.water, waterMax);
+    if (!Number.isFinite(s.store) || s.store > storeMax) s.store = 0;
     const blocked = SA.V.blockedList(s.v);
     s.weapons = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
@@ -361,7 +363,9 @@ SA.Battle = (() => {
     }
     const m = M[cell.id];
     if (cell.id === 'track' && !def.thrown) for (let i = 0; i < 14; i++) part('debris', x + rnd(-40, 40), GROUND - 10, rnd(-140, 140), rnd(-260, -80), rnd(0.8, 1.5), i % 2 ? P.dark[2] : P.dark[3]);
-    if (m.explode) {
+    // 蓄压罐只有在罐内存量超过一半时才会因击毁爆炸；普通爆炸模块保持原规则。
+    const pressurized = cell.id === 'pressure_tank' && def.storeMax > 0 && def.store > def.storeMax * 0.5;
+    if (m.explode && (cell.id !== 'pressure_tank' || pressurized)) {
       boom(x, y, 30);
       // 波及外圈紧贴的每个模块（各炸一次）
       const hit = new Set();
@@ -578,14 +582,23 @@ SA.Battle = (() => {
   // ---------- 模拟 ----------
   function sim(s, o, dt) {
     if (s.dead) { drive(s, dt); return; }
-    const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
-    s.power = s.supply <= 0 ? 0 : s.demand ? Math.min(1, s.supply / s.demand) : 1;
+    // 蓄压罐按秒充放：富余动力存入，短缺时每秒最多释放 3 点。
+    const baseSupply = s.supply;
+    const surplus = Math.max(0, baseSupply - s.demand);
+    if (s.storeMax > 0) s.store = clamp(s.store + surplus * dt, 0, s.storeMax);
+    const release = s.storeMax > 0 && baseSupply < s.demand ? Math.min(3, s.store / Math.max(dt, 1e-6), s.demand - baseSupply) : 0;
+    if (release > 0) s.store = Math.max(0, s.store - release * dt);
+    const availableSupply = baseSupply + release;
+    const util = availableSupply ? Math.min(1, s.demand / availableSupply) : 0;
+    s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
+    s.speedMul = availableSupply <= 0 ? 0 : s.demand ? Math.min(K.SPEED_BOOST, availableSupply / s.demand) : 1;
     drive(s, dt);
     s.heat += (s.heatRate * Math.max(0.3, util) + K.IDLE_HEAT - K.DISSIPATE) * dt;
     if (s.water > 0 && s.heat > 0) {
       const c = Math.min(s.heat, SA.coolRate(s.cool, s.heat) * dt);
-      s.heat -= c; s.water = Math.max(0, s.water - c * K.WATER_PER_HEAT);
+      s.heat -= c; s.water = Math.max(0, s.water - c * K.WATER_PER_HEAT * s.waterSave);
     }
+    s.heat = Math.max(0, s.heat - s.dryCool * dt);
     s.heat = Math.max(0, s.heat);
     if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
     const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
