@@ -9,6 +9,7 @@ SA.Battle = (() => {
   const alive = SA.V.alive;
   const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon'];
   let B = null, cv, g, dg, wc, wrap, hud = {};
+  let DPX = 1;   // 画布后备像素 / 逻辑像素（W × H）：画布按实际设备像素分配，浏览器不再二次缩放
   const ZMIN = 0.62;   // 镜头最远能拉到的缩放：两车离得再远也尽量框在一屏里
 
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -912,29 +913,31 @@ SA.Battle = (() => {
     return { sky, line, stands, floor, S0, F0 };
   }
   // 圆筒映射：屏幕列 sx → 纹理坐标 rot + asin(u·K0)·R（u = 离屏幕中心的比例）。中间一个屏幕像素 = 1/z 个纹理像素（和世界一样的缩放），两边压缩
-  function drum(tex, wy0, rot) {
-    const cam = B.cam, z = cam.z, K0 = 0.82, R = (W / 2) / (K0 * z), per = tex.width / 2, th = tex.height;
-    const y = Math.round((wy0 - cam.y) * z), hh = Math.ceil(th * z), STEP = 4;
-    const tx = (sx) => rot + Math.asin(clamp((sx - W / 2) / (W / 2), -1, 1) * K0) * R;
+  // 这里画在世界层里：1 个画布像素 = 1 个纹理像素（和车一样），最后和车一起整体放大，像素大小一致
+  function drum(tex, wy0, rot, vw, oy) {
+    const K0 = 0.82, R = (vw / 2) / K0, per = tex.width / 2, th = tex.height;
+    const y = Math.round(wy0 - oy), STEP = 4;
+    const tx = (sx) => rot + Math.asin(clamp((sx - vw / 2) / (vw / 2), -1, 1) * K0) * R;
     let t0 = tx(0);
-    for (let sx = 0; sx < W; sx += STEP) {
+    for (let sx = 0; sx < vw; sx += STEP) {
       const t1 = tx(sx + STEP), u = ((t0 % per) + per) % per;
-      dg.drawImage(tex, u, 0, Math.max(0.5, t1 - t0), th, sx, y, STEP, hh);
+      g.drawImage(tex, Math.floor(u), 0, Math.max(1, Math.round(t1 - t0)), th, sx, y, STEP, th);
       t0 = t1;
     }
   }
-  // 屏幕空间的背景：天空 → 远处厂房（转得慢）→ 看台（像绕着场地转）→ 两边压暗，显出圆筒感
-  function drawBackdrop() {
-    const cam = B.cam, z = cam.z, sy = (wy) => Math.round((wy - cam.y) * z);
-    dg.fillStyle = P.bg[3]; dg.fillRect(0, 0, W, H);
-    const sw = Math.max(W, W * z);
-    dg.drawImage(BD.sky, 0, 0, W, HZ, Math.round(W / 2 - sw / 2), sy(0), Math.ceil(sw), Math.ceil(HZ * z));
-    drum(BD.line, 0, cam.x * 0.12);
-    drum(BD.stands, BD.S0, cam.x * 0.45);
-    const bot = sy(GE + 14);   // 从画面顶部一直压到看台底部，不留硬边
-    const gr = dg.createLinearGradient(0, 0, W, 0);
+  // 背景：天空 → 远处厂房（转得慢）→ 看台（像绕着场地转）→ 两边压暗，显出圆筒感。
+  // 画在世界层的「视口像素」里（左上角 = 取整后的镜头角 ox, oy），vw × vh 是镜头看到的世界像素
+  function drawBackdrop(vw, vh, oy) {
+    const cam = B.cam;
+    g.fillStyle = P.bg[3]; g.fillRect(0, 0, vw, vh);
+    const sw = Math.max(vw, W);   // 天空不跟镜头缩放：拉远时也铺满
+    g.drawImage(BD.sky, 0, 0, W, HZ, Math.round(vw / 2 - sw / 2), -oy, sw, HZ);
+    drum(BD.line, 0, cam.x * 0.12, vw, oy);
+    drum(BD.stands, BD.S0, cam.x * 0.45, vw, oy);
+    const bot = GE + 14 - oy;   // 从画面顶部一直压到看台底部，不留硬边
+    const gr = g.createLinearGradient(0, 0, vw, 0);
     gr.addColorStop(0, 'rgba(7,8,12,0.6)'); gr.addColorStop(0.2, 'rgba(7,8,12,0)'); gr.addColorStop(0.8, 'rgba(7,8,12,0)'); gr.addColorStop(1, 'rgba(7,8,12,0.6)');
-    dg.fillStyle = gr; dg.fillRect(0, 0, W, bot);
+    g.fillStyle = gr; g.fillRect(0, 0, vw, bot);
   }
   // 世界坐标里的地面：按 TW 平铺，镜头走到哪铺到哪
   function drawFloor() {
@@ -955,14 +958,44 @@ SA.Battle = (() => {
     }
   }
 
+  // 把世界层放到屏幕上。镜头缩放 × 设备像素比几乎总不是整数，直接最近邻放大会让像素一列宽一列窄（看起来撕裂、发虚），
+  // 两次放大（世界 → 1280×720 → CSS）更是雪上加霜。做法（sharp bilinear）：
+  // 先按整数倍 n 最近邻放大（每个像素严格 n×n），剩下不到 2 倍的零头用双线性补齐 —— 像素大小一致，只有边缘 1 个设备像素的过渡。
+  // 镜头的亚像素位移在这一步平滑处理，车和背景一起移动，不会一顿一顿
+  let upC = null;
+  function present(vw, vh, ox, oy) {
+    const cam = B.cam, Z = cam.z * DPX, n = Math.max(1, Math.floor(Z + 0.001));
+    dg.setTransform(1, 0, 0, 1, 0, 0);
+    dg.fillStyle = P.bg[3]; dg.fillRect(0, 0, cv.width, cv.height);
+    const dx = -(cam.x - ox) * Z, dy = -(cam.y - oy) * Z;
+    if (n === 1 && Math.abs(Z - 1) < 0.001) {   // 正好 1:1
+      dg.imageSmoothingEnabled = false;
+      dg.drawImage(wc, 0, 0, vw, vh, Math.round(dx), Math.round(dy), vw, vh);
+      return;
+    }
+    let src = wc;
+    if (n > 1) {
+      upC = upC || document.createElement('canvas');
+      if (upC.width < vw * n || upC.height < vh * n) { upC.width = Math.max(upC.width, vw * n); upC.height = Math.max(upC.height, vh * n); }
+      const u = upC.getContext('2d');
+      u.imageSmoothingEnabled = false;
+      u.drawImage(wc, 0, 0, vw, vh, 0, 0, vw * n, vh * n);
+      src = upC;
+    }
+    dg.imageSmoothingEnabled = true;
+    dg.imageSmoothingQuality = 'low';
+    dg.drawImage(src, 0, 0, vw * n, vh * n, dx, dy, vw * Z, vh * Z);
+  }
+
   function draw() {
     const t = B.t;
     g = wc.getContext('2d');
     // 世界画布只装镜头看得到的那一块：先平移到镜头左上角，背景之后在屏幕空间里画
     const cam = B.cam, ox = Math.floor(cam.x), oy = Math.floor(cam.y);
+    const vw = Math.min(wc.width, Math.ceil(cam.w) + 2), vh = Math.min(wc.height, Math.ceil(cam.h) + 2);
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.imageSmoothingEnabled = false;   // 车身倾斜旋转时用最近邻采样，保持像素块
-    g.clearRect(0, 0, wc.width, wc.height);
+    drawBackdrop(vw, vh, oy);
     g.save();
     g.translate(-ox, -oy);
     drawFloor();
@@ -975,12 +1008,9 @@ SA.Battle = (() => {
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be'));
     drawVehicle(B.p, pc); drawVehicle(B.e, ec, aimT);
-    overhead(B.p); overhead(B.e);
 
     // 准星停在模块上：显示它的改装军衔杠
     if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
-    B.previewInfo = null;
-    if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
 
     for (const sh of B.shots) {
       const tr = sh.trail || [];
@@ -1012,16 +1042,24 @@ SA.Battle = (() => {
     }
     for (const tx of B.texts) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
     g.restore();
+    g.restore();
+    present(vw, vh, ox, oy);
 
+    // 叠加层：直接画在设备分辨率上（文字、细条、准星、弹道扇区都是矢量，不再被放大成糊块）
+    const Z = cam.z * DPX;
+    dg.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
+    dg.imageSmoothingEnabled = false;
+    g = dg;
+    overhead(B.p); overhead(B.e);
+    B.previewInfo = null;
+    if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
     if (B.aim) {
-      const [mx, my] = B.aim.map(Math.round);
+      const [mx, my] = B.aim;
       reticle(mx, my, aimT);
       reticleAlerts(mx, my);
     }
-    g.restore();
-    drawBackdrop();
-    dg.imageSmoothingEnabled = false;
-    dg.drawImage(wc, cam.x - ox, cam.y - oy, cam.w, cam.h, 0, 0, W, H);
+    g = wc.getContext('2d');
+    dg.setTransform(DPX, 0, 0, DPX, 0, 0);   // 屏幕空间（W × H）
     // 过热：屏幕四周红光呼吸，余光就能看到
     if (!B.p.dead && B.p.heat > 75) {
       const a = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(B.t * 8))) * Math.min(1, (B.p.heat - 75) / 15 + 0.4);
@@ -1527,9 +1565,12 @@ SA.Battle = (() => {
     const aw = wrap.clientWidth - 16;
     const ah = Math.max(240, window.innerHeight - 250);
     let s = Math.min(aw / W, ah / H);
-    if (s >= 2) s = Math.floor(s);
-    cv.style.width = `${Math.round(W * s)}px`;
-    cv.style.height = `${Math.round(H * s)}px`;
+    const cw = Math.round(W * s), ch = Math.round(H * s), dpr = window.devicePixelRatio || 1;
+    cv.style.width = `${cw}px`;
+    cv.style.height = `${ch}px`;
+    const bw = Math.round(cw * dpr), bh = Math.round(ch * dpr);
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+    DPX = bw / W;
   }
 
   function finish() {

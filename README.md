@@ -66,7 +66,7 @@ python -m http.server 5173
 | `js/arena.js` | 出战页：锦标赛 / 街头赛 / 友谊赛 / 委托，对阵、下注、出发 |
 | `js/street.js` | 街头赛：随机小车生成、按评分配对手、评分上限（界面在出战页） |
 | `js/editor.js` | 车间：改装台、铭牌、底部操作栏（模块 / 蓝图库）、点选与拖放、就地买卖与修理、图例 |
-| `js/battle.js` | 竞技场：加速与撞击、直射/高抛弹道与预览、武器组切换、镜头、AI（`SA.Battle.debug.step(秒)` 可手动推进） |
+| `js/battle.js` | 竞技场：加速与撞击、直射/高抛弹道与预览、武器组切换、镜头、AI；渲染：世界层按原生像素画（含背景），整数倍最近邻放大 + 不足 2 倍的零头双线性（sharp bilinear）到按设备像素分配的画布，文字 / 细条 / 准星 / 弹道扇区在设备分辨率上单独叠加（`SA.Battle.debug.step(秒)` 可手动推进） |
 | `docs/art-direction.md` | 美术统一与辨识度方案 |
 | `tools/sim.html` · `sim.js` | 数值自测：战役关卡检验（各章参考车打每一关）、对战矩阵 + 评分校准、模块性价比表；用 `SA.Battle.simulate` 无画面对打 |
 | `js/terrain-art.js` | 地形像素画法：土坡、泥地、木货箱、碎木（战斗和 `tools/terrain-lab.html` 共用） |
