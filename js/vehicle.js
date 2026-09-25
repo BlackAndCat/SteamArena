@@ -41,7 +41,7 @@ SA.V = (() => {
 
   // 大格关卡字母。新模块只占用未使用字母；未完成专用美术时由 sprites.js 的 art 借形显示。
   const ASCII = {
-    T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar',
+    T: 'track', Q: 'quad', B: 'biped', K: 'cockpit', k: 'helmet', A: 'armor', H: 'armor_heavy', C: 'cannon', P: 'mortar',
     M: 'mg', O: 'boiler', W: 'water', S: 'side_cannon', U: 'bucket', X: 'spike', Y: 'piston', V: 'copilot',
     L: 'cannon_s', R: 'cannon_heavy', G: 'rocket_rack', J: 'harpoon', F: 'flamer', N: 'pressure_tank',
     D: 'pressure_chamber', E: 'condenser', I: 'boss_core', Z: 'boss_lens'
@@ -292,28 +292,34 @@ SA.V = (() => {
     return out;
   }
 
-  // 直射武器：炮管所在的那一行子格（模块最下面一行）前方有己方存活主体模块 → 被挡；高抛炮不受影响
+  // 直射武器：模块覆盖的每一行都要检查；任一行前方有己方存活主体模块就算被挡。
+  // 这样 1×1 小模块、驾驶舱以及高大的重炮/巨炮都会和战斗判定保持一致；高抛炮不受影响。
   function blockedList(v) {
     const out = [], O = occ(v, 'body');
     for (let r = 0; r < K.ROWS; r++)
       for (let c = 0; c < K.COLS; c++) {
         const cell = v.body[r][c];
         if (!alive(cell) || !SA.isWeapon(cell.id) || M[cell.id].indirect) continue;
-        const { w, h } = fp(cell.id), br = r + h - 1;
-        for (let k = c + w; k < K.COLS; k++) if (O[br][k] && alive(O[br][k].cell)) { out.push({ r, c }); break; }
+        const { w, h } = fp(cell.id);
+        let blocked = false;
+        for (let row = r; row < r + h && !blocked; row++)
+          for (let k = c + w; k < K.COLS; k++)
+            if (O[row][k] && alive(O[row][k].cell)) { blocked = true; break; }
+        if (blocked) out.push({ r, c });
       }
     return out;
   }
 
-  function overheatTime(gen, coolRate, water, drain = 0) {
+  function overheatTime(gen, coolRate, water, drain = 0, dryCool = 0, waterSave = 1) {
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
       heat += (gen + K.IDLE_HEAT - K.DISSIPATE) * 0.5;
       water = Math.max(0, water - drain * 0.5);
       if (water > 0 && heat > 0) {
         const c = Math.min(heat, SA.coolRate(coolRate, heat) * 0.5);
-        heat -= c; water -= c * K.WATER_PER_HEAT;
+        heat -= c; water -= c * K.WATER_PER_HEAT * waterSave;
       }
+      heat = Math.max(0, heat - dryCool * 0.5);
       heat = Math.max(0, heat);
       if (heat >= K.HEAT_MAX) return t;
     }
@@ -324,7 +330,7 @@ SA.V = (() => {
     const s = {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
-      water: 0, cool: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
+      water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0,
     };
     each(v, (cell, r, c) => {
@@ -339,11 +345,14 @@ SA.V = (() => {
       s.aimShrink += m.aimShrink || 0; s.aimSpeed += m.aimSpeed || 0;
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
+      s.store += m.store || 0;
+      s.dryCool += m.dryCool || 0;
+      if (m.waterSave) s.waterSave = Math.max(0.4, s.waterSave * m.waterSave);
       if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
       if (SA.isCockpit(cell.id)) s.cockpits++;
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
-      if (m.water) { s.tanks++; s.water += m.water; s.cool += m.cool; }
+      if (m.water || m.cool) { s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
     // 驾驶舱辅助设备（瞄准镜 / 装弹仓 / 陀螺稳定仪 / 测距仪）
     const cells = [];
@@ -375,7 +384,7 @@ SA.V = (() => {
     });
     s.boilerHeat = s.heatRate * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
-    s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater);
+    s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater, s.dryCool, s.waterSave);
     s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
 
     s.problems = [];

@@ -9,13 +9,20 @@ SA.Street = (() => {
   const d = () => SA.S.d;
   const cell = (id) => ({ id, hp: M[id].hp });
 
+  // 街头赛只能调用玩家已经解锁、且当前材料能够承受的模块。
+  // 这样随机车不会提前展示后续章节的大件，也避免生成低材料无法合法存在的模块。
+  const unlocked = (id, mt) => !!M[id] && SA.Camp.hasMod(id) && SA.minMt(id) <= mt;
+  const pool = (ids, mt) => ids.filter(id => unlocked(id, mt));
+
   // 随手拼一台小车：底盘 2~4 格，上面 1~3 层逐层变窄；直射武器只放在每行最前端，不会被己方挡住
   // 按大格（6 × 8）拼，最后换算成子格
-  function build(name, big) {
+  function build(name, big, mt = SA.Camp.maxMat()) {
     const bg = () => Array.from({ length: 6 }, () => Array(8).fill(null));
     const v = { body: bg(), side: bg() };
     const last = 5, c0 = 2;
-    const chassis = pick(['track', 'quad', 'biped']);
+    const maxMt = mt;
+    const chassis = pick(pool(['track', 'quad', 'biped'], maxMt));
+    if (!chassis) return null;
     const w = big ? 3 + ri(3) : 2 + ri(3);
     for (let c = c0; c < c0 + w; c++) v.body[last][c] = cell(chassis);
     const spots = [];
@@ -25,9 +32,12 @@ SA.Street = (() => {
       const r = last - 1 - i;
       for (let c = c0; c < c0 + width; c++) {
         const front = c === c0 + width - 1;
-        let id = pick(['armor', 'armor', 'armor', 'water', 'boiler', 'armor_heavy']);
-        if (front && Math.random() < 0.65) id = pick(['mg', 'mg', 'cannon']);
-        else if (!front && Math.random() < 0.1) id = 'mortar';
+        const structural = pool(['armor', 'armor', 'armor', 'water', 'boiler', 'armor_heavy', 'plate'], maxMt);
+        let id = pick(structural.length ? structural : ['plate']);
+        const weapons = pool(['mg', 'mg', 'cannon', 'cannon_m', 'mortar', 'flamer', 'harpoon', 'rocket_rack'], maxMt);
+        const indirect = pool(['mortar'], maxMt);
+        if (front && weapons.length && Math.random() < 0.65) id = pick(weapons);
+        else if (!front && indirect.length && Math.random() < 0.1) id = pick(indirect);
         v.body[r][c] = cell(id);
         if (!SA.isWeapon(id)) spots.push([r, c]);
       }
@@ -37,13 +47,16 @@ SA.Street = (() => {
     if (spots.length < 2) return null;
     spots.sort(() => Math.random() - 0.5);
     const [kr, kc] = spots.pop();
-    v.body[kr][kc] = cell('cockpit');
+    // 四人舱只在第四章后可用，早期街头车使用开局就有的 1×1 驾驶舱。
+    const cockpit = unlocked('cockpit', maxMt) ? 'cockpit' : 'helmet';
+    if (!unlocked(cockpit, maxMt)) return null;
+    v.body[kr][kc] = cell(cockpit);
     if (!v.body.some(row => row.some(x => x && x.id === 'boiler'))) { const [br, bc] = spots.pop(); v.body[br][bc] = cell('boiler'); }
     // 偶尔加点花样：车头铲斗 / 撞角 / 侧炮
-    if (chassis !== 'biped' && Math.random() < 0.15) v.body[last][c0 + w] = cell('bucket');
+    if (chassis !== 'biped' && unlocked('bucket', maxMt) && Math.random() < 0.15) v.body[last][c0 + w] = cell('bucket');
     const r1 = last - 1, fr = v.body[r1].reduce((a, x, c) => (x ? c : a), -1);
-    if (fr >= 0 && /^armor/.test(v.body[r1][fr].id) && Math.random() < 0.3) v.body[r1][fr + 1] = cell('spike');
-    if (spots.length && Math.random() < 0.15) { const [sr, sc] = pick(spots); if (v.body[sr][sc].id !== 'cockpit') v.side[sr][sc] = cell('side_cannon'); }
+    if (fr >= 0 && /^armor/.test(v.body[r1][fr].id) && unlocked('spike', maxMt) && Math.random() < 0.3) v.body[r1][fr + 1] = cell('spike');
+    if (spots.length && unlocked('side_cannon', maxMt) && Math.random() < 0.15) { const [sr, sc] = pick(spots); if (v.body[sr][sc].id !== cockpit) v.side[sr][sc] = cell('side_cannon'); }
     return SA.V.fromBig(name, v.body, v.side);
   }
 
@@ -65,7 +78,7 @@ SA.Street = (() => {
     let best = null;
     for (let k = 0; k < 200; k++) {
       const mt = Math.max(1, maxMt - (k % 2));
-      const v = build('', goal / SA.MATS[mt].mul > 280 && k % 4 < 2);
+      const v = build('', goal / SA.MATS[mt].mul > 280 && k % 4 < 2, mt);
       if (!v) continue;
       withMat(v, mt);
       const s = SA.V.stats(v);
@@ -75,7 +88,16 @@ SA.Street = (() => {
       if (diff < goal * 0.03) break;
     }
     if (!best) {   // 兜底：最朴素的小双足
-      const v = SA.V.fromAscii('', ['........', '........', '........', '...KM...', '...OA...', '...BB...']);
+      const fallbackCockpit = unlocked('cockpit', SA.Camp.maxMat()) ? 'K' : 'k';
+      const fallbackWeapon = unlocked('cannon', SA.Camp.maxMat()) ? 'C' : 'M';
+      const fallbackChassis = unlocked('biped', SA.Camp.maxMat()) ? 'B' : 'T';
+      const fallbackRows = [
+        '........', '........', '........',
+        `...K${fallbackWeapon}...`, '...OA...', `...${fallbackChassis}${fallbackChassis}...`,
+      ];
+      // 兜底蓝图中的每个字母都来自当前解锁池；材料不足时 fromAscii 会按 lowAlt 换成合法小炮。
+      fallbackRows[3] = fallbackRows[3].replace('K', fallbackCockpit);
+      const v = SA.V.fromAscii('', fallbackRows);
       best = { v, mt: 1, rating: SA.V.stats(v).rating };
     }
     const pool = SA.STREET_PILOTS.filter(p => !used.includes(p[0]));
