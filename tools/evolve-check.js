@@ -58,6 +58,19 @@ function chassisRuleCheck() {
   return { quad: { size: `${SA.fp('quad').w}x${SA.fp('quad').h}`, contactPts: SA.suspPts('quad') }, biped: { balance: bs.balance, legs: bs.legs }, legacyQuadCount: SA.V.countIds(migrated).quad };
 }
 
+function uniqueRuleCheck() {
+  const { SA } = evolve.loadGame();
+  const fresh = SA.S.reset();
+  if (!fresh.uniqueClaims || SA.S.hasUnique('boss_ram')) throw new Error('唯一件账本初始化错误');
+  const initialClaims = Object.keys(fresh.uniqueClaims).length;
+  if (SA.S.buy('boss_ram')) throw new Error('唯一件仍可直接购买');
+  const first = SA.Camp.salvageOptions([{ id: 'boss_ram', mt: 4, unique: { id: 'boss_ram', mt: 5, once: true, source: 'salvage' } }]);
+  if (first.length !== 1 || first[0].mt !== 5 || !first[0].unique) throw new Error(`唯一件固定材料或缴获候选错误：${JSON.stringify(first)}`);
+  if (!SA.S.claimUnique(first[0].unique.id, first[0].mt, 'salvage')) throw new Error('唯一件首次领取失败');
+  if (SA.Camp.salvageOptions([{ id: 'boss_ram', mt: 5, unique: { id: 'boss_ram', mt: 5, once: true, source: 'salvage' } }]).length) throw new Error('唯一件重复领取未被拦截');
+  return { initialClaims, claimed: SA.S.d.uniqueClaims.boss_ram };
+}
+
 async function main() {
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
@@ -67,7 +80,9 @@ async function main() {
   const ai = calibration.selfCheck();
   const auxiliaryAim = auxiliaryAimCheck();
   const chassis = chassisRuleCheck();
+  const unique = uniqueRuleCheck();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
+  result.unique = unique;
   console.log(JSON.stringify(result, null, 2));
 }
 

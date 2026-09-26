@@ -101,7 +101,7 @@ function ruleFingerprint(SA) {
     constants: SA.K,
     modules: SA.MODULES,
     terrains: SA.TERRAINS,
-    campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, spec: s.spec, unlock: s.unlock, boss: !!s.boss })) })),
+    campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, spec: s.spec, uniqueLoot: s.uniqueLoot, unlock: s.unlock, boss: !!s.boss })) })),
     source,
   });
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
@@ -163,6 +163,7 @@ function stageSpec(SA, chapter, stage) {
   return {
     chapter, stage, name: current.name, terrain: design.terrain || current.terrain || 'flat', style: current.style || null,
     lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
+    uniqueLoot: (current.uniqueLoot || []).map(item => ({ ...item })),
     chapterHasBoss: ch.stages.some(row => !!row.boss),
     boss: !!current.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
     availableMods: available,
@@ -184,6 +185,11 @@ function campaignSpecCheck(SA) {
     if (!Number.isFinite(spec.performanceMin) || spec.performanceMin < 0 || spec.performanceMin > 100) errors.push(`${label} performanceMin 无效`);
     if (typeof spec.lesson !== 'string' || !spec.lesson.trim()) errors.push(`${label} 缺少 lesson`);
     if (spec.reward != null && !SA.MODULES[spec.reward]) errors.push(`${label} 奖励模块不存在：${spec.reward}`);
+    for (const loot of stage.uniqueLoot || []) {
+      if (!SA.MODULES[loot.id]) errors.push(`${label} 唯一件模块不存在：${loot.id}`);
+      if (!Number.isInteger(loot.mt) || loot.mt < 1 || loot.mt > SA.MAT_MAX) errors.push(`${label} 唯一件材料无效：${loot.id}@${loot.mt}`);
+      if (loot.once === false) errors.push(`${label} 唯一件必须默认一次领取：${loot.id}`);
+    }
   }));
   if (errors.length) throw new Error(`战役规格检查失败：${errors.join('；')}`);
   return { chapters: SA.CAMPAIGN.length, stages: SA.CAMPAIGN.reduce((sum, chapter) => sum + chapter.stages.length, 0), complete: true };
@@ -565,7 +571,7 @@ function cellsOf(SA, v) {
 function candidateRecord(SA, item, spec, fingerprint) {
   const moduleValues = {};
   for (const [id, count] of Object.entries(counts(SA, item.vehicle))) moduleValues[id] = count * cellValue(SA, id, spec.mat);
-  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
+  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, uniqueLoot: spec.uniqueLoot, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
 }
 
 // 奖励件生效门槛使用同一批种子做两种朝向，避免只记录“候选当玩家”造成偏差。

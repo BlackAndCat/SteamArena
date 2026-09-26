@@ -87,6 +87,15 @@ SA.Camp = (() => {
   function salvageOptions(survivors) {
     const seen = new Set(), pool = [];
     for (const x of survivors) {
+      const unique = x.unique ? { ...SA.uniqueRule(x.id), ...x.unique, id: x.id } : SA.uniqueRule(x.id);
+      if (unique && unique.once !== false) {
+        if (SA.S.hasUnique(unique.id)) continue;
+        const key = `unique:${unique.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        pool.push({ ...x, id: unique.id, mt: unique.mt || x.mt || 5, unique });
+        continue;
+      }
       const k = SA.invKey(x.id, x.mt);
       if (seen.has(k) || (x.mt < 5 && owns(x.id, x.mt))) continue;
       seen.add(k); pool.push(x);
@@ -98,12 +107,13 @@ SA.Camp = (() => {
   function salvageDialog(survivors, next) {
     const opts = salvageOptions(survivors);
     if (!opts.length) { next(); return; }
-    const name = (x) => (x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name);
+    const name = (x) => `${x.unique ? '唯一件 · ' : ''}${x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name}`;
     SA.UI.dialog('缴获战利品', [
       h('p', { style: 'margin-top:0' }, '按赛会规矩，胜者可以从对手车上拆走一件你还没有的零件：'),
       h('div', { class: 'salvage' }, opts.map(x => h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(x.id, 1, x.mt),
         h('div', {}, h('b', {}, name(x)), ' ', matChip(x.mt), h('div', { class: 'muted' }, SA.UI.statLine(x.id, x.mt)))))),
     ], opts.map(x => ({ label: `拿走 ${name(x)}`, primary: x.mt >= 5, onClick: () => {
+      if (x.unique && !SA.S.claimUnique(x.unique.id, x.mt, x.unique.source || 'salvage')) { SA.UI.toast(`${name(x)}已经领取过了`); next(); return; }
       SA.S.addInv(x.id, 1, x.mt);
       SA.UI.toast(`缴获 ${name(x)}，放进库存`);
       next();

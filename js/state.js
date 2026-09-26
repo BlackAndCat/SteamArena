@@ -11,6 +11,8 @@ SA.S = (() => {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
       inv: { armor: 2, mg: 1 }, ingots: {},
       vehicle: SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs),
+      // 唯一件领取账本：键是模块 id；只记录已从战利品领取过的件，不删除旧存档已有库存。
+      uniqueClaims: {},
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
       camp: { ch: 0, st: 0, intro: -1, done: false, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
@@ -24,6 +26,7 @@ SA.S = (() => {
     try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) { d = null; }
     if (!d || !d.vehicle || !d.camp) d = fresh();
     d.ingots = d.ingots || {};
+    d.uniqueClaims = d.uniqueClaims || {};
     d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
     fixModules(d);
     return d;
@@ -41,6 +44,14 @@ SA.S = (() => {
     const inv = {};
     for (const k in s.inv) { const f = SA.fixKey(k); inv[f] = (inv[f] || 0) + s.inv[k]; }
     s.inv = inv;
+    // 旧存档若已经有标记为唯一件的库存 / 车上模块，保留物品并视为已领取，避免迁移后重复发放。
+    SA.V.each(s.vehicle, (cell) => {
+      if (SA.isUnique(cell.id)) s.uniqueClaims[cell.id] = s.uniqueClaims[cell.id] || { mt: cell.mt || 1, source: 'legacy' };
+    });
+    for (const k in s.inv) {
+      const p = SA.parseKey(k);
+      if (s.inv[k] > 0 && SA.isUnique(p.id)) s.uniqueClaims[p.id] = s.uniqueClaims[p.id] || { mt: p.mt, source: 'legacy' };
+    }
     const C = s.camp, mods = [];
     for (const id of [...SA.CAMP_START.mods, ...C.mods]) { const f = SA.liveId(id); if (!mods.includes(f)) mods.push(f); }
     C.mods = mods;
@@ -59,6 +70,13 @@ SA.S = (() => {
     return best;
   }
   const addIngots = (map) => { for (const k in map || {}) d.ingots[k] = (d.ingots[k] || 0) + map[k]; };
+  // 唯一件只能由缴获流程写入账本；重复调用保持幂等并拒绝第二件。
+  function hasUnique(id) { return !!(d.uniqueClaims && d.uniqueClaims[id]); }
+  function claimUnique(id, mt, source = 'salvage') {
+    if (hasUnique(id)) return false;
+    d.uniqueClaims[id] = { mt: mt || SA.uniqueRule(id)?.mt || 5, source, at: Date.now() };
+    return true;
+  }
 
   // 银行：每场比赛未还清的债务加收 10% 利息
   const LOAN_CAP = 1500;
@@ -70,6 +88,7 @@ SA.S = (() => {
   }
   // 买下 n 个模块进库存
   function buy(id, n = 1) {
+    if (SA.isUnique(id)) return false;
     const cost = SA.buyPrice(id) * n;
     if (d.money < cost) return false;
     d.money -= cost; addInv(id, n, SA.buyMt(id));
@@ -116,5 +135,5 @@ SA.S = (() => {
     },
   };
 
-  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, addIngots, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud };
+  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud };
 })();

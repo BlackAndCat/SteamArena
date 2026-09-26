@@ -42,7 +42,7 @@
       constants: SA.K,
       modules: SA.MODULES,
       terrains: SA.TERRAINS,
-      campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, unlock: s.unlock, boss: !!s.boss })) })),
+      campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, spec: s.spec, uniqueLoot: s.uniqueLoot, unlock: s.unlock, boss: !!s.boss })) })),
       source: files.map((f, i) => [f, texts[i]]),
     });
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));

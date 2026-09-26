@@ -33,6 +33,7 @@ SA.Blueprints = (() => {
     const need = SA.V.countIds(target);
     const pool = {};
     let scrap = 0;
+    const blocked = [];
     SA.V.each(d().vehicle, (cell) => {
       if (cell.hp <= 0) scrap += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
       else (pool[cell.id] = pool[cell.id] || []).push(cell);
@@ -43,15 +44,20 @@ SA.Blueprints = (() => {
     let buyCost = 0, fixCost = 0;
     for (const id in need) {
       const miss = Math.max(0, need[id] - (pool[id] || []).length - SA.S.invCount(id));
-      if (miss) { buy[id] = miss; buyCost += miss * SA.buyPrice(id); }
+      if (miss && SA.isUnique(id)) blocked.push(`${M[id].name}是唯一件，只能通过缴获获得`);
+      else if (miss) { buy[id] = miss; buyCost += miss * SA.buyPrice(id); }
     }
     // 用不上的受损模块要修好才能放回库存
     for (const id in pool) for (const cell of pool[id].slice(need[id] || 0)) if (cell.hp < SA.V.maxHp(cell)) fixCost += SA.S.repairCost(cell);
-    return { target, need, pool, buy, buyCost, fixCost, scrap, cost: buyCost + fixCost };
+    return { target, need, pool, buy, buyCost, fixCost, scrap, blocked, cost: buyCost + fixCost };
   }
 
   function apply(bp, done) {
     const p = plan(bp);
+    if (p.blocked.length) {
+      SA.UI.dialog('蓝图无法应用', [h('p', { style: 'margin-top:0' }, p.blocked.join('；')), h('p', { class: 'muted' }, '唯一件不能购买，只能在对应战斗中缴获。')], [{ label: '知道了', primary: true }]);
+      return;
+    }
     const run = () => {
       for (const id in p.buy) SA.S.addInv(id, p.buy[id], SA.buyMt(id));
       SA.V.each(p.target, (cell, r, c, layer) => {

@@ -52,6 +52,7 @@ SA.K = {
 };
 
 SA.MODULES = {
+  // unique：唯一件规则 { mt: 固定材料, once: 每存档一次, source: 来源 }；没有该字段的模块仍可由关卡 uniqueLoot 临时标记。
   track: {
     name: '履带底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
     price: 150, hp: 200, power: 0, armor: 2, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
@@ -163,7 +164,7 @@ SA.MODULES = {
     desc: '镀镍材料起才可制造的长身火炮。伤害高、耗能高，占四行，前方必须留出完整炮口通道。',
   },
   cannon_giant: {
-    name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', art: 'cannon', placeholder: '巨炮', vis: [6],
+    name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', art: 'cannon', placeholder: '巨炮', unique: { mt: 6, once: true, source: 'salvage' }, vis: [6],
     price: 760, hp: 420, power: 10, kg: 1800, q: 5,
     dmg: 104, reload: 6.8, heat: 18, proj: 'shell', barrel: 48, v: 960, g: 1, spread: 8, arc: 'low',
     elev: [-5, 36], slew: 11, windup: 0.8, wild: 0.04, rest: 0, aimT: 2.4,
@@ -253,12 +254,12 @@ SA.MODULES = {
     desc: '铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放，锅炉产热 ×0.9。Boss 战利品。',
   },
   boss_lens: {
-    name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜',
+    name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜', unique: { mt: 5, once: true, source: 'salvage' },
     price: 250, hp: 86, power: 0.5, kg: 55, q: 1, aimShrink: 0.12, aimSpeed: 0.18, special: 'range-prism',
     desc: '黄铜公爵的测距棱镜：让全车瞄准更快、更稳。Boss 战利品。',
   },
   boss_ram: {
-    name: '寡妇液压撞头', cat: 'ram', layer: 'ram', w: 2, h: 1, art: 'piston', placeholder: '撞头', mount: ['track', 'quad', 'biped', 'armor', 'armor_heavy'],
+    name: '寡妇液压撞头', cat: 'ram', layer: 'ram', w: 2, h: 1, art: 'piston', placeholder: '撞头', unique: { mt: 5, once: true, source: 'salvage' }, mount: ['track', 'quad', 'biped', 'armor', 'armor_heavy'],
     price: 245, hp: 220, armor: 3, kg: 480, q: 3, ram: 34, knock: 1.45, punch: 18, punchCd: 1.8, heat: 2, special: 'hydraulic-bite',
     desc: '煤灰寡妇改装的液压撞头：兼顾冲撞和短周期活塞打击。Boss 战利品。',
   },
@@ -394,6 +395,18 @@ SA.upCost = (id, lv) => Math.round(SA.MODULES[id].price * SA.K.UP_COST * lv);
 // 水箱这一刻能带走多少热量 /秒：越热冷却越猛（最低 15%）
 SA.coolRate = (cool, heat) => cool * Math.max(0.15, Math.min(1, heat / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
+
+// 唯一件（K5）：规则写在模块或战利品数据里，不把某个模块名硬编码进购买 / 缴获流程。
+// 模块上的 unique 适合 Boss 专属件；关卡的 uniqueLoot 可以临时把任意模块标成固定材料的唯一奖励。
+SA.uniqueRule = (id) => {
+  const m = SA.MODULES[id];
+  const own = m && m.unique ? (m.unique === true ? {} : m.unique) : null;
+  const fromCampaign = (SA.CAMPAIGN || []).flatMap(ch => ch.stages || []).flatMap(stage => stage.uniqueLoot || []).find(x => x.id === id);
+  const raw = own || fromCampaign;
+  if (!raw) return null;
+  return { id, mt: raw.mt || 5, once: raw.once !== false, source: raw.source || 'salvage' };
+};
+SA.isUnique = (id) => !!SA.uniqueRule(id);
 
 // ---------- 材料：模块品质 = 材料 ----------
 // 1~4 用钱在车间升级（随战役解锁）；5 史诗、6 传奇还要消耗特定的锭 / 结晶，只能靠委托、缴获和 Boss 掉落获得

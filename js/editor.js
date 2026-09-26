@@ -27,7 +27,7 @@ SA.Editor = (() => {
   const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
   const has = (f) => SA.Camp.has(f);
   // 商店里能买的：商店已开放、战役已解锁这种模块（只卖黄铜，更好的材料在车上升级）
-  const buyable = (id) => has('shop') && SA.Camp.hasMod(id);
+  const buyable = (id) => has('shop') && SA.Camp.hasMod(id) && !SA.isUnique(id);
   const matName = (mt) => SA.MATS[mt].name;
   const fullName = (id, mt) => (mt > 1 ? `${matName(mt)}${M[id].name}` : M[id].name);
   const issueAt = (layer, r, c) => st.stats.issues.find(x => x.layer === layer && x.r === r && x.c === c);

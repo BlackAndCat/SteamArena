@@ -37,7 +37,7 @@ SA.Arena = (() => {
         return { key: i, name: o.name, pilot: o.pilot, blurb: o.blurb, v: sg.vehicle, raw: sg.vehicle, hpMul: 1, rating: SA.V.stats(sg.vehicle).rating, prize: o.prize, boss: o.boss, terrain: o.terrain || 'flat',
           tag: beaten ? ['ok', '已击败'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${i + 1} 场 · ${o.name}`, lock: beaten ? '已经击败过了' : !next ? `先打完第 ${C.st + 1} 场` : null,
-          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: o.prize }) };
+          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: o.prize, uniqueLoot: o.uniqueLoot || [] }) };
       });
     }
     if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {

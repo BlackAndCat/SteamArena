@@ -1905,7 +1905,12 @@ SA.Battle = (() => {
     SA.V.each(B.p.v, (cell) => { if (SA.isCockpit(cell.id) && cell.hp < SA.V.maxHp(cell)) flawless = false; });
     // 对手还完好的模块：战役胜利后可以挑一件缴获
     const survivors = [];
-    SA.V.each(B.e.v, (cell) => { if (cell.hp > 0) survivors.push({ id: cell.id, mt: cell.mt || 1 }); });
+    const uniqueLoot = Array.isArray(B.opts.uniqueLoot) ? B.opts.uniqueLoot : [];
+    SA.V.each(B.e.v, (cell) => {
+      if (cell.hp <= 0) return;
+      const unique = uniqueLoot.find(item => item.id === cell.id) || null;
+      survivors.push({ id: cell.id, mt: cell.mt || 1, ...(unique ? { unique: { ...unique, id: cell.id } } : {}) });
+    });
     // 真人记录只保存一局的聚合指标，供 P8 校准代理 AI；不写逐帧数据，也不记录友谊赛以外的隐私信息。
     recordHumanBattle({
       terrain: B.opts.terrain || 'flat', outcome: draw ? 'draw' : win ? 'p' : 'e', time: B.t,
