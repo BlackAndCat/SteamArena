@@ -336,18 +336,19 @@ for (const id in PENETRATION) {
   if (extra) SA.MODULES[id].ricochet = extra;
 }
 // 修理费比例（K3，docs/campaign-direction.md §5）：修满一件的费用 = 模块总价值 × 比例，按损伤比例计。
-// 越复杂精密越贵：甲片、装甲便宜，水箱低，铲斗 1/8、蒸汽撞锤 1/5（用户给定），驾驶舱、锅炉昂贵；其余暂定
+// 越复杂精密越贵：甲片、装甲便宜，水箱低，铲斗 1/8、蒸汽撞锤 1/5（用户给定），驾驶舱、锅炉昂贵。
+// 2026-09-26 用户选定 astra 提出的这套较高的比例；整体水平等经济模拟再校准
 const REPAIR_RATE = {
-  plate: 0.03, armor: 0.03, armor_heavy: 0.04,
-  water: 0.04, tank_s: 0.04, tank_tall: 0.04, radiator: 0.05, condenser: 0.08,
-  track: 0.06, quad: 0.1, biped: 0.12,
-  helmet: 0.15, cockpit_pair: 0.15, cockpit: 0.15, copilot: 0.15,
-  boiler: 0.15, pressure_chamber: 0.12, pressure_tank: 0.12,
-  periscope: 0.1, autoloader: 0.1, rangefinder: 0.1, gyroscope: 0.1,
-  mg: 0.08, mg2: 0.1, cannon_s: 0.06, cannon_m: 0.08, cannon: 0.1, cannon_heavy: 0.12, cannon_giant: 0.15,
-  mortar: 0.1, mortar_s: 0.08, side_cannon: 0.1, rocket_rack: 0.12, harpoon: 0.1, flamer: 0.12, steamjet: 0.12,
-  bucket: 1 / 8, spike: 0.1, piston: 1 / 5,
-  boss_core: 0.2, boss_lens: 0.15, boss_ram: 0.2,
+  plate: 0.03, armor: 0.04, armor_heavy: 0.045,
+  water: 0.06, tank_s: 0.05, tank_tall: 0.055, radiator: 0.07, condenser: 0.08,
+  track: 0.08, quad: 0.09, biped: 0.1,
+  helmet: 0.24, cockpit_pair: 0.27, cockpit: 0.28, copilot: 0.24,
+  boiler: 0.26, pressure_chamber: 0.12, pressure_tank: 0.1,
+  periscope: 0.18, autoloader: 0.19, rangefinder: 0.18, gyroscope: 0.19,
+  mg: 0.09, mg2: 0.11, cannon_s: 0.1, cannon_m: 0.12, cannon: 0.14, cannon_heavy: 0.18, cannon_giant: 0.22,
+  mortar: 0.15, mortar_s: 0.12, side_cannon: 0.14, rocket_rack: 0.16, harpoon: 0.14, flamer: 0.12, steamjet: 0.12,
+  bucket: 1 / 8, spike: 0.16, piston: 1 / 5,
+  boss_core: 0.24, boss_lens: 0.22, boss_ram: 0.2,
 };
 for (const id in REPAIR_RATE) SA.MODULES[id].repairRate = REPAIR_RATE[id];
 SA.repairRate = (id) => SA.MODULES[id].repairRate || 0.05;
