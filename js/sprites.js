@@ -240,7 +240,7 @@ SA.SPR = (() => {
       }
   }
   // 腿式底盘：腿用 js/legs.js 的光栅器画（形状先写进遮罩，再按描边 / 暗面 / 固有色 / 亮面四阶上色，光源左上）。
-  // 外观阶段 1~3 → 腿型：双足取 legs.js 的 DESIGNS，四足取 SPIDERS（T3 / T5 用哪一档待定，先都用 T1）
+  // 外观阶段 1~3 → 腿型：双足取 legs.js 的 DESIGNS（真双足 bipedArt），四足取 QUADS（T3 / T5 用哪一档待定，先都用 T1）
   const BIPED_LOOK = ['mk2', 'mk2', 'mk2'];
   const QUAD_LOOK = ['crawl', 'crawl', 'crawl'];   // legs.js 的 QUADS：伏地蛛；高脚蛛给 T3 / T5 还是留给别的用途，待定
   const pens = new Map();
@@ -250,10 +250,7 @@ SA.SPR = (() => {
     if (!p) { p = SA.LEGLAB.Pen(cv.width, cv.height); pens.set(k, p); }
     return p.at(1, 0, 0);
   }
-  // 精灵状态 → legs.js 的步态参数：12 帧一循环，相邻格错开半个周期；g0 / g1 = 近侧 / 远侧脚的悬挂伸缩
-  const legOpts = (o) => ({ mv: !!o.mv, a: (o.gf || 0) / 12 * Math.PI * 2 + (o.ri || 0) * Math.PI, bd: o.bd || 0, ri: o.ri || 0, rn: o.rn || 1,
-    connL: !!o.connL, connR: !!o.connR, top: !!o.top, k: 1, fl: 0, g0: o.g0 || 0, g1: o.g1 || 0 });
-  // 机身起伏幅度：双足大、四足小；混有履带就不起伏
+  // 腿式底盘（有腿、要画远侧腿的底盘）；amp 是旧逐格画法留下的起伏幅度，整件四足 / 真双足改用 quadBob / bipedBob
   const BOB = { biped: 3, quad: 1 };
   const gfOf = (a) => ((Math.round(a / (Math.PI * 2 / 12)) % 12) + 12) % 12;   // 腿的步态帧：战斗给的是步态角（每走 4 × 步幅一圈），12 帧一循环
   // 底盘顶部的车体底板：与上方模块的框架同色相接；没有模块压着时才描顶边
@@ -827,9 +824,12 @@ SA.SPR = (() => {
     // 腿式底盘分两层：近侧腿画在车体前；远侧腿压暗、向右上错位，画在整个车体后面 → 伪立体纵深。
     // part: 'far' 只画远侧腿 / 'near' 只画机身 + 近侧腿 / 省略 = 都画（卡片图标用）。bd = 机身随步态下沉的像素
     // 双足 T1 · 工装 Mk.II：箱形梁大腿 + 液压撑杆 + 双支杆小腿 + 带肋平脚（反关节）
+    // 真双足 2×4（48×96，tools/chassis-lab.html 的画法）：上两行是带陀螺仪的胯（腰挂位有模块时伸出法兰板压住），
+    // 下两行是一对放大的长腿。ga = 步态角档（12 档一圈），sd = 步幅，g2 = [近侧脚, 远侧脚] 的悬挂伸缩，tt = 陀螺转动的时间档
     biped(x, y, o) {
-      const LL = SA.LEGLAB, D = LL.DESIGNS.find(e => e.id === BIPED_LOOK[(o.st || 1) - 1]).d, pn = penFor(ctx.canvas);
-      LL.drawCell(pn, ctx, D, x, y, legOpts(o), o.part || undefined);
+      const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
+      LL.bipedArt(pn, x, y, { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2, stride: o.sd || 16, bd: o.bd || 0, g: o.g2 || [0, 0],
+        legs: BIPED_LOOK[(o.st || 1) - 1], wL: !!o.wL, wR: !!o.wR, phase: (o.ga || 0) * 4, t: (o.tt || 0) / 6 }, o.part || undefined);
       pn.flush(ctx);
     },
     // 四足整件 4×2（96×48，tools/chassis-lab.html 的画法）：一整块蜘蛛甲壳 + 四条腿，后腿往后张、前腿往前张，对角两条同相大步交替。
@@ -849,7 +849,7 @@ SA.SPR = (() => {
   const BOT = 14;   // 精灵底下留的空：悬挂伸长时轮子 / 脚落到格子下面也画得下
   const LEFT = 16;  // 精灵左边留的空：蜘蛛腿往后张的脚伸到格子外面也画得下
   // 四足整件的腿张得很开（脚离机身 ±步幅 + 伸出量），膝盖也高过机身：画布四周多留边
-  const PAD = { quad: { l: 56, t: 40, r: 64 } };
+  const PAD = { quad: { l: 56, t: 40, r: 64 }, biped: { l: 48, t: 24, r: 56 } };
   const padOf = (id) => PAD[id] || { l: LEFT, t: TOP, r: 32 };
   const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
   // 悬挂偏移按整像素缓存；没有偏移就不写进键里（和原来的缓存一致）
@@ -880,7 +880,14 @@ SA.SPR = (() => {
         if (o.g4 && o.g4.some(v => v)) q.g4 = o.g4.map(v => Math.round((v || 0) / 2) * 2);
         break;
       }
-      case 'biped': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; gndQ(q, o, 2); break;
+      case 'biped': {   // 真双足：步态角 12 档、步幅 4px 一档、两只脚的悬挂 2px 一档、陀螺 6 档 / 秒（6 秒一轮）
+        const A = o.gait || 0;
+        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 4) * 4;
+        q.bd = o.bd || 0; q.part = o.part || null; q.tt = Math.floor((o.t || 0) * 6) % 36;
+        if (o.wL) q.wL = true; if (o.wR) q.wR = true;
+        if (o.g2 && o.g2.some(v => v)) q.g2 = o.g2.map(v => Math.round((v || 0) / 2) * 2);
+        break;
+      }
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
     if (o.up) q.up = Math.min(3, o.up);   // 改装等级 → 挂件
@@ -1062,7 +1069,7 @@ SA.SPR = (() => {
   // ---------- 车体框架：把所有舱位连成一台机器 ----------
   // 按子格画：同一个模块内部不画缝，相邻两个模块之间打铆钉，露在外面的边描黑
   function hull(O, cx, cy) {
-    const solid = (o) => o && !SA.isRam(o.cell.id);
+    const solid = (o) => o && !SA.isRam(o.cell.id) && SA.MODULES[o.cell.id].layer !== 'chassis';   // 双足的胯在车身行里，但不算车体框架
     const at = (r, c) => (r >= 0 && r < K.ROWS - 2 && c >= 0 && c < K.COLS ? O[r][c] : null);
     const body = (fn) => { for (let r = 0; r < K.ROWS - 2; r++) for (let c = 0; c < K.COLS; c++) if (solid(O[r][c])) fn(r, c, cx(c), cy(r), O[r][c]); };
     body((r, c, x, y) => R(x, y, S, S, P.iron[1]));
@@ -1090,6 +1097,14 @@ SA.SPR = (() => {
     return pool[key];
   }
 
+  // 双足远侧腿单独画在一层上（同尺寸），再垫到车体下面
+  const farLayers = new Map();
+  function farLayer(cv) {
+    let f = farLayers.get(cv);
+    if (!f) { f = document.createElement('canvas'); farLayers.set(cv, f); }
+    if (f.width !== cv.width || f.height !== cv.height) { f.width = cv.width; f.height = cv.height; }
+    return f;
+  }
   function renderVehicle(veh, o = {}) {
     const cv = vehCanvas(o.key || 'default');
     const g = cv.getContext('2d');
@@ -1100,7 +1115,8 @@ SA.SPR = (() => {
     const isBlocked = (r, c) => blocked.some(b => b.r === r && b.c === c);
     const cx = (c) => PADX + c * S, cy = (r) => r * S;
     const O = SA.V.occ(veh, 'body');
-    const CH = K.ROWS - 2;   // 底盘锚点行
+    // 底盘锚点行：履带 / 四足在倒数第二行，真双足 2×4 在倒数第四行
+    const CH = SA.V && SA.V.chassisRowOf ? SA.V.chassisRowOf(veh) : K.ROWS - 2;
 
     // 底盘行：履带任意一段被毁 → 整条掉链；腿式底盘的步态决定机身下沉量 bd
     const base = veh.body[CH];
@@ -1109,12 +1125,15 @@ SA.SPR = (() => {
     const dyn = o.dyn || null;   // SA.Dyn.animator：战斗里提供行驶相位、后坐、供弹；改装台 / 预览不传就是静止
     const phase = dyn ? dyn.phase : (o.phase || 0);
     // 整件四足：dyn.phase 是步态角（战斗里按走过的距离 ÷ (4 × 步幅) 推进一圈），步幅跟着车速变；机身起伏按 quadBob
-    const hasQuad = base.some(x => x && x.id === 'quad' && x.hp > 0);
+    const hasQuad = base.some(x => x && x.id === 'quad' && x.hp > 0), bipC = base.findIndex(x => x && x.id === 'biped'), hasBiped = bipC >= 0 && base[bipC].hp > 0;
     const stride = (hasQuad ? SA.LEGLAB.quadStride : SA.LEGLAB.strideFor)(o.speed || 0), gaitA = Math.round(phase / (Math.PI * 2 / 12)) * (Math.PI * 2 / 12);
     const bd = hasQuad ? SA.LEGLAB.quadBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 4) * 4 })
+      : hasBiped ? SA.LEGLAB.bipedBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 4) * 4 })
       : amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(phase) : 0) / 12 * Math.PI * 2)) * amp);
     const isChassis = (id) => SA.MODULES[id].layer === 'chassis';
-    const dy = (id, r) => (r === CH && isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
+    const dy = (id, r) => (isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
+    // 双足的腰挂位（胯层左右各一大格）上有没有模块：有就让胯伸出法兰板压住
+    const waist = (c0) => { for (let r = CH; r < CH + 2; r++) for (let c = c0; c < c0 + 2; c++) { const x = c >= 0 && c < K.COLS && O[r][c]; if (x && x.cell.id !== 'biped') return true; } return false; };
 
     const modOpts = (cell, r, c) => {
       const m = SA.MODULES[cell.id];
@@ -1134,6 +1153,8 @@ SA.SPR = (() => {
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
         phase, gait: phase, stride,
         g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
+        g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
+        wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
         connL: same(c - w),
         connR: same(c + w),
         ...run(row, c),
@@ -1154,7 +1175,7 @@ SA.SPR = (() => {
 
     // 远侧腿：在整个车体之前画，被车体遮住一部分
     base.forEach((cell, c) => {
-      if (!cell || !BOB[cell.id]) return;
+      if (!cell || !BOB[cell.id] || cell.id === 'biped') return;
       const r = CH, draw = () => { g.save(); if (cell.id === 'quad' && o.ghostLegs) g.globalAlpha = 0.35; drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' }); g.restore(); ctx = g; };
       if (cell.hp > 0) draw(); else dead(draw);
     });
@@ -1163,8 +1184,18 @@ SA.SPR = (() => {
     // 整件四足（pass 3）：甲壳和近侧腿压在整个车身前面（同 tools/chassis-lab.html），膝盖高过机身也不会被模块挡住
     // 撞击件（pass 4）画在四足的腿前面，装在车头的铲斗、撞角不会被腿挡住。
     // o.ghostLegs（改装台正在摆放 / 拖动模块时）：四足的腿画成半透明，看得清底盘两侧的格子
-    const order = (id) => (SA.isRam(id) ? 4 : id === 'quad' ? 3 : SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
+    const order = (id) => (SA.isRam(id) ? 4 : id === 'quad' || id === 'biped' ? 3 : SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
     for (const pass of [0, 1, 2, 3, 4]) {
+      // 真双足：躯干画完（pass 3 之前）把露在外面的角切成斜角，再把远侧腿垫到最底下（destination-over），切角不会切到腿
+      if (pass === 3 && bipC >= 0) {
+        g.save(); g.translate(0, bd); SA.LEGLAB.torsoCuts(g, veh, bipC, PADX); g.restore();
+        const fl = farLayer(cv), cell = base[bipC], fg = fl.getContext('2d');
+        fg.clearRect(0, 0, fl.width, fl.height);
+        fg.save(); if (o.ghostLegs) fg.globalAlpha = 0.35; if (cell.hp <= 0) fg.filter = 'brightness(0.45)';
+        drawModule(fg, 'biped', cx(bipC), cy(CH), { ...modOpts(cell, CH, bipC), part: 'far' });
+        fg.restore();
+        g.save(); g.globalCompositeOperation = 'destination-over'; g.drawImage(fl, 0, 0); g.restore(); ctx = g;
+      }
       eachCell(veh.body, (cell, r, c) => {
         if (order(cell.id) !== pass) return;
         const x = cx(c), y = cy(r) + dy(cell.id, r);
@@ -1173,16 +1204,16 @@ SA.SPR = (() => {
         if (cell.hp <= 0) {
           ctx = g;
           if (cell.id === 'track') { drawModule(g, cell.id, x, y, mo); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
-          else if (cell.id === 'quad') dead(() => drawModule(g, cell.id, x, y, mo));
+          else if (cell.id === 'quad' || cell.id === 'biped') dead(() => drawModule(g, cell.id, x, y, mo));
           else if (isChassis(cell.id) || SA.isRam(cell.id)) { dead(() => drawModule(g, cell.id, x, y, mo)); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
           else scaled(g, x, y, cell.id, wreck);
           return;
         }
-        if (cell.id === 'quad' && o.ghostLegs) {
+        if ((cell.id === 'quad' || cell.id === 'biped') && o.ghostLegs) {
           drawModule(g, cell.id, x, y, { ...mo, part: 'shell' });
           g.save(); g.globalAlpha = 0.35; drawModule(g, cell.id, x, y, { ...mo, part: 'legs' }); g.restore(); ctx = g;
         } else drawModule(g, cell.id, x, y, mo);
-        if (cell.id !== 'quad') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
+        if (cell.id !== 'quad' && cell.id !== 'biped') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
     }
@@ -1284,7 +1315,7 @@ SA.SPR = (() => {
   // 模块卡片预览（含炮管伸出），主体模块带一圈车体框架
   function moduleCanvas(id, scale = 1, mt = 1) {
     // 整件四足的腿往前后张、膝盖高过机身：卡片左右上都多留一点，整只蜘蛛都画得进去
-    const ex = id === 'quad' ? { l: 24, t: 18, r: 0 } : { l: 0, t: 0, r: 0 };
+    const ex = id === 'quad' ? { l: 24, t: 18, r: 0 } : id === 'biped' ? { l: 24, t: 4, r: 16 } : { l: 0, t: 0, r: 0 };
     const f = SA.fp(id), fw = f.w * S, fh = f.h * S, W = Math.max(C, fw) + 32 + ex.l + ex.r, H = Math.max(C, fh) + 4 + ex.t, oy = H - 2 - fh, ox = 2 + ex.l;   // 小模块按实际大小画，底边对齐
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;

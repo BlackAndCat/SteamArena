@@ -836,11 +836,14 @@ SA.LEGLAB = (() => {
       L.gy = L.hy + (ground - (far ? 3 : 0) + (far ? g[1] : g[0]) - L.hy) / k;
       drawLeg(pn, D, L, lo, k);
     };
-    if (part !== 'near') leg(true);
+    // part：'far' 远侧腿 / 'near' 胯 + 近侧腿 / 'shell' 只画胯 / 'legs' 只画近侧腿 / 省略 = 都画
+    if (!part || part === 'far') leg(true);
     if (part === 'far') return;
-    pelvis(pn, cx, y + bd, { legId: e.id, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
-    if (D.mid) { const top = y + bd + 30, back = pn.around(k * 0.8, cx + 2, top); D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, lo); back(); }
-    leg(false);
+    if (part !== 'legs') {
+      pelvis(pn, cx, y + bd, { legId: e.id, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
+      if (D.mid) { const top = y + bd + 30, back = pn.around(k * 0.8, cx + 2, top); D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, lo); back(); }
+    }
+    if (part !== 'shell') leg(false);
   }
 
   // 真双足的躯干切角：画好的车体上，把露在外面的角切成斜角，箱子堆读起来像一副躯干（收腰、切肩）。

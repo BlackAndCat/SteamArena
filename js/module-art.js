@@ -8,7 +8,7 @@ const SA = window.SA;
 SA.MODULE_ART = {
   track: { vis: [1, 3, 5], susp: { pts: [13, 37] } },
   quad: { vis: [1, 3, 5], contactPts: { nearRear: 18, nearFront: 78, farRear: 20, farFront: 80 }, susp: { splay: 30, hips: [22, 30] } },
-  biped: { vis: [1, 3, 5], susp: { pts: [18, 32] } },
+  biped: { vis: [1, 3, 5], susp: { pts: [26, 34] } },   // 真双足的近侧 / 远侧脚（legs.js bipedArt，模块内 x）
   cockpit: { vis: [1, 5] },
   helmet: { vis: [1, 5] },
   cockpit_pair: { art: 'helmet', placeholder: '双人' },
