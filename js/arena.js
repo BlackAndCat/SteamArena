@@ -131,8 +131,9 @@ SA.Arena = (() => {
     const out = [];
     if (s.problems.length) out.push(h('div', { class: 'warn bad' }, h('b', {}, '还不能出战：'), s.problems.join('；'), ' ',
       SA.Camp.has('garage') ? h('button', { class: 'btn small', onclick: () => SA.nav('garage') }, '去车间处理') : null));
-    if (hurt.length) out.push(h('div', { class: 'warn' }, `${hurt.length} 个模块受损，`, h('button', { class: 'btn small', onclick: () =>
-      SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { for (const c of hurt) c.hp = SA.V.maxHp(c); SA.UI.toast('全部修好了'); render(); } }) }, `全部修理 ${money(cost)}`)));
+    if (hurt.length) out.push(h('div', { class: 'warn' }, `${hurt.length} 个模块受损，`, h('button', { class: 'btn small', title: `最贵的几项：
+${SA.UI.repairBrief(hurt)}`, onclick: () =>
+      SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, lines: [SA.UI.repairList(hurt)], onPaid: () => { for (const c of hurt) c.hp = SA.V.maxHp(c); SA.UI.toast('全部修好了'); render(); } }) }, `全部修理 ${money(cost)}`)));
     const warns = s.warnings.filter(w => !/损毁/.test(w));
     if (warns.length) out.push(h('div', { class: 'warn' }, warns.join('；')));
     return out;

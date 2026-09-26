@@ -558,3 +558,31 @@ body.sa-text-editing [data-sa-text-editable]:hover { outline-color: var(--brass3
 @media (max-width: 640px) {
   #sa-text-manager { right: 8px; bottom: 8px; width: calc(100vw - 16px); }
 }
+
+/* 修理费（W2）：四档，一档一色——压力表绿 便宜 → 黄铜 一般 → 炉火橙 较贵 → 炉火红 昂贵 */
+.rp-1 { --rp: var(--gauge2); } .rp-2 { --rp: var(--brass2); } .rp-3 { --rp: var(--fire2); } .rp-4 { --rp: #ff5a3c; }
+.rp { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+.mrow .ks .rp { padding: 0 5px; background: var(--dark1); border: 1px solid var(--dark3); }
+.rp em { font-style: normal; font-size: 11px; color: var(--muted); margin-right: 2px; }
+.rp i { width: 5px; height: 7px; background: var(--dark3); box-shadow: inset -1px -1px 0 rgba(7, 8, 12, .5); }
+.rp-1 i:nth-of-type(-n+1), .rp-2 i:nth-of-type(-n+2), .rp-3 i:nth-of-type(-n+3), .rp-4 i:nth-of-type(-n+4) { background: var(--rp); }
+.chip.rp-chip { color: var(--rp); border-color: var(--rp); }
+.rp-sum { margin-top: 8px; padding: 8px; background: var(--dark1); border-left: 3px solid var(--fire2); }
+.rp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+.rp-head .muted { font-size: 11px; }
+.rp-list { display: grid; gap: 2px; font-size: 12px; margin-bottom: 6px; }
+.rp-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto 64px; align-items: center; gap: 8px; padding: 2px 6px 2px 2px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rp, var(--iron2)) 22%, transparent) var(--f, 0%), transparent var(--f, 0%)); }
+.rp-row .pic { display: grid; place-items: center; width: 34px; height: 24px; background: var(--bg1); border: 1px solid var(--dark0); }
+.rp-row .pic canvas { max-width: 30px; max-height: 20px; }
+.rp-row .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-row .lost { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.rp-row .lost.dead { color: #ff5a3c; font-weight: 700; }
+.rp-row > b { text-align: right; font-variant-numeric: tabular-nums; color: var(--rp, var(--text)); }
+.rp-row.more, .rp-row.total { grid-template-columns: minmax(0, 1fr) 64px; background: none; padding-left: 44px; color: var(--muted); }
+.rp-row.total { border-top: 1px solid var(--dark3); padding-top: 4px; color: var(--text); font-weight: 700; }
+.rp-row.total > b { color: var(--brass3); }
+.rp-net { font-size: 13px; padding: 5px 8px; background: rgba(63, 143, 72, .15); border: 1px solid var(--gauge1); }
+.rp-net b { color: var(--gauge2); }
+.rp-net.bad { background: rgba(184, 57, 27, .18); border-color: var(--fire1); }
+.rp-net.bad b { color: #ff5a3c; }

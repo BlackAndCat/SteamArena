@@ -339,7 +339,7 @@ SA.Editor = (() => {
 
   function repair(cells) {
     const cost = cells.reduce((a, x) => a + SA.S.repairCost(x), 0);
-    SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false,
+    SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, lines: [SA.UI.repairList(cells)],
       onPaid: () => { for (const x of cells) x.hp = SA.V.maxHp(x); st.pick = null; say(`修好了，花费 ${money(cost)}`); changed(); } });
   }
 
@@ -381,7 +381,8 @@ SA.Editor = (() => {
           h('span', { class: `weight ${s.weight > s.load ? 'bad' : ''}`, title: `总重 / 底盘承重 ${SA.tons(s.load)}` }, SA.tons(s.weight)),
           h('span', { class: `flag ${bad ? 'bad' : ''}` }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战'),
           h('span', { class: 'fold' }, st.plateOpen ? '▴' : '▾'))),
-      hurtList.length ? h('button', { class: 'btn small plate-fix', onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
+      hurtList.length ? h('button', { class: 'btn small plate-fix', title: `最贵的几项：
+${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
       st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s)) : null].filter(Boolean));
   }
 
@@ -407,7 +408,7 @@ SA.Editor = (() => {
       const key = st.sel, id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
       ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(mt), ' ',
+          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
             n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`)),
           h('div', { class: 'sub' }, n ? '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下' : '点格子即可直接购买并安装')),
         h('div', { class: 'acts' },
@@ -430,7 +431,7 @@ SA.Editor = (() => {
           `升级为${mu.mat.name} · ${money(mu.cost)}${mu.mat.ingot ? ` + ${SA.INGOTS[mu.mat.ingot].name}` : ''}`) : null;
       ctxEl.append(thumb(pk.id, pk.mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ',
+          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ', SA.UI.repairChip(pk), ' ',
             has('upgrade') ? h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`) : null, ' ',
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
           iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, matBtn && !mu.ok ? mu.why : '点空格子移动；拖到别的模块上对调；拖出车外放回库存'),
@@ -439,7 +440,7 @@ SA.Editor = (() => {
           matBtn,
           has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
             `${upName} ${lv + 1} 级 · ${money(SA.upCost(pk.id, lv + 1))}`) : null,
-          fix.length ? h('button', { class: 'btn small', onclick: () => repair(fix) }, `修理 ${money(cost)}`) : null,
+          fix.length ? h('button', { class: 'btn small', title: SA.UI.repairBrief(fix), onclick: () => repair(fix) }, `修理 ${money(cost)}`) : null,
           h('button', { class: 'btn small', title: 'Delete', onclick: () => removeAt(st.pick) }, pk.hp <= 0 ? `报废 +${money(SA.cellValue({ id: pk.id, mt: pk.mt }) * 0.1)}` : '拆下'),
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.pick = null; renderDock(); } }, '取消')));
       return;
@@ -528,7 +529,7 @@ SA.Editor = (() => {
         h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1, mt)),
         h('span', { class: 'mid' },
           h('span', { class: 'nm' }, m.name, ' ', SA.Camp.matChip(mt)),
-          h('span', { class: 'ks' }, keyStats(id, mt).map(t => h('span', {}, t)))),
+          h('span', { class: 'ks' }, keyStats(id, mt).map(t => h('span', {}, t)), SA.UI.repairPips(id, '修'))),
         n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, '库存'))
           : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
         row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id, key }); });
@@ -741,7 +742,8 @@ SA.Editor = (() => {
     const iss = issueAt(layer, o.r, o.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
     const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
-    return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
+    const fixTxt = cell.hp < SA.V.maxHp(cell) ? ` · 修理 ${money(SA.S.repairCost(cell))}（${SA.UI.repairTier(cell.id).name}）` : '';
+    return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${fixTxt}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
   }
 
   // 未扩建格子的斜线纹理（8×8 平铺）

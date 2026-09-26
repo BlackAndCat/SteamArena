@@ -246,6 +246,7 @@ SA.UI = (() => {
     const d = S();
     const lines = [];
     const pre = [];   // 结算弹窗之前依次弹出的：缴获、解锁
+    const money0 = d.money;   // 结算时和修理费对照：这一场到底赚没赚
     if (res.mode !== 'friendly') {
       d.battles++;
       // 损伤带回车间
@@ -335,11 +336,16 @@ SA.UI = (() => {
       const cost = hurt.reduce((a, c) => a + SA.S.repairCost(c), 0);
       const fixAll = () => { for (const c of hurt) c.hp = SA.V.maxHp(c); toast(`修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
       const after = () => { refresh(); SA.Camp.introIfNew(); };
+      const gain = d.money - money0, net = gain - cost;
       dialog(res.draw ? '平手' : res.win ? '胜利！' : '战败', [
         h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
         h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
         lines.map(l => h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, l)),
-        hurt.length ? h('div', { class: 'warn' }, `${hurt.length} 个模块受损，全部修好 ${money(cost)}`) : null,
+        hurt.length ? h('div', { class: 'rp-sum' },
+          h('div', { class: 'rp-head' }, h('b', {}, `修理费 · ${hurt.length} 个模块受损`), h('span', { class: 'muted' }, '越精密的部件修起来越贵')),
+          repairList(hurt),
+          gain > 0 ? h('div', { class: `rp-net ${net < 0 ? 'bad' : ''}` },
+            `本场进账 ${money(gain)} − 修理 ${money(cost)} = `, h('b', {}, `${net < 0 ? '净亏' : '净赚'} ${money(Math.abs(net))}`)) : null) : null,
       ], [
         hurt.length ? { label: `全部修理 ${money(cost)}`, primary: true, onClick: () => pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { fixAll(); after(); } }) } : null,
         hurt.length && SA.Camp.has('garage') ? { label: '去车间', onClick: () => SA.nav('garage') } : null,
@@ -349,5 +355,44 @@ SA.UI = (() => {
     run(0);
   }
 
-  return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money };
+  // ---------- 修理费呈现（W2，docs/campaign-direction.md §5）----------
+  // 修理费比例（SA.repairRate，astra 定）分四档给玩家看：越精密越贵。"修满" = 这一件（含材料和改装）从报废修到满耐久的钱
+  const RP_TIERS = [[0.06, '便宜'], [0.12, '一般'], [0.2, '较贵'], [Infinity, '昂贵']];
+  function repairTier(id) {
+    const rate = SA.repairRate(id), i = RP_TIERS.findIndex(([x]) => rate <= x + 1e-9);
+    return { n: i + 1, name: RP_TIERS[i][1], rate };
+  }
+  const repairFull = (cell) => Math.max(1, Math.ceil(SA.cellValue(cell) * SA.repairRate(cell.id)));
+  // 四格小扳手刻度：亮几格 = 第几档
+  function repairPips(id, label) {
+    const t = repairTier(id);
+    return h('span', { class: `rp rp-${t.n}`, title: `修理费${t.name}：修满约为部件价值的 ${Math.round(t.rate * 100)}%` },
+      label ? h('em', {}, label) : null, h('i'), h('i'), h('i'), h('i'));
+  }
+  function repairChip(cell) {
+    const t = repairTier(cell.id);
+    return h('span', { class: `chip rp-chip rp-${t.n}`, title: `修理费${t.name}：部件价值 ${money(SA.cellValue(cell))} × ${Math.round(t.rate * 100)}%，按损伤比例计` },
+      `修满 ${money(repairFull(cell))} · ${t.name}`);
+  }
+  // 修理清单：按花费从高到低，最贵的几件单独列出，条的长短 = 占总修理费的比例
+  function repairList(cells, top = 5) {
+    const rows = cells.map(c => ({ c, cost: SA.S.repairCost(c) })).filter(r => r.cost > 0).sort((a, b) => b.cost - a.cost);
+    const total = rows.reduce((a, r) => a + r.cost, 0), rest = rows.slice(top);
+    const row = ({ c, cost }) => {
+      const max = SA.V.maxHp(c), lost = c.hp <= 0 ? '报废' : `损 ${Math.round((1 - c.hp / max) * 100)}%`, t = repairTier(c.id);
+      const pic = SA.SPR.moduleCanvas(c.id, 0.5, c.mt); pic.classList.add('px');
+      return h('div', { class: `rp-row rp-${t.n}`, style: `--f:${(cost / Math.max(1, total) * 100).toFixed(1)}%` },
+        h('span', { class: 'pic' }, pic), h('span', { class: 'nm' }, SA.MODULES[c.id].name, ' ', SA.Camp.matChip(c.mt || 1)),
+        h('span', { class: `lost ${c.hp <= 0 ? 'dead' : ''}` }, lost), repairPips(c.id), h('b', {}, money(cost)));
+    };
+    return h('div', { class: 'rp-list' }, rows.slice(0, top).map(row),
+      rest.length ? h('div', { class: 'rp-row more' }, h('span', { class: 'nm' }, `其余 ${rest.length} 件`), h('b', {}, money(rest.reduce((a, r) => a + r.cost, 0)))) : null,
+      rows.length > 1 ? h('div', { class: 'rp-row total' }, h('span', { class: 'nm' }, '合计'), h('b', {}, money(total))) : null);
+  }
+  // 一行文字版（按钮的鼠标提示用）
+  const repairBrief = (cells) => cells.map(c => [c, SA.S.repairCost(c)]).sort((a, b) => b[1] - a[1]).slice(0, 4)
+    .map(([c, k]) => `${SA.MODULES[c.id].name} ${money(k)}`).join('\n');
+
+  return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
+    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief };
 })();
