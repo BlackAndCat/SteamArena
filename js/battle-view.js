@@ -100,6 +100,30 @@ SA.BattleView.create = function createBattleView(api) {
     z.fillStyle = P.bg[1]; z.fillRect(0, GE - S0, TW, 14);
     for (let i = 0; i < TW; i += 48) { z.fillStyle = P.bg[0]; z.fillRect(i, GE - 6 - S0, 8, 20); }
     z.drawImage(stands, 0, 0, TW, stands.height, TW, 0, TW, stands.height);
+    // 竞技场外（遭遇战）：没有看台和观众，换成工厂砖墙 + 煤气路灯 + 管道，墙头只有铁丝和烟囱影子
+    const [wall, wz] = mk(TW * 2, GE + 14 - S0);
+    const wTop = GS + 10 - S0, wBot = GE - S0;
+    wz.fillStyle = P.bg[2]; wz.fillRect(0, wTop, TW, wBot - wTop);
+    for (let yy = wTop; yy < wBot; yy += 6) {   // 砖缝：错缝砌
+      wz.fillStyle = P.bg[1]; wz.fillRect(0, yy, TW, 1);
+      for (let i = ((yy - wTop) / 6) % 2 ? 6 : 0; i < TW; i += 12) wz.fillRect(i, yy, 1, 6);
+      for (let i = 0; i < TW; i += 12) if (rr() < 0.12) { wz.fillStyle = P.bg[3]; wz.fillRect(i + 2, yy + 2, 8, 3); wz.fillStyle = P.bg[1]; }
+    }
+    wz.fillStyle = P.bg[3]; wz.fillRect(0, wTop - 4, TW, 4); wz.fillStyle = P.bg[1]; wz.fillRect(0, wTop, TW, 1);   // 墙头压顶
+    for (let i = 0; i < TW; i += 7) { wz.fillStyle = P.bg[1]; wz.fillRect(i, wTop - 9, 1, 5); }   // 铁丝桩
+    wz.fillStyle = P.bg[1]; wz.fillRect(0, wTop - 8, TW, 1);
+    for (let i = 0; i < TW; i += 150) {   // 两根横走的管道 + 法兰
+      wz.fillStyle = P.bg[4]; wz.fillRect(i, wTop + 14, 110, 4); wz.fillStyle = P.bg[5]; wz.fillRect(i, wTop + 14, 110, 1);
+      for (let k = 0; k < 110; k += 36) { wz.fillStyle = P.bg[3]; wz.fillRect(i + k, wTop + 12, 3, 8); }
+    }
+    for (let i = 40; i < TW; i += 120) {   // 煤气路灯：灯柱 + 暖黄灯罩（唯一的一点暖光）
+      wz.fillStyle = P.bg[0]; wz.fillRect(i, wTop - 22, 3, wBot - wTop + 22); wz.fillRect(i - 5, wTop - 24, 13, 3);
+      wz.fillStyle = P.fire[1]; wz.fillRect(i - 3, wTop - 21, 9, 6); wz.fillStyle = P.fire[3]; wz.fillRect(i - 1, wTop - 20, 5, 3);
+    }
+    for (let i = 90; i < TW; i += 260) { wz.fillStyle = P.bg[1]; wz.fillRect(i, wTop + 22, 44, wBot - wTop - 22); wz.fillStyle = P.bg[0];   // 关着的厂门
+      for (let k = 4; k < 44; k += 8) wz.fillRect(i + k, wTop + 24, 1, wBot - wTop - 26); }
+    wz.fillStyle = P.bg[1]; wz.fillRect(0, wBot, TW, 14);
+    wz.drawImage(wall, 0, 0, TW, wall.height, TW, 0, TW, wall.height);
     // 地面：世界坐标里平铺（跟车 1:1 移动）
     const F0 = GE + 14;
     const [floor, f] = mk(TW, H - F0);
@@ -108,7 +132,7 @@ SA.BattleView.create = function createBattleView(api) {
     f.fillStyle = P.bg[2]; f.fillRect(0, GROUND - F0, TW, H - GROUND);
     f.fillStyle = P.bg[4]; f.fillRect(0, GROUND - F0, TW, 1);
     for (let i = 0; i < TW; i += 48) { f.fillStyle = P.bg[1]; f.fillRect(i, GROUND - F0 + 18, 30, 4); }
-    return { sky, line, stands, floor, S0, F0 };
+    return { sky, line, stands, wall, floor, S0, F0 };
   }
   // 圆筒映射：屏幕列 sx → 纹理坐标 rot + asin(u·K0)·R（u = 离屏幕中心的比例）。中间一个屏幕像素 = 1/z 个纹理像素（和世界一样的缩放），两边压缩
   // 这里画在世界层里：1 个画布像素 = 1 个纹理像素（和车一样），最后和车一起整体放大，像素大小一致
@@ -131,7 +155,7 @@ SA.BattleView.create = function createBattleView(api) {
     const sw = Math.max(vw, W);   // 天空不跟镜头缩放：拉远时也铺满
     g.drawImage(BD.sky, 0, 0, W, HZ, Math.round(vw / 2 - sw / 2), -oy, sw, HZ);
     drum(BD.line, 0, cam.x * 0.12, vw, oy);
-    drum(BD.stands, BD.S0, cam.x * 0.45, vw, oy);
+    drum(B.opts && B.opts.mode === 'side' ? BD.wall : BD.stands, BD.S0, cam.x * 0.45, vw, oy);   // 遭遇战在竞技场外：没有看台
     const bot = GE + 14 - oy;   // 从画面顶部一直压到看台底部，不留硬边
     const gr = g.createLinearGradient(0, 0, vw, 0);
     gr.addColorStop(0, 'rgba(7,8,12,0.6)'); gr.addColorStop(0.2, 'rgba(7,8,12,0)'); gr.addColorStop(0.8, 'rgba(7,8,12,0)'); gr.addColorStop(1, 'rgba(7,8,12,0.6)');
@@ -825,7 +849,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (B.hudT > 0) return;
     B.hudT = 0.1;
     updPanel(hud.p, B.p); updPanel(hud.e, B.e);
-    hud.timer.innerHTML = `${Math.max(0, Math.ceil(K.BATTLE_TIME - B.t))}<small>${B.ter.def.name}</small>`;
+    hud.timer.innerHTML = `${Math.max(0, Math.ceil(K.BATTLE_TIME - B.t))}<small>${B.opts.mode === 'side' ? '竞技场外 · ' : B.opts.replay ? '重打 · ' : ''}${B.ter.def.name}</small>`;
     hud.info.innerHTML = infoText();
     renderSlots();
   }

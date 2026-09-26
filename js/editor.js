@@ -374,9 +374,9 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       const key = st.sel, id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
       ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
-            n ? h('span', { class: 'chip' }, `库存 ${n}`) : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`)),
-          h('div', { class: 'sub' }, n ? '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下' : '点格子即可直接购买并安装')),
+          h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
+            n ? h('span', { class: 'chip' }, `库存 ${n}`) : SA.isUnique(id) ? h('span', { class: 'chip no' }, '只能缴获') : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`)),
+          h('div', { class: 'sub' }, n ? (SA.isUnique(id) ? '唯一件：不能再买到，卖掉或报废就没有了' : '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下') : '点格子即可直接购买并安装')),
         h('div', { class: 'acts' },
           mt === SA.buyMt(id) && buyable(id) ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(SA.buyPrice(id))}`) : null,
           n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, `卖 ${money(SA.cellValue({ id, mt }) * 0.5)}`) : null,
@@ -397,7 +397,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           `升级为${mu.mat.name} · ${money(mu.cost)}${mu.mat.ingot ? ` + ${SA.INGOTS[mu.mat.ingot].name}` : ''}`) : null;
       ctxEl.append(thumb(pk.id, pk.mt),
         h('div', { class: 'info' },
-          h('div', {}, h('b', {}, m.name), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ', SA.UI.repairChip(pk), ' ',
+          h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(pk.id), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? '已损毁' : `耐久 ${pk.hp}/${max}`), ' ', SA.UI.repairChip(pk), ' ',
             has('upgrade') ? h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: `${upName} ${lv}/${SA.K.UP_MAX} 级` }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`) : null, ' ',
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
           iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, matBtn && !mu.ok ? mu.why : '点空格子移动；拖到别的模块上对调；拖出车外放回库存'),
@@ -407,7 +407,9 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: `耐久 +${Math.round(SA.upHp(pk.id) * 100)}%，重量 +${SA.K.UP_KG} kg`, onclick: () => upgrade(pk) },
             `${upName} ${lv + 1} 级 · ${money(SA.upCost(pk.id, lv + 1))}`) : null,
           fix.length ? h('button', { class: 'btn small', title: SA.UI.repairBrief(fix), onclick: () => repair(fix) }, `修理 ${money(cost)}`) : null,
-          h('button', { class: 'btn small', title: 'Delete', onclick: () => removeAt(st.pick) }, pk.hp <= 0 ? `报废 +${money(SA.cellValue({ id: pk.id, mt: pk.mt }) * 0.1)}` : '拆下'),
+          h('button', { class: 'btn small', title: 'Delete', onclick: () => (pk.hp <= 0 && SA.isUnique(pk.id)
+            ? uniqueConfirm(`报废唯一件「${m.name}」？`, '报废以后就再也拿不到了。修好它只要付修理费。', '仍然报废', () => removeAt(st.pick))
+            : removeAt(st.pick)) }, pk.hp <= 0 ? `报废 +${money(SA.cellValue({ id: pk.id, mt: pk.mt }) * 0.1)}` : '拆下'),
           h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.pick = null; renderDock(); } }, '取消')));
       return;
     }
@@ -428,7 +430,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     if (st.dock === 'bps') {
       toolsEl.append(title('蓝图库', h('button', { class: 'btn small', onclick: () => setDock('mods') }, '← 模块清单')),
         h('div', { class: 'panel-row' },
-          h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '示例']].map(([k, n]) =>
+          h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '分享码示例']].map(([k, n]) =>
             h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
           h('button', { class: 'btn small', onclick: importDialog }, '导入分享码')));
       return;
@@ -498,7 +500,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           title: `${m.desc}\n${SA.UI.statLine(id, mt)}`, onclick: () => selectInv(key) },
         h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1, mt)),
         h('span', { class: 'mid' },
-          h('span', { class: 'nm' }, m.name, ' ', SA.Camp.matChip(mt)),
+          h('span', { class: 'nm' }, m.name, ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt)),
           h('span', { class: 'ks' }, keyStats(id, mt).map(t => h('span', {}, t)), SA.UI.repairPips(id, '修'))),
         n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, '库存'))
           : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
@@ -542,7 +544,9 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       st.bp = SA.Blueprints.all().find(b => b.kind === 'mine').key;
       say(`已存为蓝图「${nextName}」`);
       renderAll();
-    } }, h('span', { class: 'plus' }, '＋'), h('span', { class: 'mid' }, h('span', { class: 'nm' }, '存为蓝图'), h('span', { class: 'muted' }, '把当前车辆存一份，随时一键换回来'))));
+    } }, h('span', { class: 'plus' }, '＋'), h('span', { class: 'mid' }, h('span', { class: 'nm' }, '存为蓝图'), h('span', { class: 'muted' }, '把当前车辆存一份，随时一键换回来'))),
+      h('button', { class: 'bprow add share', title: '生成当前车辆的分享码', onclick: () => shareDialog(veh().name, SA.V.encode(veh()), veh()) },
+        h('span', { class: 'plus' }, '⇪'), h('span', { class: 'mid' }, h('span', { class: 'nm' }, '分享当前车辆'), h('span', { class: 'muted' }, '生成分享码，发给别人粘贴导入'))));
     for (const bp of bpList()) {
       const p = SA.Blueprints.plan(bp);
       invEl.append(h('button', { class: `bprow ${st.bp === bp.key ? 'sel' : ''}`, title: bp.desc || bp.name,
@@ -550,7 +554,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       bpPic(bp, 1),
       h('span', { class: 'mid' },
         h('span', { class: 'nm' }, bp.name),
-        h('span', { class: 'ks' }, h('span', { class: `kind-${bp.kind}` }, bp.kind === 'cloud' ? `云端 · ${bp.author}` : KIND[bp.kind]),
+        h('span', { class: 'ks' }, h('span', { class: `kind-${bp.kind}` }, bp.kind === 'cloud' ? `示例 · ${bp.author}` : KIND[bp.kind]),
           h('span', { class: p.cost ? 'gold' : '' }, p.cost ? `需 ${money(p.cost)}` : '库存够用')))));
     }
   }
@@ -560,7 +564,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     if (!bp) {
       ctxEl.append(h('div', { class: 'info' },
         h('div', {}, h('b', {}, '蓝图库 · 分享码车库')),
-        h('div', { class: 'sub' }, '在右边选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「导入分享码」把别人的车存进来。')));
+        h('div', { class: 'sub' }, '在右边选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「分享当前车辆」生成分享码；「导入分享码」把别人的车存进来。')));
       return;
     }
     const v = SA.V.fromLayout(bp.name, bp), s = SA.V.stats(v), p = SA.Blueprints.plan(bp);
@@ -574,33 +578,73 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     } }, '删除') : null;
     ctxEl.append(bpPic(bp, 0.5),
       h('div', { class: 'info' },
-        h('div', {}, nameIn, ' ', h('span', { class: `chip kind-${bp.kind}` }, bp.kind === 'cloud' ? `云端 · ${bp.author}` : KIND[bp.kind]), ' ', h('span', { class: 'chip' }, `评分 ${s.rating}`)),
+        h('div', {}, nameIn, ' ', h('span', { class: `chip kind-${bp.kind}` }, bp.kind === 'cloud' ? `分享码示例 · ${bp.author}` : KIND[bp.kind]), ' ', h('span', { class: 'chip' }, `评分 ${s.rating}`)),
         h('div', { class: `sub ${s.canDeploy ? '' : 'err'}` }, bp.desc || (s.canDeploy ? '可以直接出战' : s.problems[0]))),
       h('div', { class: 'acts' },
         h('button', { class: 'btn small primary', onclick: () => SA.Blueprints.apply(bp, done) }, p.cost ? `应用 · ${money(p.cost)}` : '应用'),
         bp.kind === 'mine' ? h('button', { class: 'btn small', title: '用当前车辆覆盖这张蓝图', onclick: () => { SA.Blueprints.overwrite(bp.index); say('已用当前车辆覆盖'); renderAll(); } }, '覆盖') : null,
-        bp.kind !== 'official' ? h('button', { class: 'btn small', title: '复制分享码；不会上传到云端', onclick: () => {
-          const code = bp.kind === 'mine' ? SA.Blueprints.share(bp) : bp.code;
-          if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-          say('分享码已复制');
-        } }, bp.kind === 'mine' ? '分享' : '复制码') : null,
+        bp.kind !== 'official' ? h('button', { class: 'btn small', title: '生成这台车的分享码，发给别人粘贴导入', onclick: () => shareDialog(bp.name, bp.kind === 'mine' ? SA.Blueprints.share(bp) : bp.code, v) }, '分享码') : null,
+        bp.kind === 'cloud' ? h('button', { class: 'btn small', title: '把这台示例车存进「我的蓝图」', onclick: () => {
+          const nv = SA.Blueprints.importCode(bp.code);
+          if (!nv) { say('这个分享码读不出来', true); return; }
+          st.bpFilter = 'mine'; st.bp = SA.Blueprints.all()[0].key; say(`已存进我的蓝图：「${nv.name}」`); renderAll();
+        } }, '存为我的') : null,
         del));
   }
 
+  // 分享码是纯字符串：不上传、不经过服务器。导入时边粘贴边预览，读不出来就说清楚
+  function codePreview(v) {
+    if (!v) return h('div', { class: 'code-pv bad' }, h('b', {}, '读不出来'), h('span', { class: 'muted' }, '分享码以 SA2.（或旧的 SA1.）开头，整段复制，不要漏掉末尾。'));
+    const s = SA.V.stats(v), n = Object.values(SA.V.countIds(v)).reduce((a, x) => a + x, 0);
+    const pic = SA.UI.vehiclePreview(v, 1.5); pic.classList.add('bp-pic');
+    return h('div', { class: 'code-pv' }, pic, h('div', {}, h('b', {}, v.name), h('div', { class: 'muted' }, `${n} 个模块 · 评分 ${s.rating} · ${SA.tons(s.weight)}`),
+      s.issues.length ? h('div', { class: 'muted' }, `有 ${s.issues.length} 个模块摆放不合规，应用后要在车间接好`) : null));
+  }
   function importDialog() {
-    const box = h('textarea', { rows: 3, placeholder: '粘贴 SA1. 开头的分享码' });
-    SA.UI.dialog('导入分享码', [h('p', { class: 'muted', style: 'margin-top:0' }, '导入的车会存成你自己的蓝图，可以直接应用；分享出去只需复制这台车的分享码。'), box],
-      [{ label: '导入', primary: true, onClick: () => {
-        const v = SA.Blueprints.importCode(box.value);
-        if (!v) { SA.UI.toast('分享码无效'); return; }
+    const box = h('textarea', { rows: 3, placeholder: '粘贴 SA2. 开头的分享码（旧的 SA1. 码也能读）' });
+    const pv = h('div', { class: 'code-pv-wrap' }, h('span', { class: 'muted' }, '粘贴后这里会显示车的样子。'));
+    let v = null;
+    box.addEventListener('input', () => {
+      const raw = box.value.trim();
+      v = raw ? SA.V.decode(raw) : null;
+      pv.innerHTML = ''; pv.append(raw ? codePreview(v) : h('span', { class: 'muted' }, '粘贴后这里会显示车的样子。'));
+    });
+    SA.UI.dialog('导入分享码', [h('p', { class: 'muted', style: 'margin-top:0' }, '导入的车会存成你自己的蓝图，可以直接应用。分享码只是一段文字，不会上传到任何地方。'), box, pv],
+      [{ label: '导入为我的蓝图', primary: true, onClick: () => {
+        const nv = SA.Blueprints.importCode(box.value);
+        if (!nv) { SA.UI.toast('分享码无效'); return; }
         st.dock = 'bps'; st.bpFilter = 'mine'; st.bp = SA.Blueprints.all()[0].key;
-        say(`已导入「${v.name}」`); renderAll();
+        say(`已导入「${nv.name}」`); renderAll();
       } }]);
     setTimeout(() => box.focus(), 0);
   }
+  // 分享：显示分享码 + 一键复制；剪贴板不可用时代码框已全选，手动 Ctrl+C 也行
+  function shareDialog(name, code, v) {
+    const box = h('textarea', { rows: 3, readOnly: true, class: 'code-out' });
+    box.value = code;
+    const note = h('span', { class: 'muted' });
+    const copy = () => {
+      box.focus(); box.select();
+      const ok = () => { note.textContent = '已复制到剪贴板'; };
+      const fail = () => { note.textContent = '浏览器不让自动复制：代码已经选中，按 Ctrl+C 复制'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(ok, fail);
+      else { try { document.execCommand('copy') ? ok() : fail(); } catch (e) { fail(); } }
+    };
+    SA.UI.dialog(`分享「${name}」`, [h('p', { class: 'muted', style: 'margin-top:0' }, '把这段分享码发给别人，对方在蓝图库点「导入分享码」粘贴即可。只记布局，不含材料和改装。'),
+      v ? codePreview(v) : null, box, h('div', { class: 'code-act' }, h('button', { class: 'btn small primary', onclick: copy }, '复制分享码'), note)], []);
+    setTimeout(() => { box.focus(); box.select(); }, 0);
+  }
 
+  // 唯一件卖掉 / 报废就再也拿不到：先确认一次
+  function uniqueConfirm(title, text, okLabel, onOk) {
+    SA.UI.dialog(title, [h('p', { style: 'margin-top:0' }, text)], [{ label: okLabel, onClick: onOk }], '算了');
+  }
   function sellOne(key) {
     const id = kid(key), mt = kmt(key);
+    if (SA.isUnique(id) && !sellOne.ok) {
+      uniqueConfirm(`卖掉唯一件「${M[id].name}」？`, '唯一件不能在商店买回来，卖掉以后就没有了。', '仍然卖掉', () => { sellOne.ok = true; try { sellOne(key); } finally { sellOne.ok = false; } });
+      return;
+    }
     const x = SA.S.sellStock(id, mt);
     if (!d().inv[key]) st.sel = null;
     say(`卖出 ${fullName(id, mt)}，进账 ${money(x)}`);
@@ -725,7 +769,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
     const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
     const fixTxt = cell.hp < SA.V.maxHp(cell) ? ` · 修理 ${money(SA.S.repairCost(cell))}（${SA.UI.repairTier(cell.id).name}）` : '';
-    return { text: `${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${fixTxt}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
+    return { text: `${SA.isUnique(cell.id) ? '★唯一件 · ' : ''}${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${fixTxt}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
   }
 
   // 未扩建格子的斜线纹理（8×8 平铺）

@@ -1151,7 +1151,7 @@ SA.Battle = (() => {
       survivors.push({ id: cell.id, mt: cell.mt || 1, ...(unique ? { unique: { ...unique, id: cell.id } } : {}) });
     });
     // 真人记录只保存一局的聚合指标，供 P8 校准代理 AI；不写逐帧数据，也不记录友谊赛以外的隐私信息。
-    recordHumanBattle({
+    const humanId = recordHumanBattle({
       terrain: B.opts.terrain || 'flat', outcome: draw ? 'draw' : win ? 'p' : 'e', time: B.t,
       events: B.p.events, metrics: B.metrics, maxHeat: B.p.maxHeat, minWater: B.p.minWater,
       pDealt: B.p.dealt, pTaken: B.p.taken,
@@ -1160,6 +1160,7 @@ SA.Battle = (() => {
       mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
       reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`, surrendered: win && B.surrender === 'accepted',
       playerVehicle: shiftVeh(B.p.v, -B.pShift), survivors, dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
+      humanId,   // 真人记录的 id：结算弹窗的一键评价按钮用它调 SA.HUMAN_BATTLES.feedback
     });
   }
 
@@ -1170,7 +1171,8 @@ SA.Battle = (() => {
     try {
       const raw = localStorage.getItem(KEY), old = raw ? JSON.parse(raw) : {}, rows = Array.isArray(old.records) ? old.records : [];
       const fire = input.events?.fire || 0, hit = input.events?.hit || 0, charged = input.events?.chargedHit || 0, t = Math.max(0, input.time || 0);
-      rows.push({ version: 1, id: `${Date.now()}-${rows.length}`, at: new Date().toISOString(), terrain: input.terrain,
+      const id = `${Date.now()}-${rows.length}`;
+      rows.push({ version: 1, id, at: new Date().toISOString(), terrain: input.terrain,
         outcome: input.outcome, time: t, shots: fire, hits: hit, ricochets: input.events?.ricochet || 0, chargedHits: charged,
         hitRate: fire ? hit / fire : 0, chargedRate: fire ? charged / fire : 0,
         closeRate: t ? (input.metrics?.nearTime || 0) / t : 0, farRate: t ? (input.metrics?.farTime || 0) / t : 0,
@@ -1190,7 +1192,8 @@ SA.Battle = (() => {
         },
         clear() { localStorage.removeItem(KEY); },
       };
-    } catch (e) { /* 记录失败不应阻断战斗结算 */ }
+      return id;
+    } catch (e) { return null; /* 记录失败不应阻断战斗结算 */ }
   }
 
   // ---------- 无画面模拟（tools/sim.html 数值自测用）----------

@@ -271,6 +271,7 @@ SA.UI = (() => {
         h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
         h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
         h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, '重打不发奖励、不计声望，也不留下战损。'),
+        feedbackRow(res.humanId),
       ], [], '继续', () => { refresh(); SA.Camp.introIfNew(); });
       return;
     }
@@ -292,6 +293,7 @@ SA.UI = (() => {
           repairList(hurt),
           gain > 0 ? h('div', { class: `rp-net ${net < 0 ? 'bad' : ''}` },
             `本场进账 ${money(gain)} − 修理 ${money(cost)} = `, h('b', {}, `${net < 0 ? '净亏' : '净赚'} ${money(Math.abs(net))}`)) : null) : null,
+        feedbackRow(res.humanId),
       ], [
         hurt.length ? { label: `全部修理 ${money(cost)}`, primary: true, onClick: () => pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { fixAll(); after(); } }) } : null,
         hurt.length && SA.Camp.has('garage') ? { label: '去车间', onClick: () => SA.nav('garage') } : null,
@@ -393,6 +395,28 @@ SA.UI = (() => {
       diff.length ? h('div', { class: 'na-diff' }, h('span', { class: 'muted' }, '装上这一件：'), diff.map(x => h('span', {}, x))) : null);
   }
 
+  // ---------- 唯一件（K5）：金色星标徽章。规则只看 SA.isUnique / SA.uniqueRule，不在界面里写死哪几件 ----------
+  function uniqueBadge(id, opts = {}) {
+    if (!SA.isUnique(id)) return null;
+    const r = SA.uniqueRule(id), mt = r && r.mt ? SA.MATS[r.mt] : null;
+    return h('span', { class: `chip uniq ${opts.big ? 'big' : ''}`, title: `唯一件：不能购买，只能缴获${mt ? `，固定 ${mt.name}` : ''}${r && r.once ? '，每个存档只能拿一次' : ''}` }, '★ 唯一件');
+  }
+
+  // ---------- 战后一键评价（docs/evolve-plan.md §11，数据由 SA.HUMAN_BATTLES 记录）----------
+  // 三个按钮，点一下就记下，可以改选；记录失败（隐私模式等）就不显示
+  const FEEL = [['好玩', 'fun'], ['无聊', 'dull'], ['不公平', 'unfair']];
+  function feedbackRow(id) {
+    if (!id || !SA.HUMAN_BATTLES || !SA.HUMAN_BATTLES.feedback) return null;
+    const row = h('div', { class: 'feel' }, h('span', { class: 'muted' }, '这一场打得：'));
+    const btns = FEEL.map(([v, k]) => h('button', { class: `btn small feel-${k}`, onclick: () => {
+      if (!SA.HUMAN_BATTLES.feedback(id, v)) { toast('没记下来（本机存储不可用）'); return; }
+      for (const b of btns) b.classList.toggle('on', b === btns[FEEL.findIndex(x => x[0] === v)]);
+      row.querySelector('.feel-thanks').textContent = '谢谢，记下了';
+    } }, v));
+    row.append(...btns, h('span', { class: 'feel-thanks muted' }));
+    return row;
+  }
+
   return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
-    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith: SA.V.statsWith };
+    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith: SA.V.statsWith, uniqueBadge, feedbackRow };
 })();

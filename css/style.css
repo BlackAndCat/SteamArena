@@ -618,3 +618,51 @@ body.sa-text-editing [data-sa-text-editable]:hover { outline-color: var(--brass3
 .brass-plate .na-储能 { --na: var(--fire1); } .brass-plate .na-省水, .brass-plate .na-不耗水散热 { --na: var(--water1); } .brass-plate .na-牵引 { --na: var(--brass0); }
 /* 整件四足的卡片图更宽（腿往前后张）：缩到和其他行差不多宽，名字不被挤掉 */
 .mrow .pic canvas { max-width: 104px; height: auto !important; }
+
+/* 唯一件（K5）：金色星标 + 金边卡片。唯一件是稀有奖励，用黄铜最亮的一档，不和材料色混 */
+.chip.uniq { color: #2a1a05; background: linear-gradient(180deg, var(--brass3), var(--brass2)); border-color: var(--brass0); font-weight: 900; }
+.chip.uniq.big { font-size: 12px; padding: 2px 8px; box-shadow: 0 0 0 1px var(--brass3), 0 0 8px rgba(245, 215, 122, .35); }
+.uniq-card { background: linear-gradient(90deg, rgba(245, 215, 122, .14), var(--dark1) 60%) !important; border: 1px solid var(--brass2) !important; box-shadow: inset 3px 0 0 var(--brass3); }
+.uniq-note { font-size: 11px; color: var(--brass3); margin-top: 2px; }
+.dlg-item.claimed { opacity: .55; }
+.dlg-item.claimed canvas { filter: grayscale(.6); }
+
+/* 出战页：战役按章分组（W4）、重打 / 竞技场外提示、奖励框、遭遇战角标（W3） */
+.ar-ch { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-top: 4px;
+  background: var(--dark2); border: 1px solid var(--dark0); box-shadow: inset 0 1px 0 var(--dark3); font-size: 13px; }
+.ar-ch:hover { background: var(--iron1); }
+.ar-ch .fold { width: 12px; color: var(--brass2); }
+.ar-ch b { flex: 1; }
+.ar-ch.no b { color: var(--muted); }
+.ar-ch.open { border-left: 3px solid var(--brass2); }
+.ar-row.replay { opacity: .82; }
+.ar-row.replay:hover, .ar-row.replay.on { opacity: 1; }
+.ar-row .chip.uniq { padding: 0 5px; }
+.ar-tabs .badge.side { background: var(--gauge2); color: var(--dark0); }
+.ar-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 7px 10px; font-size: 12px; background: var(--dark1); border-left: 3px solid var(--iron3); }
+.ar-note b { color: var(--text); }
+.ar-note.replay { border-left-color: var(--brass2); }
+.ar-note.replay b { color: var(--brass3); }
+.ar-note.side { border-left-color: var(--gauge2); background: repeating-linear-gradient(135deg, var(--dark1) 0 10px, rgba(63, 143, 72, .08) 10px 20px); }
+.ar-note.side b { color: var(--gauge2); }
+.ar-reward { display: grid; gap: 6px; }
+.ar-reward > b { font-size: 12px; color: var(--muted); font-weight: 400; }
+.ar-reward .dlg-item { margin: 0; padding: 6px; background: var(--dark1); border: 1px solid var(--dark3); }
+
+/* 战后一键评价 */
+.feel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--dark3); font-size: 12px; }
+.feel .btn.on.feel-fun { background: var(--gauge1); color: var(--text); box-shadow: inset 0 0 0 2px var(--gauge2); }
+.feel .btn.on.feel-dull { background: var(--iron2); color: var(--text); box-shadow: inset 0 0 0 2px var(--iron4); }
+.feel .btn.on.feel-unfair { background: var(--fire1); color: var(--text); box-shadow: inset 0 0 0 2px var(--fire2); }
+.feel-thanks { margin-left: 4px; }
+
+/* 分享码车库（G）：导入实时预览、分享码输出框 */
+.code-pv-wrap { margin-top: 8px; min-height: 40px; }
+.code-pv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px; margin: 8px 0; background: var(--dark1); border: 1px solid var(--dark3); font-size: 12px; }
+.code-pv .bp-pic { width: 150px; height: 76px; object-fit: contain; background: var(--bg1); border: 1px solid var(--dark0); }
+.code-pv.bad { grid-template-columns: 1fr; border-color: var(--fire1); }
+.code-pv.bad b { color: var(--fire2); }
+textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 12px; word-break: break-all; }
+.code-act { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.bprow.add.share { border-color: var(--iron3); }
+.bprow.add.share .plus { color: var(--glass2); font-size: 26px; }

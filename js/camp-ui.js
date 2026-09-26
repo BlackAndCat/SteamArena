@@ -10,12 +10,15 @@ SA.CampUI = (() => {
   function salvageDialog(survivors, next) {
     const opts = salvageOptions(survivors);
     if (!opts.length) { next(); return; }
-    const name = (x) => `${x.unique ? '唯一件 · ' : ''}${x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name}`;
+    const name = (x) => (x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name);
     SA.UI.dialog('缴获战利品', [
       h('p', { style: 'margin-top:0' }, '按赛会规矩，胜者可以从对手车上拆走一件你还没有的零件：'),
-      h('div', { class: 'salvage' }, opts.map(x => h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(x.id, 1, x.mt),
-        h('div', {}, h('b', {}, name(x)), ' ', matChip(x.mt), h('div', { class: 'muted' }, SA.UI.statLine(x.id, x.mt)))))),
-    ], opts.map(x => ({ label: `拿走 ${name(x)}`, primary: x.mt >= 5, onClick: () => {
+      // 唯一件单独一张金边卡片排在最前：只能在这里拿到，而且每个存档只有一次
+      h('div', { class: 'salvage' }, opts.slice().sort((a, b) => !!b.unique - !!a.unique).map(x => h('div', { class: `dlg-item ${x.unique ? 'uniq-card' : ''}` }, SA.SPR.moduleCanvas(x.id, 1, x.mt),
+        h('div', {}, x.unique ? h('span', { class: 'chip uniq big' }, '★ 唯一件') : null, x.unique ? ' ' : null, h('b', {}, name(x)), ' ', matChip(x.mt),
+          h('div', { class: 'muted' }, SA.UI.statLine(x.id, x.mt)),
+          x.unique ? h('div', { class: 'uniq-note' }, '不能购买，只能缴获；这次不拿，以后重打也不会再掉。') : null)))),
+    ],opts.map(x => ({ label: `拿走 ${x.unique ? '★ ' : ''}${name(x)}`, primary: x.mt >= 5 || !!x.unique, onClick: () => {
       if (!SA.Camp.claimSalvage(x)) { SA.UI.toast(`${name(x)}已经领取过了`); next(); return; }
       SA.UI.toast(`缴获 ${name(x)}，放进库存`);
       next();
