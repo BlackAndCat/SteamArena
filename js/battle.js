@@ -185,7 +185,7 @@ SA.Battle = (() => {
       while (same(a0 - w, cell.id)) a0 -= w;
       while (same(a1 + w, cell.id)) a1 += w;
       if (m.susp && alive(cell)) SA.suspPts(cell.id, (c - a0) / w, (a1 - a0) / w + 1).forEach((px, i) => pts.push({ key: `${cr},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
-      else if (SA.isRam(cell.id) && cr === SA.V.CH) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
+      else if (SA.isRam(cell.id)) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
     }
     if (!pts.length) for (let x = L + T.SETTLE_FALLBACK_INSET; x <= R - T.SETTLE_FALLBACK_INSET; x += T.SETTLE_FALLBACK_STEP) pts.push({ x, up: 0, down: 0 });   // 底盘全毁：整车趴在地上
     for (const p of pts) p.y = groundAt(p.x);
@@ -258,6 +258,8 @@ SA.Battle = (() => {
     const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
     return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
   }
+  // 真双足的腿区从胯锚点下两行开始；按载具实际锚点取值，避免把普通底盘的 CH 当成固定分界。
+  const bipedLegStart = (s) => (SA.V.bipedOf && SA.V.bipedOf(s.v) ? SA.V.bipedOf(s.v).r + 2 : SA.V.CH);
   // 世界坐标 → 子格
   function cellAt(s, x, y) {
     [x, y] = toFlat(s, x, y);   // 先转回车身平放时的坐标
@@ -268,7 +270,7 @@ SA.Battle = (() => {
   // 子格上活着的模块 → { layer, r, c }（锚点）
   function modAt(s, layer, r, c) {
     const o = (layer === 'side' ? s.occS : s.occ)[r][c];
-    return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= SA.V.CH ? 'leg' : 'hip') : null } : null;
+    return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= bipedLegStart(s) ? 'leg' : 'hip') : null } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
@@ -295,6 +297,8 @@ SA.Battle = (() => {
   }
   // 车身不稳的程度：移动速度 + 起步/刹车颠簸，乘底盘晃动系数（四足最稳，双足最晃）
   const shakeOf = (s) => s.sway * (Math.min(1, Math.abs(s.vx) / T.AIM_SPEED_REFERENCE) * T.AIM_SPEED_SPREAD + Math.min(T.AIM_JOLT_MAX, s.jolt) * T.AIM_JOLT_SPREAD);
+  // 拆分兼容：旧的 battle-view.js 仍从全局读取这个 HUD 辅助函数；显式 API 同时在下方传给新视图。
+  if (typeof window !== 'undefined') window.shakeOf = shakeOf;
   // 散布（最大偏角，度）：只有直射武器有；高抛指哪打哪。边走边打、刹车时散布更大；按住蓄力（focus）能把散布缩到 30%
   const spreadDeg = (s, o, w, focus = s.focus) => {
     if (w.m.indirect || (s.prism && focus >= 1)) return 0;
@@ -412,7 +416,7 @@ SA.Battle = (() => {
     if (!(dmg > 0)) return;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return;
-    const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= SA.V.CH ? 'leg' : 'hip') : null);
+    const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= bipedLegStart(def) ? 'leg' : 'hip') : null);
     if (cell.id === 'biped' && zone) {
       if (zone === 'leg') def.bipedLegHp -= dmg;
       else def.bipedHipHp -= dmg;
@@ -627,7 +631,7 @@ SA.Battle = (() => {
             const hit = a === p ? target.ec : target.pc;
             const hitRow = a === p ? target.re : target.r;
             const kick = M.biped.kick || { ram: 12, knock: 0.35, cooldown: 0.7 };
-            damage(d, a, { layer: 'body', r: hit.r, c: hit.c, hitR: hitRow, hitC: hit.c, zone: hitRow >= SA.V.CH ? 'leg' : 'hip' }, kick.ram * SA.ramMul(a.mass * 1000));
+            damage(d, a, { layer: 'body', r: hit.r, c: hit.c, hitR: hitRow, hitC: hit.c, zone: hitRow >= bipedLegStart(d) ? 'leg' : 'hip' }, kick.ram * SA.ramMul(a.mass * 1000));
             if (kick.knock) shove(a, d, kick.knock * T.BIPED_KICK_SHOVE);
             a.events.kick++; a.kickCooldown = kick.cooldown;
           }
@@ -1233,7 +1237,7 @@ SA.Battle = (() => {
   if (SA.BattleView && SA.BattleView.create) view = SA.BattleView.create({
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
     getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt,
-    muzzle, targetAt, aimAngle, spreadDeg, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh,
+    muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh,
     vent, retreat, acceptSurrender, refuseSurrender,
     emit: (type, data) => emit(type, data),
   });
