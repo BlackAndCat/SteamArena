@@ -143,6 +143,7 @@ SA.Camp = (() => {
   // 新做的工具页 / 预览页加到 DEV_TOOLS 里就会出现在面板上
   const DEV_TOOLS = [
     { url: 'tools/sim.html', name: '数值自测', desc: 'AI 对 AI 批量对打：战役关卡检验、对战矩阵 + 评分校准、模块性价比' },
+    { url: 'tools/evolve.html', name: '进化报告', desc: '关卡车进化生成器的结果：选关、强度 × 表现散点图、分类网格、毒瘤车与奇特构筑，可复现、可试驾' },
     { url: 'tools/suspension-lab.html', name: '悬挂与爬坡样机', desc: '履带 / 四足 / 双足过坡：刚体 vs 悬挂（轮组、脚各自伸缩贴地），带悬空统计' },
     { url: 'tools/terrain-lab.html', name: '地形美术样机', desc: '土坡、泥地、货箱各阶段、碎木，以及坡上的车身倾斜（像素画法规则）' },
     { url: 'tools/spritesheet.html', name: '模块精灵表', desc: '全部模块的像素图、整车渲染、炮管后坐与供弹动态帧' },
@@ -170,7 +171,7 @@ SA.Camp = (() => {
   // ---------- 试驾场：任选场地和对手 ----------
   // 对手来源：战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车；可以改材料、AI 性格、枪法。友谊赛：不结算、不留损伤
   const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '' };   // 记住上一次的选择
-  const SRC = [['camp', '战役各关'], ['tour', '终局锦标赛'], ['bp', '官方蓝图'], ['mine', '我的蓝图'], ['cloud', '云车库'], ['street', '随机街头车']];
+  const SRC = [['camp', '战役各关'], ['tour', '终局锦标赛'], ['bp', '官方蓝图'], ['mine', '我的蓝图'], ['cloud', '云车库'], ['evolve', '进化报告'], ['street', '随机街头车']];
   const STYLES = [['', '按对手默认'], ['roam', '游走'], ['rush', '冲锋'], ['kite', '放风筝'], ['turtle', '龟缩']];
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
   function foeList(src) {
@@ -181,9 +182,18 @@ SA.Camp = (() => {
     if (src === 'bp') return SA.OFFICIAL_BLUEPRINTS.map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromAscii(b.name, b.rows, b.sides || []), aim: 0.8 }) }));
     if (src === 'mine') return SA.Blueprints.mine().map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromLayout(b.name, b), aim: 0.8 }) }));
     if (src === 'cloud') return SA.S.Cloud.list().map((e, i) => ({ key: String(i), name: `${e.name} · ${e.author}`, make: () => ({ v: SA.V.decode(e.code), aim: 0.85 }) }));
+    // 进化报告页（tools/evolve.html）点"去试驾场和它打一场"时存进来的车，最新的在前
+    if (src === 'evolve') {
+      let picks = [];
+      try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (e) { picks = []; }
+      return picks.map((p, i) => ({ key: String(i), name: p.from ? `${p.name}（${p.from}）` : p.name,
+        make: () => ({ v: p.cells ? SA.V.fromCells(p.name, p.cells) : SA.V.decode(p.code), aim: 0.8, style: p.style && p.style !== 'wander' ? p.style : null, terrain: p.terrain }) }));
+    }
     return [{ key: 'rand', name: '随手拼一台（每次都不一样）', make: () => { let v = null; for (let k = 0; k < 50 && !v; k++) v = SA.Street.build('街头小车', Math.random() < 0.5); return { v, aim: 0.65 }; } }];
   }
-  function sandbox() {
+  // src：直接打开某个对手来源（进化报告页跳过来时用 'evolve'，并选中最新的那台）
+  function sandbox(src) {
+    if (src && SRC.some(([k]) => k === src)) { SB.src = src; SB.foe = '0'; }
     const list = () => foeList(SB.src);
     if (!list().some(f => f.key === SB.foe)) SB.foe = (list()[0] || {}).key;
     const sel = (opts, cur, onchange) => h('select', { onchange: (e) => { onchange(e.target.value); draw(); } }, opts.map(([v, n]) => h('option', { value: v, selected: String(v) === String(cur) }, n)));

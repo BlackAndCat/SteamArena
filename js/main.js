@@ -5,7 +5,7 @@ window.SA = window.SA || {};
 SA.Text.init({ game: 'steam-arena', locale: 'zh-CN' });
 
 // 版本标记：控制台输入 SA.BUILD，或看启动时打印的那行，确认浏览器跑的是不是最新代码
-SA.BUILD = '2026-09-26 k1k3-data';
+SA.BUILD = '2026-09-26 evolve-report';
 console.info(`蒸汽竞技场 build ${SA.BUILD}`);
 
 SA.current = null;
@@ -34,6 +34,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !document.querySelector('#modal').hidden) SA.UI.closeModal();
   });
+  // 从进化报告页（tools/evolve.html）跳过来：直接打开试驾场，对手来源选"进化报告"
+  if (location.hash === '#sandbox=evolve') { history.replaceState(null, '', location.pathname); SA.Camp.dev.sandbox('evolve'); }
 });
 
 // 调试用：控制台输入 SA.reset() 重开存档

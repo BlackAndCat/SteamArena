@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>进化报告</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+html, body { height: auto; overflow: auto; }
+body { padding: 16px; max-width: 1400px; margin: 0 auto; }
+h1 { color: var(--brass2); margin: 0 0 4px; font-size: 22px; }
+h2 { color: var(--brass3); font-size: 16px; margin: 22px 0 6px; }
+h3 { color: var(--brass2); font-size: 13px; margin: 14px 0 6px; }
+.small { font-size: 11px; }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 12px; background: var(--dark1); border: 1px solid var(--dark3); }
+.ctl label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+.ctl select { background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; }
+.grp { display: inline-flex; gap: 6px; align-items: center; padding-left: 12px; border-left: 1px solid var(--dark3); }
+.nav { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 0; font-size: 13px; }
+.nav a { color: var(--brass2); text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+.banner { margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--dark3); background: var(--dark1); font-size: 13px; }
+.banner.stale { border-color: var(--fire2); color: var(--fire3); }
+.banner.fresh { border-color: var(--gauge1); }
+.tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+.tile { background: var(--dark1); border: 1px solid var(--dark3); padding: 8px 14px; min-width: 120px; }
+.tile .k { color: var(--muted); font-size: 12px; }
+.tile .v { color: var(--text); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; font-size: 12px; margin: 6px 0 12px; }
+th, td { border: 1px solid var(--dark3); padding: 4px 8px; text-align: left; vertical-align: middle; }
+th { background: var(--dark2); color: var(--muted); font-weight: 700; white-space: nowrap; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.boss td { background: rgba(217, 164, 65, 0.06); }
+.scroll { overflow-x: auto; }
+.ok { color: var(--gauge2); } .bad { color: #ff5a4a; }
+.chip { display: inline-block; padding: 0 6px; border: 1px solid var(--dark3); border-radius: 2px; font-size: 11px; line-height: 18px; margin: 1px 2px 1px 0; white-space: nowrap; }
+.chip.bad { border-color: #8a2b22; }
+.thumb { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; margin: 2px; background: var(--dark0); border: 1px solid var(--dark3); cursor: pointer; vertical-align: top; }
+.thumb:hover, .thumb:focus-visible { border-color: var(--brass2); outline: none; }
+.thumb canvas { height: 64px; width: auto; image-rendering: pixelated; }
+.thumb .cap { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mark { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
+.gridtbl td { min-width: 150px; }
+.gridtbl td.empty { color: var(--dark3); text-align: center; }
+.chart-wrap { position: relative; background: var(--dark0); border: 1px solid var(--dark3); padding: 8px; }
+.chart-wrap svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; margin: 6px 0 0; }
+.legend svg { vertical-align: -2px; margin-right: 4px; }
+.tip { position: absolute; pointer-events: none; background: var(--dark1); border: 1px solid var(--dark3); padding: 6px 8px; font-size: 12px; line-height: 1.5; white-space: nowrap; z-index: 5; }
+.tip b { color: var(--text); }
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; overflow: auto; z-index: 20; }
+.overlay[hidden] { display: none; }
+.detail { background: var(--dark1); border: 1px solid var(--dark3); max-width: 980px; width: 100%; padding: 14px 16px; }
+.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.detail-head h2 { margin: 0; }
+.detail-body { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; }
+.detail-pic { background: var(--dark0); border: 1px solid var(--dark3); padding: 8px; align-self: flex-start; }
+.detail-pic canvas { width: auto; height: 220px; image-rendering: pixelated; }
+.detail-info { flex: 1 1 360px; min-width: 0; }
+.code { width: 100%; min-height: 60px; background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); font: 11px/1.4 monospace; padding: 6px; resize: vertical; word-break: break-all; }
+.row-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.empty-state { margin: 16px 0; padding: 16px; border: 1px dashed var(--dark3); color: var(--muted); font-size: 13px; line-height: 1.7; }
+.empty-state code { color: var(--brass3); }
+@media (max-width: 640px) { body { padding: 10px; } .detail-pic canvas { height: 150px; } }
+</style></head>
+<body>
+<h1>进化报告</h1>
+<p class="muted" style="margin:0 0 12px">关卡车进化生成器（<code>tools/evolve.js</code>）的结果：每一关选出的车、强度分和表现分的分布、分类存档、毒瘤车和奇特构筑。点任意一台车看大图、分享码和典型对局，可以按种子复现，也可以去试驾场和它打一场。规则见 <code>docs/evolve-plan.md</code>。</p>
+<div class="ctl">
+  <label>报告 <select id="src"></select></label>
+  <span class="grp"><button class="btn" id="reload">刷新列表</button><label class="btn" for="file" style="cursor:pointer">打开本地文件</label><input id="file" type="file" accept=".json,application/json" hidden></span>
+  <span class="grp"><label>章节 <select id="chap"></select></label></span>
+</div>
+<div id="banner" class="banner muted">正在读取……</div>
+<nav class="nav" id="nav"></nav>
+<div id="out"></div>
+<div class="overlay" id="overlay" hidden><div class="detail" id="detail" role="dialog" aria-modal="true"></div></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/state.js"></script><script src="../js/ui.js"></script>
+<script src="../js/camp.js"></script><script src="../js/terrain-art.js"></script><script src="../js/battle.js"></script>
+<script src="evolve-report.js"></script>
+</body></html>
