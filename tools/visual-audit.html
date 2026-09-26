@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>视觉回归画廊</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+body { padding: 16px; overflow: auto; }
+h1 { color: var(--brass2); margin: 0 0 4px; }
+h2 { color: var(--brass2); margin: 28px 0 8px; border-bottom: 2px solid var(--brass1); padding-bottom: 4px; }
+.lead { color: var(--muted); font-size: 13px; max-width: 980px; }
+.summary { margin: 12px 0; display: grid; gap: 4px; font-size: 13px; }
+.summary .flag { padding: 4px 8px; background: var(--dark1); border-left: 3px solid var(--fire2); }
+.summary .ok { padding: 4px 8px; background: var(--dark1); border-left: 3px solid var(--gauge2); }
+.grid { display: grid; gap: 2px; }
+.mrow2 { display: grid; grid-template-columns: 190px repeat(6, max-content) 12px repeat(3, max-content); gap: 2px; align-items: center; }
+.mrow2 .lab { font-size: 12px; text-align: right; padding-right: 8px; white-space: nowrap; }
+.mrow2 .lab small { display: block; color: var(--muted); }
+.cellx { position: relative; background: var(--bg2); }
+.cellx canvas { display: block; image-rendering: pixelated; }
+.cellx.bad { outline: 2px solid #ff3b2f; }
+.cellx .why { position: absolute; left: 0; bottom: 0; font-size: 10px; background: rgba(184, 57, 27, .9); color: #fff; padding: 0 3px; }
+.head { font-size: 11px; color: var(--muted); text-align: center; }
+.vrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.vbox { background: var(--bg2); padding: 6px; border: 1px solid var(--dark3); }
+.vbox .cap { font-size: 12px; margin-bottom: 4px; }
+.vbox .cap .muted { font-size: 11px; }
+.vbox canvas, .vbox img { display: block; image-rendering: pixelated; }
+#frame { width: 1280px; height: 800px; border: 1px solid var(--dark3); transform-origin: 0 0; transform: scale(0.4); }
+.framewrap { width: 512px; height: 320px; overflow: hidden; }
+</style></head>
+<body>
+<h1>视觉回归画廊</h1>
+<p class="lead">一页排出全部模块 × 6 种材料 × 外观阶段 × 改装等级、三种底盘的整车组合、战斗事件和车间状态。自动检查：精灵贴到画布边（可能被裁切）、绘制报错、外形几乎不覆盖占格、整车规则问题。红框 = 自动标出的可疑项，人眼再确认。
+页面会在 iframe 里跑一份真的游戏来截战斗和车间，开始前备份本机存档、结束后原样恢复。</p>
+<div class="summary" id="sum">检查中…</div>
+<nav class="lead"><a href="#mods">模块</a> · <a href="#veh">整车</a> · <a href="#fx">战斗事件</a> · <a href="#ed">车间状态</a></nav>
+
+<h2 id="mods">1. 模块 × 材料（1 黄铜 → 6 以太）· 改装 1 / 2 / 3 级（钢）</h2>
+<div id="modgrid" class="grid"></div>
+<h2 id="veh">2. 整车组合</h2>
+<div id="vehs"></div>
+<h2 id="fx">3. 战斗事件（真实战斗画面截取）</h2>
+<div id="fxs" class="vrow"></div>
+<h2 id="ed">4. 车间状态（真实车间画面截取）</h2>
+<div id="eds" class="vrow"></div>
+<div class="framewrap"><iframe id="frame" src="about:blank"></iframe></div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script>
+<script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script>
+(async () => {
+const M = SA.MODULES, S = SA.K.CELL, flags = [];
+const flag = (sec, what, why) => flags.push({ sec, what, why });
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const mtName = (mt) => SA.MATS[mt].name;
+
+// ---------- 1. 模块 ----------
+// 精灵画布四周的留边（和 sprites.js 的 padOf / BOT 一致）：贴到这条边上的像素多半是被裁掉了一截
+const PAD = { quad: { l: 56, t: 40, r: 64 }, biped: { l: 48, t: 24, r: 56 } }, DEF = { l: 16, t: 16, r: 32 }, BOT = 14;
+function drawCell(id, o) {
+  const f = SA.fp(id), pad = PAD[id] || DEF, W = f.w * S + 200, H = f.h * S + 200, c = mk(W, H), g = c.getContext('2d');
+  let err = null;
+  try { SA.SPR.drawModule(g, id, 100, 100, { heat: 0.5, water: 0.7, t: 0.3, ...o }); } catch (e) { err = e.message; }
+  // 不透明像素的包围盒 + 精灵画布边上有没有像素
+  const d = g.getImageData(0, 0, W, H).data, x0 = 100 - pad.l, y0 = 100 - pad.t, x1 = 100 + f.w * S + pad.r - 1, y1 = 100 + f.h * S + BOT - 1;
+  let bx0 = W, by0 = H, bx1 = -1, by1 = -1, cover = 0;
+  const edges = new Set();
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (d[(y * W + x) * 4 + 3] < 20) continue;
+    bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); by1 = Math.max(by1, y);
+    if (x >= 100 && x < 100 + f.w * S && y >= 100 && y < 100 + f.h * S) cover++;
+    if (x === x0) edges.add('左'); if (x === x1) edges.add('右'); if (y === y0) edges.add('上'); if (y === y1) edges.add('下');
+  }
+  return { c, err, bbox: bx1 < 0 ? null : [bx0, by0, bx1, by1], cover: cover / (f.w * f.h * S * S), edges: [...edges] };
+}
+function showCell(id, o, label) {
+  const r = drawCell(id, o), f = SA.fp(id), m = M[id];
+  const why = [];
+  if (r.err) why.push('绘制出错：' + r.err);
+  if (!m.placeholder && !(m.art && !(f.w === 2 && f.h === 2)) && r.edges.length) why.push('贴边（可能裁切）：' + r.edges.join(''));
+  if (!m.placeholder && r.cover < 0.2 && !['bucket', 'spike', 'piston', 'boss_ram', 'side_cannon', 'quad', 'biped'].includes(id)) why.push(`外形只覆盖占格 ${Math.round(r.cover * 100)}%`);
+  // 显示：裁到包围盒 + 占格虚线框，放大 2 倍
+  const bb = r.bbox || [100, 100, 100 + f.w * S, 100 + f.h * S];
+  const X0 = Math.min(bb[0], 100) - 2, Y0 = Math.min(bb[1], 100) - 2, X1 = Math.max(bb[2], 100 + f.w * S) + 3, Y1 = Math.max(bb[3], 100 + f.h * S) + 3;
+  const out = mk(X1 - X0, Y1 - Y0), g = out.getContext('2d');
+  g.drawImage(r.c, X0, Y0, out.width, out.height, 0, 0, out.width, out.height);
+  g.strokeStyle = 'rgba(255,43,214,.55)'; g.setLineDash([2, 2]); g.strokeRect(100 - X0 + 0.5, 100 - Y0 + 0.5, f.w * S - 1, f.h * S - 1);
+  out.style.width = out.width * 2 + 'px'; out.style.height = out.height * 2 + 'px';
+  const box = document.createElement('div'); box.className = 'cellx' + (why.length ? ' bad' : ''); box.title = `${m.name} · ${label}${why.length ? '\n' + why.join('\n') : ''}`;
+  box.append(out);
+  if (why.length) { const w = document.createElement('span'); w.className = 'why'; w.textContent = why[0].slice(0, 14); box.append(w); flag('模块', `${m.name}（${id}）· ${label}`, why.join('；')); }
+  return box;
+}
+const G = document.getElementById('modgrid');
+{
+  const head = document.createElement('div'); head.className = 'mrow2';
+  head.append(Object.assign(document.createElement('div'), { className: 'lab' }));
+  for (let mt = 1; mt <= SA.MAT_MAX; mt++) head.append(Object.assign(document.createElement('div'), { className: 'head', textContent: `${mt} ${mtName(mt)}` }));
+  head.append(document.createElement('div'));
+  for (let lv = 1; lv <= 3; lv++) head.append(Object.assign(document.createElement('div'), { className: 'head', textContent: `改装 ${lv}` }));
+  G.append(head);
+}
+for (const id of SA.MODULE_ORDER) {
+  if (M[id].retired) continue;
+  const row = document.createElement('div'); row.className = 'mrow2';
+  const lab = document.createElement('div'); lab.className = 'lab';
+  lab.innerHTML = `${M[id].name}<small>${id} · ${SA.fp(id).w}×${SA.fp(id).h}${M[id].placeholder ? ' · 占位' : ''} · vis ${JSON.stringify(M[id].vis || [1])}</small>`;
+  row.append(lab);
+  for (let mt = 1; mt <= SA.MAT_MAX; mt++) row.append(showCell(id, { mt }, `${mtName(mt)} · 阶段 ${SA.stageOf(id, mt)}`));
+  row.append(document.createElement('div'));
+  for (let lv = 1; lv <= 3; lv++) row.append(showCell(id, { mt: 3, up: lv }, `钢 · 改装 ${lv}`));
+  G.append(row);
+  await new Promise(r => setTimeout(r, 0));
+}
+
+// ---------- 2. 整车 ----------
+const V = document.getElementById('vehs');
+function veh(name, cells) {
+  const v = SA.V.create(name);
+  for (const [id, r, c, mt = 1, extra = {}] of cells) { const cell = SA.newCell(id, mt); Object.assign(cell, extra); v[SA.V.layerOf(id)][r][c] = cell; }
+  return v;
+}
+function showVeh(title, v, opts = {}, note = '') {
+  const src = SA.SPR.renderVehicle(v, { key: 'audit', t: 0.4, heat: 0.4, water: 0.7, ...opts });
+  // 裁到有像素的范围
+  const g0 = src.getContext('2d'), d = g0.getImageData(0, 0, src.width, src.height).data;
+  let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
+  for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 20) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const pad = 4, out = mk(Math.max(1, x1 - x0 + pad * 2), Math.max(1, y1 - y0 + pad * 2)), g = out.getContext('2d');
+  g.fillStyle = SA.PAL.bg[2]; g.fillRect(0, 0, out.width, out.height);
+  g.drawImage(src, x0 - pad, y0 - pad, out.width, out.height, 0, 0, out.width, out.height);
+  out.style.width = out.width * 2 + 'px';
+  const iss = SA.V.issues(v), st = SA.V.stats(v);
+  const box = document.createElement('div'); box.className = 'vbox';
+  box.innerHTML = `<div class="cap"><b>${title}</b> <span class="muted">${note}${st.balance && st.balance !== '无底盘' ? ` · 平衡 ${st.balance}` : ''}${iss.length ? ` · <span style="color:#ff7a5a">${iss.length} 个规则问题</span>` : ''}</span></div>`;
+  box.append(out);
+  if (x1 + 1 >= src.width || y1 + 1 >= src.height || x0 <= 0) flag('整车', title, '画面贴到整车画布边（可能裁切）');
+  return box;
+}
+const CH = SA.V.CH, BR = SA.V.chassisRow('biped');
+const cars = {
+  track: (mt) => veh('履带车', [['track', CH, 4, mt], ['track', CH, 6, mt], ['track', CH, 8, mt], ['boiler', 8, 4, mt], ['water', 8, 6, mt], ['armor', 8, 8, mt], ['cockpit', 6, 4, mt], ['cannon', 6, 6, Math.max(2, mt)], ['mg', 6, 8, mt], ['bucket', CH, 10, mt], ['spike', 8, 10, mt]]),
+  quad1: (mt) => veh('四足', [['quad', CH, 4, mt], ['boiler', 8, 4, mt], ['water', 8, 6, mt], ['helmet', 7, 5, mt], ['cannon_m', 7, 6, mt]]),
+  quad3: (mt) => veh('四足蜈蚣', [['quad', CH, 2, mt], ['quad', CH, 6, mt], ['quad', CH, 10, mt], ['boiler', 8, 2, mt], ['water', 8, 4, mt], ['armor', 8, 6, mt], ['armor_heavy', 8, 8, mt], ['water', 8, 10, mt], ['cannon', 8, 12, Math.max(2, mt)], ['cockpit', 6, 6, mt], ['mortar', 6, 8, mt]]),
+  biped: (mt) => veh('真双足', [['biped', BR, 6, mt], ['water', BR, 4, mt], ['armor', BR, 8, mt], ['boiler', 6, 6, mt], ['cockpit', 4, 6, mt], ['cannon_m', 7, 8, mt]]),
+  bipedBare: (mt) => veh('真双足（无腰挂）', [['biped', BR, 6, mt], ['boiler', 6, 6, mt], ['helmet', 5, 6, mt], ['plate', 5, 7, mt], ['mg', 4, 6, mt]]),
+  bipedRam: (mt) => veh('真双足 + 胯前撞角', [['biped', BR, 6, mt], ['spike', BR, 8, mt], ['boiler', 6, 6, mt], ['helmet', 5, 6, mt], ['plate', 5, 7, mt]]),
+};
+for (const [key, make] of Object.entries(cars)) {
+  const row = document.createElement('div'); row.className = 'vrow';
+  for (const mt of [1, 3, 5]) row.append(showVeh(`${make(1).name} · ${mtName(mt)}`, make(mt), {}, '静止'));
+  // 行走帧：步态角 4 档 + 悬挂伸缩（假地形起伏）
+  const v = make(3), gnd = {};
+  SA.V.each(v, (cell, r, c) => { if (M[cell.id].layer === 'chassis') gnd[`${r},${c}`] = cell.id === 'quad' ? [4, -3, 2, -2] : [3, -2]; });
+  for (const k of [0, 3, 6, 9]) row.append(showVeh(`${v.name} · 行走 ${k}/12`, v, { moving: true, speed: 60, dyn: { phase: k / 12 * Math.PI * 2, recoilOf: () => 0, feedOf: () => 0, body: { x: 0 } }, gnd }, '步态 + 悬挂'));
+  row.append(showVeh(`${v.name} · 改装半透明腿`, v, { ghostLegs: true }, '车间摆放时'));
+  V.append(row);
+  await new Promise(r => setTimeout(r, 0));
+}
+{ // 损毁状态
+  const row = document.createElement('div'); row.className = 'vrow';
+  const t = cars.track(3); t.body[CH][6].hp = 0; t.body[8][6].hp = 0; t.body[6][8].hp = 5;
+  row.append(showVeh('履带掉链 + 水箱报废 + 机枪残血', t, {}, '损毁'));
+  const q = cars.quad3(3); q.body[CH][6].hp = 0; q.body[8][8].hp = 0;
+  row.append(showVeh('四足中间一节报废', q, {}, '损毁'));
+  const b = cars.biped(3); b.body[BR][6].hp = 0;
+  row.append(showVeh('双足报废', b, {}, '损毁'));
+  V.append(row);
+}
+
+// ---------- 3 / 4. 战斗事件、车间状态：在 iframe 里跑真游戏 ----------
+const backup = {};
+for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); backup[k] = localStorage.getItem(k); }
+const restore = () => { for (const k of Object.keys(localStorage)) if (!(k in backup)) localStorage.removeItem(k); for (const k in backup) localStorage.setItem(k, backup[k]); };
+window.addEventListener('beforeunload', restore);
+const frame = document.getElementById('frame');
+frame.src = '../index.html';
+await new Promise(r => frame.addEventListener('load', r, { once: true }));
+const W = frame.contentWindow, wait = (ms) => new Promise(r => setTimeout(r, ms));
+for (let i = 0; i < 50 && !(W.SA && W.SA.Battle && W.SA.S && W.SA.S.d); i++) await wait(100);
+const snapCanvas = (cv, crop) => {
+  const [x, y, w, h] = crop || [0, 0, cv.width, cv.height], out = mk(w, h);
+  out.getContext('2d').drawImage(cv, x, y, w, h, 0, 0, w, h);
+  return out;
+};
+const addShot = (host, title, canvas, maxW = 460) => {
+  const box = document.createElement('div'); box.className = 'vbox';
+  box.innerHTML = `<div class="cap"><b>${title}</b></div>`;
+  canvas.style.width = Math.min(maxW, canvas.width) + 'px'; box.append(canvas); host.append(box);
+};
+try {
+  const S2 = W.SA;
+  S2.UI.closeModal && S2.UI.closeModal();
+  S2.dev.unlockAll();
+  // 战斗：freeze 住，手动推进；特效打在敌车身上
+  const fxHost = document.getElementById('fxs');
+  const foe = S2.V.fromAscii('靶车', ['........', '........', '........', '...KM...', '..WOAH..', '..TTT...'], [], 3);
+  S2.Battle.start({ mode: 'friendly', enemyVehicle: foe, enemyName: '靶车', hpMul: 1, terrain: 'flat' });
+  const D = S2.Battle.debug; D.B.frozen = true; D.step(0.2);
+  const bcv = () => W.document.querySelector('#screen canvas');
+  const [ex, ey] = D.cellCenter('e', 8, 8);
+  // 靶车在画面右半边：截右半边中下部，放大显示特效细节
+  const crop = () => { const c = bcv(); return [Math.round(c.width * 0.5), Math.round(c.height * 0.42), Math.round(c.width * 0.42), Math.round(c.height * 0.46)]; };
+  const shotAt = async (title, fire, dt = 0.06) => { fire(); D.step(dt); await wait(60); addShot(fxHost, title, snapCanvas(bcv(), crop()), 560); };
+  await shotAt('弹开（星芒 + 擦飞曳光 + 钢青铭牌）', () => S2.Battle.emit('ricochet', { x: ex, y: ey, back: -1 }));
+  await shotAt('甲片碎裂（材料色碎片）', () => S2.Battle.emit('shatter', { x: ex, y: ey, cell: { id: 'armor_heavy', mt: 4 } }), 0.2);
+  await shotAt('爆炸', () => S2.Battle.emit('boom', { x: ex, y: ey }), 0.15);
+  await shotAt('投降铭牌（飘字）', () => S2.Battle.emit('text', { str: '投降', x: ex, y: ey - 60, col: '#f4f7ee' }), 0.1);
+  S2.UI.closeModal && S2.UI.closeModal();
+  // 车间：选中、摆放预览、不合规红闪、半透明腿
+  const edHost = document.getElementById('eds');
+  S2.S.d.vehicle = cars.quad3(3); S2.S.d.vehicle.lim = { cols: 8, rows: 6 };
+  S2.S.addInv('quad', 1, 1); S2.S.addInv('boiler', 1, 1);
+  S2.nav('garage'); await wait(400);
+  const ecv = () => [...W.document.querySelectorAll('canvas')].find(c => c.width >= 400 && c.height >= 290 && c.isConnected);
+  const at = (col, row, type = 'pointermove') => { const cv = ecv(), rc = cv.getBoundingClientRect(), k = rc.width / cv.width; const ev = new W.PointerEvent(type, { clientX: rc.left + (28 + (col + 0.5) * 24) * k, clientY: rc.top + (row + 0.5) * 24 * k, bubbles: true, button: 0, pointerId: 1 }); cv.dispatchEvent(ev); W.dispatchEvent(ev); };
+  addShot(edHost, '车间 · 四足蜈蚣', snapCanvas(ecv()));
+  const pickRow = (txt) => [...W.document.querySelectorAll('.mrow')].find(r => r.textContent.includes(txt));
+  pickRow('燃煤锅炉')?.click(); await wait(100); at(3, 6); await wait(250);
+  addShot(edHost, '摆放预览 · 锅炉（半透明腿）', snapCanvas(ecv()));
+  at(8, 1); await wait(250);
+  addShot(edHost, '摆放预览 · 悬空（红）', snapCanvas(ecv()));
+  W.document.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(100);
+  S2.S.d.vehicle = cars.biped(3); S2.S.d.vehicle.lim = { cols: 8, rows: 6 }; S2.S.d.vehicle.body[2][2] = S2.newCell('armor'); S2.nav('arena'); S2.UI.closeModal && S2.UI.closeModal(); S2.nav('garage'); await wait(400);
+  addShot(edHost, '车间 · 真双足 + 一块悬空装甲（红闪）', snapCanvas(ecv()));
+  at(6, 10, 'pointerdown'); at(6, 10, 'pointerup'); await wait(250);
+  addShot(edHost, '选中双足（整件绿闪）', snapCanvas(ecv()));
+} catch (e) {
+  flag('画廊', 'iframe 截图', '出错：' + e.message);
+} finally {
+  restore();
+}
+
+// ---------- 汇总 ----------
+const sum = document.getElementById('sum');
+sum.innerHTML = '';
+if (!flags.length) sum.append(Object.assign(document.createElement('div'), { className: 'ok', textContent: '自动检查没有发现可疑项。' }));
+for (const f of flags) sum.append(Object.assign(document.createElement('div'), { className: 'flag', textContent: `【${f.sec}】${f.what}：${f.why}` }));
+window.AUDIT = { flags, done: true };
+})();
+</script>
+</body></html>
