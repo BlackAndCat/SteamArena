@@ -828,6 +828,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     const vc = SA.SPR.renderVehicle(v, {
       key: 'editor', t, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,
       blocked: st.stats.blocked, dimBody: st.layer === 'side', dimCell: drag && drag.layer === 'body' ? drag : null,
+      ghostLegs: !!(st.sel || drag),   // 正在摆放 / 拖动：四足的腿半透明，底盘两侧的格子看得清
     });
     g.drawImage(vc, 0, 0);
 

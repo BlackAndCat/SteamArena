@@ -836,8 +836,9 @@ SA.SPR = (() => {
     // ga = 步态角档（12 档一圈），sd = 步幅（世界像素），g4 = 四只脚的悬挂伸缩 [近后, 近前, 远后, 远前]（战斗 settle() 按 contactPts 算）
     quad(x, y, o) {
       const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
-      const lo = { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2, stride: o.sd || 16 };
-      LL.quadArt(pn, x, y, { ...lo, bd: o.bd || 0, g: o.g4 || [0, 0, 0, 0], top: !!o.top, look: QUAD_LOOK[(o.st || 1) - 1] }, o.part || undefined);
+      // 首尾相连的多件四足：相邻两件步态差半圈（像蜈蚣一样一节一节往前传），甲壳连成一片
+      const lo = { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2 + (o.odd ? Math.PI : 0), stride: o.sd || 16 };
+      LL.quadArt(pn, x, y, { ...lo, bd: o.bd || 0, g: o.g4 || [0, 0, 0, 0], top: !!o.top, connL: o.connL, connR: o.connR, look: QUAD_LOOK[(o.st || 1) - 1] }, o.part || undefined);
       pn.flush(ctx);
     },
   };
@@ -875,6 +876,7 @@ SA.SPR = (() => {
         const A = o.gait || 0;
         q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 4) * 4;
         q.bd = o.bd || 0; q.part = o.part || null; q.top = !!o.top;
+        if (o.connL) q.connL = true; if (o.connR) q.connR = true; if ((o.ri || 0) % 2) q.odd = true;
         if (o.g4 && o.g4.some(v => v)) q.g4 = o.g4.map(v => Math.round((v || 0) / 2) * 2);
         break;
       }
@@ -1153,14 +1155,16 @@ SA.SPR = (() => {
     // 远侧腿：在整个车体之前画，被车体遮住一部分
     base.forEach((cell, c) => {
       if (!cell || !BOB[cell.id]) return;
-      const r = CH, draw = () => drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' });
+      const r = CH, draw = () => { g.save(); if (cell.id === 'quad' && o.ghostLegs) g.globalAlpha = 0.35; drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' }); g.restore(); ctx = g; };
       if (cell.hp > 0) draw(); else dead(draw);
     });
     g.save(); g.translate(0, bd); hull(O, cx, cy); g.restore(); ctx = g;
     // 主体层：底盘/撞击 → 其他 → 武器（炮管压在相邻格上，被挡时一眼可见）
     // 整件四足（pass 3）：甲壳和近侧腿压在整个车身前面（同 tools/chassis-lab.html），膝盖高过机身也不会被模块挡住
-    const order = (id) => (id === 'quad' ? 3 : SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
-    for (const pass of [0, 1, 2, 3]) {
+    // 撞击件（pass 4）画在四足的腿前面，装在车头的铲斗、撞角不会被腿挡住。
+    // o.ghostLegs（改装台正在摆放 / 拖动模块时）：四足的腿画成半透明，看得清底盘两侧的格子
+    const order = (id) => (SA.isRam(id) ? 4 : id === 'quad' ? 3 : SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
+    for (const pass of [0, 1, 2, 3, 4]) {
       eachCell(veh.body, (cell, r, c) => {
         if (order(cell.id) !== pass) return;
         const x = cx(c), y = cy(r) + dy(cell.id, r);
@@ -1174,7 +1178,10 @@ SA.SPR = (() => {
           else scaled(g, x, y, cell.id, wreck);
           return;
         }
-        drawModule(g, cell.id, x, y, mo);
+        if (cell.id === 'quad' && o.ghostLegs) {
+          drawModule(g, cell.id, x, y, { ...mo, part: 'shell' });
+          g.save(); g.globalAlpha = 0.35; drawModule(g, cell.id, x, y, { ...mo, part: 'legs' }); g.restore(); ctx = g;
+        } else drawModule(g, cell.id, x, y, mo);
         if (cell.id !== 'quad') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });

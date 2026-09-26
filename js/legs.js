@@ -757,24 +757,29 @@ SA.LEGLAB = (() => {
   const bipedBob = (o) => strideBob(o, 58, [0, Math.PI], 4);
 
   // 四足型号：腿形。reach = 脚静止时离胯多远（小 → 脚在胯下附近前后大幅摆动），kf = 膝盖跟着脚摆多少。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
+  // 伏地蛛的膝盖只比胯高一点、贴着甲壳上沿（2026-09-26）：原来膝盖高出机身 16px，会挡住车身两侧的模块和摆放格
   const QUADS = {
-    crawl: { name: '伏地蛛', up: 26, kx: 20, reach: 22, kf: 0.45, w: 1.35 },
+    crawl: { name: '伏地蛛', up: 5, kx: 24, reach: 26, kf: 0.45, w: 1.35 },
     tall: { name: '高脚蛛', up: 38, kx: 16, reach: 18, kf: 0.45, w: 1.25 },
   };
   // 四足 · 4×2（96×48）：一整块压低的蜘蛛甲壳 + 四条腿（近侧后 / 前、远侧后 / 前）。后腿往后张、前腿往前张，
   // 对角两条同相（近后 + 远前、近前 + 远后）大步交替。远侧腿压暗、往右上错开，画在车体后面。
   // o：{ mv, a（步态角）, stride（步幅，见 strideFor）, bd（机身起伏，见 quadBob）, g: [近后, 近前, 远后, 远前]（悬挂伸缩）, top（上面压着模块）, look: QUADS 的键 }
   // 接地点（模块内 x，静止时，伏地蛛）：近后 0、近前 96、远后 8、远前 104；走起来在这前后 ±步幅
-  // part：'far' 只画远侧两条腿 / 'near' 只画甲壳 + 近侧两条腿 / 省略 = 都画
+  // part：'far' 只画远侧两条腿 / 'near' 只画甲壳 + 近侧两条腿 / 'shell' 只画甲壳 / 'legs' 只画近侧两条腿 / 省略 = 都画
+  // connL / connR：左右紧挨着另一件四足（首尾相连的车体蜈蚣），甲壳连成一片
   const QUAD_HIPS = { nr: [22, 10], nf: [74, 10], fr: [30, 7], ff: [82, 7] };
   function quadArt(pn, x, y, o, part) {
     const H = QUADS[o.look] || QUADS.crawl, bd = o.bd || 0, g = o.g || [0, 0, 0, 0], S = o.stride || 15;
     const lo = { ...o, plant: true, plantS: S, plantH: 5 + 0.3 * S };
     const leg = (M, [hx, hy], gy, dir, ph) => spiderLeg(pn, M, x + hx, y + hy + bd, gy, dir, ph, lo, H);
-    if (part !== 'near') { leg(FAR, QUAD_HIPS.fr, y + 45 + g[2], -1, Math.PI); leg(FAR, QUAD_HIPS.ff, y + 45 + g[3], 1, 0); }
+    if (!part || part === 'far') { leg(FAR, QUAD_HIPS.fr, y + 45 + g[2], -1, Math.PI); leg(FAR, QUAD_HIPS.ff, y + 45 + g[3], 1, 0); }
     if (part === 'far') return;
-    carapace(pn, x, y + bd, false, false, o.top, 96);
-    pn.fill(x + 44, y + bd + 5, 8, 6, P.dark[0]); pn.fill(x + 45, y + bd + 6, 6, 4, P.brass[1]); pn.fill(x + 45, y + bd + 6, 6, 1, P.brass[3]);   // 甲壳正中的黄铜舱盖
+    if (part !== 'legs') {
+      carapace(pn, x, y + bd, !!o.connL, !!o.connR, o.top, 96);
+      pn.fill(x + 44, y + bd + 5, 8, 6, P.dark[0]); pn.fill(x + 45, y + bd + 6, 6, 4, P.brass[1]); pn.fill(x + 45, y + bd + 6, 6, 1, P.brass[3]);   // 甲壳正中的黄铜舱盖
+    }
+    if (part === 'shell') return;
     leg(NEAR, QUAD_HIPS.nr, y + 48 + g[0], -1, 0); leg(NEAR, QUAD_HIPS.nf, y + 48 + g[1], 1, Math.PI);
   }
 
