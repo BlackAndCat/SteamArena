@@ -59,14 +59,20 @@ SA.MODULES = {
     desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
   },
   quad: {
-    name: '四足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
+    name: '四足底盘', cat: 'mobility', layer: 'chassis', w: 4, h: 2, whole: true, chassisLimit: 1, vis: [1, 3, 5],
     price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
+    // 整件四足固定四个接地点：近侧后/前、远侧后/前，坐标是整件内部的 x。
+    contactPts: { nearRear: 0, nearFront: 96, farRear: 8, farFront: 104 },
     susp: { splay: 30, hips: [22, 30], up: 6, down: 12, follow: 0.85 },
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
-    name: '双足底盘', cat: 'mobility', layer: 'chassis', vis: [1, 3, 5],
+    name: '双足底盘', cat: 'mobility', layer: 'chassis', w: 1, h: 2, whole: true, chassisLimit: 1, legPair: true, waistSlots: 1,
+    // 平衡且贴身时由双腿完成的踢击；数值是规则初版，交 P2 诊断报告，不在本阶段调平衡。
+    kick: { ram: 12, knock: 0.35, cooldown: 0.7 }, vis: [1, 3, 5],
     price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1, accel: 1.5, brake: 1.7, sway: 1.5, spool: 0.55,
+    // 平衡规则的定稿阈值；材料品质按六档提高失衡容差。
+    balance: { steady: 0.25, limit: 0.6, topHeavy: 1.8, toleranceByMt: [0.6, 0.66, 0.72, 0.78, 0.84, 0.9] },
     susp: { pts: [18, 32], up: 8, down: 3, follow: 0.85 },
     desc: '起步、刹车、跑得都最快，摇摆步态让敌人难以命中；但自己走起来晃得厉害，移动射击散布最大。',
   },
@@ -362,6 +368,8 @@ SA.driversOf = (id) => SA.MODULES[id].drivers || 0;
 // 底盘这一格两个接地点的 x（48px 格内，可以伸出格外）：ri / rn = 这格在同类底盘连续段里的序号和段长
 SA.suspPts = (id, ri = 0, rn = 1) => {
   const s = SA.MODULES[id].susp;
+  const fixed = SA.MODULES[id].contactPts;
+  if (fixed) return [fixed.nearRear, fixed.nearFront, fixed.farRear, fixed.farFront];
   if (!s.splay) return s.pts;
   const d = ri < rn / 2 ? -1 : 1;
   return [s.hips[0] + d * s.splay, s.hips[1] - d * s.splay];

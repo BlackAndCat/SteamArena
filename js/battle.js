@@ -1,7 +1,7 @@
 // 竞技场：加速/撞击、直射与高抛弹道 + 弹道预览、数字键切换武器、侧挂层优先、热量/水、AI
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-26-campaign-k1k3';
+SA.RULES_VERSION = '2026-09-26-campaign-k1k3-biped';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -34,11 +34,11 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
-      focus: 0, jolt: 0, release: false, kick: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
+      focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: 0, bipedHipHp: 0, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
     s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
     refresh(s);
@@ -90,8 +90,28 @@ SA.Battle = (() => {
     Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
       speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
+    let bipedCell = null;
+    if (s.chassisId === 'biped') {
+      SA.V.each(s.v, (cell) => { if (!bipedCell && cell.id === 'biped') bipedCell = cell; });
+      const hp = bipedCell ? SA.V.maxHp(bipedCell) : 0;
+      if (!s.bipedHipHp && !s.bipedLegHp) s.bipedHipHp = s.bipedLegHp = hp / 2;
+      if (bipedCell) bipedCell.bipedZones = { hip: Math.max(0, s.bipedHipHp), leg: Math.max(0, s.bipedLegHp), max: hp };
+    }
+    const vehicleStats = SA.V.stats(s.v);
+    s.balance = vehicleStats.balance || '无底盘';
+    s.balanceTolerance = vehicleStats.balanceTolerance || 0;
+    s.topHeavy = !!vehicleStats.topHeavy;
+    if (s.chassisId === 'biped') {
+      s.bipedLegDead = s.bipedLegHp <= 0;
+      s.bipedHipDead = s.bipedHipHp <= 0;
+    }
     Object.assign(s, { supply, demand, heatRate, heatMul, cool, dryCool, waterSave, storeMax, moduleReload, moduleSpread, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
+    if (s.chassisId === 'biped') {
+      if (s.bipedLegDead || s.balance === '失衡') s.speed = 0;
+      if (s.bipedHipDead) s.sway *= 2.5;
+      if (s.topHeavy) s.sway *= 1.25;
+    }
     s.water = Math.min(s.water, waterMax);
     if (!Number.isFinite(s.store) || s.store > storeMax) s.store = 0;
     const blocked = SA.V.blockedList(s.v);
@@ -246,7 +266,7 @@ SA.Battle = (() => {
   // 子格上活着的模块 → { layer, r, c }（锚点）
   function modAt(s, layer, r, c) {
     const o = (layer === 'side' ? s.occS : s.occ)[r][c];
-    return o && alive(o.cell) ? { layer, r: o.r, c: o.c } : null;
+    return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= SA.V.CH + 1 ? 'leg' : 'hip') : null } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
@@ -392,12 +412,22 @@ SA.Battle = (() => {
     if (!(dmg > 0)) return;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return;
-    cell.hp -= dmg;
+    const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= SA.V.CH + 1 ? 'leg' : 'hip') : null);
+    if (cell.id === 'biped' && zone) {
+      if (zone === 'leg') def.bipedLegHp -= dmg;
+      else def.bipedHipHp -= dmg;
+      cell.hp -= dmg;
+      def.bipedLegDead = def.bipedLegHp <= 0;
+      def.bipedHipDead = def.bipedHipHp <= 0;
+      cell.bipedZones = { hip: Math.max(0, def.bipedHipHp), leg: Math.max(0, def.bipedLegHp), max: SA.V.maxHp(cell) };
+      cell.hp = def.bipedLegDead && def.bipedHipDead ? 0 : Math.max(1, def.bipedHipHp + def.bipedLegHp);
+      refresh(def);
+    } else cell.hp -= dmg;
     def.taken += dmg; if (att) att.dealt += dmg;
     const [x, y0] = modCenter(def, imp.layer, imp.r, imp.c), y = y0 - 6;
     textFx(String(Math.round(dmg)), x + rnd(-9, 9), y - 18, imp.layer === 'side' ? P.magenta : P.white);
     for (let i = 0; i < 6; i++) part('spark', x, y + 6, rnd(-130, 130), rnd(-160, 0), rnd(0.15, 0.35));
-    if (cell.hp <= 0) destroy(def, att, imp);
+    if (cell.id === 'biped' ? (def.bipedLegDead && def.bipedHipDead) : cell.hp <= 0) destroy(def, att, imp);
   }
 
   // 弹开概率：装甲厚度（材料放大后的 armor）对武器穿深。抽成纯函数，车间用它给出穿深对照（SA.Battle.ricochetChance）
@@ -538,8 +568,12 @@ SA.Battle = (() => {
       }
     }
     s.moving = Math.abs(nx - s.x) > 0.02;
+    const distance = Math.abs(nx - s.x);
     s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
-    s.anim.phase = s.phase;   // 履带链节 / 负重轮 / 腿的步态都读动态模块里的行驶相位
+    if ((s.chassisId === 'biped' || s.chassisId === 'quad') && SA.LEGLAB && SA.LEGLAB.strideFor) {
+      s.gait += distance / 4 * SA.LEGLAB.strideFor(Math.abs(s.vx));
+      s.anim.phase = s.gait;   // 腿式步态按走过的距离推进
+    } else s.anim.phase = s.phase; // 履带沿用链节相位
     s.x = nx;
     settle(s, dt);
     if (s.moving && s.dir) {
@@ -580,6 +614,24 @@ SA.Battle = (() => {
     B.contactRowsE = gap <= 1 ? rows.map(x => x.re) : [];
     B.rowShift = dr;
     B.contact = gap <= 1;
+    if (B.contact) {
+      for (const [a, d] of [[p, e], [e, p]]) {
+        if (a.chassisId === 'biped' && a.balance === '平衡' && !a.bipedLegDead && a.kickCooldown <= 0 && a.speed > 0) {
+          const target = rows.find(x => {
+            const part = a === p ? x.ec : x.pc;
+            return part && alive(part.cell);
+          });
+          if (target) {
+            const hit = a === p ? target.ec : target.pc;
+            const hitRow = a === p ? target.re : target.r;
+            const kick = M.biped.kick || { ram: 12, knock: 0.35, cooldown: 0.7 };
+            damage(d, a, { layer: 'body', r: hit.r, c: hit.c, hitR: hitRow, hitC: hit.c, zone: hitRow >= SA.V.CH + 1 ? 'leg' : 'hip' }, kick.ram * SA.ramMul(a.mass * 1000));
+            if (kick.knock) shove(a, d, kick.knock * 22);
+            a.events.kick++; a.kickCooldown = kick.cooldown;
+          }
+        }
+      }
+    }
     if (gap > 0) return;
     const closing = p.vx - e.vx;
     const cx = (rowEdge(p, rows[0].pc) + rowEdge(e, rows[0].ec)) / 2;
@@ -812,6 +864,7 @@ SA.Battle = (() => {
     const [x, y] = modCenter(o, co.target.layer, co.target.r, co.target.c);
     return [x + co.err.x, y + co.err.y];
   }
+  const canMelee = (s) => s.rams > 0 || (s.chassisId === 'biped' && s.balance === '平衡' && !s.bipedLegDead && s.speed > 0);
   function ai(s, o, dt) {
     if (s.dead) return;
     const profile = s.aiProfile || {};
@@ -840,7 +893,7 @@ SA.Battle = (() => {
     s.moveT -= dt;
     if (s.moveT <= 0) {
       const sty = s.style;
-      s.charge = s.rams > 0 && sty !== 'turtle' && (sty === 'rush' ? !s.charge || random() < 0.35 : !s.charge && random() < (sty === 'kite' ? 0.15 : 0.7));
+      s.charge = canMelee(s) && sty !== 'turtle' && (sty === 'rush' ? !s.charge || random() < 0.35 : !s.charge && random() < (sty === 'kite' ? 0.15 : 0.7));
       const [lo, hi] = sty === 'kite' ? [400, 640] : sty === 'rush' ? [70, 260] : [140, 520];
       const fwd = isP(s) ? 1 : -1, gap = fwd * (frontEdge(o) - frontEdge(s));   // 两车车头之间的距离
       s.goalX = sty === 'turtle' ? s.homeX + rnd(-40, 40) : s.x + fwd * (gap - rnd(lo, hi));
@@ -860,7 +913,7 @@ SA.Battle = (() => {
     return null;
   }
   // 彻底没法打：开不了火，也撞不了人（有撞击件、有动力、能开动就还算能打）
-  const helpless = (s) => !!crippled(s) && !(s.rams && s.supply > 0 && s.speed > 0);
+  const helpless = (s) => !!crippled(s) && !(canMelee(s) && s.supply > 0);
 
   // 投降：对手彻底没法打、而玩家还能打，持续 1 秒就挂白旗。战斗暂停，玩家选择接受（立即获胜，额外声望）还是继续打
   // 只有对手会投降（玩家没了武器还能等对手烧干）；无画面模拟里视为玩家接受投降
@@ -903,6 +956,8 @@ SA.Battle = (() => {
   function step(dt) {
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
+    B.p.kickCooldown = Math.max(0, B.p.kickCooldown - dt);
+    B.e.kickCooldown = Math.max(0, B.e.kickCooldown - dt);
     if (B.ter) for (const c of B.ter.crates) { c.shake = Math.max(0, c.shake - dt); c.touch = Math.max(0, (c.touch || 0) - dt); }
     if (B.p.isAI) ai(B.p, B.e, dt);
     else {
@@ -995,10 +1050,10 @@ SA.Battle = (() => {
       // 武器打光：一方开局有武器、现在全被摧毁，而另一方还有 → 判负；两边同时打光走下面的平手
       // 敌方判负：武器打光 + 水烧干 + 没有近战（撞击件）。这条只对敌方生效，玩家不会因此判负
       const e = B.e;
-      if (!e.dead && !B.p.dead && e.armed && !e.weapons.length && e.water <= 0 && !e.rams) kill(e, '武器打光、水也烧干，又没有近战手段，失去战斗力');
+      if (!e.dead && !B.p.dead && e.armed && !e.weapons.length && e.water <= 0 && !canMelee(e)) kill(e, '武器打光、水也烧干，又没有近战手段，失去战斗力');
       // 自测时两边都是 AI，这条规则对称生效
       const p = B.p;
-      if (p.isAI && !p.dead && !e.dead && p.armed && !p.weapons.length && p.water <= 0 && !p.rams) kill(p, '武器打光、水也烧干，又没有近战手段，失去战斗力');
+      if (p.isAI && !p.dead && !e.dead && p.armed && !p.weapons.length && p.water <= 0 && !canMelee(p)) kill(p, '武器打光、水也烧干，又没有近战手段，失去战斗力');
       // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 1.5 秒
       const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
       B.drawT = both ? (B.drawT || 0) + dt : 0;

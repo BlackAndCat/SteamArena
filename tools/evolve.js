@@ -259,7 +259,9 @@ function minimalVehicle(SA, spec, forcedModule = null) {
       }
     return false;
   };
-  const chassis = spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track');
+  // 覆盖检查或奖励车明确指定底盘时，保底构筑也必须真正使用它；否则整件四足/双足永远只会回退成履带。
+  const chassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule :
+    (spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track'));
   putFirst(chassis);
   // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱、锅炉和水箱，
   // 否则大尺寸火力件会因没有支撑或撞击件没有挂点而永远生成失败。

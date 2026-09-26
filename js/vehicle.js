@@ -13,6 +13,28 @@ SA.V = (() => {
   const alive = (cell) => cell && cell.hp > 0;
   const fp = SA.fp;
   const CH = K.ROWS - 2;   // 底盘锚点行：底盘占最底下两行子格
+  // 旧蓝图可能把整件底盘写成多个逐格锚点；读取时统一成一个底盘整件。
+  function chassisAnchors(v) {
+    const out = [];
+    for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) {
+      const cell = v.body[r][c];
+      if (cell && M[cell.id] && M[cell.id].layer === 'chassis') out.push({ cell, r, c });
+    }
+    return out;
+  }
+  function normalizeChassis(v) {
+    const a = chassisAnchors(v);
+    if (!a.length) return v;
+    // 履带仍可由多个同类锚点组成；整件双足 / 四足只能保留一个，混用时优先保留整件底盘。
+    const whole = a.find(x => M[x.cell.id].chassisLimit === 1);
+    const type = whole ? whole.cell.id : a[0].cell.id;
+    let keptWhole = false;
+    for (const x of a) {
+      if (x.cell.id !== type || (M[type].chassisLimit === 1 && (keptWhole || x.r !== CH))) v.body[x.r][x.c] = null;
+      else if (M[type].chassisLimit === 1) keptWhole = true;
+    }
+    return v;
+  }
   const inGrid = (r, c) => r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS;
   const fits = (r, c, w, h) => r >= 0 && c >= 0 && r + h <= K.ROWS && c + w <= K.COLS;
   const box = (r, c, w, h) => { const out = []; for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) out.push([r + i, c + j]); return out; };
@@ -68,7 +90,7 @@ SA.V = (() => {
     for (const [r, c, id] of subs) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     sides.forEach(([r, c]) => { v.side[r * 2][c * 2] = SA.newCell('side_cannon', mt); });
     for (const [r, c, t, layer] of elite) { const L = v[layer || 'body'], cell = L[r * 2][c * 2]; if (cell) L[r * 2][c * 2] = SA.newCell(cell.id, t); }
-    return v;
+    return normalizeChassis(v);
   }
   // 大格网格（6 × 8，每格一个模块对象）→ 子格载具
   function fromBig(name, body, side) {
@@ -79,10 +101,11 @@ SA.V = (() => {
   }
   // 旧存档（6 × 8 大格）→ 子格
   function migrate(v) {
-    if (!v || !v.body || v.body.length === K.ROWS) return v;
+    if (!v || !v.body) return v;
+    if (v.body.length === K.ROWS) return normalizeChassis(v);
     const out = fromBig(v.name, v.body, v.side);
     if (v.lim) out.lim = v.lim;
-    return out;
+    return normalizeChassis(out);
   }
 
   // 改装台的可用区域：战役逐章扩建。v.lim = { cols, rows }（大格数，只有玩家的车有），列从中间往两边扩，行从底盘往上扩
@@ -105,6 +128,14 @@ SA.V = (() => {
 
   const isRamCell = (cell) => cell && SA.isRam(cell.id);
   const mountText = (m) => `${m.name}要装在${m.mount.map(x => M[x].name).join('/')}的正前方（右侧）`;
+  // 双足胯行左右各一格（这里沿用子格坐标，所以每个腰挂位最多覆盖两个子格）。
+  function bipedWaist(v, r, c, w, h) {
+    const a = chassisAnchors(v).find(x => x.cell.id === 'biped' && x.r === CH);
+    if (!a || r !== CH || h !== 1) return false;
+    const left = c + w <= a.c && c + w >= a.c - 2;
+    const right = c >= a.c + 1 && c <= a.c + 2;
+    return left || right;
+  }
   // 这几行里，锚点左边有没有撞击件（撞击件前方不能再放东西）
   const ramBehind = (O, r, c, h) => { for (let i = 0; i < h; i++) for (let k = 0; k < c; k++) if (O[r + i][k] && isRamCell(O[r + i][k].cell)) return true; return false; };
   // 这几行里，模块右边还有没有东西（撞击件必须是最前端）
@@ -120,7 +151,7 @@ SA.V = (() => {
     if (!boxInRegion(v, r, c, w, h)) return no(LOCKED);
     const O = occ(v, 'body'), cells = box(r, c, w, h);
     if (m.layer === 'side') {
-      if (r + h > CH) return no('底盘上不能挂侧炮');
+      if (r + h > CH && !bipedWaist(v, r, c, w, h)) return no('底盘上不能挂侧炮');
       const S = occ(v, 'side');
       if (cells.some(([rr, cc]) => S[rr][cc])) return no('侧挂层这里已经有侧炮');
       if (cells.some(([rr, cc]) => !O[rr][cc])) return no('侧炮必须整个挂在主体模块上');
@@ -129,16 +160,20 @@ SA.V = (() => {
     }
     if (cells.some(([rr, cc]) => O[rr][cc])) return no('这里已经有模块');
     if (m.layer === 'ram') {
+      if (chassisAnchors(v).some(x => x.cell.id === 'biped') && (r !== CH || h > 1)) return no('双足撞击件只能装在胯行或腰挂位');
       if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id))) return no(mountText(m));
       if (anyAhead(O, r, c, w, h)) return no('撞击武器必须在这一行的最前端');
       return { ok: true };
     }
     if (m.layer === 'chassis') {
       if (r !== CH) return no('底盘只能放在最底下两行');
+      const chassis = chassisAnchors(v);
+      if (chassis.some(x => x.cell.id !== id)) return no('一辆车只能使用一种底盘');
+      if (m.chassisLimit === 1 && chassis.some(x => x.cell.id === id)) return no('一辆车只能有一个底盘整件');
       if (ramBehind(O, r, c, h)) return no('撞击武器前方不能再放模块');
       return { ok: true };
     }
-    if (r + h > CH) return no('最底下两行只能放底盘');
+    if ((r >= CH || r + h > CH) && !bipedWaist(v, r, c, w, h)) return no('最底下两行只能放底盘');
     // 外圈只要挨着一个（非撞击件的）模块就能塞进去；是否一路连到底盘由 issues() 检查
     const near = ring(r, c, w, h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
     if (!near.length) return no('悬空：四周都没有模块可以依靠');
@@ -248,6 +283,12 @@ SA.V = (() => {
     const key = (r, c) => r * K.COLS + c;
     const flag = (layer, r, c, reason) => out.push({ layer, r, c, reason });
     const queue = [];
+    const chassis = chassisAnchors(v);
+    const chassisIds = new Set(chassis.map(x => x.cell.id));
+    if (chassisIds.size > 1) for (const x of chassis) flag('body', x.r, x.c, '一辆车只能使用一种底盘');
+    for (const id of chassisIds) if (M[id].chassisLimit === 1 && chassis.filter(x => x.cell.id === id).length > 1)
+      for (const x of chassis.filter(x => x.cell.id === id).slice(1)) flag('body', x.r, x.c, '一辆车只能有一个底盘整件');
+    const isBiped = chassis[0] && chassis[0].cell.id === 'biped';
     for (let c = 0; c < K.COLS; c++) if (B[CH][c] && M[B[CH][c].id].layer === 'chassis' && inRegion(v, CH, c)) { ok.add(key(CH, c)); queue.push([CH, c]); }
     while (queue.length) {
       const [r, c] = queue.shift();
@@ -269,10 +310,12 @@ SA.V = (() => {
         else if (m.layer === 'chassis') {
           if (r !== CH) flag('body', r, c, '底盘只能放在最底下两行');
         } else if (m.layer === 'ram') {
-          if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id) && ok.has(key(o.r, o.c)))) flag('body', r, c, mountText(m));
+          if (isBiped && (r !== CH || h > 1)) flag('body', r, c, '双足撞击件只能装在胯行或腰挂位');
+          else if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id) && ok.has(key(o.r, o.c)))) flag('body', r, c, mountText(m));
           else if (anyAhead(O, r, c, w, h)) flag('body', r, c, '撞击武器必须是这一行的最前端');
-        } else if (r + h > CH) {
-          flag('body', r, c, '最底下两行只能放底盘');
+        } else if (r >= CH || r + h > CH) {
+          if (isBiped && bipedWaist(v, r, c, w, h)) continue;
+          flag('body', r, c, isBiped && r === CH ? '双足胯部只能放双足整件' : '底盘腿区只能放底盘');
         } else if (!ok.has(key(r, c))) {
           const below = ring(r, c, w, h).filter(([rr]) => rr === r + h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
           flag('body', r, c, below.length && below.every(o => isRamCell(o.cell)) ? '悬空：撞击武器不能当支撑' : '悬空：四周都没连到底盘');
@@ -284,7 +327,7 @@ SA.V = (() => {
         if (!cell) continue;
         const { w, h } = fp(cell.id), under = box(r, c, w, h).map(([rr, cc]) => inGrid(rr, cc) && O[rr][cc]);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
-        else if (r + h > CH) flag('side', r, c, '底盘上不能挂侧炮');
+        else if (r + h > CH && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, '底盘上不能挂侧炮');
         else if (under.some(o => !o)) flag('side', r, c, '悬空：侧炮必须整个挂在主体模块上');
         else if (under.some(o => isRamCell(o.cell))) flag('side', r, c, '撞击武器上不能挂侧炮');
         else if (under.some(o => !ok.has(key(o.r, o.c)))) flag('side', r, c, '悬空：挂载的模块没有连到底盘');
@@ -332,12 +375,15 @@ SA.V = (() => {
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
+      center: 0, d: 0, balance: '无底盘', balanceState: '无底盘', balanceTolerance: 0, comHeight: 0, topHeavy: false, hip: '正常', legs: '正常',
     };
-    let aimShrinkBonus = 0, aimSpeedBonus = 0;
+    let aimShrinkBonus = 0, aimSpeedBonus = 0, massX = 0, massY = 0, mass = 0;
+    let chassisCenter = K.COLS / 2, chassisMt = 1, chassisCell = null;
     each(v, (cell, r, c) => {
       const m = SA.mod(cell);
       s.value += SA.cellValue(cell); s.count++;
       s.byId[cell.id] = (s.byId[cell.id] || 0) + (cell.hp > 0 ? 1 : 0);
+      if (M[cell.id].layer === 'chassis' && !chassisCell) { chassisCell = cell; chassisCenter = c + fp(cell.id).w / 2; chassisMt = cell.mt || 1; }
       if (cell.hp <= 0) { s.broken++; return; }
       if (cell.hp < maxHp(cell)) s.damaged++;
       s.height = Math.max(s.height, Math.ceil((K.ROWS - r) / 2));   // 按大格算层数
@@ -346,6 +392,8 @@ SA.V = (() => {
       aimShrinkBonus = Math.max(aimShrinkBonus, m.aimShrink || 0);
       aimSpeedBonus = Math.max(aimSpeedBonus, m.aimSpeed || 0);
       s.weight += SA.weightOf(cell);
+      const f = fp(cell.id), weight = SA.weightOf(cell), cx = c + f.w / 2, cy = r + f.h / 2;
+      massX += weight * cx; massY += weight * cy; mass += weight;
       s.supply += m.supply || 0;
       s.heatMul = Math.min(s.heatMul, m.heatMul || 1);
       s.store += m.store || 0;
@@ -360,6 +408,10 @@ SA.V = (() => {
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water || m.cool) { s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
+    s.center = mass ? massX / mass : chassisCenter;
+    s.d = s.center - chassisCenter;
+    const comY = mass ? massY / mass : CH + 0.5;
+    s.comHeight = Math.max(0, (CH + 0.5 - comY) / 2);
     // 实体辅助模块（观察镜 / 装弹机 / 陀螺仪 / 测距仪）
     const cells = [];
     each(v, (cell) => cells.push(cell));
@@ -413,6 +465,18 @@ SA.V = (() => {
     s.thrown = deadTracks > 0;
     if (s.thrown) s.problems.push('履带掉链（有一段被打断），在车间修好才能开');
     s.warnings = [];
+    if (chassisCell && chassisCell.id === 'biped') {
+      const rule = M.biped.balance || { steady: 0.25, limit: 0.6, topHeavy: 1.8, toleranceByMt: [] };
+      s.balanceTolerance = rule.toleranceByMt[chassisMt - 1] || rule.limit;
+      s.balance = Math.abs(s.d) <= rule.steady ? '平衡' : (Math.abs(s.d) <= s.balanceTolerance ? (s.d > 0 ? '前倾' : '后仰') : '失衡');
+      s.balanceState = s.balance;
+      s.topHeavy = s.comHeight > rule.topHeavy;
+      const zones = chassisCell.bipedZones;
+      s.hip = zones ? (zones.hip > 0 ? '正常' : '损毁') : (chassisCell.hp > 0 ? '正常' : '损毁');
+      s.legs = zones ? (zones.leg > 0 ? '正常' : '损毁') : (chassisCell.hp > 0 ? '正常' : '损毁');
+      if (s.balance === '失衡') s.problems.push('双足重心失衡，无法部署');
+      if (s.topHeavy) s.warnings.push('双足头重脚轻，行走摆动增大');
+    }
     if (s.demand > s.supply && s.boilers) s.warnings.push(`动力不足：车速和装填降至 ${Math.round(s.power * 100)}%`);
     if (s.blocked.length) s.warnings.push(`${s.blocked.length} 门武器被己方模块挡住，无法开火`);
     if (!s.weapons) s.warnings.push('没有武器');
@@ -447,7 +511,7 @@ SA.V = (() => {
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
       for (const [r, c, id] of list)
         if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) v[layer][r * k][c * k] = SA.newCell(id);
-    return v;
+    return normalizeChassis(v);
   }
   // 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级] → 载具（进化报告用；分享码不记材料和改装）
   function fromCells(name, cells) {
@@ -459,7 +523,7 @@ SA.V = (() => {
       if (lv) { cell.lv = lv; cell.hp = maxHp(cell); }
       v[l ? 'side' : 'body'][r][c] = cell;
     }
-    return v;
+    return normalizeChassis(v);
   }
   // 布局需要的模块数量 { id: n }
   function countIds(v) {
@@ -493,7 +557,7 @@ SA.V = (() => {
         if (next.length === pending.length) break;
         pending = next;
       }
-      return v;
+      return normalizeChassis(v);
     } catch (e) { return null; }
   }
 

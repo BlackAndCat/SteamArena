@@ -33,6 +33,31 @@ function auxiliaryAimCheck() {
   };
 }
 
+function chassisRuleCheck() {
+  const { SA } = evolve.loadGame();
+  const quad = SA.V.fromAscii('整件四足检查', ['........', '........', '........', '..K.....', '..O.....', '..Q.....']);
+  const qs = SA.V.stats(quad);
+  if (SA.fp('quad').w !== 4 || SA.fp('quad').h !== 2 || (SA.suspPts('quad') || []).join(',') !== '0,96,8,104')
+    throw new Error('四足整件尺寸或固定接地点错误');
+  if (qs.issues.length || !qs.canDeploy || qs.byId.quad !== 1) throw new Error(`四足整件布局不合法：${JSON.stringify(qs.issues)}`);
+
+  const biped = SA.V.fromAscii('真双足检查', ['........', '........', '........', '..K.....', '..O.....', '..B.....']);
+  const bs = SA.V.stats(biped);
+  if (SA.fp('biped').w !== 1 || SA.fp('biped').h !== 2 || !['平衡', '前倾', '后仰'].includes(bs.balance) || bs.legs !== '正常')
+    throw new Error(`双足平衡或分区初值错误：${JSON.stringify({ balance: bs.balance, legs: bs.legs })}`);
+  const invalid = SA.V.create('双足腿区非法检查');
+  invalid.body[SA.V.CH][6] = SA.newCell('biped');
+  invalid.body[SA.V.CH + 1][6] = SA.newCell('armor');
+  if (!SA.V.issues(invalid).some(x => x.reason.includes('腿区'))) throw new Error('双足腿区未拦截普通模块');
+
+  const legacy = SA.V.create('旧底盘迁移检查');
+  legacy.body[SA.V.CH][4] = SA.newCell('quad');
+  legacy.body[SA.V.CH][5] = SA.newCell('quad');
+  const migrated = SA.V.migrate(legacy);
+  if (SA.V.countIds(migrated).quad !== 1) throw new Error('旧逐格四足未归一为一个整件');
+  return { quad: { size: `${SA.fp('quad').w}x${SA.fp('quad').h}`, contactPts: SA.suspPts('quad') }, biped: { balance: bs.balance, legs: bs.legs }, legacyQuadCount: SA.V.countIds(migrated).quad };
+}
+
 async function main() {
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
@@ -41,7 +66,8 @@ async function main() {
   if (modules.found !== modules.total) throw new Error(`模块覆盖不完整：${modules.found}/${modules.total}`);
   const ai = calibration.selfCheck();
   const auxiliaryAim = auxiliaryAimCheck();
-  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, ai };
+  const chassis = chassisRuleCheck();
+  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
   console.log(JSON.stringify(result, null, 2));
 }
 

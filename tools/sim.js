@@ -10,8 +10,8 @@
   const REF = [
     { name: '序章 · 原型机', grid: [4, 3], mt: 1, rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'] },
     { name: '一章 · 装甲炮车', grid: [5, 3], mt: 1, rows: ['........', '........', '........', '...KC...', '..WOAA..', '..TTTT..'], subs: [[5, 6, 'cannon_s']] },
-    { name: '二章 · 熟铁四层', grid: [5, 4], mt: 2, rows: ['........', '........', '...C....', '..KAM...', '.WOOHH..', '.QQQQQ..'], subs: [[2, 6, 'tank_tall'], [8, 12, 'periscope'], [8, 13, 'autoloader']] },
-    { name: '三章 · 钢撞角双足', grid: [6, 4], mt: 3, style: 'rush', rows: ['........', '........', '...C....', '..KAM...', '..OWAHX.', '..BBBB..'], subs: [[3, 5, 'condenser'], [1, 5, 'pressure_chamber'], [6, 10, 'mortar_s']] },
+    { name: '二章 · 熟铁四层', grid: [5, 4], mt: 2, rows: ['........', '........', '...C....', '..KAM...', '.WOOHH..', '.Q......'], subs: [[2, 6, 'tank_tall'], [8, 12, 'periscope'], [8, 13, 'autoloader']] },
+    { name: '三章 · 钢撞角双足', grid: [6, 4], mt: 3, style: 'rush', rows: ['........', '........', '...C....', '..KAM...', '..OWAHX.', '..B.....'], subs: [[3, 5, 'condenser'], [1, 5, 'pressure_chamber'], [6, 10, 'mortar_s']] },
     { name: '四章 · 镀镍炮垒', grid: [6, 5], mt: 4, style: 'rush', rows: ['........', '...P....', '..KAC...', '.WOAHH..', '.WOOHAY.', '.TTTTTT.'], sides: [[3, 3], [3, 4]], subs: [[6, 12, 'steamjet'], [8, 14, 'gyroscope'], [8, 15, 'rangefinder']] },
     { name: '五章 · 镀镍 + 史诗', grid: [7, 5], mt: 4, rows: ['........', '...P....', '..VKAC..', 'WWOAHH..', 'WOOHHAY.', 'TTTTTTT.'], lateRows: ['........', '...P....', '..VKAb..', 'WWOAH...', 'WOOHHAY.', 'TTTTTTT.'], sides: [[3, 3], [3, 4], [4, 3]], elite: [[2, 5, 5], [1, 3, 5]], subs: [[0, 6, 'pressure_tank'], [0, 4, 'radiator'], [4, 12, 'rocket_rack'], [6, 14, 'flamer'], [8, 14, 'harpoon']] },
   ];
