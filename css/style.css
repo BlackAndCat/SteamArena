@@ -666,3 +666,21 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
 .code-act { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; }
 .bprow.add.share { border-color: var(--iron3); }
 .bprow.add.share .plus { color: var(--glass2); font-size: 26px; }
+
+/* ---------- 手机适配（2026-09-27 夜间检查）---------- */
+/* 对阵卡片的标签行不换行时，375 宽下把整张卡、整个出战页撑到 500 多像素宽（页面能横向拖动）：允许换行，右边那张靠右排 */
+.vs-chips { flex-wrap: wrap; }
+.vs-card:last-child .vs-chips { justify-content: flex-end; }
+@media (max-width: 900px) { .ar-grid { grid-template-columns: minmax(0, 1fr); } }
+/* 触屏 / 窄屏：能点的东西至少 44×44（一根手指）。用 min-height / min-width 撑开点击区，字号和视觉密度不变 */
+@media (pointer: coarse), (max-width: 820px) {
+  .btn, .tab, .res, .dev-btn, .ed-help, .plate-toggle, .ar-row, .ar-ch, .grp, .feel .btn, select, input[type=text], input[type=number] { min-height: 44px; }
+  .btn, .tab, .ed-help, .dev-btn { min-width: 44px; }
+  .btn, .tab { display: inline-flex; align-items: center; justify-content: center; }
+  .plate-toggle { display: flex; align-items: center; }
+  label.switch { min-height: 44px; display: inline-flex; align-items: center; }
+  input[type=range] { min-height: 44px; }
+  .ar-row, .ar-ch { box-sizing: border-box; }
+  /* 这几个在别处用了 all: unset / 更具体的选择器，要同等具体才压得住 */
+  button.res, .brass-plate .plate-toggle, .brass-plate .plate-name { min-height: 44px; box-sizing: border-box; }
+}
