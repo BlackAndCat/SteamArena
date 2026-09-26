@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新模块造型候选</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.7; max-width: 80em; font-size: 13.5px; }
+  .bar { position: sticky; top: 0; z-index: 5; background: var(--bg0); padding: 8px 0; border-bottom: 1px solid var(--dark2); display: grid; gap: 6px; }
+  .bar .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .bar .lbl { font-size: 12px; color: var(--muted); }
+  .chipnav a { font-size: 12px; color: var(--iron4); text-decoration: none; padding: 2px 7px; border: 1px solid var(--dark3); white-space: nowrap; }
+  .chipnav a:hover { color: var(--brass3); border-color: var(--brass1); }
+  .chipnav a b { color: var(--brass2); font-weight: 400; margin-left: 3px; }
+  .chipnav .bt { font-size: 11px; color: var(--muted); margin: 0 2px 0 6px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  section.mod { padding: 22px 0 6px; border-bottom: 1px dashed var(--dark3); }
+  .mh { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 6px; }
+  .mh h2 { margin: 0; font-size: 19px; font-weight: 900; letter-spacing: 2px; }
+  .mh .meta { font-size: 12px; color: var(--muted); }
+  .cat { font-size: 11px; font-weight: 700; padding: 1px 6px; color: #11100e; }
+  .note { margin: 0 0 10px; font-size: 13px; line-height: 1.65; color: var(--iron4); max-width: 86em; }
+  .note .now { display: inline-flex; gap: 6px; align-items: center; vertical-align: middle; }
+  .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+  .cand { padding: 10px 12px; }
+  .cand h3 { margin: 0 0 4px; font-size: 15px; color: var(--brass3); }
+  .cand .idea { margin: 0 0 8px; font-size: 12.5px; line-height: 1.6; }
+  .cand .main { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .cand .mini { display: grid; gap: 4px; justify-items: center; font-size: 10px; color: var(--muted); }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; align-items: flex-end; }
+  .strip .s { display: grid; justify-items: center; gap: 2px; font-size: 10px; }
+  .cap { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .bg canvas { background: var(--bg2); }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>新模块造型候选 <small style="font-size:13px;color:var(--muted);letter-spacing:0">夜间探索 v1 · 2026-09-27</small></h1>
+    <p>目前借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
+  </header>
+  <div class="bar">
+    <div class="row">
+      <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="sil">剪影</button><button class="btn small" data-v="gray">灰度</button></span>
+      <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button><button class="btn small" data-v="4">4×</button></span>
+      <button class="btn small on" id="anim">动画：开</button>
+      <button class="btn small primary" id="fire">开火</button>
+      <span class="lbl" id="count"></span>
+    </div>
+    <div class="row chipnav" id="nav"></div>
+  </div>
+  <div id="mods"></div>
+</div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="cand-kit.js"></script>
+<script src="cand-early.js"></script>
+<script src="cand-mid.js"></script>
+<script src="cand-late.js"></script>
+<script src="labs.js"></script>
+<script>
+(() => {
+  const C = SA.CAND, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mode: 'color', zoom: 3, anim: true, t: 0, k: 0 };
+  const LAYER = { body: '主体', side: '侧挂', ram: '撞击', chassis: '底盘' };
+  const ORDER = { early: 0, mid: 1, late: 2 };
+  const mods = C.MODS.slice().sort((a, b) => ORDER[a.batch] - ORDER[b.batch]);
+
+  function filtered(src, mode) {
+    if (mode === 'color') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 8) continue;
+      if (mode === 'sil') { d[i] = d[i + 1] = d[i + 2] = 7; d[i + 3] = 255; }
+      else { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    }
+    g.putImageData(img, 0, 0); return c;
+  }
+  // 按内容裁掉四周空白：同一个候选、同一个仰角共用一个裁切框（开火、动画时画布大小不跳）
+  const crops = new Map();
+  function cropOf(key, id, cd, a) {
+    if (crops.has(key)) return crops.get(key);
+    const src = withHull(id, C.sprite(id, cd, { a })), d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
+    let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
+    for (let yy = 0; yy < src.height; yy++) for (let xx = 0; xx < src.width; xx++) if (d[(yy * src.width + xx) * 4 + 3] > 8) { x0 = Math.min(x0, xx); x1 = Math.max(x1, xx); y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); }
+    const gun = C.isGun(id), r = [Math.max(0, x0 - 3), Math.max(0, y0 - 3), 0, 0];
+    r[2] = Math.min(src.width, x1 + (gun ? 8 : 4)) - r[0]; r[3] = Math.min(src.height, y1 + 4) - r[1];
+    crops.set(key, r); return r;
+  }
+  function cropped(src, r) {
+    const c = document.createElement('canvas'); c.width = r[2]; c.height = r[3];
+    c.getContext('2d').drawImage(src, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]); return c;
+  }
+  function paint(dst, src, z, mode = st.mode) {
+    const s = filtered(src, mode);
+    dst.width = s.width; dst.height = s.height;
+    const g = dst.getContext('2d'); g.fillStyle = mode === 'sil' ? P.bg[4] : P.bg[2]; g.fillRect(0, 0, s.width, s.height); g.drawImage(s, 0, 0);
+    dst.style.width = s.width * z + 'px'; dst.style.height = s.height * z + 'px';
+    return dst;
+  }
+  // 主体层模块下面垫一块车体框架色（和游戏里一样，模块嵌在舱位里）
+  function withHull(id, src) {
+    const m = SA.MODULES[id];
+    if (m.layer !== 'body') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(src.ox, src.oy, src.fw, src.fh); g.drawImage(src, 0, 0);
+    Object.assign(c, { ox: src.ox, oy: src.oy, fw: src.fw, fh: src.fh }); return c;
+  }
+  // 车体片段：左边两列甲片，右边放候选；侧挂件压在甲片上面
+  function chunk(id, cand) {
+    const m = SA.MODULES[id], src = C.sprite(id, cand, { t: st.t }), W = src.fw, H = src.fh, side = m.layer === 'side';
+    const hullW = side ? W + 24 : W + 48, c = document.createElement('canvas');
+    c.width = src.width + (side ? 24 : 48); c.height = src.height;
+    const g = c.getContext('2d'), x0 = src.ox, y0 = src.oy;
+    if (m.layer !== 'ram') { g.fillStyle = P.iron[0]; g.fillRect(x0 - 1, y0 - 1, (side ? W + 24 : 48 + (m.layer === 'body' ? W : 0)) + 2, H + 2); g.fillStyle = P.iron[1]; g.fillRect(x0, y0, side ? W + 24 : 48 + (m.layer === 'body' ? W : 0), H); }
+    for (let yy = 0; yy < H; yy += 24) for (let xx = 0; xx < (side ? W + 24 : 48); xx += 24) SA.SPR.drawModule(g, 'plate', x0 + xx, y0 + yy, {});
+    g.drawImage(src, side ? 12 : 48, 0);
+    return c;
+  }
+  function catChip(m) { const c = SA.CAT[m.layer === 'ram' ? 'ram' : m.cat] || SA.CAT.structure, t = el('span', { className: 'cat' }, c.name); t.style.background = c.ui; return t; }
+  const live = [];   // 需要随动画重画的 [画布, 模块, 候选]
+  function build() {
+    let n = 0;
+    const nav = [];
+    for (const b of ['early', 'mid', 'late']) {
+      nav.push(el('span', { className: 'bt' }, C.BATCH[b].replace(/（.*）/, '')));
+      for (const md of mods.filter(x => x.batch === b)) { nav.push(el('a', { href: '#' + md.id }, SA.MODULES[md.id].name, el('b', {}, md.cands.length))); n += md.cands.length; }
+    }
+    $('nav').replaceChildren(...nav);
+    $('count').textContent = `${mods.length} 个模块 · ${n} 个候选`;
+    $('mods').replaceChildren(...mods.map(md => {
+      const m = SA.MODULES[md.id], f = SA.fp(md.id);
+      const now = document.createElement('canvas'); now.width = f.w * 24 + 4; now.height = f.h * 24 + 4;
+      SA.SPR.drawModule(now.getContext('2d'), md.id, 2, 2, {}); now.style.width = now.width + 'px';
+      const meta = `${md.id} · ${f.w}×${f.h} 子格（${f.w * 24}×${f.h * 24}px）· ${LAYER[m.layer] || m.layer}` + (C.isGun(md.id) ? ` · 耳轴 (${m.piv}) 炮口长 ${m.blen} · 仰角 ${m.elev[0]}°～${m.elev[1]}°` : '') + ` · ${C.BATCH[md.batch]}`;
+      return el('section', { className: 'mod', id: md.id },
+        el('div', { className: 'mh' }, el('h2', {}, m.name), catChip(m), el('span', { className: 'meta' }, meta)),
+        el('p', { className: 'note' }, el('span', { className: 'now' }, '现在的占位：', now), '　', md.note),
+        el('div', { className: 'cands' }, ...md.cands.map(cd => card(md, cd))));
+    }));
+  }
+  function card(md, cd) {
+    const id = md.id, m = SA.MODULES[id];
+    const big = document.createElement('canvas'), one = document.createElement('canvas'), sil = document.createElement('canvas');
+    live.push([big, id, cd, 'big'], [one, id, cd, 'one'], [sil, id, cd, 'sil']);
+    const strip = el('div', { className: 'strip bg' });
+    for (let mt = 1; mt <= SA.MAT_MAX; mt++) {
+      const c = document.createElement('canvas'); live.push([c, id, cd, 'mt', mt]);
+      const lab = el('span', {}, SA.MATS[mt].name); lab.style.color = SA.MATS[mt].chip;
+      strip.append(el('div', { className: 's' }, c, lab));
+    }
+    const extra = el('div', { className: 'strip bg' });
+    if (C.isGun(id)) for (const a of [m.elev[0], m.rest || 0, m.elev[1]].filter((v, i, arr) => arr.indexOf(v) === i)) {
+      const c = document.createElement('canvas'); live.push([c, id, cd, 'ang', a]); extra.append(el('div', { className: 's' }, c, `${a}°`));
+    }
+    const ctx = document.createElement('canvas'); live.push([ctx, id, cd, 'ctx']);
+    extra.append(el('div', { className: 's' }, ctx, '车体里'));
+    return el('div', { className: 'panel cand' },
+      el('h3', {}, `${cd.key} · ${cd.name}`), el('p', { className: 'idea' }, cd.idea),
+      el('div', { className: 'main bg' }, big, el('div', { className: 'mini' }, one, '1×', sil, '剪影')),
+      el('div', { className: 'cap' }, '材料换色（游戏的装饰层）'), strip,
+      el('div', { className: 'cap' }, C.isGun(id) ? '仰角范围 · 车体里（1×）' : '车体里（1×）'), extra);
+  }
+  function draw1(cv, id, cd, kind, v) {
+    const o = { t: st.t, k: st.k }, rest = SA.MODULES[id].rest || 0, base = cropOf(`${id}|${cd.key}|${rest}`, id, cd, rest);
+    if (kind === 'big') paint(cv, cropped(withHull(id, C.sprite(id, cd, o)), base), st.zoom);
+    else if (kind === 'one') paint(cv, cropped(withHull(id, C.sprite(id, cd, o)), base), 1);
+    else if (kind === 'sil') paint(cv, cropped(C.sprite(id, cd, o), base), 1, 'sil');
+    else if (kind === 'mt') paint(cv, cropped(withHull(id, C.sprite(id, cd, { ...o, mt: v })), base), st.zoom >= 3 ? 2 : 1);
+    else if (kind === 'ang') paint(cv, cropped(withHull(id, C.sprite(id, cd, { ...o, a: v })), cropOf(`${id}|${cd.key}|${v}`, id, cd, v)), 1);
+    else if (kind === 'ctx') paint(cv, chunk(id, cd), 1);
+  }
+  function render() { for (const [cv, id, cd, kind, v] of live) draw1(cv, id, cd, kind, v); }
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); render(); });
+  seg($('mode'), v => st.mode = v);
+  seg($('zoom'), v => st.zoom = +v);
+  $('anim').onclick = () => { st.anim = !st.anim; $('anim').textContent = '动画：' + (st.anim ? '开' : '关'); $('anim').classList.toggle('on', st.anim); };
+  let fireT = 0;
+  $('fire').onclick = () => { fireT = 6; };
+  // 只重画屏幕里看得见的候选，页面很长也不卡
+  setInterval(() => {
+    let dirty = false;
+    if (fireT > 0) { fireT--; st.k = fireT >= 5 ? 1 : fireT / 5; dirty = true; } else if (st.k) { st.k = 0; dirty = true; }
+    if (st.anim) { st.t++; dirty = true; }
+    if (!dirty) return;
+    for (const [cv, id, cd, kind] of live) {
+      if (kind !== 'big') continue;
+      const r = cv.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight) continue;
+      draw1(cv, id, cd, kind);
+    }
+  }, 125);
+  build(); render();
+  window.__candReady = true;
+})();
+</script></body></html>

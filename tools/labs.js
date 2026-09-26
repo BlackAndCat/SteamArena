@@ -29,6 +29,8 @@ SA.LABS = {
       desc: '全部模块的像素图、外观阶段 × 材料矩阵、改装挂件、炮管后坐与供弹动态帧', docs: ['docs/module-plan.md'] },
     { id: 'cannon-s', group: 'module', url: 'cannon-s-lab.html', name: '小炮 · 造型与材质语法', ver: 'v2', date: '2026-09-27', status: 'explore',
       desc: '五个造型方向 × 六种材料的材质语法（材料换零件画法而不是换色）；v2 加了 C 卡隆短炮的三个外观阶段', docs: ['docs/board-opus.md'] },
+    { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '新模块造型候选', ver: 'v1', date: '2026-09-27', status: 'explore',
+      desc: '20 个借形占位模块每个 2～3 个候选：T1 原画、1× / 剪影、仰角范围、六阶材料换色、放进车体；按早期 → 中期 → 后期排列', docs: ['docs/board-opus.md', 'docs/reports/2026-09-27-visual-overnight.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',
       desc: '四足 4×2 整件（蜘蛛）+ 真双足 2×4（陀螺胯、一对长腿）；外观和步态已进游戏', docs: ['docs/true-biped.md §8'] },
     { id: 'mech-kit', group: 'chassis', url: 'mech-kit.html', name: '机甲套件 · 子格验证', ver: 'v3', date: '2026-09-25', status: 'archived',
