@@ -9,9 +9,9 @@
   header.hero { padding: 24px 0 14px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
   .hero h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
   .hero p { margin: 8px 0 0; line-height: 1.7; max-width: 72em; }
-  .bar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--dark2); }
-  .bar .lbl { font-size: 12px; color: var(--muted); }
-  .bar input[type=range] { width: 140px; accent-color: var(--brass2); }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  .cbar input[type=range] { width: 140px; accent-color: var(--brass2); }
   section { padding: 24px 0 4px; }
   h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 3px; display: flex; align-items: baseline; gap: 10px; }
   h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
@@ -55,7 +55,7 @@
     <h1>小炮 · 造型与材质语法 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v2 · 2026-09-27</small></h1>
     <p>小炮（<code>cannon_s</code>）只占 1 个 24px 子格。本页两件事：<b>① 五个造型方向</b>，看哪种在 1× 下最像「一门小炮」又不和中炮、小臼炮、机枪撞；<b>② 材质语法</b>——材料不再只是给同一张图换色，而是换一套零件画法（工艺、光泽、纹理、紧固件、炮口、动态），让黄铜像铸的、熟铁像锻的、钢像车床上下来的。只做视觉，不改游戏。</p>
   </header>
-  <div class="bar">
+  <div class="cbar">
     <span class="lbl">仰角</span><input type="range" id="ang" min="-8" max="30" value="0"><span id="angV" class="lbl" style="width:32px">0°</span>
     <button class="btn small primary" id="fire">开炮</button>
     <button class="btn small on" id="anim">动画：开</button>

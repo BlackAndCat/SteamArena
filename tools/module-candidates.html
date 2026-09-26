@@ -9,13 +9,13 @@
   header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
   .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
   .hero p { margin: 8px 0 0; line-height: 1.7; max-width: 80em; font-size: 13.5px; }
-  .bar { position: sticky; top: 0; z-index: 5; background: var(--bg0); padding: 8px 0; border-bottom: 1px solid var(--dark2); display: grid; gap: 6px; }
-  .bar .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-  .bar .lbl { font-size: 12px; color: var(--muted); }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); padding: 8px 0; border-bottom: 1px solid var(--dark2); display: grid; gap: 6px; }
+  .cbar .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
   .chipnav a { font-size: 12px; color: var(--iron4); text-decoration: none; padding: 2px 7px; border: 1px solid var(--dark3); white-space: nowrap; }
   .chipnav a:hover { color: var(--brass3); border-color: var(--brass1); }
   .chipnav a b { color: var(--brass2); font-weight: 400; margin-left: 3px; }
-  .chipnav .bt { font-size: 11px; color: var(--muted); margin: 0 2px 0 6px; }
+  .chipnav .btl { font-size: 11px; color: var(--muted); margin: 0 2px 0 6px; }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
   section.mod { padding: 22px 0 6px; border-bottom: 1px dashed var(--dark3); }
   .mh { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 6px; }
@@ -41,7 +41,7 @@
     <h1>新模块造型候选 <small style="font-size:13px;color:var(--muted);letter-spacing:0">夜间探索 v1 · 2026-09-27</small></h1>
     <p>目前借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
   </header>
-  <div class="bar">
+  <div class="cbar">
     <div class="row">
       <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="sil">剪影</button><button class="btn small" data-v="gray">灰度</button></span>
       <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button><button class="btn small" data-v="4">4×</button></span>
@@ -128,7 +128,7 @@
     let n = 0;
     const nav = [];
     for (const b of ['early', 'mid', 'late']) {
-      nav.push(el('span', { className: 'bt' }, C.BATCH[b].replace(/（.*）/, '')));
+      nav.push(el('span', { className: 'btl' }, C.BATCH[b].replace(/（.*）/, '')));
       for (const md of mods.filter(x => x.batch === b)) { nav.push(el('a', { href: '#' + md.id }, SA.MODULES[md.id].name, el('b', {}, md.cands.length))); n += md.cands.length; }
     }
     $('nav').replaceChildren(...nav);
