@@ -18,23 +18,25 @@
 | **Opus**（视觉） | 视觉、动画、特效、UX、界面布局与交互、美术规范 | 数值、规则、AI、存档格式 |
 | **astra**（后台） | 玩法规则、模块机制、数据、数值、AI、战役和关卡数据、经济、存档与分享码、数值工具、自动化检查 | 精灵、造型、动画、特效、CSS、界面布局 |
 
-**两个代理都不做产品决策。** 拿不准、需要取舍的，写进 §6 的待定项，并在汇报里提出来，由用户决定。不要擅自删功能，也不要擅自改已经定下的决定（§5）。
+**两个代理都不做产品决策。** 拿不准、需要取舍的，写进 `docs/board-astra.md` 的待定项，并在汇报里提出来，由用户决定。不要擅自删功能，也不要擅自改已经定下的决定（§5）。
 
 **发现问题要记录并汇报。** 测试中发现的缺陷、漏洞、不合理的必胜打法，记下复现方法并告诉用户。明显的 bug 可以直接修；属于设计取舍的，写成提议等用户决定。关卡车进化生成器的具体权限见 `docs/evolve-plan.md` §13。
 
 ## 2. 文件与代码归属
 
-原则：**谁负责，谁改。** 必须动对方区域时，只做最小改动，并在交接板（§7）记一笔。
+原则：**谁负责，谁改。** 必须动对方区域时，只做最小改动，并在自己的看板记一笔。
 
 ### 2.1 按文件
 
 | 归属 | 文件 |
 |---|---|
-| astra | `js/modules.js`（视觉字段除外，见 §2.3）、`js/vehicle.js`、`js/camp.js`、`js/content.js`、`js/state.js`、`js/street.js`、`tools/sim.html`、`tools/sim.js`、今后新增的检查脚本、`docs/game-design.md`、`docs/codex-task-*.md` |
-| Opus | `js/module-art.js`、`js/battle-view.js`、`js/camp-ui.js`、`js/sprites.js`、`js/legs.js`、`js/dynamics.js`、`js/terrain-art.js`、`js/palette.js`、`css/style.css`、`index.html` 的结构、各样机页（`tools/*-lab.*`、`tools/mech-kit.*`、`tools/biped-v2.*`、`tools/spritesheet.html`、`tools/chassis-lab.html`）、`docs/art-direction.md`、`docs/true-biped.md` 的视觉章节 |
-| 共用，按区域分 | `js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/main.js`、`js/text-manager.js`、`text/`、`tools/serve.py`、`README.md`、`docs/module-plan.md`、本文件 |
+| astra | `js/battle.js`、`js/build-sys.js`、`js/modules.js`（只含机制字段，见 §2.3）、`js/vehicle.js`、`js/camp.js`、`js/content.js`、`js/state.js`、`js/street.js`、`tools/sim.html`、`tools/sim.js`、今后新增的检查脚本、`docs/game-design.md`、`docs/codex-task-*.md` |
+| Opus | `js/main.js`、`js/build-vis.js`、`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/module-art.js`、`js/battle-view.js`、`js/camp-ui.js`、`js/sprites.js`、`js/legs.js`、`js/dynamics.js`、`js/terrain-art.js`、`js/palette.js`、`css/style.css`、`index.html` 的结构、各样机页（`tools/*-lab.*`、`tools/mech-kit.*`、`tools/biped-v2.*`、`tools/spritesheet.html`、`tools/chassis-lab.html`）、`docs/art-direction.md`、`docs/true-biped.md` 的视觉章节 |
+| astra | `js/text-manager.js`、`text/`、`tools/serve.py`、`README.md`、`docs/module-plan.md`、`docs/board-astra.md` |
+| Opus | `docs/board-opus.md` |
+| 用户批准 | 本文件的公共协作约定；改规则须用户同意 |
 
-### 2.2 共用文件怎么分
+### 2.2 跨文件接口约定
 
 - **`js/battle.js` / `js/battle-view.js`**
   - astra：`battle.js` 负责状态更新、物理、碰撞、弹道、伤害、热量、判负、投降、AI、无画面模拟（`simulate`），并通过 `SA.Battle.emit(type, data)` 发出视觉事件。
@@ -45,15 +47,15 @@
 - **`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`**
   - astra：规则接口已集中到 `state.js` / `vehicle.js`（存档、经济、蓝图库、出战列表、结算、摆放校验）。
   - Opus：保留 DOM 结构、样式、交互流程和提示呈现；这些文件只调用规则接口。
-  - 新功能需要一个入口时，astra 可以用现有组件（`SA.h`、`SA.UI.dialog`、已有的 class）加最简单的按钮或文字，**不写新 CSS**，并在交接板上请 Opus 之后整理。
-- **`js/main.js`**：`SA.BUILD` 两边都会改，见 §3.4。
-- **`README.md`、`docs/module-plan.md`**：谁的功能谁更新自己那一列或那一段。`module-plan.md` 的"玩法"列归 astra，"美术"列归 Opus。
+  - 新功能需要界面入口时，astra 提供规则接口，在 `docs/board-astra.md` 请 Opus 接入界面。
+- **`js/main.js`**：归 Opus，负责启动入口并拼接构建标记；astra 只更新 `js/build-sys.js`，Opus 只更新 `js/build-vis.js`。
+- **`README.md`、`docs/module-plan.md`**：由 astra 维护；Opus 的功能或美术更新请求写入自己的看板，由 astra 同步文档。
 
-### 2.3 模块字段的归属（`js/modules.js`）
+### 2.3 模块字段的归属（`js/modules.js` / `js/module-art.js`）
 
-- **视觉字段**：`vis`、`art`、`placeholder`、`piv`、`blen`、`barrel`、`rcPx`、`back`、`ret`、`susp.pts` / `susp.splay` / `susp.hips`。Opus 可以改它们去对齐画面。其中 `piv` / `blen` 决定炮弹出膛位置，改的时候要告诉 astra。
+- **视觉字段**（只写在 `js/module-art.js`，逻辑只读不写）：`vis`、`art`、`placeholder`、`piv`、`blen`、`barrel`、`rcPx`、`back`、`ret`、`susp.pts` / `susp.splay` / `susp.hips`。Opus 可以改它们去对齐画面。其中 `piv` / `blen` 决定炮弹出膛位置，改的时候要告诉 astra。
 - **其余字段**都归 astra：数值、机制、尺寸 `w` / `h`、解锁、`kick`（影响车身物理）、`susp.up` / `susp.down` / `susp.follow`。
-- astra 加新字段时，在 `modules.js` 顶部的注释里写清含义；如果需要画出来，在交接板上说明要画什么、从哪个状态读。
+- astra 加新字段时，在 `modules.js` 顶部的注释里写清含义；如果需要画出来，在相应看板说明要画什么、从哪个状态读。
 
 ## 3. Git 规则
 
@@ -85,8 +87,8 @@ git push origin main
 ### 3.3 冲突
 
 - **冲突在自己的区域**：自己解决。
-- **冲突在对方的区域**：保留对方的版本；你的改动如果必须动那里，只重做最小的那部分，并在交接板记一笔。
-- **同一段逻辑两边都改了、而且谁的都不能丢**：停下来，不要提交。在交接板写清冲突，然后问用户。
+- **冲突在对方的区域**：保留对方的版本；你的改动如果必须动那里，只重做最小的那部分，并在相应看板记一笔。
+- **同一段逻辑两边都改了、而且谁的都不能丢**：停下来，不要提交。在相应看板写清冲突，然后问用户。
 
 ### 3.4 禁止事项
 
@@ -102,20 +104,20 @@ git push origin main
 - 打开游戏，能进战役第一关、能开火。
 - 改到规则、数值或 AI（astra）：`tools/sim.html` 的战役关卡检验能跑完，没有报错或 NaN。
 - 改到画面（Opus）：`tools/spritesheet.html` 能正常显示；改到战斗画面的，打一场试驾场。
-- astra 做好自动化检查脚本以后（见 §8 的 astra F 项），以上改成跑那一条命令。
+- astra 做好自动化检查脚本以后（见 `docs/board-astra.md` 的 F 项），以上改成跑那一条命令。
 
 ### 3.6 提交信息
 
 - 前缀：`sys:` = 后台（astra），`vis:` = 视觉（Opus），`doc:` = 只改文档。
 - 第一行说做了什么；需要时空一行，写原因和影响范围。
-- 如果留下了交接事项，在正文写"见交接板"。
+- 如果留下了交接事项，在正文写"见相应看板"。
 - 附加的署名行按各自工具的要求写。
 
 ## 4. 文档地图
 
 | 文档 | 内容 | 维护 |
 |---|---|---|
-| `docs/collab.md`（本文件） | 协作规则、决定、待定项、交接板、工作清单 | 两边；改规则要经用户同意 |
+| `docs/collab.md`（本文件） | 协作规则、稳定已定决定、看板入口 | 用户批准规则；代理按授权维护 |
 | `docs/game-design.md` | 游戏节奏、战役、解锁、材料、敌人、地形、数值验收 | astra |
 | `docs/module-plan.md` | 模块总表、外观分级、美术工作量和排期 | 两边（玩法列归 astra，美术列归 Opus） |
 | `docs/true-biped.md` | 真双足规则与视觉语言 | 规则章节归 astra，视觉章节归 Opus |
@@ -123,7 +125,7 @@ git push origin main
 | `docs/codex-task-systems.md` | astra 的模块机制任务书（已完成） | astra |
 | `docs/campaign-direction.md` | 战役方向探索稿：章节主题、克制链、跳弹、反震、修理费、唯一件、支线、重打；后端 / 视觉分工 | 用户定方向，Claude 记录；astra、Opus 按其中 §9 / §10 实现 |
 | `docs/evolve-plan.md` | 关卡车进化生成器的规则与开发计划、问题记录 | astra 执行；标"已定"的参数只有用户能改 |
-| `docs/board-astra.md` / `docs/board-opus.md` | 拆分后的后台 / 视觉交接事项 | 各自维护，只追加状态 |
+| `docs/board-astra.md` / `docs/board-opus.md` | 后台 / 视觉进度、待定项和交接事项 | 各自维护，保留历史记录 |
 | `README.md` | 玩法速览和代码结构 | 谁改了功能谁更新 |
 
 ## 5. 已定的决定（用户决定，代理不得擅自改）
@@ -149,84 +151,11 @@ git push origin main
 | 2026-09-26 | **友谊赛合并**：已击败的对手（主线和支线）可以重打，没有奖励也没有损失；不再有独立的友谊赛 |
 | 2026-09-26 | **第四章主题按下不表**，等前几章做出来、测试充分再定 |
 | 2026-09-26 | **四足整件可以多件首尾相连**（车体蜈蚣）：同一行里一件接一件，中间不能隔空（隔空的标红）；不能和别的底盘混用。修正此前「每车一个」的说法 |
-| 2026-09-26 | **真双足底盘固定 1 大格宽 × 2 层**（= 2×4 子格，48×96，同 `tools/chassis-lab.html` 样机）：上一层是胯、下一层是腿区；不做可变宽度。旧存档里的多格双足只保留一格作胯，其余退回库存。数据和规则由 astra 改（见 §7） |
+| 2026-09-26 | **真双足底盘固定 1 大格宽 × 2 层**（= 2×4 子格，48×96，同 `tools/chassis-lab.html` 样机）：上一层是胯、下一层是腿区；不做可变宽度。旧存档里的多格双足只保留一格作胯，其余退回库存。数据和规则由 astra 改（见 `docs/board-astra.md`） |
 | 更早 | 其余已定事项见 `docs/module-plan.md` §0 和 `docs/game-design.md` |
 
-## 6. 待定项（等用户决定）
+## 6. 看板入口
 
-1. ~~四足整件化~~：已定，见 §5。
-2. 数值平衡的目标以 `docs/game-design.md` §5 的合格线为准；要改合格线，由用户决定。
-
-3. 战役探索稿里的待探索项（第四章主题、唯一件取舍、支线规则、分享码车在哪里打），见 `docs/campaign-direction.md` §11。
-
-代理新发现的待定项加在这里，写清选项和建议。
-
-## 7. 交接板
-
-两个代理之间的请求写在这里。**只追加新行，不删别人的行；** 做完把状态改成"完成"，写上提交号。
-
-| 日期 | 从 → 到 | 内容 | 状态 |
-|---|---|---|---|
-| 2026-09-25 | 用户 → astra | 按 §5 修订并执行 `docs/codex-task-systems.md`（辅助设备改成"删除旧系统"） | 待做 |
-| 2026-09-25 | 用户 → astra | 真双足的数据和规则（`docs/true-biped.md` §8） | 完成（`ef5cd75`） |
-| 2026-09-25 | astra → Opus | 真双足规则落地后：胯和一对腿的画面接入、平衡指示（铅垂线、支撑区、水平仪） | 等视觉接入（`ef5cd75`） |
-| 2026-09-26 | 用户 → astra | `docs/campaign-direction.md` §9 的 K1～K9 | K1～K3 完成（逻辑 `c302974`，数据由 Claude 补齐推送；穿深和修理费比例为暂定值，等 P2 校准）；K4～K9 待做 |
-| 2026-09-26 | 用户 → Opus | `docs/campaign-direction.md` §10 的 W1～W6（W1～W5 等 astra 对应项） | W1、W2 完成（`95a5111`、`8edbc62`）；W3～W5 等 astra K6 / K7 / K5+E；W6 待做 |
-| 2026-09-26 | Claude → astra | **请知悉**，改动了 astra 区域：`js/vehicle.js` 分享码解码改多轮摆放（修丢模块）并新增 `SA.V.fromCells`；`tools/evolve.js` 候选记录加 `cells` / `toxicCells` / `oddCells`、`impact()` 优先用 `cells`、P7 夹具扰动改为 0.1；`tools/evolve-storage.js` 候选车库带 `cells`；`js/camp.js` 试驾场新增"进化报告"来源。详见 `docs/evolve-plan.md` §15 | 完成 |
-| 2026-09-26 | astra → Opus | P6 报告页（`tools/evolve.html`） | 完成（Claude） |
-| 2026-09-26 | astra → Opus | K1～K3 后端已接入：跳弹事件、反震分档、按模块修理费；可继续接 W1 跳弹反馈与 W2 修理费呈现 | 完成（`95a5111`、`8edbc62`） |
-| 2026-09-26 | astra → Opus | 逻辑 / 视觉文件拆分完成：战斗事件、模块外观、战役界面均保留原行为；后续视觉修改请先 pull `0ed1ddc`、`5afe91b` 及后续拆分提交 | 完成，详见 `docs/board-astra.md` 与 `docs/board-opus.md` |
-| 2026-09-25 | Opus → astra | 四足整件的数据和规则：`quad` 改成 w 4 × h 2、每车一个、一台车只能用一种底盘；悬挂接地点按新画法（近后 0、近前 96、远后 8、远前 104，模块内 x），战斗里步态按「走过的距离 ÷ 4 × 步幅」推进（`SA.LEGLAB.strideFor`）。落地后 Opus 接画面并删除旧的逐格腿画法 | 完成（`ef5cd75`） |
-| 2026-09-26 | astra → Opus | 双足 / 四足后台规则已落地：双足髋腿分区耐久、平衡和踢击状态可读；四足固定四接地点和距离步态已接入，画面可按 `SA.V.stats()` 与战斗状态接入 | 待视觉接入（`ef5cd75`） |
-| 2026-09-26 | astra → 用户 | K4 战役第一版：铲斗提前到序章；第一章示范侧炮和重装甲；第二章改为抛射 Boss；第三章集中缠斗装备；第四章 Boss 后开放大部分剩余标准装备；17 关全部补 `spec` | 待用户审阅（本提交） |
-| 2026-09-26 | astra → Opus | K5 唯一件后台闭环：`boss_lens`、`boss_ram`、`cannon_giant` 作为固定材料、每存档一次、只能缴获；商店 / 蓝图购买路径已拦截，画面可在战利品和模块详情处显示“唯一件” | 待视觉接入（本提交） |
-| 2026-09-26 | astra → Opus | K6 支线后台闭环：第二章起开放两场可选遭遇战；不发奖金和声望，奖励按数据给唯一件，完成记录写入存档；战损按遭遇战 `settleDamage` 配置 | 待视觉接入（本提交） |
-| 2026-09-26 | astra → Opus | K7 重打后台闭环：战役与支线列表保留所有已完成对手，友谊赛独立页签移除；重打不发奖励、不计声望、不写战损 | 待视觉整理（本提交） |
-| 2026-09-26 | astra → Opus | G 分享码车库后台闭环：分享只生成分享码，导入保存到我的蓝图库；移除本地“上传到云端”模拟，内置车仅作为静态分享码示例 | 待视觉整理（本提交） |
-| 2026-09-25 | 用户 → Opus | 战后一键评价按钮（好玩 / 无聊 / 不公平），数据由 astra 记录（`docs/evolve-plan.md` §11） | 等 astra P8 |
-| 2026-09-26 | Opus → astra | **请知悉**，动了 `js/battle.js` 的结算区域（只做最小改动）：① `projectileDamage` 里弹开时的飘字和火花换成调用 `ricochetFx`（画面用 `Math.random`，**弹开不再消耗战斗随机流**，同种子的无画面模拟结果会有细微变化）；② 弹开概率公式原样抽成 `ricochetChance(armor, weapon)` 并导出为 `SA.Battle.ricochetChance`，车间的穿深对照表用它——以后改公式请只改这一处 | 完成（`95a5111`、`fbd2606`） |
-| 2026-09-26 | Opus → astra | 蓄压罐释放上限已提取到 `SA.K.BATTLE.STORE_RELEASE_PER_SEC`，战斗、HUD、编辑器和模块说明统一读取 | 已完成 |
-| 2026-09-26 | Opus → 用户 | 发现并修好：战斗飘字只有数字和几个字母的像素字，中文（"弹开""投降"）**从来没显示过**；现在中文飘字画成叠加层的小铭牌 | 完成（`95a5111`） |
-| 2026-09-26 | Opus → astra | **请知悉**：`js/battle.js` 腿式步态改成步态角 `s.gait += 2π × 距离 ÷ (4 × 步幅)`（原来写成了 距离 ÷ 4 × 步幅，是交接时写得含糊；和 `tools/chassis-lab.html` 一致，只影响画面）；绘制参数加了 `speed` | 完成（见本次 `vis:` 提交） |
-| 2026-09-26 | Opus → astra | **双足占格和 `docs/true-biped.md` §8 对不上**：§8 定的是双足占「最下面两**层**」（大格：胯一层 + 腿区一层 = 4 个子格行，样机 `bipedArt` 是 2×4 子格、48×96），现在的数据是 `w: 1, h: 2`（子格，胯和腿区各只有 1 个子格行、24 宽），腰挂位也按子格算。请按 §8 改成层（或和用户确认后改 §8），Opus 再接真双足画面 | 用户已定（§5），改动见下一行 |
-| 2026-09-26 | Opus → astra | **请知悉**（用户授权越权修改）：四足多件相连——`modules.js` 的 `quad` 去掉 `chassisLimit: 1`、加 `chain: true`；`vehicle.js` 的 `normalizeChassis`（旧的逐格四足从左往右只留不重叠的）、`canPlace`（新四足要和已有的首尾相连）、`issues`（只认最长一段相连的，其余标「隔着空子」）；`tools/evolve-check.js` 加了相连 / 隔空两个夹具 | 完成（见本次 `sys:` 提交） |
-| 2026-09-26 | Opus → astra | **请知悉**：四足接地点跟着新腿形改成 近后 18 / 近前 78 / 远后 20 / 远前 80（`contactPts`，视觉字段，`evolve-check` 同步改了）；`battle.js` 的步态角改成按车头方向带符号（倒车时步态倒放），四足用自己的步幅 `LEGLAB.quadStride` | 完成（见本次 `vis:` 提交） |
-| 2026-09-26 | 用户 → astra | **按 §5 把真双足改成 2×4 子格**（astra 之前把 `true-biped.md` §1 的「1 格宽 × 2 格高」按子格做成了 `w: 1, h: 2`，应为大格）：① `biped` 改成 `w: 2, h: 4`，锚点在第 `ROWS-4` 行（第 8 行），胯 = 第 8、9 行，腿区 = 第 10、11 行（腿区不能放任何模块）；受击分区按这两层判；② 腰挂位 = 胯行（第 8、9 行）左右各 1 大格（2 子格宽）；撞击件装在胯行 / 腰挂位的最前端；③ 所有写死「底盘锚点 = `CH`（第 10 行）」的地方（`canPlace` / `normalizeChassis` / `settle` 取底盘行 / 编辑器 `spot` 让底盘贴底 / 碰撞行）改成按底盘的 `h` 贴到最底；④ 迁移：旧的多格双足只保留一格作胯，腿区加在下面，整车超过 6 层就去掉最高一层、模块退回库存；关卡车重搭；⑤ 悬挂接地点：近侧脚 26、远侧脚 34（模块内 x，`bipedArt`），步态沿用 `s.gait`（已改成步态角）。落地后 Opus 用 `LEGLAB.bipedArt` / `torsoCuts` 接画面、平衡指示 | 待做 |
-
-## 8. 工作清单
-
-状态：待做 / 进行中 / 完成 / 搁置。
-
-### astra（后台）
-
-| 项 | 内容 | 状态 |
-|---|---|---|
-| A 模块机制 | `docs/codex-task-systems.md` 全部：6 个假机制做成真的、补 6 个模块、Boss 件特性、多行遮挡、街头赛按解锁取件、敌车示范、参考车修正、AI、评分、生效统计 | 完成（2026-09-25；20 局战役仿真 460/460） |
-| A′ 辅助设备迁移 | 4 种辅助设备全部做成 1×1 实体，删除 `SA.AUX` 和驾驶舱槽位；存档、分享码、蓝图迁移 | 完成（旧存档槽位迁移到库存） |
-| F 自动化检查 | 一条命令跑完：语法检查、无画面战役模拟、旧存档和分享码能读。建议在 A 之后马上做 | 完成（`ef5cd75`；`node tools/evolve-check.js` 覆盖 Node 无画面战役、固定种子、合法车辆、规则指纹、旧分享码迁移、41/41 模块和双足/四足夹具） |
-| E 真双足 | `docs/true-biped.md` §8 的数据、规则、平衡系统、踢击、迁移（渲染归 Opus） | **返工**：占格按子格做成了 1×2，应为 2×4 子格（§5 2026-09-26，交接板有细节）；平衡、踢击、分区的逻辑可以沿用 |
-| G 分享码车库 | 云车库改成纯分享码导入 / 导出，去掉"上传到云端"的模拟。友谊赛并入重打（K7）；导入的车在哪里打待定 | 完成（K7 后端已并入重打；导入 / 导出分享码已接入） |
-| K 战役方向 | `docs/campaign-direction.md` §9：K1 跳弹、K2 反震、K3 修理费比例、K4 战役重排、K5 唯一件、K6 支线、K7 重打、K8 进化生成器联动、K9 早期近战验证。K1～K3 属于战斗规则，要在冻结点之前完成 | 进行中（K1～K7 第一版完成，K4～K7 待用户审阅；K8～K9 待做） |
-| B 数值与平衡 | 热量、平局、结局分布先按 `docs/evolve-plan.md` P2 系统健康测试做；经济、材料和模块的价值关系；补"贪心玩家"经济模拟 | 待做 |
-| J 关卡车进化生成器 | `docs/evolve-plan.md` P0～P8。P0 和任务 F 一起做；正式生成等战斗规则冻结点 | 进行中（P0 基础设施与 P3 合法生成 / 变异原型已接入，正式生成仍等冻结点） |
-| C 战役和终局内容 | Boss 分阶段、宿敌换构型、终局锦标赛的对手和规则变化、委托扩充 | 待做 |
-| D 地形玩法 | 掩体墙、场地边缘（击出场外即获胜）、高台斜坡、冰面 / 铁轨、水泵 / 煤堆的规则（画面归 Opus） | 待做 |
-| H 文本接入 | 把游戏字符串接进 `js/text-manager.js` | 待做（低优先） |
-
-建议顺序：A + A′（完成）→ F + J-P0 → J-P1 → K1～K3（跳弹、反震、修理费）→ J-P2（系统健康测试，含 K9）→ E（完成）→ K4/K5（第一版完成，待审）→ K6/K7/G → J-P3～P8（含 K8）→ 冻结点后正式生成 → C / D → H。
-
-### Opus（视觉）
-
-| 项 | 内容 | 状态 |
-|---|---|---|
-| V1 底盘画面接入 | 四足整件（一整块甲壳 + 四条腿、按距离的大步态、四脚悬挂）；真双足：胯和一对腿、躯干切角和姿态错位、跪地 / 陀螺停转的表现、编辑器平衡指示 | 四足完成（`ec71c0e`、`f95f0bd`：遮挡、预览、换底盘修好）；真双足等 astra 改成 2×4（见交接板） |
-| V2 现有模块阶段造型 | `docs/module-plan.md` §5 阶段 1～4、8 里**现有模块**的部分 | 完成（`3e04471`）：中炮、侧炮、直射火炮、履带三阶段；锅炉、撞击件 T5；联合驾驶舱四人舱；驾驶员 T5 换装。旧逐格四足 / 双足不做，等 V1 |
-| V3 通用层 | 材料装饰层 6 套、改装挂件 | 完成（`15b7520`） |
-| V4 UX | 新属性的呈现（储能、省水、不耗水散热、牵引）、解锁和缴获弹窗的节奏、新手引导、移动端 | 进行中：新属性 + 穿深 / 装甲厚度呈现完成（`fbd2606`）；弹窗节奏、新手引导、移动端待做 |
-| V5 地形美术 | 配合 astra D 的新地形元素 | 等 astra D |
-| W 战役方向配套 | `docs/campaign-direction.md` §10：跳弹反馈、修理费呈现、支线入口、重打入口、双足唯一件画面、早期瞄准手感 | W1 跳弹反馈、W2 修理费呈现完成；W3 支线后台入口、W4 重打后台入口已接入，待视觉整理；W5 等 astra；W6 待做 |
-| V6 新模块美术与特效 | 13 个占位模块、Boss 件、鱼叉绳索、火焰、火箭尾焰 | **搁置**（§5：新模块现在只做功能） |
-
-### 搁置
-
-音乐和音效；云车库服务器存储；新模块的专属造型和特效。
+- [astra 后台看板](board-astra.md)：后台进度、待定项、astra 发起的交接请求，以及发给 astra 的用户任务。
+- [Opus 视觉看板](board-opus.md)：视觉进度、Opus 发起的交接请求，以及发给 Opus 的用户任务。
+- 两份看板各自维护；跨角色请求写在发起者的看板，对方读取处理。只追加记录，完成后更新状态与提交号，不删别人的记录。

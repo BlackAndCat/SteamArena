@@ -14,9 +14,9 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；悬挂与爬坡样机：http://localhost:5173/tools/suspension-lab.html ；数值自测（AI 对 AI 批量对打）：http://localhost:5173/tools/sim.html
 
-侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp.js` 的 `DEV_TOOLS` 就会出现在面板上。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱。
+侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp-ui.js` 的 `DEV_TOOLS` 就会出现在面板上。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱。
 
-多人 / 多代理协作的规则、分工、Git 流程和工作清单见 [docs/collab.md](docs/collab.md)。
+多人 / 多代理协作的规则、分工、Git 流程见 [docs/collab.md](docs/collab.md)；后台和视觉工作清单分别见 [astra 看板](docs/board-astra.md) 和 [Opus 看板](docs/board-opus.md)。
 
 游戏节奏、最终目标和后续阶段见 [docs/game-design.md](docs/game-design.md)；模块清单、外观分级、美术工作量和排期见 [docs/module-plan.md](docs/module-plan.md)。
 
@@ -57,23 +57,24 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 | 文件 | 内容 |
 |---|---|
+| `js/main.js` | 游戏启动入口，拼接 `SA.BUILD_SYS` / `SA.BUILD_VIS`；由 Opus 维护 |
 | `js/palette.js` | 锁定调色板 + 语义分类（颜色由 category 推导） |
 | `js/modules.js` | 模块注册表（含重量、承重、护甲）、全局常量、重量 / 改装辅助函数、材料表 `SA.MATS` 与按材料放大的 `SA.mod(cell)` |
 | `js/module-art.js` | 模块外观字段与外观字段合并；由 Opus 维护 |
 | `js/dynamics.js` | 动态处理模块：阻尼弹簧（车身晃动）、后坐曲线（制退 / 复进）、相位与量化（履带、腿、供弹链），每辆车一个动画器 |
 | `js/sprites.js` | 48px 程序化像素精灵（带缓存）、铆接车体框架、一战履带、整车渲染、高亮描边、改装军衔杠 |
-| `js/vehicle.js` | 格子规则（严格摆放 / 改装台自由摆放、移动对调、出战检查 `issues`）、属性计算、分享码 |
+| `js/vehicle.js` | 格子规则（严格摆放 / 改装台自由摆放、移动对调、出战检查 `issues`）、属性计算、分享码、编辑器摆放校验接口 |
 | `js/content.js` | 战役 `SA.CAMPAIGN`（章节、关卡、解锁）、终局锦标赛对手、订单、云车库预置、官方蓝图、街头赛档位与角色 |
-| `js/state.js` | 存档、经济（购买、贷款、按材料分开的库存）、赔率、终局赛季对手、云车库接口 |
-| `js/camp.js` | 战役：进度、解锁（功能 / 模块 / 材料 / 改装台大小）、关卡对手、战后缴获、章节开场、`SA.dev` 调试命令 |
-| `js/ui.js` | 通用界面：弹窗 / 确认框 / 付款（含贷款询问）、顶栏导航、属性条、载具预览、银行、战后结算 |
-| `js/blueprints.js` | 蓝图库：我的 / 官方 / 云端蓝图的统一列表，保存、改名、覆盖、删除、分享、导入、应用 |
-| `js/arena.js` | 出战页：锦标赛 / 街头赛 / 友谊赛 / 委托，对阵、下注、出发 |
+| `js/state.js` | 存档、经济（购买、贷款、按材料分开的库存）、赔率、蓝图与分享码车库、出战列表和战后结算规则 |
+| `js/camp.js` | 战役：进度、解锁（功能 / 模块 / 材料 / 改装台大小）、关卡对手、战后缴获、`SA.dev` 调试规则接口 |
+| `js/ui.js` | 通用界面：弹窗 / 确认框 / 付款、顶栏导航、属性条、载具预览、银行、战后结算；由 Opus 维护 |
+| `js/blueprints.js` | 蓝图库：我的 / 官方 / 云端蓝图的统一列表，保存、改名、覆盖、删除、分享、导入、应用；由 Opus 维护 |
+| `js/arena.js` | 出战页：锦标赛 / 街头赛 / 友谊赛 / 委托，对阵、下注、出发；由 Opus 维护 |
 | `js/street.js` | 街头赛：随机小车生成、按评分配对手、评分上限（界面在出战页） |
-| `js/editor.js` | 车间：改装台、铭牌、底部操作栏（模块 / 蓝图库）、点选与拖放、就地买卖与修理、图例 |
+| `js/editor.js` | 车间：改装台、铭牌、底部操作栏（模块 / 蓝图库）、点选与拖放、就地买卖与修理、图例；由 Opus 维护 |
 | `js/battle.js` | 竞技场规则：加速与撞击、直射 / 高抛弹道、伤害、武器组、镜头状态、AI 和 `SA.Battle.simulate`；通过事件总线向画面层发出状态变化 |
 | `js/battle-view.js` | 竞技场画面：世界层、载具、背景、粒子、特效、准星、HUD、面板和输入；消费 `SA.Battle.emit` 事件，由 Opus 维护 |
-| `js/camp-ui.js` | 战役弹窗、开发者面板和试驾场的界面层；规则调用 `SA.Camp` / `SA.S` 接口，由 Opus 维护 |
+| `js/camp-ui.js` | 战役弹窗、开发者面板和试驾场的界面层；规则调用 `SA.Camp` / `SA.S` 接口；由 Opus 维护 |
 | `docs/art-direction.md` | 美术统一与辨识度方案 |
 | `tools/sim.html` · `sim.js` | 数值自测：战役关卡检验（各章参考车打每一关）、对战矩阵 + 评分校准、模块性价比表；用 `SA.Battle.simulate` 无画面对打 |
 | `js/terrain-art.js` | 地形像素画法：土坡、泥地、木货箱、碎木（战斗和 `tools/terrain-lab.html` 共用） |

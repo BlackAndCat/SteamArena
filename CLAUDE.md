@@ -1,12 +1,12 @@
 # 开发规则（Claude Code / Opus）
 
-个人项目，流程从简。**开工前先读 [`docs/collab.md`](docs/collab.md)**：角色分工、文件归属、Git 流程、已定的决定、待定项、交接板和工作清单都在那里。它和本文件冲突时，以它为准。
+个人项目，流程从简。**开工前先读 [`docs/collab.md`](docs/collab.md)**：角色分工、文件归属、Git 流程、已定的决定在那里；Opus 的进度和交接归 [`docs/board-opus.md`](docs/board-opus.md) 维护。它和本文件冲突时，以它为准。
 
 ## 本角色
 
 - Opus 负责**视觉、动画、特效、UX、界面布局与交互**（`docs/collab.md` §1、§2）。
-- 拆分后的 battle-view.js、module-art.js、camp-ui.js 以及 `js/sprites.js`、`js/legs.js` 属于 Opus；四足相关画面以最新 origin/main 为准。
-- 不改数值、规则、AI、存档格式；需要这些时写到 `docs/collab.md` §7 交接板。
+- 拆分后的 `js/battle-view.js`、`js/module-art.js`、`js/camp-ui.js`、`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/main.js`、`js/build-vis.js` 以及 `js/sprites.js`、`js/legs.js` 属于 Opus；四足相关画面以最新 origin/main 为准。
+- 不改数值、规则、AI、存档格式；需要这些时写到 `docs/board-opus.md` 的交接记录。
 - 用户明确让 Opus 做后台任务时，照做，但仍按 `docs/collab.md` 的 Git 规则和提交前缀。
 
 ## Git（摘要，完整版见 `docs/collab.md` §3）
