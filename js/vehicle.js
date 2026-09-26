@@ -333,6 +333,7 @@ SA.V = (() => {
       water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
     };
+    let aimShrinkBonus = 0, aimSpeedBonus = 0;
     each(v, (cell, r, c) => {
       const m = SA.mod(cell);
       s.value += SA.cellValue(cell); s.count++;
@@ -342,7 +343,8 @@ SA.V = (() => {
       s.height = Math.max(s.height, Math.ceil((K.ROWS - r) / 2));   // 按大格算层数
       s.hp += cell.hp; s.maxHp += maxHp(cell);
       s.equip += m.power || 0;
-      s.aimShrink = Math.max(s.aimShrink, m.aimShrink || 0); s.aimSpeed = Math.max(s.aimSpeed, m.aimSpeed || 0);
+      aimShrinkBonus = Math.max(aimShrinkBonus, m.aimShrink || 0);
+      aimSpeedBonus = Math.max(aimSpeedBonus, m.aimSpeed || 0);
       s.weight += SA.weightOf(cell);
       s.supply += m.supply || 0;
       s.heatMul = Math.min(s.heatMul, m.heatMul || 1);
@@ -362,8 +364,8 @@ SA.V = (() => {
     const cells = [];
     each(v, (cell) => cells.push(cell));
     const ax = s.aux = SA.auxEffect(cells);
-    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + Math.max(s.aimShrink - K.AIM_SHRINK, ax.aimShrink));
-    s.aimSpeed = K.AIM_SPEED + Math.max(s.aimSpeed - K.AIM_SPEED, ax.aimSpeed);
+    s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + Math.max(aimShrinkBonus, ax.aimShrink));
+    s.aimSpeed = K.AIM_SPEED + Math.max(aimSpeedBonus, ax.aimSpeed);
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     s.sway *= ax.sway;
     s.sway *= s.swayMul || 1;
