@@ -120,7 +120,7 @@ SA.MODULES = {
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },
   biped: {
-    name: '双足底盘', cat: 'mobility', layer: 'chassis', w: 1, h: 2, whole: true, chassisLimit: 1, legPair: true, waistSlots: 1,
+    name: '双足底盘', cat: 'mobility', layer: 'chassis', w: 2, h: 4, whole: true, chassisLimit: 1, legPair: true, waistSlots: 1,   // 真双足 2×4：上两行胯层、下两行腿区（1 大格宽 × 2 层，collab §5）
     // 平衡且贴身时由双腿完成的踢击；数值是规则初版，交 P2 诊断报告，不在本阶段调平衡。
     kick: { ram: 12, knock: 0.35, cooldown: 0.7 },
     price: 120, hp: 110, power: 0, load: 2400, evade: 0.12, speed: 78, kg: 250, q: 1, accel: 1.5, brake: 1.7, sway: 1.5, spool: 0.55,

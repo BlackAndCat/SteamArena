@@ -12,7 +12,9 @@ SA.V = (() => {
   const maxHp = (cell) => cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
   const alive = (cell) => cell && cell.hp > 0;
   const fp = SA.fp;
-  const CH = K.ROWS - 2;   // 底盘锚点行：底盘占最底下两行子格
+  const CH = K.ROWS - 2;   // 履带 / 四足的锚点行：占最底下两行子格
+  // 底盘锚点行 = 贴底：真双足 2×4（胯一层 + 腿区一层）锚在第 ROWS-4 行，其余底盘在 CH（docs/collab.md §5 2026-09-26）
+  const chassisRow = (id) => K.ROWS - fp(id).h;
   // 旧蓝图可能把整件底盘写成多个逐格锚点；读取时统一成一个底盘整件。
   function chassisAnchors(v) {
     const out = [];
@@ -29,12 +31,48 @@ SA.V = (() => {
     // 读进来会互相重叠，从左往右只保留不重叠、放得下的那些。混用时优先保留整件底盘。
     const whole = a.find(x => M[x.cell.id].whole);
     const type = whole ? whole.cell.id : a[0].cell.id;
+    if (type === 'biped') return liftForBiped(v, a);
     let keptWhole = false, end = -1;
     for (const x of a) {
       const m = M[type], w = fp(type).w;
-      if (x.cell.id !== type || (m.whole && x.r !== CH) || (m.chassisLimit === 1 && keptWhole) || (m.chain && (x.c < end || x.c + w > K.COLS))) v.body[x.r][x.c] = null;
+      if (x.cell.id !== type || (m.whole && x.r !== chassisRow(type)) || (m.chassisLimit === 1 && keptWhole) || (m.chain && (x.c < end || x.c + w > K.COLS))) v.body[x.r][x.c] = null;
       else { if (m.chassisLimit === 1) keptWhole = true; if (m.chain) end = x.c + w; }
     }
+    return v;
+  }
+  // 真双足只保留一个 2×4 整件。旧格式（逐格双足、1×2 双足，锚在第 CH 行）：原来的底盘行变成胯层，腿区加在下面——
+  // 整车往上移一层（最高一层放不下的丢掉），保留中间那一格的位置作胯（true-biped.md §8 迁移）
+  function liftForBiped(v, a) {
+    const want = chassisRow('biped'), bip = a.filter(x => x.cell.id === 'biped').sort((p, q) => p.r - q.r || p.c - q.c);
+    const keep = bip.find(x => x.r === want) || bip[Math.floor((bip.length - 1) / 2)];
+    for (const x of a) v.body[x.r][x.c] = null;
+    const dr = keep.r - want;
+    if (dr > 0) for (const layer of ['body', 'side']) {
+      const L = v[layer];
+      for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) {
+        const cell = L[r][c];
+        if (!cell) continue;
+        L[r][c] = null;
+        if (r - dr >= 0) L[r - dr][c] = cell;
+      }
+    }
+    // 迁移时胯放在车身重心正下方（旧车身往往好几格宽，直接用原来的某一格会失衡、走不动）
+    let mx = 0, mw = 0;
+    if (dr > 0) each(v, (cell, r, c, layer) => { if (layer === 'body' && !SA.isRam(cell.id)) { const w = SA.weightOf(cell); mx += w * (c + fp(cell.id).w / 2); mw += w; } });
+    const c0 = Math.max(0, Math.min(K.COLS - 2, mw ? Math.round(mx / mw - 1) : keep.c)), f = fp('biped');
+    const O = occ(v, 'body');
+    if (dr > 0) {   // 只在迁移旧格式时清场；新格式里放错的模块留着，由 issues() 标红
+      for (const [rr, cc] of box(want, c0, f.w, f.h)) { const o = O[rr][cc]; if (o) v.body[o.r][o.c] = null; }   // 压在胯 / 腿区上的模块让位
+      for (let r = want + 2; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) if (v.body[r][c]) v.body[r][c] = null;   // 腿区不能放模块
+    }
+    delete keep.cell.bipedZones;
+    v.body[want][c0] = keep.cell;
+    // 旧车挂在躯干上的撞击件：双足的撞击件只能在胯层，迁移时挪到胯正前方（放得下就挪，放不下留在原处由 issues() 标红）
+    if (dr > 0) each(v, (cell, r, c, layer) => {
+      if (layer !== 'body' || !SA.isRam(cell.id) || (r >= want && r + fp(cell.id).h <= want + 2)) return;
+      v.body[r][c] = null;
+      if (canPlace(v, cell.id, want, c0 + 2).ok) v.body[want][c0 + 2] = cell; else v.body[r][c] = cell;
+    });
     return v;
   }
   const inGrid = (r, c) => r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS;
@@ -130,14 +168,17 @@ SA.V = (() => {
 
   const isRamCell = (cell) => cell && SA.isRam(cell.id);
   const mountText = (m) => `${m.name}要装在${m.mount.map(x => M[x].name).join('/')}的正前方（右侧）`;
-  // 双足胯行左右各一格（这里沿用子格坐标，所以每个腰挂位最多覆盖两个子格）。
+  // 真双足：锚在第 ROWS-4 行的 2×4 整件；胯层 = 锚点那两行，腿区 = 下面两行（不能放任何模块）
+  const bipedOf = (v) => chassisAnchors(v).find(x => x.cell.id === 'biped' && x.r === chassisRow('biped')) || null;
+  // 底盘保留区从哪一行开始：双足占最底下两层（4 行），其余底盘两行
+  const floorRow = (v) => (bipedOf(v) ? chassisRow('biped') : CH);
+  // 腰挂位：胯层左右各 1 大格（2 子格宽），模块整个落在里面才算
   function bipedWaist(v, r, c, w, h) {
-    const a = chassisAnchors(v).find(x => x.cell.id === 'biped' && x.r === CH);
-    if (!a || r !== CH || h !== 1) return false;
-    const left = c + w <= a.c && c + w >= a.c - 2;
-    const right = c >= a.c + 1 && c <= a.c + 2;
-    return left || right;
+    const a = bipedOf(v);
+    if (!a || r < a.r || r + h > a.r + 2) return false;
+    return (c >= a.c - 2 && c + w <= a.c) || (c >= a.c + 2 && c + w <= a.c + 4);
   }
+  const inHipRows = (v, r, h) => { const a = bipedOf(v); return !!a && r >= a.r && r + h <= a.r + 2; };
   // 这几行里，锚点左边有没有撞击件（撞击件前方不能再放东西）
   const ramBehind = (O, r, c, h) => { for (let i = 0; i < h; i++) for (let k = 0; k < c; k++) if (O[r + i][k] && isRamCell(O[r + i][k].cell)) return true; return false; };
   // 这几行里，模块右边还有没有东西（撞击件必须是最前端）
@@ -153,7 +194,7 @@ SA.V = (() => {
     if (!boxInRegion(v, r, c, w, h)) return no(LOCKED);
     const O = occ(v, 'body'), cells = box(r, c, w, h);
     if (m.layer === 'side') {
-      if (r + h > CH && !bipedWaist(v, r, c, w, h)) return no('底盘上不能挂侧炮');
+      if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h)) return no('底盘上不能挂侧炮');
       const S = occ(v, 'side');
       if (cells.some(([rr, cc]) => S[rr][cc])) return no('侧挂层这里已经有侧炮');
       if (cells.some(([rr, cc]) => !O[rr][cc])) return no('侧炮必须整个挂在主体模块上');
@@ -162,13 +203,13 @@ SA.V = (() => {
     }
     if (cells.some(([rr, cc]) => O[rr][cc])) return no('这里已经有模块');
     if (m.layer === 'ram') {
-      if (chassisAnchors(v).some(x => x.cell.id === 'biped') && (r !== CH || h > 1)) return no('双足撞击件只能装在胯行或腰挂位');
+      if (bipedOf(v) && !inHipRows(v, r, h)) return no('双足撞击件只能装在胯层或腰挂位');
       if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id))) return no(mountText(m));
       if (anyAhead(O, r, c, w, h)) return no('撞击武器必须在这一行的最前端');
       return { ok: true };
     }
     if (m.layer === 'chassis') {
-      if (r !== CH) return no('底盘只能放在最底下两行');
+      if (r !== chassisRow(id)) return no(`${m.name}只能贴着最底下放`);
       const chassis = chassisAnchors(v);
       if (chassis.some(x => x.cell.id !== id)) return no('一辆车只能使用一种底盘');
       if (m.chassisLimit === 1 && chassis.some(x => x.cell.id === id)) return no('一辆车只能有一个底盘整件');
@@ -176,7 +217,7 @@ SA.V = (() => {
       if (ramBehind(O, r, c, h)) return no('撞击武器前方不能再放模块');
       return { ok: true };
     }
-    if ((r >= CH || r + h > CH) && !bipedWaist(v, r, c, w, h)) return no('最底下两行只能放底盘');
+    if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h)) return no(bipedOf(v) ? '双足的胯层只能放腰挂位，腿区不能放模块' : '最底下两行只能放底盘');
     // 外圈只要挨着一个（非撞击件的）模块就能塞进去；是否一路连到底盘由 issues() 检查
     const near = ring(r, c, w, h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
     if (!near.length) return no('悬空：四周都没有模块可以依靠');
@@ -298,8 +339,8 @@ SA.V = (() => {
       const best = runs.reduce((p, q) => (q.length > p.length ? q : p));
       for (const run of runs) if (run !== best) for (const x of run) flag('body', x.r, x.c, `${M[id].name}之间不能隔着空子（要首尾相连）`);
     }
-    const isBiped = chassis[0] && chassis[0].cell.id === 'biped';
-    for (let c = 0; c < K.COLS; c++) if (B[CH][c] && M[B[CH][c].id].layer === 'chassis' && inRegion(v, CH, c)) { ok.add(key(CH, c)); queue.push([CH, c]); }
+    const isBiped = !!bipedOf(v), floor = floorRow(v);
+    for (const x of chassis) if (x.r === chassisRow(x.cell.id) && inRegion(v, x.r, x.c)) { ok.add(key(x.r, x.c)); queue.push([x.r, x.c]); }
     while (queue.length) {
       const [r, c] = queue.shift();
       const f = fp(B[r][c].id);
@@ -307,7 +348,8 @@ SA.V = (() => {
         const o = O[rr][cc];
         if (!o || ok.has(key(o.r, o.c))) continue;
         const m = M[o.cell.id];
-        if (m.layer !== 'body' || o.r + fp(o.cell.id).h > CH) continue;
+        const of = fp(o.cell.id);
+        if (m.layer !== 'body' || (o.r + of.h > floor && !(isBiped && bipedWaist(v, o.r, o.c, of.w, of.h)))) continue;
         ok.add(key(o.r, o.c)); queue.push([o.r, o.c]);
       }
     }
@@ -318,14 +360,13 @@ SA.V = (() => {
         const m = M[cell.id], { w, h } = fp(cell.id);
         if (!boxInRegion(v, r, c, w, h)) flag('body', r, c, LOCKED);
         else if (m.layer === 'chassis') {
-          if (r !== CH) flag('body', r, c, '底盘只能放在最底下两行');
+          if (r !== chassisRow(cell.id)) flag('body', r, c, `${m.name}只能贴着最底下放`);
         } else if (m.layer === 'ram') {
-          if (isBiped && (r !== CH || h > 1)) flag('body', r, c, '双足撞击件只能装在胯行或腰挂位');
+          if (isBiped && !inHipRows(v, r, h)) flag('body', r, c, '双足撞击件只能装在胯层或腰挂位');
           else if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id) && ok.has(key(o.r, o.c)))) flag('body', r, c, mountText(m));
           else if (anyAhead(O, r, c, w, h)) flag('body', r, c, '撞击武器必须是这一行的最前端');
-        } else if (r >= CH || r + h > CH) {
-          if (isBiped && bipedWaist(v, r, c, w, h)) continue;
-          flag('body', r, c, isBiped && r === CH ? '双足胯部只能放双足整件' : '底盘腿区只能放底盘');
+        } else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h))) {
+          flag('body', r, c, isBiped ? (r + h > floor + 2 ? '双足腿区不能放模块' : '双足的胯层只能放腰挂位（胯左右各一格）') : '底盘腿区只能放底盘');
         } else if (!ok.has(key(r, c))) {
           const below = ring(r, c, w, h).filter(([rr]) => rr === r + h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
           flag('body', r, c, below.length && below.every(o => isRamCell(o.cell)) ? '悬空：撞击武器不能当支撑' : '悬空：四周都没连到底盘');
@@ -337,7 +378,7 @@ SA.V = (() => {
         if (!cell) continue;
         const { w, h } = fp(cell.id), under = box(r, c, w, h).map(([rr, cc]) => inGrid(rr, cc) && O[rr][cc]);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
-        else if (r + h > CH && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, '底盘上不能挂侧炮');
+        else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, '底盘上不能挂侧炮');
         else if (under.some(o => !o)) flag('side', r, c, '悬空：侧炮必须整个挂在主体模块上');
         else if (under.some(o => isRamCell(o.cell))) flag('side', r, c, '撞击武器上不能挂侧炮');
         else if (under.some(o => !ok.has(key(o.r, o.c)))) flag('side', r, c, '悬空：挂载的模块没有连到底盘');
@@ -419,9 +460,11 @@ SA.V = (() => {
       if (m.water || m.cool) { s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
     s.center = mass ? massX / mass : chassisCenter;
-    s.d = s.center - chassisCenter;
-    const comY = mass ? massY / mass : CH + 0.5;
-    s.comHeight = Math.max(0, (CH + 0.5 - comY) / 2);
+    // 重心偏移 d 和重心高度都按大格算（true-biped.md §2 的阈值是「格」）；双足从胯层中线量起
+    s.d = (s.center - chassisCenter) / 2;
+    const hipY = chassisCell && chassisCell.id === 'biped' ? chassisRow('biped') + 1 : CH + 0.5;
+    const comY = mass ? massY / mass : hipY;
+    s.comHeight = Math.max(0, (hipY - comY) / 2);
     // 实体辅助模块（观察镜 / 装弹机 / 陀螺仪 / 测距仪）
     const cells = [];
     each(v, (cell) => cells.push(cell));
@@ -559,11 +602,19 @@ SA.V = (() => {
       const d = JSON.parse(decodeURIComponent(escape(atob(raw.slice(4)))));
       const v = create(String(d.n || '无名载具').slice(0, 20));
       // 自下而上摆放，保证规则合法；侧炮最后挂
-      const list = [...(d.b || []), ...(d.s || [])].sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      let list = [...(d.b || []), ...(d.s || [])].map(([r, c, i]) => [r * k, c * k, i]);
+      // 旧分享码里的双足锚在第 CH 行（逐格或 1×2）：和 liftForBiped 一样整车上移一层，只留中间那一格作 2×4 双足的胯
+      const bi = SA.MODULE_ORDER.indexOf('biped'), feet = list.filter(x => x[2] === bi);
+      if (feet.length && feet.some(x => x[0] !== chassisRow('biped'))) {
+        const keep = feet.sort((p, q) => p[1] - q[1])[Math.floor((feet.length - 1) / 2)], dr = keep[0] - chassisRow('biped');
+        list = list.filter(x => x[2] !== bi).map(([r, c, i]) => [r - Math.max(0, dr), c, i]).filter(([r]) => r >= 0);
+        list.push([chassisRow('biped'), Math.min(K.COLS - 2, keep[1]), bi]);
+      }
+      list = list.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       let pending = list.filter(x => SA.MODULE_ORDER[x[2]] !== 'side_cannon').concat(list.filter(x => SA.MODULE_ORDER[x[2]] === 'side_cannon'));
       // 侧挂 / 悬挑的模块要等撑住它的模块摆好才合法，而那个模块可能排在后面：摆不下的留到下一轮再试，直到没有进展
       while (pending.length) {
-        const next = pending.filter(([r, c, i]) => { const id = SA.MODULE_ORDER[i]; return id && !place(v, SA.liveId(id), r * k, c * k).ok; });
+        const next = pending.filter(([r, c, i]) => { const id = SA.MODULE_ORDER[i]; return id && !place(v, SA.liveId(id), r, c).ok; });
         if (next.length === pending.length) break;
         pending = next;
       }
@@ -574,7 +625,7 @@ SA.V = (() => {
   // 车间摆放与预览所需的模型计算，界面仅负责坐标和呈现。
   function editorSpot(id, hv, v, ignore = null) {
     const f = SA.fp(id), clampI = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-    const r = M[id].layer === 'chassis' ? SA.V.CH : clampI(Math.round(hv.fr - f.h / 2), 0, K.ROWS - f.h);
+    const r = M[id].layer === 'chassis' ? chassisRow(id) : clampI(Math.round(hv.fr - f.h / 2), 0, K.ROWS - f.h);
     const c = clampI(Math.round(hv.fc - f.w / 2), 0, K.COLS - f.w);
     const O = SA.V.occ(v, SA.V.layerOf(id)), hits = [];
     for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) {
@@ -613,5 +664,7 @@ SA.V = (() => {
     }
     return null;
   }
-  return { create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
+  const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
+  return { chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

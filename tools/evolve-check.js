@@ -44,12 +44,18 @@ function chassisRuleCheck() {
 
   const biped = SA.V.fromAscii('真双足检查', ['........', '........', '........', '..K.....', '..O.....', '..B.....']);
   const bs = SA.V.stats(biped);
-  if (SA.fp('biped').w !== 1 || SA.fp('biped').h !== 2 || !['平衡', '前倾', '后仰'].includes(bs.balance) || bs.legs !== '正常')
-    throw new Error(`双足平衡或分区初值错误：${JSON.stringify({ balance: bs.balance, legs: bs.legs })}`);
+  // 真双足 2×4 子格（1 大格宽 × 2 层，collab §5）：关卡里的旧写法（B 在最底一行）读进来整车上移一层，双足锚在第 ROWS-4 行
+  const bAnchor = [];
+  SA.V.each(biped, (cell, r, c) => { if (cell.id === 'biped') bAnchor.push([r, c]); });
+  if (SA.fp('biped').w !== 2 || SA.fp('biped').h !== 4 || bAnchor.length !== 1 || bAnchor[0][0] !== SA.K.ROWS - 4 || !['平衡', '前倾', '后仰'].includes(bs.balance) || bs.legs !== '正常' || bs.issues.length)
+    throw new Error(`双足占格、平衡或分区初值错误：${JSON.stringify({ anchor: bAnchor, balance: bs.balance, legs: bs.legs, issues: bs.issues })}`);
   const invalid = SA.V.create('双足腿区非法检查');
-  invalid.body[SA.V.CH][6] = SA.newCell('biped');
-  invalid.body[SA.V.CH + 1][6] = SA.newCell('armor');
+  invalid.body[SA.K.ROWS - 4][6] = SA.newCell('biped');
+  invalid.body[SA.V.CH][8] = SA.newCell('armor');
   if (!SA.V.issues(invalid).some(x => x.reason.includes('腿区'))) throw new Error('双足腿区未拦截普通模块');
+  const twoBipeds = SA.V.create('双足只能一个检查');
+  twoBipeds.body[SA.K.ROWS - 4][4] = SA.newCell('biped'); twoBipeds.body[SA.K.ROWS - 4][8] = SA.newCell('biped');
+  if (!SA.V.issues(twoBipeds).some(x => x.reason.includes('只能有一个'))) throw new Error('两个双足没有报不合规');
 
   const legacy = SA.V.create('旧底盘迁移检查');
   legacy.body[SA.V.CH][4] = SA.newCell('quad');

@@ -223,8 +223,8 @@ function tryPlace(SA, v, id, mt, rng, tries = 120, layer = null) {
     return false;
   }
   for (let i = 0; i < tries; i++) {
-    const maxR = placementLayer === 'chassis' ? bounds.bottom : bounds.bottom - f.h;
-    const r = placementLayer === 'chassis' ? bounds.bottom : bounds.r0 + rng.int(Math.max(1, maxR - bounds.r0 + 1));
+    const maxR = placementLayer === 'chassis' ? SA.V.chassisRow(id) : bounds.bottom - f.h;
+    const r = placementLayer === 'chassis' ? SA.V.chassisRow(id) : bounds.r0 + rng.int(Math.max(1, maxR - bounds.r0 + 1));
     const maxC = bounds.c1 - f.w + 1;
     if (maxC < bounds.c0) return false;
     const c = bounds.c0 + rng.int(maxC - bounds.c0 + 1);
@@ -280,7 +280,7 @@ function minimalVehicle(SA, spec, forcedModule = null) {
   v.lim = { ...spec.grid };
   const bounds = regionBounds(SA, v), putFirst = (id, preferredRows = null) => {
     const f = SA.fp(id), layer = SA.V.layerOf(id), placementLayer = SA.MODULES[id].layer;
-    const rows = preferredRows || (placementLayer === 'chassis' ? [bounds.bottom] : placementLayer === 'ram' ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.bottom - i) : Array.from({ length: bounds.bottom - f.h - bounds.r0 + 1 }, (_, i) => bounds.bottom - f.h - i));
+    const rows = preferredRows || (placementLayer === 'chassis' ? [SA.V.chassisRow(id)] : placementLayer === 'ram' ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.bottom - i) : Array.from({ length: bounds.bottom - f.h - bounds.r0 + 1 }, (_, i) => bounds.bottom - f.h - i));
     for (const r of rows)
       for (let c = bounds.c0; c <= bounds.c1 - f.w + 1; c++) {
         const check = SA.V.canPut(v, id, r, c);

@@ -174,7 +174,8 @@ SA.Battle = (() => {
   // 画面上整车绕车底中点旋转 atan(kw)，每个接地点的伸缩存进 s.gnd 交给 renderVehicle
   function settle(s, dt) {
     const [L, R] = span(s), xc = (L + R) / 2;
-    const pts = [], rigid = [], row = s.v.body[SA.V.CH];
+    const cr = SA.V.chassisRowOf(s.v);   // 底盘锚点行：履带 / 四足在 CH，真双足 2×4 在 ROWS-4
+    const pts = [], rigid = [], row = s.v.body[cr];
     const same = (k, id) => k >= 0 && k < K.COLS && row[k] && row[k].id === id;
     for (let c = 0; c < K.COLS; c++) {
       const cell = row[c];
@@ -183,8 +184,8 @@ SA.Battle = (() => {
       let a0 = c, a1 = c;   // 同类底盘连续段（蜘蛛腿按它决定往前还是往后张）
       while (same(a0 - w, cell.id)) a0 -= w;
       while (same(a1 + w, cell.id)) a1 += w;
-      if (m.susp && alive(cell)) SA.suspPts(cell.id, (c - a0) / w, (a1 - a0) / w + 1).forEach((px, i) => pts.push({ key: `${SA.V.CH},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
-      else if (SA.isRam(cell.id)) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
+      if (m.susp && alive(cell)) SA.suspPts(cell.id, (c - a0) / w, (a1 - a0) / w + 1).forEach((px, i) => pts.push({ key: `${cr},${c}`, i, x: isP(s) ? cellX(s, c) + px : cellX(s, c) + C - px, up: m.susp.up, down: m.susp.down }));
+      else if (SA.isRam(cell.id) && cr === SA.V.CH) for (let k = 0; k < SA.fp(cell.id).w; k++) rigid.push(cellX(s, c + k) + HALF);
     }
     if (!pts.length) for (let x = L + T.SETTLE_FALLBACK_INSET; x <= R - T.SETTLE_FALLBACK_INSET; x += T.SETTLE_FALLBACK_STEP) pts.push({ x, up: 0, down: 0 });   // 底盘全毁：整车趴在地上
     for (const p of pts) p.y = groundAt(p.x);
@@ -267,7 +268,7 @@ SA.Battle = (() => {
   // 子格上活着的模块 → { layer, r, c }（锚点）
   function modAt(s, layer, r, c) {
     const o = (layer === 'side' ? s.occS : s.occ)[r][c];
-    return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= SA.V.CH + 1 ? 'leg' : 'hip') : null } : null;
+    return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= SA.V.CH ? 'leg' : 'hip') : null } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
   function muzzle(s, w) {
@@ -411,7 +412,7 @@ SA.Battle = (() => {
     if (!(dmg > 0)) return;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return;
-    const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= SA.V.CH + 1 ? 'leg' : 'hip') : null);
+    const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= SA.V.CH ? 'leg' : 'hip') : null);
     if (cell.id === 'biped' && zone) {
       if (zone === 'leg') def.bipedLegHp -= dmg;
       else def.bipedHipHp -= dmg;
@@ -626,7 +627,7 @@ SA.Battle = (() => {
             const hit = a === p ? target.ec : target.pc;
             const hitRow = a === p ? target.re : target.r;
             const kick = M.biped.kick || { ram: 12, knock: 0.35, cooldown: 0.7 };
-            damage(d, a, { layer: 'body', r: hit.r, c: hit.c, hitR: hitRow, hitC: hit.c, zone: hitRow >= SA.V.CH + 1 ? 'leg' : 'hip' }, kick.ram * SA.ramMul(a.mass * 1000));
+            damage(d, a, { layer: 'body', r: hit.r, c: hit.c, hitR: hitRow, hitC: hit.c, zone: hitRow >= SA.V.CH ? 'leg' : 'hip' }, kick.ram * SA.ramMul(a.mass * 1000));
             if (kick.knock) shove(a, d, kick.knock * T.BIPED_KICK_SHOVE);
             a.events.kick++; a.kickCooldown = kick.cooldown;
           }
