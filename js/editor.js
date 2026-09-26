@@ -292,15 +292,21 @@ SA.Editor = (() => {
     const cur = sp.hits[0] || null;
     if (cur && cur.cell.id === id && (cur.cell.mt || 1) === mt) { removeAt({ layer, r: cur.r, c: cur.c }); return; }   // 同款再点一次 = 拆下
     if (cur && hurt(cur.cell)) { say(`${M[cur.cell.id].name} 受损，先修理才能替换`, true); st.pick = { layer, r: cur.r, c: cur.c }; st.sel = null; renderDock(); return; }
+    // 底盘：一辆车只能用一种底盘，整件底盘（四足 / 双足）只能有一个——放新底盘时把冲突的旧底盘换下来，
+    // 而不是在改装台上留下两个底盘、再把压在车身下面的那个标成不合规
+    const clash = m.layer === 'chassis' ? chassisClash(v, id, cur) : [];
+    if (clash.some(o => hurt(o.cell))) { say(`${M[clash[0].cell.id].name} 受损，先修理才能换底盘`, true); return; }
     // 换下旧模块后放不放得下（大小可能不一样），先在副本上试
     const test = SA.V.clone(v);
     if (cur) test[layer][cur.r][cur.c] = null;
+    for (const o of clash) test.body[o.r][o.c] = null;
     const chk = SA.V.canPut(test, id, r, c);
     if (!chk.ok) { say(chk.reason, true); return; }
     withStock(key, () => {
       const old = cur && cur.cell;
       let scrap = 0;
       if (old) { v[layer][cur.r][cur.c] = null; scrap = stash(old); }
+      for (const o of clash) { v.body[o.r][o.c] = null; scrap += stash(o.cell); }
       SA.V.put(v, id, r, c, mt);
       SA.S.addInv(id, -1, mt);
       // 库存还有就保持选中，可以接着放；用完了才取消选中
@@ -308,7 +314,8 @@ SA.Editor = (() => {
       st.pick = null;
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
-      say(old ? `${fullName(old.id, old.mt || 1)} → ${fullName(id, mt)}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
+      if (!old && clash.length) say(`换底盘：${fullName(clash[0].cell.id, clash[0].cell.mt || 1)}${clash.length > 1 ? ` ×${clash.length}` : ''} → ${fullName(id, mt)}（换下的放回库存）${tail}`, !!iss);
+      else say(old ? `${fullName(old.id, old.mt || 1)} → ${fullName(id, mt)}${scrap ? `，损毁件 / 改装件回收 ${money(scrap)}` : ''}${tail}` : `装上 ${m.name}${tail}`, !!iss);
       changed();
     });
   }
@@ -321,6 +328,23 @@ SA.Editor = (() => {
     say(`拆下 ${res.removed.map(x => M[x.id].name).join('、')}，已放回库存${scrap ? `；损毁件 / 改装件回收 ${money(scrap)}` : ''}`);
     st.pick = null;
     changed();
+  }
+
+  // 放置检查（预览、提示、绿色可放区域共用）：底盘先按「换下冲突的旧底盘」算，和真正点下去的结果一致
+  function placeCheck(v, id, r, c) {
+    if (M[id].layer !== 'chassis') return SA.V.canPlace(v, id, r, c);
+    const test = SA.V.clone(v);
+    for (const o of chassisClash(v, id, null)) test.body[o.r][o.c] = null;
+    return SA.V.canPlace(test, id, r, c);
+  }
+  // 车上和新底盘冲突的底盘：不同种的全部；同种的整件底盘（chassisLimit 1）已有的那个。cur = 正好被替换的那个（不重复算）
+  function chassisClash(v, id, cur) {
+    const out = [];
+    SA.V.each(v, (cell, r, c, layer) => {
+      if (layer !== 'body' || M[cell.id].layer !== 'chassis' || (cur && cur.r === r && cur.c === c)) return;
+      if (cell.id !== id || M[id].chassisLimit === 1) out.push({ cell, r, c });
+    });
+    return out;
   }
 
   // 把车上的模块（锚点 from）搬到鼠标位置；压着一个模块就对调
@@ -681,22 +705,25 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
   const RED = '#ff3b2f', GREEN = '#6fcf6a', WHITE = '#ffffff';
   const pulse = (t, lo, hi, per = 1.6) => lo + (hi - lo) * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 / per));
   const tmp = document.createElement('canvas');
-  tmp.width = K.ART; tmp.height = K.ART;
   const tg = tmp.getContext('2d');
-  // 把 paint(tg) 画出来的像素整体染色后叠到画布上（只染模块本身，不染背景）；w, h 是模块像素大小
-  function tint(paint, x, y, w, h, color, a) {
+  // 把 paint(tg, m) 画出来的像素整体染色后叠到画布上（只染模块本身，不染背景）；w, h 是模块像素大小，
+  // m = 四周多留的边（整件四足的腿、炮管伸出模块外，也一起染色）。草稿画布按需要长大（整件底盘比 48px 宽）
+  function tint(paint, x, y, w, h, color, a, m = 0) {
+    const W2 = w + m * 2, H2 = h + m * 2;
+    if (tmp.width < W2 || tmp.height < H2) { tmp.width = Math.max(tmp.width, W2); tmp.height = Math.max(tmp.height, H2); }
     tg.globalCompositeOperation = 'source-over';
-    tg.clearRect(0, 0, K.ART, K.ART);
-    paint(tg);
+    tg.clearRect(0, 0, W2, H2);
+    paint(tg, m);
     tg.globalCompositeOperation = 'source-atop';
     tg.fillStyle = color;
-    tg.fillRect(0, 0, w, h);
+    tg.fillRect(0, 0, W2, H2);
     g.globalAlpha = a;
-    g.drawImage(tmp, 0, 0, w, h, x, y, w, h);
+    g.drawImage(tmp, 0, 0, W2, H2, x - m, y - m, W2, H2);
     g.globalAlpha = 1;
   }
   const fromVeh = (vc, x, y, w, h) => (c2d) => c2d.drawImage(vc, x, y, w, h, 0, 0, w, h);
-  const fromModule = (id, t, mt) => (c2d) => SA.SPR.drawModule(c2d, id, 0, 0, { t, heat: 0.3, water: 1, mt });
+  const fromModule = (id, t, mt) => (c2d, m = 0) => SA.SPR.drawModule(c2d, id, m, m, { t, heat: 0.3, water: 1, mt });
+  const tintPad = (id) => (M[id].layer === 'chassis' ? 64 : 0);
   function fillCell(x, y, color, a) {
     g.globalAlpha = a; g.fillStyle = color; g.fillRect(x + 1, y + 1, C - 1, C - 1); g.globalAlpha = 1;
   }
@@ -745,7 +772,8 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: `再点一次：拆下 ${M[id].name}` };
       if (cur && hurt(cur)) return { text: `${M[cur.id].name} 受损，先修理才能替换`, err: true };
       if (cur) return { text: `${buy}替换 ${M[cur.id].name} → ${M[id].name}` };
-      const chk = SA.V.canPlace(v, id, sp.r, sp.c);
+      const chk = placeCheck(v, id, sp.r, sp.c), clash = M[id].layer === 'chassis' ? chassisClash(v, id, null) : [];
+      if (chk.ok && clash.length) return { text: `${buy}换底盘：${M[clash[0].cell.id].name} → ${M[id].name}（换下的放回库存）` };
       return chk.ok ? { text: `${buy}放置 ${M[id].name}：${where(sp.r, sp.c)}` } : { text: `${buy}放置 ${M[id].name}（${chk.reason}）`, err: true };
     }
     const so = SA.V.at(v, 'side', hv.r, hv.c), bo = SA.V.at(v, 'body', hv.r, hv.c);
@@ -820,7 +848,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         const f = SA.fp(id), cover = new Set();
         for (let r = 0; r <= K.ROWS - f.h; r++)
           for (let c = 0; c <= K.COLS - f.w; c++)
-            if (SA.V.canPlace(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
+            if (placeCheck(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
         for (const k of cover) fillCell(...cellXY(Math.floor(k / K.COLS), k % K.COLS), GREEN, pulse(t, 0.06, 0.2, 2));
       }
       if (hv) {
@@ -834,12 +862,12 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           cross(bx, by, bw, bh);
         } else if (!home) {
           const bad = !SA.V.boxInRegion(v, sp.r, sp.c, sp.w, sp.h) || sp.hits.length > 1
-            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !SA.V.canPlace(v, id, sp.r, sp.c).ok));
+            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !placeCheck(v, id, sp.r, sp.c).ok));
           for (const o of sp.hits) { const [bx, by, bw, bh] = boxOf(v, SA.V.layerOf(id), o.r, o.c); g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(bx, by, bw, bh); }
           g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });
           g.globalAlpha = 1;
-          tint(fromModule(id, t, selMt), x, y, w, h, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1));
+          tint(fromModule(id, t, selMt), x, y, w, h, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1), tintPad(id));
         }
       }
     } else if (hv) {

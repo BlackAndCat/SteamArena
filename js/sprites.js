@@ -1158,8 +1158,9 @@ SA.SPR = (() => {
     });
     g.save(); g.translate(0, bd); hull(O, cx, cy); g.restore(); ctx = g;
     // 主体层：底盘/撞击 → 其他 → 武器（炮管压在相邻格上，被挡时一眼可见）
-    const order = (id) => (SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
-    for (const pass of [0, 1, 2]) {
+    // 整件四足（pass 3）：甲壳和近侧腿压在整个车身前面（同 tools/chassis-lab.html），膝盖高过机身也不会被模块挡住
+    const order = (id) => (id === 'quad' ? 3 : SA.isWeapon(id) ? 2 : isChassis(id) ? 0 : 1);
+    for (const pass of [0, 1, 2, 3]) {
       eachCell(veh.body, (cell, r, c) => {
         if (order(cell.id) !== pass) return;
         const x = cx(c), y = cy(r) + dy(cell.id, r);
@@ -1168,12 +1169,13 @@ SA.SPR = (() => {
         if (cell.hp <= 0) {
           ctx = g;
           if (cell.id === 'track') { drawModule(g, cell.id, x, y, mo); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
+          else if (cell.id === 'quad') dead(() => drawModule(g, cell.id, x, y, mo));
           else if (isChassis(cell.id) || SA.isRam(cell.id)) { dead(() => drawModule(g, cell.id, x, y, mo)); scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, 0, r * 8 + c)); }
           else scaled(g, x, y, cell.id, wreck);
           return;
         }
         drawModule(g, cell.id, x, y, mo);
-        scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));
+        if (cell.id !== 'quad') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
     }
