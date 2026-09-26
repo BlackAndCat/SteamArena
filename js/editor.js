@@ -383,7 +383,7 @@ SA.Editor = (() => {
           h('span', { class: 'fold' }, st.plateOpen ? '▴' : '▾'))),
       hurtList.length ? h('button', { class: 'btn small plate-fix', title: `最贵的几项：
 ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
-      st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s)) : null].filter(Boolean));
+      st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s, veh())) : null].filter(Boolean));
   }
 
   // 画布右上角：看哪一层 + 蓝图库开关（右侧面板在模块清单和蓝图库之间切换）
@@ -480,12 +480,16 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
   function keyStats(id, mt = 1) {
     const m = SA.mod(id, mt), out = [];
     if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, SA.kmh(m.speed), m.brake >= 1.5 ? '起步刹车最快' : m.brake < 0.8 ? '刹车慢' : '刹车中等', m.sway < 0.6 ? '移动最稳' : m.sway > 1.2 ? '移动晃' : '移动一般');
-    else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`);
+    else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`, m.penetration >= 99 ? '不会弹开' : `穿深 ${m.penetration}`);
     else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
+    else if (m.store) out.push(`储能 ${m.store}`, '不够时补 3/s');
     else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
+    else if (m.dryCool) out.push(`不耗水散热 ${m.dryCool}/s`);
+    else if (m.waterSave) out.push(`省水 ${Math.round((1 - m.waterSave) * 100)}%`, `冷却 ${m.cool}/s`);
     else if (m.ram) out.push(`撞击 ${m.ram}`, m.punch ? `活塞 ${m.punch}` : `耐久 ${m.hp}`);
     else out.push(`耐久 ${m.hp}`);
-    if (m.armor && !m.load) out.push(`护甲 ${m.armor}`);
+    if (m.tether) out.push('牵引');
+    if (m.armor && !m.load) out.push(`装甲厚 ${Math.round(m.armor * 10) / 10}`);
     if (m.power) out.push(`动力 -${m.power}`);
     out.push(SA.tons(SA.weightOf({ id })));
     return out;
@@ -537,6 +541,11 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         row.addEventListener('pointerup', onUp);
         row.addEventListener('pointercancel', cancelPress);
         invEl.append(row);
+        // 选中的那一行展开：穿深 / 装甲厚度对照、新属性说明和装上后的变化（V4）
+        if (st.sel === key) {
+          const more = [SA.UI.newAttrInfo(id, mt, veh()), SA.UI.penTable(id, Math.max(mt, SA.Camp.maxMat()))].filter(Boolean);
+          if (more.length) invEl.append(h('div', { class: `mdetail cat-${m.cat}` }, more));
+        }
       }
     }
     if (!shown) invEl.append(h('div', { class: 'empty' },
@@ -647,8 +656,13 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，只能靠委托、Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
       H('实体辅助模块'),
       h('p', {}, '观察镜、装弹机、陀螺仪和测距仪是可被击毁的 1×1 实体模块，放在车上即可生效。'),
-      H('护甲'),
-      h('p', {}, '装甲类模块（铁装甲 3、重装甲 6、铲斗 5、履带 2、四足 1，随材料放大）每挨一发先减掉固定伤害，最少保留 25%。机枪一发只有 5 点，打装甲只冒火星，专打没护甲的锅炉、水箱、驾驶舱；直射火炮一发 32 点，才凿得穿装甲。'),
+      H('护甲与穿深'),
+      h('p', {}, `装甲类模块有装甲厚度（铁装甲 ${M.armor.armor}、重装甲 ${M.armor_heavy.armor}、铲斗 ${M.bucket.armor}、履带 ${M.track.armor}、四足 ${M.quad.armor}，随材料加厚），每挨一发先减掉固定伤害，最少保留 25%。武器有穿深（不随材料变）：穿深不到装甲厚度的炮弹有概率`, h('b', {}, '弹开'),
+        `，几乎没有伤害。机枪穿深 ${M.mg.penetration}，打熟铁以上的装甲就会开始弹开，适合专打没护甲的锅炉、水箱、驾驶舱；主炮穿深高，才能稳定打穿厚甲。在模块清单里选中一件武器或装甲，会展开它的穿深对照表。`),
+      H('修理费'),
+      h('p', {}, '越复杂精密的部件修起来越贵：甲片、装甲便宜，水箱低，撞击件、武器居中，驾驶舱和锅炉最贵。模块清单里每件的「修」刻度亮几格就是第几档（', h('span', { style: 'color:var(--gauge2)' }, '便宜'), ' → ', h('span', { style: 'color:var(--brass2)' }, '一般'), ' → ', h('span', { style: 'color:var(--fire2)' }, '较贵'), ' → ', h('span', { style: 'color:#ff5a3c' }, '昂贵'), '），战后结算会列出每件花了多少。'),
+      H('新属性'),
+      h('p', {}, h('b', { style: 'color:var(--fire2)' }, '储能'), '：蓄压罐在锅炉有富余时存下蒸汽，动力不够时补上。', h('b', { style: 'color:var(--water2)' }, '省水'), '：冷凝器让冷却耗水打折，同样的水撑得更久。', h('b', { style: 'color:var(--water2)' }, '不耗水散热'), '：散热片不用水也能一直散热。', h('b', { style: 'color:var(--brass2)' }, '牵引'), '：鱼叉命中后把对手拉过来，被拉过来的撞击反震减半。选中这些模块可以看到装上后整车的变化。'),
       H('车间里的颜色'),
       h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
       H('操作'),

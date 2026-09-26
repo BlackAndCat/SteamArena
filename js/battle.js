@@ -400,15 +400,19 @@ SA.Battle = (() => {
     if (cell.hp <= 0) destroy(def, att, imp);
   }
 
+  // 弹开概率：装甲厚度（材料放大后的 armor）对武器穿深。抽成纯函数，车间用它给出穿深对照（SA.Battle.ricochetChance）
+  function ricochetChance(armor, weapon) {
+    const thickness = Math.max(0, armor || 0), penetration = Math.max(0, weapon.penetration || 0);
+    const deficit = Math.max(0, thickness - penetration) / Math.max(1, thickness);
+    const base = penetration >= thickness ? 0 : 0.18 + deficit * 0.5;
+    return clamp(base + (weapon.ricochet || 0), 0, 0.92);
+  }
   // 炮弹命中装甲时独立检查穿深。装甲厚度来自材料放大后的 armor，穿深来自武器原始字段，
   // 因而升级材料只会让装甲更难打穿，不会把同一门炮的穿深一起放大。
   function projectileDamage(def, att, imp, dmg, weapon) {
     const cell = def.v[imp.layer][imp.r][imp.c], m = cell ? SA.mod(cell) : null;
     if (!m || !m.armor || !weapon) return dmg;
-    const thickness = Math.max(0, m.armor), penetration = Math.max(0, weapon.penetration || 0);
-    const deficit = Math.max(0, thickness - penetration) / Math.max(1, thickness);
-    const base = penetration >= thickness ? 0 : 0.18 + deficit * 0.5;
-    const chance = clamp(base + (weapon.ricochet || 0), 0, 0.92);
+    const chance = ricochetChance(m.armor, weapon);
     if (random() >= chance) return SA.armorCut(m, dmg);
     if (att) att.events.ricochet++;
     const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
@@ -1924,5 +1928,5 @@ SA.Battle = (() => {
     aimWorld(x, y) { const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },
     fx: { ricochet: (x, y, back = 1) => ricochetFx(x, y, back), shatter: (x, y, id = 'plate', mt = 1) => shatterFx(x, y, { id, mt }) },   // 手动触发特效看样子
   };
-  return { start, simulate, debug };
+  return { start, simulate, debug, ricochetChance };
 })();

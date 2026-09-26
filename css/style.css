@@ -586,3 +586,33 @@ body.sa-text-editing [data-sa-text-editable]:hover { outline-color: var(--brass3
 .rp-net b { color: var(--gauge2); }
 .rp-net.bad { background: rgba(184, 57, 27, .18); border-color: var(--fire1); }
 .rp-net.bad b { color: #ff5a3c; }
+
+/* 新属性（V4）：储能 = 炉火（能源）、省水 / 不耗水散热 = 青（冷却）、牵引 = 黄铜（火力），和模块类别色一致 */
+.na-储能 { --na: var(--fire2); } .na-省水, .na-不耗水散热 { --na: var(--water2); } .na-牵引 { --na: var(--brass2); }
+.na-inline { color: var(--na); }
+.bar > .eff { position: absolute; top: 0; bottom: 0; display: block;
+  background: repeating-linear-gradient(135deg, var(--water1) 0 3px, transparent 3px 6px); border-right: 1px solid var(--water2); }
+.mdetail { margin: -2px 0 4px; padding: 8px 10px; background: var(--dark1); border-left: 4px solid var(--iron3); box-shadow: inset 0 2px 0 var(--dark0); display: grid; gap: 8px; font-size: 12px; }
+.mdetail.cat-firepower { border-left-color: var(--brass2); } .mdetail.cat-ram { border-left-color: #a4553a; }
+.mdetail.cat-structure { border-left-color: var(--iron4); } .mdetail.cat-energy { border-left-color: var(--fire2); }
+.mdetail.cat-cooling { border-left-color: var(--water2); }
+.na-wrap { display: grid; gap: 5px; }
+.na-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; line-height: 1.45; }
+.na-tag { font-size: 11px; padding: 0 5px; color: var(--bg0); background: var(--na); white-space: nowrap; }
+.na-diff { display: flex; flex-wrap: wrap; gap: 4px 10px; padding-top: 5px; border-top: 1px dashed var(--dark3); color: var(--text); }
+.na-diff span { white-space: nowrap; }
+.pen-cap { color: var(--muted); margin-bottom: 4px; }
+.pen-note { color: var(--muted); }
+.pen-tab { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.pen-tab th { font-weight: 400; color: var(--muted); text-align: left; padding: 1px 4px 1px 0; white-space: nowrap; font-size: 11px; }
+.pen-tab tr:first-child th { text-align: center; padding-bottom: 3px; }
+.pen-tab tr:first-child th .chip, .pen-tab tr:first-child th > * { font-size: 10px; padding: 0 3px; }
+.pen-tab td { text-align: center; padding: 2px 3px; font-size: 11px; border: 1px solid var(--dark0); }
+.pen-0 { color: var(--gauge2); background: rgba(63, 143, 72, .16); }
+.pen-1 { color: var(--brass3); background: rgba(217, 164, 65, .14); }
+.pen-2 { color: var(--fire2); background: rgba(239, 122, 33, .16); }
+.pen-3 { color: #ff5a3c; background: rgba(184, 57, 27, .22); font-weight: 700; }
+.pen-tab .mat-dot { display: inline-block; width: 7px; height: 7px; margin-right: 3px; vertical-align: 0; box-shadow: 0 0 0 1px var(--dark0); }
+/* 铭牌是黄铜底：新属性字用深色版本 */
+.brass-plate .na-inline { font-weight: 700; }
+.brass-plate .na-储能 { --na: var(--fire1); } .brass-plate .na-省水, .brass-plate .na-不耗水散热 { --na: var(--water1); } .brass-plate .na-牵引 { --na: var(--brass0); }

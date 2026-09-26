@@ -135,17 +135,23 @@ SA.UI = (() => {
   }
 
   // ---------- 属性条 ----------
-  function statBars(s) {
+  function statBars(s, v) {
     const pmax = Math.max(s.supply, s.demand, 1);
     const wmax = Math.max(s.load, s.weight, 1);
     const pct = (x, m) => `${Math.max(0, Math.min(100, (x / m) * 100))}%`;
     const oh = s.overheat === Infinity ? '不会烧干' : `全力开火 ${Math.round(s.overheat)} 秒后烧干`;
-    const heatShare = Math.min(1, (s.heatGen + SA.K.IDLE_HEAT) / Math.max(0.1, SA.K.DISSIPATE + s.cool));
+    const heatShare = Math.min(1, (s.heatGen + SA.K.IDLE_HEAT) / Math.max(0.1, SA.K.DISSIPATE + s.cool + (s.dryCool || 0)));
+    // 省水：同样的水按耗水倍率折算成"等效水量"，水条后面用斜纹接上多出来的那一截
+    const effWater = s.waterSave < 1 ? s.water / s.waterSave : s.water, wScale = Math.max(250, effWater);
+    // 全车最大穿深 / 最厚装甲（v 可选：给了才算；穿深对照表在选中武器时的清单里）
+    let pen = 0, thick = 0;
+    if (v) SA.V.each(v, (cell) => { if (cell.hp <= 0) return; const m = SA.mod(cell); if (m.penetration < 99) pen = Math.max(pen, m.penetration || 0); thick = Math.max(thick, m.armor || 0); });
     return h('div', { class: 'bars' },
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '动力'),
         h('div', { class: 'bar power' }, h('i', { style: `width:${pct(s.demand, pmax)}` }),
           h('span', { class: 'mark', style: `left:${pct(s.supply, pmax)}`, title: '锅炉供给' }))),
-      h('div', { class: 'bar-note' }, `需求 ${s.demand}（设备 ${s.equip} + 行驶 ${s.drive}）· 锅炉供给 ${s.supply}（白线）`),
+      h('div', { class: 'bar-note' }, `需求 ${s.demand}（设备 ${s.equip} + 行驶 ${s.drive}）· 锅炉供给 ${s.supply}（白线）`,
+        s.store ? h('span', { class: 'na-inline na-储能' }, ` · 储能 ${f1(s.store)}：富余时蓄压，不够时每秒补 3`) : null),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '重量'),
         h('div', { class: `bar weight ${s.weight > s.load ? 'over' : ''}` }, h('i', { style: `width:${pct(s.weight, wmax)}` }),
           h('span', { class: 'cap', style: `left:calc(${pct(s.load, wmax)} - 2px)`, title: '底盘承重' }))),
@@ -159,13 +165,18 @@ SA.UI = (() => {
       h('div', { class: 'bar-note' }, `按住蓄满最多缩小散布 ${Math.round(s.aimShrink * 100)}% · 瞄准速度 ×${s.aimSpeed.toFixed(2)}（直射火炮约 ${(SA.MODULES.cannon.aimT / s.aimSpeed).toFixed(1)} 秒蓄满）· 以后加装瞄准镜可以缩得更多、更快`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量'),
         h('div', { class: 'bar heat' }, h('i', { style: `width:${pct(heatShare, 1)}` }))),
-      h('div', { class: 'bar-note' }, `产热 ${(s.heatGen + SA.K.IDLE_HEAT).toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ≤${s.cool}/秒 · ${oh}`),
+      h('div', { class: 'bar-note' }, `产热 ${(s.heatGen + SA.K.IDLE_HEAT).toFixed(1)}/秒 · 散热 ${SA.K.DISSIPATE}+冷却 ≤${s.cool}/秒`,
+        s.dryCool ? h('span', { class: 'na-inline na-不耗水散热' }, ` + 不耗水散热 ${f1(s.dryCool)}/秒`) : null, ` · ${oh}`),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '水'),
-        h('div', { class: 'bar water' }, h('i', { style: `width:${pct(s.water, 250)}` }))),
-      h('div', { class: 'bar-note' }, `${s.tanks} 只水箱 · 共 ${s.water} 单位`),
+        h('div', { class: 'bar water' }, h('i', { style: `width:${pct(s.water, wScale)}` }),
+          effWater > s.water ? h('b', { class: 'eff', style: `left:${pct(s.water, wScale)};width:${pct(effWater - s.water, wScale)}`, title: '省水：冷却耗水打折后等于多出来的水' }) : null)),
+      h('div', { class: 'bar-note' }, `${s.tanks} 只水箱 · 共 ${s.water} 单位`,
+        s.waterSave < 1 ? h('span', { class: 'na-inline na-省水' }, ` · 省水：冷却耗水 ×${f1(s.waterSave)}，相当于 ${Math.round(effWater)} 单位（斜纹）`) : null),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '耐久'),
         h('div', { class: 'bar hp' }, h('i', { style: `width:${pct(s.hp, Math.max(s.maxHp, 1))}` }))),
-      h('div', { class: 'bar-note' }, `${s.hp}/${s.maxHp} · 火力 ${s.dps.toFixed(1)}/秒 · 综合评分 ${s.rating}`),
+      h('div', { class: 'bar-note' }, `${s.hp}/${s.maxHp} · 火力 ${s.dps.toFixed(1)}/秒 · 综合评分 ${s.rating}`,
+        pen ? ` · 最大穿深 ${f1(pen)}` : '', thick ? ` · 最厚装甲 ${f1(thick)}` : '',
+        s.tether ? h('span', { class: 'na-inline na-牵引' }, ' · 带牵引') : null),
       s.problems.map(p => h('div', { class: 'warn bad' }, p)),
       s.warnings.map(w => h('div', { class: 'warn' }, w)),
     );
@@ -174,15 +185,21 @@ SA.UI = (() => {
   function statLine(id, mt = 1) {
     const m = SA.mod(id, mt);
     const parts = [`耐久 ${m.hp}`];
-    if (m.armor) parts.push(`护甲 ${m.armor}`);
+    if (m.armor) parts.push(`装甲厚度 ${f1(m.armor)}`);
     if (m.power) parts.push(`动力 -${m.power}`);
     if (m.supply) parts.push(`动力 +${m.supply}`, `产热 ≤${m.heatRate}/秒`);
     if (m.load) parts.push(`承重 ${SA.tons(m.load)}`, `速度 ${SA.kmh(m.speed)}`, `起步 ×${m.accel}`, `刹车 ×${m.brake}`, `晃动 ×${m.sway}`);
     parts.push(`重量 ${SA.tons(SA.weightOf({ id }))}`);
     if (m.dmg) parts.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛 · 指哪打哪' : `直射 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°`, `热 +${m.heat}/发`);
+    if (m.penetration) parts.push(m.penetration >= 99 ? '不会弹开' : `穿深 ${m.penetration}${m.ricochet ? `（易弹开 +${Math.round(m.ricochet * 100)}%）` : ''}`);
+    if (m.tether) parts.push(`牵引 ${m.tether}`);
+    if (m.store) parts.push(`储能 ${f1(m.store)}`);
+    if (m.dryCool) parts.push(`不耗水散热 ${f1(m.dryCool)}/秒`);
+    if (m.waterSave) parts.push(`省水：耗水 ×${m.waterSave}`);
     if (m.ram) parts.push(`撞击 ${m.ram}×速度`);
     if (m.punch) parts.push(`活塞 ${m.punch}/${m.punchCd}s`);
     if (m.water) parts.push(`冷却 ${m.cool}/秒`, `水 ${m.water}`);
+    else if (m.cool) parts.push(`冷却 ${m.cool}/秒`);
     if (m.evade) parts.push(`闪避 +${Math.round(m.evade * 100)}%`);
     if (m.acc && !m.dmg) parts.push(`命中 +${Math.round(m.acc * 100)}%`);
     return parts.join(' · ');
@@ -393,6 +410,72 @@ SA.UI = (() => {
   const repairBrief = (cells) => cells.map(c => [c, SA.S.repairCost(c)]).sort((a, b) => b[1] - a[1]).slice(0, 4)
     .map(([c, k]) => `${SA.MODULES[c.id].name} ${money(k)}`).join('\n');
 
+  // ---------- 新属性（V4）：储能、省水、不耗水散热、牵引、穿深 / 装甲厚度 ----------
+  const f1 = (x) => (Math.round(x * 10) / 10).toString();
+  // 弹开概率（和战斗里同一个公式，SA.Battle.ricochetChance）
+  const bounce = (armor, w) => (SA.Battle && SA.Battle.ricochetChance ? SA.Battle.ricochetChance(armor, w) : 0);
+  const ARMOR_REF = ['plate', 'armor', 'bucket', 'armor_heavy'];
+  const PEN_REF = ['mg', 'side_cannon', 'cannon_s', 'cannon_m', 'rocket_rack', 'mortar', 'cannon', 'cannon_heavy', 'cannon_giant'];
+  function bounceCell(ch) {
+    const k = ch <= 0 ? 0 : ch < 0.3 ? 1 : ch < 0.55 ? 2 : 3;
+    return h('td', { class: `pen pen-${k}`, title: ch <= 0 ? '穿深够：照常按护甲减伤' : `穿深不够：${Math.round(ch * 100)}% 的炮弹会弹开，几乎没伤害` },
+      ch <= 0 ? '穿' : `${Math.round(ch * 100)}%`);
+  }
+  // 穿深对照表：武器 → 各种装甲 × 各级材料；装甲 → 常见武器 × 这块装甲的各级材料
+  function penTable(id, maxMt = SA.MAT_MAX) {
+    const m = SA.MODULES[id], mats = SA.MATS.slice(1, Math.max(1, maxMt) + 1);
+    const head = h('tr', {}, h('th', {}, ''), mats.map((mt) => h('th', { title: mt.rank ? `${mt.rank} · ${mt.name}` : mt.name }, h('i', { class: 'mat-dot', style: `background:${mt.chip}` }), mt.name)));
+    if (m.dmg) {
+      if (!m.penetration || m.penetration >= 99) return h('div', { class: 'pen-note' }, '喷射类武器：不会弹开。');
+      return h('div', { class: 'pen-wrap' },
+        h('div', { class: 'pen-cap' }, `穿深 ${m.penetration}${m.ricochet ? `（另加 ${Math.round(m.ricochet * 100)}% 弹开）` : ''} 打各种装甲的弹开率`),
+        h('table', { class: 'pen-tab' }, head, ARMOR_REF.map(a => h('tr', {}, h('th', {}, SA.MODULES[a].name),
+          mats.map((mt, i) => bounceCell(bounce(SA.mod(a, i + 1).armor, m)))))));
+    }
+    if (m.armor) {
+      return h('div', { class: 'pen-wrap' },
+        h('div', { class: 'pen-cap' }, `装甲厚度 ${mats.map((mt, i) => f1(SA.mod(id, i + 1).armor)).join(' / ')}（随材料加厚）· 各武器打它的弹开率`),
+        h('table', { class: 'pen-tab' }, head, PEN_REF.map(w => h('tr', {}, h('th', {}, `${SA.MODULES[w].name} ${SA.MODULES[w].penetration}`),
+          mats.map((mt, i) => bounceCell(bounce(SA.mod(id, i + 1).armor, SA.MODULES[w])))))));
+    }
+    return null;
+  }
+  // 把一件模块临时放进车的空位，算出装上前后的整车属性（只用来预览，不管摆放规则）
+  function statsWith(v, id, mt = 1) {
+    const layer = SA.V.layerOf(id) === 'side' ? 'side' : 'body', f = SA.fp(id), o = SA.V.occ(v, layer);
+    for (let r = 0; r + f.h <= SA.K.ROWS - 2; r++) for (let c = 0; c + f.w <= SA.K.COLS; c++) {
+      let free = true;
+      for (let i = 0; i < f.h && free; i++) for (let j = 0; j < f.w && free; j++) if (o[r + i][c + j]) free = false;
+      if (!free) continue;
+      const w = SA.V.clone(v);
+      w[layer][r][c] = SA.newCell(id, mt);
+      return SA.V.stats(w);
+    }
+    return null;
+  }
+  const secs = (t) => (t === Infinity ? '不会烧干' : `${Math.round(t)} 秒`);
+  // 新属性模块的说明 + 装上后的变化（车间右侧选中行展开）
+  function newAttrInfo(id, mt, v) {
+    const m = SA.mod(id, mt), out = [];
+    if (m.store) out.push(['储能', `蓄压容量 ${f1(m.store)}：锅炉有富余时把多出来的动力存起来，动力不够时每秒最多补 3 点。存量过半时被打爆会爆炸。`]);
+    if (m.waterSave) out.push(['省水', `全车冷却耗水 ×${m.waterSave}（多个相乘，最低 ×0.4）：同样的水能冷却更久。本身不储水。`]);
+    if (m.dryCool) out.push(['不耗水散热', `每秒额外散掉 ${f1(m.dryCool)} 点热量，不用水：水烧光以后也照样散热。`]);
+    if (m.tether) out.push(['牵引', `命中后挂上绳索，把对手往自己这边拉（收绳 ${m.tether}）；被拉过来撞上时反震从 ${Math.round(SA.K.RAM_SELF * 100)}% 降到 ${Math.round(SA.K.RAM_TETHER_SELF * 100)}%。绳子挂着时不能再发射。`]);
+    if (!out.length) return null;
+    const a = v && SA.V.stats(v), b = v && statsWith(v, id, mt);
+    const diff = [];
+    if (a && b) {
+      if ((m.store || m.waterSave || m.dryCool) && a.overheat !== b.overheat) diff.push(`全力开火烧干：${secs(a.overheat)} → ${secs(b.overheat)}`);
+      if (m.store) diff.push(`储能 ${f1(a.store)} → ${f1(b.store)}`);
+      if (m.waterSave) diff.push(`冷却耗水 ×${f1(a.waterSave)} → ×${f1(b.waterSave)}`);
+      if (m.dryCool) diff.push(`不耗水散热 ${f1(a.dryCool)} → ${f1(b.dryCool)}/秒`);
+      diff.push(`评分 ${a.rating} → ${b.rating}`, `总重 ${SA.tons(a.weight)} → ${SA.tons(b.weight)}`);
+    }
+    return h('div', { class: 'na-wrap' },
+      out.map(([k, t]) => h('div', { class: 'na-row' }, h('b', { class: `na-tag na-${k}` }, k), h('span', {}, t))),
+      diff.length ? h('div', { class: 'na-diff' }, h('span', { class: 'muted' }, '装上这一件：'), diff.map(x => h('span', {}, x))) : null);
+  }
+
   return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
-    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief };
+    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith };
 })();
