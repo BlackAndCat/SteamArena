@@ -5,7 +5,7 @@ window.SA = window.SA || {};
 SA.Text.init({ game: 'steam-arena', locale: 'zh-CN' });
 
 // 版本标记：控制台输入 SA.BUILD，或看启动时打印的那行，确认浏览器跑的是不是最新代码
-SA.BUILD = '2026-09-26 stage-looks';
+SA.BUILD = '2026-09-26 material-layer';
 console.info(`蒸汽竞技场 build ${SA.BUILD}`);
 
 SA.current = null;

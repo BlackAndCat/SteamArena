@@ -130,6 +130,53 @@ SA.SPR = (() => {
     if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
   }
 
+  // ---------- 改装挂件（V3）：炮盾 / 加固裙板 / 加厚撞面 / 附加装甲，每级多挂一层，画成冷铁（材料装饰层照常换色）----------
+  const bolted = (x, y, w, h) => { box(x, y, w, h, IRONL); if (w >= 5 && h >= 5) { R(x + 1, y + 1, 1, 1, P.iron[4]); R(x + w - 2, y + h - 2, 1, 1, P.iron[1]); } };
+  // 炮盾：立在耳轴前面的防盾，炮管画在它上面（所以不用开炮口缝）。cx = 防盾左边，cy = 耳轴高度，hh = 一级的半高；
+  // 一级一块板，二级加高并在顶上折边，三级再叠一层加强板
+  function gunShield(cx, cy, lv, hh) {
+    if (!lv) return;
+    const h1 = hh + (lv - 1) * 3;
+    box(cx, cy - h1, 5, h1 * 2, IRON); R(cx + 1, cy - h1 + 1, 1, h1 * 2 - 2, P.iron[4]);
+    for (let k = cy - h1 + 3; k < cy + h1 - 3; k += 6) { R(cx + 2, k, 2, 2, P.iron[1]); R(cx + 2, k, 1, 1, P.iron[4]); }
+    if (lv >= 2) { R(cx - 3, cy - h1, 8, 2, P.iron[0]); R(cx - 3, cy - h1, 8, 1, P.iron[3]); }
+    if (lv >= 3) box(cx + 4, cy - h1 + 4, 3, h1 * 2 - 8, IRONL);
+  }
+  // 非武器的挂件：精灵画完以后贴上去（武器的炮盾在 DRAW 里画，要压在炮管下面）
+  function attach(id, q, f) {
+    const lv = q.up, x = LEFT, y = TOP, m = SA.MODULES[id];
+    if (!lv || SA.isWeapon(id)) return;
+    if (m.layer === 'chassis') {
+      if (id === 'track') {   // 裙板盖住上段履带和侧框上沿，三级分段
+        const x0 = x + (q.connL ? 0 : 6), x1 = x + (q.connR ? C : 44), hh = [0, 7, 11, 16][lv];
+        box(x0, y + 6, x1 - x0, hh, IRONL);
+        R(x0 + 1, y + 4 + hh, x1 - x0 - 2, 1, P.iron[1]);
+        for (let k = x0 + 4; k < x1 - 2; k += 8) rivet(k, y + 8);
+        if (lv >= 3) for (let k = x0 + 12; k < x1 - 2; k += 12) R(k, y + 7, 1, hh - 2, P.iron[0]);
+      } else { box(x + 4, y + 1, 40, 3 + lv * 2, IRONL); for (let k = 8; k < 42; k += 10) rivet(x + k, y + 2); }
+      return;
+    }
+    if (m.layer === 'ram') {
+      if (id === 'bucket') {   // 斗板前沿再贴一条耐磨板，一级比一级厚
+        for (let yy = 6; yy <= 44; yy++) {
+          const x0 = x + 39 - Math.round(6 * Math.sin(Math.PI * (yy - 4) / 42));
+          R(x0, y + yy, lv + 1, 1, P.iron[0]); R(x0, y + yy, lv, 1, yy % 8 === 0 ? P.iron[4] : P.iron[3]);
+        }
+      } else if (id === 'spike') {   // 锥身套上加强箍
+        for (let i = 0; i < lv; i++) { const ii = 5 + i * 7, hh = Math.round(13 * (1 - ii / 33)) + 1; box(x + 15 + ii, y + 24 - hh, 3, hh * 2 + 1, IRONL); }
+      } else if (id === 'piston') {   // 锤面加厚
+        const e = 4 + (q.p || 0) * 5, st = q.st || 1;
+        box(x + 24 + e + (st === 2 ? 12 : 11), y + (st === 2 ? 5 : 8), 1 + lv * 2, st === 2 ? 38 : 32, IRONL);
+      }
+      return;
+    }
+    // 附加装甲：左右两侧先挂竖板，三级再加一条底板
+    const W = f.w * S, H = f.h * S, t = W > S ? 5 : 3, y0 = y + Math.round(H * 0.2), hh = Math.round(H * 0.65);
+    bolted(x + 1, y0, t, hh);
+    if (lv >= 2) bolted(x + W - 1 - t, y0, t, hh);
+    if (lv >= 3) bolted(x + 2, y + H - t - 1, W - 4, t);
+  }
+
   // 履带节：xa..xb 范围内按 8px 节距排布，off 为滚动偏移
   function links(xa, xb, yy, h, off, grouser) {
     R(xa, yy, xb - xa, h, P.dark[0]);
@@ -446,6 +493,7 @@ SA.SPR = (() => {
         R(x + 4, y + 39, 40, 1, P.brass[2]); R(x + 4, y + 40, 40, 1, P.brass[1]);
         rivet(x + 6, y + 34); rivet(x + 40, y + 34);
       }
+      gunShield(x + 43, y + 27, o.up, 11);
       const d = rcPx('cannon', o.k);
       turn(x + 34, y + 27, o.a, (X, Y) => {
         X += x; Y += y;
@@ -507,6 +555,7 @@ SA.SPR = (() => {
           rivet(x + 27, y + 8); rivet(x + 29, y + 17);
         } else box(x + 26, y + 12, 5, 11, IRON);
       }
+      gunShield(x + 30, y + 13, o.up, 6);
       const d = rcPx('cannon_m', o.k);
       turn(x + 18, y + 13, o.a, (X, Y) => {
         X += x; Y += y;
@@ -549,6 +598,11 @@ SA.SPR = (() => {
       box(x + 3, y + 28, 42, 17, IRON);
       R(x + 4, y + 39, 40, 1, P.brass[2]);
       box(x + 11, y + 22, 7, 12, DARK); box(x + 24, y + 22, 7, 12, DARK);
+      if (o.up) {   // 高抛炮的炮盾：炮座一圈护板，二级加两侧挡板，三级加前护板
+        bolted(x + 2, y + 25, 44, 4);
+        if (o.up >= 2) { bolted(x + 2, y + 17, 5, 11); bolted(x + 41, y + 17, 5, 11); }
+        if (o.up >= 3) bolted(x + 36, y + 21, 8, 22);
+      }
       const k = rcPx('mortar', o.k);
       const ang = (o.a == null ? 55 : o.a) * Math.PI / 180;
       const dx = Math.cos(ang), dy = -Math.sin(ang), px = x + 20 - dx * k, py = y + 30 - dy * k, L = 27;
@@ -569,6 +623,7 @@ SA.SPR = (() => {
       disc(x + 13, y + 29, 6, P.brass[2]);
       R(x + 9, y + 22, 4, 1, P.brass[3]); R(x + 7, y + 24, 1, 3, P.brass[3]);
       disc(x + 14, y + 30, 2, P.brass[0]);
+      gunShield(x + 43, y + 29, o.up, 11);
       const k = rcPx('mg', o.k), f = o.f || 0;
       // 机匣 + 三管绕 (34,29) 转到仰角；三管轮转：每打一发转一格（亮的那根换位），整组后坐 k 像素
       turn(x + 34, y + 29, o.a, (X, Y) => {
@@ -600,6 +655,7 @@ SA.SPR = (() => {
       R(x + 14, y + 11, 4, 17, P.iron[2]);
       R(x + 14, y + 11, 1, 17, P.iron[3]);
       if (st === 3) for (const sy of [15, 21]) R(x + 13, y + sy, 6, 2, P.brass[1]);
+      gunShield(x + 29, y + 34, o.up, 8);
       const k = rcPx('side_cannon', o.k);
       turn(x + 18, y + 34, o.a, (X, Y) => {
         X += x; Y += y;
@@ -818,34 +874,93 @@ SA.SPR = (() => {
       case 'biped': case 'quad': q.gf = o.moving ? gfOf(o.phase) : 0; q.mv = !!o.moving; q.bd = o.bd || 0; q.part = o.part || null; q.ri = o.ri || 0; q.rn = o.rn || 1; q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; gndQ(q, o, 2); break;
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
     }
+    if (o.up) q.up = Math.min(3, o.up);   // 改装等级 → 挂件
     if (o.mt > 1) q.mt = o.mt;
     return q;
   }
-  // 这些模块的颜色本身就是辨识度（驾驶员、炉火、水），不整体换色，只在四角钉上材料色的角铁
-  const KEEP_COLOR = new Set(['cockpit', 'copilot', 'helmet', 'boiler', 'water', 'tank_s', 'tank_tall']);
-  function markMat(cv, mat, top) {
-    const g = cv.getContext('2d'), W = cv.width - 32 - LEFT, H = cv.height - top - BOT, n = Math.min(W, H) > 24 ? 7 : 4;   // 画布按占格放大过：角铁贴着模块本身的四角
-    for (const [x, y, dx, dy] of [[LEFT, top, 1, 1], [LEFT + W - 1, top, -1, 1], [LEFT, top + H - 1, 1, -1], [LEFT + W - 1, top + H - 1, -1, -1]]) {
-      g.fillStyle = '#07080c';
-      g.fillRect(dx > 0 ? x : x - n, dy > 0 ? y : y - 2, n + 1, 3); g.fillRect(dx > 0 ? x : x - 2, dy > 0 ? y : y - n, 3, n + 1);
-      g.fillStyle = mat.chip;
-      g.fillRect(dx > 0 ? x : x - n + 1, dy > 0 ? y : y - 1, n, 2); g.fillRect(dx > 0 ? x : x - 1, dy > 0 ? y : y - n + 1, 2, n);
-    }
+  // ---------- 材料装饰层（V3，docs/module-plan.md §1）----------
+  // 只作用在金属像素（冷铁 / 暗铁 / 锈钢）上：先换成材料色（保留明暗，同 CSS 'color' 混合），再按材料加一层表面纹样。
+  // 黄铜饰件、炉火、水、玻璃、皮革、驾驶员、蒸汽保持原色——驾驶舱、锅炉、水箱也直接看得出材料，不再只在四角钉角铁。
+  // 纹样：熟铁 = 锻打斑点，钢 = 冷色高光边，镀镍 = 镜面斜条纹，乌兹钢 = 流水花纹，以太 = 发光纹路（T6 的发光特效）
+  const rgbOf = (hx) => { const n = parseInt(hx.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const k3 = (r, g, b) => (r << 16) | (g << 8) | b;
+  const PX_CLASS = new Map();   // 1 = 金属，2 = 保持原色
+  for (const hx of [...P.iron, ...P.dark, ...P.rust]) PX_CLASS.set(k3(...rgbOf(hx)), 1);
+  for (const hx of [...P.brass, ...P.fire, ...P.water, ...P.gauge, ...P.glass, ...P.steam, ...P.leather, ...P.bg, P.white, P.black, P.magenta, ...SOOT_PILOT, ...SOOT_CO]) PX_CLASS.set(k3(...rgbOf(hx)), 2);
+  const lum = (r, g, b) => 0.3 * r + 0.59 * g + 0.11 * b;
+  // 不在调色板里的颜色（旋转贴图的边缘等）：灰的算金属，有颜色的保留
+  function pxClass(r, g, b) {
+    const c = PX_CLASS.get(k3(r, g, b));
+    if (c) return c;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    return mx === 0 || (mx - mn) / mx < 0.28 ? 1 : 2;
   }
-  // 材料换色：'color' 混合只换色相和饱和度、保留原图明暗；再用原图的不透明度把透明处抠回来
-  function tintMat(cv, mat) {
-    const keep = document.createElement('canvas');
-    keep.width = cv.width; keep.height = cv.height;
-    keep.getContext('2d').drawImage(cv, 0, 0);
-    const g = cv.getContext('2d');
-    g.save();
-    g.globalCompositeOperation = 'color'; g.globalAlpha = mat.a; g.fillStyle = mat.tint;
-    g.fillRect(0, 0, cv.width, cv.height);
-    if (mat.dark) { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = mat.dark; g.fillStyle = '#000000'; g.fillRect(0, 0, cv.width, cv.height); }
-    if (mat.lite) { g.globalCompositeOperation = 'screen'; g.globalAlpha = mat.lite; g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height); }
-    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in';
-    g.drawImage(keep, 0, 0);
-    g.restore();
+  function setLum([r, g, b], l) {   // W3C SetLum + ClipColor，分量 0~1
+    const d = l - lum(r, g, b); r += d; g += d; b += d;
+    const L = lum(r, g, b), n = Math.min(r, g, b), x = Math.max(r, g, b);
+    if (n < 0) { r = L + (r - L) * L / (L - n); g = L + (g - L) * L / (L - n); b = L + (b - L) * L / (L - n); }
+    if (x > 1) { r = L + (r - L) * (1 - L) / (x - L); g = L + (g - L) * (1 - L) / (x - L); b = L + (b - L) * (1 - L) / (x - L); }
+    return [r, g, b];
+  }
+  const hash = (x, y) => (Math.imul(x + 101, 73856093) ^ Math.imul(y + 37, 19349663)) >>> 0;
+  const toward = (c, t, k) => [c[0] + (t[0] - c[0]) * k, c[1] + (t[1] - c[1]) * k, c[2] + (t[2] - c[2]) * k];
+  const COOL = [0.85, 0.93, 1], WOOTZ_HI = [0.92, 0.84, 1], AETHER = [0.62, 1, 0.95];
+  // 这些区域里的暗铁色像素不参与装饰层（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
+  const DECOR_SKIP = { boiler: [[11, 19, 26, 21]] };
+  const DARKS = new Set(P.dark.map(hx => k3(...rgbOf(hx))));
+  function decorate(cv, mat, ox, oy, skip = []) {
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
+    const tint = rgbOf(mat.tint).map(v => v / 255), a = mat.a || 0.8;
+    const metal = new Uint8Array(W * H), L0 = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      if (d[i * 4 + 3] < 8) continue;
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      const lx = i % W - ox, ly = Math.floor(i / W) - oy;
+      metal[i] = pxClass(r, gg, b) === 1 && !(DARKS.has(k3(r, gg, b)) && skip.some(([sx, sy, sw, sh]) => lx >= sx && lx < sx + sw && ly >= sy && ly < sy + sh)) ? 1 : 0;
+      L0[i] = lum(r, gg, b) / 255;
+    }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!metal[i]) continue;
+      const o = [d[i * 4] / 255, d[i * 4 + 1] / 255, d[i * 4 + 2] / 255], l = L0[i];
+      let c = setLum(tint, l);
+      c = toward(o, c, a);
+      if (mat.dark) c = c.map(v => v * (1 - mat.dark));
+      if (mat.lite) c = c.map(v => 1 - (1 - v) * (1 - mat.lite));
+      if (l > 0.1) {   // 描边不加纹样
+        const lx = x - ox, ly = y - oy, h = hash(lx, ly);
+        const edge = (j) => j < 0 || !metal[j] || L0[j] < 0.1;
+        switch (mat.key) {
+          case 'iron':
+            if (h % 17 === 0) c = c.map(v => v * 0.7); else if (h % 29 === 3) c = toward(c, [1, 1, 1], 0.14);
+            break;
+          case 'steel':
+            if (edge(y ? i - W : -1)) c = toward(c, COOL, 0.5); else if (edge(x ? i - 1 : -1)) c = toward(c, COOL, 0.3);
+            break;
+          case 'nickel': {
+            const st = (((lx + ly) % 14) + 14) % 14;
+            if (st < 2) c = toward(c, [1, 1, 1], 0.55); else if (st === 3) c = toward(c, [1, 1, 1], 0.22);
+            if (edge(y ? i - W : -1)) c = toward(c, COOL, 0.35);
+            break;
+          }
+          case 'wootz': {
+            const v = Math.sin(lx * 0.6 + 2.4 * Math.sin(ly * 0.28 + lx * 0.05));
+            if (v > 0.72) c = toward(c, WOOTZ_HI, 0.38); else if (v < -0.8) c = c.map(q => q * 0.8);
+            break;
+          }
+          case 'aether': {
+            const v1 = Math.abs(Math.sin(lx * 0.31 + 1.9 * Math.sin(ly * 0.37))), v2 = Math.abs(Math.sin(ly * 0.29 + 1.7 * Math.sin(lx * 0.33 + 1)));
+            const v = Math.min(v1, v2 + 0.04);
+            if (v < 0.09 && h % 5) c = AETHER; else if (v < 0.2) c = toward(c, AETHER, 0.3);
+            break;
+          }
+        }
+      }
+      d[i * 4] = Math.round(Math.max(0, Math.min(1, c[0])) * 255);
+      d[i * 4 + 1] = Math.round(Math.max(0, Math.min(1, c[1])) * 255);
+      d[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, c[2])) * 255);
+    }
+    g.putImageData(img, 0, 0);
   }
   // 外观接口：DRAW[id](x, y, q) 在 (x, y) 画一个占 f.w × f.h 子格的模块；q 是 quant() 量化后的状态，
   // 另外带 q.st = 外观阶段（1~3，按材料算，见 SA.stageOf；只有一个造型的模块永远是 1，不写进 q）。
@@ -859,7 +974,8 @@ SA.SPR = (() => {
       cv.width = f.w * S + 32 + LEFT; cv.height = f.h * S + TOP + BOT;
       ctx = cv.getContext('2d');
       DRAW[id](LEFT, TOP, q);
-      if (q.mt > 1) (KEEP_COLOR.has(id) ? markMat : tintMat)(cv, SA.MATS[q.mt], TOP);
+      attach(id, q, f);
+      if (q.mt > 1) decorate(cv, SA.MATS[q.mt], LEFT, TOP, DECOR_SKIP[id]);
       cache.set(key, cv);
     }
     return cv;
@@ -993,7 +1109,7 @@ SA.SPR = (() => {
       let above = null;
       if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
       return {
-        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt,
+        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt, up: cell.lv || 0,
         gnd: o.gnd && m.layer === 'chassis' ? o.gnd[`${r},${c}`] || [0, 0] : null,   // 悬挂：每格两个接地点各自上下（像素，正 = 往下伸）
         gL: o.gnd && same(c - w) && o.gnd[`${r},${c - w}`] ? o.gnd[`${r},${c - w}`][1] : 0,   // 左右相邻同类底盘靠近本格的那个接地点（履带连成一条）
         gR: o.gnd && same(c + w) && o.gnd[`${r},${c + w}`] ? o.gnd[`${r},${c + w}`][0] : 0,

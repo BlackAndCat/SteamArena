@@ -47,7 +47,7 @@ for (const id of MATRIX) {
   tr.append(th);
   for (let mt = 1; mt <= SA.MAT_MAX; mt++) { const td = document.createElement('td'); td.style.padding = '2px'; td.title = `阶段 ${SA.stageOf(id, mt)}`; td.append(cell(id, { mt })); tr.append(td); }
   const td = document.createElement('td'); td.style.cssText = 'padding:2px;white-space:nowrap';
-  for (let lv = 1; lv <= 3; lv++) td.append(cell(id, { mt: 3, lv }));
+  for (let lv = 1; lv <= 3; lv++) td.append(cell(id, { mt: 3, up: lv }));
   tr.append(td); MT.append(tr);
 }
 // 动态帧：后坐 0 / 50% / 100%，机枪供弹 0~3
