@@ -7,7 +7,7 @@ SA.Arena = (() => {
   const d = () => SA.S.d;
   const money = (n) => SA.UI.money(n);
   // [页签, 名称, 需要的功能]
-  const MODES = [['camp', '战役', null], ['side', '遭遇战', 'garage'], ['street', '街头赛', 'street'], ['orders', '委托', 'orders'], ['friendly', '友谊赛', 'friendly'], ['tour', '锦标赛', 'season']];
+  const MODES = [['camp', '战役', null], ['side', '遭遇战', 'garage'], ['street', '街头赛', 'street'], ['orders', '委托', 'orders'], ['tour', '锦标赛', 'season']];
   const modes = () => MODES.filter(([, , f]) => !f || SA.Camp.has(f));
   const st = { mode: 'camp', pick: { camp: null, tour: null, street: null, friendly: null }, bet: null };
   let root = null;
@@ -30,22 +30,24 @@ SA.Arena = (() => {
   function entries() {
     const D = d();
     if (st.mode === 'camp') {
-      const ci = SA.Camp.chIndex(), ch = SA.CAMPAIGN[ci], C = D.camp, over = SA.Camp.done();
-      return ch.stages.map((o, i) => {
-        const sg = SA.Camp.stage(ci, i);
-        const beaten = over || i < C.st, next = !over && i === C.st;
-        return { key: i, name: o.name, pilot: o.pilot, blurb: o.blurb, v: sg.vehicle, raw: sg.vehicle, hpMul: 1, rating: SA.V.stats(sg.vehicle).rating, prize: o.prize, boss: o.boss, terrain: o.terrain || 'flat',
-          tag: beaten ? ['ok', '已击败'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
-          title: `第 ${i + 1} 场 · ${o.name}`, lock: beaten ? '已经击败过了' : !next ? `先打完第 ${C.st + 1} 场` : null,
-          start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: o.prize, uniqueLoot: o.uniqueLoot || [] }) };
-      });
+      const C = D.camp, over = SA.Camp.done();
+      return SA.CAMPAIGN.flatMap((chapter, chapterIndex) => chapter.stages.map((o, i) => {
+        const stage = SA.Camp.stage(chapterIndex, i);
+        const beaten = over || chapterIndex < C.ch || (chapterIndex === C.ch && i < C.st);
+        const next = !over && chapterIndex === C.ch && i === C.st;
+        const replay = beaten;
+        return { key: `${chapterIndex},${i}`, name: o.name, pilot: o.pilot, blurb: o.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : o.prize, boss: o.boss, terrain: o.terrain || 'flat', replay, next,
+          tag: replay ? ['ok', '可重打'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
+          title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${o.name}`, lock: replay || next ? null : '先完成前面的战役',
+          start: () => SA.Battle.start({ mode: 'campaign', replay, enemyVehicle: stage.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: replay ? 0 : o.prize, uniqueLoot: o.uniqueLoot || [] }) };
+      }));
     }
     if (st.mode === 'side') return SA.Camp.sideEntries().map(e => ({
       key: e.id, name: e.name, pilot: e.pilot, blurb: e.blurb, v: e.vehicle, raw: e.vehicle, hpMul: 1,
       rating: SA.V.stats(e.vehicle).rating, prize: 0, boss: false, terrain: e.terrain || 'flat',
-      tag: e.won ? ['ok', '已完成'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
-      lock: e.won ? '已经完成过了' : null,
-      start: () => SA.Battle.start({ mode: 'side', sideId: e.id, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
+      tag: e.won ? ['ok', '可重打'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
+      lock: null, replay: e.won,
+      start: () => SA.Battle.start({ mode: 'side', sideId: e.id, replay: e.won, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
         uniqueLoot: e.reward ? [{ id: e.reward.id, mt: e.reward.mt, once: true, source: e.reward.source || 'side' }] : [] }),
     }));
     if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {
@@ -67,13 +69,6 @@ SA.Arena = (() => {
           start: () => SA.Battle.start({ mode: 'street', streetTier: i, enemyVehicle: v, enemyName: o.name, aim: o.aim, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
       });
     }
-    if (st.mode === 'friendly') return SA.S.Cloud.list().map((e, i) => {
-      const v = SA.V.decode(e.code);
-      if (!v) return null;
-      return { key: i, name: e.name, pilot: e.author, blurb: '云车库里其他玩家的载具。友谊赛不结算奖金，也不留下损伤。', v, rating: SA.V.stats(v).rating, prize: 0,
-        tag: ['', e.author === '我' ? '我上传的' : '云端'], title: e.name, lock: null,
-        start: () => SA.Battle.start({ mode: 'friendly', enemyVehicle: v, enemyName: v.name, aim: 0.9, hpMul: 1 }) };
-    }).filter(Boolean);
     return [];
   }
 
@@ -82,10 +77,10 @@ SA.Arena = (() => {
     const D = d();
     root.innerHTML = '';
     if (st.pick.tour == null) st.pick.tour = D.round;
-    if (st.pick.camp == null) st.pick.camp = Math.min(D.camp.st, SA.CAMPAIGN[SA.Camp.chIndex()].stages.length - 1);
+    if (st.pick.camp == null) st.pick.camp = `${SA.Camp.chIndex()},${Math.min(D.camp.st, SA.CAMPAIGN[SA.Camp.chIndex()].stages.length - 1)}`;
     const list = st.mode === 'orders' ? [] : entries();
     const pickKey = st.pick[st.mode];
-    const cur = list.find(x => x.key === pickKey) || list.find(x => !x.lock) || list[0] || null;
+    const cur = list.find(x => x.key === pickKey) || list.find(x => x.next) || list.find(x => !x.lock) || list[0] || null;
     if (cur) st.pick[st.mode] = cur.key;
 
     const s = SA.V.stats(D.vehicle);
@@ -105,9 +100,8 @@ SA.Arena = (() => {
         e.prize ? h('span', { class: 'chip gold' }, money(e.prize)) : null)));
 
     const foot = st.mode === 'street' ? h('button', { class: 'btn small', onclick: () => { SA.Street.offers(true); render(); } }, '换一批对手')
-      : st.mode === 'friendly' ? h('span', { class: 'muted' }, '在「车间 → 蓝图库」里可以上传自己的车、导入别人的分享码。')
-        : st.mode === 'tour' ? h('span', { class: 'muted' }, `第 ${D.season} 赛季 · 伦敦蒸汽大奖赛：连胜六轮夺冠，奖励以太结晶。本赛季对手是「${SA.MATS[Math.min(SA.MAT_MAX, 3 + D.season)].name}」打造。点其他轮次可以侦察。`)
-          : st.mode === 'camp' ? h('span', { class: 'muted' }, `第 ${SA.Camp.chIndex() + 1}/${SA.CAMPAIGN.length} 章。点其他场次可以侦察对手的车和弱点。`) : null;
+      : st.mode === 'tour' ? h('span', { class: 'muted' }, `第 ${D.season} 赛季 · 伦敦蒸汽大奖赛：连胜六轮夺冠，奖励以太结晶。本赛季对手是「${SA.MATS[Math.min(SA.MAT_MAX, 3 + D.season)].name}」打造。点其他轮次可以侦察。`)
+        : st.mode === 'camp' ? h('span', { class: 'muted' }, `第 ${SA.Camp.chIndex() + 1}/${SA.CAMPAIGN.length} 章。已击败的主线可以重打，不发奖励也不留下战损。`) : null;
 
     root.append(
       D.news ? h('div', { class: 'panel ar-news' }, h('b', {}, '号外'), D.news) : '',
@@ -149,7 +143,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
 
   function betRow(e) {
     const D = d();
-    if ((st.mode !== 'tour' && st.mode !== 'camp') || e.lock || !SA.Camp.has('bet')) return null;
+    if ((st.mode !== 'tour' && st.mode !== 'camp') || e.lock || e.replay || !SA.Camp.has('bet')) return null;
     const odds = SA.S.odds(e.raw, e.hpMul);
     if (D.bet) return h('div', { class: 'bet' }, h('span', { class: 'k' }, '下注'),
       h('span', { class: 'grow' }, `已押 ${money(D.bet.amount)} × ${D.bet.odds} → 赢了拿回 `, h('b', { class: 'gold' }, money(D.bet.amount * D.bet.odds))),
@@ -172,7 +166,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
     const D = d();
     if (!e) return h('p', { class: 'muted' }, '这里还没有比赛。');
     const why = e.lock || (!s.canDeploy ? '先把车修整好' : null);
-    const label = st.mode === 'camp' ? `拉响汽笛 · ${e.name}` : st.mode === 'tour' ? `拉响汽笛 · 第 ${D.round + 1} 轮` : st.mode === 'street' ? '应战' : '友谊赛 · 开打';
+    const label = st.mode === 'camp' ? (e.replay ? `重打 · ${e.name}` : `拉响汽笛 · ${e.name}`) : st.mode === 'side' ? (e.replay ? `重打 · ${e.name}` : `出发 · ${e.name}`) : st.mode === 'tour' ? `拉响汽笛 · 第 ${D.round + 1} 轮` : '应战';
     return [
       h('div', { class: 'vs' },
         card(D.vehicle, D.vehicle.name, '你的车', s.rating, false),

@@ -264,6 +264,18 @@ SA.UI = (() => {
     const lines = [];
     const pre = [];   // 结算弹窗之前依次弹出的：缴获、解锁
     const money0 = d.money;   // 结算时和修理费对照：这一场到底赚没赚
+    // K7 重打沿用战役 / 支线的战斗入口，但完全按友谊赛处理：不写战损，不推进进度，不发钱、声望或缴获。
+    if (res.replay) {
+      d.news = res.win ? `「${d.vehicle.name}」重打击败了「${res.enemyName}」。` : `「${d.vehicle.name}」完成了与「${res.enemyName}」的重打。`;
+      SA.S.save();
+      SA.nav('arena', null, true);
+      dialog(res.draw ? '重打结束：平手' : res.win ? '重打胜利！' : '重打结束', [
+        h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
+        h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
+        h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, '重打不发奖励、不计声望，也不留下战损。'),
+      ], [], '继续', () => { refresh(); SA.Camp.introIfNew(); });
+      return;
+    }
     const settlesDamage = res.mode !== 'friendly' && (res.mode !== 'side' || res.opts.settleDamage !== false);
     if (res.mode !== 'friendly' && settlesDamage) {
       d.battles++;
