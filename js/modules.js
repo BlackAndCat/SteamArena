@@ -181,7 +181,7 @@ SA.MODULES = {
     desc: '高射速低伤害，专打没有护甲的锅炉、水箱、驾驶舱；打装甲只冒火星。前方同样不能有遮挡。',
   },
   side_cannon: {
-    name: '侧炮', cat: 'firepower', layer: 'side',
+    name: '侧炮', cat: 'firepower', layer: 'side', vis: [1, 3, 5],
     price: 150, hp: 120, power: 2, kg: 200, q: 2,
     dmg: 27, reload: 2.8, heat: 5, proj: 'shell', barrel: 18, v: 780, g: 1, spread: 15, arc: 'low',
     elev: [-6, 24], slew: 18, windup: 0.4, wild: 0.18, rest: 0, aimT: 1,

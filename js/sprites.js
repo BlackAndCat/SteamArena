@@ -95,6 +95,41 @@ SA.SPR = (() => {
   // 后坐量化档 k（0~8）→ 该武器的制退位移（px）
   const rcPx = (id, k) => Math.round((k || 0) / 8 * (SA.MODULES[id].rcPx || 0));
 
+  // 中炮家族的炮管（中炮、侧炮共用）：从 bx 起、总长 len（最后一段是炮口），细管占 ty..ty+5。
+  // 三个外观阶段只改炮身和炮口装饰，炮口末端位置不变（piv / blen 不动）：
+  // ① 素管 + 一道箍 + 方炮口；② 加厚的炮尾套筒 + 两道黄铜箍 + 喇叭口；③ 通长刻槽炮身 + 上方复进筒 + 三孔制退器
+  function mBarrel(bx, ty, len, st, k) {
+    const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
+    const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+    const end = bx + len;
+    if (st === 3) {
+      tube(bx, end - 8, ty, 6);
+      for (let i = bx + 1; i < end - 9; i += 2) R(i, ty + 3, 1, 1, P.iron[2]);   // 刻槽
+      R(bx + 1, ty - 3, 15, 3, P.iron[0]); R(bx + 1, ty - 2, 15, 1, P.iron[4]);   // 复进筒
+      R(bx + 3, ty - 1, 2, 1, P.brass[2]); R(bx + 12, ty - 1, 2, 1, P.brass[2]);
+      hoop(bx + 7, ty - 1, 8); hoop(end - 13, ty - 1, 8);
+      R(end - 8, ty - 3, 8, 12, P.iron[0]); R(end - 7, ty - 2, 6, 10, P.iron[3]); R(end - 7, ty - 2, 6, 1, P.iron[4]);
+      for (const sx of [end - 6, end - 4, end - 2]) R(sx, ty, 1, 6, P.dark[0]);
+      if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
+      return;
+    }
+    if (st === 2) {
+      tube(bx, end - 5, ty, 6);
+      tube(bx, bx + 13, ty - 1, 8);   // 炮尾套筒
+      hoop(bx + 3, ty - 2, 10); hoop(bx + 10, ty - 2, 10); hoop(end - 11, ty - 1, 8);
+      R(end - 6, ty - 2, 6, 10, P.iron[0]); R(end - 5, ty - 1, 4, 8, P.iron[3]); R(end - 5, ty - 1, 4, 1, P.iron[4]);
+      R(end - 2, ty - 3, 2, 12, P.iron[0]); R(end - 2, ty - 2, 1, 10, P.iron[4]);   // 喇叭口外沿
+      R(end - 4, ty + 2, 2, 2, P.dark[0]);
+      if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
+      return;
+    }
+    tube(bx, end - 5, ty, 6);
+    hoop(bx + 9, ty - 1, 8);
+    R(end - 6, ty - 2, 6, 10, P.iron[0]); R(end - 5, ty - 1, 4, 8, P.iron[3]); R(end - 5, ty - 1, 4, 1, P.iron[4]);
+    for (const sy of [0, 3]) R(end - 4, ty + sy, 2, 2, P.dark[0]);
+    if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
+  }
+
   // 履带节：xa..xb 范围内按 8px 节距排布，off 为滚动偏移
   function links(xa, xb, yy, h, off, grouser) {
     R(xa, yy, xb - xa, h, P.dark[0]);
@@ -123,7 +158,7 @@ SA.SPR = (() => {
       return pts[pts.length - 1][1];
     };
   }
-  function spokedWheel(cx, cy, r, ph, spokes) {
+  function spokedWheel(cx, cy, r, ph, spokes, hub = P.iron[3]) {
     disc(cx, cy, r + 1.5, P.dark[0]);
     disc(cx, cy, r + 0.5, P.dark[1]);
     for (let a = 0; a < 12; a++) {
@@ -136,7 +171,7 @@ SA.SPR = (() => {
       const ang = a / spokes * Math.PI * 2 + ph;
       line(Math.round(cx), Math.round(cy), Math.round(cx + Math.cos(ang) * (r - 3)), Math.round(cy + Math.sin(ang) * (r - 3)), 1, P.iron[2]);
     }
-    disc(cx, cy, 2.4, P.iron[3]);
+    disc(cx, cy, 2.4, hub);
     R(Math.round(cx) - 1, Math.round(cy) - 1, 1, 1, P.iron[4]);
   }
   // 履带绕过尾部链轮的半圈（左半椭圆环），链节按弧长 8px 节距排布、随 ph 滚动，外侧带履齿
@@ -209,6 +244,32 @@ SA.SPR = (() => {
     }
   }
   const SOOT_PILOT = ['#141824', '#2f3850', '#6a7a9c'];     // 驾驶员：蓝灰炭球
+  // 舷窗里的 1×1 大小驾驶员（驾驶舱和联合驾驶舱共用，联合驾驶舱里的驾驶员不放大）。
+  // f = 动画帧（1、2 帧往下沉一格，3 帧眨眼）；st ≥ 2 = 史诗起的换装：皮飞行帽 + 黄铜护目镜
+  function pilot(cx, cy, f, blink, st) {
+    const bob = f === 1 || f === 2 ? 1 : 0, yy = cy + bob;
+    disc(cx, yy, 3.3, SOOT_PILOT[0]); disc(cx, yy, 2.6, SOOT_PILOT[1]);
+    R(cx - 2, yy - 2, 1, 1, SOOT_PILOT[2]);
+    if (st >= 2) {
+      R(cx - 2, yy - 4, 5, 2, P.leather[1]); R(cx - 1, yy - 4, 3, 1, P.leather[2]);
+      R(cx - 4, yy - 1, 9, 1, P.brass[1]);
+      for (const ex of [cx - 2, cx + 1]) { R(ex, yy - 1, 2, 2, P.brass[2]); R(ex, yy - 1, 1, 1, P.glass[3]); R(ex + 1, yy, 1, 1, P.glass[1]); }
+      return;
+    }
+    for (const ex of [cx - 2, cx + 1]) {
+      if (f === 3 && blink) { R(ex, yy, 2, 1, P.steam[2]); continue; }
+      R(ex, yy - 1, 2, 2, P.white); R(ex + 1, yy, 1, 1, P.black);
+    }
+  }
+  // 黄铜舷窗，里面坐一个驾驶员；seed 让几个驾驶员的动画错开
+  function porthole(cx, cy, o, seed) {
+    disc(cx, cy, 6.2, P.black); disc(cx, cy, 5.4, P.brass[1]);
+    for (const [px, py] of [[-4, -4], [-2, -5], [-5, -2]]) R(cx + px, cy + py, 1, 1, P.brass[3]);
+    disc(cx, cy, 4.3, P.glass[0]);
+    const f = ((o.lv || 0) + seed) % 4;
+    pilot(cx, cy + 1, f, ((o.seed || 0) + seed) % 2 === 0, o.st || 1);
+    R(cx - 3, cy - 3, 1, 1, P.glass[3]);
+  }
   const SOOT_CO = ['#1c1318', '#4a3040', '#8a6078'];        // 副驾驶：暖棕紫炭球
 
   const DRAW = {
@@ -230,35 +291,26 @@ SA.SPR = (() => {
       for (let k = 8; k < 42; k += 8) { rivet(x + k, y + 4, P.iron[3]); rivet(x + k, y + 41, P.iron[3]); rivet(x + 4, y + k, P.iron[3]); rivet(x + 41, y + k, P.iron[3]); }
     },
     cockpit(x, y, o) {
-      // 剖面：黄铜拱门框 + 空洞舱室 + Q 版小黑炭球驾驶员
+      // 2×2 联合驾驶舱（4 名驾驶员）：大铁壳 + 黄铜拱顶，四个舷窗里各坐一个 1×1 大小的驾驶员（不放大，见 module-plan §0.5）；
+      // 舷窗之间是传声管和压力表。史诗起驾驶员换装（皮飞行帽 + 护目镜），拱顶多一圈黄铜饰边
+      const st = o.st || 1;
       box(x + 3, y + 3, 42, 42, IRON);
-      arch(x + 24, y + 5, y + 44, 18, P.brass[0]);
-      arch(x + 24, y + 6, y + 43, 17, P.brass[2]);
-      arch(x + 24, y + 8, y + 42, 15, P.brass[1]);
-      arch(x + 24, y + 9, y + 41, 14, P.iron[1]);
-      R(x + 13, y + 22, 22, 15, P.iron[2]);
+      arch(x + 24, y + 4, y + 44, 19, P.brass[0]);
+      arch(x + 24, y + 5, y + 43, 18, P.brass[2]);
+      arch(x + 24, y + 7, y + 42, 16, P.iron[2]);
+      arch(x + 24, y + 8, y + 41, 15, P.iron[1]);
       for (let a = 0; a <= 8; a++) {
         const ang = Math.PI + a / 8 * Math.PI;
-        R(Math.round(x + 24 + Math.cos(ang) * 16), Math.round(y + 23 + Math.sin(ang) * 16), 1, 1, P.brass[3]);
+        R(Math.round(x + 24 + Math.cos(ang) * 17), Math.round(y + 24 + Math.sin(ang) * 17), 1, 1, P.brass[3]);
       }
-      R(x + 7, y + 25, 1, 16, P.brass[3]);
-      for (const ry of [27, 33, 39]) { R(x + 7, y + ry, 2, 2, P.brass[3]); R(x + 39, y + ry, 2, 2, P.brass[3]); }
-      // 舱内：管线、压力表、地板
-      R(x + 28, y + 19, 9, 2, P.brass[1]); R(x + 28, y + 19, 9, 1, P.brass[2]);
-      disc(x + 32, y + 15, 3.3, P.brass[2]); disc(x + 32, y + 15, 2.3, P.steam[2]); R(x + 32, y + 14, 1, 2, P.dark[0]);
-      R(x + 10, y + 37, 28, 4, P.leather[1]); R(x + 10, y + 37, 28, 1, P.leather[2]);
-      for (const px of [16, 24, 32]) R(x + px, y + 38, 1, 3, P.leather[0]);
-      const f = o.lv || 0, lv = [0, 1, 2, 1][f];
-      // 操纵杆（轻微摆动）
-      box(x + 29, y + 32, 6, 5, DARK);
-      line(x + 32, y + 32, x + 30 + lv, y + 25, 2, P.brass[2]);
-      disc(x + 30.5 + lv, y + 24.5, 1.8, P.brass[3]);
-      // 小黑炭球驾驶员：坐在舱里，两只小短手够着操纵杆
-      const bob = f === 1 || f === 2 ? 1 : 0;
-      soot(x + 19, y + 28 + bob, 9.5, SOOT_PILOT, {
-        look: 1, blink: f === 3 && (o.seed || 0) % 2 === 0,
-        hands: [[x + 26, y + 29 + bob, x + 30 + lv, y + 25], [x + 26, y + 33 + bob, x + 30 + lv, y + 29]],
-      });
+      if (st >= 2) { R(x + 21, y + 1, 7, 3, P.brass[0]); R(x + 22, y + 1, 5, 2, P.brass[2]); R(x + 23, y + 1, 3, 1, P.brass[3]); }
+      // 传声管：十字把四个舷窗连起来，中间一只压力表
+      R(x + 23, y + 12, 2, 28, P.brass[1]); R(x + 23, y + 12, 1, 28, P.brass[2]);
+      R(x + 10, y + 25, 28, 2, P.brass[1]); R(x + 10, y + 25, 28, 1, P.brass[2]);
+      disc(x + 24, y + 26, 3.4, P.brass[0]); disc(x + 24, y + 26, 2.5, P.steam[2]); R(x + 24, y + 25, 1, 2, P.dark[0]);
+      porthole(x + 15, y + 17, o, 0); porthole(x + 33, y + 17, o, 1);
+      porthole(x + 15, y + 35, o, 2); porthole(x + 33, y + 35, o, 3);
+      for (const ry of [30, 38]) { R(x + 6, y + ry, 2, 2, P.brass[3]); R(x + 40, y + ry, 2, 2, P.brass[3]); }
     },
     copilot(x, y, o) {
       // 副驾驶：圆舷窗里的暖棕紫小黑炭球，扶着黄铜望远镜往外看；下方两根拉杆
@@ -304,12 +356,18 @@ SA.SPR = (() => {
       R(x + 4, y + 43, 5, 2, P.brass[2]);
     },
     boiler(x, y, o) {
-      // 大燃煤窗口：唯一的发光体
+      // 大燃煤窗口：唯一的发光体。外观阶段 ②（史诗起）：高烟囱 + 防火星罩、双压力表、圆形炉门 + 辐射炉栅
+      const st = o.st || 1;
       box(x + 3, y + 6, 42, 39, IRON);
-      box(x + 33, y, 8, 8, DARK); R(x + 32, y, 10, 2, P.dark[3]);
+      if (st === 2) {
+        box(x + 33, y - 4, 8, 12, DARK); R(x + 31, y - 6, 12, 3, P.dark[0]); R(x + 32, y - 6, 10, 1, P.dark[3]);
+        for (const cx0 of [32, 35, 38, 41]) R(x + cx0, y - 8, 1, 2, P.dark[3]);   // 防火星罩的齿冠
+        R(x + 34, y + 1, 6, 1, P.brass[2]);
+      } else { box(x + 33, y, 8, 8, DARK); R(x + 32, y, 10, 2, P.dark[3]); }
       R(x + 4, y + 11, 40, 1, P.iron[1]);
       for (const rx of [8, 16, 24]) R(x + rx, y + 11, 1, 1, P.iron[4]);
       disc(x + 11, y + 9, 3.2, P.brass[2]); disc(x + 11, y + 9, 2.2, P.steam[2]); R(x + 11, y + 8, 1, 2, P.gauge[1]);
+      if (st === 2) { disc(x + 20, y + 9, 3.2, P.brass[2]); disc(x + 20, y + 9, 2.2, P.steam[2]); R(x + 20, y + 9, 2, 1, P.fire[1]); R(x + 14, y + 9, 3, 1, P.brass[1]); }
       box(x + 7, y + 15, 34, 28, [P.iron[0], P.iron[1], P.iron[3], P.iron[4]]);
       rivet(x + 9, y + 17); rivet(x + 37, y + 17); rivet(x + 9, y + 39); rivet(x + 37, y + 39);
       R(x + 5, y + 21, 2, 5, P.brass[2]); R(x + 5, y + 33, 2, 5, P.brass[2]);
@@ -338,54 +396,125 @@ SA.SPR = (() => {
       });
       // 火星：只在高温时偶尔飘起一两粒
       if (lv >= 2) { R(x + 13 + fr * 5, y + 26 - fr % 2 * 3, 1, 1, P.fire[2]); if (lv >= 3) R(x + 31 - fr * 4, y + 23 + fr % 2, 1, 1, P.fire[1]); }
-      // 铁栅栏：竖条 + 一道横档，压在煤火前面
-      R(x + 11, y + 25, 26, 2, P.iron[0]); R(x + 11, y + 25, 26, 1, P.iron[2]);
-      for (const gx of [14, 20, 26, 32]) {
-        R(x + gx, y + 19, 2, 20, P.iron[0]);
-        R(x + gx, y + 19, 1, 20, P.iron[2]);
-        R(x + gx, y + 25, 2, 2, P.iron[3]);
+      if (st === 2) {
+        // 圆形炉门：圆外是门板，圆里是炉火；黄铜门圈、左侧铰链，炉栅按圆裁
+        const ccx = x + 24, ccy = y + 29, rr = 10.5;
+        for (let yy = y + 19; yy < y + 40; yy++) for (let xx = x + 11; xx < x + 37; xx++) {
+          const dx = xx + 0.5 - ccx, dy = yy + 0.5 - ccy, d2 = dx * dx + dy * dy;
+          if (d2 > (rr + 1.5) ** 2) R(xx, yy, 1, 1, P.iron[3]);
+          else if (d2 > rr * rr) R(xx, yy, 1, 1, dx + dy < 0 ? P.brass[3] : P.brass[1]);
+          else if ((((xx - x) % 5) === 1 && Math.abs(dy) < rr - 1) || (Math.abs(dy + 4) < 1)) R(xx, yy, 1, 1, P.iron[0]);
+        }
+        R(x + 9, y + 24, 3, 10, P.brass[1]); R(x + 9, y + 24, 1, 10, P.brass[3]);
+        rivet(x + 12, y + 20); rivet(x + 34, y + 20); rivet(x + 12, y + 37); rivet(x + 34, y + 37);
+      } else {
+        // 铁栅栏：竖条 + 一道横档，压在煤火前面
+        R(x + 11, y + 25, 26, 2, P.iron[0]); R(x + 11, y + 25, 26, 1, P.iron[2]);
+        for (const gx of [14, 20, 26, 32]) {
+          R(x + gx, y + 19, 2, 20, P.iron[0]);
+          R(x + gx, y + 19, 1, 20, P.iron[2]);
+          R(x + gx, y + 25, 2, 2, P.iron[3]);
+        }
       }
       // 灰斗缝透出微光
       R(x + 11, y + 40, 26, 1, lv >= 2 ? P.fire[1] : P.fire[0]);
     },
     cannon(x, y, o) {
       // 分件：炮塔座固定；摇架 + 驻退筒 + 炮管绕耳轴 (34,27) 转到仰角；炮管整体后坐 d 像素，复进杆随之伸缩
-      housing(x, y, true);
+      // 外观阶段：① 方炮塔 + 指挥塔、两道箍、单腔制退器；② 前倾斜装甲炮塔、加厚炮尾套筒、双腔制退器；
+      // ③ 圆顶炮塔（黄铜冠带 + 双潜望镜）、刻槽炮身 + 上下复进筒、四孔喇叭制退器。炮口末端都在耳轴前 40px
+      const st = o.st || 1;
+      if (st === 1) housing(x, y, true);
+      else {
+        box(x + 3, y + 16, 42, 29, IRON);
+        if (st === 2) {
+          for (let yy = 5; yy <= 16; yy++) {   // 前倾斜装甲
+            const xr = x + 31 + Math.round((yy - 5) * 1.2);
+            R(x + 5, y + yy, xr - x - 5, 1, P.iron[2]); R(x + 5, y + yy, 1, 1, P.iron[0]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
+          }
+          R(x + 5, y + 4, 26, 1, P.iron[0]); R(x + 6, y + 5, 24, 1, P.iron[4]);
+          box(x + 10, y, 9, 5, IRON); R(x + 16, y - 4, 2, 5, P.iron[0]); R(x + 16, y - 4, 1, 4, P.iron[3]);   // 舱盖 + 潜望镜
+          R(x + 8, y + 10, 12, 2, P.dark[0]);   // 观察缝
+          for (const rx of [8, 18, 28]) rivet(x + rx, y + 7);
+        } else {
+          arch(x + 23, y + 3, y + 18, 19, P.iron[0]); arch(x + 23, y + 4, y + 18, 18, P.iron[2]); arch(x + 22, y + 5, y + 18, 16, P.iron[3]);
+          R(x + 6, y + 9, 34, 2, P.brass[1]); R(x + 7, y + 9, 32, 1, P.brass[3]);   // 黄铜冠带
+          for (const px of [12, 20]) { R(x + px, y - 1, 3, 5, P.iron[0]); R(x + px, y, 2, 3, P.iron[3]); R(x + px, y + 1, 2, 1, P.glass[2]); }
+          for (let a = 1; a < 6; a++) { const ang = Math.PI * (1 + a / 6); rivet(Math.round(x + 22 + Math.cos(ang) * 14), Math.round(y + 18 + Math.sin(ang) * 11)); }
+        }
+        for (let i = 0; i < 3; i++) R(x + 7, y + 22 + i * 4, 12, 1, P.iron[0]);
+        R(x + 4, y + 39, 40, 1, P.brass[2]); R(x + 4, y + 40, 40, 1, P.brass[1]);
+        rivet(x + 6, y + 34); rivet(x + 40, y + 34);
+      }
       const d = rcPx('cannon', o.k);
       turn(x + 34, y + 27, o.a, (X, Y) => {
         X += x; Y += y;
         box(X + 26, Y + 15, 16, 24, BRASS);
         R(X + 29, Y + 17, 1, 20, P.brass[3]);
         R(X + 40, Y + 33, 12, 5, P.dark[0]); R(X + 40, Y + 34, 12, 3, P.iron[2]); R(X + 40, Y + 34, 12, 1, P.iron[4]);
+        if (st === 3) { R(X + 40, Y + 16, 14, 5, P.dark[0]); R(X + 40, Y + 17, 14, 3, P.iron[2]); R(X + 40, Y + 17, 14, 1, P.iron[4]); }   // 上复进筒
         const lug = X + 58 - d;
         if (lug > X + 52) { R(X + 52, Y + 35, lug - X - 52, 2, P.iron[0]); R(X + 52, Y + 35, lug - X - 52, 1, P.brass[3]); }
         R(lug - 1, Y + 31, 3, 6, P.brass[1]); R(lug - 1, Y + 31, 1, 6, P.brass[3]);
         const bx = X + 38 - d;
-        R(bx, Y + 22, 30, 10, P.iron[0]); R(bx, Y + 23, 30, 8, P.iron[3]); R(bx, Y + 23, 30, 1, P.iron[4]); R(bx, Y + 30, 30, 1, P.iron[2]);
-        for (const hb of [8, 18]) { R(bx + hb, Y + 21, 3, 12, P.brass[1]); R(bx + hb, Y + 21, 1, 12, P.brass[3]); }
-        R(bx + 28, Y + 19, 8, 16, P.iron[0]); R(bx + 29, Y + 20, 6, 14, P.iron[3]); R(bx + 29, Y + 20, 6, 1, P.iron[4]);
-        for (const sy of [22, 26, 30]) R(bx + 30, Y + sy, 4, 2, P.dark[0]);
+        const tube = (x0, len, y0, hh) => { R(x0, y0, len, hh, P.iron[0]); R(x0, y0 + 1, len, hh - 2, P.iron[3]); R(x0, y0 + 1, len, 1, P.iron[4]); R(x0, y0 + hh - 2, len, 1, P.iron[2]); };
+        const band = (hx, y0, hh) => { R(hx, y0, 3, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+        if (st === 1) {
+          tube(bx, 30, Y + 22, 10);
+          for (const hb of [8, 18]) band(bx + hb, Y + 21, 12);
+          R(bx + 28, Y + 19, 8, 16, P.iron[0]); R(bx + 29, Y + 20, 6, 14, P.iron[3]); R(bx + 29, Y + 20, 6, 1, P.iron[4]);
+          for (const sy of [22, 26, 30]) R(bx + 30, Y + sy, 4, 2, P.dark[0]);
+        } else if (st === 2) {
+          tube(bx, 30, Y + 23, 8);
+          tube(bx, 17, Y + 21, 12);   // 炮尾套筒 + 三道散热肋
+          for (const rb of [4, 8, 12]) R(bx + rb, Y + 22, 1, 10, P.iron[1]);
+          band(bx + 15, Y + 20, 14); band(bx + 23, Y + 22, 10);
+          for (const mx of [27, 32]) { R(bx + mx, Y + 19, 4, 16, P.iron[0]); R(bx + mx + 1, Y + 20, 2, 14, P.iron[3]); R(bx + mx + 1, Y + 20, 2, 1, P.iron[4]); }
+          R(bx + 31, Y + 25, 1, 4, P.iron[2]);
+        } else {
+          tube(bx, 28, Y + 22, 10);
+          for (let i = bx + 1; i < bx + 26; i += 2) { R(i, Y + 25, 1, 1, P.iron[2]); R(i, Y + 28, 1, 1, P.iron[2]); }   // 刻槽
+          band(bx + 6, Y + 21, 12); band(bx + 20, Y + 21, 12);
+          R(bx + 27, Y + 17, 10, 20, P.iron[0]); R(bx + 28, Y + 18, 8, 18, P.iron[3]); R(bx + 28, Y + 18, 8, 1, P.iron[4]);
+          R(bx + 35, Y + 16, 2, 22, P.iron[0]); R(bx + 35, Y + 17, 1, 20, P.iron[4]);   // 喇叭外沿
+          for (const sy of [20, 24, 28, 32]) R(bx + 29, Y + sy, 5, 2, P.dark[0]);
+        }
         if ((o.k || 0) >= 7) { R(bx + 36, Y + 23, 3, 8, P.fire[3]); R(bx + 39, Y + 25, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
       });
       disc(x + 34, y + 27, 3, P.brass[0]); disc(x + 34, y + 27, 2, P.brass[3]);   // 耳轴
     },
-    // 中炮 2×1（48×24，横躺，临时造型，三个外观阶段以后再画）：低矮的炮架 + 前挡板；摇架和炮管绕耳轴 (18,13) 转
+    // 中炮 2×1（48×24，横躺）：炮架 + 摇架 + 炮管绕耳轴 (18,13) 转。三个外观阶段（黄铜熟铁 / 钢镀镍 / 史诗传奇）：
+    // ① 低矮炮架 + 前挡板；② 前面立起一块斜挡板、摇架下挂驻退筒；③ 铆接炮廓 + 包住耳轴的半圆防盾、摇架带高低机齿弧
     cannon_m(x, y, o) {
-      box(x + 2, y + 10, 26, 13, IRON);
-      R(x + 3, y + 19, 24, 1, P.brass[2]); R(x + 3, y + 20, 24, 1, P.brass[1]);
-      rivet(x + 5, y + 13); rivet(x + 23, y + 13);
-      box(x + 26, y + 12, 5, 11, IRON);
+      const st = o.st || 1;
+      if (st === 3) {
+        box(x + 1, y + 9, 30, 14, IRON);
+        R(x + 2, y + 18, 28, 1, P.brass[2]); R(x + 2, y + 19, 28, 1, P.brass[1]);
+        for (const rx of [4, 10, 26]) rivet(x + rx, y + 12);
+        R(x + 5, y + 15, 7, 1, P.dark[0]);   // 观察缝
+        disc(x + 18, y + 13, 9.5, P.iron[0]); disc(x + 18, y + 13, 8.5, P.iron[3]); disc(x + 17, y + 12, 6.5, P.iron[4]); disc(x + 18, y + 13, 5.5, P.iron[2]);
+        for (let a = 0; a < 7; a++) { const ang = Math.PI * (1 + a / 6); R(Math.round(x + 18 + Math.cos(ang) * 8), Math.round(y + 13 + Math.sin(ang) * 8), 1, 1, P.brass[3]); }
+      } else {
+        box(x + 2, y + 10, 26, 13, IRON);
+        R(x + 3, y + 19, 24, 1, P.brass[2]); R(x + 3, y + 20, 24, 1, P.brass[1]);
+        rivet(x + 5, y + 13); rivet(x + 23, y + 13);
+        if (st === 2) {
+          for (let yy = 4; yy <= 22; yy++) {   // 斜挡板：顶往后仰
+            const xs = x + 25 + Math.round((yy - 4) * 0.3);
+            R(xs, y + yy, 6, 1, P.iron[2]); R(xs, y + yy, 1, 1, P.iron[4]); R(xs + 5, y + yy, 1, 1, P.iron[0]);
+          }
+          R(x + 25, y + 4, 6, 1, P.iron[0]); R(x + 26, y + 5, 4, 1, P.iron[4]);
+          rivet(x + 27, y + 8); rivet(x + 29, y + 17);
+        } else box(x + 26, y + 12, 5, 11, IRON);
+      }
       const d = rcPx('cannon_m', o.k);
       turn(x + 18, y + 13, o.a, (X, Y) => {
         X += x; Y += y;
         box(X + 10, Y + 7, 14, 11, BRASS);
         R(X + 12, Y + 9, 1, 7, P.brass[3]);
-        const bx = X + 22 - d;
-        R(bx, Y + 10, 26, 6, P.iron[0]); R(bx, Y + 11, 26, 4, P.iron[3]); R(bx, Y + 11, 26, 1, P.iron[4]); R(bx, Y + 14, 26, 1, P.iron[2]);
-        R(bx + 9, Y + 9, 2, 8, P.brass[1]); R(bx + 9, Y + 9, 1, 8, P.brass[3]);
-        R(bx + 25, Y + 8, 6, 10, P.iron[0]); R(bx + 26, Y + 9, 4, 8, P.iron[3]); R(bx + 26, Y + 9, 4, 1, P.iron[4]);
-        for (const sy of [10, 13]) R(bx + 27, Y + sy, 2, 2, P.dark[0]);
-        if ((o.k || 0) >= 7) { R(bx + 31, Y + 10, 3, 6, P.fire[3]); R(bx + 34, Y + 11, 2, 4, P.fire[2]); }
+        if (st === 2) { R(X + 13, Y + 16, 14, 4, P.iron[0]); R(X + 14, Y + 17, 12, 2, P.iron[3]); R(X + 14, Y + 17, 12, 1, P.iron[4]); }
+        if (st === 3) for (let a = 0; a < 5; a++) R(X + 10 + a * 3, Y + 17, 2, 2, P.brass[a % 2 ? 1 : 3]);   // 齿弧
+        mBarrel(X + 22 - d, Y + 10, 31, st, o.k || 0);
       });
       disc(x + 18, y + 13, 2.5, P.brass[0]); disc(x + 18, y + 13, 1.5, P.brass[3]);
     },
@@ -402,14 +531,9 @@ SA.SPR = (() => {
       disc(x + 13, y + 11, 6.2, P.black); disc(x + 13, y + 11, 5.4, P.brass[1]);
       for (const [px, py] of [[9, 7], [11, 6], [8, 9]]) R(x + px, y + py, 1, 1, P.brass[3]);
       disc(x + 13, y + 11, 4.3, P.glass[0]);
-      const f = o.lv || 0, bob = f === 1 || f === 2 ? 1 : 0;
-      disc(x + 13, y + 12 + bob, 3.3, SOOT_PILOT[0]); disc(x + 13, y + 12 + bob, 2.6, SOOT_PILOT[1]);
-      R(x + 11, y + 10 + bob, 1, 1, SOOT_PILOT[2]);
-      for (const ex of [x + 11, x + 14]) {
-        if (f === 3 && (o.seed || 0) % 2 === 0) { R(ex, y + 12 + bob, 2, 1, P.steam[2]); continue; }
-        R(ex, y + 11 + bob, 2, 2, P.white); R(ex + 1, y + 12 + bob, 1, 1, P.black);
-      }
+      pilot(x + 13, y + 12, o.lv || 0, (o.seed || 0) % 2 === 0, o.st || 1);
       R(x + 10, y + 8, 1, 1, P.glass[3]);
+      if ((o.st || 1) >= 2) { R(x + 11, y - 1, 3, 3, P.brass[0]); R(x + 12, y - 1, 1, 2, P.brass[3]); }   // 史诗起：头盔顶上的黄铜冠饰
     },
     plate(x, y) {
       box(x + 2, y + 2, 20, 20, IRONL);
@@ -467,28 +591,27 @@ SA.SPR = (() => {
       }
     },
     side_cannon(x, y, o) {
-      // 外挂支架：侧挂层独有的剪影
+      // 外挂支架（侧挂层独有的剪影）吊着一门中炮：炮管和中炮同一家族，外观阶段跟着中炮走
+      const st = o.st || 1;
       box(x + 6, y + 3, 20, 9, DARK);
       rivet(x + 9, y + 6, P.iron[3]); rivet(x + 21, y + 6, P.iron[3]);
-      R(x + 13, y + 11, 6, 20, P.dark[0]);
-      R(x + 14, y + 11, 4, 20, P.iron[2]);
-      R(x + 14, y + 11, 1, 20, P.iron[3]);
+      if (st > 1) R(x + 7, y + 10, 18, 1, P.brass[2]);
+      R(x + 13, y + 11, 6, 17, P.dark[0]);
+      R(x + 14, y + 11, 4, 17, P.iron[2]);
+      R(x + 14, y + 11, 1, 17, P.iron[3]);
+      if (st === 3) for (const sy of [15, 21]) R(x + 13, y + sy, 6, 2, P.brass[1]);
       const k = rcPx('side_cannon', o.k);
       turn(x + 18, y + 34, o.a, (X, Y) => {
         X += x; Y += y;
-        R(X + 26 - k, Y + 28, 40, 12, P.dark[0]);
-        R(X + 26 - k, Y + 29, 40, 10, P.iron[3]);
-        R(X + 26 - k, Y + 29, 40, 1, P.iron[4]);
-        R(X + 26 - k, Y + 37, 40, 1, P.iron[2]);
-        for (const bx of [40, 54]) { R(X + bx - k, Y + 27, 4, 14, P.brass[1]); R(X + bx - k, Y + 27, 1, 14, P.brass[3]); }
-        disc(X + 18, Y + 34, 11, P.dark[0]);
-        disc(X + 18, Y + 34, 10, P.brass[1]);
-        disc(X + 17, Y + 33, 7, P.brass[2]);
-        R(X + 11, Y + 26, 3, 2, P.brass[3]);
+        box(X + 7, Y + 27, 22, 14, BRASS);
+        R(X + 9, Y + 29, 1, 10, P.brass[3]);
+        if (st === 2) { R(X + 12, Y + 39, 16, 4, P.iron[0]); R(X + 13, Y + 40, 14, 2, P.iron[3]); }
+        mBarrel(X + 26 - k, Y + 31, 40, st, o.k || 0);
       });
+      disc(x + 18, y + 34, 4, P.dark[0]); disc(x + 18, y + 34, 3, P.brass[1]); disc(x + 17.5, y + 33.5, 1.6, P.brass[3]);
     },
-    bucket(x, y) {
-      // 铲斗：装在底盘前方，弧形推土板 + 齿
+    bucket(x, y, o = {}) {
+      // 铲斗：装在底盘前方，弧形推土板 + 齿。阶段 ②（史诗起）：斗板加三道黄铜箍、四颗齿、上臂加液压缸
       line(x + 1, y + 12, x + 28, y + 18, 5, P.dark[0]); line(x + 1, y + 12, x + 28, y + 18, 3, P.dark[3]);
       line(x + 1, y + 34, x + 28, y + 34, 5, P.dark[0]); line(x + 1, y + 34, x + 28, y + 34, 3, P.dark[3]);
       box(x + 6, y + 9, 12, 6, IRON);
@@ -501,11 +624,18 @@ SA.SPR = (() => {
         R(x0 + 5, y + yy, 1, 1, P.rust[1]);
       }
       R(x + 28, y + 4, 12, 1, P.rust[3]);
+      if ((o.st || 1) === 2) {
+        for (const ry of [12, 24, 36]) { const bx0 = x + 32 - Math.round(6 * Math.sin(Math.PI * (ry - 4) / 42)); R(bx0 - 1, y + ry, 9, 2, P.brass[1]); R(bx0 - 1, y + ry, 9, 1, P.brass[3]); }
+        line(x + 3, y + 7, x + 18, y + 11, 4, P.brass[0]); line(x + 3, y + 7, x + 18, y + 11, 2, P.brass[2]);   // 液压缸
+        line(x + 18, y + 11, x + 27, y + 13, 2, P.iron[4]);
+        for (const ty of [22, 30, 37, 43]) { R(x + 38, y + ty, 8, 3, P.iron[0]); R(x + 38, y + ty, 7, 2, P.iron[4]); R(x + 45, y + ty + 1, 2, 1, P.iron[3]); }
+        return;
+      }
       for (const ry of [12, 24, 36]) rivet(x + 31 - Math.round(6 * Math.sin(Math.PI * (ry - 4) / 42)), y + ry, P.rust[3], P.rust[0]);
       for (const ty of [39, 43]) { R(x + 39, y + ty, 7, 3, P.iron[0]); R(x + 39, y + ty, 6, 2, P.iron[4]); R(x + 45, y + ty + 1, 2, 1, P.iron[3]); }
     },
-    spike(x, y) {
-      // 撞角：锥形尖刺
+    spike(x, y, o = {}) {
+      // 撞角：锥形尖刺。阶段 ②（史诗起）：螺旋刻槽的钻矛 + 双黄铜箍 + 淬硬的亮钢尖
       box(x, y + 6, 10, 36, IRON);
       rivet(x + 3, y + 10); rivet(x + 3, y + 36);
       box(x + 9, y + 10, 6, 28, BRASS);
@@ -521,9 +651,25 @@ SA.SPR = (() => {
       }
       line(x + 17, y + 17, x + 40, y + 23, 1, P.rust[3]);
       R(x + 47, y + 24, 1, 1, P.iron[4]);
+      if ((o.st || 1) === 2) {
+        for (let i = 2; i <= 26; i += 5) { const hh = Math.round(13 * (1 - i / 33)); line(x + 15 + i, y + 25 - hh + 1, x + 15 + i + Math.round(hh * 0.5), y + 24 + hh - 1, 1, P.rust[0]); }
+        for (let i = 27; i <= 32; i++) { const hh = Math.round(13 * (1 - i / 33)); R(x + 15 + i, y + 25 - hh, 1, Math.max(1, hh * 2 - 1), P.iron[4]); }
+        box(x + 13, y + 8, 4, 32, BRASS); R(x + 14, y + 9, 1, 30, P.brass[3]);
+      }
     },
     piston(x, y, o) {
-      // 蒸汽撞锤：气缸 + 活塞杆 + 锤头
+      // 蒸汽撞锤：气缸 + 活塞杆 + 锤头。阶段 ②（史诗起）：带散热片的大气缸 + 压力表、双活塞杆、镶钉锤面 + 黄铜包边
+      if ((o.st || 1) === 2) {
+        box(x, y + 9, 24, 30, IRON);
+        for (let fy = 12; fy <= 35; fy += 4) { R(x + 2, y + fy, 20, 1, P.iron[1]); R(x + 2, y + fy + 1, 20, 1, P.iron[4]); }
+        disc(x + 12, y + 7, 4, P.brass[0]); disc(x + 12, y + 7, 3, P.brass[2]); disc(x + 12, y + 7, 2, P.steam[2]); R(x + 12, y + 6, 1, 2, P.dark[0]);
+        const e = 4 + (o.p || 0) * 5;
+        for (const ry of [15, 29]) { R(x + 24, y + ry, e, 4, P.iron[0]); R(x + 24, y + ry + 1, e, 2, P.iron[4]); }
+        box(x + 24 + e, y + 5, 12, 38, RUST);
+        R(x + 25 + e, y + 5, 10, 1, P.brass[2]); R(x + 25 + e, y + 42, 10, 1, P.brass[1]); R(x + 35 + e, y + 6, 1, 36, P.brass[1]);
+        for (const ry of [10, 18, 26, 34]) { disc(x + 31 + e, y + ry, 1.8, P.iron[0]); disc(x + 30.5 + e, y + ry - 0.5, 1.1, P.iron[4]); }
+        return;
+      }
       box(x, y + 12, 24, 24, IRON);
       R(x + 6, y + 13, 2, 22, P.brass[2]); R(x + 16, y + 13, 2, 22, P.brass[2]);
       disc(x + 12, y + 11, 3, P.brass[1]); disc(x + 12, y + 11, 2, P.brass[2]);
@@ -536,7 +682,8 @@ SA.SPR = (() => {
     track(x, y, o) {
       // 一战铆接履带：底板 → 上段履带 → 铆接侧框（A7V 式竖肋）→ 成对负重轮 → 下段履带
       // th = 掉链子（任意一段被毁，整条履带脱落）：链条摊在地上，sn = 被打断的那一段
-      const L = o.connL, Rr = o.connR, th = o.th, ph = th ? 0 : o.ph || 0;
+      // 外观阶段只换侧框、负重轮、诱导轮（骨架、轮位、链轮都不动）：① 竖肋侧框 + 素轮；② 减重孔侧框 + 钢制盘轮；③ 桁架斜撑侧框 + 黄铜轮毂辐条轮
+      const L = o.connL, Rr = o.connR, th = o.th, ph = th ? 0 : o.ph || 0, st = o.st || 1;
       // 尾部链轮：履带绕它包一圈；单格履带空间不够，链轮缩小
       const rc = Rr ? 22 : 14;
       const fx0 = x + (L ? 0 : rc), fx1 = x + (Rr ? C : 30);
@@ -547,7 +694,18 @@ SA.SPR = (() => {
       R(fx0, y + 11, fx1 - fx0, 21, P.iron[2]);
       R(fx0, y + 11, fx1 - fx0, 1, P.iron[3]);
       R(fx0, y + 31, fx1 - fx0, 1, P.iron[0]);
-      for (let k = fx0 + 6; k < fx1; k += 12) { R(k, y + 13, 1, 17, P.iron[1]); R(k + 1, y + 13, 1, 17, P.iron[3]); }
+      if (st === 1) for (let k = fx0 + 6; k < fx1; k += 12) { R(k, y + 13, 1, 17, P.iron[1]); R(k + 1, y + 13, 1, 17, P.iron[3]); }
+      else if (st === 2) {
+        R(fx0, y + 13, fx1 - fx0, 1, P.iron[1]); R(fx0, y + 29, fx1 - fx0, 1, P.iron[1]);
+        for (let k = fx0 + 6; k + 4 < fx1; k += 12) { disc(k + 1, y + 21, 4.4, P.iron[1]); disc(k + 1, y + 21, 3.6, P.dark[1]); R(k - 2, y + 18, 2, 1, P.iron[0]); R(k + 1, y + 24, 3, 1, P.iron[3]); }
+      } else {
+        R(fx0, y + 11, fx1 - fx0, 1, P.brass[2]);
+        for (let k = fx0; k + 12 <= fx1; k += 12) {
+          const up = ((k - x) / 12) % 2 === 0;
+          line(k + 1, up ? y + 28 : y + 15, k + 11, up ? y + 15 : y + 28, 2, P.iron[1]); line(k + 1, up ? y + 27 : y + 14, k + 11, up ? y + 14 : y + 27, 1, P.iron[3]);
+        }
+        R(fx0, y + 14, fx1 - fx0, 1, P.iron[3]); R(fx0, y + 28, fx1 - fx0, 1, P.iron[1]);
+      }
       for (let k = fx0 + 3; k < fx1 - 1; k += 6) { R(k, y + 14, 1, 1, P.iron[4]); R(k, y + 28, 1, 1, P.iron[4]); }
       // 成对负重轮（Holt 式转向架）：悬挂时每组各自上下（g0 = 前一组 bx 6、g1 = 后一组 bx 30），转向架和侧框之间露出减震柱
       const gd = [th ? 0 : o.g0 || 0, th ? 0 : o.g1 || 0];
@@ -557,9 +715,19 @@ SA.SPR = (() => {
         if (d > 0) { R(x + bx + 4, y + 32, 6, d, P.dark[0]); for (let k = 0; k < d; k++) R(x + bx + 5, y + 32 + k, 4, 1, k % 2 ? P.dark[2] : P.iron[2]); }   // 伸出来的螺旋弹簧
         R(x + bx, y + 32 + d, 14, 2, P.dark[0]);
         for (const wx of [bx + 3, bx + 11]) {
-          disc(x + wx, y + 37 + d, 4.4, P.dark[0]); disc(x + wx, y + 37 + d, 3.5, P.dark[3]); disc(x + wx, y + 37 + d, 1.6, P.dark[2]);
-          const wa = ph / 24 * Math.PI * 2 + wx;   // 轮毂上一对螺栓跟着行驶相位转
-          for (const k of [0, Math.PI]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2), 1, 1, P.iron[3]);
+          const wy = y + 37 + d, wa = ph / 24 * Math.PI * 2 + wx;   // 轮毂上的螺栓 / 辐条跟着行驶相位转
+          disc(x + wx, wy, 4.4, P.dark[0]);
+          if (st === 1) {
+            disc(x + wx, wy, 3.5, P.dark[3]); disc(x + wx, wy, 1.6, P.dark[2]);
+            for (const k of [0, Math.PI]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2), 1, 1, P.iron[3]);
+          } else if (st === 2) {
+            disc(x + wx, wy, 3.5, P.iron[2]); disc(x + wx - 0.5, wy - 0.5, 2.4, P.iron[3]); disc(x + wx, wy, 1.4, P.iron[1]);
+            for (const k of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2.4), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2.4), 1, 1, P.iron[4]);
+          } else {
+            disc(x + wx, wy, 3.5, P.dark[2]);
+            for (const k of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) line(x + wx, wy, Math.round(x + wx + Math.cos(wa + k) * 3), Math.round(wy + Math.sin(wa + k) * 3), 1, P.iron[3]);
+            disc(x + wx, wy, 1.6, P.brass[2]); R(x + wx - 1, wy - 1, 1, 1, P.brass[3]);
+          }
         }
       });
       // 下段履带：一条穿过各组负重轮底部的折线。轮组底下是平的；相邻格的轮组偏移由 gL / gR 传进来，跨格也连成一条；
@@ -586,7 +754,8 @@ SA.SPR = (() => {
         if (!L) cable(x + rc - 12, y + 30, x + 3, y + 43);
         if (!Rr) cable(x + 45, y + 22, x + 44, y + 43);
       }
-      if (!L) spokedWheel(x + rc, y + 26, Rr ? 13 : 8, -ph / 24 * Math.PI * 2 / 6, 6);
+      const hub = st === 3 ? P.brass[2] : P.iron[3];
+      if (!L) spokedWheel(x + rc, y + 26, Rr ? 13 : 8, -ph / 24 * Math.PI * 2 / 6, st === 3 ? 8 : 6, hub);
       if (!Rr) {
         // 前端上翘（Mark IV）+ 大辐条诱导轮（雷诺 FT）；掉链后只剩诱导轮
         if (!th) {
@@ -595,7 +764,8 @@ SA.SPR = (() => {
           line(x + 24, y + 43 + d1, x + 40, y + 27, 6, P.dark[1]);
           for (let i = 0; i <= 16; i += 4) R(x + 24 + i + 1, y + 43 + Math.round(d1 * (1 - i / 16)) - i - 3, 2, 2, P.dark[3]);
         }
-        spokedWheel(x + 36, y + 19, 11, ph / 24 * Math.PI * 2 / 7, 7);
+        spokedWheel(x + 36, y + 19, 11, ph / 24 * Math.PI * 2 / 7, [7, 5, 9][st - 1], hub);
+        if (st === 2) { disc(x + 36, y + 19, 5, P.iron[1]); disc(x + 36, y + 19, 4, P.iron[3]); disc(x + 36, y + 19, 2, P.iron[1]); }   // 钢制盘轮的轮心
       }
     },
     // 腿式底盘分两层：近侧腿画在车体前；远侧腿压暗、向右上错位，画在整个车体后面 → 伪立体纵深。

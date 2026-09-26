@@ -7,6 +7,9 @@
 <h2 style="color:var(--brass2)">模块精灵表（原生 48px × 2 倍）</h2>
 <div class="sheet" id="s"></div>
 <div class="row2" id="g"></div>
+<h2 style="color:var(--brass2);margin-top:24px">外观阶段 × 材料（V2 阶段造型 / V3 材料装饰层）</h2>
+<p class="muted">每行一个模块，从左到右黄铜 → 以太合金；列头标出外观阶段（vis）。改装挂件 0～3 级在最右边（用当前行的钢材料）。</p>
+<table id="mt" style="border-collapse:collapse"></table>
 <script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
 <script>
@@ -24,6 +27,28 @@ for (const [name, rows, sides] of [['女王号', SA.OPPONENTS[5].rows, SA.OPPONE
   const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height; cv.className = 'px';
   const g = cv.getContext('2d'); g.fillStyle = SA.PAL.bg[2]; g.fillRect(0,0,cv.width,cv.height); g.drawImage(src, 0, 0);
   cv.style.width = src.width+'px'; G.append(cv);
+}
+// 外观阶段 × 材料矩阵：画布按占格留足边（左 16 / 上 16 给炮管和腿），2 倍显示
+const MT = document.getElementById('mt');
+const cell = (id, o) => {
+  const f = SA.fp(id), cv = document.createElement('canvas');
+  cv.width = f.w * 24 + 16 + 34; cv.height = f.h * 24 + 16 + 16; cv.className = 'px';
+  cv.style.width = cv.width * 2 + 'px'; cv.style.height = cv.height * 2 + 'px'; cv.style.background = SA.PAL.bg[2];
+  const g = cv.getContext('2d');
+  if (SA.MODULES[id].layer === 'body') { g.fillStyle = SA.PAL.iron[1]; g.fillRect(16, 16, f.w * 24, f.h * 24); }
+  SA.SPR.drawModule(g, id, 16, 16, { heat: 0.6, water: 0.6, t: 0.3, ...o });
+  return cv;
+};
+const MATRIX = ['cannon_m', 'cannon', 'side_cannon', 'mg', 'mortar', 'track', 'boiler', 'water', 'helmet', 'cockpit', 'armor', 'armor_heavy', 'plate', 'tank_tall', 'bucket', 'spike', 'piston'];
+MT.append(Object.assign(document.createElement('tr'), { innerHTML: '<th></th>' + SA.MATS.slice(1).map((m, i) => `<th style="padding:4px 8px;color:${m.chip}">${m.name}<br><small class="muted">阶段 ${SA.stageOf('cannon', i + 1)}</small></th>`).join('') + '<th>改装 1 / 2 / 3</th>' }));
+for (const id of MATRIX) {
+  const tr = document.createElement('tr');
+  const th = document.createElement('th'); th.style.cssText = 'text-align:right;padding:4px 8px;white-space:nowrap'; th.innerHTML = `${SA.MODULES[id].name}<br><small class="muted">vis ${JSON.stringify(SA.MODULES[id].vis || [1])}</small>`;
+  tr.append(th);
+  for (let mt = 1; mt <= SA.MAT_MAX; mt++) { const td = document.createElement('td'); td.style.padding = '2px'; td.title = `阶段 ${SA.stageOf(id, mt)}`; td.append(cell(id, { mt })); tr.append(td); }
+  const td = document.createElement('td'); td.style.cssText = 'padding:2px;white-space:nowrap';
+  for (let lv = 1; lv <= 3; lv++) td.append(cell(id, { mt: 3, lv }));
+  tr.append(td); MT.append(tr);
 }
 // 动态帧：后坐 0 / 50% / 100%，机枪供弹 0~3
 for (const id of ['cannon', 'side_cannon', 'mortar', 'mg']) {
