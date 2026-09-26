@@ -64,7 +64,7 @@ SA.MODULES = {
     name: '四足底盘', cat: 'mobility', layer: 'chassis', w: 4, h: 2, whole: true, chain: true, vis: [1, 3, 5],
     price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
     // 整件四足固定四个接地点：近侧后/前、远侧后/前，坐标是整件内部的 x。
-    contactPts: { nearRear: 0, nearFront: 96, farRear: 8, farFront: 104 },
+    contactPts: { nearRear: 18, nearFront: 78, farRear: 20, farFront: 80 },   // 视觉字段：跟着 legs.js 伏地蛛静止时的脚走
     susp: { splay: 30, hips: [22, 30], up: 6, down: 12, follow: 0.85 },
     desc: '最平稳的射击平台：静止散布 -30%，边走边打也几乎不晃；但刹车最慢，停下来要滑很远。',
   },

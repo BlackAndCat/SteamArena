@@ -37,7 +37,7 @@ function chassisRuleCheck() {
   const { SA } = evolve.loadGame();
   const quad = SA.V.fromAscii('整件四足检查', ['........', '........', '........', '..K.....', '..O.....', '..Q.....']);
   const qs = SA.V.stats(quad);
-  if (SA.fp('quad').w !== 4 || SA.fp('quad').h !== 2 || (SA.suspPts('quad') || []).join(',') !== '0,96,8,104')
+  if (SA.fp('quad').w !== 4 || SA.fp('quad').h !== 2 || (SA.suspPts('quad') || []).join(',') !== '18,78,20,80')
     throw new Error('四足整件尺寸或固定接地点错误');
   if (qs.issues.length || !qs.canDeploy || qs.byId.quad !== 1) throw new Error(`四足整件布局不合法：${JSON.stringify(qs.issues)}`);
 
