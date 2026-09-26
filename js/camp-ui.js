@@ -112,7 +112,7 @@ SA.CampUI = (() => {
       const f = list().find(x => x.key === SB.foe);
       const r = f && f.make();
       if (!r || !r.v) return null;
-      if (+SB.mt) SA.V.each(r.v, (cell) => { cell.mt = +SB.mt; cell.hp = SA.mod(cell).hp; });   // 统一换材料
+      if (+SB.mt) SA.Camp.prepareTrialVehicle(r.v, +SB.mt);   // 统一换材料
       return { ...r, name: f.name.replace(/^.* · /, '').replace('【Boss】', ''), terrain: SB.terrain || r.terrain || 'flat',
         style: SB.style ? (SB.style === 'roam' ? null : SB.style) : r.style, aim: SB.aim ? +SB.aim : r.aim };
     }

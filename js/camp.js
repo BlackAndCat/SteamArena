@@ -26,6 +26,13 @@ SA.Camp = (() => {
   }
   const current = () => (done() ? null : stage());
 
+  // 试驾场临时换材料仍由规则层重算耐久；界面只传入材料等级，不直接改车格。
+  function prepareTrialVehicle(v, mt) {
+    if (!v || !mt) return v;
+    SA.V.each(v, (cell) => { cell.mt = mt; cell.hp = SA.mod(cell).hp; });
+    return v;
+  }
+
   // ---------- 解锁 ----------
   function applyUnlock(u, noIngots) {
     if (!u) return;
@@ -159,6 +166,6 @@ SA.Camp = (() => {
     panel: (...args) => SA.CampUI.devPanel(...args),
   };
 
-  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, dev };
 })();
 SA.dev = SA.Camp.dev;

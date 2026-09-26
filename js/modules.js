@@ -418,21 +418,10 @@ SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
 SA.fp = (id) => { const m = SA.MODULES[id]; return { w: m.w || 2, h: m.h || 2 }; };
 SA.isCockpit = (id) => !!SA.MODULES[id].cockpit;
 SA.driversOf = (id) => SA.MODULES[id].drivers || 0;
-// 底盘这一格两个接地点的 x（48px 格内，可以伸出格外）：ri / rn = 这格在同类底盘连续段里的序号和段长
-SA.suspPts = (id, ri = 0, rn = 1) => {
-  const s = SA.MODULES[id].susp;
-  const fixed = SA.MODULES[id].contactPts;
-  if (fixed) return [fixed.nearRear, fixed.nearFront, fixed.farRear, fixed.farFront];
-  if (!s.splay) return s.pts;
-  const d = ri < rn / 2 ? -1 : 1;
-  return [s.hips[0] + d * s.splay, s.hips[1] - d * s.splay];
-};
 // 已取消的模块 → 替代品（旧存档、旧分享码、旧蓝图读进来时换掉）
 SA.RETIRED = { copilot: 'cockpit' };
 SA.liveId = (id) => SA.RETIRED[id] || id;
 SA.minMt = (id) => SA.MODULES[id].minMt || 1;
-// 外观阶段：vis 列出换外形的材料等级（默认只有一个造型）。例：[1, 3, 5] → 黄铜 / 熟铁 = 1，钢 / 镀镍 = 2，乌兹钢 / 以太 = 3
-SA.stageOf = (id, mt = 1) => (SA.MODULES[id].vis || [1]).filter(t => t <= mt).length || 1;
 // 模块重量（kg）：基础重量（按面积折算）+ 自身重量 + 改装加重
 SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.w * f.h / 4 + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG; };
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
@@ -544,16 +533,3 @@ SA.auxEffect = (cells) => {
   }
   return e;
 };
-
-// 外观字段由 module-art.js 单独注册；允许工具页调整脚本顺序后仍能正确合并。
-SA.applyModuleArt = SA.applyModuleArt || function applyModuleArt(art) {
-  for (const [id, fields] of Object.entries(art || {})) {
-    const module = SA.MODULES[id];
-    if (!module) continue;
-    const { susp, ...plain } = fields;
-    Object.assign(module, plain);
-    if (susp) Object.assign(module.susp || (module.susp = {}), susp);
-  }
-  return SA.MODULES;
-};
-if (SA.MODULE_ART) SA.applyModuleArt(SA.MODULE_ART);

@@ -12,13 +12,12 @@ SA.BattleView.create = function createBattleView(api) {
   const groundAt = api.groundAt, crateAt = api.crateAt, modBox = api.modBox, modCenter = api.modCenter, cellAt = api.cellAt, modAt = api.modAt;
   const muzzle = api.muzzle, targetAt = api.targetAt, aimAngle = api.aimAngle, spreadDeg = api.spreadDeg, barrel = api.barrel, predict = api.predict;
   const tiltOf = api.tiltOf, pivY = api.pivY, toWorld = api.toWorld;
-  const kill = api.kill, crippled = api.crippled, step = api.step;
+  const crippled = api.crippled, step = api.step;
   let B = null, cv, g, dg, wc, wrap, hud = {};
   let DPX = 1;
   const ZMIN = 0.62;
   const sync = () => { B = api.getState(); return B; };
   const part = (type, x, y, vx, vy, life, col) => emit('part', { type, x, y, vx, vy, life, col });
-  const textFx = (str, x, y, col) => emit('text', { str, x, y, col, life: 0.9 });
   const vr = (a, b) => a + Math.random() * (b - a);
   const vpart = (type, x, y, vx, vy, life, col) => B.parts.push({ type, x, y, vx, vy, life, max: life, col, spin: vr(8, 22) });
   const SHARDS = { plate: 7, armor: 10, armor_heavy: 14 };
@@ -48,16 +47,11 @@ SA.BattleView.create = function createBattleView(api) {
     else if (type === 'shatter') shatterFx(data.x, data.y, data.cell);
     else if (type === 'surrender') {
       const e = B.e, why = data.why;
-      const resume = (ok) => {
-        B.frozen = false;
-        if (ok) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); textFx('投降', e.x + VW / 2, VY + 40, P.white); }
-        else B.surrender = 'refused';
-      };
       SA.UI.dialog(`「${e.name}」挂出了白旗`, [
         h('p', { style: 'margin-top:0' }, `对手${why}，已经没法再打，请求投降。`),
         h('p', {}, h('b', {}, '接受：'), '立即获胜，对手剩下的零件原样保留（缴获的选择更多），体面收场额外 ', h('b', {}, '声望 +1'), '。'),
         h('p', { class: 'muted' }, '拒绝：比赛继续，你可以把它拆得更彻底；这场不会再问第二次。'),
-      ], [{ label: '接受投降', primary: true, onClick: () => resume(true) }], '拒绝，继续打', () => resume(false));
+      ], [{ label: '接受投降', primary: true, onClick: () => api.acceptSurrender() }], '拒绝，继续打', () => api.refuseSurrender());
     }
   }
   // ---------- 背景：一座圆形竞技场 ----------
@@ -745,6 +739,25 @@ SA.BattleView.create = function createBattleView(api) {
     return b;
   }
 
+  function tick(dt) {
+    if (!B) return;
+    for (const p of B.parts) {
+      p.life -= dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.type === 'glance') p.vy += 300 * dt;
+      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust' || p.type === 'shard') {
+        p.vy += 660 * dt;
+        const gy = groundAt(p.x);
+        if (p.y > gy) { p.y = gy; p.vy *= -0.3; p.vx *= 0.6; }
+      }
+      if (p.type === 'smoke' || p.type === 'steam') p.vx *= 0.98;
+    }
+    B.parts = B.parts.filter(p => p.life > 0);
+    for (const t of B.texts) { t.life -= dt; t.y -= 42 * dt; }
+    B.texts = B.texts.filter(t => t.life > 0);
+    B.shake = Math.max(0, B.shake - dt * 14);
+  }
+
   function start(opts) {
     api.startState(opts);
     B = api.getState();
@@ -763,10 +776,7 @@ SA.BattleView.create = function createBattleView(api) {
     hud.slots = h('div', { class: 'bt-slots' });
     hud.slotSig = null;
     hud.vent = h('button', { class: 'btn', onclick: () => {
-      if (B.p.vented || B.p.dead) return;
-      B.p.vented = true; B.p.heat = Math.max(0, B.p.heat - T.VENT_HEAT);
-      for (let i = 0; i < 30; i++) part('steam', B.p.x + VW / 2 + rnd(-90, 90), VY + rnd(30, 240), rnd(-120, 120), rnd(-150, -30), rnd(0.6, 1.3));
-      hud.vent.disabled = true;
+      if (api.vent()) hud.vent.disabled = true;
     } }, '紧急泄压（限一次）');
     wrap = h('div', { class: 'bt-canvas-wrap' }, cv);
     screen.append(h('div', { class: 'bt' },
@@ -775,7 +785,7 @@ SA.BattleView.create = function createBattleView(api) {
       h('div', { class: 'bt-bottom' },
         h('div', { class: 'bt-ctrl' }, holdBtn('◀ 后退', 'left'), holdBtn('前进 ▶', 'right'), holdBtn('开火', 'fire')),
         hud.slots, hud.info, speedSlider(), hud.vent,
-        h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => kill(B.p, '主动撤出比赛') }], '继续比赛'); } }, '撤退'))));
+        h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => api.retreat() }], '继续比赛'); } }, '撤退'))));
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();
@@ -838,6 +848,7 @@ SA.BattleView.create = function createBattleView(api) {
     draw: () => { sync(); draw(); },
     hudTick: (dt) => { sync(); hudTick(dt); },
     camera: (dt) => { sync(); camera(dt); },
+    tick: (dt) => { sync(); tick(dt); },
     fit,
     gameSpeed,
     aimWorld: (x, y) => { sync(); const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },

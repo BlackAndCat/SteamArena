@@ -1,4 +1,5 @@
 // 竞技场：加速/撞击、直射与高抛弹道 + 弹道预览、数字键切换武器、侧挂层优先、热量/水、AI
+// 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
 SA.RULES_VERSION = '2026-09-26-battle-constants';
@@ -937,10 +938,46 @@ SA.Battle = (() => {
     if (B.surT < T.SURRENDER_HOLD_TIME) return;
     if (B.headless) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); return; }
     B.surrender = 'asked';
+    B.surrenderWhy = why;
     B.frozen = true;
     B.keys.left = B.keys.right = B.keys.fire = false;
     for (let i = 0; i < 12; i++) emit('part', { type: 'steam', x: e.x + VW / 2 + rnd(-40, 40), y: VY + rnd(0, 60), vx: rnd(-20, 20), vy: rnd(-60, -20), life: rnd(1, 2), col: undefined });
     emit('surrender', { name: e.name, why });
+  }
+
+  // 画面层只发出操作请求；泄压、投降和撤退的状态变化统一留在规则层。
+  function vent() {
+    if (!B || B.p.vented || B.p.dead) return false;
+    B.p.vented = true;
+    B.p.heat = Math.max(0, B.p.heat - T.VENT_HEAT);
+    for (let i = 0; i < 30; i++) emit('part', {
+      type: 'steam', x: B.p.x + VW / 2 + rnd(-90, 90), y: VY + rnd(30, 240),
+      vx: rnd(-120, 120), vy: rnd(-150, -30), life: rnd(0.6, 1.3), col: undefined,
+    });
+    return true;
+  }
+
+  function retreat() {
+    if (!B || B.p.dead) return false;
+    kill(B.p, '主动撤出比赛');
+    return true;
+  }
+
+  function acceptSurrender() {
+    if (!B || B.surrender !== 'asked') return false;
+    const why = B.surrenderWhy || '已经没法再打';
+    B.frozen = false;
+    B.surrender = 'accepted';
+    kill(B.e, why + '，挂白旗投降');
+    emit('text', { str: '投降', x: B.e.x + VW / 2, y: VY + 40, col: P.white, life: 0.9 });
+    return true;
+  }
+
+  function refuseSurrender() {
+    if (!B || B.surrender !== 'asked') return false;
+    B.frozen = false;
+    B.surrender = 'refused';
+    return true;
   }
 
   function step(dt) {
@@ -1023,17 +1060,7 @@ SA.Battle = (() => {
     }
     B.shots = B.shots.filter(s => !s.done);
 
-    for (const p of B.parts) {
-      p.life -= dt;
-      p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.type === 'glance') p.vy += 300 * dt;
-      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust' || p.type === 'shard') { p.vy += 660 * dt; const gy = groundAt(p.x); if (p.y > gy) { p.y = gy; p.vy *= -0.3; p.vx *= 0.6; } }
-      if (p.type === 'smoke' || p.type === 'steam') p.vx *= 0.98;
-    }
-    B.parts = B.parts.filter(p => p.life > 0);
-    for (const t of B.texts) { t.life -= dt; t.y -= 42 * dt; }
-    B.texts = B.texts.filter(t => t.life > 0);
-    B.shake = Math.max(0, B.shake - dt * 14);
+    if (!B.headless && view && view.tick) view.tick(dt);
 
     if (!B.ending) {
       surrender(dt);
@@ -1203,7 +1230,8 @@ SA.Battle = (() => {
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
     getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt,
     muzzle, targetAt, aimAngle, spreadDeg, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh,
+    vent, retreat, acceptSurrender, refuseSurrender,
     emit: (type, data) => emit(type, data),
   });
-  return { start, simulate, debug, ricochetChance, emit };
+  return { start, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender };
 })();
