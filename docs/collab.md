@@ -31,18 +31,20 @@
 | 归属 | 文件 |
 |---|---|
 | astra | `js/modules.js`（视觉字段除外，见 §2.3）、`js/vehicle.js`、`js/camp.js`、`js/content.js`、`js/state.js`、`js/street.js`、`tools/sim.html`、`tools/sim.js`、今后新增的检查脚本、`docs/game-design.md`、`docs/codex-task-*.md` |
-| Opus | `js/sprites.js`、`js/legs.js`、`js/dynamics.js`、`js/terrain-art.js`、`js/palette.js`、`css/style.css`、`index.html` 的结构、各样机页（`tools/*-lab.*`、`tools/mech-kit.*`、`tools/biped-v2.*`、`tools/spritesheet.html`、`tools/chassis-lab.html`）、`docs/art-direction.md`、`docs/true-biped.md` 的视觉章节 |
-| 共用，按区域分 | `js/battle.js`、`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/main.js`、`js/text-manager.js`、`text/`、`tools/serve.py`、`README.md`、`docs/module-plan.md`、本文件 |
+| Opus | `js/module-art.js`、`js/battle-view.js`、`js/camp-ui.js`、`js/sprites.js`、`js/legs.js`、`js/dynamics.js`、`js/terrain-art.js`、`js/palette.js`、`css/style.css`、`index.html` 的结构、各样机页（`tools/*-lab.*`、`tools/mech-kit.*`、`tools/biped-v2.*`、`tools/spritesheet.html`、`tools/chassis-lab.html`）、`docs/art-direction.md`、`docs/true-biped.md` 的视觉章节 |
+| 共用，按区域分 | `js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/main.js`、`js/text-manager.js`、`text/`、`tools/serve.py`、`README.md`、`docs/module-plan.md`、本文件 |
 
 ### 2.2 共用文件怎么分
 
-- **`js/battle.js`**
-  - astra：状态更新、物理、碰撞、弹道、伤害、热量、判负、投降、AI、无画面模拟（`simulate`）。
-  - Opus：绘制、镜头、背景、粒子和特效的样子、准星、HUD、面板（`draw`、`present`、`camera`、`drawVehicle`、`drawPreview`、`reticle` / `gearReticle` / `hourglass`、`overhead`、`sidePanel` 等）。
-  - astra 可以调用现有的 `part()` / `boom()` / `textFx()` 表示发生了什么，但不新增特效类型、不调它们的外观。
+- **`js/battle.js` / `js/battle-view.js`**
+  - astra：`battle.js` 负责状态更新、物理、碰撞、弹道、伤害、热量、判负、投降、AI、无画面模拟（`simulate`），并通过 `SA.Battle.emit(type, data)` 发出视觉事件。
+  - Opus：`battle-view.js` 负责绘制、镜头呈现、背景、粒子和特效外观、准星、HUD、面板、键鼠 / 触屏输入；事件类型包括 `part`、`text`、`boom`、`ricochet`、`shatter`、`surrender`。
+  - 镜头的纯状态更新仍在 `battle.js`，因为炮弹出界判定依赖同一份 `B.cam`；画面层复用该状态，不改变算法。
+- **`js/modules.js` / `js/module-art.js`**：数值 / 机制字段归 astra，外观字段表及加载合并归 Opus。
+- **`js/camp.js` / `js/camp-ui.js`**：进度、解锁、缴获和关卡规则归 astra；弹窗、开发者面板和试驾场归 Opus。
 - **`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`**
-  - astra：规则、校验、经济、数据流（能不能放、花多少钱、解锁了什么、出战检查）。
-  - Opus：DOM 结构、样式、交互流程、提示的呈现方式。
+  - astra：规则接口已集中到 `state.js` / `vehicle.js`（存档、经济、蓝图库、出战列表、结算、摆放校验）。
+  - Opus：保留 DOM 结构、样式、交互流程和提示呈现；这些文件只调用规则接口。
   - 新功能需要一个入口时，astra 可以用现有组件（`SA.h`、`SA.UI.dialog`、已有的 class）加最简单的按钮或文字，**不写新 CSS**，并在交接板上请 Opus 之后整理。
 - **`js/main.js`**：`SA.BUILD` 两边都会改，见 §3.4。
 - **`README.md`、`docs/module-plan.md`**：谁的功能谁更新自己那一列或那一段。`module-plan.md` 的"玩法"列归 astra，"美术"列归 Opus。
@@ -92,7 +94,7 @@ git push origin main
 - 不推送到 `main` 以外的分支。
 - 不做大面积的格式化、改缩进、改换行这类和任务无关的改动，尤其是对方区域的文件。
 - 不删除、不改名对方负责的文件。
-- **`SA.BUILD`**（`js/main.js`）：每次提交改到画面或玩法时，更新成当天日期加简短标签，例如 `'2026-09-26 harpoon'`。冲突时保留较新的那个。
+- **`SA.BUILD`**（`js/main.js`）：由 `js/build-sys.js` 的 `SA.BUILD_SYS` 与 `js/build-vis.js` 的 `SA.BUILD_VIS` 拼接；视觉标记以远端最新基线为准，冲突时保留较新的那个。
 
 ### 3.5 提交前的检查
 
@@ -121,6 +123,7 @@ git push origin main
 | `docs/codex-task-systems.md` | astra 的模块机制任务书（已完成） | astra |
 | `docs/campaign-direction.md` | 战役方向探索稿：章节主题、克制链、跳弹、反震、修理费、唯一件、支线、重打；后端 / 视觉分工 | 用户定方向，Claude 记录；astra、Opus 按其中 §9 / §10 实现 |
 | `docs/evolve-plan.md` | 关卡车进化生成器的规则与开发计划、问题记录 | astra 执行；标"已定"的参数只有用户能改 |
+| `docs/board-astra.md` / `docs/board-opus.md` | 拆分后的后台 / 视觉交接事项 | 各自维护，只追加状态 |
 | `README.md` | 玩法速览和代码结构 | 谁改了功能谁更新 |
 
 ## 5. 已定的决定（用户决定，代理不得擅自改）
@@ -172,6 +175,7 @@ git push origin main
 | 2026-09-26 | Claude → astra | **请知悉**，改动了 astra 区域：`js/vehicle.js` 分享码解码改多轮摆放（修丢模块）并新增 `SA.V.fromCells`；`tools/evolve.js` 候选记录加 `cells` / `toxicCells` / `oddCells`、`impact()` 优先用 `cells`、P7 夹具扰动改为 0.1；`tools/evolve-storage.js` 候选车库带 `cells`；`js/camp.js` 试驾场新增"进化报告"来源。详见 `docs/evolve-plan.md` §15 | 完成 |
 | 2026-09-26 | astra → Opus | P6 报告页（`tools/evolve.html`） | 完成（Claude） |
 | 2026-09-26 | astra → Opus | K1～K3 后端已接入：跳弹事件、反震分档、按模块修理费；可继续接 W1 跳弹反馈与 W2 修理费呈现 | 完成（`95a5111`、`8edbc62`） |
+| 2026-09-26 | astra → Opus | 逻辑 / 视觉文件拆分完成：战斗事件、模块外观、战役界面均保留原行为；后续视觉修改请先 pull `0ed1ddc`、`5afe91b` 及后续拆分提交 | 完成，详见 `docs/board-astra.md` 与 `docs/board-opus.md` |
 | 2026-09-25 | Opus → astra | 四足整件的数据和规则：`quad` 改成 w 4 × h 2、每车一个、一台车只能用一种底盘；悬挂接地点按新画法（近后 0、近前 96、远后 8、远前 104，模块内 x），战斗里步态按「走过的距离 ÷ 4 × 步幅」推进（`SA.LEGLAB.strideFor`）。落地后 Opus 接画面并删除旧的逐格腿画法 | 完成（`ef5cd75`） |
 | 2026-09-26 | astra → Opus | 双足 / 四足后台规则已落地：双足髋腿分区耐久、平衡和踢击状态可读；四足固定四接地点和距离步态已接入，画面可按 `SA.V.stats()` 与战斗状态接入 | 待视觉接入（`ef5cd75`） |
 | 2026-09-26 | astra → 用户 | K4 战役第一版：铲斗提前到序章；第一章示范侧炮和重装甲；第二章改为抛射 Boss；第三章集中缠斗装备；第四章 Boss 后开放大部分剩余标准装备；17 关全部补 `spec` | 待用户审阅（本提交） |

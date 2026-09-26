@@ -5,6 +5,7 @@
 ## 本角色
 
 - Opus 负责**视觉、动画、特效、UX、界面布局与交互**（`docs/collab.md` §1、§2）。
+- 拆分后的 battle-view.js、module-art.js、camp-ui.js 以及 `js/sprites.js`、`js/legs.js` 属于 Opus；四足相关画面以最新 origin/main 为准。
 - 不改数值、规则、AI、存档格式；需要这些时写到 `docs/collab.md` §7 交接板。
 - 用户明确让 Opus 做后台任务时，照做，但仍按 `docs/collab.md` 的 Git 规则和提交前缀。
 
@@ -19,7 +20,7 @@
 
 - 纯 HTML/CSS/JS，无构建步骤、无依赖。运行与代码结构见 `README.md`。
 - 本地预览：`python tools/serve.py`（禁缓存；用 `python -m http.server 5173` 时浏览器可能缓存旧 JS，需 Ctrl+F5），打开 http://localhost:5173 。控制台 `SA.reset()` 清空存档，`SA.BUILD` 看当前加载的版本。
-- 每次提交改到画面/玩法时，顺手把 `js/main.js` 里的 `SA.BUILD` 更新成当天日期 + 简短标签。
+- 每次提交改到画面时，更新 `js/build-vis.js`；后台标记由 `js/build-sys.js` 维护，`js/main.js` 只拼接两者。
 
 ## HTML5 游戏自动化测试
 

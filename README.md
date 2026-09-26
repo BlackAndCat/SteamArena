@@ -59,6 +59,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 |---|---|
 | `js/palette.js` | 锁定调色板 + 语义分类（颜色由 category 推导） |
 | `js/modules.js` | 模块注册表（含重量、承重、护甲）、全局常量、重量 / 改装辅助函数、材料表 `SA.MATS` 与按材料放大的 `SA.mod(cell)` |
+| `js/module-art.js` | 模块外观字段与外观字段合并；由 Opus 维护 |
 | `js/dynamics.js` | 动态处理模块：阻尼弹簧（车身晃动）、后坐曲线（制退 / 复进）、相位与量化（履带、腿、供弹链），每辆车一个动画器 |
 | `js/sprites.js` | 48px 程序化像素精灵（带缓存）、铆接车体框架、一战履带、整车渲染、高亮描边、改装军衔杠 |
 | `js/vehicle.js` | 格子规则（严格摆放 / 改装台自由摆放、移动对调、出战检查 `issues`）、属性计算、分享码 |
@@ -70,8 +71,11 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 | `js/arena.js` | 出战页：锦标赛 / 街头赛 / 友谊赛 / 委托，对阵、下注、出发 |
 | `js/street.js` | 街头赛：随机小车生成、按评分配对手、评分上限（界面在出战页） |
 | `js/editor.js` | 车间：改装台、铭牌、底部操作栏（模块 / 蓝图库）、点选与拖放、就地买卖与修理、图例 |
-| `js/battle.js` | 竞技场：加速与撞击、直射/高抛弹道与预览、武器组切换、镜头、AI；渲染：世界层按原生像素画（含背景），整数倍最近邻放大 + 不足 2 倍的零头双线性（sharp bilinear）到按设备像素分配的画布；车（会随坡度倾斜）单独在设备分辨率上画，整数倍放大后带旋转双线性绘制，爬坡不出现像素台阶；文字 / 细条 / 准星 / 弹道扇区在设备分辨率上单独叠加（`SA.Battle.debug.step(秒)` 可手动推进） |
+| `js/battle.js` | 竞技场规则：加速与撞击、直射 / 高抛弹道、伤害、武器组、镜头状态、AI 和 `SA.Battle.simulate`；通过事件总线向画面层发出状态变化 |
+| `js/battle-view.js` | 竞技场画面：世界层、载具、背景、粒子、特效、准星、HUD、面板和输入；消费 `SA.Battle.emit` 事件，由 Opus 维护 |
+| `js/camp-ui.js` | 战役弹窗、开发者面板和试驾场的界面层；规则调用 `SA.Camp` / `SA.S` 接口，由 Opus 维护 |
 | `docs/art-direction.md` | 美术统一与辨识度方案 |
 | `tools/sim.html` · `sim.js` | 数值自测：战役关卡检验（各章参考车打每一关）、对战矩阵 + 评分校准、模块性价比表；用 `SA.Battle.simulate` 无画面对打 |
 | `js/terrain-art.js` | 地形像素画法：土坡、泥地、木货箱、碎木（战斗和 `tools/terrain-lab.html` 共用） |
+| `js/build-sys.js` · `js/build-vis.js` | 后台与视觉分别维护的构建标记；`SA.BUILD` 在 `js/main.js` 中拼接 |
 | `docs/game-design.md` | 游戏节奏与目标：战役结构、材料、敌人设计、地形与数值自测计划 |
