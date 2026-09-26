@@ -21,6 +21,8 @@ module.exports = {
   archive: {
     cellsPerBucket: 3,
     performanceWeight: 0.35,
+    terrainDeltaMin: 20,
+    terrainPerformanceMin: 45,
     oddFraction: 0.05,
     toxicTopFraction: 0.2,
     toxicPerformanceBelow: 35,
@@ -48,5 +50,10 @@ module.exports = {
     prizeKeepRate: 0.8,
     repairReserve: 0.2,
     bossMultiplier: 1.3,
+    epicMultiplier: 2.2,
+  },
+  reward: {
+    effectMin: 1,
+    controlDelta: 0.1,
   },
 };

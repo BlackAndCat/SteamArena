@@ -1,7 +1,7 @@
 // 竞技场：加速/撞击、直射与高抛弹道 + 弹道预览、数字键切换武器、侧挂层优先、热量/水、AI
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-25-battle-v1';
+SA.RULES_VERSION = '2026-09-26-campaign-k1k3';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -34,7 +34,7 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, chargedHit: 0, ram: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -367,6 +367,7 @@ SA.Battle = (() => {
   }
 
   function damage(def, att, imp, dmg) {
+    if (!(dmg > 0)) return;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return;
     cell.hp -= dmg;
@@ -375,6 +376,23 @@ SA.Battle = (() => {
     textFx(String(Math.round(dmg)), x + rnd(-9, 9), y - 18, imp.layer === 'side' ? P.magenta : P.white);
     for (let i = 0; i < 6; i++) part('spark', x, y + 6, rnd(-130, 130), rnd(-160, 0), rnd(0.15, 0.35));
     if (cell.hp <= 0) destroy(def, att, imp);
+  }
+
+  // 炮弹命中装甲时独立检查穿深。装甲厚度来自材料放大后的 armor，穿深来自武器原始字段，
+  // 因而升级材料只会让装甲更难打穿，不会把同一门炮的穿深一起放大。
+  function projectileDamage(def, att, imp, dmg, weapon) {
+    const cell = def.v[imp.layer][imp.r][imp.c], m = cell ? SA.mod(cell) : null;
+    if (!m || !m.armor || !weapon) return dmg;
+    const thickness = Math.max(0, m.armor), penetration = Math.max(0, weapon.penetration || 0);
+    const deficit = Math.max(0, thickness - penetration) / Math.max(1, thickness);
+    const base = penetration >= thickness ? 0 : 0.18 + deficit * 0.5;
+    const chance = clamp(base + (weapon.ricochet || 0), 0, 0.92);
+    if (random() >= chance) return SA.armorCut(m, dmg);
+    if (att) att.events.ricochet++;
+    const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
+    textFx('弹开', x + rnd(-12, 12), y - 18, P.iron[2]);
+    for (let i = 0; i < 4; i++) part('spark', x, y, rnd(-130, 130), rnd(-160, 0), rnd(0.12, 0.28));
+    return dmg * 0.05;
   }
 
   function destroy(def, att, imp) {
@@ -554,7 +572,8 @@ SA.Battle = (() => {
           const dmg = (SA.mod(ma).ram || 6) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
           if (SA.mod(ma).ram) a.events.ram++;
           damage(d, a, { layer: 'body', r: dm.r, c: dm.c }, SA.isRam(dm.cell.id) ? dmg * 0.5 : dmg);
-          if (alive(ma)) damage(a, null, { layer: 'body', r: am.r, c: am.c }, dmg * K.RAM_SELF);
+          const tethered = (a.tether && a.tether.target === d) || (d.tether && d.tether.target === a);
+          if (alive(ma)) damage(a, null, { layer: 'body', r: am.r, c: am.c }, dmg * (tethered ? K.RAM_TETHER_SELF : K.RAM_SELF));
           if (M[ma.id].knock) { if (a === p) knockE += M[ma.id].knock; else knockP += M[ma.id].knock; }
         }
       }
@@ -769,14 +788,17 @@ SA.Battle = (() => {
   }
   function ai(s, o, dt) {
     if (s.dead) return;
-    if (s.heat > 72) s.hold = true; else if (s.heat < 45) s.hold = false;
+    const profile = s.aiProfile || {};
+    const heatHigh = Number.isFinite(profile.heatHoldHigh) ? profile.heatHoldHigh : 72;
+    const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow : 45;
+    if (s.heat > heatHigh) s.hold = true; else if (s.heat < heatLow) s.hold = false;
     s.retarget -= dt;
     const tAlive = s.target && alive(o.v[s.target.layer][s.target.r][s.target.c]);
     if (!tAlive || s.retarget <= 0) {
       s.target = pickTarget(o);
       const e = (1 - s.aim) * 100 + 9;
       s.err = { x: gauss() * e, y: gauss() * e * 0.6 };
-      s.retarget = rnd(3, 6);
+      s.retarget = rnd(3, 6) * (Number.isFinite(profile.retargetFactor) ? profile.retargetFactor : 1);
       // 选武器组：直射打得到就直射，否则换高抛
       s.sel = s.groups[Math.floor(random() * s.groups.length)] || null;
       if (s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
@@ -902,7 +924,7 @@ SA.Battle = (() => {
           sh.from.events.hit++;
           if (sh.focusAtFire) sh.from.events.chargedHit++;
           if (sh.weapon && sh.weapon.arc === 'high') sh.from.events.highHit++;
-          damage(sh.to, sh.from, res, tc ? SA.armorCut(SA.mod(tc), sh.dmg) : sh.dmg);
+          damage(sh.to, sh.from, res, projectileDamage(sh.to, sh.from, res, sh.dmg, sh.weapon));
           // 火箭架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
           if (sh.weapon && sh.weapon.splash) {
             const hitBox = modCenter(sh.to, res.layer, res.r, res.c);
@@ -910,7 +932,7 @@ SA.Battle = (() => {
             SA.V.each(sh.to.v, (oc, rr, cc, layer) => {
               if (!alive(oc) || seen.has(oc)) return;
               const p = modCenter(sh.to, layer, rr, cc), d = Math.hypot(p[0] - hitBox[0], p[1] - hitBox[1]);
-              if (d <= sh.weapon.splash.r) { seen.add(oc); const k = Math.max(0, 1 - d / sh.weapon.splash.r) * sh.weapon.splash.k; if (k > 0) { effect(sh.from, sh.weaponCell.id, 'hit'); damage(sh.to, sh.from, { layer, r: rr, c: cc }, SA.armorCut(SA.mod(oc), sh.dmg * k)); } }
+              if (d <= sh.weapon.splash.r) { seen.add(oc); const k = Math.max(0, 1 - d / sh.weapon.splash.r) * sh.weapon.splash.k; if (k > 0) { effect(sh.from, sh.weaponCell.id, 'hit'); damage(sh.to, sh.from, { layer, r: rr, c: cc }, projectileDamage(sh.to, sh.from, { layer, r: rr, c: cc }, sh.dmg * k, sh.weapon)); } }
             });
           }
           // 喷火 / 蒸汽喷射的升温效果与伤害分开结算：命中一次就给目标增加固定热量，
@@ -918,7 +940,7 @@ SA.Battle = (() => {
           if (sh.heatToEnemy) sh.to.heat += sh.heatToEnemy;
           if (sh.weapon && sh.weapon.knock) shove(sh.from, sh.to, sh.weapon.knock * 8);
           if (sh.weapon && sh.weapon.tether) {
-            sh.from.tether = { layer: res.layer, r: res.r, c: res.c, cell: sh.weaponCell, time: 4 };
+            sh.from.tether = { layer: res.layer, r: res.r, c: res.c, cell: sh.weaponCell, target: sh.to, time: 4 };
             effect(sh.from, sh.weaponCell.id, 'tether');
           }
           if (sh.big) B.shake = Math.max(B.shake, 3);
@@ -1760,11 +1782,47 @@ SA.Battle = (() => {
     // 对手还完好的模块：战役胜利后可以挑一件缴获
     const survivors = [];
     SA.V.each(B.e.v, (cell) => { if (cell.hp > 0) survivors.push({ id: cell.id, mt: cell.mt || 1 }); });
+    // 真人记录只保存一局的聚合指标，供 P8 校准代理 AI；不写逐帧数据，也不记录友谊赛以外的隐私信息。
+    recordHumanBattle({
+      terrain: B.opts.terrain || 'flat', outcome: draw ? 'draw' : win ? 'p' : 'e', time: B.t,
+      events: B.p.events, metrics: B.metrics, maxHeat: B.p.maxHeat, minWater: B.p.minWater,
+      pDealt: B.p.dealt, pTaken: B.p.taken,
+    });
     SA.UI.afterBattle({
       mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
       reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`, surrendered: win && B.surrender === 'accepted',
       playerVehicle: shiftVeh(B.p.v, -B.pShift), survivors, dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
     });
+  }
+
+  // 与 tools/ai-calibration.js 共用 steam_arena_human_battles_v1 协议。
+  // localStorage 失败（隐私模式或容量不足）时不影响战斗结算。
+  function recordHumanBattle(input) {
+    const KEY = 'steam_arena_human_battles_v1', MAX = 200, LIMIT = 1024 * 1024;
+    try {
+      const raw = localStorage.getItem(KEY), old = raw ? JSON.parse(raw) : {}, rows = Array.isArray(old.records) ? old.records : [];
+      const fire = input.events?.fire || 0, hit = input.events?.hit || 0, charged = input.events?.chargedHit || 0, t = Math.max(0, input.time || 0);
+      rows.push({ version: 1, id: `${Date.now()}-${rows.length}`, at: new Date().toISOString(), terrain: input.terrain,
+        outcome: input.outcome, time: t, shots: fire, hits: hit, ricochets: input.events?.ricochet || 0, chargedHits: charged,
+        hitRate: fire ? hit / fire : 0, chargedRate: fire ? charged / fire : 0,
+        closeRate: t ? (input.metrics?.nearTime || 0) / t : 0, farRate: t ? (input.metrics?.farTime || 0) / t : 0,
+        noEngageRate: t ? (input.metrics?.noEngageTime || 0) / t : 0, maxHeat: input.maxHeat || 0,
+        minWater: input.minWater || 0, damageDealt: input.pDealt || 0, damageTaken: input.pTaken || 0, feedback: null });
+      let kept = rows.slice(-MAX), encoded = () => JSON.stringify({ version: 1, records: kept });
+      while (kept.length > 1 && encoded().length > LIMIT) kept.shift();
+      localStorage.setItem(KEY, encoded());
+      // 给开发者面板 / Opus 的评价按钮一个无样式数据接口；按钮呈现不在这里实现。
+      SA.HUMAN_BATTLES = SA.HUMAN_BATTLES || {
+        exportJson() { return localStorage.getItem(KEY) || JSON.stringify({ version: 1, records: [] }); },
+        feedback(id, value) {
+          const raw = localStorage.getItem(KEY), payload = raw ? JSON.parse(raw) : { version: 1, records: [] };
+          const row = payload.records.find(item => item.id === id);
+          if (!row || !['好玩', '无聊', '不公平'].includes(value)) return false;
+          row.feedback = value; localStorage.setItem(KEY, JSON.stringify(payload)); return true;
+        },
+        clear() { localStorage.removeItem(KEY); },
+      };
+    } catch (e) { /* 记录失败不应阻断战斗结算 */ }
   }
 
   // ---------- 无画面模拟（tools/sim.html 数值自测用）----------
@@ -1779,10 +1837,13 @@ SA.Battle = (() => {
       metrics: { distanceSum: 0, samples: 0, nearTime: 0, farTime: 0, noEngageTime: 0 },
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
-      B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, o.pAim || 0.8, W / 2 - 200 - PADX - K.COLS * C);
+      const profileAim = Number.isFinite(o.aiProfile?.aim) ? o.aiProfile.aim : null;
+      B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, profileAim ?? o.pAim ?? 0.8, W / 2 - 200 - PADX - K.COLS * C);
       B.p.style = o.pStyle || null;
-      B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, o.eAim || 0.8, W / 2 + 200 - PADX);
+      B.p.aiProfile = o.aiProfile || null;
+      B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, profileAim ?? o.eAim ?? 0.8, W / 2 + 200 - PADX);
       B.e.style = o.eStyle || null;
+      B.e.aiProfile = o.aiProfile || null;
       B.e.boss = !!o.eBoss;
       const dt = o.dt || 1 / 30;
       while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);

@@ -16,8 +16,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const vm = require('vm');
+const os = require('os');
 const { Worker } = require('worker_threads');
 const config = require('./evolve-config');
+const storage = require('./evolve-storage');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
@@ -145,11 +147,23 @@ function progressAt(SA, chapter, stage) {
 
 function stageSpec(SA, chapter, stage) {
   const ch = SA.CAMPAIGN[chapter], current = ch.stages[stage], progress = progressAt(SA, chapter, stage);
-  const reward = current.unlock?.mods?.[0] || (stage === ch.stages.length - 1 ? ch.unlock?.mods?.[0] : null);
+  // 只有真正的新解锁才算奖励件；开局库存或此前已获得的模块不能重复作为奖励，
+  // 否则序章会把 plate 当作奖励并错误触发“奖励效果”门槛。
+  const rawReward = current.unlock?.mods?.[0] || (stage === ch.stages.length - 1 ? ch.unlock?.mods?.[0] : null);
+  const reward = rawReward && !progress.mods.has(rawReward) ? rawReward : null;
+  // Boss 专属件和本关解锁件必须进入候选约束，否则奖励车永远只能携带普通件。
+  // 这些额外模块只在对应关卡可用，不改变玩家在上一关的实际库存。
+  const stageExtras = (current.subs || []).map(row => row[2]).filter(id => SA.MODULES[id]);
+  if (reward && SA.MODULES[reward]) stageExtras.push(reward);
+  const available = [...new Set([...progress.mods, ...stageExtras])].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired && (stageExtras.includes(id) || (SA.MODULES[id].minMt || 1) <= progress.mat));
+  const budget = progress.budget * ((current.boss || reward) ? config.budget.bossMultiplier : 1);
+  const hasEpic = stageExtras.some(id => SA.MODULES[id]?.special || id === 'cannon_giant');
+  const epicBudget = hasEpic ? progress.budget * config.budget.epicMultiplier : budget;
   return {
     chapter, stage, name: current.name, terrain: current.terrain || 'flat', style: current.style || null,
-    boss: !!current.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: progress.budget,
-    availableMods: [...progress.mods].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired && (SA.MODULES[id].minMt || 1) <= progress.mat),
+    chapterHasBoss: ch.stages.some(row => !!row.boss),
+    boss: !!current.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
+    availableMods: available,
     target: current.boss ? { bossWinRate: [0.6, 0.7] } : { bossWinRate: [0.65, 0.8] },
   };
 }
@@ -169,7 +183,16 @@ function regionBounds(SA, v) {
 
 // 只用 SA.V.canPut 的 fit=true 分支，避免生成器绕过连通、侧挂和撞击件规则。
 function tryPlace(SA, v, id, mt, rng, tries = 120, layer = null) {
-  const f = SA.fp(id), bounds = regionBounds(SA, v), placementLayer = layer || SA.V.layerOf(id), storageLayer = SA.V.layerOf(id);
+  const f = SA.fp(id), bounds = regionBounds(SA, v), moduleLayer = SA.MODULES[id]?.layer, placementLayer = layer || (moduleLayer === 'ram' ? 'ram' : SA.V.layerOf(id)), storageLayer = SA.V.layerOf(id);
+  // 撞击件必须放在主体最前端；随机撒在车身中会通过 canPut，但会在出战检查时悬空。
+  if (!layer && moduleLayer === 'ram') {
+    for (let r = bounds.bottom; r >= bounds.r0; r--)
+      for (let c = bounds.c0; c <= bounds.c1 - f.w + 1; c++) {
+        const check = SA.V.canPut(v, id, r, c);
+        if (check.ok && check.fit) { v[storageLayer][r][c] = SA.newCell(id, mt); return true; }
+      }
+    return false;
+  }
   for (let i = 0; i < tries; i++) {
     const maxR = placementLayer === 'chassis' ? bounds.bottom : bounds.bottom - f.h;
     const r = placementLayer === 'chassis' ? bounds.bottom : bounds.r0 + rng.int(Math.max(1, maxR - bounds.r0 + 1));
@@ -184,12 +207,29 @@ function tryPlace(SA, v, id, mt, rng, tries = 120, layer = null) {
   return false;
 }
 
+// 直射武器优先贴车体前缘，避免生成“stats.canDeploy 但炮口被己方模块挡住”的假合法车。
+function tryWeapon(SA, v, id, mt, rng) {
+  const f = SA.fp(id), bounds = regionBounds(SA, v);
+  if (SA.MODULES[id]?.indirect || SA.MODULES[id]?.layer !== 'body') return tryPlace(SA, v, id, mt, rng);
+  const front = bounds.c1 - f.w + 1;
+  for (let r = bounds.r0; r <= bounds.bottom - f.h; r++) {
+    const check = SA.V.canPut(v, id, r, front);
+    if (check.ok && check.fit) { v.body[r][front] = SA.newCell(id, mt); return true; }
+  }
+  return tryPlace(SA, v, id, mt, rng);
+}
+
 function counts(SA, v) {
   return SA.V.countIds(v);
 }
 
 function hasWeapon(SA, v) {
   return Object.keys(counts(SA, v)).some(id => SA.MODULES[id]?.dmg);
+}
+
+function legalVehicle(SA, v, spec) {
+  const stats = SA.V.stats(v);
+  return mandatoryOk(SA, v) && stats.canDeploy && !stats.blocked?.length && stats.value <= spec.budget;
 }
 
 function pickWeapon(SA, spec, rng, style) {
@@ -209,25 +249,37 @@ function pickWeapon(SA, spec, rng, style) {
 function minimalVehicle(SA, spec, forcedModule = null) {
   const v = SA.V.create(`保底候选·${spec.chapter + 1}-${spec.stage + 1}`);
   v.lim = { ...spec.grid };
-  const bounds = regionBounds(SA, v), putFirst = id => {
+  const bounds = regionBounds(SA, v), putFirst = (id, preferredRows = null) => {
     const f = SA.fp(id), layer = SA.V.layerOf(id), placementLayer = SA.MODULES[id].layer;
-    for (let r = placementLayer === 'chassis' ? bounds.bottom : bounds.bottom - f.h; r >= bounds.r0; r--)
+    const rows = preferredRows || (placementLayer === 'chassis' ? [bounds.bottom] : placementLayer === 'ram' ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.bottom - i) : Array.from({ length: bounds.bottom - f.h - bounds.r0 + 1 }, (_, i) => bounds.bottom - f.h - i));
+    for (const r of rows)
       for (let c = bounds.c0; c <= bounds.c1 - f.w + 1; c++) {
         const check = SA.V.canPut(v, id, r, c);
         if (check.ok && check.fit) { v[layer][r][c] = SA.newCell(id, spec.mat); return true; }
       }
     return false;
   };
-  putFirst(spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track'));
-  putFirst(moduleIds(SA, spec, (m, id) => SA.isCockpit(id))[0] || 'helmet');
-  putFirst(moduleIds(SA, spec, m => m.supply)[0] || 'boiler');
-  putFirst(moduleIds(SA, spec, m => m.water || m.cool)[0] || 'water');
-  const weapon = forcedModule && SA.MODULES[forcedModule]?.dmg ? forcedModule : moduleIds(SA, spec, m => m.cat === 'firepower')[0];
-  if (weapon) putFirst(weapon);
+  const chassis = spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track');
+  putFirst(chassis);
+  // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱、锅炉和水箱，
+  // 否则大尺寸火力件会因没有支撑或撞击件没有挂点而永远生成失败。
+  const forcedWeapon = forcedModule && SA.MODULES[forcedModule]?.dmg ? forcedModule : null;
+  const forcedRam = forcedModule && SA.MODULES[forcedModule]?.layer === 'ram' ? forcedModule : null;
+  if (forcedWeapon) putFirst(forcedWeapon);
+  if (forcedRam) putFirst(forcedRam);
+  const forcedUtility = forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule]?.layer !== 'chassis' ? putFirst(forcedModule) : false;
+  // 巨炮占四行时，驾驶舱、锅炉和水箱必须从炮身上方开始找位置，
+  // 放到炮口旁会被判作遮挡，形成“可部署但不能开火”的假候选。
+  const highRows = forcedWeapon && SA.fp(forcedWeapon).w >= 4 ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.r0 + i) : null;
+  putFirst(moduleIds(SA, spec, (m, id) => SA.isCockpit(id))[0] || 'helmet', highRows);
+  putFirst(moduleIds(SA, spec, m => m.supply)[0] || 'boiler', highRows);
+  putFirst(moduleIds(SA, spec, m => m.water || m.cool)[0] || 'water', highRows);
+  const weapon = forcedWeapon || moduleIds(SA, spec, m => m.cat === 'firepower')[0];
+  if (weapon && !forcedWeapon) putFirst(weapon);
   // 奖励件可能是冷却、控制或装甲件；保底车也要优先尝试放入，
   // 否则“必须包含奖励件”的章节选择会被保底路径悄悄破坏。
-  if (forcedModule && !SA.MODULES[forcedModule]?.dmg && SA.MODULES[forcedModule].layer !== 'chassis') putFirst(forcedModule);
-  return mandatoryOk(SA, v) && SA.V.stats(v).canDeploy ? v : null;
+  if (forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule].layer !== 'chassis' && !forcedUtility) putFirst(forcedModule);
+  return legalVehicle(SA, v, spec) ? v : null;
 }
 
 function randomVehicle(SA, spec, rng, forcedModule = null) {
@@ -235,7 +287,8 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
   v.lim = { ...spec.grid };
   const chassisIds = moduleIds(SA, spec, m => m.layer === 'chassis');
   const style = rng.pick(['rush', 'kite', 'turtle', 'wander']);
-  const chassis = rng.pick(chassisIds) || 'track';
+  const forcedChassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule : null;
+  const chassis = forcedChassis || rng.pick(chassisIds) || 'track';
   const chassisCount = chassis === 'track' ? clamp(Math.floor(spec.grid.cols / 2), 1, 3) : 1;
   for (let i = 0; i < chassisCount; i++) tryPlace(SA, v, chassis, spec.mat, rng, 100, 'chassis');
 
@@ -250,11 +303,11 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
   // 因此先正常放置武器，再把奖励件作为可选模块尝试放入。
   const forcedIsWeapon = !!(forcedModule && SA.MODULES[forcedModule]?.dmg);
   const weapon = forcedIsWeapon ? forcedModule : pickWeapon(SA, spec, rng, style);
-  if (weapon) tryPlace(SA, v, weapon, spec.mat, rng);
+  if (weapon) tryWeapon(SA, v, weapon, spec.mat, rng);
   if (forcedModule && !forcedIsWeapon && SA.MODULES[forcedModule].layer !== 'chassis') tryPlace(SA, v, forcedModule, spec.mat, rng, 160);
   if (rng.chance(0.55)) {
     const second = pickWeapon(SA, spec, rng, style);
-    if (second && second !== weapon) tryPlace(SA, v, second, spec.mat, rng);
+    if (second && second !== weapon) tryWeapon(SA, v, second, spec.mat, rng);
   }
   const armorIds = moduleIds(SA, spec, m => m.cat === 'structure');
   const coolingIds = moduleIds(SA, spec, m => m.cat === 'cooling');
@@ -274,7 +327,7 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
     if (ram) tryPlace(SA, v, ram, spec.mat, rng);
   }
   const stats = SA.V.stats(v);
-  if (stats.canDeploy && hasWeapon(SA, v)) return v;
+  if (legalVehicle(SA, v, spec)) return v;
   return minimalVehicle(SA, spec, forcedModule);
 }
 
@@ -294,10 +347,11 @@ function optionalCells(SA, v) {
   return out;
 }
 
-function mutate(SA, source, spec, rng) {
+function mutate(SA, source, spec, rng, trace = null) {
   const out = SA.V.clone(source);
   out.name = `${source.name}·变异${rng.int(100000)}`;
   const op = rng.int(5);
+  if (trace) trace.push(op);
   const cells = optionalCells(SA, out);
   if (op === 0 || !cells.length) {
     const id = rng.pick(spec.availableMods.filter(x => !SA.MODULES[x].retired));
@@ -326,7 +380,7 @@ function mutate(SA, source, spec, rng) {
     if (target) target.cell.lv = clamp((target.cell.lv || 0) + 1, 0, SA.K.UP_MAX);
   }
   const stats = SA.V.stats(out);
-  return mandatoryOk(SA, out) && stats.canDeploy && stats.value <= spec.budget ? out : null;
+  return legalVehicle(SA, out, spec) ? out : null;
 }
 
 // ---------- 评分与对战 ----------
@@ -338,7 +392,8 @@ function invertResult(result) {
 
 function performanceScore(result, side, configWeights) {
   const e = result.events?.[side] || {}, m = result.metrics || {}, total = Math.max(0.1, result.t);
-  const fire = Math.max(1, e.fire || 0), hitRate = (e.hit || 0) / fire;
+  // 弹开仍算命中事件，但没有造成有效伤害；表现分用有效命中率，避免厚甲前的跳弹把枪法评分抬高。
+  const fire = Math.max(1, e.fire || 0), effectiveHit = Math.max(0, (e.hit || 0) - (e.ricochet || 0)), hitRate = effectiveHit / fire;
   const dealt = side === 'p' ? result.pDealt : result.eDealt;
   let score = configWeights.base;
   score += clamp(hitRate, 0, 1) * configWeights.hitRate;
@@ -366,8 +421,16 @@ function strengthFromRows(rows) {
   const scores = rows.map(row => clamp(row.winRate, 0.001, 0.999));
   const logits = scores.map(p => Math.log(p / (1 - p)) * 400 / Math.LN10);
   const strength = clamp(1000 + logits.reduce((sum, value) => sum + value, 0) / logits.length, 300, 1700);
-  const variance = rows.reduce((sum, row) => sum + (row.winRate * (1 - row.winRate)) / Math.max(1, row.n), 0) / rows.length;
-  return { strength, strengthCi: 1.96 * 400 * Math.sqrt(Math.max(0, variance)) };
+  // Wilson 区间避免全胜 / 全负样本被错误地报告成“零不确定性”。
+  const z = 1.96;
+  const ci = rows.map(row => {
+    const n = Math.max(1, row.n), p = clamp(row.winRate, 0, 1), z2 = z * z;
+    const den = 1 + z2 / n, mid = (p + z2 / (2 * n)) / den;
+    const half = z * Math.sqrt((p * (1 - p) / n) + z2 / (4 * n * n)) / den;
+    const lo = clamp(mid - half, 0.001, 0.999), hi = clamp(mid + half, 0.001, 0.999);
+    return (Math.log(hi / (1 - hi)) - Math.log(lo / (1 - lo))) * 400 / Math.LN10 / 2;
+  });
+  return { strength, strengthCi: ci.reduce((sum, value) => sum + value, 0) / ci.length };
 }
 
 function duel(SA, candidate, opponent, spec, seed, games) {
@@ -446,6 +509,9 @@ function archive(candidates, spec) {
   const toxic = all.slice(0, toxicLimit).filter(x => x.performance < config.archive.toxicPerformanceBelow);
   const median = candidates.slice().sort((a, b) => a.strength - b.strength)[Math.floor(candidates.length / 2)]?.strength || 0;
   const odd = candidates.filter(item => item.strength >= median).sort((a, b) => b.featureDistance - a.featureDistance).slice(0, Math.max(1, Math.ceil(candidates.length * config.archive.oddFraction)));
+  for (const item of candidates) {
+    item.archiveClass = toxic.includes(item) ? 'toxic' : odd.includes(item) ? 'odd' : 'normal';
+  }
   return { buckets: Object.fromEntries(buckets), toxic, odd };
 }
 
@@ -466,18 +532,131 @@ function exportPatch(SA, v, spec, boundStyle = null) {
 }
 
 function candidateRecord(SA, item, spec, fingerprint) {
-  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, rules: fingerprint };
+  const moduleValues = {};
+  for (const [id, count] of Object.entries(counts(SA, item.vehicle))) moduleValues[id] = count * cellValue(SA, id, spec.mat);
+  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
+}
+
+// 奖励件生效门槛使用同一批种子做两种朝向，避免只记录“候选当玩家”造成偏差。
+function usageAgainst(SA, candidate, opponent, spec, seed, games = 2, rewardId = null) {
+  const total = { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, knock: 0, terrainBlock: 0, highHit: 0, destroyed: 0 };
+  const module = {};
+  const add = events => { for (const key of Object.keys(total)) total[key] += Number(events?.[key]) || 0; };
+  const addModule = stats => {
+    if (!rewardId) return;
+    const row = stats?.[rewardId];
+    if (!row) return;
+    for (const key of ['active', 'fire', 'hit', 'tether', 'energy', 'waterSaved', 'dryCool']) module[key] = (module[key] || 0) + (Number(row[key]) || 0);
+  };
+  for (let i = 0; i < games; i++) {
+    const direct = SA.Battle.simulate({ p: candidate, e: opponent, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: 'wander', terrain: spec.terrain, seed: seed + i * 2 });
+    const reverse = SA.Battle.simulate({ p: opponent, e: candidate, pAim: 0.8, eAim: 0.8, pStyle: 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain, seed: seed + i * 2 + 1 });
+    add(direct.events?.p); add(reverse.events?.e); addModule(direct.effectStats?.p); addModule(reverse.effectStats?.e);
+  }
+  return { ...total, module };
+}
+
+function replacementFor(SA, vehicle, targetId, spec) {
+  let target = null;
+  SA.V.each(vehicle, (cell, r, c, layer) => { if (!target && cell.id === targetId) target = { r, c, layer }; });
+  if (!target || target.layer !== 'body') return null;
+  const targetFp = SA.fp(targetId);
+  const replacement = ['plate', 'armor', 'armor_heavy'].find(id => {
+    if (id === targetId) return false;
+    const f = SA.fp(id); return f.w === targetFp.w && f.h === targetFp.h;
+  });
+  if (!replacement) return null;
+  const out = SA.V.clone(vehicle);
+  const removed = SA.V.remove(out, target.layer, target.r, target.c);
+  if (!removed?.ok) return null;
+  const check = SA.V.canPut(out, replacement, target.r, target.c);
+  if (!check.ok || !check.fit) return null;
+  out.body[target.r][target.c] = SA.newCell(replacement, spec.mat);
+  return legalVehicle(SA, out, spec) ? out : null;
+}
+
+// P5 选关证据：每一关只从本轮已评分候选中选车，并把硬条件和目标强度写入报告。
+// 这些数值用于离线筛选，不会改动战役原有的名称、奖励或解锁字段。
+function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed, usedStyles = new Set()) {
+  const nonToxic = scored.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
+  const cleanPool = nonToxic.length ? nonToxic : scored;
+  const reward = spec.rewardModule;
+  const hasReward = item => !reward || !!counts(SA, item.vehicle)[reward];
+  const genericPool = spec.boss ? cleanPool.filter(item => Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin) : cleanPool;
+  const pool = spec.boss && genericPool.length ? genericPool : cleanPool;
+  const validReward = pool.filter(hasReward);
+  const candidates = validReward.length ? validReward : pool;
+  const evidence = item => {
+    const terrainPass = spec.terrain === 'flat' || (spec.boss ? Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin : (item.terrainDelta || 0) >= config.archive.terrainDeltaMin && item.performance >= config.archive.terrainPerformanceMin);
+    const own = { rewardPresent: hasReward(item), performance: item.performance, strength: item.strength, style: item.style, terrainDelta: item.terrainDelta, terrainPass, bossGenericPass: !spec.boss || Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin };
+    if (spec.boss) {
+      // Boss 的平均胜率排除携带本关新奖励件的候选，避免把下一档装备当作本档标尺。
+      const peers = scored.filter(peer => peer !== item && (!reward || !hasReward(peer))).slice(0, config.evaluation.anchorCount);
+      const stablePeers = peers.length ? peers : scored.filter(peer => peer !== item).slice(0, config.evaluation.anchorCount);
+      const rows = stablePeers.map((peer, i) => duel(SA, item.vehicle, peer.vehicle, spec, seed + i * 41, 1));
+      const reverseRows = stablePeers.map((peer, i) => duel(SA, peer.vehicle, item.vehicle, spec, seed + 5001 + i * 41, 1));
+      own.bossAverageWinRate = rows.length ? rows.reduce((sum, row) => sum + row.winRate, 0) / rows.length : 0.5;
+      own.bossReverseWinRate = reverseRows.length ? reverseRows.reduce((sum, row) => sum + row.winRate, 0) / reverseRows.length : 0.5;
+      own.target = spec.target.bossWinRate;
+      own.targetPass = own.bossAverageWinRate >= 0.5 && own.bossReverseWinRate <= 0.5 && own.bossGenericPass;
+      if (previousBoss) {
+        own.previousBossWinRate = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 997, 2).winRate;
+        own.previousBossPass = own.previousBossWinRate < 0.3;
+      } else { own.previousBossWinRate = null; own.previousBossPass = true; }
+    } else if (previousBoss && spec.chapterHasBoss) {
+      const bossRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 997, 2).winRate;
+      own.bossWinRate = bossRate;
+      own.target = [0.6, 0.8];
+      own.targetPass = bossRate >= 0.6 && bossRate <= 0.8;
+      if (reward) {
+        own.rewardWinRateAgainstPreviousBoss = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 1997, 3).winRate;
+        own.rewardLowerBoundPass = own.rewardWinRateAgainstPreviousBoss >= 0.6;
+        own.previousBossWinRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 2997, 3).winRate;
+        own.rewardCrushGuardPass = own.previousBossWinRate >= 0.15;
+        own.rewardUsage = usageAgainst(SA, item.vehicle, previousBoss.vehicle, spec, seed + 3997, 2, reward);
+        own.rewardEffectPass = Object.values(own.rewardUsage.module || {}).some(value => value >= config.reward.effectMin);
+        const control = replacementFor(SA, item.vehicle, reward, spec);
+        own.rewardControl = control ? duel(SA, control, previousBoss.vehicle, spec, seed + 4997, 3).winRate : null;
+        own.rewardContrastPass = own.rewardControl == null ? null : own.rewardWinRateAgainstPreviousBoss - own.rewardControl >= config.reward.controlDelta;
+      }
+    }
+    return own;
+  };
+  const scoredEvidence = candidates.map(item => ({ item, evidence: evidence(item) }));
+  const rank = x => {
+    const e = x.evidence;
+    const target = spec.boss ? 0.55 : 0.7;
+    const rate = spec.boss ? (e.bossAverageWinRate ?? 0.5) : (e.bossWinRate ?? 0.7);
+    const pass = (e.targetPass ? 1000 : 0) + (e.targetPass === false ? -800 : 0) + (e.terrainPass === false ? -900 : 0)
+      + (usedStyles.has(e.style) ? -120 : 0) + (e.previousBossPass === false ? -1000 : 0)
+      + (e.rewardLowerBoundPass === false ? -1000 : 0) + (e.rewardCrushGuardPass === false ? -1000 : 0)
+      + (e.rewardEffectPass === false ? -700 : 0) + (e.rewardContrastPass === false ? -700 : 0);
+    return pass - Math.abs(rate - target) * 100 + e.performance + e.strength / 100;
+  };
+  scoredEvidence.sort((a, b) => rank(b) - rank(a));
+  const selected = scoredEvidence[0] || null;
+  return { selected: selected?.item || null, evidence: selected?.evidence || null, candidateCount: candidates.length, fingerprint };
 }
 
 function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames) {
   const population = [];
   const wanted = Math.max(4, config.population.size);
   while (population.length < wanted) {
-    const forced = spec.rewardModule && rng.chance(0.25) ? spec.rewardModule : null;
+    // 奖励关至少半数初始种群强制携带奖励件，避免进化淘汰后报告只能挑一台“不带奖励”的普通车。
+    const rewardSeed = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25));
+    const forced = rewardSeed ? spec.rewardModule : null;
     const v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
     if (v) population.push(v);
     else {
-      const fallback = minimalVehicle(SA, spec, forced);
+      // 某些奖励件（例如 2×2 重型装甲）在狭小地图上并非每个随机种子都能直接摆下。
+      // 这里仍要求兜底车辆携带奖励件，只增加有限的确定性重试，避免偶然布局失败中断整章生成。
+      let fallback = minimalVehicle(SA, spec, forced);
+      if (!fallback && forced) {
+        for (let retry = 0; retry < 24 && !fallback; retry++) {
+          const retryRng = new RNG(rng.int(0x7fffffff) + retry + 1);
+          fallback = randomVehicle(SA, spec, retryRng, forced);
+        }
+      }
       if (fallback) population.push(fallback);
       else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有可用的最小合法车辆`);
     }
@@ -485,8 +664,9 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
   let current = population;
   for (let generation = 0; generation < config.population.generations; generation++) {
     const scored = current.map((vehicle, index) => {
-      const result = evaluateCandidate(SA, vehicle, opponents, spec, rng.int(0x7fffffff) + index, quickGames);
-      return { vehicle, ...result };
+      const evalSeed = rng.int(0x7fffffff) + index;
+      const result = evaluateCandidate(SA, vehicle, opponents, spec, evalSeed, quickGames);
+      return { vehicle, evaluationSeed: evalSeed, ...result };
     }).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
     if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
@@ -512,24 +692,69 @@ function run(options = {}) {
   const chapters = Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length);
   const quickGames = options.games || config.evaluation.quickGames;
   const rng = new RNG(options.seed || 20260925);
-  const all = [], chapterReports = [];
+  const all = [], chapterReports = [], selectionFailures = [];
   let previous = [];
+  // 序章没有上一档 Boss，用开局车作为第一组标尺。
+  let previousBoss = { vehicle: SA.V.fromAscii('序章开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) };
   for (let chapter = 0; chapter < chapters; chapter++) {
-    const stages = [];
+    const pendingStages = [];
+    const priorBoss = previousBoss;
+    let chapterBoss = null;
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
       const spec = stageSpec(SA, chapter, stage);
       const opponents = campaignOpponents(SA, chapter, stage);
       const result = generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames);
       const top = result.scored.slice(0, Math.min(8, result.scored.length));
       const records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
-      const selectedIndex = Math.max(0, top.findIndex(item => !spec.rewardModule || (counts(SA, item.vehicle)[spec.rewardModule] || 0) > 0));
-      stages.push({ spec, count: result.scored.length, selected: records[selectedIndex] || null, top: records, archive: { buckets: Object.keys(result.archive.buckets).length, toxic: result.archive.toxic.length, odd: result.archive.odd.length } });
+      const archiveBucketCount = Object.keys(result.archive.buckets).length;
+      pendingStages.push({ spec, scored: top, records, count: result.scored.length, archive: {
+        buckets: archiveBucketCount,
+        coveredRatio: archiveBucketCount / Math.max(1, result.scored.length),
+        toxic: result.archive.toxic.length,
+        odd: result.archive.odd.length,
+        toxicCodes: result.archive.toxic.map(item => SA.V.encode(item.vehicle)),
+        oddCodes: result.archive.odd.map(item => SA.V.encode(item.vehicle)),
+      } });
       all.push(...records);
       previous = top.map(x => x.vehicle);
     }
+    // 先按 Boss 的硬条件选出同章标尺，再让普通关引用这台车；
+    // 不能直接取强度第一名，否则奖励、反向胜率和 Boss 目标没有参与选关。
+    const bossEntry = pendingStages.find(entry => entry.spec.boss && entry.scored.length);
+    if (bossEntry) {
+      const bossSelection = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + bossEntry.spec.stage * 101);
+      chapterBoss = bossSelection.selected || bossEntry.scored[0];
+    }
+    previousBoss = chapterBoss || previousBoss;
+    const usedStyles = new Set();
+    const stages = pendingStages.map((entry, stage) => {
+      const { spec, scored, records } = entry;
+      // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
+      const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
+      const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles);
+      const selectedIndex = Math.max(0, scored.indexOf(selection.selected));
+      if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
+      const hardConditions = {
+        reward: !spec.rewardModule || !!selection.evidence?.rewardPresent,
+        nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow,
+        target: selection.evidence?.targetPass !== false,
+        terrain: selection.evidence?.terrainPass !== false,
+        bossGeneric: selection.evidence?.bossGenericPass !== false,
+        previousBoss: selection.evidence?.previousBossPass !== false,
+        rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false,
+        rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false,
+        rewardEffect: selection.evidence?.rewardEffectPass !== false,
+        rewardContrast: selection.evidence?.rewardContrastPass !== false,
+      };
+      const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key);
+      if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });
+      return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
+    });
     chapterReports.push({ chapter, name: SA.CAMPAIGN[chapter].name, stages });
   }
-  return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, config, chapters: chapterReports, candidates: all };
+  const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)]));
+  if (options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
+  return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, chapters: chapterReports, selectionFailures, candidates: all };
 }
 
 function check() {
@@ -538,14 +763,26 @@ function check() {
   const a = randomVehicle(SA, spec, rng), b = randomVehicle(SA, spec, new RNG(42));
   if (!a || !b || SA.V.encode(a) !== SA.V.encode(b)) throw new Error('固定种子没有生成相同车辆');
   if (!SA.V.stats(a).canDeploy) throw new Error('固定种子车辆未通过出战检查');
+  const shareCode = SA.V.encode(a), shared = SA.V.decode(shareCode);
+  if (!shared || SA.V.encode(shared) !== shareCode) throw new Error('分享码往返失败');
+  const legacyBody = Array.from({ length: 6 }, () => Array(8).fill(null));
+  legacyBody[5][3] = { id: 'track', mt: 1, hp: 200 };
+  legacyBody[4][3] = { id: 'helmet', mt: 1, hp: 90 };
+  const migrated = SA.V.migrate({ name: '旧存档夹具', body: legacyBody, side: [] });
+  if (!migrated || migrated.body.length !== SA.K.ROWS || !migrated.body[10][6]) throw new Error('旧版大格存档迁移失败');
   const duelA = SA.Battle.simulate({ p: a, e: b, terrain: 'flat', pStyle: 'wander', eStyle: 'wander', seed: 1234 });
   const duelB = SA.Battle.simulate({ p: a, e: b, terrain: 'flat', pStyle: 'wander', eStyle: 'wander', seed: 1234 });
   if (JSON.stringify(duelA) !== JSON.stringify(duelB)) throw new Error('同一种子对局结果不一致');
+  const weakStrength = strengthFromRows([{ winRate: 0.25, n: 40 }]).strength;
+  const strongStrength = strengthFromRows([{ winRate: 0.75, n: 40 }]).strength;
+  if (!(strongStrength > weakStrength)) throw new Error('强度分没有保持胜率排序');
   let legalMutations = 0;
-  for (let i = 0; i < 12; i++) {
-    const mutated = mutate(SA, a, spec, new RNG(100 + i));
+  const mutationOps = [];
+  for (let i = 0; i < 40; i++) {
+    const mutated = mutate(SA, a, spec, new RNG(100 + i), mutationOps);
     if (mutated && SA.V.stats(mutated).canDeploy) legalMutations++;
   }
+  if (new Set(mutationOps).size < 5) throw new Error(`变异操作覆盖不足：${JSON.stringify(mutationOps)}`);
   const stages = [];
   let previousVehicle = SA.V.fromAscii('起始车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
@@ -558,7 +795,7 @@ function check() {
       previousVehicle = v;
     }
   }
-  return { fingerprint: fp, vehicle: SA.V.stats(a), legalMutations, result: duelA, campaign: { stages: stages.length, finite: true } };
+  return { fingerprint: fp, vehicle: SA.V.stats(a), legalMutations, mutationOps: [...new Set(mutationOps)].sort((x, y) => x - y), share: { roundTrip: true, legacyMigrated: true }, result: duelA, campaign: { stages: stages.length, finite: true } };
 }
 
 // 进化评估的并行入口。普通生成默认走同步路径，调试和大批量运行可以把单局
@@ -599,7 +836,34 @@ async function parallelCheck() {
   return { workers: 2, jobs: results.length, winners: results.map(result => result.winner), rules: ruleFingerprint(SA) };
 }
 
-// P2 的系统健康快检：只产生报告，不自动修改任何战斗常数。正式参数搜索和数值调整仍需用户批准。
+function healthRows(SA, a, b, spec, seed, games) {
+  const rows = [];
+  for (let i = 0; i < games; i++) {
+    const first = SA.Battle.simulate({ p: a, e: b, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: spec.eStyle || 'wander', terrain: spec.terrain || 'flat', seed: seed + i * 2 });
+    const second = invertResult(SA.Battle.simulate({ p: b, e: a, pAim: 0.8, eAim: 0.8, pStyle: spec.eStyle || 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain || 'flat', seed: seed + i * 2 + 1 }));
+    rows.push(first, second);
+  }
+  return rows;
+}
+
+function outcomeSummary(SA, rows) {
+  const summary = { games: rows.length, draw: 0, heat: 0, timeout: 0, avgTime: 0, performances: [] };
+  for (const row of rows) {
+    if (row.winner === 'draw') summary.draw++;
+    if (/烧干|锅炉/.test(row.reason || '')) summary.heat++;
+    if (row.timeout || row.reason === '超时' || (row.t >= SA.K.BATTLE_TIME && row.winner === 'draw')) summary.timeout++;
+    summary.avgTime += row.t || 0;
+    summary.performances.push(performanceScore(row, 'p', config.performance));
+  }
+  summary.avgTime /= Math.max(1, rows.length);
+  summary.drawRate = summary.draw / Math.max(1, rows.length);
+  summary.heatRate = summary.heat / Math.max(1, rows.length);
+  summary.timeoutRate = summary.timeout / Math.max(1, rows.length);
+  summary.performance = { min: summary.performances.length ? Math.min(...summary.performances) : 0, max: summary.performances.length ? Math.max(...summary.performances) : 0, average: summary.performances.reduce((a, b) => a + b, 0) / Math.max(1, summary.performances.length) };
+  return summary;
+}
+
+// P2 的系统健康测试：只产生报告，不自动修改任何战斗常数。正式参数搜索和数值调整仍需用户批准。
 function healthCheck(games = 4) {
   const { SA } = loadGame();
   const anchors = [
@@ -607,16 +871,14 @@ function healthCheck(games = 4) {
     SA.V.fromAscii('第一章 Boss', SA.CAMPAIGN[1].stages[2].rows, SA.CAMPAIGN[1].stages[2].sides || [], 1, SA.CAMPAIGN[1].stages[2].elite || [], SA.CAMPAIGN[1].stages[2].subs || []),
     SA.V.fromAscii('第三章 Boss', SA.CAMPAIGN[3].stages[2].rows, SA.CAMPAIGN[3].stages[2].sides || [], 3, SA.CAMPAIGN[3].stages[2].elite || [], SA.CAMPAIGN[3].stages[2].subs || []),
   ];
-  const outcomes = { games: 0, draw: 0, heat: 0, timeout: 0, avgTime: 0 };
+  const allRows = [];
   const pairs = [];
   for (let i = 0; i < anchors.length - 1; i++) {
-    const row = duel(SA, anchors[i], anchors[i + 1], { terrain: 'flat', style: 'wander' }, 9000 + i * 100, games);
-    pairs.push({ a: anchors[i].name, b: anchors[i + 1].name, winRate: row.winRate, drawRate: row.draws / row.n, time: row.time });
-    outcomes.games += row.n; outcomes.draw += row.draws; outcomes.avgTime += row.time * row.n;
+    const rows = healthRows(SA, anchors[i], anchors[i + 1], { terrain: 'flat', style: 'wander' }, 9000 + i * 100, games);
+    allRows.push(...rows);
+    const summary = outcomeSummary(SA, rows);
+    pairs.push({ a: anchors[i].name, b: anchors[i + 1].name, winRate: rows.filter(row => row.winner === 'p').length / Math.max(1, rows.length), drawRate: summary.drawRate, time: summary.avgTime, heatRate: summary.heatRate, timeoutRate: summary.timeoutRate, performance: summary.performance });
   }
-  const reasonRows = pairs.map(row => ({ ...row, heatOrTimeout: row.time >= SA.K.BATTLE_TIME }));
-  for (const row of reasonRows) { if (row.heatOrTimeout) outcomes.timeout++; }
-  outcomes.avgTime /= Math.max(1, outcomes.games);
   const normal = anchors[1], water = [];
   normal.lim = { cols: 8, rows: 6 };
   for (let count = 0; count <= 4; count++) {
@@ -625,50 +887,130 @@ function healthCheck(games = 4) {
     const row = duel(SA, v, anchors[2], { terrain: 'flat', style: 'wander' }, 12000 + count, Math.max(2, Math.floor(games / 2)));
     water.push({ tanks: count, winRate: row.winRate, time: row.time, rating: SA.V.stats(v).rating });
   }
-  return { rules: ruleFingerprint(SA), games, outcomes: { ...outcomes, drawRate: outcomes.draw / Math.max(1, outcomes.games), timeoutRate: outcomes.timeout / Math.max(1, pairs.length) }, pairs, water, note: '本报告只定位热死、超时、平局和水箱边际；不自动提交数值修改。' };
+  const turtle = SA.V.clone(normal); turtle.name = '龟缩水车';
+  for (let i = 0; i < 4; i++) tryPlace(SA, turtle, 'tank_s', 1, new RNG(1400 + i));
+  const kite = SA.V.clone(normal); kite.name = '风筝水车';
+  for (let i = 0; i < 4; i++) tryPlace(SA, kite, 'tank_s', 1, new RNG(1500 + i));
+  const drag = { turtle: duel(SA, turtle, anchors[2], { terrain: 'flat', style: 'turtle' }, 16000, games), kite: duel(SA, kite, anchors[2], { terrain: 'flat', style: 'kite' }, 17000, games) };
+  const heatSpec = stageSpec(SA, 3, 0), heatModule = heatSpec.availableMods.includes('flamer') ? 'flamer' : 'steamjet';
+  let heatVehicle = null;
+  for (let i = 0; i < 80 && !heatVehicle; i++) heatVehicle = randomVehicle(SA, heatSpec, new RNG(18001 + i * 31), heatModule) || minimalVehicle(SA, heatSpec, heatModule);
+  const heatRows = heatVehicle ? healthRows(SA, heatVehicle, normal, { terrain: 'flat', style: 'rush' }, 18000, games) : [];
+  const earlyHeatWins = heatRows.filter(row => row.winner === 'p' && row.t < 25 && /烧干|锅炉/.test(row.reason || '')).length;
+  const parameterSearch = [];
+  const original = { BATTLE_TIME: SA.K.BATTLE_TIME, KNOCK_MAX: SA.K.KNOCK_MAX };
+  try {
+    for (const key of Object.keys(original)) for (const factor of [0.9, 1, 1.1]) {
+      SA.K[key] = Math.max(1, Math.round(original[key] * factor));
+      const rows = healthRows(SA, anchors[1], anchors[2], { terrain: 'flat', style: 'wander' }, 19000 + parameterSearch.length * 20, Math.max(1, Math.min(2, games)));
+      const summary = outcomeSummary(SA, rows);
+      const distance = Math.abs(summary.avgTime - 45) + summary.heatRate * 50 + summary.timeoutRate * 50 + summary.drawRate * 30;
+      parameterSearch.push({ key, factor, summary, distance });
+    }
+  } finally { Object.assign(SA.K, original); }
+  const summary = outcomeSummary(SA, allRows);
+  return { rules: ruleFingerprint(SA), games, outcomes: summary, pairs, water, drag: { turtle: { winRate: drag.turtle.winRate, time: drag.turtle.time }, kite: { winRate: drag.kite.winRate, time: drag.kite.time } }, heat: { available: !!heatVehicle, earlyHeatWins, games: heatRows.length }, parameterSearch, note: '本报告只定位热死、超时、平局、水箱边际、拖延收益和升温护栏；参数搜索只给出敏感度，不自动提交数值修改。' };
+}
+
+// P7 稳健性检查：只在临时 SA.K 上施加 ±10% 扰动，结束后完整恢复原值。
+// 这不是调参入口，而是确认候选不会只在单一战斗常数下成立。
+function robustness(SA, vehicle, opponents, spec, seed, games = 1) {
+  const keys = ['BATTLE_TIME', 'KNOCK_MAX', 'FOCUS_KICK', 'FOCUS_KICK_FAST'];
+  const original = Object.fromEntries(keys.map(key => [key, SA.K[key]]));
+  const rows = [];
+  try {
+    for (const key of keys) for (const factor of [0.9, 1, 1.1]) {
+      Object.assign(SA.K, original);
+      SA.K[key] = Math.max(0.01, original[key] * factor);
+      const result = evaluateCandidate(SA, vehicle, opponents, spec, seed + keys.indexOf(key) * 1000 + Math.round(factor * 100), games);
+      rows.push({ key, factor, value: SA.K[key], legal: !result.stats.blocked?.length && !!result.stats.canDeploy, strength: result.strength, performance: result.performance, terrainDelta: result.terrainDelta });
+    }
+  } finally {
+    for (const key of keys) SA.K[key] = original[key];
+  }
+  return rows;
 }
 
 // 规则指纹变化后只重评估旧候选，不重新进化。输入是 --sample 生成的报告，
 // 输出每台车的强度、表现、合法性和偏移，供任务 F 的自动检查消费。
-function impact(file, games = 4) {
+function impact(file, games = 4, perturb = null) {
   const baseline = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
   const { SA } = loadGame();
+  if (perturb && SA.K[perturb.key] != null) SA.K[perturb.key] = Math.max(1, Number(SA.K[perturb.key]) * Number(perturb.factor || 1));
   const currentRules = ruleFingerprint(SA), rows = [], threshold = { strength: 75, performance: 10 };
   for (const record of baseline.candidates || []) {
     const chapter = record.spec?.chapter, stage = record.spec?.stage;
     const spec = Number.isInteger(chapter) && Number.isInteger(stage) ? stageSpec(SA, chapter, stage) : null;
-    let vehicle = null, legal = false, current = null;
+    let vehicle = null, legal = false, current = null, robust = null;
     try {
       vehicle = SA.V.decode(record.code);
       const stats = vehicle && SA.V.stats(vehicle);
       legal = !!(stats && stats.canDeploy);
-      if (legal && spec) current = evaluateCandidate(SA, vehicle, campaignOpponents(SA, chapter, stage), spec, 610000 + chapter * 1000 + stage, games);
+      const stableSeed = record.evaluationSeed == null ? parseInt(crypto.createHash('sha256').update(String(record.code || record.name)).digest('hex').slice(0, 8), 16) : record.evaluationSeed;
+      if (legal && spec) {
+        const opponents = campaignOpponents(SA, chapter, stage);
+        current = evaluateCandidate(SA, vehicle, opponents, spec, stableSeed, games);
+        robust = robustness(SA, vehicle, opponents, spec, stableSeed + 500000, 1);
+      }
     } catch (error) {
       rows.push({ name: record.name, chapter, stage, legal: false, error: String(error.message || error) });
       continue;
     }
     const delta = current ? { strength: current.strength - (record.strength || 1000), performance: current.performance - (record.performance || 0) } : null;
-    rows.push({ name: record.name, chapter, stage, legal, before: { strength: record.strength, performance: record.performance }, after: current && { strength: current.strength, strengthCi: current.strengthCi, performance: current.performance, terrainDelta: current.terrainDelta }, delta, flagged: !legal || !!(delta && (Math.abs(delta.strength) >= threshold.strength || Math.abs(delta.performance) >= threshold.performance)) });
+    rows.push({ name: record.name, chapter, stage, legal, comparable: record.evaluationSeed != null, before: { strength: record.strength, performance: record.performance }, after: current && { strength: current.strength, strengthCi: current.strengthCi, performance: current.performance, terrainDelta: current.terrainDelta }, robustness: robust, delta, flagged: !legal || !!(delta && (Math.abs(delta.strength) >= threshold.strength || Math.abs(delta.performance) >= threshold.performance)) });
   }
   const flagged = rows.filter(row => row.flagged);
   const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, 1)]));
-  return { baselineRules: baseline.rules, currentRules, changed: baseline.rules !== currentRules, threshold, candidates: rows, flagged: flagged.length, moduleValues, note: '本报告只重评估旧候选，不自动改动规则、关卡或数值。' };
+  const beforeValues = baseline.moduleValues || {};
+  const moduleValueDelta = Object.fromEntries(Object.keys(moduleValues).map(id => [id, moduleValues[id] - Number(beforeValues[id] || moduleValues[id])]));
+  return { baselineRules: baseline.rules, currentRules, changed: baseline.rules !== currentRules, perturb, threshold, candidates: rows, flagged: flagged.length, moduleValues: { before: beforeValues, after: moduleValues, delta: moduleValueDelta }, note: '本报告只重评估旧候选，不自动改动规则、关卡或数值。' };
+}
+
+// P7 固定夹具：故意缩短战斗时限，验证影响报告能识别规则指纹变化并标出候选偏移。
+function impactCheck() {
+  const { SA } = loadGame();
+  const spec = stageSpec(SA, 0, 0), vehicle = minimalVehicle(SA, spec);
+  if (!vehicle) throw new Error('P7 夹具无法生成合法车辆');
+  const seed = 62026, result = evaluateCandidate(SA, vehicle, campaignOpponents(SA, 0, 0), spec, seed, 2);
+  const item = { vehicle, evaluationSeed: seed, ...result };
+  const baseline = { rules: ruleFingerprint(SA), moduleValues: Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, 1)])), candidates: [candidateRecord(SA, item, spec, ruleFingerprint(SA))] };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'steam-evolve-impact-')), file = path.join(dir, 'evolve-fixture.json');
+  try {
+    fs.writeFileSync(file, JSON.stringify(baseline), 'utf8');
+    const report = impact(file, 2, { key: 'BATTLE_TIME', factor: 0.5 });
+    if (!report.changed || !report.candidates.length || !report.candidates[0].robustness?.length) throw new Error('P7 影响报告没有识别规则变化或稳健性行');
+    if (!report.candidates.some(row => row.flagged)) throw new Error('P7 影响报告没有标出受影响候选');
+    return { changed: report.changed, flagged: report.flagged, perturb: report.perturb, rules: { before: report.baselineRules, after: report.currentRules } };
+  } finally {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* 临时目录清理失败不影响报告 */ }
+  }
 }
 
 async function main(argv) {
   const mode = argv[0] || '--check';
   if (mode === '--check') { console.log(JSON.stringify(check(), null, 2)); return; }
   if (mode === '--parallel-check') { console.log(JSON.stringify(await parallelCheck(), null, 2)); return; }
+  if (mode === '--impact-check') { console.log(JSON.stringify(impactCheck(), null, 2)); return; }
   if (mode === '--health') { console.log(JSON.stringify(healthCheck(Number(argv[1]) || 4), null, 2)); return; }
-  if (mode === '--impact') { if (!argv[1]) throw new Error('--impact 需要一个旧报告 JSON 路径'); console.log(JSON.stringify(impact(argv[1], Number(argv[2]) || 4), null, 2)); return; }
-  if (mode !== '--sample') throw new Error(`未知参数：${mode}`);
-  const report = run({ chapters: Number(argv[1]) || 1, games: Number(argv[2]) || 2 });
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const file = path.join(OUT_DIR, `evolve-${Date.now()}.json`);
-  fs.writeFileSync(file, JSON.stringify(report, null, 2));
-  console.log(JSON.stringify({ file: path.relative(ROOT, file), rules: report.rules, candidates: report.candidates.length, chapters: report.chapters.length }, null, 2));
+  if (mode === '--impact') {
+    if (!argv[1]) throw new Error('--impact 需要一个旧报告 JSON 路径');
+    const perturb = argv[3] === '--perturb' ? { key: argv[4], factor: Number(argv[5]) } : null;
+    console.log(JSON.stringify(impact(argv[1], Number(argv[2]) || 4, perturb), null, 2)); return;
+  }
+  if (mode === '--export-candidates') {
+    if (!argv[1]) throw new Error('--export-candidates 需要一个旧报告 JSON 路径');
+    const report = JSON.parse(fs.readFileSync(path.resolve(argv[1]), 'utf8'));
+    console.log(JSON.stringify(storage.writeCandidates(report, argv[2] || storage.DEFAULT_CANDIDATES), null, 2));
+    return;
+  }
+  if (mode !== '--sample' && mode !== '--generate') throw new Error(`未知参数：${mode}`);
+  const formal = mode === '--generate';
+  const report = run({ chapters: Number(argv[1]) || (formal ? undefined : 1), games: Number(argv[2]) || (formal ? config.evaluation.archiveGames : 2), strict: formal });
+  const saved = storage.writeReport(report, OUT_DIR);
+  const candidates = storage.writeCandidates(report);
+  console.log(JSON.stringify({ file: path.relative(ROOT, saved.file), rules: report.rules, candidates: report.candidates.length, chapters: report.chapters.length, selectionFailures: report.selectionFailures, candidateFile: path.relative(ROOT, candidates.file), reportBytes: saved.bytes }, null, 2));
 }
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageSpec, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, run, runParallel, parallelCheck, healthCheck, impact, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageSpec, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };
