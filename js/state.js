@@ -77,9 +77,9 @@ SA.S = (() => {
   }
 
   function repairCost(cell) {
-    // 修满只要原价的 1/20，按损伤比例计；报废的也按修满算
+    // 修满 = 模块总价值（含材料和改装）× 该模块的修理费比例（SA.repairRate），按损伤比例计；报废的也按修满算
     const lost = 1 - Math.max(0, cell.hp) / SA.V.maxHp(cell);
-    return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * SA.cellValue(cell) / 20));
+    return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * SA.cellValue(cell) * SA.repairRate(cell.id)));
   }
 
   // 终局锦标赛（通关战役后开放）：第 1 赛季对手是镀镍，之后每季升一级材料，封顶以太合金后再加耐久

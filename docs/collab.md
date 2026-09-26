@@ -164,7 +164,7 @@ git push origin main
 | 2026-09-25 | 用户 → astra | 按 §5 修订并执行 `docs/codex-task-systems.md`（辅助设备改成"删除旧系统"） | 待做 |
 | 2026-09-25 | 用户 → astra | 真双足的数据和规则（`docs/true-biped.md` §8） | 待做 |
 | 2026-09-25 | astra → Opus | 真双足规则落地后：胯和一对腿的画面接入、平衡指示（铅垂线、支撑区、水平仪） | 等 astra |
-| 2026-09-26 | 用户 → astra | `docs/campaign-direction.md` §9 的 K1～K9 | 待做 |
+| 2026-09-26 | 用户 → astra | `docs/campaign-direction.md` §9 的 K1～K9 | K1～K3 完成（逻辑 `c302974`，数据由 Claude 补齐推送；穿深和修理费比例为暂定值，等 P2 校准）；K4～K9 待做 |
 | 2026-09-26 | 用户 → Opus | `docs/campaign-direction.md` §10 的 W1～W6（W1～W5 等 astra 对应项） | 待做 |
 | 2026-09-25 | 用户 → Opus | 战后一键评价按钮（好玩 / 无聊 / 不公平），数据由 astra 记录（`docs/evolve-plan.md` §11） | 等 astra P8 |
 

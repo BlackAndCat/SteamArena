@@ -33,7 +33,8 @@ SA.K = {
   // 重量：每个模块 = 基础重量 + 自身重量（kg）；底盘按承重（kg）限制总重
   WEIGHT_BASE: 250,   // 一个 2×2 模块的基础重量；小模块按面积折算
   DRIVE_PER_T: 0.3,   // 每吨车重需要的行驶动力：动力需求 = 设备耗能 + 车重 × 该系数
-  RAM_SELF: 0.3,      // 撞击时自己的撞击面承受的反作用伤害（占造成伤害的比例）
+  RAM_SELF: 0.5,      // 反震：撞击时自己的撞击面承受的反作用伤害（占造成伤害的比例）
+  RAM_TETHER_SELF: 0.25, // 被鱼叉拉过来的撞击反震减半（docs/campaign-direction.md §2）
   // 模块改装（炮盾 / 附加装甲）：纯属性升级，最多 3 级
   UP_MAX: 3,
   UP_KG: 120,         // 每级增加的重量 kg
@@ -321,6 +322,35 @@ SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'cannon_s', 'cannon_heavy', 'cannon_giant', 'pressure_tank', 'pressure_chamber', 'cockpit_pair',
   'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer',
   'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'steamjet', 'periscope', 'autoloader', 'rangefinder', 'gyroscope'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+
+// 穿深（K1，docs/campaign-direction.md §3）：炮弹打到有护甲的模块时和装甲厚度（护甲值，随材料放大）比较，
+// 穿深不够就有概率弹开（battle.js 的 projectileDamage）。穿深不随材料放大，所以越往后装甲越难打穿。
+// ricochet：额外的弹开概率（侧炮定位是补强而不是主力）。喷射类武器不会弹开。数值暂定，等系统健康测试校准
+const PENETRATION = {
+  mg: 3, mg2: 3, cannon_s: 3.5, cannon_m: 5, cannon: 7, cannon_heavy: 11, cannon_giant: 16,
+  mortar: 6, mortar_s: 4, side_cannon: [3, 0.1], rocket_rack: 4, harpoon: 4, flamer: 99, steamjet: 99,
+};
+for (const id in PENETRATION) {
+  const [pen, extra] = [].concat(PENETRATION[id]);
+  SA.MODULES[id].penetration = pen;
+  if (extra) SA.MODULES[id].ricochet = extra;
+}
+// 修理费比例（K3，docs/campaign-direction.md §5）：修满一件的费用 = 模块总价值 × 比例，按损伤比例计。
+// 越复杂精密越贵：甲片、装甲便宜，水箱低，铲斗 1/8、蒸汽撞锤 1/5（用户给定），驾驶舱、锅炉昂贵；其余暂定
+const REPAIR_RATE = {
+  plate: 0.03, armor: 0.03, armor_heavy: 0.04,
+  water: 0.04, tank_s: 0.04, tank_tall: 0.04, radiator: 0.05, condenser: 0.08,
+  track: 0.06, quad: 0.1, biped: 0.12,
+  helmet: 0.15, cockpit_pair: 0.15, cockpit: 0.15, copilot: 0.15,
+  boiler: 0.15, pressure_chamber: 0.12, pressure_tank: 0.12,
+  periscope: 0.1, autoloader: 0.1, rangefinder: 0.1, gyroscope: 0.1,
+  mg: 0.08, mg2: 0.1, cannon_s: 0.06, cannon_m: 0.08, cannon: 0.1, cannon_heavy: 0.12, cannon_giant: 0.15,
+  mortar: 0.1, mortar_s: 0.08, side_cannon: 0.1, rocket_rack: 0.12, harpoon: 0.1, flamer: 0.12, steamjet: 0.12,
+  bucket: 1 / 8, spike: 0.1, piston: 1 / 5,
+  boss_core: 0.2, boss_lens: 0.15, boss_ram: 0.2,
+};
+for (const id in REPAIR_RATE) SA.MODULES[id].repairRate = REPAIR_RATE[id];
+SA.repairRate = (id) => SA.MODULES[id].repairRate || 0.05;
 
 
 SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
