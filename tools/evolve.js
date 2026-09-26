@@ -531,10 +531,18 @@ function exportPatch(SA, v, spec, boundStyle = null) {
   return { rows: rows.map(row => row.join('')), subs, sides, mt: spec.mat, elite, style: boundStyle || styleFor(SA, v), terrain: spec.terrain };
 }
 
+// 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级]：分享码只记布局、不记材料和改装，
+// 报告页按种子复现和试驾都要用原样的车（tools/evolve-report.js）
+function cellsOf(SA, v) {
+  const out = [];
+  SA.V.each(v, (cell, r, c, layer) => out.push([layer === 'side' ? 1 : 0, r, c, cell.id, cell.mt || 1, cell.lv || 0]));
+  return out;
+}
+
 function candidateRecord(SA, item, spec, fingerprint) {
   const moduleValues = {};
   for (const [id, count] of Object.entries(counts(SA, item.vehicle))) moduleValues[id] = count * cellValue(SA, id, spec.mat);
-  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
+  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
 }
 
 // 奖励件生效门槛使用同一批种子做两种朝向，避免只记录“候选当玩家”造成偏差。
@@ -714,6 +722,8 @@ function run(options = {}) {
         odd: result.archive.odd.length,
         toxicCodes: result.archive.toxic.map(item => SA.V.encode(item.vehicle)),
         oddCodes: result.archive.odd.map(item => SA.V.encode(item.vehicle)),
+        toxicCells: result.archive.toxic.map(item => cellsOf(SA, item.vehicle)),
+        oddCells: result.archive.odd.map(item => cellsOf(SA, item.vehicle)),
       } });
       all.push(...records);
       previous = top.map(x => x.vehicle);
@@ -943,7 +953,8 @@ function impact(file, games = 4, perturb = null) {
     const spec = Number.isInteger(chapter) && Number.isInteger(stage) ? stageSpec(SA, chapter, stage) : null;
     let vehicle = null, legal = false, current = null, robust = null;
     try {
-      vehicle = SA.V.decode(record.code);
+      // 有完整模块清单就用它（带材料和改装）；只有分享码的老记录才退回解码
+      vehicle = Array.isArray(record.cells) ? SA.V.fromCells(record.name || '候选车', record.cells) : SA.V.decode(record.code);
       const stats = vehicle && SA.V.stats(vehicle);
       legal = !!(stats && stats.canDeploy);
       const stableSeed = record.evaluationSeed == null ? parseInt(crypto.createHash('sha256').update(String(record.code || record.name)).digest('hex').slice(0, 8), 16) : record.evaluationSeed;
@@ -966,7 +977,7 @@ function impact(file, games = 4, perturb = null) {
   return { baselineRules: baseline.rules, currentRules, changed: baseline.rules !== currentRules, perturb, threshold, candidates: rows, flagged: flagged.length, moduleValues: { before: beforeValues, after: moduleValues, delta: moduleValueDelta }, note: '本报告只重评估旧候选，不自动改动规则、关卡或数值。' };
 }
 
-// P7 固定夹具：故意缩短战斗时限，验证影响报告能识别规则指纹变化并标出候选偏移。
+// P7 固定夹具：故意把战斗时限缩到 1/10，验证影响报告能识别规则指纹变化并标出候选偏移（缩到一半时多数对局 50 秒内就结束，结果不变，测不出来）。
 function impactCheck() {
   const { SA } = loadGame();
   const spec = stageSpec(SA, 0, 0), vehicle = minimalVehicle(SA, spec);
@@ -977,7 +988,7 @@ function impactCheck() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'steam-evolve-impact-')), file = path.join(dir, 'evolve-fixture.json');
   try {
     fs.writeFileSync(file, JSON.stringify(baseline), 'utf8');
-    const report = impact(file, 2, { key: 'BATTLE_TIME', factor: 0.5 });
+    const report = impact(file, 2, { key: 'BATTLE_TIME', factor: 0.1 });   // 战斗只剩 10 秒：几乎所有对局都会超时，必然偏移
     if (!report.changed || !report.candidates.length || !report.candidates[0].robustness?.length) throw new Error('P7 影响报告没有识别规则变化或稳健性行');
     if (!report.candidates.some(row => row.flagged)) throw new Error('P7 影响报告没有标出受影响候选');
     return { changed: report.changed, flagged: report.flagged, perturb: report.perturb, rules: { before: report.baselineRules, after: report.currentRules } };

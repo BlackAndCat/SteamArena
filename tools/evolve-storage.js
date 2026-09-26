@@ -112,6 +112,7 @@ function writeReport(report, destination = DEFAULT_OUT) {
 function candidateRows(report) {
   return (report && Array.isArray(report.candidates) ? report.candidates : []).map(candidate => ({
     code: candidate.code,
+    cells: candidate.cells,
     tags: {
       style: candidate.style,
       chassis: candidate.chassis,

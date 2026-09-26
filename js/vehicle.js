@@ -447,6 +447,18 @@ SA.V = (() => {
         if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) v[layer][r * k][c * k] = SA.newCell(id);
     return v;
   }
+  // 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级] → 载具（进化报告用；分享码不记材料和改装）
+  function fromCells(name, cells) {
+    const v = create(name);
+    for (const [l, r, c, id, mt, lv] of cells || []) {
+      const live = SA.liveId(id);
+      if (!M[live] || !inGrid(r, c)) continue;
+      const cell = SA.newCell(live, mt || 1);
+      if (lv) { cell.lv = lv; cell.hp = maxHp(cell); }
+      v[l ? 'side' : 'body'][r][c] = cell;
+    }
+    return v;
+  }
   // 布局需要的模块数量 { id: n }
   function countIds(v) {
     const n = {};
@@ -472,14 +484,16 @@ SA.V = (() => {
       const v = create(String(d.n || '无名载具').slice(0, 20));
       // 自下而上摆放，保证规则合法；侧炮最后挂
       const list = [...(d.b || []), ...(d.s || [])].sort((a, b) => b[0] - a[0] || a[1] - b[1]);
-      const sideLast = list.filter(x => SA.MODULE_ORDER[x[2]] !== 'side_cannon').concat(list.filter(x => SA.MODULE_ORDER[x[2]] === 'side_cannon'));
-      for (const [r, c, i] of sideLast) {
-        const id = SA.MODULE_ORDER[i];
-        if (id) place(v, SA.liveId(id), r * k, c * k);
+      let pending = list.filter(x => SA.MODULE_ORDER[x[2]] !== 'side_cannon').concat(list.filter(x => SA.MODULE_ORDER[x[2]] === 'side_cannon'));
+      // 侧挂 / 悬挑的模块要等撑住它的模块摆好才合法，而那个模块可能排在后面：摆不下的留到下一轮再试，直到没有进展
+      while (pending.length) {
+        const next = pending.filter(([r, c, i]) => { const id = SA.MODULE_ORDER[i]; return id && !place(v, SA.liveId(id), r * k, c * k).ok; });
+        if (next.length === pending.length) break;
+        pending = next;
       }
       return v;
     } catch (e) { return null; }
   }
 
-  return { create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
+  return { create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
 })();
