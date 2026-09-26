@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>美术风格参考</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* 风格参考页：精灵、调色板、UI 都直接读游戏代码；提示词读 docs/art-style.md */
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header.hero { padding: 28px 0 18px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); margin-bottom: 8px; }
+  .hero h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: 6px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero .tag { margin: 10px 0 0; font-size: 16px; line-height: 1.7; max-width: 62em; }
+  .hero .kw { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .hero .kw span { font-size: 12px; padding: 2px 8px; background: var(--dark2); border: 1px solid var(--dark3); color: var(--iron4); }
+  .hero .src { margin-top: 12px; font-size: 12px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0; position: sticky; top: 0; background: var(--bg0); z-index: 5; border-bottom: 1px solid var(--dark2); }
+  nav.toc a { font-size: 13px; color: var(--iron4); text-decoration: none; padding: 3px 8px; border: 1px solid var(--dark3); }
+  nav.toc a:hover { color: var(--brass3); border-color: var(--brass1); }
+  section { padding: 26px 0 6px; }
+  h2.sec { margin: 0 0 4px; font-size: 20px; font-weight: 900; letter-spacing: 3px; color: var(--text); display: flex; align-items: baseline; gap: 10px; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 14px; color: var(--muted); line-height: 1.7; max-width: 70em; }
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .pillar { padding: 12px 14px; }
+  .pillar b { display: block; color: var(--brass3); margin-bottom: 6px; font-size: 15px; }
+  .pillar p { margin: 0; font-size: 13px; line-height: 1.65; color: var(--iron4); }
+  .pal { display: grid; gap: 8px; }
+  .pal-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; }
+  .pal-row .nm { font-size: 13px; }
+  .pal-row .nm small { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0; border: 2px solid var(--dark0); width: max-content; max-width: 100%; }
+  .chip { width: 64px; height: 40px; display: flex; align-items: flex-end; padding: 3px 4px; font: 10px/1 ui-monospace, Consolas, monospace; cursor: pointer; }
+  .ratio { display: flex; height: 22px; border: 2px solid var(--dark0); margin: 14px 0 4px; max-width: 640px; }
+  .ratio i { display: block; height: 100%; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .lbl { font-size: 12px; color: var(--muted); margin-right: 2px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .it { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12px; }
+  .it .cat { font-size: 10px; padding: 1px 6px; color: #11100e; font-weight: 700; }
+  .it canvas { background: var(--bg2); }
+  .anchors { display: flex; flex-wrap: wrap; gap: 18px; }
+  .zoom { position: relative; line-height: 0; border: 2px solid var(--dark0); }
+  .zoom.grid-on::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 1px, transparent 1px 4px), repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 4px); }
+  .anchor-cap { font-size: 12px; margin-top: 6px; color: var(--iron4); max-width: 240px; line-height: 1.5; }
+  .anchor-cap b { color: var(--text); }
+  table.mats { border-collapse: collapse; }
+  table.mats th { font-size: 12px; padding: 4px 8px; font-weight: 700; }
+  table.mats td { padding: 2px; text-align: center; vertical-align: middle; }
+  table.mats td canvas { display: inline-block; }
+  .scene { border: 3px solid var(--dark0); line-height: 0; width: max-content; max-width: 100%; overflow: hidden; }
+  .ui-demo { display: grid; grid-template-columns: 176px 1fr; gap: 16px; align-items: start; }
+  .ui-demo .col { display: grid; gap: 12px; }
+  .ui-demo .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .dodont { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .dodont ul { margin: 0; padding: 12px 14px 12px 32px; line-height: 1.8; font-size: 13px; }
+  .dodont .do { border-left: 4px solid var(--gauge2); }
+  .dodont .dont { border-left: 4px solid var(--fire1); }
+  .dodont h3 { margin: 0; padding: 10px 14px 0; font-size: 14px; }
+  .check { columns: 2 280px; font-size: 13px; line-height: 1.9; margin: 0; padding-left: 20px; }
+  .prompt { margin-bottom: 14px; }
+  .prompt .head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--dark1); border-bottom: 2px solid var(--dark0); }
+  .prompt .head b { flex: 1; font-size: 14px; color: var(--brass3); }
+  .prompt .note { margin: 0; padding: 8px 12px 0; font-size: 12px; color: var(--muted); }
+  .prompt pre { margin: 0; padding: 10px 12px 12px; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.65 ui-monospace, Consolas, "Microsoft YaHei", monospace; color: var(--text); max-height: 360px; overflow: auto; }
+  .err { color: var(--fire2); font-size: 13px; }
+  @media (max-width: 720px) {
+    .pal-row { grid-template-columns: 1fr; gap: 4px; }
+    .ui-demo, .dodont { grid-template-columns: 1fr; }
+    .chip { width: 48px; }
+    .hero h1 { font-size: 24px; letter-spacing: 3px; }
+  }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>蒸汽竞技场 · 美术风格参考</h1>
+    <p class="tag">维多利亚蒸汽朋克 × 一战铆接铁甲的侧视像素画：<b>冷灰蓝的铁做底，黄铜点缀，炉火是唯一的光</b>；棕褐雾化的圆形竞技场压在后面，Q 版小炭球坐在舷窗里开车。</p>
+    <div class="kw"><span>48px 原生 / 24px 子格</span><span>左上 45° 光</span><span>1px 材质最暗阶描边</span><span>不抗锯齿</span><span>铆钉只在边缘</span><span>剪影 → 功能色 → 细节</span><span>锁定调色板</span><span>洋红只给 UI</span></div>
+    <div class="src muted">本页的精灵、调色板和 UI 都直接读游戏代码（<code>js/palette.js</code>、<code>js/sprites.js</code>、<code>css/style.css</code>）；文字规范见 <code>docs/art-style.md</code>（速查 + 提示词）和 <code>docs/art-direction.md</code>（完整规范）。</div>
+  </header>
+  <nav class="toc">
+    <a href="#pillars">设计支柱</a><a href="#palette">调色板</a><a href="#anchors">风格锚点</a><a href="#modules">模块剪影</a><a href="#mats">材料六阶</a><a href="#scene">整车与场景</a><a href="#ui">界面</a><a href="#rules">做 / 不做</a><a href="#prompts">提示词</a>
+  </nav>
+
+  <section id="pillars">
+    <h2 class="sec">设计支柱</h2>
+    <p class="lead">统一靠材质、光源、描边、像素尺度和细节密度；辨识靠剪影和少量语义色。任何模块如果非要看细节才认得出，就算不合格。</p>
+    <div class="pillars">
+      <div class="panel pillar"><b>统一与辨识分开管</b><p>75–85% 是中性冷铁；功能信号只占 15–25%，而且那种颜色全画面只代表这一件事。</p></div>
+      <div class="panel pillar"><b>形状就是功能</b><p>伸出格子的会伤人；空洞 + 人影是驾驶舱；大面积青色是水；会发光的是锅炉；锈钢是撞击件；最暗的是底盘。</p></div>
+      <div class="panel pillar"><b>整车感</b><p>模块嵌在铆接车体框架里，四周留 3px 框架，相邻模块之间打铆钉，只描整车外轮廓。</p></div>
+      <div class="panel pillar"><b>明度三层</b><p>背景压在中低明度、降饱和；载具全明度；炉火、炮口闪光、准星独占最高明度。</p></div>
+      <div class="panel pillar"><b>一点可爱</b><p>钢铁战车里坐着毛茸茸的小炭球：大白眼、小短手，史诗级换上皮飞行帽和黄铜护目镜。</p></div>
+    </div>
+  </section>
+
+  <section id="palette">
+    <h2 class="sec">调色板 <small>SA.PAL · 点色块复制色值</small></h2>
+    <p class="lead">一套中性材质 + 语义色，一色一义。精灵只能用这些颜色；中性金属往冷灰蓝拉，暖色只留给语义。</p>
+    <div class="pal" id="pal"></div>
+    <div class="ratio" id="ratio" title="一台车上各类颜色的大致占比"></div>
+    <div class="muted" style="font-size:12px">一台车的大致像素占比：冷铁 + 暗铁 ≈ 80%，黄铜点缀，语义色（炉火 / 水 / 玻璃 / 锈）合计不超过四分之一。</div>
+  </section>
+
+  <section id="anchors">
+    <h2 class="sec">风格锚点 <small>4 倍放大 · 看光源、描边、铆钉</small></h2>
+    <p class="lead">每块面按 [描边, 暗面, 固有色, 亮面] 四阶画：上、左沿 1px 亮，下、右沿 1px 暗；描边取材质最暗阶而不是纯黑；铆钉只在边缘，每 4×4 px 最多一个细节。</p>
+    <div class="toolbar"><button class="btn small" id="gridBtn">像素网格：关</button></div>
+    <div class="anchors" id="anchors-box"></div>
+  </section>
+
+  <section id="modules">
+    <h2 class="sec">模块剪影 <small>所有已有专属美术的模块</small></h2>
+    <p class="lead">打开「剪影」看纯黑填充能否认出类别，打开「灰度」看明度是否分层，切到 1× 看实机大小。标签颜色是 UI 里用的类别色（场景里不画角标）。</p>
+    <div class="toolbar">
+      <span class="lbl">显示</span>
+      <span class="seg" id="modeSeg"><button class="btn small on" data-m="color">原色</button><button class="btn small" data-m="sil">剪影</button><button class="btn small" data-m="gray">灰度</button></span>
+      <span class="lbl" style="margin-left:10px">大小</span>
+      <span class="seg" id="scaleSeg"><button class="btn small" data-s="1">1×</button><button class="btn small on" data-s="2">2×</button><button class="btn small" data-s="3">3×</button></span>
+    </div>
+    <div class="grid" id="mods"></div>
+  </section>
+
+  <section id="mats">
+    <h2 class="sec">材料六阶 <small>装饰层只染金属像素</small></h2>
+    <p class="lead">黄铜（原画）→ 熟铁（锻打斑点）→ 钢（冷色高光边）→ 镀镍（镜面条纹）→ 乌兹钢（流水花纹）→ 以太合金（发光纹路）。黄铜、炉火、水、玻璃、皮革不被染色；钢开始火炮和底盘变形，炮口位置不变。</p>
+    <div style="overflow-x:auto"><table class="mats" id="matTable"></table></div>
+  </section>
+
+  <section id="scene">
+    <h2 class="sec">整车与场景 <small>明度三层</small></h2>
+    <p class="lead">背景只用 bg 棕褐色阶、压在中低明度：分层天空 + 抖动过渡、雾中淡日、厂房烟囱剪影、看台人群与彩旗。车用全明度，只有炉火能碰到最亮。切到灰度，三层依然分得开。</p>
+    <div class="toolbar"><span class="seg" id="sceneSeg"><button class="btn small on" data-m="color">原色</button><button class="btn small" data-m="gray">灰度</button></span></div>
+    <div class="scene"><canvas id="sceneCv" class="px"></canvas></div>
+  </section>
+
+  <section id="ui">
+    <h2 class="sec">界面 <small>css/style.css 的真实组件</small></h2>
+    <p class="lead">铁灰铆钉钢板做底，黄铜 = 可交互 / 已选中。方角、硬边、3px 硬偏移投影，不做模糊和圆角。标题粗黑体加宽字距，带 2px 硬字影。</p>
+    <div class="ui-demo">
+      <div class="col">
+        <div class="nav-plate on"><span class="rivets"></span><span class="nm">车间</span><span class="sub">当前页 · 黄铜板</span></div>
+        <div class="nav-plate"><span class="rivets"></span><span class="nm">出战</span><span class="sub">铆钉钢板</span><span class="badge bad">!</span></div>
+      </div>
+      <div class="col">
+        <div class="row"><button class="btn primary">主按钮</button><button class="btn">普通按钮</button><button class="btn on">选中</button><button class="btn danger">危险操作</button><button class="btn" disabled>不可用</button></div>
+        <div class="panel"><div class="panel-head"><h2>弹窗标题</h2></div><div class="panel-body">
+          <div class="bars">
+            <div class="bar-row"><span class="name">动力</span><div class="bar power"><i style="width:72%"></i></div></div>
+            <div class="bar-row"><span class="name">热量</span><div class="bar heat"><i style="width:48%"></i></div></div>
+            <div class="bar-row"><span class="name">水量</span><div class="bar water"><i style="width:63%"></i></div></div>
+            <div class="bar-row"><span class="name">瞄准</span><div class="bar aim"><i style="width:55%"></i></div></div>
+          </div>
+          <div class="warn">锅炉热量过高：温和警告用炉火橙竖条</div>
+          <div class="warn bad">侧炮被挡住：严重警告用洋红（UI 专用）</div>
+        </div></div>
+        <div class="row"><div class="res money"><span class="k">资金</span><b>£100,000</b></div><div class="res"><span class="k">声望</span><b>12</b></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="rules">
+    <h2 class="sec">做 / 不做</h2>
+    <div class="dodont">
+      <div class="panel do"><h3 style="color:var(--gauge2)">做</h3><ul>
+        <li>冷灰蓝的铁占大面积，黄铜只做点缀</li>
+        <li>靠剪影和比例区分同类型号</li>
+        <li>1px 材质最暗阶描边，左上光</li>
+        <li>铆钉只在边缘，低细节密度</li>
+        <li>炉火是唯一发光（T6 以太纹路例外）</li>
+        <li>一战 / 维多利亚工业造型，侧视正交剖面</li>
+        <li>可爱的小炭球驾驶员</li>
+      </ul></div>
+      <div class="panel dont"><h3 style="color:var(--fire2)">不做</h3><ul>
+        <li>整套暖棕、全身黄铜（重蹈 Steamlands 的覆辙）</li>
+        <li>角标、图标、文字补辨识</li>
+        <li>纯黑粗描边、抗锯齿、柔和渐变、模糊光晕</li>
+        <li>满身噪点、铆钉铺满</li>
+        <li>霓虹、到处发光、洋红出现在场景里</li>
+        <li>科幻流线、日式机甲尖角、等轴 / 透视 / 3D 感</li>
+        <li>写实人物、性别特征、血腥</li>
+      </ul></div>
+    </div>
+    <h2 class="sec" style="margin-top:22px;font-size:16px">验收清单</h2>
+    <ul class="check">
+      <li>剪影测试：纯黑填充能说出类别</li>
+      <li>灰度测试：背景 / 载具 / 发光物三层分得开</li>
+      <li>1× 实机：放进 6 层叠放的车里 5 秒内认得出</li>
+      <li>只用 SA.PAL；语义色 ≤ 25%</li>
+      <li>光源、描边、铆钉位置符合规则</li>
+      <li>换 6 阶材料后仍好看，非金属没被染色</li>
+      <li>武器各阶段炮口位置不变（piv / blen）</li>
+      <li>在本页和模块精灵表里看过</li>
+    </ul>
+  </section>
+
+  <section id="prompts">
+    <h2 class="sec">提示词 <small>读取自 docs/art-style.md §9</small></h2>
+    <p class="lead">P1 给写代码的代理画程序化精灵；P2～P6 给图像模型做概念发散（成品仍要锁定调色板、在代码里重画）；P7 是新模块简报模板。改提示词请改 md 文件。</p>
+    <div id="promptBox"><p class="muted">正在读取……</p></div>
+  </section>
+</div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script>
+(() => {
+  const P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.className = 'px'; return c; };
+  const show = (c, s) => { c.style.width = c.width * s + 'px'; c.style.height = c.height * s + 'px'; return c; };
+
+  // ---------- 调色板 ----------
+  const PAL_INFO = {
+    iron: ['冷铁', '装甲、外壳、车体框架（大面积）'], dark: ['暗铁', '底盘、腿、履带；永远最暗'], leather: ['皮革 / 木', '内饰、把手、飞行帽、货箱'],
+    brass: ['黄铜', '装饰：箍、舷窗框、管线；UI 交互'], fire: ['炉火', '能源 / 热；唯一发光'], water: ['青水', '冷却 / 水位'],
+    gauge: ['压力表绿', '动力 / 承载；底盘类别色'], glass: ['舷窗玻璃', '控制：舷窗、镜片'], rust: ['锈钢', '只给撞击件'],
+    steam: ['蒸汽', '烟、蒸汽、次要文字'], bg: ['背景', '场景：低饱和棕褐，中低明度'], magenta: ['洋红', 'UI 专用，场景禁用'],
+    white: ['白', '眼白、火花、准星芯'], black: ['黑', '瞳孔、裂纹、准星边'],
+  };
+  const lumOf = (hx) => { const n = parseInt(hx.slice(1), 16); return 0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255); };
+  for (const [k, v] of Object.entries(P)) {
+    const cols = [].concat(v), [nm, desc] = PAL_INFO[k] || [k, ''];
+    const chips = el('div', { className: 'chips' });
+    for (const hx of cols) {
+      const c = el('div', { className: 'chip', title: '点击复制 ' + hx }, hx);
+      c.style.background = hx; c.style.color = lumOf(hx) > 130 ? '#11100e' : '#f4f7ee';
+      c.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(hx); c.textContent = '已复制'; setTimeout(() => c.textContent = hx, 700); };
+      chips.append(c);
+    }
+    $('pal').append(el('div', { className: 'pal-row' }, el('div', { className: 'nm' }, el('b', {}, `${nm} `), el('code', {}, k), el('small', {}, desc)), chips));
+  }
+  for (const [w, c, t] of [[52, P.iron[2], '冷铁'], [26, P.dark[1], '暗铁'], [8, P.brass[2], '黄铜'], [5, P.fire[2], '炉火'], [5, P.water[2], '水'], [4, P.glass[2], '玻璃']]) {
+    const i = el('i', { title: `${t} ≈ ${w}%` }); i.style.width = w + '%'; i.style.background = c; $('ratio').append(i);
+  }
+
+  // ---------- 模块画布（透明底，显示时再按模式处理） ----------
+  const PAD = { l: 16, t: 16, r: 34, b: 16 };
+  function rawModule(id, o = {}) {
+    const f = SA.fp(id), c = canvas(f.w * 24 + PAD.l + PAD.r, f.h * 24 + PAD.t + PAD.b);
+    const g = c.getContext('2d');
+    if (SA.MODULES[id].layer === 'body' && !o.noFrame) { g.fillStyle = P.iron[1]; g.fillRect(PAD.l, PAD.t, f.w * 24, f.h * 24); }
+    SA.SPR.drawModule(g, id, PAD.l, PAD.t, { heat: 0.6, water: 0.6, t: 0.3, ...o });
+    return crop(c, 4);
+  }
+  // 裁到不透明像素的外框，四周留 m 像素
+  function crop(src, m = 0) {
+    const g = src.getContext('2d'), d = g.getImageData(0, 0, src.width, src.height).data;
+    let x0 = src.width, y0 = src.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const c = canvas(x1 - x0 + 1 + m * 2, y1 - y0 + 1 + m * 2); c.getContext('2d').drawImage(src, x0, y0, x1 - x0 + 1, y1 - y0 + 1, m, m, x1 - x0 + 1, y1 - y0 + 1); return c;
+  }
+  function filtered(src, mode, bg) {
+    const c = canvas(src.width, src.height), g = c.getContext('2d');
+    if (bg) { g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height); }
+    if (mode === 'color') { g.drawImage(src, 0, 0); return c; }
+    const t = canvas(src.width, src.height), tg = t.getContext('2d');
+    if (mode === 'gray' && bg) { tg.fillStyle = bg; tg.fillRect(0, 0, t.width, t.height); }
+    tg.drawImage(src, 0, 0);
+    const img = tg.getImageData(0, 0, t.width, t.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (mode === 'sil') { if (d[i + 3] > 8) { d[i] = d[i + 1] = d[i + 2] = 7; d[i + 3] = 255; } else d[i + 3] = 0; }
+      else { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    }
+    tg.putImageData(img, 0, 0);
+    g.drawImage(t, 0, 0);
+    return c;
+  }
+
+  // ---------- 风格锚点 ----------
+  const ANCHORS = [
+    ['armor', '满格方块、边缘铆钉、中间一道上暗下亮的接缝'],
+    ['cannon', '水平长管伸出格外半格，黄铜箍 + 制退器'],
+    ['boiler', '铁栅栏后闷燃的煤，只有裂缝发红，唯一发光体'],
+    ['cockpit', '黄铜拱门剖面 + 舷窗里的小炭球驾驶员'],
+    ['water', '方块水箱 + 大玻璃窗，青色水位实时下降'],
+  ];
+  const anchorZooms = [];
+  for (const [id, cap] of ANCHORS) {
+    if (!SA.MODULES[id]) continue;
+    const nm = SA.MODULES[id].name;
+    const z = el('div', { className: 'zoom' }, show(filtered(rawModule(id), 'color', P.bg[2]), 4));
+    anchorZooms.push(z);
+    $('anchors-box').append(el('div', {}, z, el('div', { className: 'anchor-cap' }, el('b', {}, nm + '：'), cap)));
+  }
+  let gridOn = false;
+  $('gridBtn').onclick = () => { gridOn = !gridOn; anchorZooms.forEach(z => z.classList.toggle('grid-on', gridOn)); $('gridBtn').textContent = '像素网格：' + (gridOn ? '开' : '关'); $('gridBtn').classList.toggle('on', gridOn); };
+
+  // ---------- 模块剪影 ----------
+  const mods = SA.MODULE_ORDER.filter(id => SA.MODULES[id] && !SA.MODULES[id].placeholder)
+    .map(id => ({ id, raw: rawModule(id), rawBare: rawModule(id, { noFrame: true }) }));
+  let mode = 'color', scale = 2;
+  function renderMods() {
+    $('mods').replaceChildren(...mods.map(({ id, raw, rawBare }) => {
+      const m = SA.MODULES[id], cat = SA.CAT[m.layer === 'ram' ? 'ram' : m.cat] || SA.CAT.structure;
+      const tag = el('span', { className: 'cat' }, cat.name); tag.style.background = cat.ui;
+      return el('div', { className: 'it' }, show(filtered(mode === 'sil' ? rawBare : raw, mode, mode === 'sil' ? P.bg[4] : P.bg[2]), scale), el('span', {}, m.name), tag);
+    }));
+  }
+  const seg = (box, attr, fn) => box.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset[attr]);
+  });
+  seg($('modeSeg'), 'm', (v) => { mode = v; renderMods(); });
+  seg($('scaleSeg'), 's', (v) => { scale = +v; renderMods(); });
+  renderMods();
+
+  // ---------- 材料六阶 ----------
+  const MAT_ROWS = ['cannon', 'track', 'boiler', 'cockpit', 'armor', 'bucket'].filter(id => SA.MODULES[id]);
+  $('matTable').append(el('tr', {}, el('th'), ...SA.MATS.slice(1).map(m => { const th = el('th', {}, m.name); th.style.color = m.chip; return th; })));
+  for (const id of MAT_ROWS) {
+    const tr = el('tr', {}, (() => { const th = el('th', {}, SA.MODULES[id].name); th.style.cssText = 'text-align:right;white-space:nowrap'; return th; })());
+    for (let mt = 1; mt <= SA.MAT_MAX; mt++) tr.append(el('td', { title: `阶段 ${SA.stageOf(id, mt)}` }, show(filtered(rawModule(id, { mt }), 'color', P.bg[2]), 2)));
+    $('matTable').append(tr);
+  }
+
+  // ---------- 整车与场景 ----------
+  const W = 580, H = 280, GROUND = 256;   // 宽 1180 的页面里正好 2 倍整数放大
+  function backdrop(g) {
+    let seed = 7; const rr = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    const HZ = 130, b1 = 39, b2 = 81;
+    R(0, 0, W, b1, P.bg[3]); R(0, b1, W, b2 - b1, P.bg[4]); R(0, b2, W, HZ - b2, P.bg[5]);
+    for (const [y, col] of [[b1, P.bg[4]], [b2, P.bg[5]]]) for (let i = 0; i < W; i += 2) { R(i + 1, y - 4, 1, 1, col); R(i, y - 2, 1, 1, col); R(i + 1, y - 1, 1, 1, col); }
+    for (let yy = -32; yy <= 32; yy++) { const w = Math.sqrt(1024 - yy * yy); R(Math.round(W * 0.78 - w), 56 + yy, Math.round(w * 2), 1, P.bg[6]); }
+    for (let i = 0; i < 11; i++) {
+      const bx = Math.round(rr() * W), bw = Math.round(40 + rr() * 80), bh = Math.round(30 + rr() * 70), ch = 40 + Math.round(rr() * 30);
+      R(bx, HZ - bh, bw, bh, P.bg[3]); R(bx + Math.round(bw * 0.3), HZ - bh - ch, 10, ch, P.bg[3]);
+      for (let k = 0; k < Math.floor(bw / 18); k++) R(bx + 8 + k * 18, HZ - bh + 12, 6, 9, P.bg[4]);
+    }
+    const GS = HZ, GE = GROUND - 70;
+    R(0, GS, W, GE - GS, P.bg[2]);
+    for (let yy = GS + 8; yy < GE - 8; yy += 13) {
+      R(0, yy + 9, W, 3, P.bg[1]);
+      for (let i = 0; i < W; i += 6) { const v = rr(); if (v < 0.7) { const col = v < 0.25 ? P.bg[4] : v < 0.5 ? P.bg[3] : P.bg[5]; R(i, yy + 2, 4, 6, col); R(i + 1, yy, 2, 2, col); } }
+    }
+    for (let i = 0; i < W; i += 26) { const col = (i / 26) % 2 ? P.bg[5] : P.bg[4]; R(i, GS, 16, 4, col); R(i + 3, GS + 4, 10, 3, col); R(i + 6, GS + 7, 4, 3, col); }
+    R(0, GE, W, 14, P.bg[1]); for (let i = 0; i < W; i += 48) R(i, GE + 8, 8, 20, P.bg[0]);
+    R(0, GE + 14, W, GROUND - GE - 14, P.bg[3]);
+    for (let i = 0; i < 400; i++) R(Math.round(rr() * W), GE + 14 + Math.round(rr() * (GROUND - GE - 14)), 4, 1, rr() < 0.5 ? P.bg[2] : P.bg[4]);
+    R(0, GROUND, W, H - GROUND, P.bg[2]); R(0, GROUND, W, 1, P.bg[4]);
+    for (let i = 0; i < W; i += 48) R(i, GROUND + 14, 30, 4, P.bg[1]);
+  }
+  const SCENE_CARS = SA.OFFICIAL_BLUEPRINTS.filter((_, i) => i !== 1).map((b, i) => {
+    const v = SA.V.fromAscii(b.name, b.rows, [], [1, 3, 5][i] || 1);
+    return crop(SA.SPR.renderVehicle(v, { key: 'sg' + i, heat: 0.55, water: 0.6, blocked: SA.V.blockedList(v) }));
+  });
+  const sceneRaw = canvas(W, H);
+  (() => {
+    const g = sceneRaw.getContext('2d'); backdrop(g);
+    const total = SCENE_CARS.reduce((s, c) => s + c.width, 0), gap = Math.max(12, Math.floor((W - total) / (SCENE_CARS.length + 1)));
+    let x = gap; for (const c of SCENE_CARS) { g.drawImage(c, x, GROUND - c.height + 2); x += c.width + gap; }
+  })();
+  let sceneMode = 'color';
+  function renderScene() {
+    const src = filtered(sceneRaw, sceneMode), cv = $('sceneCv');
+    cv.width = W; cv.height = H; cv.getContext('2d').drawImage(src, 0, 0);
+    const avail = Math.min(document.querySelector('.wrap').clientWidth - 6, 1180), s = Math.max(1, Math.floor(avail / W));
+    cv.style.width = (avail < W ? avail : W * s) + 'px'; cv.style.height = 'auto';
+  }
+  seg($('sceneSeg'), 'm', (v) => { sceneMode = v; renderScene(); });
+  renderScene(); addEventListener('resize', renderScene);
+
+  // ---------- 提示词：读 docs/art-style.md 里 "### P…" 标题下的第一个代码块 ----------
+  fetch('../docs/art-style.md', { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }).then(md => {
+    const out = [], re = /^### (P\d+[^\n]*)\n([\s\S]*?)```\w*\n([\s\S]*?)```/gm;
+    let m; while ((m = re.exec(md))) out.push({ title: m[1].trim(), note: m[2].trim(), body: m[3].replace(/\n$/, '') });
+    if (!out.length) throw new Error('没有找到 ### P… 段落');
+    $('promptBox').replaceChildren(...out.map(p => {
+      const btn = el('button', { className: 'btn small primary' }, '复制');
+      btn.onclick = () => { navigator.clipboard.writeText(p.body).then(() => { btn.textContent = '已复制'; setTimeout(() => btn.textContent = '复制', 900); }); };
+      return el('div', { className: 'panel prompt' }, el('div', { className: 'head' }, el('b', {}, p.title), btn), p.note ? el('p', { className: 'note' }, p.note) : '', el('pre', {}, p.body));
+    }));
+  }).catch(e => { $('promptBox').replaceChildren(el('p', { className: 'err' }, `读不到 docs/art-style.md（${e.message}）。请用 python tools/serve.py 打开本页，或直接看那个文件的 §9。`)); });
+})();
+</script></body></html>
