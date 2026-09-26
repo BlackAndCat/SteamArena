@@ -571,7 +571,9 @@ SA.Battle = (() => {
     const distance = Math.abs(nx - s.x);
     s.phase += (nx - s.x) * (isP(s) ? 1 : -1);
     if ((s.chassisId === 'biped' || s.chassisId === 'quad') && SA.LEGLAB && SA.LEGLAB.strideFor) {
-      s.gait += Math.PI * 2 * distance / (4 * SA.LEGLAB.strideFor(Math.abs(s.vx)));   // 步态角：每走 4 × 步幅一圈（同 tools/chassis-lab.html）
+      // 步态角：每走 4 × 步幅一圈（同 tools/chassis-lab.html）；按车头方向带符号，倒车时步态倒着放，看起来是往后退
+      const stride = (s.chassisId === 'quad' ? SA.LEGLAB.quadStride : SA.LEGLAB.strideFor)(Math.abs(s.vx));
+      s.gait += Math.PI * 2 * (nx - s.x) * (isP(s) ? 1 : -1) / (4 * stride);
       s.anim.phase = s.gait;   // 腿式步态按走过的距离推进
     } else s.anim.phase = s.phase; // 履带沿用链节相位
     s.x = nx;

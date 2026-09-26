@@ -837,7 +837,7 @@ SA.SPR = (() => {
     quad(x, y, o) {
       const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
       // 首尾相连的多件四足：相邻两件步态差半圈（像蜈蚣一样一节一节往前传），甲壳连成一片
-      const lo = { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2 + (o.odd ? Math.PI : 0), stride: o.sd || 16 };
+      const lo = { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2 + (o.odd ? Math.PI : 0), stride: o.sd || 12 };
       LL.quadArt(pn, x, y, { ...lo, bd: o.bd || 0, g: o.g4 || [0, 0, 0, 0], top: !!o.top, connL: o.connL, connR: o.connR, look: QUAD_LOOK[(o.st || 1) - 1] }, o.part || undefined);
       pn.flush(ctx);
     },
@@ -874,7 +874,7 @@ SA.SPR = (() => {
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
       case 'quad': {   // 整件四足：步态角 12 档、步幅 4px 一档、四只脚的悬挂 2px 一档
         const A = o.gait || 0;
-        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 4) * 4;
+        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 12) / 2) * 2;
         q.bd = o.bd || 0; q.part = o.part || null; q.top = !!o.top;
         if (o.connL) q.connL = true; if (o.connR) q.connR = true; if ((o.ri || 0) % 2) q.odd = true;
         if (o.g4 && o.g4.some(v => v)) q.g4 = o.g4.map(v => Math.round((v || 0) / 2) * 2);
@@ -1110,7 +1110,7 @@ SA.SPR = (() => {
     const phase = dyn ? dyn.phase : (o.phase || 0);
     // 整件四足：dyn.phase 是步态角（战斗里按走过的距离 ÷ (4 × 步幅) 推进一圈），步幅跟着车速变；机身起伏按 quadBob
     const hasQuad = base.some(x => x && x.id === 'quad' && x.hp > 0);
-    const stride = SA.LEGLAB.strideFor(o.speed || 0), gaitA = Math.round(phase / (Math.PI * 2 / 12)) * (Math.PI * 2 / 12);
+    const stride = (hasQuad ? SA.LEGLAB.quadStride : SA.LEGLAB.strideFor)(o.speed || 0), gaitA = Math.round(phase / (Math.PI * 2 / 12)) * (Math.PI * 2 / 12);
     const bd = hasQuad ? SA.LEGLAB.quadBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 4) * 4 })
       : amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(phase) : 0) / 12 * Math.PI * 2)) * amp);
     const isChassis = (id) => SA.MODULES[id].layer === 'chassis';

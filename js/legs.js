@@ -741,6 +741,8 @@ SA.LEGLAB = (() => {
 
   // 步幅（新版整件底盘，世界像素）：跟着车速变，慢走小步、快跑大步，脚在胯前后 ±步幅之间摆（跨过腿的轴线）
   const strideFor = (v) => Math.max(16, Math.min(40, 18 + v * 0.25));
+  // 四足整件的步幅：小碎步，最多 ±13px，脚不出这一件的边界（战斗里按它推进步态角，脚不打滑）
+  const quadStride = (v) => Math.max(8, Math.min(13, 8 + v * 0.07));
   // 机身起伏：着地的腿像圆规一样绕脚转，脚离胯越远胯越低（R = 胯到脚的腿长）。phs = 各条腿的相位差，dx0 = 脚静止时离胯多远
   function strideBob(o, R, phs, dx0 = 0) {
     if (!o.mv) return 0;
@@ -758,17 +760,19 @@ SA.LEGLAB = (() => {
 
   // 四足型号：腿形。reach = 脚静止时离胯多远（小 → 脚在胯下附近前后大幅摆动），kf = 膝盖跟着脚摆多少。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
   // 伏地蛛的膝盖只比胯高一点、贴着甲壳上沿（2026-09-26）：原来膝盖高出机身 16px，会挡住车身两侧的模块和摆放格
+  // 脚收在整件范围里（2026-09-26）：膝盖往外张、脚往回收，静止时脚离胯 4px，加上四足自己的小步幅（quadStride ≤ 13），
+  // 走起来脚也不会伸出这一件的左右边界（原来脚伸出去四五十像素，车头车尾的腿像走出了车外）
   const QUADS = {
-    crawl: { name: '伏地蛛', up: 5, kx: 24, reach: 26, kf: 0.45, w: 1.35 },
+    crawl: { name: '伏地蛛', up: 5, kx: 10, reach: 4, kf: 0.45, w: 1.35 },
     tall: { name: '高脚蛛', up: 38, kx: 16, reach: 18, kf: 0.45, w: 1.25 },
   };
   // 四足 · 4×2（96×48）：一整块压低的蜘蛛甲壳 + 四条腿（近侧后 / 前、远侧后 / 前）。后腿往后张、前腿往前张，
   // 对角两条同相（近后 + 远前、近前 + 远后）大步交替。远侧腿压暗、往右上错开，画在车体后面。
   // o：{ mv, a（步态角）, stride（步幅，见 strideFor）, bd（机身起伏，见 quadBob）, g: [近后, 近前, 远后, 远前]（悬挂伸缩）, top（上面压着模块）, look: QUADS 的键 }
-  // 接地点（模块内 x，静止时，伏地蛛）：近后 0、近前 96、远后 8、远前 104；走起来在这前后 ±步幅
+  // 接地点（模块内 x，静止时，伏地蛛）：近后 18、近前 78、远后 20、远前 80；走起来在这前后 ±步幅（quadStride）
   // part：'far' 只画远侧两条腿 / 'near' 只画甲壳 + 近侧两条腿 / 'shell' 只画甲壳 / 'legs' 只画近侧两条腿 / 省略 = 都画
   // connL / connR：左右紧挨着另一件四足（首尾相连的车体蜈蚣），甲壳连成一片
-  const QUAD_HIPS = { nr: [22, 10], nf: [74, 10], fr: [30, 7], ff: [82, 7] };
+  const QUAD_HIPS = { nr: [22, 10], nf: [74, 10], fr: [24, 7], ff: [76, 7] };   // 远侧只往右错 2px，远侧的膝和脚也不出界
   function quadArt(pn, x, y, o, part) {
     const H = QUADS[o.look] || QUADS.crawl, bd = o.bd || 0, g = o.g || [0, 0, 0, 0], S = o.stride || 15;
     const lo = { ...o, plant: true, plantS: S, plantH: 5 + 0.3 * S };
@@ -865,5 +869,5 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
 })();
