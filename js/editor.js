@@ -1,6 +1,6 @@
-// 车间：改装台 + 商店 + 修理 + 蓝图库/云车库，全在这一页（主体层 / 侧挂层，像素 / 图纸视图）
+// 车间：改装台 + 商店 + 修理 + 蓝图库/分享码示例，全在这一页（主体层 / 侧挂层，像素 / 图纸视图）
 // 操作集中在底部操作栏：选模块 → 点格子放置；点已有模块直接替换，再点一次同款模块就拆下。
-// 操作栏可切到「蓝图库」：保存 / 应用 / 分享蓝图，云车库里别人的车也能直接套用。
+// 操作栏可切到「蓝图库」：保存 / 应用 / 导入 / 导出分享码，内置示例也能直接套用。
 // 车上的模块可以拖动（空格 = 移动，有模块 = 对调），拖出车外放回库存。
 // 改装台上允许悬空、乱放；只有出战时才要求所有模块都连到底盘（SA.V.issues）。
 window.SA = window.SA || {};
@@ -394,7 +394,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
     viewEl.append(...[
       has('side') ? seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(kid(st.sel)) !== k) st.sel = null; }) : null,
-      has('blueprints') ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，云车库也在这里',
+      has('blueprints') ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，分享码也在这里',
         onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库') : null].filter(Boolean));
   }
 
@@ -462,7 +462,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     if (st.dock === 'bps') {
       toolsEl.append(title('蓝图库', h('button', { class: 'btn small', onclick: () => setDock('mods') }, '← 模块清单')),
         h('div', { class: 'panel-row' },
-          h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '云端']].map(([k, n]) =>
+          h('div', { class: 'inv-tabs' }, [['all', '全部'], ['mine', '我的'], ['official', '官方'], ['cloud', '示例']].map(([k, n]) =>
             h('button', { class: `tab ${st.bpFilter === k ? 'on' : ''}`, onclick: () => { st.bpFilter = k; renderTools(); renderInv(); } }, n))),
           h('button', { class: 'btn small', onclick: importDialog }, '导入分享码')));
       return;
@@ -559,8 +559,8 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
   function renderDock() { renderCtx(); renderInv(); }
   function renderAll() { renderPlate(); renderView(); renderCtx(); renderTools(); renderInv(); }
 
-  // ---------- 蓝图库 · 云车库（底部操作栏的第二个页签）----------
-  const KIND = { mine: '我的', official: '官方', cloud: '云端' };
+  // ---------- 蓝图库 · 分享码示例（底部操作栏的第二个页签）----------
+  const KIND = { mine: '我的', official: '官方', cloud: '分享码示例' };
   function bpList() { return SA.Blueprints.all().filter(b => st.bpFilter === 'all' || b.kind === st.bpFilter); }
   function bpPic(bp, scale) {
     const cvs = SA.UI.vehiclePreview(SA.V.fromLayout(bp.name, bp), scale);
@@ -593,7 +593,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     const bp = st.bp && SA.Blueprints.all().find(b => b.key === st.bp);
     if (!bp) {
       ctxEl.append(h('div', { class: 'info' },
-        h('div', {}, h('b', {}, '蓝图库 · 云车库')),
+        h('div', {}, h('b', {}, '蓝图库 · 分享码车库')),
         h('div', { class: 'sub' }, '在右边选一张蓝图一键换装（车上的模块先拆回库存，缺的按原价补买）。「存为蓝图」保存当前车辆；「导入分享码」把别人的车存进来。')));
       return;
     }
@@ -613,18 +613,17 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       h('div', { class: 'acts' },
         h('button', { class: 'btn small primary', onclick: () => SA.Blueprints.apply(bp, done) }, p.cost ? `应用 · ${money(p.cost)}` : '应用'),
         bp.kind === 'mine' ? h('button', { class: 'btn small', title: '用当前车辆覆盖这张蓝图', onclick: () => { SA.Blueprints.overwrite(bp.index); say('已用当前车辆覆盖'); renderAll(); } }, '覆盖') : null,
-        bp.kind !== 'official' ? h('button', { class: 'btn small', title: '复制分享码；自己的蓝图会同时上传到云车库', onclick: () => {
+        bp.kind !== 'official' ? h('button', { class: 'btn small', title: '复制分享码；不会上传到云端', onclick: () => {
           const code = bp.kind === 'mine' ? SA.Blueprints.share(bp) : bp.code;
           if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-          say(bp.kind === 'mine' ? '已上传云车库，分享码已复制' : '分享码已复制');
-          if (bp.kind === 'mine') renderInv();
+          say('分享码已复制');
         } }, bp.kind === 'mine' ? '分享' : '复制码') : null,
         del));
   }
 
   function importDialog() {
     const box = h('textarea', { rows: 3, placeholder: '粘贴 SA1. 开头的分享码' });
-    SA.UI.dialog('导入分享码', [h('p', { class: 'muted', style: 'margin-top:0' }, '导入的车会存成你自己的蓝图，可以直接应用；想和它打一场，去「出战 → 友谊赛」。'), box],
+    SA.UI.dialog('导入分享码', [h('p', { class: 'muted', style: 'margin-top:0' }, '导入的车会存成你自己的蓝图，可以直接应用；分享出去只需复制这台车的分享码。'), box],
       [{ label: '导入', primary: true, onClick: () => {
         const v = SA.Blueprints.importCode(box.value);
         if (!v) { SA.UI.toast('分享码无效'); return; }

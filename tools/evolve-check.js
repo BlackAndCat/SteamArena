@@ -84,6 +84,17 @@ function sideRuleCheck() {
   return { available: entries.map(e => e.id), firstWin: entries[0].id };
 }
 
+function shareGarageCheck() {
+  const { SA } = evolve.loadGame();
+  if (typeof SA.S.Cloud.upload !== 'undefined') throw new Error('分享码车库仍保留上传到云端模拟');
+  const examples = SA.S.Cloud.list();
+  if (!examples.length || examples.some(entry => !SA.V.decode(entry.code))) throw new Error('内置分享码示例无法解码');
+  const vehicle = SA.V.fromAscii('分享码车库检查', SA.STARTER.rows, SA.STARTER.sides || []);
+  const code = SA.V.encode(vehicle), decoded = SA.V.decode(code);
+  if (!decoded || SA.V.encode(decoded) !== code) throw new Error('分享码导出 / 导入往返失败');
+  return { examples: examples.length, roundTrip: true };
+}
+
 async function main() {
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
@@ -95,9 +106,11 @@ async function main() {
   const chassis = chassisRuleCheck();
   const unique = uniqueRuleCheck();
   const side = sideRuleCheck();
+  const shareGarage = shareGarageCheck();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
   result.unique = unique;
   result.side = side;
+  result.shareGarage = shareGarage;
   console.log(JSON.stringify(result, null, 2));
 }
 

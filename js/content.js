@@ -230,7 +230,7 @@ SA.CAMPAIGN = [
       },
     ],
     unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['mg2', 'radiator', 'gyroscope'], grid: { cols: 7, rows: 5 },
-      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片和陀螺仪补齐火力与控制；委托、下注、蓝图库、友谊赛开放，有些委托会付乌兹钢锭。' },
+      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片和陀螺仪补齐火力与控制；委托、下注和蓝图库开放，有些委托会付乌兹钢锭。' },
   },
   {
     name: '第五章 · 水晶宫', place: '海德公园 · 水晶宫',
@@ -300,7 +300,7 @@ SA.ORDERS = [
   },
 ];
 
-// 云车库预置（模拟其他玩家上传）
+// 内置分享码示例（不写本地或服务器云端存储）
 SA.CLOUD_PRESETS = [
   { author: '齿轮先生', name: '咆哮的茶壶', rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..Q.U...'], sides: [[3, 3]] },
   { author: 'Ada_Loveplate', name: '差分机', rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..B.....'], sides: [] },

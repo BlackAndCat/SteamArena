@@ -3,7 +3,6 @@ window.SA = window.SA || {};
 
 SA.S = (() => {
   const KEY = 'steam_arena_save_v2';   // v2：战役 + 材料（v1 的旧存档不再读取）
-  const CLOUD_KEY = 'steam_arena_cloud_v1';
   let d = null;
 
   function fresh() {
@@ -118,22 +117,11 @@ SA.S = (() => {
     return Math.max(1.15, Math.min(5, +(1.1 + (them / Math.max(1, me)) * 0.9).toFixed(2)));
   }
 
-  // 云车库：本地模拟，接口留给真正的后端
+  // 分享码示例：只读内置数据，不写本地“云端”存储；玩家车辆通过蓝图库导入 / 导出分享码。
   const Cloud = {
     list() {
-      let mine = [];
-      try { mine = JSON.parse(localStorage.getItem(CLOUD_KEY)) || []; } catch (e) { mine = []; }
       const presets = SA.CLOUD_PRESETS.map(p => ({ author: p.author, name: p.name, code: SA.V.encode(SA.V.fromAscii(p.name, p.rows, p.sides)) }));
-      return mine.concat(presets);
-    },
-    upload(name, v) {
-      let mine = [];
-      try { mine = JSON.parse(localStorage.getItem(CLOUD_KEY)) || []; } catch (e) { mine = []; }
-      const copy = SA.V.clone(v); copy.name = name;
-      const entry = { author: '我', name, code: SA.V.encode(copy), at: Date.now() };
-      mine.unshift(entry);
-      try { localStorage.setItem(CLOUD_KEY, JSON.stringify(mine.slice(0, 20))); } catch (e) { /* ignore */ }
-      return entry;
+      return presets;
     },
   };
 

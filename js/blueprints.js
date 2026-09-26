@@ -1,4 +1,4 @@
-// 蓝图库：我的蓝图（本地）+ 官方基础蓝图（不能删除）+ 云车库（其他玩家分享的车）
+// 蓝图库：我的蓝图（本地）+ 官方基础蓝图（不能删除）+ 内置分享码示例
 // 蓝图只记录布局（不记材料）；应用时先拆回当前车上的模块，优先用材料最好的库存，缺的按黄铜原价补买。界面在车间底部操作栏里
 window.SA = window.SA || {};
 
@@ -90,7 +90,7 @@ SA.Blueprints = (() => {
     SA.UI.pay({ title: '应用蓝图', amount: p.cost, lines, okLabel: '应用', onPaid: run });
   }
 
-  // 统一列表：我的 → 官方 → 云车库（云端的也能当蓝图直接应用）
+  // 统一列表：我的 → 官方 → 内置分享码示例（示例也能当蓝图直接应用）
   function all() {
     const out = [];
     mine().forEach((b, i) => out.push({ ...b, kind: 'mine', index: i, key: `m${b.at}` }));
@@ -112,10 +112,10 @@ SA.Blueprints = (() => {
     return v;
   }
 
-  // 分享：生成分享码并上传到云车库
+  // 分享：只生成分享码，不写任何云端或本地上传记录。
   function share(bp) {
     const v = SA.V.fromLayout(bp.name, bp);
-    return SA.S.Cloud.upload(bp.name, v).code;
+    return SA.V.encode(v);
   }
 
   return { all, save, overwrite, del, rename, mine, official, plan, apply, importCode, share };
