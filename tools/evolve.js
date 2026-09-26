@@ -23,6 +23,8 @@ const storage = require('./evolve-storage');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
+// 指纹只纳入后台规则文件；视觉拆分文件不会让候选车报告失效。
+const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js'];
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // ---------- Node VM：只补游戏脚本启动所需的最小浏览器接口 ----------
@@ -94,7 +96,7 @@ function stable(value) {
 }
 
 function ruleFingerprint(SA) {
-  const source = ['js/modules.js', 'js/vehicle.js', 'js/battle.js'].map(file => [file, fs.readFileSync(path.join(ROOT, file), 'utf8')]);
+  const source = RULE_FILES.map(file => [file, fs.readFileSync(path.join(ROOT, file), 'utf8')]);
   const payload = stable({
     version: config.rulesVersion,
     gameVersion: SA.RULES_VERSION || null,
