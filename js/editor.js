@@ -27,7 +27,7 @@ SA.Editor = (() => {
   const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
   const has = (f) => SA.Camp.has(f);
   // 商店里能买的：商店已开放、战役已解锁这种模块（只卖黄铜，更好的材料在车上升级）
-  const buyable = (id) => has('shop') && SA.Camp.hasMod(id) && !SA.isUnique(id);
+  const buyable = (id) => SA.S.buyable(id);
   const matName = (mt) => SA.MATS[mt].name;
   const fullName = (id, mt) => (mt > 1 ? `${matName(mt)}${M[id].name}` : M[id].name);
   const issueAt = (layer, r, c) => st.stats.issues.find(x => x.layer === layer && x.r === r && x.c === c);
@@ -101,17 +101,6 @@ SA.Editor = (() => {
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c, fr, fc } : null;
   }
   // 把模块 id 摆到鼠标位置：模块中心对准鼠标（底盘自动贴到最底两行），返回锚点和会压到的模块（ignore 的锚点除外）
-  function spot(id, hv, v = veh(), ignore = null) {
-    const f = SA.fp(id), clampI = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-    const r = M[id].layer === 'chassis' ? SA.V.CH : clampI(Math.round(hv.fr - f.h / 2), 0, K.ROWS - f.h);
-    const c = clampI(Math.round(hv.fc - f.w / 2), 0, K.COLS - f.w);
-    const O = SA.V.occ(v, SA.V.layerOf(id)), hits = [];
-    for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) {
-      const o = O[r + i][c + j];
-      if (o && !(ignore && o.r === ignore.r && o.c === ignore.c) && !hits.some(x => x.r === o.r && x.c === o.c)) hits.push(o);
-    }
-    return { r, c, w: f.w, h: f.h, hits };
-  }
   const overCanvas = (x, y) => { const rc = cv.getBoundingClientRect(); return x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom; };
 
   function say(text, err) { st.msg = { text, err: !!err, at: performance.now() }; }
@@ -210,29 +199,8 @@ SA.Editor = (() => {
   }
 
   // 拆下来的模块：完好的连同材料回库存，报废的按总价值 10% 回收；改装件拆掉按一半折价回收
-  function stash(cell) {
-    let back = 0;
-    for (let k = 1; k <= (cell.lv || 0); k++) back += Math.round(SA.upCost(cell.id, k) * 0.5);
-    if (cell.hp <= 0) back += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
-    else SA.S.addInv(cell.id, 1, cell.mt || 1);
-    d().money += back;
-    return back;
-  }
-
-  // 材料升级：黄铜 → 熟铁 → 钢 → 镀镍（花钱，随战役解锁）→ 乌兹钢 / 以太合金（还要消耗锭 / 结晶）
-  function matUpInfo(cell) {
-    const to = (cell.mt || 1) + 1;
-    if (to > SA.MAT_MAX) return { max: true };
-    const mat = SA.MATS[to], cost = SA.matUpCost(cell.id, to);
-    if (mat.ingot) {
-      const n = d().ingots[mat.ingot] || 0;
-      return { to, mat, cost, ok: n > 0, why: n > 0 ? '' : `需要 ${SA.INGOTS[mat.ingot].name}（委托 / Boss 掉落）` };
-    }
-    if (to > SA.Camp.maxMat()) return { to, mat, cost, ok: false, why: `${mat.name}还没解锁（推进战役）` };
-    return { to, mat, cost, ok: true };
-  }
   function matUpgrade(cell) {
-    const u = matUpInfo(cell);
+    const u = SA.S.matUpInfo(cell);
     if (!u.ok) { say(u.why, true); return; }
     const m0 = SA.mod(cell), m1 = SA.mod(cell.id, u.to);
     const diff = [['耐久', 'hp'], ['伤害', 'dmg'], ['动力', 'supply'], ['水', 'water'], ['冷却', 'cool'], ['撞击', 'ram'], ['活塞', 'punch'], ['承重', 'load'], ['护甲', 'armor']]
@@ -243,10 +211,7 @@ SA.Editor = (() => {
         u.mat.ingot ? h('p', { class: 'muted' }, `同时消耗 ${SA.INGOTS[u.mat.ingot].name} ×1（剩 ${(d().ingots[u.mat.ingot] || 0) - 1}）。`) : null,
         h('p', { class: 'muted' }, '材料越好，耐久、伤害、动力、冷却等一起放大；重量和产热不变。拆下后材料跟着模块走。')],
       onPaid: () => {
-        if (u.mat.ingot) d().ingots[u.mat.ingot]--;
-        const before = SA.V.maxHp(cell);
-        cell.mt = u.to;
-        if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+        SA.S.upgradeMaterial(cell, u);
         say(`${M[cell.id].name} 升级为${u.mat.name}`);
         changed();
       } });
@@ -259,9 +224,7 @@ SA.Editor = (() => {
       lines: [h('p', { style: 'margin-top:0' }, `${M[cell.id].name} 升到 ${lv} 级：耐久 +${Math.round(SA.upHp(cell.id) * 100)}%（按原耐久算），重量 +${SA.K.UP_KG} kg。`),
         h('p', { class: 'muted' }, '纯属性升级，不占格子。拆下模块时改装件按一半价格回收。')],
       onPaid: () => {
-        const before = SA.V.maxHp(cell);
-        cell.lv = lv;
-        if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+        SA.S.upgradeCell(cell, lv);
         st.pick = null;
         say(`${M[cell.id].name} 装上${name}，${'▲'.repeat(lv)}`);
         changed();
@@ -285,7 +248,7 @@ SA.Editor = (() => {
   function placeAt(key, hv) {
     const id = kid(key), mt = kmt(key);
     const v = veh(), layer = SA.V.layerOf(id), m = M[id];
-    const sp = spot(id, hv, v), { r, c } = sp;
+    const sp = SA.V.editorSpot(id, hv, v), { r, c } = sp;
     if (!SA.V.boxInRegion(v, r, c, sp.w, sp.h)) { say('这一格还没扩建：推进战役会解锁更大的改装台', true); return; }
     if (st.layer !== layer) st.layer = layer;
     if (sp.hits.length > 1) { say('这里压着好几个模块：先拆掉或挪开，再放', true); return; }
@@ -294,7 +257,7 @@ SA.Editor = (() => {
     if (cur && hurt(cur.cell)) { say(`${M[cur.cell.id].name} 受损，先修理才能替换`, true); st.pick = { layer, r: cur.r, c: cur.c }; st.sel = null; renderDock(); return; }
     // 底盘：一辆车只能用一种底盘，整件底盘（四足 / 双足）只能有一个——放新底盘时把冲突的旧底盘换下来，
     // 而不是在改装台上留下两个底盘、再把压在车身下面的那个标成不合规
-    const clash = m.layer === 'chassis' ? chassisClash(v, id, cur) : [];
+    const clash = m.layer === 'chassis' ? SA.V.chassisClash(v, id, cur) : [];
     if (clash.some(o => hurt(o.cell))) { say(`${M[clash[0].cell.id].name} 受损，先修理才能换底盘`, true); return; }
     // 换下旧模块后放不放得下（大小可能不一样），先在副本上试
     const test = SA.V.clone(v);
@@ -304,11 +267,7 @@ SA.Editor = (() => {
     if (!chk.ok) { say(chk.reason, true); return; }
     withStock(key, () => {
       const old = cur && cur.cell;
-      let scrap = 0;
-      if (old) { v[layer][cur.r][cur.c] = null; scrap = stash(old); }
-      for (const o of clash) { v.body[o.r][o.c] = null; scrap += stash(o.cell); }
-      SA.V.put(v, id, r, c, mt);
-      SA.S.addInv(id, -1, mt);
+      const scrap = SA.S.installStock(v, id, r, c, mt, layer, cur, clash);
       // 库存还有就保持选中，可以接着放；用完了才取消选中
       if (!(d().inv[key] > 0)) st.sel = null;
       st.pick = null;
@@ -321,37 +280,20 @@ SA.Editor = (() => {
   }
 
   function removeAt({ layer, r, c }) {
-    const res = SA.V.remove(veh(), layer, r, c);
+    const res = SA.S.removeVehicleCell(layer, r, c);
     if (!res.ok) { say(res.reason, true); return; }
-    let scrap = 0;
-    for (const cell of res.removed) scrap += stash(cell);
+    const scrap = res.scrap;
     say(`拆下 ${res.removed.map(x => M[x.id].name).join('、')}，已放回库存${scrap ? `；损毁件 / 改装件回收 ${money(scrap)}` : ''}`);
     st.pick = null;
     changed();
   }
 
   // 放置检查（预览、提示、绿色可放区域共用）：底盘先按「换下冲突的旧底盘」算，和真正点下去的结果一致
-  function placeCheck(v, id, r, c) {
-    if (M[id].layer !== 'chassis') return SA.V.canPlace(v, id, r, c);
-    const test = SA.V.clone(v);
-    for (const o of chassisClash(v, id, null)) test.body[o.r][o.c] = null;
-    return SA.V.canPlace(test, id, r, c);
-  }
-  // 车上和新底盘冲突的底盘：不同种的全部；同种的整件底盘（chassisLimit 1）已有的那个。cur = 正好被替换的那个（不重复算）
-  function chassisClash(v, id, cur) {
-    const out = [];
-    SA.V.each(v, (cell, r, c, layer) => {
-      if (layer !== 'body' || M[cell.id].layer !== 'chassis' || (cur && cur.r === r && cur.c === c)) return;
-      if (cell.id !== id || M[id].chassisLimit === 1) out.push({ cell, r, c });
-    });
-    return out;
-  }
-
   // 把车上的模块（锚点 from）搬到鼠标位置；压着一个模块就对调
   function moveTo(from, hv) {
     const v = veh(), cell = v[from.layer][from.r][from.c];
     if (!cell) return;
-    const sp = spot(cell.id, hv, v, from);
+    const sp = SA.V.editorSpot(cell.id, hv, v, from);
     if (sp.r === from.r && sp.c === from.c) return;
     const res = SA.V.move(v, from.layer, from.r, from.c, sp.r, sp.c);
     if (!res.ok) { if (res.reason) say(res.reason, true); return; }
@@ -364,7 +306,7 @@ SA.Editor = (() => {
   function repair(cells) {
     const cost = cells.reduce((a, x) => a + SA.S.repairCost(x), 0);
     SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, lines: [SA.UI.repairList(cells)],
-      onPaid: () => { for (const x of cells) x.hp = SA.V.maxHp(x); st.pick = null; say(`修好了，花费 ${money(cost)}`); changed(); } });
+      onPaid: () => { SA.S.repairCells(cells); st.pick = null; say(`修好了，花费 ${money(cost)}`); changed(); } });
   }
 
   function buyOne(id) {
@@ -394,7 +336,7 @@ SA.Editor = (() => {
     plateEl.innerHTML = '';
     plateEl.classList.toggle('closed', !st.plateOpen);
     const nameIn = h('input', { type: 'text', class: 'plate-name', value: veh().name, maxLength: 20, 'aria-label': '车名',
-      onchange: () => { veh().name = nameIn.value.trim() || '原型机'; SA.S.save(); } });
+      onchange: () => { SA.S.renameVehicle(nameIn.value); } });
     const bad = s.problems.length;
     const hurtList = damagedCells();
     const cost = hurtList.reduce((a, x) => a + SA.S.repairCost(x), 0);
@@ -448,7 +390,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       const fix = [pk, layer === 'body' && v.side[r][c]].filter(x => x && x.hp < SA.V.maxHp(x));
       const cost = fix.reduce((a, x) => a + SA.S.repairCost(x), 0);
       const lv = pk.lv || 0, upName = SA.upName(pk.id);
-      const mu = matUpInfo(pk);
+      const mu = SA.S.matUpInfo(pk);
       // 下一级材料：已解锁或有锭才显示按钮；没解锁的只在提示里说一句
       const matBtn = pk.hp > 0 && !mu.max && (mu.ok || mu.mat.ingot || mu.to <= SA.Camp.maxMat() + 1) && SA.Camp.maxMat() > 1
         ? h('button', { class: `btn small ${mu.ok ? 'primary' : ''}`, disabled: !mu.ok, title: mu.why || `属性 ×${mu.mat.mul}`, onclick: () => matUpgrade(pk) },
@@ -659,8 +601,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
 
   function sellOne(key) {
     const id = kid(key), mt = kmt(key);
-    const x = Math.round(SA.cellValue({ id, mt }) * 0.5);
-    d().money += x; SA.S.addInv(id, -1, mt);
+    const x = SA.S.sellStock(id, mt);
     if (!d().inv[key]) st.sel = null;
     say(`卖出 ${fullName(id, mt)}，进账 ${money(x)}`);
     changed();
@@ -761,7 +702,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     if (key) {
       const id = kid(key), mt = kmt(key);
       const dragCell = st.drag && st.drag.kind === 'cell' ? st.drag : null;
-      const sp = spot(id, hv, v, dragCell), cur = sp.hits.length === 1 ? sp.hits[0].cell : null;
+      const sp = SA.V.editorSpot(id, hv, v, dragCell), cur = sp.hits.length === 1 ? sp.hits[0].cell : null;
       if (dragCell) {
         if (sp.r === dragCell.r && sp.c === dragCell.c) return { text: '放回原处' };
         if (sp.hits.length > 1) return { text: '这里压着好几个模块，换不了', err: true };
@@ -772,7 +713,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: `再点一次：拆下 ${M[id].name}` };
       if (cur && hurt(cur)) return { text: `${M[cur.id].name} 受损，先修理才能替换`, err: true };
       if (cur) return { text: `${buy}替换 ${M[cur.id].name} → ${M[id].name}` };
-      const chk = placeCheck(v, id, sp.r, sp.c), clash = M[id].layer === 'chassis' ? chassisClash(v, id, null) : [];
+      const chk = SA.V.placeCheck(v, id, sp.r, sp.c), clash = M[id].layer === 'chassis' ? SA.V.chassisClash(v, id, null) : [];
       if (chk.ok && clash.length) return { text: `${buy}换底盘：${M[clash[0].cell.id].name} → ${M[id].name}（换下的放回库存）` };
       return chk.ok ? { text: `${buy}放置 ${M[id].name}：${where(sp.r, sp.c)}` } : { text: `${buy}放置 ${M[id].name}（${chk.reason}）`, err: true };
     }
@@ -849,11 +790,11 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         const f = SA.fp(id), cover = new Set();
         for (let r = 0; r <= K.ROWS - f.h; r++)
           for (let c = 0; c <= K.COLS - f.w; c++)
-            if (placeCheck(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
+            if (SA.V.placeCheck(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
         for (const k of cover) fillCell(...cellXY(Math.floor(k / K.COLS), k % K.COLS), GREEN, pulse(t, 0.06, 0.2, 2));
       }
       if (hv) {
-        const sp = spot(id, hv, v, drag);
+        const sp = SA.V.editorSpot(id, hv, v, drag);
         const [x, y] = cellXY(sp.r, sp.c), w = sp.w * C, h = sp.h * C;
         const cur = sp.hits.length === 1 ? sp.hits[0] : null;
         const home = drag && drag.r === sp.r && drag.c === sp.c;
@@ -863,7 +804,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           cross(bx, by, bw, bh);
         } else if (!home) {
           const bad = !SA.V.boxInRegion(v, sp.r, sp.c, sp.w, sp.h) || sp.hits.length > 1
-            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !placeCheck(v, id, sp.r, sp.c).ok));
+            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !SA.V.placeCheck(v, id, sp.r, sp.c).ok));
           for (const o of sp.hits) { const [bx, by, bw, bh] = boxOf(v, SA.V.layerOf(id), o.r, o.c); g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(bx, by, bw, bh); }
           g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });

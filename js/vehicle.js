@@ -571,5 +571,47 @@ SA.V = (() => {
     } catch (e) { return null; }
   }
 
-  return { create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive };
+  // 车间摆放与预览所需的模型计算，界面仅负责坐标和呈现。
+  function editorSpot(id, hv, v, ignore = null) {
+    const f = SA.fp(id), clampI = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+    const r = M[id].layer === 'chassis' ? SA.V.CH : clampI(Math.round(hv.fr - f.h / 2), 0, K.ROWS - f.h);
+    const c = clampI(Math.round(hv.fc - f.w / 2), 0, K.COLS - f.w);
+    const O = SA.V.occ(v, SA.V.layerOf(id)), hits = [];
+    for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) {
+      const o = O[r + i][c + j];
+      if (o && !(ignore && o.r === ignore.r && o.c === ignore.c) && !hits.some(x => x.r === o.r && x.c === o.c)) hits.push(o);
+    }
+    return { r, c, w: f.w, h: f.h, hits };
+  }
+
+  function placeCheck(v, id, r, c) {
+    if (M[id].layer !== 'chassis') return SA.V.canPlace(v, id, r, c);
+    const test = SA.V.clone(v);
+    for (const o of chassisClash(v, id, null)) test.body[o.r][o.c] = null;
+    return SA.V.canPlace(test, id, r, c);
+  }
+  // 车上和新底盘冲突的底盘：不同种的全部；同种的整件底盘（chassisLimit 1）已有的那个。cur = 正好被替换的那个（不重复算）
+  function chassisClash(v, id, cur) {
+    const out = [];
+    SA.V.each(v, (cell, r, c, layer) => {
+      if (layer !== 'body' || M[cell.id].layer !== 'chassis' || (cur && cur.r === r && cur.c === c)) return;
+      if (cell.id !== id || M[id].chassisLimit === 1) out.push({ cell, r, c });
+    });
+    return out;
+  }
+
+
+  function statsWith(v, id, mt = 1) {
+    const layer = SA.V.layerOf(id) === 'side' ? 'side' : 'body', f = SA.fp(id), o = SA.V.occ(v, layer);
+    for (let r = 0; r + f.h <= SA.K.ROWS - 2; r++) for (let c = 0; c + f.w <= SA.K.COLS; c++) {
+      let free = true;
+      for (let i = 0; i < f.h && free; i++) for (let j = 0; j < f.w && free; j++) if (o[r + i][c + j]) free = false;
+      if (!free) continue;
+      const w = SA.V.clone(v);
+      w[layer][r][c] = SA.newCell(id, mt);
+      return SA.V.stats(w);
+    }
+    return null;
+  }
+  return { create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

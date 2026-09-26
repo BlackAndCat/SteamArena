@@ -27,64 +27,19 @@ SA.Arena = (() => {
   }
 
   // ---------- 数据：当前模式下的比赛列表 ----------
-  function entries() {
-    const D = d();
-    if (st.mode === 'camp') {
-      const C = D.camp, over = SA.Camp.done();
-      return SA.CAMPAIGN.flatMap((chapter, chapterIndex) => chapter.stages.map((o, i) => {
-        const stage = SA.Camp.stage(chapterIndex, i);
-        const beaten = over || chapterIndex < C.ch || (chapterIndex === C.ch && i < C.st);
-        const next = !over && chapterIndex === C.ch && i === C.st;
-        const replay = beaten;
-        return { key: `${chapterIndex},${i}`, name: o.name, pilot: o.pilot, blurb: o.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : o.prize, boss: o.boss, terrain: o.terrain || 'flat', replay, next,
-          tag: replay ? ['ok', '可重打'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
-          title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${o.name}`, lock: replay || next ? null : '先完成前面的战役',
-          start: () => SA.Battle.start({ mode: 'campaign', replay, enemyVehicle: stage.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: replay ? 0 : o.prize, uniqueLoot: o.uniqueLoot || [] }) };
-      }));
-    }
-    if (st.mode === 'side') return SA.Camp.sideEntries().map(e => ({
-      key: e.id, name: e.name, pilot: e.pilot, blurb: e.blurb, v: e.vehicle, raw: e.vehicle, hpMul: 1,
-      rating: SA.V.stats(e.vehicle).rating, prize: 0, boss: false, terrain: e.terrain || 'flat',
-      tag: e.won ? ['ok', '可重打'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
-      lock: null, replay: e.won,
-      start: () => SA.Battle.start({ mode: 'side', sideId: e.id, replay: e.won, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
-        uniqueLoot: e.reward ? [{ id: e.reward.id, mt: e.reward.mt, once: true, source: e.reward.source || 'side' }] : [] }),
-    }));
-    if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {
-      const op = SA.S.opponent(i);
-      const bv = SA.V.battleCopy(op.vehicle, op.hpMul, true);
-      const terrain = SA.TERRAIN_ORDER[i % SA.TERRAIN_ORDER.length];   // 终局锦标赛：六轮六种场地
-      return { key: i, name: op.name, pilot: op.pilot, blurb: op.blurb, v: bv, raw: op.vehicle, hpMul: op.hpMul, rating: SA.V.stats(bv).rating, prize: op.prize, terrain,
-        tag: i < D.round ? ['ok', '已击败'] : i === D.round ? ['next', '下一场'] : ['no', `第 ${i + 1} 轮`],
-        title: `第 ${i + 1} 轮 · ${op.name}`, lock: i !== D.round ? (i < D.round ? '已经击败过了' : `先打完第 ${D.round + 1} 轮`) : null,
-        start: () => SA.Battle.start({ mode: 'tournament', enemyVehicle: op.vehicle, enemyName: op.name, aim: op.aim, terrain, boss: i === SA.OPPONENTS.length - 1, hpMul: op.hpMul, prize: op.prize }) };
-    });
-    if (st.mode === 'street') {
-      const me = SA.V.stats(D.vehicle).rating;
-      return SA.Street.offers().map((o, i) => {
-        const tier = SA.STREET_TIERS[i];
-        const v = SA.Street.vehicleOf(o), cap = SA.Street.cap(i);
-        return { key: i, name: o.name, pilot: o.pilot, blurb: '街坊邻居随手拼的小车。赢了拿奖金，不计声望、不影响赛程；损伤照常带回车间。', v, rating: o.rating, prize: o.prize, terrain: o.terrain || 'flat',
-          tag: ['', `上限 ${cap}`], title: `${tier.name} · ${o.name}`, lock: me > cap ? `你的评分 ${me} 超过上限 ${cap}` : null,
-          start: () => SA.Battle.start({ mode: 'street', streetTier: i, enemyVehicle: v, enemyName: o.name, aim: o.aim, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
-      });
-    }
-    return [];
-  }
-
   function render() {
     if (!root || !root.isConnected) return;
     const D = d();
     root.innerHTML = '';
     if (st.pick.tour == null) st.pick.tour = D.round;
     if (st.pick.camp == null) st.pick.camp = `${SA.Camp.chIndex()},${Math.min(D.camp.st, SA.CAMPAIGN[SA.Camp.chIndex()].stages.length - 1)}`;
-    const list = st.mode === 'orders' ? [] : entries();
+    const list = st.mode === 'orders' ? [] : SA.S.arenaEntries(st.mode);
     const pickKey = st.pick[st.mode];
     const cur = list.find(x => x.key === pickKey) || list.find(x => x.next) || list.find(x => !x.lock) || list[0] || null;
     if (cur) st.pick[st.mode] = cur.key;
 
     const s = SA.V.stats(D.vehicle);
-    const ordersReady = SA.ORDERS.filter(o => D.orders.includes(o.id) && D.rep >= o.rep && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n)).length;
+    const ordersReady = SA.S.readyOrders(s);
     const ms = modes();
     const tabs = ms.length > 1 ? h('div', { class: 'ar-tabs' }, ms.map(([k, n]) => h('button', { class: `tab ${st.mode === k ? 'on' : ''}`, onclick: () => { st.mode = k; render(); } },
       n, k === 'tour' ? h('span', { class: 'cnt' }, `第 ${D.round + 1} 轮`) : null,
@@ -135,7 +90,7 @@ SA.Arena = (() => {
       SA.Camp.has('garage') ? h('button', { class: 'btn small', onclick: () => SA.nav('garage') }, '去车间处理') : null));
     if (hurt.length) out.push(h('div', { class: 'warn' }, `${hurt.length} 个模块受损，`, h('button', { class: 'btn small', title: `最贵的几项：
 ${SA.UI.repairBrief(hurt)}`, onclick: () =>
-      SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, lines: [SA.UI.repairList(hurt)], onPaid: () => { for (const c of hurt) c.hp = SA.V.maxHp(c); SA.UI.toast('全部修好了'); render(); } }) }, `全部修理 ${money(cost)}`)));
+      SA.UI.pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, lines: [SA.UI.repairList(hurt)], onPaid: () => { SA.S.repairCells(hurt); SA.UI.toast('全部修好了'); render(); } }) }, `全部修理 ${money(cost)}`)));
     const warns = s.warnings.filter(w => !/损毁/.test(w));
     if (warns.length) out.push(h('div', { class: 'warn' }, warns.join('；')));
     return out;
@@ -147,7 +102,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
     const odds = SA.S.odds(e.raw, e.hpMul);
     if (D.bet) return h('div', { class: 'bet' }, h('span', { class: 'k' }, '下注'),
       h('span', { class: 'grow' }, `已押 ${money(D.bet.amount)} × ${D.bet.odds} → 赢了拿回 `, h('b', { class: 'gold' }, money(D.bet.amount * D.bet.odds))),
-      h('button', { class: 'btn small', onclick: () => { D.money += D.bet.amount; D.bet = null; SA.S.save(); SA.UI.topbar(); render(); } }, '撤回'));
+      h('button', { class: 'btn small', onclick: () => { SA.S.cancelBet(); SA.UI.topbar(); render(); } }, '撤回'));
     const max = Math.max(0, Math.floor(D.money / 10) * 10);
     if (!max) return h('div', { class: 'bet' }, h('span', { class: 'k' }, '下注'), h('span', { class: 'muted' }, `赔率 × ${odds}，只能押自己赢。现在没钱可押。`));
     const amt = Math.min(max, st.bet == null ? Math.min(100, max) : st.bet);
@@ -158,7 +113,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
     return h('div', { class: 'bet' }, h('span', { class: 'k' }, `下注 × ${odds}`), range, out,
       h('button', { class: 'btn small', onclick: () => {
         const x = +range.value; if (!x) return;
-        D.money -= x; D.bet = { amount: x, odds }; st.bet = null; SA.S.save(); SA.UI.topbar(); SA.UI.toast(`押注 ${money(x)}`); render();
+        SA.S.placeBet(x, odds); st.bet = null; SA.UI.topbar(); SA.UI.toast(`押注 ${money(x)}`); render();
       } }, '押自己赢'));
   }
 
@@ -186,8 +141,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
     const D = d();
     const rows = D.orders.map(oid => {
       const o = SA.ORDERS.find(x => x.id === oid);
-      const locked = D.rep < o.rep;
-      const ok = !locked && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n);
+      const { locked, ok } = SA.S.orderStatus(o, s);
       return h('div', { class: 'ar-order' },
         h('div', { class: 'grow' },
           h('div', {}, h('b', {}, o.who), ' ', locked ? h('span', { class: 'chip no' }, `需要声望 ★${o.rep}`) : null),
@@ -200,9 +154,7 @@ ${SA.UI.repairBrief(hurt)}`, onclick: () =>
         h('div', { class: 'ar-order-act' }, h('b', { class: 'gold' }, money(o.reward)),
           o.ingots ? h('span', { class: 'chip mat', style: `--mat:${SA.MATS[5].chip}` }, Object.entries(o.ingots).map(([k, n]) => `${SA.INGOTS[k].name}×${n}`).join(' ')) : null,
           h('button', { class: 'btn small primary', disabled: !ok, onclick: () => {
-            D.money += o.reward; D.rep += 1; SA.S.addIngots(o.ingots);
-            D.orders = D.orders.filter(x => x !== oid); D.ordersDone.push(oid);
-            D.news = `${o.who}买下了你的图纸授权，付款 ${money(o.reward)}。`;
+            SA.S.deliverOrder(o, oid);
             SA.UI.toast(`委托完成 +${money(o.reward)}${o.ingots ? ` 和 ${Object.keys(o.ingots).map(k => SA.INGOTS[k].name).join('、')}` : ''}，声望 +1`);
             SA.S.save(); SA.UI.topbar(); render();
           } }, '交付图纸')));

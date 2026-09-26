@@ -70,7 +70,7 @@ SA.UI = (() => {
   // 付钱：钱够就（按需确认后）直接扣款；不够就问要不要向银行贷款补齐差额
   function pay({ title, amount, lines = [], okLabel = '确认', confirm = true, onPaid }) {
     const d = S();
-    const done = () => { d.money -= amount; SA.S.save(); topbar(); onPaid(); };
+    const done = () => { SA.S.payAmount(amount); topbar(); onPaid(); };
     if (d.money >= amount) {
       if (!confirm) { done(); return; }
       dialog(title, [lines, h('p', {}, `花费 `, h('b', { class: 'gold' }, money(amount)), `，剩余 ${money(d.money - amount)}`)],
@@ -107,7 +107,7 @@ SA.UI = (() => {
     const s = SA.V.stats(d.vehicle);
     const fix = s.problems.length;
     const has = SA.Camp.has;
-    const ready = has('orders') ? SA.ORDERS.filter(o => d.orders.includes(o.id) && d.rep >= o.rep && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n)).length : 0;
+    const ready = has('orders') ? SA.S.readyOrders(s) : 0;
     const st = SA.Camp.current(), ch = SA.CAMPAIGN[SA.Camp.chIndex()];
     const where = st ? `${ch.name.split(' · ')[0]} · 第 ${st.si + 1}/${ch.stages.length} 场` : `锦标赛第 ${d.round + 1} 轮`;
     const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0);
@@ -243,8 +243,8 @@ SA.UI = (() => {
         h('div', {}, h('span', { class: 'k' }, '债务'), h('b', { style: 'color:var(--fire2)' }, money(d.debt)))),
       h('div', { class: 'dialog-actions', style: 'padding:12px 0 0;justify-content:flex-start' },
         act('借 £300', SA.S.loanRoom() >= 300, () => SA.S.borrow(300), true),
-        act('还 £100', d.debt && d.money >= Math.min(100, d.debt), () => { const x = Math.min(100, d.debt); d.debt -= x; d.money -= x; }),
-        act('全部还清', d.debt && d.money >= d.debt, () => { d.money -= d.debt; d.debt = 0; })),
+        act('还 £100', d.debt && d.money >= Math.min(100, d.debt), () => SA.S.repay(100)),
+        act('全部还清', d.debt && d.money >= d.debt, () => SA.S.repay(d.debt))),
     ]);
     $('#modal > .panel').classList.add('dialog');
   }
@@ -258,16 +258,14 @@ SA.UI = (() => {
   }
 
   // ---------- 战后结算 ----------
-  const drawFee = (prize) => Math.max(5, Math.round(prize * 0.1 / 5) * 5);   // 平手：各拿奖金的一成
   function afterBattle(res) {
     const d = S();
-    const lines = [];
-    const pre = [];   // 结算弹窗之前依次弹出的：缴获、解锁
-    const money0 = d.money;   // 结算时和修理费对照：这一场到底赚没赚
+    const { lines, pre: pending, money0 } = SA.S.settleBattle(res);
+    const pre = pending.map(p => p.kind === 'salvage'
+      ? (next) => SA.Camp.salvageDialog(p.survivors, next)
+      : (next) => SA.Camp.unlockDialog(p.unlock, next));
     // K7 重打沿用战役 / 支线的战斗入口，但完全按友谊赛处理：不写战损，不推进进度，不发钱、声望或缴获。
     if (res.replay) {
-      d.news = res.win ? `「${d.vehicle.name}」重打击败了「${res.enemyName}」。` : `「${d.vehicle.name}」完成了与「${res.enemyName}」的重打。`;
-      SA.S.save();
       SA.nav('arena', null, true);
       dialog(res.draw ? '重打结束：平手' : res.win ? '重打胜利！' : '重打结束', [
         h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
@@ -276,112 +274,13 @@ SA.UI = (() => {
       ], [], '继续', () => { refresh(); SA.Camp.introIfNew(); });
       return;
     }
-    const settlesDamage = res.mode !== 'friendly' && (res.mode !== 'side' || res.opts.settleDamage !== false);
-    if (res.mode !== 'friendly' && settlesDamage) {
-      d.battles++;
-      // 损伤带回车间
-      SA.V.each(d.vehicle, (cell, r, c, layer) => {
-        if (cell.hp <= 0) return;
-        const b = res.playerVehicle[layer][r][c];
-        cell.hp = b ? Math.max(0, b.hp) : 0;
-      });
-    }
-    if (res.mode === 'street') {
-      const tier = SA.STREET_TIERS[res.opts.streetTier];
-      if (res.draw) {
-        const fee = drawFee(res.prize);
-        d.money += fee;
-        lines.push(`平手：双方各拿出场费 ${money(fee)}`);
-        d.news = `「${d.vehicle.name}」在${tier.name}和「${res.enemyName}」打成平手。`;
-      } else if (res.win) {
-        d.money += res.prize; d.wins++;
-        lines.push(`奖金 +${money(res.prize)}`);
-        d.news = `「${d.vehicle.name}」在${tier.name}赢了「${res.enemyName}」，进账 ${money(res.prize)}。`;
-      } else {
-        d.losses++;
-        d.news = `「${d.vehicle.name}」在${tier.name}输给了「${res.enemyName}」。`;
-      }
-      lines.push('街头赛不计声望，也不影响战役进度。');
-      SA.Street.consume(res.opts.streetTier);
-    } else if (res.mode === 'side') {
-      const firstWin = res.win && SA.Camp.sideWin(res.opts.sideId || res.enemyName);
-      if (res.draw) {
-        lines.push('遭遇战平手：不发奖金，也不计声望。');
-        d.news = `「${d.vehicle.name}」和「${res.enemyName}」在场外打成平手。`;
-      } else if (res.win) {
-        lines.push('遭遇战胜利：不发奖金，也不计声望。');
-        if (firstWin) {
-          const loot = SA.Camp.salvageOptions(res.survivors || []);
-          if (loot.length) pre.push((next) => SA.Camp.salvageDialog(res.survivors || [], next));
-          else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
-        } else lines.push('这场遭遇战已经完成过了，没有重复奖励。');
-        d.news = `「${d.vehicle.name}」击败了场外的「${res.enemyName}」。`;
-      } else {
-        lines.push('遭遇战失败：不发奖金，也不计声望。');
-        d.news = `「${d.vehicle.name}」败给了场外的「${res.enemyName}」。`;
-      }
-    } else if (res.mode === 'campaign' || res.mode === 'tournament') {
-      const camp = res.mode === 'campaign';
-      if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${money(add)}`); }
-      if (res.draw) {
-        const fee = drawFee(res.prize);
-        d.money += fee;
-        lines.push(`平手：双方各拿出场费 ${money(fee)}，这一场要重赛`);
-        if (d.bet) { d.money += d.bet.amount; lines.push(`平局退还赌注 ${money(d.bet.amount)}`); }
-        d.news = `「${d.vehicle.name}」和「${res.enemyName}」打成平手，择日重赛。`;
-      } else if (res.win) {
-        d.money += res.prize; d.wins++;
-        const rep = (res.flawless ? 2 : 1) + (res.surrendered ? 1 : 0);
-        d.rep += rep;
-        lines.push(`奖金 +${money(res.prize)}`, `声望 +${rep}${[res.flawless ? '驾驶舱毫发无损' : '', res.surrendered ? '接受投降，体面收场' : ''].filter(Boolean).map(x => `（${x}）`).join('')}`);
-        if (d.bet) { const pay = Math.round(d.bet.amount * d.bet.odds); d.money += pay; lines.push(`赌注兑现 +${money(pay)}`); }
-        // 缴获：只有你还没有的零件或史诗 / 传奇件；什么都没有就说一声
-        const loot = SA.Camp.salvageOptions(res.survivors || []);
-        if (loot.length) pre.push((next) => SA.Camp.salvageDialog(res.survivors || [], next));
-        else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
-        if (camp) {
-          const r = SA.Camp.win();
-          lines.push(...r.lines);
-          for (const u of r.unlocks) pre.push((next) => SA.Camp.unlockDialog(u, next));
-          const st = SA.Camp.current();
-          d.news = SA.Camp.done() ? `「${d.vehicle.name}」击败女王号，夺得帝国蒸汽大奖赛冠军！`
-            : `「${d.vehicle.name}」击败了「${res.enemyName}」。下一场：${SA.CAMPAIGN[st.ci].name} · ${st.name}。`;
-        } else {
-          d.round++;
-          if (d.round >= SA.OPPONENTS.length) {
-            d.champion++; d.season++; d.round = 0;
-            SA.S.addIngots({ aether: 1 });
-            lines.push(`🏆 你赢得了第 ${d.season - 1} 赛季冠军！奖励 ${SA.INGOTS.aether.name} ×1。新赛季的对手会换上更好的材料。`);
-            d.news = `「${d.vehicle.name}」夺得伦敦蒸汽大奖赛第 ${d.season - 1} 赛季冠军！`;
-          } else {
-            d.news = `「${d.vehicle.name}」击败了「${res.enemyName}」，晋级第 ${d.round + 1} 轮。`;
-          }
-        }
-      } else {
-        d.losses++;
-        if (d.bet) lines.push(`赌注 ${money(d.bet.amount)} 输光了`);
-        d.news = `「${d.vehicle.name}」败给了「${res.enemyName}」。${SA.Camp.has('garage') ? '回车间对症改装，再来。' : '再来一次。'}`;
-      }
-      d.bet = null;
-      // 补充订单
-      const pool = SA.ORDERS.filter(o => !d.orders.includes(o.id) && !d.ordersDone.includes(o.id));
-      if (!pool.length && d.ordersDone.length) d.ordersDone = [];
-      while (d.orders.length < 3) {
-        const p = SA.ORDERS.filter(o => !d.orders.includes(o.id) && !d.ordersDone.includes(o.id));
-        if (!p.length) break;
-        d.orders.push(p[Math.floor(Math.random() * p.length)].id);
-      }
-    } else {
-      lines.push('友谊赛：不结算奖金，也不留下损伤。');
-    }
-    SA.S.save();
     SA.nav('arena', null, true);
     // 受损就直接给出修理入口，不让玩家自己找
     const summary = () => {
       const hurt = [];
       SA.V.each(d.vehicle, (cell) => { if (cell.hp < SA.V.maxHp(cell)) hurt.push(cell); });
       const cost = hurt.reduce((a, c) => a + SA.S.repairCost(c), 0);
-      const fixAll = () => { for (const c of hurt) c.hp = SA.V.maxHp(c); toast(`修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
+      const fixAll = () => { SA.S.repairCells(hurt); toast(`修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
       const after = () => { refresh(); SA.Camp.introIfNew(); };
       const gain = d.money - money0, net = gain - cost;
       dialog(res.draw ? '平手' : res.win ? '胜利！' : '战败', [
@@ -471,18 +370,6 @@ SA.UI = (() => {
     return null;
   }
   // 把一件模块临时放进车的空位，算出装上前后的整车属性（只用来预览，不管摆放规则）
-  function statsWith(v, id, mt = 1) {
-    const layer = SA.V.layerOf(id) === 'side' ? 'side' : 'body', f = SA.fp(id), o = SA.V.occ(v, layer);
-    for (let r = 0; r + f.h <= SA.K.ROWS - 2; r++) for (let c = 0; c + f.w <= SA.K.COLS; c++) {
-      let free = true;
-      for (let i = 0; i < f.h && free; i++) for (let j = 0; j < f.w && free; j++) if (o[r + i][c + j]) free = false;
-      if (!free) continue;
-      const w = SA.V.clone(v);
-      w[layer][r][c] = SA.newCell(id, mt);
-      return SA.V.stats(w);
-    }
-    return null;
-  }
   const secs = (t) => (t === Infinity ? '不会烧干' : `${Math.round(t)} 秒`);
   // 新属性模块的说明 + 装上后的变化（车间右侧选中行展开）
   function newAttrInfo(id, mt, v) {
@@ -492,7 +379,7 @@ SA.UI = (() => {
     if (m.dryCool) out.push(['不耗水散热', `每秒额外散掉 ${f1(m.dryCool)} 点热量，不用水：水烧光以后也照样散热。`]);
     if (m.tether) out.push(['牵引', `命中后挂上绳索，把对手往自己这边拉（收绳 ${m.tether}）；被拉过来撞上时反震从 ${Math.round(SA.K.RAM_SELF * 100)}% 降到 ${Math.round(SA.K.RAM_TETHER_SELF * 100)}%。绳子挂着时不能再发射。`]);
     if (!out.length) return null;
-    const a = v && SA.V.stats(v), b = v && statsWith(v, id, mt);
+    const a = v && SA.V.stats(v), b = v && SA.V.statsWith(v, id, mt);
     const diff = [];
     if (a && b) {
       if ((m.store || m.waterSave || m.dryCool) && a.overheat !== b.overheat) diff.push(`全力开火烧干：${secs(a.overheat)} → ${secs(b.overheat)}`);
@@ -507,5 +394,5 @@ SA.UI = (() => {
   }
 
   return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
-    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith };
+    repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith: SA.V.statsWith };
 })();
