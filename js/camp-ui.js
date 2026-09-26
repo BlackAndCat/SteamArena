@@ -52,17 +52,11 @@ SA.CampUI = (() => {
   // ---------- 调试（控制台）----------
   // SA.dev.goto(3)：直接跳到第 3 章开头（前面各章的解锁全部发放）；SA.dev.unlockAll()：全部解锁；SA.dev.money(n)
   // 开发者面板：侧边栏底部的「开发者」按钮。上面是开发工具（新标签页打开），下面是存档调试
-  // 新做的工具页 / 预览页加到 DEV_TOOLS 里就会出现在面板上
+  // 新做的工具页 / 预览页加到 DEV_TOOLS 里就会出现在面板上；视觉样机不单独加，登记到 tools/labs.js（视觉样机馆）
   const DEV_TOOLS = [
     { url: 'tools/sim.html', name: '数值自测', desc: 'AI 对 AI 批量对打：战役关卡检验、对战矩阵 + 评分校准、模块性价比' },
     { url: 'tools/evolve.html', name: '进化报告', desc: '关卡车进化生成器的结果：选关、强度 × 表现散点图、分类网格、毒瘤车与奇特构筑，可复现、可试驾' },
-    { url: 'tools/suspension-lab.html', name: '悬挂与爬坡样机', desc: '履带 / 四足 / 双足过坡：刚体 vs 悬挂（轮组、脚各自伸缩贴地），带悬空统计' },
-    { url: 'tools/terrain-lab.html', name: '地形美术样机', desc: '土坡、泥地、货箱各阶段、碎木，以及坡上的车身倾斜（像素画法规则）' },
-    { url: 'tools/style-guide.html', name: '美术风格参考', desc: '风格速查：调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件和美术生成提示词' },
-    { url: 'tools/spritesheet.html', name: '模块精灵表', desc: '全部模块的像素图、整车渲染、炮管后坐与供弹动态帧' },
-    { url: 'tools/mech-kit.html', name: '机甲套件', desc: '全局子格套件：双足 / 履带 / 蜘蛛共用部件与挂载层的视觉验证' },
-    { url: 'tools/biped-v2.html', name: '真双足样机', desc: '一对腿 + 陀螺仪平衡系统的视觉语言样机' },
-    { url: 'tools/biped-lab.html', name: '双足设计探索', desc: '双足底盘升级版：六档品质 + 探索版腿型' },
+    { url: 'tools/lab.html', name: '视觉样机馆', desc: '全部视觉样机和美术规范：风格参考、精灵表、模块造型探索、底盘演进、地形与悬挂；按类别、版本和状态收纳' },
   ];
   function devPanel() {
     const act = (label, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, onclick: () => { SA.UI.closeModal(); fn(); SA.UI.toast(label); } }, label);

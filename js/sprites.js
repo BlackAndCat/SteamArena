@@ -1350,7 +1350,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons,
+    PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };
 })();
