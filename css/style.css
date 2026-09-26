@@ -616,3 +616,5 @@ body.sa-text-editing [data-sa-text-editable]:hover { outline-color: var(--brass3
 /* 铭牌是黄铜底：新属性字用深色版本 */
 .brass-plate .na-inline { font-weight: 700; }
 .brass-plate .na-储能 { --na: var(--fire1); } .brass-plate .na-省水, .brass-plate .na-不耗水散热 { --na: var(--water1); } .brass-plate .na-牵引 { --na: var(--brass0); }
+/* 整件四足的卡片图更宽（腿往前后张）：缩到和其他行差不多宽，名字不被挤掉 */
+.mrow .pic canvas { max-width: 104px; height: auto !important; }
