@@ -60,7 +60,8 @@ SA.MODULES = {
     desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
   },
   quad: {
-    name: '四足底盘', cat: 'mobility', layer: 'chassis', w: 4, h: 2, whole: true, chassisLimit: 1, vis: [1, 3, 5],
+    // 整件四足可以多件首尾相连（车体蜈蚣），中间不能隔空（2026-09-26 用户决定）；和别的底盘不能混用
+    name: '四足底盘', cat: 'mobility', layer: 'chassis', w: 4, h: 2, whole: true, chain: true, vis: [1, 3, 5],
     price: 140, hp: 140, power: 0, armor: 1, load: 2400, acc: 0.06, speed: 62, kg: 400, q: 2, accel: 0.85, brake: 0.55, sway: 0.45, spool: 1.1,
     // 整件四足固定四个接地点：近侧后/前、远侧后/前，坐标是整件内部的 x。
     contactPts: { nearRear: 0, nearFront: 96, farRear: 8, farFront: 104 },

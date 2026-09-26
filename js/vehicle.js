@@ -25,13 +25,15 @@ SA.V = (() => {
   function normalizeChassis(v) {
     const a = chassisAnchors(v);
     if (!a.length) return v;
-    // 履带仍可由多个同类锚点组成；整件双足 / 四足只能保留一个，混用时优先保留整件底盘。
-    const whole = a.find(x => M[x.cell.id].chassisLimit === 1);
+    // 履带仍可由多个同类锚点组成；整件双足只能保留一个；整件四足可以多件相连（chain），旧的逐格四足（2 宽锚点）
+    // 读进来会互相重叠，从左往右只保留不重叠、放得下的那些。混用时优先保留整件底盘。
+    const whole = a.find(x => M[x.cell.id].whole);
     const type = whole ? whole.cell.id : a[0].cell.id;
-    let keptWhole = false;
+    let keptWhole = false, end = -1;
     for (const x of a) {
-      if (x.cell.id !== type || (M[type].chassisLimit === 1 && (keptWhole || x.r !== CH))) v.body[x.r][x.c] = null;
-      else if (M[type].chassisLimit === 1) keptWhole = true;
+      const m = M[type], w = fp(type).w;
+      if (x.cell.id !== type || (m.whole && x.r !== CH) || (m.chassisLimit === 1 && keptWhole) || (m.chain && (x.c < end || x.c + w > K.COLS))) v.body[x.r][x.c] = null;
+      else { if (m.chassisLimit === 1) keptWhole = true; if (m.chain) end = x.c + w; }
     }
     return v;
   }
@@ -170,6 +172,7 @@ SA.V = (() => {
       const chassis = chassisAnchors(v);
       if (chassis.some(x => x.cell.id !== id)) return no('一辆车只能使用一种底盘');
       if (m.chassisLimit === 1 && chassis.some(x => x.cell.id === id)) return no('一辆车只能有一个底盘整件');
+      if (m.chain && chassis.length && !chassis.some(x => x.c + w === c || c + w === x.c)) return no(`${m.name}要和已有的首尾相连，中间不能隔空`);
       if (ramBehind(O, r, c, h)) return no('撞击武器前方不能再放模块');
       return { ok: true };
     }
@@ -288,6 +291,13 @@ SA.V = (() => {
     if (chassisIds.size > 1) for (const x of chassis) flag('body', x.r, x.c, '一辆车只能使用一种底盘');
     for (const id of chassisIds) if (M[id].chassisLimit === 1 && chassis.filter(x => x.cell.id === id).length > 1)
       for (const x of chassis.filter(x => x.cell.id === id).slice(1)) flag('body', x.r, x.c, '一辆车只能有一个底盘整件');
+    // 相连的整件底盘（四足）：只认最长的一段连续的，隔着空子的其余几件都标红
+    for (const id of chassisIds) if (M[id].chain) {
+      const w = fp(id).w, xs = chassis.filter(x => x.cell.id === id).sort((p, q) => p.c - q.c), runs = [];
+      for (const x of xs) { const last = runs[runs.length - 1]; if (last && last[last.length - 1].c + w === x.c) last.push(x); else runs.push([x]); }
+      const best = runs.reduce((p, q) => (q.length > p.length ? q : p));
+      for (const run of runs) if (run !== best) for (const x of run) flag('body', x.r, x.c, `${M[id].name}之间不能隔着空子（要首尾相连）`);
+    }
     const isBiped = chassis[0] && chassis[0].cell.id === 'biped';
     for (let c = 0; c < K.COLS; c++) if (B[CH][c] && M[B[CH][c].id].layer === 'chassis' && inRegion(v, CH, c)) { ok.add(key(CH, c)); queue.push([CH, c]); }
     while (queue.length) {

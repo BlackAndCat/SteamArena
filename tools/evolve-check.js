@@ -55,6 +55,13 @@ function chassisRuleCheck() {
   legacy.body[SA.V.CH][5] = SA.newCell('quad');
   const migrated = SA.V.migrate(legacy);
   if (SA.V.countIds(migrated).quad !== 1) throw new Error('旧逐格四足未归一为一个整件');
+  // 整件四足可以多件首尾相连（车体蜈蚣），隔着空子要报不合规（2026-09-26 用户决定）
+  const chain = SA.V.create('四足相连检查');
+  chain.body[SA.V.CH][2] = SA.newCell('quad'); chain.body[SA.V.CH][6] = SA.newCell('quad');
+  if (SA.V.issues(chain).some(x => x.reason.includes('四足'))) throw new Error('首尾相连的两件四足被误报不合规');
+  const gap = SA.V.create('四足隔空检查');
+  gap.body[SA.V.CH][2] = SA.newCell('quad'); gap.body[SA.V.CH][7] = SA.newCell('quad');
+  if (!SA.V.issues(gap).some(x => x.reason.includes('隔着空子'))) throw new Error('隔空的四足没有报不合规');
   return { quad: { size: `${SA.fp('quad').w}x${SA.fp('quad').h}`, contactPts: SA.suspPts('quad') }, biped: { balance: bs.balance, legs: bs.legs }, legacyQuadCount: SA.V.countIds(migrated).quad };
 }
 
