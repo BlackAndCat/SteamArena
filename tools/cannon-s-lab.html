@@ -52,7 +52,7 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>小炮 · 造型与材质语法 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v1 · 2026-09-26</small></h1>
+    <h1>小炮 · 造型与材质语法 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v2 · 2026-09-27</small></h1>
     <p>小炮（<code>cannon_s</code>）只占 1 个 24px 子格。本页两件事：<b>① 五个造型方向</b>，看哪种在 1× 下最像「一门小炮」又不和中炮、小臼炮、机枪撞；<b>② 材质语法</b>——材料不再只是给同一张图换色，而是换一套零件画法（工艺、光泽、纹理、紧固件、炮口、动态），让黄铜像铸的、熟铁像锻的、钢像车床上下来的。只做视觉，不改游戏。</p>
   </header>
   <div class="bar">
@@ -104,6 +104,12 @@
     <h2 class="sec">放进车体 <small>2 倍 · 左：现状（全车装饰层）　右：小炮和甲片换成材质语法，装甲和驾驶舱仍是现状</small></h2>
     <p class="lead">真实的 1×1 小炮会塞在大模块旁边的缝里。这里能看出一个问题：只换小炮的话，它和旁边还在用装饰层的模块质感不一样——要推开就得分批把其他模块也迁到材质语法。</p>
     <div class="ctx" id="ctx"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">外观阶段 <small>v2 · C 卡隆短炮，按 vis [1, 3, 5] 三个阶段</small></h2>
+    <p class="lead">阶段 ①（黄铜、熟铁）滑架上的素炮身；阶段 ②（钢、镀镍）炮身上方加驻退筒、滑架前立小防盾；阶段 ③（乌兹钢、以太合金）半圆炮廓包住耳轴、炮口双箍、顶上一支瞄准镜。三个阶段炮口点不变。下面的矩阵每一格都画出来方便比较，<b>金框</b>是游戏里实际会出现的组合；最后一行是玩家从 T1 升到 T6 实际看到的序列。</p>
+    <div class="scroll"><table class="mx" id="stg"></table></div>
   </section>
 
   <section>
@@ -262,7 +268,19 @@
       const m = st.mode; st.mode = 'sil'; paint(sil, src, 1); st.mode = m;
     });
   }
-  function render() { L.setFrame(st.frame); drawSpec(); renderDirs(); renderMatrix(); renderCompare(); renderCtx(); }
+  function renderStages() {
+    const d = L.DIRS.find(x => x.id === 'C'), T = $('stg'), stageOf = (mt) => mt <= 2 ? 1 : mt <= 4 ? 2 : 3;
+    T.replaceChildren(el('tr', {}, el('th'), ...NEW.map(M => { const th = el('th', {}, SA.MATS[M.mt].name); th.style.color = SA.MATS[M.mt].chip; return th; })));
+    for (const stn of [1, 2, 3]) {
+      const tr = el('tr', {}, el('th', { className: 'rh' }, `阶段 ${'①②③'[stn - 1]}`));
+      for (const M of NEW) { const c = document.createElement('canvas'); paint(c, L.sprite(d, M, o({ st: stn })), st.zoom); if (stageOf(M.mt) === stn) c.style.outline = `2px solid ${P.brass[2]}`; tr.append(el('td', {}, c)); }
+      T.append(tr);
+    }
+    const tr = el('tr', {}, el('th', { className: 'rh' }, '实际进阶'));
+    for (const M of NEW) { const c = document.createElement('canvas'); paint(c, L.sprite(d, M, o({ st: stageOf(M.mt) })), st.zoom); tr.append(el('td', {}, c)); }
+    T.append(tr);
+  }
+  function render() { L.setFrame(st.frame); drawSpec(); renderDirs(); renderMatrix(); renderCompare(); renderCtx(); renderStages(); }
 
   // ---------- 控件 ----------
   $('ang').oninput = (e) => { st.a = +e.target.value; $('angV').textContent = st.a + '°'; render(); };

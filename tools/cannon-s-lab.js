@@ -266,17 +266,30 @@ SA.CSLAB = (() => {
     {
       id: 'C', name: '卡隆短炮', idea: '粗短炮身 + 尾钮 + 滑架：最经典的「炮」图标。',
       pro: '1× 也认得出是炮；大面积炮身正好是材质的展示面，材质语法效果最好。', con: '古董炮味道重，离一战铁甲稍远；仰角大时尾部下沉要留空。',
+      // 外观阶段（小炮 vis [1, 3, 5]）：① 滑架上的素炮身；② 钢起：炮身上方加驻退筒、滑架前立一块小防盾；
+      // ③ 史诗起：防盾换成包住耳轴的半圆炮廓，炮口双箍，炮身顶上架一支瞄准镜。炮口点三阶段不变
       draw(M, x, y, o) {
+        const st = o.st || 1;
         box(x + 1, y + 19, 22, 5, DARK); R(x + 2, y + 19, 20, 1, P.iron[3]);
         disc(x + 5, y + 22, 2, P.dark[0]); disc(x + 19, y + 22, 2, P.dark[0]); px(x + 5, y + 22, P.iron[3]); px(x + 19, y + 22, P.iron[3]);
         box(x + 9, y + 15, 7, 5, DARK);
+        if (st === 2) { plate(M, x + 16, y + 2, 6, 18); fastener(M, x + 18, y + 4); fastener(M, x + 18, y + 16); }
+        if (st === 3) {
+          disc(x + 13, y + 12, 10.5, M.r[0]); disc(x + 13, y + 12, 9.5, M.r[1]); disc(x + 12, y + 11, 8, M.r[2]); disc(x + 11, y + 10, 5, M.r[3]);
+          fastener(M, x + 5, y + 7); fastener(M, x + 19, y + 7); fastener(M, x + 12, y + 2);
+        }
         const d = Math.round(o.k * RC);
         turn(x + PIV[0], y + PIV[1], o.a, (X, Y) => {
+          if (st >= 2) { tube(M, X - 7, Y - 8, 12, 4); px(X - 8, Y - 7, M.r[0]); }   // 驻退筒：不随后坐动
           boss(M, X - 11 - d, Y, 2.5);
           tube(M, X - 10 - d, Y - 5, 12, 11);   // 粗短药室
           for (let i = 0; i < 3; i++) tcol(M, X + 2 + i - d, Y - 4 + (i >> 1), 9 - (i >> 1) * 2, 12 + i);   // 收口
           tube(M, X + 5 - d, Y - 3, BLEN - 5, 7);
           hoop(M, X - 6 - d, Y - 5, 11);
+          if (st === 3) {
+            hoop(M, X + BLEN - 9 - d, Y - 3, 7);
+            R(X + 1 - d, Y - 8, 8, 3, P.iron[0]); R(X + 2 - d, Y - 7, 6, 1, P.brass[2]); px(X + 8 - d, Y - 7, P.glass[2]); px(X + 1 - d, Y - 7, P.glass[1]);   // 瞄准镜
+          }
           muzzle(M, X + BLEN - d, Y - 4, 9); flash(X + BLEN - d, Y - 3, 7, o.k);
         });
       },
@@ -349,7 +362,7 @@ SA.CSLAB = (() => {
   function sprite(dir, M, o = {}) {
     const cv = document.createElement('canvas'); cv.width = SW; cv.height = SH;
     const prev = g; g = cv.getContext('2d');
-    dir.draw(M, PAD.l, PAD.t, { a: o.a || 0, k: o.k || 0 });
+    dir.draw(M, PAD.l, PAD.t, { a: o.a || 0, k: o.k || 0, st: o.st || 1 });
     g = prev;
     if (M.key === 'orig' && o.decorate > 1) SA.SPR.decorate(cv, SA.MATS[o.decorate], PAD.l, PAD.t);
     if (M.key === 'nickel' && o.anim) glint(cv);
