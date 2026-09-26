@@ -20,3 +20,8 @@
 - 纯 HTML/CSS/JS，无构建步骤、无依赖。运行与代码结构见 `README.md`。
 - 本地预览：`python tools/serve.py`（禁缓存；用 `python -m http.server 5173` 时浏览器可能缓存旧 JS，需 Ctrl+F5），打开 http://localhost:5173 。控制台 `SA.reset()` 清空存档，`SA.BUILD` 看当前加载的版本。
 - 每次提交改到画面/玩法时，顺手把 `js/main.js` 里的 `SA.BUILD` 更新成当天日期 + 简短标签。
+
+## HTML5 游戏自动化测试
+
+- 遇到 HTML5 游戏的快速操作、状态读取、战役 / AI 模拟、回归验证或批量动作时，优先调用项目根目录 `.mcp.json` 注册的 `html5-game` MCP；它连接同一个 `tools/html5_game_mcp.py`，不要逐帧重复点击等待。
+- 蒸汽竞技场优先使用 `steam_arena_simulate`；其他游戏使用页面的 `window.__HTML5_GAME_MCP__` 适配器配合 `game_step`、`game_action`、`game_state`。用 `/mcp` 或 `claude mcp list` 检查 Claude Code 的连接状态。

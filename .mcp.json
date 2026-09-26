@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "html5-game": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["tools/html5_game_mcp.py"],
+      "timeout": 600000
+    }
+  }
+}

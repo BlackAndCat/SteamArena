@@ -1,0 +1,4 @@
+interface:
+  display_name: "HTML5 游戏高速测试"
+  short_description: "通过本地 MCP 快速操作和批量测试 HTML5 游戏"
+  default_prompt: "当任务涉及 HTML5 游戏快速操作、浏览器状态读取、批量推进或蒸汽竞技场模拟时，使用本工作空间的 html5-game-mcp。"
