@@ -329,6 +329,28 @@ SA.Battle = (() => {
     for (let i = 0; i < n / 3; i++) part('smoke', x + rnd(-12, 12), y, rnd(-20, 20), rnd(-70, -30), rnd(1, 1.8));
     B.shake = Math.max(B.shake, 7);
   }
+  // 纯画面的随机数：不从战斗随机流里取，固定种子的无画面模拟不受特效影响
+  const vr = (a, b) => a + Math.random() * (b - a);
+  const vpart = (type, x, y, vx, vy, life, col) => B.parts.push({ type, x, y, vx, vy, life, max: life, col, spin: vr(8, 22) });
+  // 跳弹（W1）：命中点一颗白色星芒，一道曳光擦着装甲朝来弹那边往上飞走，火花偏白；"弹开"是钢青色小铭牌
+  // back：来弹方向（朝射手那一侧，±1）
+  function ricochetFx(x, y, back) {
+    if (B.headless) return;
+    vpart('ping', x, y, 0, 0, 0.22);
+    const a = vr(0.35, 0.95), sp = vr(430, 560);
+    vpart('glance', x, y, back * Math.cos(a) * sp, -Math.sin(a) * sp, 0.3);
+    for (let i = 0; i < 2; i++) { const b = vr(0.2, 1.3), v = vr(220, 360); vpart('glance', x, y, back * Math.cos(b) * v * (i ? 1 : -0.6), -Math.sin(b) * v, 0.16); }
+    for (let i = 0; i < 9; i++) vpart('spark', x, y, back * vr(20, 190), vr(-220, -20), vr(0.12, 0.3), i % 3 ? P.white : P.brass[3]);
+    B.texts.push({ str: '弹开', x: x + vr(-6, 6), y: y - 34, life: 1, max: 1, col: P.iron[4], plaque: P.glass[2] });
+  }
+  // 装甲类模块被打碎：除了爆炸，再崩出一把翻滚的甲片碎片（材料色 + 冷铁）
+  const SHARDS = { plate: 7, armor: 10, armor_heavy: 14 };
+  function shatterFx(x, y, cell) {
+    if (B.headless || !SHARDS[cell.id]) return;
+    const mat = SA.MATS[cell.mt || 1], cols = [P.iron[3], P.iron[4], cell.mt > 1 ? mat.chip : P.iron[2]];
+    for (let i = 0; i < SHARDS[cell.id]; i++) vpart('shard', x + vr(-10, 10), y + vr(-10, 10), vr(-170, 170), vr(-280, -80), vr(1.1, 1.8), cols[i % 3]);
+    vpart('ping', x, y, 0, 0, 0.18);
+  }
 
   // ---------- 开火与伤害 ----------
   // 按炮管当前仰角开火：炮管还没转到位就扣扳机，炮弹就飞向炮管指的地方
@@ -390,8 +412,7 @@ SA.Battle = (() => {
     if (random() >= chance) return SA.armorCut(m, dmg);
     if (att) att.events.ricochet++;
     const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
-    textFx('弹开', x + rnd(-12, 12), y - 18, P.iron[2]);
-    for (let i = 0; i < 4; i++) part('spark', x, y, rnd(-130, 130), rnd(-160, 0), rnd(0.12, 0.28));
+    ricochetFx(x, y, att && att.x < def.x ? -1 : 1);
     return dmg * 0.05;
   }
 
@@ -401,6 +422,7 @@ SA.Battle = (() => {
     if (att) att.events.destroyed++;
     const [x, y] = modCenter(def, imp.layer, imp.r, imp.c);
     boom(x, y);
+    shatterFx(x, y, cell);
     const f = SA.fp(cell.id);
     // 挂在这个主体模块上的侧炮一起掉下来
     if (imp.layer === 'body') {
@@ -955,7 +977,8 @@ SA.Battle = (() => {
     for (const p of B.parts) {
       p.life -= dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust') { p.vy += 660 * dt; const gy = groundAt(p.x); if (p.y > gy) { p.y = gy; p.vy *= -0.3; p.vx *= 0.6; } }
+      if (p.type === 'glance') p.vy += 300 * dt;
+      if (p.type === 'debris' || p.type === 'spark' || p.type === 'dust' || p.type === 'shard') { p.vy += 660 * dt; const gy = groundAt(p.x); if (p.y > gy) { p.y = gy; p.vy *= -0.3; p.vx *= 0.6; } }
       if (p.type === 'smoke' || p.type === 'steam') p.vx *= 0.98;
     }
     B.parts = B.parts.filter(p => p.life > 0);
@@ -1197,11 +1220,33 @@ SA.Battle = (() => {
     }
     for (const p of B.parts) {
       const k = p.life / p.max;
+      // 跳弹曳光：沿速度方向的一道短线，头白尾黄
+      if (p.type === 'glance') {
+        SA.SPR.useCtx(g);
+        SA.SPR.line(Math.round(p.x - p.vx * 0.035), Math.round(p.y - p.vy * 0.035), Math.round(p.x), Math.round(p.y), 2, k > 0.5 ? P.white : P.brass[3]);
+        continue;
+      }
+      // 星芒：十字先张开再收回
+      if (p.type === 'ping') {
+        const L = Math.round(3 + 9 * Math.sin(Math.PI * (1 - k))), x = Math.round(p.x), y = Math.round(p.y);
+        g.fillStyle = P.white; g.fillRect(x - L, y - 1, L * 2 + 1, 3); g.fillRect(x - 1, y - L, 3, L * 2 + 1);
+        g.fillStyle = P.glass[3]; g.fillRect(x - 2, y - 2, 5, 5);
+        continue;
+      }
+      // 甲片碎片：翻滚的薄片（宽度随转动忽宽忽窄），落地后躺着淡出
+      if (p.type === 'shard') {
+        const down = p.y >= groundAt(p.x) - 1, fw = down ? 5 : 1 + Math.round(5 * Math.abs(Math.cos(p.spin * p.life))), fh = 2;
+        g.globalAlpha = Math.min(1, k * 3);
+        g.fillStyle = P.black; g.fillRect(Math.round(p.x - fw / 2), Math.round(p.y - fh / 2) + 1, fw, fh);
+        g.fillStyle = p.col; g.fillRect(Math.round(p.x - fw / 2), Math.round(p.y - fh / 2), fw, fh);
+        g.globalAlpha = 1;
+        continue;
+      }
       let col, s = 3;
       switch (p.type) {
         case 'fire': col = k > 0.66 ? P.fire[3] : k > 0.33 ? P.fire[2] : P.fire[1]; s = k > 0.5 ? 6 : 3; break;
         case 'flash': col = P.fire[3]; s = 6; break;
-        case 'spark': col = P.brass[3]; break;
+        case 'spark': col = p.col || P.brass[3]; break;
         case 'dust': col = P.bg[5]; s = 4; break;
         case 'debris': col = p.col; s = 4; break;
         case 'smoke': col = k > 0.5 ? P.dark[3] : P.iron[1]; s = 6 + Math.round((1 - k) * 9); g.globalAlpha = Math.min(1, k * 1.5) * 0.8; break;
@@ -1211,7 +1256,7 @@ SA.Battle = (() => {
       g.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s);
       g.globalAlpha = 1;
     }
-    for (const tx of B.texts) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
+    for (const tx of B.texts) if (PIXEL_TEXT.test(tx.str)) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
     g.restore();
     present(vw, vh, ox, oy, false);
 
@@ -1220,6 +1265,7 @@ SA.Battle = (() => {
     dg.imageSmoothingEnabled = false;
     g = dg;
     overhead(B.p); overhead(B.e);
+    fxLabels();
     B.previewInfo = null;
     if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
     if (B.aim) {
@@ -1383,6 +1429,25 @@ SA.Battle = (() => {
       g.fillStyle = '#ffffff'; g.fillText(t, x + ws[i] / 2, y + hgt / 2 + 1);
       x += ws[i] + gap;
     });
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  }
+  // 飘字：像素字体只有数字和几个字母，其余（"弹开""投降"等中文）在叠加层用矢量字画成小铭牌
+  const PIXEL_TEXT = /^[0-9MIS!-]*$/;
+  function fxLabels() {
+    g.font = 'bold 13px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const tx of B.texts) {
+      if (PIXEL_TEXT.test(tx.str)) continue;
+      const age = (tx.max || 0.9) - tx.life, pop = age < 0.08 ? 1.35 - age * 4.4 : 1;
+      const w = Math.ceil(g.measureText(tx.str).width) + 10, h = 18;
+      g.save();
+      g.translate(Math.round(tx.x), Math.round(tx.y)); g.scale(pop, pop);
+      g.globalAlpha = Math.min(1, tx.life * 3);
+      g.fillStyle = 'rgba(7,8,12,0.85)'; g.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
+      g.strokeStyle = tx.plaque || tx.col; g.lineWidth = 1; g.strokeRect(-w / 2 + 0.5, -h / 2 + 0.5, w - 1, h - 1);
+      g.fillStyle = P.black; g.fillText(tx.str, 1, 2);
+      g.fillStyle = tx.plaque ? P.white : tx.col; g.fillText(tx.str, 0, 1);
+      g.restore();
+    }
     g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   }
   // 准星下方：玩家自己最要紧的一两条警报（盯着准星也能看到）
@@ -1857,6 +1922,7 @@ SA.Battle = (() => {
     get B() { return B; },
     cellCenter(side, r, c, layer = 'body') { const s = side === 'e' ? B.e : B.p; return modCenter(s, layer, r, c); },
     aimWorld(x, y) { const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },
+    fx: { ricochet: (x, y, back = 1) => ricochetFx(x, y, back), shatter: (x, y, id = 'plate', mt = 1) => shatterFx(x, y, { id, mt }) },   // 手动触发特效看样子
   };
   return { start, simulate, debug };
 })();
