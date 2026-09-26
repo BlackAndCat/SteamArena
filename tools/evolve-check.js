@@ -1,7 +1,7 @@
 /*
  * 进化后台的单命令验收入口。
  *
- * 它串起固定种子、并行模拟、规则影响夹具、模块覆盖和真人摘要自测；
+ * 它串起固定种子、并行模拟、规则影响夹具、模块覆盖、战斗常量和真人摘要自测；
  * 任何一项失败都会以非零退出，供任务 F 或提交前检查调用。
  */
 'use strict';
@@ -9,6 +9,7 @@
 const evolve = require('./evolve');
 const coverage = require('./evolve-coverage');
 const calibration = require('./ai-calibration');
+const battleConstants = require('./battle-constants-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -114,10 +115,12 @@ async function main() {
   const unique = uniqueRuleCheck();
   const side = sideRuleCheck();
   const shareGarage = shareGarageCheck();
+  const battle = battleConstants.run();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
   result.unique = unique;
   result.side = side;
   result.shareGarage = shareGarage;
+  result.battle = battle;
   console.log(JSON.stringify(result, null, 2));
 }
 

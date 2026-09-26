@@ -500,13 +500,13 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           h('span', { class: 'knob' }), '商店')) : h('div', { class: 'panel-row' }, h('span', { class: 'muted' }, '商店还没开张：先用库存里的模块。')));
   }
 
-  // 模块最关键的两三项数值，做成小标签
+    // 模块最关键的两三项数值，做成小标签；跨模块规则从 SA.K 读取。
   function keyStats(id, mt = 1) {
     const m = SA.mod(id, mt), out = [];
     if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, SA.kmh(m.speed), m.brake >= 1.5 ? '起步刹车最快' : m.brake < 0.8 ? '刹车慢' : '刹车中等', m.sway < 0.6 ? '移动最稳' : m.sway > 1.2 ? '移动晃' : '移动一般');
     else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`, m.penetration >= 99 ? '不会弹开' : `穿深 ${m.penetration}`);
     else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
-    else if (m.store) out.push(`储能 ${m.store}`, '不够时补 3/s');
+    else if (m.store) out.push(`储能 ${m.store}`, `不够时补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC}/s`);
     else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
     else if (m.dryCool) out.push(`不耗水散热 ${m.dryCool}/s`);
     else if (m.waterSave) out.push(`省水 ${Math.round((1 - m.waterSave) * 100)}%`, `冷却 ${m.cool}/s`);

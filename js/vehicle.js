@@ -408,7 +408,7 @@ SA.V = (() => {
       s.heatMul = Math.min(s.heatMul, m.heatMul || 1);
       s.store += m.store || 0;
       s.dryCool += m.dryCool || 0;
-      if (m.waterSave) s.waterSave = Math.max(0.4, s.waterSave * m.waterSave);
+      if (m.waterSave) s.waterSave = Math.max(K.WATER_SAVE_MIN, s.waterSave * m.waterSave);
       if (m.reloadMul) s.reloadMul = Math.min(s.reloadMul || 1, m.reloadMul);
       if (m.spreadMul) s.spreadMul = Math.min(s.spreadMul || 1, m.spreadMul);
       if (m.swayMul) s.swayMul = Math.min(s.swayMul || 1, m.swayMul);

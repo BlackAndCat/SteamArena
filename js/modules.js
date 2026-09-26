@@ -28,6 +28,7 @@ SA.K = {
   IDLE_HEAT: 0.8,     // 机器只要在运转就会产热 /秒（站着不动也会慢慢变热）
   COOL_FULL: 30,      // 热量到这个值时水箱全力冷却；越凉冷却越弱，所以热量会缓慢积累
   WATER_PER_HEAT: 0.25, // 每冷却 1 点热量消耗的水
+  WATER_SAVE_MIN: 0.4,   // 多个省水模块叠加后的最低耗水倍率
   BATTLE_TIME: 100,
   GAME_SPEED: 0.75,   // 战斗节奏默认放慢到 0.75 倍（战斗界面底部有滑条可调，记在本机）
   // 重量：每个模块 = 基础重量 + 自身重量（kg）；底盘按承重（kg）限制总重
@@ -49,6 +50,57 @@ SA.K = {
   AIM_SHRINK_MAX: 0.75,
   AIM_SPEED: 0.5,     // 基础瞄准速度：直射火炮约 2.4 秒蓄满
   FAST_RELOAD: 1,     // 装填短于这个秒数的武器（机枪）按住就连发
+  // 战斗调参：战斗逻辑、HUD 和车间说明统一从这里读取，避免同一个规则在多个文件各写一份数字。
+  BATTLE: {
+    // 储能与警报：储能释放是每秒速率，爆罐阈值和 HUD 阈值按比例表达。
+    STORE_RELEASE_PER_SEC: 3, STORE_BURST_RATIO: 0.5,
+    HEAT_ALERT: 75, WATER_LOW_RATIO: 0.2,
+    // 地形、悬挂与瞄准：这些值决定泥地/坡地的速度、车辆贴地响应和移动射击散布。
+    MASS_MIN_TONS: 0.5, BIPED_HIP_SWAY: 2.5, TOP_HEAVY_SWAY: 1.25,
+    MUD_SPEED: { track: 0.8, quad: 0.65, biped: 0.45 }, MUD_DEFAULT_SPEED: 0.7,
+    DEBRIS_SLOW_RADIUS: 10, DEBRIS_SLOW_FACTOR: 0.35,
+    SLOPE_FACTOR: 2.2, SLOPE_MIN: 0.35, SLOPE_MAX: 1.35,
+    SETTLE_FALLBACK_INSET: 6, SETTLE_FALLBACK_STEP: 12, SETTLE_TILT_MAX: 0.45,
+    SETTLE_TILT_RESPONSE: 8, SETTLE_RIGID_CLEARANCE: 6, SETTLE_HEIGHT_RESPONSE: 10,
+    AIM_SPEED_REFERENCE: 60, AIM_JOLT_MAX: 1.5, AIM_SPEED_SPREAD: 1.6,
+    AIM_JOLT_SPREAD: 2.2, AIM_ACCEL_SPREAD: 5, AIM_SHAKE_SPREAD: 1.4, AIM_EVADE_SPREAD: 20,
+    PREVIEW_STEPS: 600, PREVIEW_STEP: 1 / 120, PREVIEW_SAMPLE_EVERY: 4,
+    // 命中、起步、移动与货箱：与模块字段相乘前的通用物理参数。
+    RICOCHET_BASE: 0.18, RICOCHET_DEFICIT: 0.5, RICOCHET_MAX: 0.92, RICOCHET_DAMAGE: 0.05,
+    SPOOL_BASE: 0.3, SPOOL_MASS: 0.05, SPOOL_MIN: 0.4, SPOOL_MAX: 0.9,
+    CHUFF_INTERVAL: 0.2, CHUFF_HEAT: 0.3,
+    WILD_SIGN_CHANCE: 0.5, WILD_JITTER_MIN: 1, WILD_JITTER_MAX: 1.4,
+    RECOIL_HIGH_SPEED_FACTOR: 0.3, RECOIL_ANIM_HIGH: 2, RECOIL_ANIM_NORMAL: 4,
+    SHELL_SHAKE_BASE: 1.5, SHELL_SHAKE_PUSH_DIVISOR: 6,
+    START_SPEED: 4, ROCK_DECAY: 6, MASS_ACCEL_FACTOR: 5.5, MASS_ACCEL_MIN: 0.55, MASS_ACCEL_MAX: 1.4,
+    SKID_SPEED_MULT: 1.05, SKID_SPEED_OFFSET: 4, SPEED_SMOOTHING: 4,
+    JOLT_MAX: 1.5, JOLT_SPEED_REFERENCE: 25, JOLT_SMOOTHING: 6,
+    BRAKE_DUST_SPEED: 30, BRAKE_DUST_INTERVAL: 0.08,
+    CRATE_EDGE_MARGIN: 1.5, CRATE_DAMAGE_BASE: 8, CRATE_DAMAGE_SPEED: 0.5,
+    CRATE_RAM_MULTIPLIER: 2, CRATE_IMPACT_SPEED: 10, CRATE_IMPACT_FACTOR: 0.2,
+    CRATE_RAM_IMPACT_MULTIPLIER: 1.5, CRATE_SLOWDOWN: 0.7, CRATE_PUSH_SPEED_MAX: 18,
+    MOVING_EPSILON: 0.02,
+    // 接触、撞击、鱼叉和活塞：碰撞频率、冲击速度、击退和牵引生命周期。
+    CONTACT_GAP: 1, BIPED_KICK_SHOVE: 22, RAM_TARGET_DAMAGE: 0.5, RAM_SPEED_THRESHOLD: 25,
+    RAM_COOLDOWN: 0.35, RAM_CLOSING_REFERENCE: 60, RAM_DEFAULT_DAMAGE: 6, RAM_RESTITUTION: 0.25,
+    TETHER_TIMEOUT: 4, TETHER_MAX_DISTANCE: 760, TETHER_PULL_DISTANCE: 18, TETHER_SPEED_MAX: 35,
+    PISTON_DECAY: 4, PISTON_SHOVE: 30, WEAPON_KNOCK_FACTOR: 8, VENT_HEAT: 35,
+    // 供能、瞄准与 AI：与玩家/副驾驶装填、AI 选点和移动风格有关的阈值。
+    UTIL_MIN: 0.3, FOCUS_SHAKE_DECAY: 0.2, FOCUS_IDLE_DECAY: 2.5,
+    AIM_TURN_THRESHOLD: 3, COPILOT_FOCUS: 0.4, COPILOT_RELOAD_MIN: 0.2, COPILOT_RELOAD_MAX: 0.8,
+    SALVO_FACTOR_MIN: 0.95, SALVO_FACTOR_MAX: 1.05, COPILOT_RELOAD_FACTOR_MIN: 1, COPILOT_RELOAD_FACTOR_MAX: 1.2,
+    AI_TARGET_WEIGHTS: { side: 3, weapon: 2.5, cockpit: 2, boiler: 1.6, water: 1.2, chassis: 0.3, other: 0.6 },
+    AI_COPILOT_ERROR_X: 34, AI_COPILOT_ERROR_Y: 20, AI_RETARGET_MIN: 3, AI_RETARGET_MAX: 6,
+    AI_HEAT_HIGH: 72, AI_HEAT_LOW: 45, AI_ERROR_SCALE: 100, AI_ERROR_BIAS: 9, AI_ERROR_Y_SCALE: 0.6,
+    AI_CHARGE_RUSH_CHANCE: 0.35, AI_CHARGE_KITE_CHANCE: 0.15, AI_CHARGE_DEFAULT_CHANCE: 0.7,
+    AI_MOVE_RANGE_KITE: [400, 640], AI_MOVE_RANGE_RUSH: [70, 260], AI_MOVE_RANGE_DEFAULT: [140, 520],
+    AI_TURTLE_OFFSET: 40, AI_CHARGE_TIME: [3, 5], AI_MOVE_TIME: [2, 5], AI_FAST_SPEED: 70,
+    AI_FAST_MOVE_FACTOR: 0.6, AI_RANGE_MARGIN: 0.9, AI_CONTACT_SPEED: 10, AI_CONTACT_MOVE_TIME: 0.4, AI_GOAL_EPSILON: 8,
+    // 投降、平手、超时评分与速度滑条：结算规则及其可调范围。
+    SURRENDER_HOLD_TIME: 1, SURRENDER_CRIPPLED_HP: 0.5, SURRENDER_LOW_HP: 0.2, SURRENDER_HP_MULTIPLIER: 3,
+    DRAW_HOLD_TIME: 1.5, SCORE_DAMAGE_WEIGHT: 0.6, SCORE_HP_WEIGHT: 0.4, SCORE_TIE_EPSILON: 0.005,
+    ENDING_TIME: 1.8, GAME_SPEED_MIN: 0.3, GAME_SPEED_MAX: 1.5, GAME_SPEED_STEP: 0.05,
+  },
 };
 
 SA.MODULES = {
@@ -199,7 +251,7 @@ SA.MODULES = {
   pressure_tank: {
     name: '蓄压罐', cat: 'energy', layer: 'body', w: 1, h: 2, art: 'boiler', placeholder: '蓄压',
     price: 96, hp: 72, power: 0, store: 20, explode: 20, kg: 190, q: 1,
-    desc: '蓄压罐：动力富余时储存蒸汽，动力不足时每秒最多补 3 点，容量 20；存量过半被毁会爆炸。',
+    get desc() { return `蓄压罐：动力富余时储存蒸汽，动力不足时每秒最多补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点，容量 20；存量过半被毁会爆炸。`; },
   },
   pressure_chamber: {
     name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '加压',
@@ -214,7 +266,7 @@ SA.MODULES = {
   condenser: {
     name: '冷凝器', cat: 'cooling', layer: 'body', w: 1, h: 2, art: 'water', placeholder: '冷凝',
     price: 105, hp: 78, cool: 3, waterSave: 0.7, kg: 180, q: 1,
-    desc: '冷凝器：降低全车冷却耗水（多个按乘积叠加，最低 0.4），本身不储水。',
+    get desc() { return `冷凝器：降低全车冷却耗水（多个按乘积叠加，最低 ${SA.K.WATER_SAVE_MIN}），本身不储水。`; },
   },
   rocket_rack: {
     name: '火箭架', cat: 'firepower', layer: 'body', art: 'cannon', placeholder: '火箭', vis: [1, 5],
@@ -252,7 +304,7 @@ SA.MODULES = {
   boss_core: {
     name: '圣堂压力核心', cat: 'energy', layer: 'body', w: 1, h: 1, art: 'boiler', placeholder: '核心',
     price: 280, hp: 150, supply: 5, store: 8, water: 24, cool: 3, heatRate: 0, heatMul: 0.9, kg: 120, q: 2, special: 'pressure-buffer',
-    desc: '铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放，锅炉产热 ×0.9。Boss 战利品。',
+    get desc() { return `铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放（每秒最多 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点），锅炉产热 ×0.9。Boss 战利品。`; },
   },
   boss_lens: {
     name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, art: 'helmet', placeholder: '棱镜', unique: { mt: 5, once: true, source: 'salvage' },

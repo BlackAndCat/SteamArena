@@ -151,7 +151,7 @@ SA.UI = (() => {
         h('div', { class: 'bar power' }, h('i', { style: `width:${pct(s.demand, pmax)}` }),
           h('span', { class: 'mark', style: `left:${pct(s.supply, pmax)}`, title: '锅炉供给' }))),
       h('div', { class: 'bar-note' }, `需求 ${s.demand}（设备 ${s.equip} + 行驶 ${s.drive}）· 锅炉供给 ${s.supply}（白线）`,
-        s.store ? h('span', { class: 'na-inline na-储能' }, ` · 储能 ${f1(s.store)}：富余时蓄压，不够时每秒补 3`) : null),
+        s.store ? h('span', { class: 'na-inline na-储能' }, ` · 储能 ${f1(s.store)}：富余时蓄压，不够时每秒补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC}`) : null),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '重量'),
         h('div', { class: `bar weight ${s.weight > s.load ? 'over' : ''}` }, h('i', { style: `width:${pct(s.weight, wmax)}` }),
           h('span', { class: 'cap', style: `left:calc(${pct(s.load, wmax)} - 2px)`, title: '底盘承重' }))),
@@ -487,8 +487,8 @@ SA.UI = (() => {
   // 新属性模块的说明 + 装上后的变化（车间右侧选中行展开）
   function newAttrInfo(id, mt, v) {
     const m = SA.mod(id, mt), out = [];
-    if (m.store) out.push(['储能', `蓄压容量 ${f1(m.store)}：锅炉有富余时把多出来的动力存起来，动力不够时每秒最多补 3 点。存量过半时被打爆会爆炸。`]);
-    if (m.waterSave) out.push(['省水', `全车冷却耗水 ×${m.waterSave}（多个相乘，最低 ×0.4）：同样的水能冷却更久。本身不储水。`]);
+    if (m.store) out.push(['储能', `蓄压容量 ${f1(m.store)}：锅炉有富余时把多出来的动力存起来，动力不够时每秒最多补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点。存量过半时被打爆会爆炸。`]);
+    if (m.waterSave) out.push(['省水', `全车冷却耗水 ×${m.waterSave}（多个相乘，最低 ×${SA.K.WATER_SAVE_MIN}）：同样的水能冷却更久。本身不储水。`]);
     if (m.dryCool) out.push(['不耗水散热', `每秒额外散掉 ${f1(m.dryCool)} 点热量，不用水：水烧光以后也照样散热。`]);
     if (m.tether) out.push(['牵引', `命中后挂上绳索，把对手往自己这边拉（收绳 ${m.tether}）；被拉过来撞上时反震从 ${Math.round(SA.K.RAM_SELF * 100)}% 降到 ${Math.round(SA.K.RAM_TETHER_SELF * 100)}%。绳子挂着时不能再发射。`]);
     if (!out.length) return null;
