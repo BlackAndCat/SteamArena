@@ -101,7 +101,7 @@ function ruleFingerprint(SA) {
     constants: SA.K,
     modules: SA.MODULES,
     terrains: SA.TERRAINS,
-    campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, unlock: s.unlock, boss: !!s.boss })) })),
+    campaigns: SA.CAMPAIGN.map(ch => ({ name: ch.name, unlock: ch.unlock, stages: ch.stages.map(s => ({ name: s.name, terrain: s.terrain, spec: s.spec, unlock: s.unlock, boss: !!s.boss })) })),
     source,
   });
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
@@ -147,9 +147,10 @@ function progressAt(SA, chapter, stage) {
 
 function stageSpec(SA, chapter, stage) {
   const ch = SA.CAMPAIGN[chapter], current = ch.stages[stage], progress = progressAt(SA, chapter, stage);
+  const design = current.spec || {};
   // 只有真正的新解锁才算奖励件；开局库存或此前已获得的模块不能重复作为奖励，
   // 否则序章会把 plate 当作奖励并错误触发“奖励效果”门槛。
-  const rawReward = current.unlock?.mods?.[0] || (stage === ch.stages.length - 1 ? ch.unlock?.mods?.[0] : null);
+  const rawReward = design.reward || current.unlock?.mods?.[0] || (stage === ch.stages.length - 1 ? ch.unlock?.mods?.[0] : null);
   const reward = rawReward && !progress.mods.has(rawReward) ? rawReward : null;
   // Boss 专属件和本关解锁件必须进入候选约束，否则奖励车永远只能携带普通件。
   // 这些额外模块只在对应关卡可用，不改变玩家在上一关的实际库存。
@@ -160,12 +161,32 @@ function stageSpec(SA, chapter, stage) {
   const hasEpic = stageExtras.some(id => SA.MODULES[id]?.special || id === 'cannon_giant');
   const epicBudget = hasEpic ? progress.budget * config.budget.epicMultiplier : budget;
   return {
-    chapter, stage, name: current.name, terrain: current.terrain || 'flat', style: current.style || null,
+    chapter, stage, name: current.name, terrain: design.terrain || current.terrain || 'flat', style: current.style || null,
+    lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
     chapterHasBoss: ch.stages.some(row => !!row.boss),
     boss: !!current.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
     availableMods: available,
-    target: current.boss ? { bossWinRate: [0.6, 0.7] } : { bossWinRate: [0.65, 0.8] },
+    target: { bossWinRate: design.targetStrength || (current.boss ? [0.6, 0.7] : [0.65, 0.8]) },
   };
+}
+
+// 每一关的规格是战役意图的单一数据入口；这里只验字段完整性，不把探索稿的数值门槛强行改写进搜索。
+function campaignSpecCheck(SA) {
+  const errors = [];
+  SA.CAMPAIGN.forEach((chapter, chapterIndex) => chapter.stages.forEach((stage, stageIndex) => {
+    const spec = stage.spec;
+    const label = `第 ${chapterIndex + 1} 章第 ${stageIndex + 1} 关 ${stage.name}`;
+    if (!spec || typeof spec !== 'object') { errors.push(`${label} 缺少 spec`); return; }
+    const terrain = spec.terrain || stage.terrain || 'flat';
+    if (!SA.TERRAINS[terrain]) errors.push(`${label} 地形不存在：${terrain}`);
+    if (!Array.isArray(spec.targetStrength) || spec.targetStrength.length !== 2 || spec.targetStrength.some(value => !Number.isFinite(value) || value < 0 || value > 1))
+      errors.push(`${label} targetStrength 不是 0~1 区间`);
+    if (!Number.isFinite(spec.performanceMin) || spec.performanceMin < 0 || spec.performanceMin > 100) errors.push(`${label} performanceMin 无效`);
+    if (typeof spec.lesson !== 'string' || !spec.lesson.trim()) errors.push(`${label} 缺少 lesson`);
+    if (spec.reward != null && !SA.MODULES[spec.reward]) errors.push(`${label} 奖励模块不存在：${spec.reward}`);
+  }));
+  if (errors.length) throw new Error(`战役规格检查失败：${errors.join('；')}`);
+  return { chapters: SA.CAMPAIGN.length, stages: SA.CAMPAIGN.reduce((sum, chapter) => sum + chapter.stages.length, 0), complete: true };
 }
 
 function moduleIds(SA, spec, predicate) {
@@ -771,6 +792,7 @@ function run(options = {}) {
 
 function check() {
   const { SA } = loadGame();
+  const campaignSpecs = campaignSpecCheck(SA);
   const fp = ruleFingerprint(SA), spec = stageSpec(SA, 0, 0), rng = new RNG(42);
   const a = randomVehicle(SA, spec, rng), b = randomVehicle(SA, spec, new RNG(42));
   if (!a || !b || SA.V.encode(a) !== SA.V.encode(b)) throw new Error('固定种子没有生成相同车辆');
@@ -807,7 +829,7 @@ function check() {
       previousVehicle = v;
     }
   }
-  return { fingerprint: fp, vehicle: SA.V.stats(a), legalMutations, mutationOps: [...new Set(mutationOps)].sort((x, y) => x - y), share: { roundTrip: true, legacyMigrated: true }, result: duelA, campaign: { stages: stages.length, finite: true } };
+  return { fingerprint: fp, vehicle: SA.V.stats(a), legalMutations, mutationOps: [...new Set(mutationOps)].sort((x, y) => x - y), share: { roundTrip: true, legacyMigrated: true }, result: duelA, campaign: { stages: stages.length, finite: true, specs: campaignSpecs } };
 }
 
 // 进化评估的并行入口。普通生成默认走同步路径，调试和大批量运行可以把单局
@@ -1026,4 +1048,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageSpec, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };
