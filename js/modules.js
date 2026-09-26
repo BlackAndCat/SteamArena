@@ -402,7 +402,8 @@ SA.uniqueRule = (id) => {
   const m = SA.MODULES[id];
   const own = m && m.unique ? (m.unique === true ? {} : m.unique) : null;
   const fromCampaign = (SA.CAMPAIGN || []).flatMap(ch => ch.stages || []).flatMap(stage => stage.uniqueLoot || []).find(x => x.id === id);
-  const raw = own || fromCampaign;
+  const fromSide = (SA.SIDE_ENCOUNTERS || []).map(encounter => encounter.reward).find(x => x && x.id === id && x.unique);
+  const raw = own || fromCampaign || fromSide;
   if (!raw) return null;
   return { id, mt: raw.mt || 5, once: raw.once !== false, source: raw.source || 'salvage' };
 };

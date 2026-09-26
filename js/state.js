@@ -15,7 +15,7 @@ SA.S = (() => {
       uniqueClaims: {},
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
-      camp: { ch: 0, st: 0, intro: -1, done: false, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
+      camp: { ch: 0, st: 0, intro: -1, done: false, sideWins: {}, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
       orders: ['farmer', 'post', 'mill'], ordersDone: [],
       wins: 0, losses: 0, battles: 0, champion: 0,
       news: '老汤姆的铁匠铺后院：你的第一台原型机已经点着了锅炉。去「出战」打第一场练习赛。',
@@ -52,7 +52,9 @@ SA.S = (() => {
       const p = SA.parseKey(k);
       if (s.inv[k] > 0 && SA.isUnique(p.id)) s.uniqueClaims[p.id] = s.uniqueClaims[p.id] || { mt: p.mt, source: 'legacy' };
     }
-    const C = s.camp, mods = [];
+    const C = s.camp;
+    C.sideWins = C.sideWins || {};
+    const mods = [];
     for (const id of [...SA.CAMP_START.mods, ...C.mods]) { const f = SA.liveId(id); if (!mods.includes(f)) mods.push(f); }
     C.mods = mods;
   }

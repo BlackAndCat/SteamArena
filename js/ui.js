@@ -264,7 +264,8 @@ SA.UI = (() => {
     const lines = [];
     const pre = [];   // 结算弹窗之前依次弹出的：缴获、解锁
     const money0 = d.money;   // 结算时和修理费对照：这一场到底赚没赚
-    if (res.mode !== 'friendly') {
+    const settlesDamage = res.mode !== 'friendly' && (res.mode !== 'side' || res.opts.settleDamage !== false);
+    if (res.mode !== 'friendly' && settlesDamage) {
       d.battles++;
       // 损伤带回车间
       SA.V.each(d.vehicle, (cell, r, c, layer) => {
@@ -290,6 +291,23 @@ SA.UI = (() => {
       }
       lines.push('街头赛不计声望，也不影响战役进度。');
       SA.Street.consume(res.opts.streetTier);
+    } else if (res.mode === 'side') {
+      const firstWin = res.win && SA.Camp.sideWin(res.opts.sideId || res.enemyName);
+      if (res.draw) {
+        lines.push('遭遇战平手：不发奖金，也不计声望。');
+        d.news = `「${d.vehicle.name}」和「${res.enemyName}」在场外打成平手。`;
+      } else if (res.win) {
+        lines.push('遭遇战胜利：不发奖金，也不计声望。');
+        if (firstWin) {
+          const loot = SA.Camp.salvageOptions(res.survivors || []);
+          if (loot.length) pre.push((next) => SA.Camp.salvageDialog(res.survivors || [], next));
+          else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
+        } else lines.push('这场遭遇战已经完成过了，没有重复奖励。');
+        d.news = `「${d.vehicle.name}」击败了场外的「${res.enemyName}」。`;
+      } else {
+        lines.push('遭遇战失败：不发奖金，也不计声望。');
+        d.news = `「${d.vehicle.name}」败给了场外的「${res.enemyName}」。`;
+      }
     } else if (res.mode === 'campaign' || res.mode === 'tournament') {
       const camp = res.mode === 'campaign';
       if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${money(add)}`); }

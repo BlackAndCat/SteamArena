@@ -7,7 +7,7 @@ SA.Arena = (() => {
   const d = () => SA.S.d;
   const money = (n) => SA.UI.money(n);
   // [页签, 名称, 需要的功能]
-  const MODES = [['camp', '战役', null], ['street', '街头赛', 'street'], ['orders', '委托', 'orders'], ['friendly', '友谊赛', 'friendly'], ['tour', '锦标赛', 'season']];
+  const MODES = [['camp', '战役', null], ['side', '遭遇战', 'garage'], ['street', '街头赛', 'street'], ['orders', '委托', 'orders'], ['friendly', '友谊赛', 'friendly'], ['tour', '锦标赛', 'season']];
   const modes = () => MODES.filter(([, , f]) => !f || SA.Camp.has(f));
   const st = { mode: 'camp', pick: { camp: null, tour: null, street: null, friendly: null }, bet: null };
   let root = null;
@@ -40,6 +40,14 @@ SA.Arena = (() => {
           start: () => SA.Battle.start({ mode: 'campaign', enemyVehicle: sg.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: o.prize, uniqueLoot: o.uniqueLoot || [] }) };
       });
     }
+    if (st.mode === 'side') return SA.Camp.sideEntries().map(e => ({
+      key: e.id, name: e.name, pilot: e.pilot, blurb: e.blurb, v: e.vehicle, raw: e.vehicle, hpMul: 1,
+      rating: SA.V.stats(e.vehicle).rating, prize: 0, boss: false, terrain: e.terrain || 'flat',
+      tag: e.won ? ['ok', '已完成'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
+      lock: e.won ? '已经完成过了' : null,
+      start: () => SA.Battle.start({ mode: 'side', sideId: e.id, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
+        uniqueLoot: e.reward ? [{ id: e.reward.id, mt: e.reward.mt, once: true, source: e.reward.source || 'side' }] : [] }),
+    }));
     if (st.mode === 'tour') return SA.OPPONENTS.map((o, i) => {
       const op = SA.S.opponent(i);
       const bv = SA.V.battleCopy(op.vehicle, op.hpMul, true);

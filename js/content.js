@@ -75,6 +75,22 @@ SA.FEATURES = {
   garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
 };
+// 竞技场外遭遇战（K6）：第二章开始开放；不发奖金和声望，奖励由数据指定。
+// settleDamage=true 表示战斗损伤带回车间；改成 false 可用于一次性无损遭遇战。
+SA.SIDE_ENCOUNTERS = [
+  {
+    id: 'dock_patrol', name: '码头巡逻队', pilot: '河岸工头', chapter: 1, terrain: 'mud', aim: 0.72, style: 'rush', settleDamage: true,
+    blurb: '码头外的巡逻队拦住了补给车。没有观众，也没有奖金，但他们的观察镜值得拆下来研究。',
+    rows: ['........', '........', '...K....', '...OM...', '..WOA...', '..TT...'],
+    reward: { id: 'periscope', mt: 2, unique: true, source: 'side' },
+  },
+  {
+    id: 'factory_escort', name: '工厂护送车', pilot: '夜班领班', chapter: 1, terrain: 'crates', aim: 0.78, style: 'turtle', settleDamage: true,
+    blurb: '护送车不参加赛会，只守着工厂门口。击败它可以拿到一块稀有装甲。',
+    rows: ['........', '........', '...K....', '..OMC...', '..WOA...', '..TT...'],
+    reward: { id: 'armor_heavy', mt: 3, unique: true, source: 'side' },
+  },
+];
 SA.CAMPAIGN = [
   {
     name: '序章 · 铁匠铺后院', place: '铁匠铺后院',

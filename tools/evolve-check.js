@@ -68,7 +68,20 @@ function uniqueRuleCheck() {
   if (first.length !== 1 || first[0].mt !== 5 || !first[0].unique) throw new Error(`唯一件固定材料或缴获候选错误：${JSON.stringify(first)}`);
   if (!SA.S.claimUnique(first[0].unique.id, first[0].mt, 'salvage')) throw new Error('唯一件首次领取失败');
   if (SA.Camp.salvageOptions([{ id: 'boss_ram', mt: 5, unique: { id: 'boss_ram', mt: 5, once: true, source: 'salvage' } }]).length) throw new Error('唯一件重复领取未被拦截');
+  if (!SA.isUnique('periscope') || !SA.isUnique('armor_heavy')) throw new Error('支线唯一奖励没有接入唯一件规则');
   return { initialClaims, claimed: SA.S.d.uniqueClaims.boss_ram };
+}
+
+function sideRuleCheck() {
+  const { SA } = evolve.loadGame();
+  const fresh = SA.S.reset();
+  if (SA.Camp.sideEntries().length) throw new Error('第一章提前开放支线');
+  fresh.camp.ch = 1;
+  const entries = SA.Camp.sideEntries();
+  if (entries.length !== 2 || entries.some(e => e.prize || e.reward == null)) throw new Error('支线数据或奖励错误');
+  if (!entries.every(e => e.settleDamage !== false)) throw new Error('支线战损默认值错误');
+  if (!SA.Camp.sideWin(entries[0].id) || SA.Camp.sideWin(entries[0].id)) throw new Error('支线完成记录不是一次性');
+  return { available: entries.map(e => e.id), firstWin: entries[0].id };
 }
 
 async function main() {
@@ -81,8 +94,10 @@ async function main() {
   const auxiliaryAim = auxiliaryAimCheck();
   const chassis = chassisRuleCheck();
   const unique = uniqueRuleCheck();
+  const side = sideRuleCheck();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
   result.unique = unique;
+  result.side = side;
   console.log(JSON.stringify(result, null, 2));
 }
 

@@ -75,6 +75,21 @@ SA.Camp = (() => {
     return out;
   }
 
+  // ---------- 竞技场外遭遇战（K6） ----------
+  function sideEntries() {
+    const C = c();
+    return (SA.SIDE_ENCOUNTERS || []).filter(e => C.ch >= (e.chapter || 1)).map(e => ({
+      ...e, vehicle: SA.V.fromAscii(e.name, e.rows, e.sides || [], e.mt || 1, e.elite || [], e.subs || []),
+      won: !!C.sideWins[e.id],
+    }));
+  }
+  function sideWin(id) {
+    const C = c();
+    if (!C.sideWins) C.sideWins = {};
+    if (C.sideWins[id]) return false;
+    C.sideWins[id] = { at: Date.now() };
+    return true;
+  }
   // ---------- 缴获：只在战役 / 终局锦标赛赢了之后，从对手还完好的模块里挑一件 ----------
   // 候选只有两种：你还没有的（车上和库存里都没有这种模块，或者只有更差的材料），以及史诗 / 传奇的特殊件
   // 史诗 / 传奇件排在前面，其余随机，最多 3 件，同款同材料不重复
@@ -273,6 +288,6 @@ SA.Camp = (() => {
     panel: devPanel,
   };
 
-  return { backfill, owns, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, win, applyUnlock, unlockLines, salvageDialog, unlockDialog, introIfNew, matChip, dev };
 })();
 SA.dev = SA.Camp.dev;
