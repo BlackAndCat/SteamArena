@@ -924,6 +924,7 @@ SA.SPR = (() => {
   // 这些区域里的暗铁色像素不参与装饰层（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
   const DECOR_SKIP = { boiler: [[11, 19, 26, 21]] };
   const DARKS = new Set(P.dark.map(hx => k3(...rgbOf(hx))));
+  let matPass = null;   // 样机页可以换一套材质处理（setMatPass），游戏里始终是 decorate
   function decorate(cv, mat, ox, oy, skip = []) {
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
     const tint = rgbOf(mat.tint).map(v => v / 255), a = mat.a || 0.8;
@@ -993,7 +994,7 @@ SA.SPR = (() => {
       ctx = cv.getContext('2d');
       DRAW[id](pd.l, pd.t, q);
       attach(id, q, f, pd.l, pd.t);
-      if (q.mt > 1) decorate(cv, SA.MATS[q.mt], pd.l, pd.t, DECOR_SKIP[id]);
+      if (q.mt > 1) (matPass || decorate)(cv, SA.MATS[q.mt], pd.l, pd.t, DECOR_SKIP[id]);
       cache.set(key, cv);
     }
     return cv;
@@ -1351,6 +1352,7 @@ SA.SPR = (() => {
 
   return {
     PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };
 })();
