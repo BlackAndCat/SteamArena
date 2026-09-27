@@ -10,7 +10,7 @@
 //
 // 立面分区（模块内坐标）：
 //   T1～2：散热区 = 炮架上炮组下方一条（x 11～25、y 17～19）；铆钉 = 前挡板脚（y 19）；
-//   T3～6：表位 = 炮廓左上（中心 (8, 9)，直径 7）；散热区 = 表位下方（x 3～11、y 13～16，竖缝）；
+//   T3～6：表位 = 炮廓左上（中心 (6.5, 8.5)，直径 7）；散热区 = 表位下方（x 3～10、y 13～17，至少 3 个口）；
 //          铆钉 = 压在炮廓和底座的接缝线上（y 18～20，x 4～30 等距）；包角位 = 炮廓左上、底座左下；
 //   炮组（黄铜摇架 + 炮管）永远不放东西。
 window.SA = window.SA || {};
@@ -36,16 +36,20 @@ SA.GFLAB = (() => {
     if (style === 'slits') for (let i = 0; i < n; i++) slit(zx + i * 3);
     else if (style === 'pairs') for (let i = 0; i < n; i++) { slit(zx + i * 5); slit(zx + i * 5 + 2); }
     else if (style === 'louver') for (let i = 0; i < n; i++) for (let k = 0; k < h; k++) { px(x + zx + i * 3 + (k >> 1), y + zy + k, P.iron[0]); px(x + zx + i * 3 + (k >> 1) + 1, y + zy + k, P.iron[3]); }
+    // 窄区（宽 8）用：slits2 密排竖缝（间距 2）/ grid2 两行短竖缝 / louver2 两行斜百叶
+    else if (style === 'slits2') for (let i = 0; i < n; i++) { R(x + zx + i * 2, y + zy, 1, h, P.iron[0]); R(x + zx + i * 2 + 1, y + zy, 1, h, P.iron[3]); }
+    else if (style === 'grid2') for (const ry of [0, 3]) for (let i = 0; i < n; i++) { R(x + zx + i * 2, y + zy + ry, 1, 2, P.iron[0]); R(x + zx + i * 2 + 1, y + zy + ry, 1, 2, P.iron[3]); }
+    else if (style === 'louver2') for (const ry of [0, 3]) for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) { px(x + zx + i * 2 + k, y + zy + ry + k, P.iron[0]); px(x + zx + i * 2 + k + 1, y + zy + ry + k, P.iron[3]); }
   }
 
   // ---------- 中炮 ----------
   const MZ = {
-    open: { vent: { x: 11, y: 17, h: 3 }, rivets: { y: 19, xs: [27, 30] } },
-    hood: { vent: { x: 3, y: 13, h: 4 }, rivets: { y: 18, x0: 4, x1: 28 }, gauge: { cx: 8, cy: 9 } },
+    open: { vent: { x: 11, y: 18, h: 3 }, rivets: { y: 19, xs: [27, 30] } },
+    hood: { vent: { x: 3, y: 13, h: 5 }, rivets: { y: 18, x0: 4, x1: 28 }, gauge: { cx: 6.5, cy: 8.5 } },
   };
   const HOOD = {
     open(x, y) {                     // 敞开式炮架 + 低矮前挡板
-      box(x + 1, y + 12, 30, 12, IRON); R(x + 2, y + 21, 28, 1, P.brass[2]);
+      box(x + 1, y + 12, 30, 12, IRON); R(x + 2, y + 22, 28, 1, P.brass[2]);
       box(x + 26, y + 12, 7, 11, IRON);
     },
     box(x, y) {                      // 方平顶炮廓罩住炮座，下面是一条底座
@@ -65,7 +69,7 @@ SA.GFLAB = (() => {
   function mGun(x, y, o, barrel) {
     turn(x + 18, y + 13, o.a || 0, (PX, PY) => {
       const X = PX - 18, Y = PY - 13, d = Math.round((o.k || 0) * 6), end = X + 53 - d;
-      box(X + 12, Y + 8, 10, 8, BRASS); R(X + 14, Y + 9, 1, 6, P.brass[3]);
+      box(X + 11, Y + 7, 12, 11, BRASS); R(X + 13, Y + 9, 1, 7, P.brass[3]);   // 摇架（接近旧版大小，给左块留 x 3～10）
       const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
       const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
       const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
@@ -84,16 +88,16 @@ SA.GFLAB = (() => {
       }
       if ((o.k || 0) >= 0.85) { R(end, Y + 10, 3, 6, P.fire[3]); R(end + 3, Y + 11, 2, 4, P.fire[2]); }
     });
-    disc(x + 18, y + 13, 2.5, P.brass[0]); disc(x + 18, y + 13, 1.5, P.brass[3]);
+    R(x + 16, y + 11, 5, 5, P.brass[0]); R(x + 17, y + 12, 3, 3, P.brass[3]); R(x + 18, y + 13, 1, 1, P.brass[0]);   // 方形固定螺栓（同旧版的方框 + 中心点）
   }
   // 六档
   const M_TIERS = [
-    { h: 'open', b: 1, vent: ['slits', 2], riv: [2, 'brass'], parts: [] },
-    { h: 'open', b: 1, vent: ['slits', 2], riv: [2, 'brass'], parts: [] },
-    { h: 'box', b: 2, vent: ['slits', 3], riv: [3, 'brass'], parts: ['corners'] },
-    { h: 'box', b: 2, vent: ['slits', 3], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
-    { h: 'slant', b: 3, vent: ['pairs', 2], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
-    { h: 'slant', b: 3, vent: ['louver', 3], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'open', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'open', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['grid2', 3], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['louver2', 3], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
   ];
   // 底图：参与材质处理
   function mBase(g, x, y, T, o = {}) {
@@ -113,11 +117,11 @@ SA.GFLAB = (() => {
     if (T.parts.includes('gauge')) smallGauge(x + MZ.hood.gauge.cx, y + MZ.hood.gauge.cy);
   }
   const M_ZONES_VIEW = [
-    ['表位（镀镍起）', '#ff6b9a', (x, y) => [x + 4, y + 5, 8, 8]],
-    ['散热区', '#46c2c9', (x, y) => [x + 3, y + 13, 8, 4]],
+    ['表位（镀镍起）', '#ff6b9a', (x, y) => [x + 3, y + 5, 8, 8]],
+    ['散热区', '#46c2c9', (x, y) => [x + 3, y + 13, 8, 5]],
     ['接缝 · 铆钉', '#6fcf6a', (x, y) => [x + 4, y + 18, 27, 3]],
     ['包角位', '#ef7a21', (x, y) => [x + 2, y + 3, 5, 5], (x, y) => [x + 1, y + 19, 5, 5]],
-    ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 12, y + 6, 20, 11]],
+    ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 11, y + 6, 21, 12]],
   ];
   return { M_TIERS, mBase, mOver, M_ZONES_VIEW };
 })();

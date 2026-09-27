@@ -29,8 +29,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮 v2 · 2026-09-27</small></h1>
+    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮 v3 · 2026-09-27</small></h1>
     <p>按 <code>docs/visual-rules.md</code> 把直射火炮的做法推到中炮（2×1，横躺长炮）。<b>形体和直射火炮一一对应</b>：T1～2 敞开式炮架 + 低矮前挡板 → T3～4 方方正正的平顶炮廓把炮座罩起来 → T5～6 炮廓前沿做成斜板。<b>炮管</b>三种和直射火炮同一套：素管 + 一道箍 + 小方制退器 → 炮尾套筒 + 连体阶梯制退器 → 粗炮身 + 三道铁箍 + 大方制退器。<b>散热口</b>：2 道竖缝 → 3 道 → 成对竖缝 → 斜百叶。<b>小模块做减法</b>：不放铭牌；镀镍起只在炮廓左上加一块小压力表（直径 7）；接缝铆钉 2 → 3 → 4 颗，T1～3 黄铜、镀镍起钢质淡青；钢起有包角铁。</p>
+    <p><b>v3（按反馈）：</b>摇架恢复到接近旧版的大小，耳轴处画回方形固定螺栓（方框 + 中心点）；散热口每档至少 3 个：T1～2 三道竖缝 → T3～4 四道密排竖缝 → T5 两行短竖缝 → T6 两行斜百叶。</p>
     <p>v1 试过「高防盾 / 斜防盾」，在 24px 高的模块上读成一根竖杆，已放弃，改成和直射火炮同构的炮廓。分区按炮管的仰角范围（−8°～30°）核对过：压力表、散热口、铆钉都在炮管扫不到的地方。</p>
   </header>
   <div class="cbar">
@@ -113,7 +114,7 @@
   function renderTiers() {
     const T = $('tiers'); T.replaceChildren(head());
     T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 游戏现状', el('small', {}, '三阶段：矮炮架 → 斜挡板 + 驻退筒 → 半圆炮廓 + 刻槽 + 三孔制退器')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('cannon_m', mt, 48, 24)))));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 新方案 v2', el('small', {}, '敞开炮架 → 方平顶炮廓 → 斜板炮廓；散热口 2 → 3 → 成对 → 斜百叶；铆钉 2 → 3 → 4；镀镍起小压力表')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(mNew(mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 新方案 v3', el('small', {}, '敞开炮架 → 方平顶炮廓 → 斜板炮廓；散热口 3 → 4 → 两行 → 斜百叶；铆钉 2 → 3 → 4；镀镍起小压力表；方形固定螺栓')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(mNew(mt)))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '直射火炮 · 已进游戏', el('small', {}, '同一档应该一眼是一套')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('cannon', mt, 48, 48)))));
   }
   function renderAngles() {
