@@ -25,8 +25,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
-    { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v2', date: '2026-09-27', status: 'explore',
-      desc: '材料 = 换色阶 + 克制的做工 + 四角紧固件，全部不发光；钢 / 镀镍 / 乌兹钢 / 以太各 4～6 套调色板点选挑选，整车、模块、新造型同步预览', docs: ['docs/board-opus.md'] },
+    { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v3', date: '2026-09-27', status: 'explore',
+      desc: '低饱和的颜色回来了：染色手法测试（7 色相 × 6 手法）、各材料配好的方案点选、调配台；整车、模块、新造型同步预览，都不发光', docs: ['docs/board-opus.md'] },
     { id: 'sprites', group: 'spec', url: 'spritesheet.html', name: '模块精灵表', ver: 'live', date: '2026-09-24', status: 'live',
       desc: '全部模块的像素图、外观阶段 × 材料矩阵、改装挂件、炮管后坐与供弹动态帧', docs: ['docs/module-plan.md'] },
     { id: 'cannon-s', group: 'module', url: 'cannon-s-lab.html', name: '小炮 · 造型与材质语法', ver: 'v2', date: '2026-09-27', status: 'explore',
