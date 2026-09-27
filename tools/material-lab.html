@@ -5,24 +5,33 @@
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
-  .wrap { max-width: 1280px; margin: 0 auto; }
+  .wrap { max-width: 1320px; margin: 0 auto; }
   header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
   .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
-  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 82em; font-size: 13.5px; }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 86em; font-size: 13.5px; }
   .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
   .cbar .lbl { font-size: 12px; color: var(--muted); }
+  .cbar .pickd { font-size: 13px; font-weight: 700; color: var(--brass3); padding: 3px 8px; border: 1px solid var(--brass1); background: var(--dark1); }
   section { padding: 22px 0 4px; }
   h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; }
   h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
-  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 84em; font-size: 13px; }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 86em; font-size: 13px; }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
-  .rules { margin: 0; padding-left: 20px; line-height: 1.85; font-size: 13px; max-width: 84em; }
-  .rules b { color: var(--brass3); }
-  table.t { border-collapse: collapse; font-size: 12.5px; line-height: 1.55; }
-  table.t th, table.t td { border: 1px solid var(--dark3); padding: 6px 8px; text-align: left; vertical-align: top; }
-  table.t th { background: var(--dark1); white-space: nowrap; }
-  .sw { display: inline-flex; border: 1px solid var(--dark0); margin-top: 4px; }
-  .sw i { width: 12px; height: 12px; display: block; }
+  .mrow { margin-bottom: 18px; }
+  .mrow h3 { margin: 0 0 8px; font-size: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; }
+  .card { padding: 10px 12px; cursor: pointer; border: 2px solid var(--dark0); }
+  .card:hover { background: var(--dark1); }
+  .card.on { border-color: var(--brass2); box-shadow: inset 0 0 0 1px var(--brass3), 3px 3px 0 rgba(7, 8, 12, .6); }
+  .card .t { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card .t b { font-size: 14px; color: var(--text); }
+  .card.on .t b { color: var(--brass3); }
+  .card .t span { font-size: 11px; color: var(--muted); }
+  .card .d { font-size: 12px; line-height: 1.55; margin: 4px 0 6px; color: var(--iron4); min-height: 2.8em; }
+  .card .prev { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; background: var(--bg2); padding: 6px; }
+  .card .tags { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .sw { display: inline-flex; border: 1px solid var(--dark0); vertical-align: middle; }
+  .sw i { width: 11px; height: 11px; display: block; }
   table.mx { border-collapse: collapse; }
   table.mx th { font-size: 12px; padding: 4px 6px; }
   table.mx th.rh { text-align: right; white-space: nowrap; vertical-align: middle; }
@@ -31,76 +40,66 @@
   table.mx canvas { background: var(--bg2); }
   .scroll { overflow-x: auto; }
   .note { font-size: 11px; color: var(--muted); }
+  .rules { margin: 0; padding-left: 20px; line-height: 1.85; font-size: 13px; max-width: 86em; }
+  .rules b { color: var(--brass3); }
   .rec { padding: 14px 16px; line-height: 1.8; font-size: 13.5px; }
   .rec h3 { margin: 0 0 6px; color: var(--brass3); font-size: 15px; }
-  .rec ol, .rec ul { margin: 4px 0 10px; padding-left: 22px; }
+  .rec ul { margin: 4px 0 10px; padding-left: 22px; }
 </style></head>
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 · 2026-09-27</small></h1>
-    <p><b>问题：</b>现在的材料装饰层把金属像素整体染成材料色（钢染蓝、乌兹钢染紫、以太染青），再满铺一层纹样（镀镍斜条纹、乌兹钢大波浪、以太发光脉络）。染色是「混色」，会在调色板外生成一堆脏色；纹样不管模块的形体、铺满整个面，于是钢以上四种材料显得扎眼、廉价。黄铜（原画）和熟铁之所以好，是因为它们几乎没染色、纹理稀疏。</p>
-    <p><b>方向：</b>学熟铁的路子——材料只换<b>一组手挑的低饱和色阶</b>（逐阶映射，不混色），特色放在<b>反光方式</b>和<b>一阶以内的稀疏细节</b>上，再把<b>铆钉换成各材料自己的紧固件</b>。这样绝大多数模块什么都不用改，只换皮就有材料感，而整车仍然是统一的冷铁基调。下面每一格都是游戏自己的渲染代码画的，只把材质处理换掉了。</p>
+    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">调色板挑选 · 2026-09-27</small></h1>
+    <p>按上一轮反馈调整：<b>所有材料都不发光</b>（以太改成克制的高级感，不限定青色）；<b>乌兹钢不用紫</b>；紧固件默认<b>只换每个模块四角那几颗</b>。每种材料给了 4～6 套调色板，点卡片就选中，下面的整车、模块和新造型会一起换。选好以后把顶栏的「当前选择」告诉我即可（选择会记在这个浏览器里）。所有图都是游戏自己的渲染代码画的，只换了材质处理。</p>
   </header>
   <div class="cbar">
-    <span class="lbl">方案</span>
-    <span class="seg" id="scheme"><button class="btn small" data-v="now">现状</button><button class="btn small" data-v="A">A 只换色阶</button><button class="btn small" data-v="B">B 色阶 + 做工</button><button class="btn small on" data-v="C">C 色阶 + 做工 + 紧固件</button></span>
+    <span class="lbl">当前选择</span><span class="pickd" id="pickd"></span><button class="btn small" id="copy">复制</button>
+    <span class="lbl">紧固件</span><span class="seg" id="pins"><button class="btn small on" data-v="corner">只换四角</button><button class="btn small" data-v="all">全部</button><button class="btn small" data-v="off">不换</button></span>
     <button class="btn small on" id="cmp">并排对照现状：开</button>
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
     <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="1">1×</button><button class="btn small on" data-v="2">2×</button><button class="btn small" data-v="3">3×</button></span>
-    <span class="lbl">冷暖倾向强度</span><input type="range" id="tint" min="0" max="200" step="25" value="100" style="width:120px;accent-color:var(--brass2)"><span class="lbl" id="tintV" style="width:40px">100%</span>
-    <button class="btn small on" id="anim">动画：开</button>
   </div>
 
   <section>
-    <h2 class="sec">六条规则</h2>
-    <ol class="rules">
-      <li><b>换色阶，不染色。</b>每种材料给冷铁 5 阶、暗铁 4 阶各配一组固定颜色，逐像素按阶替换。所有颜色都能列进调色板，不会冒出混色产生的脏色。</li>
-      <li><b>饱和度封顶。</b>金属固有色的饱和度不超过约 20%（下表有标注）；材料的「身份色」只是灰里带一点冷暖，真正的高饱和色只留给语义色和 UI 的品质色块。</li>
-      <li><b>材料靠明度和反光区分，不靠色相。</b>熟铁暗而哑、钢中灰而锐、镀镍亮而柔、乌兹钢暗且有暗纹、以太暗且带一丝青光——去色以后六种材料依然分得开（切到灰度看）。</li>
-      <li><b>纹理只走一阶、只落在平整面上。</b>细节不碰描边和亮边，每 4×4 最多一个（守 art-direction §9 的细节密度），不做满铺图案。</li>
-      <li><b>身份靠小件。</b>铆钉换成各材料的紧固件：钢是六角螺栓、镀镍是黄铜花钉、乌兹钢是金销、以太是发光铆钉。面积小、位置固定，一眼可辨也不抢戏。</li>
-      <li><b>发光是最高级的奖励。</b>只有以太能发光，而且只在铆钉上；动画只有「以太铆钉慢慢呼吸」和「镀镍沿亮边的一道反光」，其余材料不动。</li>
-    </ol>
+    <h2 class="sec">调色板候选 <small>每张卡：整车 + 装甲、火炮、锅炉（2×）；色块是冷铁 5 阶 + 暗铁 4 阶</small></h2>
+    <div id="picker"></div>
   </section>
 
   <section>
-    <h2 class="sec">色阶与做工 <small>方案 C 的完整定义</small></h2>
-    <div class="scroll"><table class="t" id="spec"></table></div>
-  </section>
-
-  <section>
-    <h2 class="sec">现有模块 <small id="mxCap"></small></h2>
-    <p class="lead">每格左边是现状（游戏里现在的装饰层），右边是当前选中的方案；关掉「并排对照」只看方案。黄铜是原画，不参与材质处理。</p>
-    <div class="scroll"><table class="mx" id="mods"></table></div>
-  </section>
-
-  <section>
-    <h2 class="sec">整车 <small>整车统一材料 · 放在竞技场背景上 · 1×</small></h2>
-    <p class="lead">「三流页游感」主要是在整车尺度上冒出来的：满车紫色波浪或青色脉络。这里每一行是同一辆车换六种材料，上排现状、下排方案。</p>
+    <h2 class="sec">T1 → T6 整车进阶 <small id="progCap"></small></h2>
+    <p class="lead">同一辆车换六种材料。上排现状、下排当前选择（可以在顶栏关掉对照）。黄铜是原画，不参与材质处理。</p>
     <div class="scroll"><table class="mx" id="cars"></table></div>
   </section>
 
   <section>
-    <h2 class="sec">新造型只需换皮 <small>你点名满意的几个造型，直接套方案</small></h2>
-    <p class="lead">卡隆短炮、迷你臼炮、冷凝柱、加压泵、黄铜望远镜、万向环都是按 T1 原画画的，没有为任何材料写专门代码，只套了材质处理。</p>
+    <h2 class="sec">现有模块</h2>
+    <p class="lead">每格左边现状、右边当前选择。</p>
+    <div class="scroll"><table class="mx" id="mods"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">新造型只需换皮 <small>卡隆短炮、迷你臼炮、冷凝柱、加压泵、黄铜望远镜、万向环</small></h2>
     <div class="scroll"><table class="mx" id="fav"></table></div>
   </section>
 
   <section>
-    <h2 class="sec">建议与待定</h2>
+    <h2 class="sec">规则</h2>
+    <ol class="rules">
+      <li><b>换色阶，不染色。</b>每种材料是 9 个固定颜色（冷铁 5 阶 + 暗铁 4 阶），逐像素按阶替换；定稿后写进 <code>js/palette.js</code> 锁定。</li>
+      <li><b>饱和度封顶、不发光。</b>金属固有色的饱和度一般在 15% 以内（卡片右上角有标注），最高级的材料也不发光；高饱和色只留给语义色和 UI 的品质色块。</li>
+      <li><b>材料靠明度、反光和一点冷暖区分。</b>切到灰度看，六种材料仍然要分得开。</li>
+      <li><b>纹理只走一阶、只落在平整面上。</b>不碰描边和亮边，每 4×4 至多一个细节；只有熟铁（麻点）、乌兹钢（流水纹）和个别候选（拉丝、结晶纹）有纹理。</li>
+      <li><b>身份靠小件，但只放在固定位置。</b>自动认出模块上的铆钉（<code>rivet()</code> 画出来的那种），默认只换最靠四个角的各一颗：位置固定、数量少，不抢戏。<b>开发成本为零</b>——不用逐个模块写代码，新模块只要照常用 <code>rivet()</code> 就自动生效；没有铆钉的模块就只换色阶。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
-      <h3>我的建议</h3>
-      <ol>
-        <li><b>用方案 C 的规则替换现在的装饰层</b>：黄铜、熟铁的观感基本不变（熟铁本来就是这个路子），钢以上四种材料不再染色、不再满铺纹样。只改 <code>sprites.js</code> 里的 <code>decorate</code> 一个函数，所有模块自动生效。</li>
-        <li>色阶写进 <code>js/palette.js</code>（每种材料 9 色），和其他颜色一样锁定。</li>
-        <li>品质感主要交给 UI：卡片边框、材料色块、「史诗 / 传奇」字样继续用鲜明的紫、青；画面里只保留一点冷暖倾向。</li>
-      </ol>
-      <h3>需要你决定</h3>
       <ul>
-        <li>A / B / C 选哪个（或者 C 去掉动画）。</li>
-        <li>各材料的冷暖倾向是否合适：钢是中性灰、镀镍是近中性的亮银、乌兹钢带一点紫、以太带一点青。整车尺度下乌兹钢和以太比较接近——用顶栏的「冷暖倾向强度」拖一拖，告诉我哪个档位合适（100% 是现在的定义值）。</li>
-        <li>紧固件替换：镀镍配黄铜花钉、乌兹钢配金销钉，你是否喜欢「镍 + 铜」这种维多利亚搭配。</li>
+        <li>钢、镀镍、乌兹钢、以太合金各选一套（顶栏「当前选择」发给我即可）。熟铁保留现状观感，只有一套。</li>
+        <li>紧固件：只换四角（推荐）、全部换、还是不换。</li>
+        <li>定下来以后我把游戏里的 <code>decorate</code> 换成这套处理，色阶写进 <code>palette.js</code>，所有模块自动生效。</li>
       </ul>
     </div>
   </section>
@@ -115,17 +114,12 @@
 (() => {
   const L = SA.MATLAB, P = SA.PAL, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
-  const st = { scheme: 'C', cmp: true, mode: 'color', zoom: 2, anim: true, f: 0 };
-  const MTS = [1, 2, 3, 4, 5, 6];
-  const passOf = (s) => s === 'now' ? SA.SPR.decorate : L.PASSES[s];
-
-  // ---------- 定义表 ----------
-  const sw = (cols) => el('span', { className: 'sw' }, ...cols.map(c => { const i = el('i'); i.style.background = c; return i; }));
-  $('spec').append(el('tr', {}, ...['材料', '冷铁 5 阶 / 暗铁 4 阶', '饱和度', '基调', '反光', '表面', '紧固件'].map(h => el('th', {}, h))));
-  for (const [k, m] of Object.entries(L.MATS)) {
-    const mt = SA.MATS.findIndex(x => x && x.key === k), th = el('th', {}, m.name); th.style.color = SA.MATS[mt].chip;
-    $('spec').append(el('tr', {}, th, el('td', {}, sw(m.iron), el('br'), sw(m.dark)), el('td', {}, `${m.sat}%`), el('td', {}, m.look), el('td', {}, m.spec), el('td', {}, m.tex), el('td', {}, m.stud)));
-  }
+  const st = { cmp: true, mode: 'color', zoom: 2 };
+  const MTS = [1, 2, 3, 4, 5, 6], KEYS = ['steel', 'nickel', 'wootz', 'aether'];
+  const mtOf = (key) => SA.MATS.findIndex(x => x && x.key === key);
+  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel') || '{}'); for (const k of KEYS) if (s[k] && L.CANDS[k].some(c => c.id === s[k])) L.sel[k] = s[k]; } catch (e) {}
+  const save = () => { try { localStorage.setItem('sa.matlab.sel', JSON.stringify(L.sel)); } catch (e) {} };
+  const pickText = () => KEYS.map(k => `${SA.MATS[mtOf(k)].name} ${L.sel[k]}（${L.pick(k).name}）`).join(' · ') + ` · 紧固件：${{ corner: '只换四角', all: '全部', off: '不换' }[L.getPins()]}`;
 
   function gray(src) {
     if (st.mode !== 'gray') return src;
@@ -136,37 +130,16 @@
     g.putImageData(img, 0, 0); return c;
   }
   const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
-  // 用游戏的 drawModule 画一个模块（主体层垫车体框架色）
   function modCanvas(id, mt) {
-    const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 4 + 34; c.height = f.h * 24 + 4 + 18;
-    const g = c.getContext('2d'), x = 4, y = 16;
+    const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 4 + 30; c.height = f.h * 24 + 4 + 14;
+    const g = c.getContext('2d'), x = 3, y = 12;
     if (SA.MODULES[id].layer === 'body') { g.fillStyle = P.iron[1]; g.fillRect(x, y, f.w * 24, f.h * 24); }
     SA.SPR.drawModule(g, id, x, y, { mt, heat: 0.6, water: 0.6, t: 0.3 });
     return c;
   }
-  // 候选 / 小炮样机按 T1 画，再手动套材质处理
-  function withPass(cv, ox, oy, mt, scheme) {
-    const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(cv, 0, 0);
-    if (mt > 1) passOf(scheme)(c, SA.MATS[mt], ox, oy, []);
-    return c;
-  }
-  const IDS = ['armor', 'armor_heavy', 'plate', 'cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon', 'boiler', 'water', 'tank_tall', 'helmet', 'cockpit', 'track', 'bucket', 'spike'];
-  const head = () => el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, SA.MATS[mt].name); th.style.color = SA.MATS[mt].chip; return th; }));
-
-  function renderMods() {
-    $('mxCap').textContent = `左：现状　右：${$('scheme').querySelector('.on').textContent}`;
-    const T = $('mods'); T.replaceChildren(head());
-    const grid = {};
-    for (const s of st.cmp && st.scheme !== 'now' ? ['now', st.scheme] : [st.scheme]) {
-      SA.SPR.setMatPass(s === 'now' ? null : L.PASSES[s]);
-      for (const id of IDS) for (const mt of MTS) (grid[id + mt] = grid[id + mt] || []).push(show(modCanvas(id, mt), st.zoom));
-    }
-    for (const id of IDS) T.append(el('tr', {}, el('th', { className: 'rh' }, SA.MODULES[id].name), ...MTS.map(mt => el('td', {}, el('div', {}, ...grid[id + mt])))));
-  }
-  // 整车：官方蓝图，整车统一材料，画在竞技场的地面色上
   function carCanvas(bp, mt) {
-    const v = SA.V.fromAscii(bp.name, bp.rows, [], mt), src = SA.SPR.renderVehicle(v, { key: 'ml' + mt, heat: 0.5, water: 0.6 });
-    const g0 = src.getContext('2d'), d = g0.getImageData(0, 0, src.width, src.height).data;
+    const v = SA.V.fromAscii(bp.name, bp.rows, [], mt), src = SA.SPR.renderVehicle(v, { key: 'ml', heat: 0.5, water: 0.6 });
+    const d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
     let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
     for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 8) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     const c = document.createElement('canvas'); c.width = x1 - x0 + 9; c.height = y1 - y0 + 9;
@@ -174,47 +147,72 @@
     g.drawImage(src, x0, y0, x1 - x0 + 1, y1 - y0 + 1, 4, 4, x1 - x0 + 1, y1 - y0 + 1);
     return c;
   }
-  function renderCars() {
-    const T = $('cars'); T.replaceChildren(head());
-    const bps = SA.OFFICIAL_BLUEPRINTS.filter((_, i) => i !== 1);
-    for (const bp of bps) for (const s of st.cmp && st.scheme !== 'now' ? ['now', st.scheme] : [st.scheme]) {
-      SA.SPR.setMatPass(s === 'now' ? null : L.PASSES[s]);
-      T.append(el('tr', {}, el('th', { className: 'rh' }, `${bp.name.split(' · ')[1]}`, el('div', { className: 'note' }, s === 'now' ? '现状' : '方案 ' + s)), ...MTS.map(mt => el('td', {}, show(carCanvas(bp, mt), 1)))));
+  const usePass = (on) => SA.SPR.setMatPass(on ? L.pass : null);
+  const BPS = SA.OFFICIAL_BLUEPRINTS.filter((_, i) => i !== 1);
+
+  // ---------- 调色板卡片 ----------
+  function renderPicker() {
+    const box = $('picker'); box.replaceChildren();
+    for (const key of ['iron', ...KEYS]) {
+      const mt = mtOf(key), keep = L.sel[key], row = el('div', { className: 'cards' });
+      for (const cand of L.CANDS[key]) {
+        L.sel[key] = cand.id; usePass(true);
+        const prev = el('div', { className: 'prev' }, show(carCanvas(BPS[0], mt), 2), show(modCanvas('armor', mt), 2), show(modCanvas('cannon', mt), 2), show(modCanvas('boiler', mt), 2));
+        const sw = el('span', { className: 'sw' }, ...cand.swatch.map(h => { const i = el('i'); i.style.background = h; return i; }));
+        const card = el('div', { className: 'panel card' + (cand.id === keep ? ' on' : '') },
+          el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`), el('span', {}, `饱和度 ${cand.sat}%`)),
+          el('div', { className: 'd' }, cand.desc), prev,
+          el('div', { className: 'tags' }, sw, `　${L.SPEC_NAME[cand.spec]}${cand.tex ? ' · ' + L.TEX_NAME[cand.tex] : ''} · ${L.PIN_NAME[cand.pin]}`));
+        if (key !== 'iron') card.onclick = () => { L.sel[key] = cand.id; save(); renderAll(); };
+        row.append(card);
+      }
+      L.sel[key] = keep;
+      const name = el('span', {}, SA.MATS[mt].name); name.style.color = SA.MATS[mt].chip;
+      box.append(el('div', { className: 'mrow' }, el('h3', {}, name, key === 'iron' ? el('span', { className: 'note' }, '　保留现状观感') : ''), row));
     }
+    usePass(false);
+  }
+  const head = () => el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, SA.MATS[mt].name); th.style.color = SA.MATS[mt].chip; return th; }));
+  const passes = () => st.cmp ? [false, true] : [true];
+  function renderCars() {
+    $('progCap').textContent = pickText();
+    const T = $('cars'); T.replaceChildren(head());
+    for (const bp of BPS) for (const on of passes()) {
+      usePass(on);
+      T.append(el('tr', {}, el('th', { className: 'rh' }, bp.name.split(' · ')[1], el('div', { className: 'note' }, on ? '当前选择' : '现状')), ...MTS.map(mt => el('td', {}, show(carCanvas(bp, mt), st.zoom >= 2 ? 2 : 1)))));
+    }
+    usePass(false);
+  }
+  const IDS = ['armor', 'armor_heavy', 'plate', 'cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon', 'boiler', 'water', 'tank_tall', 'helmet', 'cockpit', 'track', 'bucket', 'spike'];
+  function renderMods() {
+    const T = $('mods'); T.replaceChildren(head()); const grid = {};
+    for (const on of passes()) { usePass(on); for (const id of IDS) for (const mt of MTS) (grid[id + mt] = grid[id + mt] || []).push(show(modCanvas(id, mt), st.zoom)); }
+    usePass(false);
+    for (const id of IDS) T.append(el('tr', {}, el('th', { className: 'rh' }, SA.MODULES[id].name), ...MTS.map(mt => el('td', {}, el('div', {}, ...grid[id + mt])))));
   }
   function renderFav() {
     const C = SA.CAND, T = $('fav'); T.replaceChildren(head());
     const cand = (id, key) => C.MODS.find(m => m.id === id).cands.find(c => c.key === key);
     const favs = [
-      ['卡隆短炮', () => { const s = SA.CSLAB.sprite(SA.CSLAB.DIRS.find(d => d.id === 'C'), SA.CSLAB.MATS[0], {}); return [s, SA.CSLAB.PAD.l, SA.CSLAB.PAD.t]; }],
+      ['卡隆短炮', () => [SA.CSLAB.sprite(SA.CSLAB.DIRS.find(d => d.id === 'C'), SA.CSLAB.MATS[0], {}), SA.CSLAB.PAD.l, SA.CSLAB.PAD.t]],
       ['迷你臼炮', () => { const s = C.sprite('mortar_s', cand('mortar_s', 'A'), {}); return [s, s.ox, s.oy]; }],
       ['冷凝柱', () => { const s = C.sprite('condenser', cand('condenser', 'B'), {}); return [s, s.ox, s.oy]; }],
       ['加压泵', () => { const s = C.sprite('pressure_chamber', cand('pressure_chamber', 'C'), { t: 3 }); return [s, s.ox, s.oy]; }],
       ['黄铜望远镜', () => { const s = C.sprite('periscope', cand('periscope', 'B'), {}); return [s, s.ox, s.oy]; }],
       ['万向环', () => { const s = C.sprite('gyroscope', cand('gyroscope', 'A'), { t: 2 }); return [s, s.ox, s.oy]; }],
     ];
-    for (const [name, mk] of favs) {
-      const cells = MTS.map(mt => {
-        const [s, ox, oy] = mk(), kids = [];
-        if (st.cmp && st.scheme !== 'now') kids.push(show(withPass(s, ox, oy, mt, 'now'), st.zoom));
-        kids.push(show(withPass(s, ox, oy, mt, st.scheme), st.zoom));
-        return el('td', {}, el('div', {}, ...kids));
-      });
-      T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...cells));
-    }
+    const apply = (s, ox, oy, mt, on) => { const c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); if (mt > 1) (on ? L.pass : SA.SPR.decorate)(c, SA.MATS[mt], ox, oy, []); return c; };
+    for (const [name, mk] of favs) T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...MTS.map(mt => { const [s, ox, oy] = mk(); return el('td', {}, el('div', {}, ...passes().map(on => show(apply(s, ox, oy, mt, on), st.zoom)))); })));
   }
-  function render() { L.setFrame(st.f); renderMods(); renderCars(); renderFav(); SA.SPR.setMatPass(null); }
+  function renderAll() { $('pickd').textContent = pickText(); renderPicker(); renderCars(); renderMods(); renderFav(); }
 
-  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); render(); });
-  seg($('scheme'), v => st.scheme = v);
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
+  seg($('pins'), v => L.setPins(v));
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
-  $('cmp').onclick = () => { st.cmp = !st.cmp; $('cmp').textContent = '并排对照现状：' + (st.cmp ? '开' : '关'); $('cmp').classList.toggle('on', st.cmp); render(); };
-  $('anim').onclick = () => { st.anim = !st.anim; $('anim').textContent = '动画：' + (st.anim ? '开' : '关'); $('anim').classList.toggle('on', st.anim); };
-  $('tint').oninput = (e) => { L.setTint(+e.target.value / 100); $('tintV').textContent = e.target.value + '%'; render(); };
-  // 动画只影响方案 C（以太铆钉呼吸、镀镍亮边反光）；整页重画要 300ms 左右，所以放慢到约 1.5 帧 / 秒
-  setInterval(() => { if (st.anim && st.scheme === 'C' && !document.hidden) { st.f += 2; render(); } }, 700);
-  render();
+  $('cmp').onclick = () => { st.cmp = !st.cmp; $('cmp').textContent = '并排对照现状：' + (st.cmp ? '开' : '关'); $('cmp').classList.toggle('on', st.cmp); renderAll(); };
+  $('copy').onclick = () => { try { navigator.clipboard.writeText(pickText()); $('copy').textContent = '已复制'; setTimeout(() => $('copy').textContent = '复制', 900); } catch (e) {} };
+  renderAll();
   window.__matReady = true;
 })();
 </script></body></html>
