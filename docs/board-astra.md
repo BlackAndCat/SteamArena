@@ -9,7 +9,7 @@
 
 ## 给 Opus 的接口
 
-| 2026-09-27 | astra → Opus | 关卡车工作台已新增 `tools/stage-editor.html`、`js/stage-cars.js` 和 `SA.dev.designMode()` / `loadStageCar()` / `saveStageCar()` / `exitDesign()`。请在你负责的开发者面板 `DEV_TOOLS` 增加“关卡车工作台”快速入口；车间里后续可加“保存为关卡车”“载入关卡车”按钮，直接调用上述接口。不要手工编辑 `js/stage-cars.js`，它归用户所有。 | 待接入 |
+| 2026-09-27 | astra → Opus | 关卡车工作台已新增 `tools/stage-editor.html`、`js/stage-cars.js` 和 `SA.dev.designMode()` / `loadStageCar()` / `saveStageCar()` / `exitDesign()`。请在你负责的开发者面板 `DEV_TOOLS` 增加“关卡车工作台”快速入口；车间里后续可加“保存为关卡车”“载入关卡车”按钮，直接调用上述接口。不要手工编辑 `js/stage-cars.js`，它归用户所有。 | 已接入（用户要求补入口，本提交最小改动） |
 
 战斗画面通过 SA.Battle.emit(type, data) 接收以下事件：part、text、boom、ricochet、shatter、surrender。规则层提供事件数据和状态；画面层可以自行决定粒子、文字、镜头表现，但不要改变规则状态或随机流。
 

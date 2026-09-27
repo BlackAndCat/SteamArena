@@ -56,6 +56,7 @@ SA.CampUI = (() => {
   const DEV_TOOLS = [
     { url: 'tools/sim.html', name: '数值自测', desc: 'AI 对 AI 批量对打：战役关卡检验、对战矩阵 + 评分校准、模块性价比' },
     { url: 'tools/evolve.html', name: '进化报告', desc: '关卡车进化生成器的结果：选关、强度 × 表现散点图、分类网格、毒瘤车与奇特构筑，可复现、可试驾' },
+    { url: 'tools/stage-editor.html', name: '关卡车工作台', desc: '直接用正常车间拼装前两章和序章关卡车，编辑奖励、文字与强度并保存手工锁定版本' },
     { url: 'tools/lab.html', name: '视觉样机馆', desc: '全部视觉样机和美术规范：风格参考、精灵表、模块造型探索、底盘演进、地形与悬挂；按类别、版本和状态收纳' },
   ];
   function devPanel() {
