@@ -6,6 +6,8 @@
   const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' };
   const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || ['0:0', '0:1', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'];
   const [chapterCount] = [3];
+  let assemblyOpen = false;
+  let shopObserver = null;
 
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x])); }
   function stageAt(ci, si) { return SA.CAMPAIGN[ci]?.stages?.[si] || null; }
@@ -17,6 +19,111 @@
     return out;
   }
   function cellsOf(v) { return SA.StageCars.cellsOf(v); }
+
+  // 工作台的拼装页直接复用游戏车间编辑器；它操作的是 designMode 隔离存档。
+  function currentVehicle() {
+    if (assemblyOpen && SA.S?.d?.vehicle) state.vehicle = SA.S.d.vehicle;
+    return state.vehicle;
+  }
+  function syncAssemblyVehicle() { return currentVehicle(); }
+  function setWorkingVehicle(vehicle) {
+    if (!vehicle) return;
+    if (assemblyOpen && SA.S?.d) {
+      vehicle.lim = { cols: 8, rows: 6 };
+      SA.S.d.vehicle = vehicle;
+      SA.Camp.syncLim();
+      state.vehicle = SA.S.d.vehicle;
+      if (SA.Editor?.refresh) SA.Editor.refresh();
+    } else state.vehicle = vehicle;
+    renderPreview(state.vehicle); renderStats(state.vehicle);
+  }
+  function setTab(tab) {
+    document.querySelectorAll('[data-tab-panel]').forEach(panel => { panel.hidden = panel.dataset.tabPanel !== tab; });
+    document.querySelectorAll('.tab-button').forEach(button => {
+      const active = button.dataset.tab === tab;
+      button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active));
+    });
+    if (tab !== 'assembly') { const vehicle = syncAssemblyVehicle(); renderPreview(vehicle); renderStats(vehicle); }
+  }
+  function ensureEditorNavigation() {
+    if (!SA.go) SA.go = name => { SA.current = name; document.body.dataset.screen = name; if (SA.Camp?.syncLim) SA.Camp.syncLim(); };
+    if (!SA.nav) SA.nav = name => { if (name === 'garage' && !assemblyOpen) openAssembly(); };
+  }
+  function hideShopControl() {
+    // 设计存档已经把全部模块放进库存；把正常车间里的商店开关 / 提示收掉，避免误以为还要购买。
+    const tools = document.querySelector('.assembly-screen .ed-panel .panel-tools');
+    if (tools) [...tools.children]
+      .filter(child => child.classList.contains('panel-row') && (child.querySelector('.switch') || /商店/.test(child.textContent || '')))
+      .forEach(child => child.remove());
+    const navSub = document.querySelector('.assembly-screen .nav-plate.on .sub');
+    if (navSub && /商店/.test(navSub.textContent || '')) navSub.textContent = '改装 · 全模块';
+  }
+  function openAssembly() {
+    if (assemblyOpen) { setTab('assembly'); return; }
+    ensureEditorNavigation();
+    try {
+      if (!SA.Editor) throw new Error('车间编辑器没有加载');
+      assemblyOpen = true;
+      SA.Camp.dev.designMode();
+      // 沿用当前底稿，包含尚未保存的导入车和上次退出拼装时的改动。
+      setWorkingVehicle(SA.V.clone(state.vehicle));
+      $('assembly-empty').hidden = true; $('assembly-screen').hidden = false;
+      $('assembly-title').innerHTML = $('title').innerHTML;
+      setTab('assembly');
+      SA.Editor.open();
+      hideShopControl();
+      const toolPanel = document.querySelector('.assembly-screen .ed-panel .panel-tools');
+      if (toolPanel) {
+        shopObserver = new MutationObserver(hideShopControl);
+        shopObserver.observe(toolPanel, { childList: true });
+      }
+      syncAssemblyVehicle();
+    } catch (error) {
+      assemblyOpen = false;
+      if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
+      alert(`无法打开拼装车间：${error.message}`);
+    }
+  }
+  function exitAssembly() {
+    if (!assemblyOpen && !SA.Camp.isDesignMode()) return;
+    // 先留下设计草稿，再恢复正式存档；退出车间后仍可编辑奖励或保存这台车。
+    const vehicle = SA.V.clone(syncAssemblyVehicle());
+    SA.current = 'stage-editor'; document.body.dataset.screen = 'stage-editor';
+    if (shopObserver) { shopObserver.disconnect(); shopObserver = null; }
+    if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
+    assemblyOpen = false;
+    $('assembly-screen').hidden = true; $('assembly-empty').hidden = false;
+    $('screen').replaceChildren();
+    state.vehicle = vehicle;
+    renderPreview(vehicle); renderStats(vehicle);
+    setTab('overview');
+  }
+
+  function unlockModuleIds() { return $('unlock-mods').value.split(',').map(x => x.trim()).filter(Boolean); }
+  function renderUnlockSummary() {
+    const ids = unlockModuleIds(), names = ids.map(id => SA.MODULES[id]?.name || id);
+    $('unlock-mods-summary').innerHTML = names.length ? names.map(name => `<span class="chip">${esc(name)}</span>`).join('') : '<span class="muted">未选择模块</span>';
+  }
+  function renderModulePicker() {
+    const selected = new Set(unlockModuleIds()), grid = $('module-picker-grid'); grid.innerHTML = '';
+    const ids = [...new Set((SA.MODULE_ORDER || []).concat(Object.keys(SA.MODULES || {})))].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired);
+    ids.forEach(id => {
+      const m = SA.MODULES[id], card = document.createElement('label');
+      card.className = `module-card ${selected.has(id) ? 'selected' : ''}`;
+      const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = id; checkbox.checked = selected.has(id);
+      checkbox.addEventListener('change', () => card.classList.toggle('selected', checkbox.checked));
+      const pic = SA.SPR.moduleCanvas(id, 1, 1); pic.setAttribute('aria-hidden', 'true');
+      const name = document.createElement('span'); name.className = 'module-name'; name.textContent = m.name;
+      const desc = document.createElement('span'); desc.className = 'module-desc'; desc.textContent = m.desc || '暂无说明';
+      card.append(checkbox, pic, name, desc); grid.append(card);
+    });
+  }
+  function openModulePicker() { renderModulePicker(); $('module-picker').hidden = false; }
+  function closeModulePicker() { $('module-picker').hidden = true; }
+  function confirmModulePicker() {
+    const ids = [...$('module-picker-grid').querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
+    $('unlock-mods').value = ids.join(','); renderUnlockSummary(); closeModulePicker();
+  }
 
   function renderList() {
     let candidateNames = [];
@@ -74,7 +181,11 @@
     $('loot').value = JSON.stringify(stage.uniqueLoot || [], null, 2);
     $('blurb').value = stage.blurb || '';
     $('weakness').value = stage.weakness || '';
-    $('title').innerHTML = `<h2>${esc(stage.name)} <span class="tag">${stage.source === 'manual' ? '手工' : '原始'}</span>${stage.locked ? '<span class="tag locked">锁定</span>' : ''}</h2><div class="muted">${esc(SA.CAMPAIGN[state.ci].name)} · ${esc(stage.pilot || '')}</div>`;
+    renderUnlockSummary();
+    const heading = `<h2>${esc(stage.name)} <span class="tag">${stage.source === 'manual' ? '手工' : '原始'}</span>${stage.locked ? '<span class="tag locked">锁定</span>' : ''}</h2><div class="muted">${esc(SA.CAMPAIGN[state.ci].name)} · ${esc(stage.pilot || '')}</div>`;
+    $('title').innerHTML = heading;
+    $('assembly-title').innerHTML = heading;
+    $('title-fields').innerHTML = heading;
     state.base = base;
   }
 
@@ -134,10 +245,22 @@
   }
 
   function selectStage(ci, si) {
+    if (assemblyOpen) exitAssembly();
     state.ci = ci; state.si = si;
     const st = actualStage(ci, si); state.vehicle = st.vehicle;
     fillFields(st); renderPreview(state.vehicle); renderStats(state.vehicle); renderList(); renderProgress(); renderCandidateList();
     $('test-result').textContent = '尚未测试。';
+  }
+
+  // 保存后只刷新工作台数据；拼装页保持打开，避免用户每保存一次就被踢回概览。
+  function refreshAfterSave(result) {
+    state.record = result.record;
+    const vehicle = syncAssemblyVehicle();
+    const stage = actualStage(state.ci, state.si);
+    stage.vehicle = vehicle;
+    fillFields(stage);
+    state.vehicle = vehicle;
+    renderList(); renderPreview(vehicle); renderStats(vehicle); renderProgress();
   }
 
   function parseImport(value) {
@@ -150,9 +273,9 @@
   }
 
   function saveRecord(lockValue) {
-    const meta = readFields(); if (lockValue !== undefined) meta.locked = lockValue;
-    const record = SA.StageCars.makeRecord(state.ci, state.si, state.base, state.vehicle, meta);
-    const check = SA.StageCars.validate(record, state.ci, state.si, state.vehicle);
+    const vehicle = syncAssemblyVehicle(), meta = readFields(); if (lockValue !== undefined) meta.locked = lockValue;
+    const record = SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta);
+    const check = SA.StageCars.validate(record, state.ci, state.si, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
     const records = { ...(SA.STAGE_CARS.records || {}), [record.id]: record };
     return fetch('/__stage-cars/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, records }) }).then(response => {
@@ -168,13 +291,15 @@
   }
 
   function testVehicle() {
+    const vehicle = syncAssemblyVehicle();
+    if (!vehicle) throw new Error('请先准备一台关卡车');
     const games = Math.max(1, Math.min(200, +$('games').value || 20)), refs = [SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || [])];
     for (let ci = 0; ci <= state.ci; ci++) for (let si = 0; si < SA.CAMPAIGN[ci].stages.length; si++) if (ci < state.ci || si < state.si) refs.push(actualStage(ci, si).vehicle);
     const rows = [], counts = { p: 0, e: 0, draw: 0, timeout: 0 }; let wins = 0, total = 0, time = 0;
     refs.slice(-4).forEach((ref, ri) => { for (let i = 0; i < games; i++) {
       const seed = 0x5eed + state.ci * 10000 + state.si * 1000 + ri * 100 + i;
-      const a = SA.Battle.simulate({ p: ref, e: state.vehicle, pAim: 0.8, eAim: +$('aim').value, pStyle: 'wander', eStyle: $('style').value, terrain: $('terrain').value, eBoss: $('boss').checked, seed });
-      const b = SA.Battle.simulate({ p: state.vehicle, e: ref, pAim: +$('aim').value, eAim: 0.8, pStyle: $('style').value, eStyle: 'wander', terrain: $('terrain').value, seed: seed + 1 });
+      const a = SA.Battle.simulate({ p: ref, e: vehicle, pAim: 0.8, eAim: +$('aim').value, pStyle: 'wander', eStyle: $('style').value, terrain: $('terrain').value, eBoss: $('boss').checked, seed });
+      const b = SA.Battle.simulate({ p: vehicle, e: ref, pAim: +$('aim').value, eAim: 0.8, pStyle: $('style').value, eStyle: 'wander', terrain: $('terrain').value, seed: seed + 1 });
       for (const [result, candidateSide] of [[a, 'e'], [b, 'p']]) { const winner = result.winner || 'draw'; counts[winner] = (counts[winner] || 0) + 1; if (winner === candidateSide) wins++; total++; time += result.t || 0; }
     } });
     const rate = total ? wins / total : 0, z = 1.96, den = 1 + z * z / total, centre = rate + z * z / (2 * total), spread = z * Math.sqrt((rate * (1 - rate) + z * z / (4 * total)) / total);
@@ -190,26 +315,32 @@
     renderProgress();
   }
 
-  $('save').onclick = async () => { try { const result = await saveRecord(); alert(`已保存并锁定。${result.check.warnings.length ? `\n警告：${result.check.warnings.join('；')}` : ''}`); selectStage(state.ci, state.si); } catch (error) { alert(error.message); } };
-  $('unlock').onclick = async () => { try { await saveRecord(false); selectStage(state.ci, state.si); } catch (error) { alert(error.message); } };
-  $('relock').onclick = async () => { try { await saveRecord(true); selectStage(state.ci, state.si); } catch (error) { alert(error.message); } };
+  document.querySelectorAll('.tab-button').forEach(button => button.onclick = () => setTab(button.dataset.tab));
+  $('assembly-open').onclick = openAssembly;
+  $('assembly-exit').onclick = exitAssembly;
+  $('open-modules').onclick = openModulePicker;
+  $('module-picker-cancel').onclick = closeModulePicker;
+  $('module-picker-confirm').onclick = confirmModulePicker;
+  $('save').onclick = async () => { try { const result = await saveRecord(); alert(`已保存并锁定。${result.check.warnings.length ? `\n警告：${result.check.warnings.join('；')}` : ''}`); refreshAfterSave(result); } catch (error) { alert(error.message); } };
+  $('unlock').onclick = async () => { try { const result = await saveRecord(false); refreshAfterSave(result); } catch (error) { alert(error.message); } };
+  $('relock').onclick = async () => { try { const result = await saveRecord(true); refreshAfterSave(result); } catch (error) { alert(error.message); } };
   $('import').onclick = () => { $('import-box').hidden = false; $('import-value').focus(); };
   $('import-cancel').onclick = () => { $('import-box').hidden = true; $('import-value').value = ''; };
   $('import-confirm').onclick = () => {
     const value = $('import-value').value;
     if (!value.trim()) return;
     try {
-      state.vehicle = parseImport(value);
+      setWorkingVehicle(parseImport(value));
       $('import-box').hidden = true;
       $('import-value').value = '';
-      renderPreview(state.vehicle); renderStats(state.vehicle);
     } catch (error) { alert(error.message); }
   };
-  $('candidate-import').onclick = () => { const i = +$('candidate').value; if (!Number.isInteger(i)) return; let picks = []; try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (error) { return; } const p = picks[i]; if (!p) return; state.vehicle = p.cells ? SA.V.fromCells($('name').value || p.name, p.cells) : SA.V.decode(p.code); renderPreview(state.vehicle); renderStats(state.vehicle); };
+  $('candidate-import').onclick = () => { const i = +$('candidate').value; if (!Number.isInteger(i)) return; let picks = []; try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (error) { return; } const p = picks[i]; if (!p) return; setWorkingVehicle(p.cells ? SA.V.fromCells($('name').value || p.name, p.cells) : SA.V.decode(p.code)); };
   $('test').onclick = () => { try { testVehicle(); } catch (error) { $('test-result').className = 'notice bad'; $('test-result').textContent = `测试失败：${error.message}`; } };
   $('drive').onclick = () => {
-    if (!state.vehicle) return;
-    localStorage.setItem('steam_arena_evolve_picks', JSON.stringify([{ name: $('name').value || '手工关卡车', cells: cellsOf(state.vehicle), terrain: $('terrain').value, style: $('style').value, from: `关卡车工作台 · ${$('name').value}` }]));
+    const vehicle = syncAssemblyVehicle();
+    if (!vehicle) return;
+    localStorage.setItem('steam_arena_evolve_picks', JSON.stringify([{ name: $('name').value || '手工关卡车', cells: cellsOf(vehicle), terrain: $('terrain').value, style: $('style').value, from: `关卡车工作台 · ${$('name').value}` }]));
     const opened = window.open('../index.html#sandbox=evolve', '_blank', 'noopener');
     // 某些内置浏览器会拦截脚本新标签；同页跳转仍然能进入现有试驾场。
     if (!opened) window.location.href = '../index.html#sandbox=evolve';

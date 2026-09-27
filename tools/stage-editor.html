@@ -33,6 +33,36 @@
     .notice.bad { border-color: var(--fire2); color: var(--fire3); }
     .notice.ok { border-color: var(--gauge1); color: var(--gauge2); }
     .notice.warn { border-color: var(--brass2); color: var(--brass3); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+    .tab-button { color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 7px 11px; cursor: pointer; }
+    .tab-button.active, .tab-button:hover { color: var(--brass3); border-color: var(--brass2); background: var(--dark2); }
+    .tab-panel[hidden] { display: none; }
+    .assembly-screen { min-height: 650px; height: min(780px, 72vh); background: var(--dark0); border: 1px solid var(--dark3); overflow: hidden; }
+    .assembly-screen #screen { height: 100%; min-height: 0; }
+    .assembly-screen .ed { height: 100%; }
+    .assembly-empty { min-height: 240px; display: grid; place-items: center; text-align: center; padding: 20px; }
+    .assembly-empty[hidden] { display: none; }
+    .assembly-empty b { color: var(--brass3); font-size: 18px; }
+    .fold { border: 1px solid var(--dark3); background: var(--dark0); padding: 8px 10px; margin: 7px 0; }
+    .fold > summary { cursor: pointer; color: var(--brass3); font-weight: 700; }
+    .fold > .grid, .fold > .buttons, .fold > .notice { margin-top: 9px; }
+    .module-summary { min-height: 31px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+    .module-summary .chip { color: var(--brass3); }
+    .module-picker { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(7, 8, 12, .78); }
+    .module-picker[hidden] { display: none; }
+    .module-picker-window { width: min(1080px, 100%); max-height: min(840px, calc(100vh - 32px)); display: flex; flex-direction: column; background: var(--dark1); border: 2px solid var(--brass2); box-shadow: 5px 5px 0 rgba(0,0,0,.45); }
+    .module-picker-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--brass1); color: #2a1a05; }
+    .module-picker-head b { flex: 1; }
+    .module-picker-grid { overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 7px; }
+    .module-card { display: grid; grid-template-columns: 24px 46px minmax(0, 1fr); grid-template-rows: auto auto; gap: 2px 7px; align-items: center; min-height: 58px; padding: 5px; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); cursor: pointer; }
+    .module-card:hover, .module-card.selected { border-color: var(--brass2); background: var(--dark2); }
+    .module-card input { width: auto; grid-column: 1; grid-row: 1 / span 2; justify-self: center; accent-color: var(--brass2); }
+    .module-card canvas { grid-column: 2; grid-row: 1 / span 2; justify-self: center; width: 42px; height: 42px; image-rendering: pixelated; pointer-events: none; }
+    .module-card .module-name { grid-column: 3; font-weight: 700; color: var(--brass3); }
+    .module-card .module-desc { grid-column: 3; color: var(--muted); font-size: 11px; line-height: 1.25; max-height: 29px; overflow: hidden; }
+    .module-picker-foot { display: flex; justify-content: flex-end; gap: 7px; padding: 9px 12px; border-top: 1px solid var(--dark3); }
+    .tool-actions { margin-top: 8px; }
+    #side { display: none; }
     table { border-collapse: collapse; width: 100%; font-size: 12px; }
     th, td { border: 1px solid var(--dark3); padding: 4px 6px; text-align: left; }
     th { color: var(--muted); background: var(--dark2); }
@@ -42,7 +72,7 @@
 </head>
 <body>
   <h1>关卡车工作台</h1>
-  <p class="muted">手工关卡车保存到 <code>js/stage-cars.js</code>，默认带锁；进化报告会读取但跳过锁定记录。改车前可在游戏控制台调用 <code>SA.dev.designMode()</code>，搭好后用 <code>SA.dev.loadStageCar(ch, st)</code> / <code>SA.dev.saveStageCar(ch, st)</code>。</p>
+  <p class="muted">手工关卡车保存到 <code>js/stage-cars.js</code>，默认带锁；进化报告会读取但跳过锁定记录。打开“拼装车间”即可像正常游戏车间一样选模块、点格子、拖动和拆装，设计存档与正式存档分开。</p>
   <div class="layout">
     <aside class="panel">
       <h2>序章～第二章</h2>
@@ -51,52 +81,93 @@
       <div id="progress"></div>
     </aside>
     <main>
-      <section class="panel">
+      <div class="tabs" role="tablist" aria-label="关卡车编辑页签">
+        <button class="tab-button active" data-tab="assembly" role="tab">拼装车间</button>
+        <button class="tab-button" data-tab="overview" role="tab">车辆概览</button>
+        <button class="tab-button" data-tab="fields" role="tab">关卡文字</button>
+        <button class="tab-button" data-tab="reward" role="tab">奖励与解锁</button>
+        <button class="tab-button" data-tab="tuning" role="tab">强度调节</button>
+      </div>
+      <div class="buttons tool-actions">
+        <button class="btn primary" id="save">保存为手工关卡车</button>
+        <button class="btn" id="unlock">解锁（允许进化器改）</button>
+        <button class="btn" id="relock">重新锁定</button>
+        <button class="btn" id="import">导入分享码 / 模块清单</button>
+        <select id="candidate" style="max-width:320px"><option value="">进化报告候选车</option></select>
+        <button class="btn" id="candidate-import">拿候选车作底稿</button>
+        <button class="btn" id="drive">一键试驾</button>
+      </div>
+      <div id="import-box" class="notice" hidden>
+        <label>粘贴 SA2 分享码或完整模块清单 JSON<textarea id="import-value" placeholder="SA2.… 或 [[层,行,列,id,材料,改装等级],…]"></textarea></label>
+        <div class="buttons"><button class="btn primary" id="import-confirm">确认导入</button><button class="btn" id="import-cancel">取消</button></div>
+      </div>
+      <section class="panel tab-panel" data-tab-panel="assembly">
+        <div id="assembly-title"></div>
+        <div class="buttons">
+          <button class="btn primary" id="assembly-open">开始 / 继续拼装</button>
+          <button class="btn" id="assembly-exit">结束拼装并恢复正式存档</button>
+        </div>
+        <div id="assembly-empty" class="assembly-empty"><div><b>这里就是改装台</b><p class="muted">点击上方按钮进入车间。右侧模块清单里的模块可以直接选中，再点击车体格子安装；也可以拖动、对调、拆下。</p></div></div>
+        <div id="assembly-screen" class="assembly-screen" hidden><div id="screen"></div></div>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="overview" hidden>
         <div id="title"></div>
         <div id="preview" class="preview"></div>
         <div id="stats" class="stats"></div>
         <div id="warnings"></div>
       </section>
-      <section class="panel">
-        <h2>关卡字段</h2>
+      <section class="panel tab-panel" data-tab-panel="fields" hidden>
+        <div id="title-fields"></div>
+        <h2>关卡文字</h2>
         <div class="grid">
           <label>关卡名<input id="name"></label>
           <label>驾驶员<input id="pilot"></label>
-          <label>AI 性格<select id="style"><option value="wander">游走</option><option value="rush">冲锋</option><option value="kite">放风筝</option><option value="turtle">龟缩</option></select></label>
-          <label>枪法 <span><input id="aim" type="number" min="0" max="1" step="0.01"></span></label>
-          <label>场地<select id="terrain"></select></label>
-          <label>Boss <input id="boss" type="checkbox"></label>
-          <label>奖金<input id="prize" type="number" min="0" step="10"></label>
-          <label>通关解锁模块（逗号分隔）<input id="unlock-mods" placeholder="例如 mortar_s,condenser"></label>
+          <label class="wide">赛前介绍<textarea id="blurb"></textarea></label>
+          <label class="wide">弱点提示<textarea id="weakness"></textarea></label>
+        </div>
+      </section>
+      <section class="panel tab-panel" data-tab-panel="reward" hidden>
+        <h2>奖励与解锁</h2>
+        <div class="grid">
+          <label class="wide">通关解锁模块
+            <input id="unlock-mods" type="hidden">
+            <button class="btn" id="open-modules" type="button">打开模块选择窗口</button>
+            <span id="unlock-mods-summary" class="module-summary muted">未选择</span>
+          </label>
           <label>通关解锁功能（逗号分隔）<input id="unlock-feat" placeholder="例如 side,upgrade"></label>
           <label>通关解锁最高材料<input id="unlock-mat" type="number" min="0" max="6" step="1" placeholder="不改动"></label>
           <label>通关解锁改装台<input id="unlock-grid" placeholder="例如 6x4"></label>
           <label class="wide">可缴获件（JSON）<textarea id="loot" placeholder='[{"id":"boss_lens","mt":5,"once":true}]'></textarea></label>
-          <label class="wide">赛前介绍<textarea id="blurb"></textarea></label>
-          <label class="wide">弱点提示<textarea id="weakness"></textarea></label>
         </div>
-        <div class="buttons">
-          <button class="btn primary" id="save">保存为手工关卡车</button>
-          <button class="btn" id="unlock">解锁（允许进化器改）</button>
-          <button class="btn" id="relock">重新锁定</button>
-          <button class="btn" id="import">导入分享码 / 模块清单</button>
-          <select id="candidate" style="max-width:320px"><option value="">进化报告候选车</option></select>
-          <button class="btn" id="candidate-import">拿候选车作底稿</button>
-          <button class="btn" id="drive">一键试驾</button>
-        </div>
-        <div id="import-box" class="notice" hidden>
-          <label>粘贴 SA2 分享码或完整模块清单 JSON<textarea id="import-value" placeholder="SA2.… 或 [[层,行,列,id,材料,改装等级],…]"></textarea></label>
-          <div class="buttons"><button class="btn primary" id="import-confirm">确认导入</button><button class="btn" id="import-cancel">取消</button></div>
-        </div>
-        <div class="muted">导入框接受 <code>SA2.…</code> 分享码、<code>[[层,行,列,id,材料,改装等级],…]</code>，或包含 <code>cells</code> 的 JSON 对象。</div>
       </section>
-      <section class="panel">
-        <h2>快速测试</h2>
-        <div class="buttons"><label style="display:flex;align-items:center;gap:6px">每种参考车局数 <input id="games" type="number" value="20" min="1" max="200" style="width:90px"></label><button class="btn primary" id="test">固定种子测试</button></div>
-        <div id="test-result" class="notice">尚未测试。</div>
+      <section class="panel tab-panel" data-tab-panel="tuning" hidden>
+        <details class="fold" open>
+          <summary>枪法、AI 和场地强度微调</summary>
+          <div class="grid">
+            <label>AI 性格<select id="style"><option value="wander">游走</option><option value="rush">冲锋</option><option value="kite">放风筝</option><option value="turtle">龟缩</option></select></label>
+            <label>枪法（0～1）<input id="aim" type="number" min="0" max="1" step="0.01"></label>
+            <label>场地<select id="terrain"></select></label>
+            <label>Boss <input id="boss" type="checkbox"></label>
+            <label>奖金<input id="prize" type="number" min="0" step="10"></label>
+          </div>
+        </details>
+        <details class="fold" open>
+          <summary>固定种子快速测试</summary>
+          <div class="buttons"><label style="display:flex;align-items:center;gap:6px">每种参考车局数 <input id="games" type="number" value="20" min="1" max="200" style="width:90px"></label><button class="btn primary" id="test">固定种子测试</button></div>
+          <div id="test-result" class="notice">尚未测试。</div>
+        </details>
       </section>
     </main>
   </div>
+  <div id="module-picker" class="module-picker" hidden>
+    <div class="module-picker-window" role="dialog" aria-modal="true" aria-labelledby="module-picker-title">
+      <div class="module-picker-head"><b id="module-picker-title">选择通关解锁模块</b><span class="muted">图片来自游戏模块精灵</span></div>
+      <div id="module-picker-grid" class="module-picker-grid"></div>
+      <div class="module-picker-foot"><button class="btn" id="module-picker-cancel">取消</button><button class="btn primary" id="module-picker-confirm">确定选择</button></div>
+    </div>
+  </div>
+  <div id="side" hidden></div>
+  <div id="modal" hidden></div>
   <script src="../js/palette.js"></script>
   <script src="../js/modules.js"></script>
   <script src="../js/module-art.js"></script>
@@ -112,6 +183,7 @@
   <script src="../js/ui.js"></script>
   <script src="../js/camp.js"></script>
   <script src="../js/camp-ui.js"></script>
+  <script src="../js/editor.js"></script>
   <script src="../js/terrain-art.js"></script>
   <script src="../js/battle-view.js"></script>
   <script src="../js/battle.js"></script>
