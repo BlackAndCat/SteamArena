@@ -316,6 +316,76 @@ SA.SPR = (() => {
   }
   const SOOT_CO = ['#1c1318', '#4a3040', '#8a6078'];        // 副驾驶：暖棕紫炭球
 
+  // ---------- 公共装饰零件（2026-09-27 定稿，规则见 docs/visual-rules.md，样机 tools/cannon-lab.html）----------
+  // 两类：铁件（包角铁、散热口）在 DRAW 里画，跟着材料换色；身份件（铆钉、珐琅铭牌、压力表）在 OVER 里、材质处理之后画，颜色按档位固定。
+  // 位置一律按模块立面的分区放（接缝铆钉 → 散热区 → 铭牌区；包角位；表位），互相至少空 1 像素，不压散热口和观察缝。
+  const RIVET_TIER = { brass: [P.brass[3], P.brass[2], P.brass[0]], steel: ['#e2eef0', '#9fb4b8', '#2c3637'] };   // T1～3 黄铜，镀镍起钢质淡青
+  const PART = {
+    // 散热口：暗线 + 下面一道亮线；rows 单列横槽 / grid 双列 / louver 斜百叶
+    vents(x, y, z, style, n) {
+      const slot = (sx, sy, w) => { R(x + sx, y + sy, w, 1, P.iron[0]); R(x + sx, y + sy + 1, w, 1, P.iron[3]); };
+      if (style === 'rows') { const gap = n <= 2 ? 4 : 3; for (let i = 0; i < n; i++) slot(z.x, z.y + 1 + i * gap, 12); }
+      else if (style === 'grid') { for (let c = 0; c < 2; c++) for (let i = 0; i < n; i++) slot(z.x + c * 8, z.y + i * 3, 6); }
+      else if (style === 'louver') { for (let i = 0; i < n; i++) for (let k = 0; k < 7; k++) { R(x + z.x + i * 4 + (k >> 1), y + z.y + k, 1, 1, P.iron[0]); R(x + z.x + i * 4 + (k >> 1) + 1, y + z.y + k, 1, 1, P.iron[3]); } }
+    },
+    // 包角铁：L 形角铁 5×5 + 一颗铆钉；fx / fy 是朝向
+    corner(x, y, fx = 1, fy = 1) {
+      const X = (dx) => (fx > 0 ? x + dx : x + 4 - dx), Y = (dy) => (fy > 0 ? y + dy : y + 4 - dy);
+      for (let i = 0; i < 5; i++) { R(X(i), Y(0), 1, 1, P.dark[0]); R(X(0), Y(i), 1, 1, P.dark[0]); R(X(i), Y(1), 1, 1, P.dark[3]); R(X(1), Y(i), 1, 1, P.dark[3]); }
+      R(X(1), Y(1), 1, 1, P.iron[4]); R(X(2), Y(2), 1, 1, P.dark[0]);
+    },
+    // 铆钉（身份件）：2×2 钉头 + 右下暗影，颜色 c = [亮, 中, 影]
+    rivet(x, y, c) { R(x, y, 2, 2, c[0]); R(x + 1, y + 1, 1, 1, c[1]); R(x + 2, y + 1, 1, 1, c[2]); R(x + 1, y + 2, 1, 1, c[2]); },
+    // 接缝铆钉：在 x0～x1 之间等距打 n 颗
+    seam(x, y, z, n, c) { const step = n > 1 ? (z.x1 - z.x0) / (n - 1) : 0; for (let i = 0; i < n; i++) PART.rivet(Math.round(x + z.x0 + i * step), y + z.y, c); },
+    // 珐琅铭牌 10×6：黄铜边框 + 深色底 + 两道黄铜刻字——放在任何底色上都分得开
+    plate(x, y) {
+      R(x, y, 10, 6, P.brass[0]); R(x + 1, y + 1, 8, 4, P.brass[2]); R(x + 1, y + 1, 8, 1, P.brass[3]);
+      R(x + 2, y + 2, 6, 2, '#1c1a1f'); R(x + 3, y + 2, 4, 1, P.brass[1]); R(x + 3, y + 3, 3, 1, P.brass[1]);
+    },
+    // 压力表 直径 11：黄铜圈 + 蒸汽白表盘 + 绿区 + 指针
+    gauge(cx, cy) {
+      disc(cx, cy, 5, P.brass[0]); disc(cx, cy, 4, P.brass[2]); disc(cx, cy, 3.2, P.steam[2]);
+      R(Math.round(cx - 3), Math.round(cy - 3), 1, 1, P.brass[3]);
+      for (let i = 0; i < 4; i++) { const a = Math.PI * (1.6 + i * 0.14); R(Math.round(cx - 0.5 + Math.cos(a) * 2.4), Math.round(cy - 0.5 + Math.sin(a) * 2.4), 1, 1, P.gauge[1]); }
+      line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 2.5), Math.round(cy - 2), 1, P.dark[0]);
+      R(Math.round(cx - 0.5), Math.round(cy - 0.5), 1, 1, P.fire[1]);
+    },
+  };
+  // 直射火炮 2×2 的立面分区（模块内坐标）：炮组左边露出来的那块立面 x 4～25、y 16～38
+  const CANNON_ZONE = { seam: { y: 18, x0: 10, x1: 23 }, vent: { x: 7, y: 22 }, plate: { x: 7, y: 32 }, gauge: { x: 11, y: 11 } };
+  // 六档：炮塔、炮管、散热口排法 + 数量、接缝铆钉（数量 + 材质）、零件。形体只在 T3、T5 变（方 → 方平顶 → 斜向板）
+  const CANNON_TIERS = [
+    { t: 'square', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { t: 'square', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { t: 'box', b: 2, vent: ['rows', 3], riv: [3, 'brass'], parts: ['corners'] },
+    { t: 'box', b: 2, vent: ['rows', 3], riv: [3, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { t: 'slant', b: 3, vent: ['grid', 3], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { t: 'slant', b: 3, vent: ['louver', 4], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+  ];
+  const cannonBase = (x, y) => { box(x + 3, y + 16, 42, 29, IRON); R(x + 4, y + 39, 40, 1, P.brass[2]); R(x + 4, y + 40, 40, 1, P.brass[1]); };
+  const CANNON_TOWER = {
+    square(x, y) { box(x + 10, y + 7, 22, 10, IRON); R(x + 14, y + 10, 12, 1, P.iron[0]); cannonBase(x, y); },
+    box(x, y) { box(x + 5, y + 5, 28, 12, IRON); R(x + 18, y + 9, 11, 2, P.dark[0]); box(x + 11, y + 1, 8, 5, IRON); cannonBase(x, y); },
+    slant(x, y) {
+      for (let yy = 5; yy <= 16; yy++) {
+        const xr = x + 31 + Math.round((yy - 5) * 1.2);
+        R(x + 5, y + yy, xr - x - 5, 1, P.iron[2]); R(x + 5, y + yy, 1, 1, P.iron[0]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
+      }
+      R(x + 5, y + 4, 26, 1, P.iron[0]); R(x + 6, y + 5, 24, 1, P.iron[4]);
+      R(x + 17, y + 9, 10, 2, P.dark[0]); box(x + 11, y, 8, 5, IRON); cannonBase(x, y);
+    },
+  };
+  // 材质处理之后才画的「身份件」：DRAW 画铁件，OVER 画颜色固定的零件
+  const OVER = {
+    cannon(x, y, q) {
+      const T = CANNON_TIERS[(q.mt || 1) - 1], Z = CANNON_ZONE;
+      PART.seam(x, y, Z.seam, T.riv[0], RIVET_TIER[T.riv[1]]);
+      if (T.parts.includes('plate')) PART.plate(x + Z.plate.x, y + Z.plate.y);
+      if (T.parts.includes('gauge')) PART.gauge(x + Z.gauge.x, y + Z.gauge.y);
+    },
+  };
+
   const DRAW = {
     armor(x, y) {
       box(x + 3, y + 3, 42, 42, IRONL);
@@ -464,32 +534,13 @@ SA.SPR = (() => {
       R(x + 11, y + 40, 26, 1, lv >= 2 ? P.fire[1] : P.fire[0]);
     },
     cannon(x, y, o) {
-      // 分件：炮塔座固定；摇架 + 驻退筒 + 炮管绕耳轴 (34,27) 转到仰角；炮管整体后坐 d 像素，复进杆随之伸缩
-      // 外观阶段：① 方炮塔 + 指挥塔、两道箍、单腔制退器；② 前倾斜装甲炮塔、加厚炮尾套筒、双腔制退器；
-      // ③ 圆顶炮塔（黄铜冠带 + 双潜望镜）、刻槽炮身 + 上下复进筒、四孔喇叭制退器。炮口末端都在耳轴前 40px
-      const st = o.st || 1;
-      if (st === 1) housing(x, y, true);
-      else {
-        box(x + 3, y + 16, 42, 29, IRON);
-        if (st === 2) {
-          for (let yy = 5; yy <= 16; yy++) {   // 前倾斜装甲
-            const xr = x + 31 + Math.round((yy - 5) * 1.2);
-            R(x + 5, y + yy, xr - x - 5, 1, P.iron[2]); R(x + 5, y + yy, 1, 1, P.iron[0]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
-          }
-          R(x + 5, y + 4, 26, 1, P.iron[0]); R(x + 6, y + 5, 24, 1, P.iron[4]);
-          box(x + 10, y, 9, 5, IRON); R(x + 16, y - 4, 2, 5, P.iron[0]); R(x + 16, y - 4, 1, 4, P.iron[3]);   // 舱盖 + 潜望镜
-          R(x + 8, y + 10, 12, 2, P.dark[0]);   // 观察缝
-          for (const rx of [8, 18, 28]) rivet(x + rx, y + 7);
-        } else {
-          arch(x + 23, y + 3, y + 18, 19, P.iron[0]); arch(x + 23, y + 4, y + 18, 18, P.iron[2]); arch(x + 22, y + 5, y + 18, 16, P.iron[3]);
-          R(x + 6, y + 9, 34, 2, P.brass[1]); R(x + 7, y + 9, 32, 1, P.brass[3]);   // 黄铜冠带
-          for (const px of [12, 20]) { R(x + px, y - 1, 3, 5, P.iron[0]); R(x + px, y, 2, 3, P.iron[3]); R(x + px, y + 1, 2, 1, P.glass[2]); }
-          for (let a = 1; a < 6; a++) { const ang = Math.PI * (1 + a / 6); rivet(Math.round(x + 22 + Math.cos(ang) * 14), Math.round(y + 18 + Math.sin(ang) * 11)); }
-        }
-        for (let i = 0; i < 3; i++) R(x + 7, y + 22 + i * 4, 12, 1, P.iron[0]);
-        R(x + 4, y + 39, 40, 1, P.brass[2]); R(x + 4, y + 40, 40, 1, P.brass[1]);
-        rivet(x + 6, y + 34); rivet(x + 40, y + 34);
-      }
+      // 直射火炮 2×2（2026-09-27 定稿，样机 tools/cannon-lab.html）：按材料档位 T1～T6 画，形体只在 T3、T5 变——
+      // T1～2 方指挥塔、T3～4 方平顶炮廓、T5～6 斜向板炮廓；炮管 ① 素管两道箍 + 方制退器，② 炮尾套筒 + 一道箍 + 阶梯式方制退器，③ 粗炮身 + 三道铁箍 + 大方制退器。
+      // 立面：散热口逐档变（两道 → 三道 → 双列 → 斜百叶），钢起有包角铁；铆钉 / 铭牌 / 压力表在 OVER.cannon 里画。全部直线，炮口末端都在耳轴前 40px
+      const T = CANNON_TIERS[(o.mt || 1) - 1];
+      CANNON_TOWER[T.t](x, y);
+      PART.vents(x, y, CANNON_ZONE.vent, T.vent[0], T.vent[1]);
+      if (T.parts.includes('corners')) { PART.corner(x + 3, y + 16, 1, 1); PART.corner(x + 3, y + 40, 1, -1); PART.corner(x + 40, y + 40, -1, -1); }
       gunShield(x + 43, y + 27, o.up, 11);
       const d = rcPx('cannon', o.k);
       turn(x + 34, y + 27, o.a, (X, Y) => {
@@ -497,32 +548,24 @@ SA.SPR = (() => {
         box(X + 26, Y + 15, 16, 24, BRASS);
         R(X + 29, Y + 17, 1, 20, P.brass[3]);
         R(X + 40, Y + 33, 12, 5, P.dark[0]); R(X + 40, Y + 34, 12, 3, P.iron[2]); R(X + 40, Y + 34, 12, 1, P.iron[4]);
-        if (st === 3) { R(X + 40, Y + 16, 14, 5, P.dark[0]); R(X + 40, Y + 17, 14, 3, P.iron[2]); R(X + 40, Y + 17, 14, 1, P.iron[4]); }   // 上复进筒
         const lug = X + 58 - d;
         if (lug > X + 52) { R(X + 52, Y + 35, lug - X - 52, 2, P.iron[0]); R(X + 52, Y + 35, lug - X - 52, 1, P.brass[3]); }
         R(lug - 1, Y + 31, 3, 6, P.brass[1]); R(lug - 1, Y + 31, 1, 6, P.brass[3]);
         const bx = X + 38 - d;
         const tube = (x0, len, y0, hh) => { R(x0, y0, len, hh, P.iron[0]); R(x0, y0 + 1, len, hh - 2, P.iron[3]); R(x0, y0 + 1, len, 1, P.iron[4]); R(x0, y0 + hh - 2, len, 1, P.iron[2]); };
         const band = (hx, y0, hh) => { R(hx, y0, 3, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
-        if (st === 1) {
-          tube(bx, 30, Y + 22, 10);
-          for (const hb of [8, 18]) band(bx + hb, Y + 21, 12);
-          R(bx + 28, Y + 19, 8, 16, P.iron[0]); R(bx + 29, Y + 20, 6, 14, P.iron[3]); R(bx + 29, Y + 20, 6, 1, P.iron[4]);
-          for (const sy of [22, 26, 30]) R(bx + 30, Y + sy, 4, 2, P.dark[0]);
-        } else if (st === 2) {
-          tube(bx, 30, Y + 23, 8);
-          tube(bx, 17, Y + 21, 12);   // 炮尾套筒 + 三道散热肋
-          for (const rb of [4, 8, 12]) R(bx + rb, Y + 22, 1, 10, P.iron[1]);
-          band(bx + 15, Y + 20, 14); band(bx + 23, Y + 22, 10);
-          for (const mx of [27, 32]) { R(bx + mx, Y + 19, 4, 16, P.iron[0]); R(bx + mx + 1, Y + 20, 2, 14, P.iron[3]); R(bx + mx + 1, Y + 20, 2, 1, P.iron[4]); }
-          R(bx + 31, Y + 25, 1, 4, P.iron[2]);
+        const hoop = (hx, y0, hh) => { R(hx, y0, 3, hh, P.iron[0]); R(hx, y0 + 1, 3, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
+        const brake = (x0, y0, w, hh, slots) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (const sy of slots) R(x0 + 2, Y + sy, w - 4, 2, P.dark[0]); };
+        if (T.b === 1) {
+          tube(bx, 30, Y + 22, 10); for (const hb of [8, 18]) band(bx + hb, Y + 21, 12);
+          brake(bx + 28, Y + 19, 8, 16, [22, 26, 30]);
+        } else if (T.b === 2) {
+          tube(bx, 30, Y + 22, 10); tube(bx, 14, Y + 20, 14); band(bx + 14, Y + 21, 12);
+          R(bx + 24, Y + 20, 5, 14, P.iron[0]); R(bx + 25, Y + 21, 3, 12, P.iron[3]); R(bx + 25, Y + 21, 3, 1, P.iron[4]);   // 阶梯制退器的前一段
+          brake(bx + 28, Y + 18, 8, 18, [21, 25, 29]);
         } else {
-          tube(bx, 28, Y + 22, 10);
-          for (let i = bx + 1; i < bx + 26; i += 2) { R(i, Y + 25, 1, 1, P.iron[2]); R(i, Y + 28, 1, 1, P.iron[2]); }   // 刻槽
-          band(bx + 6, Y + 21, 12); band(bx + 20, Y + 21, 12);
-          R(bx + 27, Y + 17, 10, 20, P.iron[0]); R(bx + 28, Y + 18, 8, 18, P.iron[3]); R(bx + 28, Y + 18, 8, 1, P.iron[4]);
-          R(bx + 35, Y + 16, 2, 22, P.iron[0]); R(bx + 35, Y + 17, 1, 20, P.iron[4]);   // 喇叭外沿
-          for (const sy of [20, 24, 28, 32]) R(bx + 29, Y + sy, 5, 2, P.dark[0]);
+          tube(bx, 30, Y + 21, 12); for (const hb of [4, 11, 18]) hoop(bx + hb, Y + 20, 14);
+          brake(bx + 27, Y + 18, 10, 18, [21, 25, 29]);
         }
         if ((o.k || 0) >= 7) { R(bx + 36, Y + 23, 3, 8, P.fire[3]); R(bx + 39, Y + 25, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
       });
@@ -1029,6 +1072,7 @@ SA.SPR = (() => {
       DRAW[id](pd.l, pd.t, q);
       attach(id, q, f, pd.l, pd.t);
       (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
+      if (OVER[id]) { ctx = cv.getContext('2d'); OVER[id](pd.l, pd.t, q); }        // 身份件（铆钉、铭牌、压力表）最后画，颜色不被材质换掉
       cache.set(key, cv);
     }
     return cv;
