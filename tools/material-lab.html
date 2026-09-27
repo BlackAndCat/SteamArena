@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>材质语言 v2</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  .cbar .pickd { font-size: 12.5px; font-weight: 700; color: var(--brass3); padding: 3px 8px; border: 1px solid var(--brass1); background: var(--dark1); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .mlrow { margin-bottom: 18px; }
+  .mlrow h3 { margin: 0 0 8px; font-size: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; }
+  .card { padding: 10px 12px; cursor: pointer; border: 2px solid var(--dark0); }
+  .card:hover { background: var(--dark1); }
+  .card.on { border-color: var(--brass2); box-shadow: inset 0 0 0 1px var(--brass3), 3px 3px 0 rgba(7, 8, 12, .6); }
+  .card .t b { font-size: 14px; }
+  .card.on .t b { color: var(--brass3); }
+  .card .d { font-size: 12px; line-height: 1.55; margin: 4px 0 6px; color: var(--iron4); }
+  .prev { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; background: var(--bg2); padding: 6px; }
+  .tags { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .sw { display: inline-flex; border: 1px solid var(--dark0); vertical-align: middle; margin-right: 6px; }
+  .sw i { width: 11px; height: 11px; display: block; }
+  table.mx { border-collapse: collapse; }
+  table.mx th { font-size: 12px; padding: 4px 6px; }
+  table.mx th.rh { text-align: right; vertical-align: middle; min-width: 120px; max-width: 170px; line-height: 1.4; }
+  table.mx th.rh small { display: block; font-weight: 400; color: var(--muted); }
+  table.mx td { padding: 3px; text-align: center; vertical-align: middle; }
+  table.mx td > div { display: inline-flex; gap: 3px; align-items: flex-end; }
+  table.mx canvas { background: var(--bg2); }
+  .scroll { overflow-x: auto; }
+  .note { font-size: 11px; color: var(--muted); }
+  .mixer { display: grid; grid-template-columns: 380px 1fr; gap: 14px; padding: 12px; }
+  .mixer .ctl { display: grid; gap: 7px; font-size: 12.5px; align-content: start; }
+  .mixer .ctl .r { display: grid; grid-template-columns: 78px 1fr 44px; gap: 6px; align-items: center; }
+  .mixer .ctl .r span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mixer .ctl .g { margin-top: 4px; font-weight: 700; color: var(--brass3); }
+  .mixer input[type=range] { width: 100%; accent-color: var(--brass2); }
+  .mixer select { background: var(--dark2); color: var(--text); border: 1px solid var(--dark3); padding: 2px 4px; }
+  .mixer textarea { width: 100%; height: 70px; background: var(--dark1); color: var(--iron4); border: 1px solid var(--dark3); font: 11px/1.4 ui-monospace, Consolas, monospace; }
+  .mixer .live { font-size: 12px; color: var(--gauge2); margin: 6px 0; }
+  .rec { padding: 14px 16px; line-height: 1.8; font-size: 13.5px; }
+  .rec ul { margin: 4px 0 10px; padding-left: 22px; }
+  @media (max-width: 900px) { .mixer { grid-template-columns: 1fr; } }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">定稿 · T1～T6 · 2026-09-27</small></h1>
+    <p><b>已定稿并接进游戏</b>（<code>js/palette.js</code> 的 <code>SA.PAL.mat</code> + <code>js/sprites.js</code> 的材质处理）：黄铜 = AAP-64 旧黄铜（提饱和）· 熟铁（保留）· 钢 = 淡青 + 放稀的花纹板 · 镀镍 = 象牙白漆 + 金描线 · 乌兹钢 = 布伦瑞克绿漆 · 以太合金 = 海军蓝漆 + 象牙白描线。</p>
+    <p><b>黄铜（T1）也已定稿并进游戏</b>：AAP-64（Adigun A. Polack）调色板的旧黄铜色阶，饱和度提高到 1.45 倍。成熟像素调色板的共同做法是<b>色相随明度偏移</b>：暗部红褐、中间调铜橙、亮部黄金、高光奶黄——之前只用一个色相、又压低饱和度，所以发灰、没有铜味。下面保留了其他几套黄铜 / 铜色阶作对照（AAP-64、Apollo、Endesga 64、Resurrect 64），点卡片可以在整车进阶里比较。</p>
+  </header>
+  <div class="cbar">
+    <span class="lbl">当前选择</span><span class="pickd" id="pickd"></span><button class="btn small" id="copy">复制</button>
+    <span class="lbl">紧固件</span><span class="seg" id="pins"><button class="btn small on" data-v="corner">只换四角</button><button class="btn small" data-v="all">全部</button><button class="btn small" data-v="off">不换</button></span>
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
+  </div>
+
+  <section>
+    <h2 class="sec">黄铜（T1）的方向 + 已定稿的五档 <small>黄铜点卡片选中；后面五档是定稿，只供对照</small></h2>
+    <div id="picker"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">调配台 <small>改任何一项都立刻套到所选材料上，下面的整车、模块、新造型跟着变</small></h2>
+    <div class="panel mixer">
+      <div class="ctl" id="mix"></div>
+      <div><div class="prev" id="mixPrev"></div><div class="live" id="mixLive"></div><div class="tags" id="mixTags"></div><textarea id="mixOut" readonly></textarea></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">T1 → T6 整车进阶 <small id="progCap"></small></h2>
+    <p class="lead">同一辆车换六种材料：第一列是当前选中的黄铜方向，后五列是定稿（和游戏里一致）。</p>
+    <div class="scroll"><table class="mx" id="cars"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">现有模块</h2>
+    <div class="scroll"><table class="mx" id="mods"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">新造型只需换皮</h2>
+    <div class="scroll"><table class="mx" id="fav"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">需要你决定</h2>
+    <div class="panel rec">
+      <ul>
+        <li>六档材料都已定稿并进游戏。以后要微调某一档：用调配台调出参数，交给 Opus 更新 <code>SA.PAL.mat</code>。</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script src="cand-kit.js"></script><script src="cand-early.js"></script><script src="cannon-s-lab.js"></script>
+<script src="material-lab.js"></script>
+<script src="labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mode: 'color' };
+  const MTS = [1, 2, 3, 4, 5, 6], KEYS = ['brass', 'steel', 'nickel', 'wootz', 'aether'];
+  const mtOf = (key) => SA.MATS.findIndex(x => x && x.key === key);
+  const nameOf = (key) => SA.MATS[mtOf(key)].name;
+  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel5') || '{}'); if (s.brass && L.CANDS.brass.some(c => c.id === s.brass)) L.sel.brass = s.brass; } catch (e) {}
+  const save = () => { try { localStorage.setItem('sa.matlab.sel5', JSON.stringify({ brass: L.sel.brass })); } catch (e) {} };
+  const pickText = () => `黄铜 ${L.sel.brass}（${L.pick('brass').name}）· 其余五档为定稿`;
+
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  function modCanvas(id, mt) {
+    const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 4 + 30; c.height = f.h * 24 + 4 + 14;
+    const g = c.getContext('2d'), x = 3, y = 12;
+    if (SA.MODULES[id].layer === 'body') { g.fillStyle = P.iron[1]; g.fillRect(x, y, f.w * 24, f.h * 24); }
+    SA.SPR.drawModule(g, id, x, y, { mt, heat: 0.6, water: 0.6, t: 0.3 });
+    return c;
+  }
+  function carCanvas(bp, mt) {
+    const v = SA.V.fromAscii(bp.name, bp.rows, [], mt), src = SA.SPR.renderVehicle(v, { key: 'ml', heat: 0.5, water: 0.6 });
+    const d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
+    let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
+    for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 8) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const c = document.createElement('canvas'); c.width = x1 - x0 + 9; c.height = y1 - y0 + 9;
+    const g = c.getContext('2d'); g.fillStyle = P.bg[3]; g.fillRect(0, 0, c.width, c.height); g.fillStyle = P.bg[2]; g.fillRect(0, c.height - 4, c.width, 4);
+    g.drawImage(src, x0, y0, x1 - x0 + 1, y1 - y0 + 1, 4, 4, x1 - x0 + 1, y1 - y0 + 1);
+    return c;
+  }
+  const usePass = (on) => SA.SPR.setMatPass(on ? L.pass : null);
+  const withCand = (cand, fn) => { L.setOverride(cand); usePass(true); const r = fn(); L.setOverride(null); usePass(false); return r; };
+  const BPS = SA.OFFICIAL_BLUEPRINTS.filter((_, i) => i !== 1);
+  const preview = (cand, mt) => withCand(cand, () => [show(carCanvas(BPS[0], mt), 2), show(modCanvas('armor', mt), 2), show(modCanvas('cannon', mt), 2), show(modCanvas('boiler', mt), 2)]);
+  const swatch = (c) => el('span', { className: 'sw' }, ...c.swatch.map(h => { const i = el('i'); i.style.background = h; return i; }));
+  const pair = (cand) => withCand(cand, () => [show(modCanvas('armor', 3), 2), show(modCanvas('cannon', 3), 2)]);
+
+  // ---------- 方案卡片 ----------
+  function renderPicker() {
+    const box = $('picker'); box.replaceChildren();
+    const card = (key, cand, click) => {
+      const c = el('div', { className: 'panel card' + (click && cand.id === L.sel[key] ? ' on' : '') },
+        el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`)),
+        el('div', { className: 'd' }, cand.desc), el('div', { className: 'prev' }, ...preview(cand, mtOf(key))),
+        el('div', { className: 'tags' }, ...(cand.orig ? ['游戏里现在的 T1 原画'] : [swatch(cand), L.describe(cand)])));
+      if (click) c.onclick = () => { L.sel[key] = cand.id; save(); renderPicker(); renderProg(); };
+      else c.style.cursor = 'default';
+      return c;
+    };
+    const head = (key, note) => { const n = el('span', {}, nameOf(key)); n.style.color = SA.MATS[mtOf(key)].chip; return el('h3', {}, n, el('span', { className: 'note' }, note)); };
+    box.append(el('div', { className: 'mlrow' }, head('brass', '　T1 · 最初的零件，挑一个方向'), el('div', { className: 'cards' }, ...L.CANDS.brass.map(c => card('brass', c, true)))));
+    box.append(el('div', { className: 'mlrow' }, el('h3', {}, '已定稿', el('span', { className: 'note' }, '　T2～T6，和游戏里一致')), el('div', { className: 'cards' }, ...['iron', 'steel', 'nickel', 'wootz', 'aether'].map(k => card(k, L.FINAL[k], false)))));
+  }
+
+  // ---------- 调配台：任何改动立即套到所选材料 ----------
+  const mx = { key: 'brass', tone: 'mid', wh: 40, ws: 14, paint: '', ph: 12, ps: 34, pk: 82, line: '', tex: '', trim: 'brass', spec: 'soft', pin: 'rivet' };
+  function mixCand() {
+    const c = { id: `${nameOf(mx.key)}·调配台`, name: '调配台', desc: '调配台调出来的方案（改动实时生效）', tone: mx.tone, wash: { h: mx.wh, s: mx.ws }, spec: mx.spec, pin: mx.pin, trim: mx.trim };
+    if (mx.paint === 'custom') c.paint = { h: mx.ph, s: mx.ps, k: mx.pk / 100 }; else if (mx.paint) c.paint = mx.paint;
+    if (mx.line) c.line = mx.line;
+    if (mx.tex) c.tex = mx.tex;
+    return L.build(c);
+  }
+  const ctl = {};
+  function buildMixer() {
+    const box = $('mix'); box.replaceChildren();
+    const sel = (k, opts) => { const s = el('select'); for (const [v, t] of opts) s.append(el('option', { value: v, selected: mx[k] === v }, t)); s.onchange = () => { mx[k] = s.value; changed(k); }; ctl[k] = s; return s; };
+    const rng = (label, k, min, max, unit = '', onTouch) => { const v = el('span', {}, mx[k] + unit), r = el('input', { type: 'range', min, max, value: mx[k] }); r.oninput = () => { mx[k] = +r.value; v.textContent = mx[k] + unit; if (onTouch) onTouch(); changed(k); }; ctl[k] = r; return el('div', { className: 'r' }, el('span', {}, label), r, v); };
+    // 动了漆色的滑杆就自动切到「自定漆色」，保证改动一定看得见
+    const touchPaint = () => { if (mx.paint !== 'custom') { mx.paint = 'custom'; ctl.paint.value = 'custom'; } };
+    box.append(
+      el('div', { className: 'r' }, el('span', {}, '调给'), sel('key', KEYS.map(k => [k, nameOf(k)])), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '明度基调'), sel('tone', [['dark', '暗'], ['mid', '中'], ['light', '亮']]), el('span')),
+      el('div', { className: 'g' }, '金属本色'), rng('色相', 'wh', 0, 359, '°'), rng('饱和度', 'ws', 0, 30, '%'),
+      el('div', { className: 'g' }, '漆面'),
+      el('div', { className: 'r' }, el('span', {}, '漆色'), sel('paint', [['', '不刷漆'], ...Object.entries(L.PAINTS).map(([k, p]) => [k, p.name]), ['custom', '自定（用下面三条）']]), el('span')),
+      rng('色相', 'ph', 0, 359, '°', touchPaint), rng('饱和度', 'ps', 0, 60, '%', touchPaint), rng('深浅', 'pk', 30, 140, '%', touchPaint),
+      el('div', { className: 'g' }, '细节'),
+      el('div', { className: 'r' }, el('span', {}, '描线'), sel('line', [['', '无'], ...Object.entries(L.LINES).map(([k, v]) => [k, v[0]])]), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '纹理'), sel('tex', [['', '无'], ...Object.entries(L.TEX_NAME)]), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '饰件'), sel('trim', Object.entries(L.TRIM_NAME)), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '反光'), sel('spec', [['crisp', '锐利亮边'], ['glint', '受光角白点'], ['soft', '柔和'], ['matte', '哑光']]), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '紧固件'), sel('pin', Object.entries(L.PIN_NAME)), el('span')));
+  }
+  let mixTimer = 0, progTimer = 0;
+  function changed(k) {
+    clearTimeout(mixTimer); clearTimeout(progTimer);
+    mixTimer = setTimeout(() => applyMix(k === 'key'), 40);
+  }
+  function applyMix(keyChanged) {
+    const c = mixCand(), list = L.CANDS[mx.key], i = list.findIndex(x => x.name === '调配台');
+    if (i >= 0) list[i] = c; else list.push(c);
+    if (mx.key !== 'brass') L.FINAL[mx.key] = c;   // 调给已定稿的材料时只改这一页的预览，游戏不变
+    L.sel[mx.key] = c.id;
+    $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key)));
+    $('mixLive').textContent = `已套用到「${nameOf(mx.key)}」——下面的整车、模块、新造型会跟着变（方案卡片里也多了一张「调配台」）`;
+    $('mixTags').replaceChildren(swatch(c), L.describe(c));
+    const { id, name, desc, iron, dark, rust, trimC, paintC, lineC, swatch: s, L: Lv, ...params } = c;
+    $('mixOut').value = JSON.stringify({ 材料: nameOf(mx.key), ...params });
+    $('pickd').textContent = pickText();
+    progTimer = setTimeout(() => { renderPicker(); renderProg(); }, keyChanged ? 0 : 350);
+  }
+
+  // ---------- 进阶 / 模块 / 新造型 ----------
+  const head = () => el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, SA.MATS[mt].name); th.style.color = SA.MATS[mt].chip; return th; }));
+  const passes = () => [true];
+  function renderCars() {
+    $('progCap').textContent = pickText();
+    const T = $('cars'); T.replaceChildren(head());
+    for (const bp of BPS) for (const on of passes()) {
+      usePass(on);
+      T.append(el('tr', {}, el('th', { className: 'rh' }, bp.name.split(' · ')[1]), ...MTS.map(mt => el('td', {}, show(carCanvas(bp, mt), 2)))));
+    }
+    usePass(false);
+  }
+  const IDS = ['armor', 'armor_heavy', 'plate', 'cannon', 'cannon_m', 'mortar', 'mg', 'side_cannon', 'boiler', 'water', 'tank_tall', 'helmet', 'cockpit', 'track', 'bucket', 'spike'];
+  function renderMods() {
+    const T = $('mods'); T.replaceChildren(head()); const grid = {};
+    for (const on of passes()) { usePass(on); for (const id of IDS) for (const mt of MTS) (grid[id + mt] = grid[id + mt] || []).push(show(modCanvas(id, mt), 2)); }
+    usePass(false);
+    for (const id of IDS) T.append(el('tr', {}, el('th', { className: 'rh' }, SA.MODULES[id].name), ...MTS.map(mt => el('td', {}, el('div', {}, ...grid[id + mt])))));
+  }
+  function renderFav() {
+    const C = SA.CAND, T = $('fav'); T.replaceChildren(head());
+    const cand = (id, key) => C.MODS.find(m => m.id === id).cands.find(c => c.key === key);
+    const favs = [
+      ['卡隆短炮', () => [SA.CSLAB.sprite(SA.CSLAB.DIRS.find(d => d.id === 'C'), SA.CSLAB.MATS[0], {}), SA.CSLAB.PAD.l, SA.CSLAB.PAD.t]],
+      ['迷你臼炮', () => { const s = C.sprite('mortar_s', cand('mortar_s', 'A'), {}); return [s, s.ox, s.oy]; }],
+      ['冷凝柱', () => { const s = C.sprite('condenser', cand('condenser', 'B'), {}); return [s, s.ox, s.oy]; }],
+      ['加压泵', () => { const s = C.sprite('pressure_chamber', cand('pressure_chamber', 'C'), { t: 3 }); return [s, s.ox, s.oy]; }],
+      ['黄铜望远镜', () => { const s = C.sprite('periscope', cand('periscope', 'B'), {}); return [s, s.ox, s.oy]; }],
+      ['万向环', () => { const s = C.sprite('gyroscope', cand('gyroscope', 'A'), { t: 2 }); return [s, s.ox, s.oy]; }],
+    ];
+    const apply = (s, ox, oy, mt) => { const c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); L.pass(c, SA.MATS[mt], ox, oy, []); return c; };
+    for (const [name, mk] of favs) T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...MTS.map(mt => { const [s, ox, oy] = mk(); return el('td', {}, el("div", {}, show(apply(s, ox, oy, mt), 2))); })));
+  }
+  function renderProg() { $('pickd').textContent = pickText(); renderCars(); renderMods(); renderFav(); }
+  function renderAll() { renderPicker(); renderProg(); }
+
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
+  seg($('pins'), v => L.setPins(v));
+  seg($('mode'), v => st.mode = v);
+  $('copy').onclick = () => { try { navigator.clipboard.writeText(pickText() + '\n' + $('mixOut').value); $('copy').textContent = '已复制'; setTimeout(() => $('copy').textContent = '复制', 900); } catch (e) {} };
+  buildMixer(); renderAll();
+  // 调配台先只画自己的预览，不抢默认选择；动了任何一项才套用
+  (() => { const c = mixCand(); $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key))); $('mixTags').replaceChildren(swatch(c), L.describe(c)); $('mixLive').textContent = '改任何一项，就会套用到上面「调给」的材料'; })();
+  window.__matReady = true;
+})();
+</script></body></html>

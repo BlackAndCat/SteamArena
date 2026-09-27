@@ -19,20 +19,31 @@ function firstSpec(SA, id) {
   return null;
 }
 
-function inspectModule(SA, id) {
-  const spec = firstSpec(SA, id);
-  if (!spec) return { module: id, found: false, reason: '没有解锁档位' };
-  for (let attempt = 0; attempt < 80; attempt++) {
-    const rng = new RNG(9000 + attempt * 97 + id.length);
-    const vehicle = randomVehicle(SA, spec, rng, id) || minimalVehicle(SA, spec, id);
-    if (!vehicle) continue;
-    const count = SA.V.countIds(vehicle)[id] || 0;
-    const stats = SA.V.stats(vehicle);
-    if (count > 0 && stats.canDeploy) {
-      return { module: id, found: true, chapter: spec.chapter, stage: spec.stage, count, canDeploy: true, value: stats.value, code: SA.V.encode(vehicle) };
+function specsFor(SA, id) {
+  const out = [];
+  for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
+    for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      const spec = stageSpec(SA, chapter, stage);
+      if (spec.availableMods.includes(id)) out.push(spec);
     }
   }
-  return { module: id, found: false, chapter: spec.chapter, stage: spec.stage, reason: '80 个固定种子候选都未同时满足放置与出战条件' };
+  return out;
+}
+
+function inspectModule(SA, id) {
+  const specs = specsFor(SA, id);
+  if (!specs.length) return { module: id, found: false, reason: '没有解锁档位' };
+  for (const spec of specs) for (let attempt = 0; attempt < 80; attempt++) {
+      const rng = new RNG(9000 + attempt * 97 + id.length + spec.chapter * 101 + spec.stage);
+      const vehicle = randomVehicle(SA, spec, rng, id) || minimalVehicle(SA, spec, id);
+      if (!vehicle) continue;
+      const count = SA.V.countIds(vehicle)[id] || 0;
+      const stats = SA.V.stats(vehicle);
+      if (count > 0 && stats.canDeploy) {
+        return { module: id, found: true, chapter: spec.chapter, stage: spec.stage, count, canDeploy: true, value: stats.value, code: SA.V.encode(vehicle) };
+      }
+    }
+  return { module: id, found: false, chapter: specs[0].chapter, stage: specs[0].stage, reason: '全部解锁档位的固定种子候选都未同时满足放置与出战条件' };
 }
 
 function run() {
@@ -43,4 +54,4 @@ function run() {
 
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
 
-module.exports = { firstSpec, inspectModule, run };
+module.exports = { firstSpec, specsFor, inspectModule, run };

@@ -894,88 +894,123 @@ SA.SPR = (() => {
     if (o.mt > 1) q.mt = o.mt;
     return q;
   }
-  // ---------- 材料装饰层（V3，docs/module-plan.md §1）----------
-  // 只作用在金属像素（冷铁 / 暗铁 / 锈钢）上：先换成材料色（保留明暗，同 CSS 'color' 混合），再按材料加一层表面纹样。
-  // 黄铜饰件、炉火、水、玻璃、皮革、驾驶员、蒸汽保持原色——驾驶舱、锅炉、水箱也直接看得出材料，不再只在四角钉角铁。
-  // 纹样：熟铁 = 锻打斑点，钢 = 冷色高光边，镀镍 = 镜面斜条纹，乌兹钢 = 流水花纹，以太 = 发光纹路（T6 的发光特效）
+  // ---------- 材料（2026-09-27 定稿，T1 黄铜到 T6 以太，色值在 palette.js 的 SA.PAL.mat，样机 tools/material-lab.html）----------
+  // 金属像素（冷铁 / 暗铁 / 锈钢）按「阶」换成材料自己的颜色，不混色；黄铜饰件、炉火、水、玻璃、皮革、驾驶员保持原色。
+  // 在此之上，每种材料最多再加：瓷漆（只刷模块大面的第 2、3 阶，亮边和斜面仍露金属）、描线（离模块外沿 3px 的 1px 线，自动算）、
+  // 只改明度一阶的纹理（熟铁麻点、钢花纹板）、反光方式、四角紧固件（自动认出 rivet() 画的铆钉，只换最靠四个角的各一颗）。
+  // 全部不发光，所以新模块只要照常画冷铁 + 用 rivet()，六种材料就自动有各自的样子。
   const rgbOf = (hx) => { const n = parseInt(hx.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
   const k3 = (r, g, b) => (r << 16) | (g << 8) | b;
-  const PX_CLASS = new Map();   // 1 = 金属，2 = 保持原色
-  for (const hx of [...P.iron, ...P.dark, ...P.rust]) PX_CLASS.set(k3(...rgbOf(hx)), 1);
-  for (const hx of [...P.brass, ...P.fire, ...P.water, ...P.gauge, ...P.glass, ...P.steam, ...P.leather, ...P.bg, P.white, P.black, P.magenta, ...SOOT_PILOT, ...SOOT_CO]) PX_CLASS.set(k3(...rgbOf(hx)), 2);
   const lum = (r, g, b) => 0.3 * r + 0.59 * g + 0.11 * b;
-  // 不在调色板里的颜色（旋转贴图的边缘等）：灰的算金属，有颜色的保留
-  function pxClass(r, g, b) {
-    const c = PX_CLASS.get(k3(r, g, b));
-    if (c) return c;
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    return mx === 0 || (mx - mn) / mx < 0.28 ? 1 : 2;
-  }
-  function setLum([r, g, b], l) {   // W3C SetLum + ClipColor，分量 0~1
-    const d = l - lum(r, g, b); r += d; g += d; b += d;
-    const L = lum(r, g, b), n = Math.min(r, g, b), x = Math.max(r, g, b);
-    if (n < 0) { r = L + (r - L) * L / (L - n); g = L + (g - L) * L / (L - n); b = L + (b - L) * L / (L - n); }
-    if (x > 1) { r = L + (r - L) * (1 - L) / (x - L); g = L + (g - L) * (1 - L) / (x - L); b = L + (b - L) * (1 - L) / (x - L); }
-    return [r, g, b];
-  }
   const hash = (x, y) => (Math.imul(x + 101, 73856093) ^ Math.imul(y + 37, 19349663)) >>> 0;
-  const toward = (c, t, k) => [c[0] + (t[0] - c[0]) * k, c[1] + (t[1] - c[1]) * k, c[2] + (t[2] - c[2]) * k];
-  const COOL = [0.85, 0.93, 1], WOOTZ_HI = [0.92, 0.84, 1], AETHER = [0.62, 1, 0.95];
-  // 这些区域里的暗铁色像素不参与装饰层（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
+  const SRC_PX = new Map();   // 源像素：{ kind: dark | iron | rust, lv }
+  P.dark.forEach((h, i) => SRC_PX.set(k3(...rgbOf(h)), { kind: 'dark', lv: i }));
+  P.iron.forEach((h, i) => SRC_PX.set(k3(...rgbOf(h)), { kind: 'iron', lv: i }));
+  P.rust.forEach((h, i) => SRC_PX.set(k3(...rgbOf(h)), { kind: 'rust', lv: i }));
+  const BRASS_PX = new Map(P.brass.map((h, i) => [k3(...rgbOf(h)), i]));
+  const KEEP_PX = new Set([...P.brass, ...P.fire, ...P.water, ...P.gauge, ...P.glass, ...P.steam, ...P.leather, ...P.bg, P.white, P.black, P.magenta, ...SOOT_PILOT, ...SOOT_CO].map(h => k3(...rgbOf(h))));
+  const IRON_LUM = P.iron.map(h => lum(...rgbOf(h)));
+  // 不在调色板里的颜色（旋转贴图的边缘等）：灰的按明度归到最近的冷铁阶，有颜色的保留
+  function pxSrc(r, g, b) {
+    const k = k3(r, g, b);
+    if (SRC_PX.has(k)) return SRC_PX.get(k);
+    if (KEEP_PX.has(k)) return null;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx === 0 || (mx - mn) / mx >= 0.28) return null;
+    const L = lum(r, g, b); let best = 0;
+    IRON_LUM.forEach((v, i) => { if (Math.abs(v - L) < Math.abs(IRON_LUM[best] - L)) best = i; });
+    return { kind: 'iron', lv: best };
+  }
+  // 材料定义转成 RGB，按需缓存
+  const matCache = {};
+  function matOf(key) {
+    const m = SA.PAL.mat && SA.PAL.mat[key];
+    if (!m) return null;
+    if (!matCache[key]) {
+      const toC = (a) => (a ? a.map(rgbOf) : null);
+      matCache[key] = { ...m, ironC: toC(m.iron), darkC: toC(m.dark), rustC: toC(m.rust), paintC: toC(m.paint), trimC: toC(m.trim), lineC: m.line ? rgbOf(m.line) : null };
+    }
+    return matCache[key];
+  }
+  const mixC = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  // 只改明度的纹理：返回 -1 / 0 / +1
+  function texAt(tex, lx, ly) {
+    if (tex === 'pits') { const h = hash(Math.floor(lx / 4), Math.floor(ly / 4)); return (((lx % 4) + 4) % 4) === h % 4 && (((ly % 4) + 4) % 4) === (h >> 2) % 4 ? (h % 5 === 0 ? 1 : -1) : 0; }
+    if (tex === 'checker') { const u = ((lx % 8) + 8) % 8, v = ((ly % 8) + 8) % 8, alt = (Math.floor(lx / 8) + Math.floor(ly / 8)) % 2; return (alt ? (u === v && (u === 3 || u === 4)) : (u + v === 7 && (u === 3 || u === 4))) ? 1 : 0; }
+    return 0;
+  }
+  // 四角紧固件的 2×2 钉头 [左上, 右上, 左下, 右下]
+  const PIN_HEAD = {
+    bolt: (M) => [M.ironC[4], M.ironC[3], M.ironC[3], M.ironC[1]],
+    gold: (M) => (M.trimC ? [M.trimC[3], M.trimC[1], M.trimC[1], M.trimC[0]] : [P.brass[3], P.brass[1], P.brass[1], P.brass[0]].map(rgbOf)),
+  };
+  // 这些区域里的暗铁色像素不参与材质处理（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
   const DECOR_SKIP = { boiler: [[11, 19, 26, 21]] };
-  const DARKS = new Set(P.dark.map(hx => k3(...rgbOf(hx))));
+  let matPass = null;   // 样机页可以换一套材质处理（setMatPass），游戏里始终是 decorate
   function decorate(cv, mat, ox, oy, skip = []) {
+    const M = matOf(mat.key);
+    if (!M) return;
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
-    const tint = rgbOf(mat.tint).map(v => v / 255), a = mat.a || 0.8;
-    const metal = new Uint8Array(W * H), L0 = new Float32Array(W * H);
+    const src = new Array(W * H).fill(null), brass = new Int8Array(W * H).fill(-1);
     for (let i = 0; i < W * H; i++) {
       if (d[i * 4 + 3] < 8) continue;
-      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      const kk = k3(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+      if (M.trimC && BRASS_PX.has(kk)) { brass[i] = BRASS_PX.get(kk); continue; }
+      const c = pxSrc(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
+      if (!c) continue;
       const lx = i % W - ox, ly = Math.floor(i / W) - oy;
-      metal[i] = pxClass(r, gg, b) === 1 && !(DARKS.has(k3(r, gg, b)) && skip.some(([sx, sy, sw, sh]) => lx >= sx && lx < sx + sw && ly >= sy && ly < sy + sh)) ? 1 : 0;
-      L0[i] = lum(r, gg, b) / 255;
+      if (c.kind === 'dark' && skip.some(([sx, sy, sw, sh]) => lx >= sx && lx < sx + sw && ly >= sy && ly < sy + sh)) continue;
+      src[i] = c;
     }
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (!metal[i]) continue;
-      const o = [d[i * 4] / 255, d[i * 4 + 1] / 255, d[i * 4 + 2] / 255], l = L0[i];
-      let c = setLum(tint, l);
-      c = toward(o, c, a);
-      if (mat.dark) c = c.map(v => v * (1 - mat.dark));
-      if (mat.lite) c = c.map(v => 1 - (1 - v) * (1 - mat.lite));
-      if (l > 0.1) {   // 描边不加纹样
-        const lx = x - ox, ly = y - oy, h = hash(lx, ly);
-        const edge = (j) => j < 0 || !metal[j] || L0[j] < 0.1;
-        switch (mat.key) {
-          case 'iron':
-            if (h % 17 === 0) c = c.map(v => v * 0.7); else if (h % 29 === 3) c = toward(c, [1, 1, 1], 0.14);
-            break;
-          case 'steel':
-            if (edge(y ? i - W : -1)) c = toward(c, COOL, 0.5); else if (edge(x ? i - 1 : -1)) c = toward(c, COOL, 0.3);
-            break;
-          case 'nickel': {
-            const st = (((lx + ly) % 14) + 14) % 14;
-            if (st < 2) c = toward(c, [1, 1, 1], 0.55); else if (st === 3) c = toward(c, [1, 1, 1], 0.22);
-            if (edge(y ? i - W : -1)) c = toward(c, COOL, 0.35);
-            break;
-          }
-          case 'wootz': {
-            const v = Math.sin(lx * 0.6 + 2.4 * Math.sin(ly * 0.28 + lx * 0.05));
-            if (v > 0.72) c = toward(c, WOOTZ_HI, 0.38); else if (v < -0.8) c = c.map(q => q * 0.8);
-            break;
-          }
-          case 'aether': {
-            const v1 = Math.abs(Math.sin(lx * 0.31 + 1.9 * Math.sin(ly * 0.37))), v2 = Math.abs(Math.sin(ly * 0.29 + 1.7 * Math.sin(lx * 0.33 + 1)));
-            const v = Math.min(v1, v2 + 0.04);
-            if (v < 0.09 && h % 5) c = AETHER; else if (v < 0.2) c = toward(c, AETHER, 0.3);
-            break;
-          }
-        }
+    const isM = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !!src[y * W + x];
+    const lvAt = (x, y) => { if (!isM(x, y)) return -1; const c = src[y * W + x]; return c.kind === 'iron' ? c.lv : -1; };
+    const out = new Array(W * H).fill(null);
+    for (let i = 0; i < W * H; i++) {
+      const c = src[i];
+      if (c) out[i] = c.kind === 'dark' ? M.darkC[c.lv] : c.kind === 'rust' ? M.rustC[c.lv] : M.ironC[c.lv];
+      else if (brass[i] >= 0) out[i] = M.trimC[brass[i]];
+    }
+    // 描线要知道每个冷铁像素离非金属有多远（4 邻域，算到 5 为止）
+    const dist = M.lineC ? new Uint8Array(W * H) : null;
+    if (dist) {
+      const q = [];
+      for (let i = 0; i < W * H; i++) dist[i] = src[i] && src[i].kind === 'iron' ? 255 : 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (dist[i] && (!isM(x - 1, y) || !isM(x + 1, y) || !isM(x, y - 1) || !isM(x, y + 1))) { dist[i] = 1; q.push(i); } }
+      for (let h = 0; h < q.length; h++) {
+        const i = q[h], x = i % W, y = Math.floor(i / W); if (dist[i] >= 5) continue;
+        for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + a, Y = y + b; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (dist[j] === 255) { dist[j] = dist[i] + 1; q.push(j); } }
       }
-      d[i * 4] = Math.round(Math.max(0, Math.min(1, c[0])) * 255);
-      d[i * 4 + 1] = Math.round(Math.max(0, Math.min(1, c[1])) * 255);
-      d[i * 4 + 2] = Math.round(Math.max(0, Math.min(1, c[2])) * 255);
     }
+    const flat = (x, y) => isM(x - 1, y) && isM(x + 1, y) && isM(x, y - 1) && isM(x, y + 1) && isM(x - 1, y - 1) && isM(x + 1, y + 1);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, c = src[i]; if (!c || c.kind !== 'iron') continue;
+      const lx = x - ox, ly = y - oy, face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
+      if (M.spec === 'matte' && c.lv === 4) out[i] = M.ironC[3];   // 哑光：亮边压一阶
+      else if (M.spec === 'crisp' && c.lv === 4 && !isM(x, y - 1) && !isM(x - 1, y)) out[i] = mixC(M.ironC[4], [255, 255, 255], 0.45);   // 受光角一个亮点
+      else if (M.spec === 'soft' && c.lv === 4 && (lx + ly) % 2) out[i] = mixC(M.ironC[3], M.ironC[4], 0.5);   // 柔和：亮边隔一个像素压半阶
+      if (M.paintC && face) out[i] = M.paintC[c.lv];
+      else if (M.tex && face && fl) { const t = texAt(M.tex, lx, ly); if (t) out[i] = M.ironC[Math.max(0, Math.min(4, c.lv + t))]; }
+      if (dist && face && fl && dist[i] === 3) out[i] = M.lineC;
+    }
+    if (PIN_HEAD[M.pin]) {
+      const found = [];
+      for (let y = 0; y < H - 2; y++) for (let x = 0; x < W - 2; x++) {
+        const a = lvAt(x, y);
+        if (a < 3 || lvAt(x + 1, y) !== a || lvAt(x, y + 1) !== a || lvAt(x + 1, y + 1) !== 2 || lvAt(x + 2, y + 1) !== 0) continue;
+        found.push([x, y]);
+      }
+      let use = found;
+      if (found.length > 4) {
+        const xs = found.map(p => p[0]), ys = found.map(p => p[1]), pickd = new Set();
+        for (const ax of [Math.min(...xs), Math.max(...xs)]) for (const ay of [Math.min(...ys), Math.max(...ys)]) {
+          let best = 0, bd = 1e9; found.forEach((p, k) => { const dd = (p[0] - ax) ** 2 + (p[1] - ay) ** 2; if (dd < bd) { bd = dd; best = k; } }); pickd.add(best);
+        }
+        use = [...pickd].map(k => found[k]);
+      }
+      const col = PIN_HEAD[M.pin](M);
+      for (const [x, y] of use) [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([a, b], k) => { out[(y + b) * W + x + a] = col[k]; });
+    }
+    for (let i = 0; i < W * H; i++) { const c = out[i]; if (!c) continue; d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; }
     g.putImageData(img, 0, 0);
   }
   // 外观接口：DRAW[id](x, y, q) 在 (x, y) 画一个占 f.w × f.h 子格的模块；q 是 quant() 量化后的状态，
@@ -993,7 +1028,7 @@ SA.SPR = (() => {
       ctx = cv.getContext('2d');
       DRAW[id](pd.l, pd.t, q);
       attach(id, q, f, pd.l, pd.t);
-      if (q.mt > 1) decorate(cv, SA.MATS[q.mt], pd.l, pd.t, DECOR_SKIP[id]);
+      (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
       cache.set(key, cv);
     }
     return cv;
@@ -1351,6 +1386,7 @@ SA.SPR = (() => {
 
   return {
     PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };
 })();

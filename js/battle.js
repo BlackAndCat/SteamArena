@@ -1138,6 +1138,8 @@ SA.Battle = (() => {
         t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt,
         effectStats: { p: B.p.effects, e: B.e.effects },
         events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, minWater: B.p.minWater }, e: { ...B.e.events, maxHeat: B.e.maxHeat, minWater: B.e.minWater } },
+        // 无画面诊断只读快照：用于压力测试发现位置、耐久、热量和水量越界，不参与判胜或 AI。
+        state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water } },
         metrics: { ...B.metrics }, timeout: B.timeout || null };
       return;
     }

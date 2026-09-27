@@ -9,6 +9,7 @@ SA.CAND = (() => {
   let g = null;
   const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); };
   const px = (x, y, c) => R(x, y, 1, 1, c);
+  const clr = (x, y, w = 1, h = 1) => g.clearRect(Math.round(x), Math.round(y), w, h);   // 镂空（侧挂件透出后面的车体）
   const disc = (cx, cy, r, c) => {
     g.fillStyle = c;
     for (let yy = Math.floor(cy - r); yy <= Math.ceil(cy + r); yy++)
@@ -117,7 +118,7 @@ SA.CAND = (() => {
     return cv;
   }
   return {
-    P, R, px, disc, ring, line, box, rivet, arch, bolted, gauge, tube, hoop, flash, puff, pilot, porthole, turn,
+    P, R, px, clr, disc, ring, line, box, rivet, arch, bolted, gauge, tube, hoop, flash, puff, pilot, porthole, turn,
     IRON, IRONL, DARK, BRASS, RUST, SOOT_PILOT, SOOT_CO,
     MODS, BATCH, add, sprite, padOf, isGun,
     ctx: () => g,
