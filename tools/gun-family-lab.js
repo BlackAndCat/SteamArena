@@ -323,9 +323,9 @@ SA.GFLAB = (() => {
   // 再上色——贴着空处的像素一律描边，其余纯色填充；上半部分紧贴描边下面一像素提亮、下半部分紧贴描边上面一像素压暗。
   // 只用 4 个黄铜色，不做逐像素明暗，所以不会糊。齿数按「2px 齿 + 2px 空」（r ≥ 9 时 3px 齿 + 2px 空）算。
   // 颜色固定为真黄铜（不跟材料换），在材质处理之后、垫在整张精灵后面画（destination-over），所以永远是纯黄铜、永远在最后面。
-  function gearMask(r, k, ph, sp) {
-    const big = r >= 9, n = Math.max(6, Math.round(Math.PI * 2 * r / (big ? 5 : 4))), frac = big ? 0.6 : 0.5;
-    const rb = r - 2, rim = big ? 3 : 2, hubR = big ? 3 : 2, sw = big ? 1.6 : 1.2;   // r ≥ 9：3px 齿 / 轮缘 / 辐条，中间才有填充色
+  function gearMask(r, k, ph, sp, opt = {}) {
+    const big = r >= 9, n = opt.n || Math.max(6, Math.round(Math.PI * 2 * r / (big ? 5 : 4))), frac = big ? 0.6 : 0.5;
+    const rb = r - 2, rim = opt.rim || (big ? 3 : 2), hubR = opt.hub || (big ? 3 : 2), sw = opt.sw || (big ? 1.6 : 1.2);   // r ≥ 9：3px 齿 / 轮缘 / 辐条，中间才有填充色
     return (dx, dy) => {
       const d = Math.hypot(dx, dy);
       if (d > r + 0.2) return false;
@@ -452,5 +452,114 @@ SA.GFLAB = (() => {
 
 
 
-  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard, partsGears, gearSet };
+  // ---------- 臼炮（高抛火炮）2×2 · v1 ----------
+  // 用户：臼炮是抛射火炮，剪影最容易和中炮撞；参考现实重新设计，和其他火炮都分开；没有直射，所以在炮管底座两侧做两个大齿轮，做活动设计。
+  // 参考 19 世纪攻城 / 岸防臼炮（如 13 英寸「独裁者」）：炮管又短又粗、口径大，**越往炮口越粗**（和所有加农炮相反），炮口一道厚箍；
+  // 炮耳在炮尾，夹在一块炮耳座里；整门炮坐在低矮厚重的炮床上，炮口永远朝天（32°～82°）。
+  // 活动设计：炮耳上一个小齿轮跟着炮管转，带动两侧两个大齿轮反向转——瞄准时齿轮真的在转（精灵按 2° 一档缓存，齿轮相位跟仰角走）。
+  // 炮管按「旋转后的坐标」逐像素算（不是把画好的图转过去），所以 82° 也不会锯齿。耳轴 (24,30)，炮口末端离耳轴 24（blen 24）。
+  // 形体：T1～2 方炮床 + 方炮耳座；T3～4 两层台阶炮床 + 加厚炮耳座；T5～6 炮床前沿斜切 + 梯形炮耳座（斜向板）。
+  // 分区：炮床正面左段 = 散热口；炮床上沿右段 = 铆钉；包角 = 炮床两个底角（钢起）；齿轮和炮管周围不放零件。
+  const MP = { x: 24, y: 30 };
+  const MO_TIERS = [
+    { bed: 'block', cheek: 'block', hoops: 0, fat: false, vent: ['slits', 3], riv: [2, 'brass'], corners: false },
+    { bed: 'block', cheek: 'block', hoops: 0, fat: false, vent: ['slits', 3], riv: [2, 'brass'], corners: false },
+    { bed: 'step', cheek: 'box', hoops: 1, fat: true, vent: ['slits2', 4], riv: [3, 'brass'], corners: true },
+    { bed: 'step', cheek: 'box', hoops: 1, fat: true, vent: ['slits2', 4], riv: [3, 'steel'], corners: true },
+    { bed: 'slant', cheek: 'trap', hoops: 2, fat: true, vent: ['grid2', 4], riv: [4, 'steel'], corners: true },
+    { bed: 'slant', cheek: 'trap', hoops: 2, fat: true, vent: ['louver2', 4], riv: [4, 'steel'], corners: true },
+  ];
+  const MOZ = { block: { vent: { x: 8, y: 40, h: 3 }, riv: { y: 38, x0: 33, x1: 40 } }, step: { vent: { x: 6, y: 42, h: 3 }, riv: { y: 36, x0: 32, x1: 38 } } };
+  const MO_BED = {
+    block(x, y) { box(x + 3, y + 36, 42, 11, IRON); R(x + 4, y + 37, 40, 1, P.iron[4]); R(x + 4, y + 45, 40, 1, P.brass[2]); },
+    step(x, y) { box(x + 2, y + 40, 44, 7, IRON); R(x + 3, y + 41, 42, 1, P.iron[4]); box(x + 8, y + 35, 32, 6, IRON); R(x + 9, y + 36, 30, 1, P.iron[4]); },
+    slant(x, y) {
+      for (let yy = 40; yy <= 46; yy++) {
+        const xr = x + 40 + Math.round((yy - 40) * 0.9);
+        R(x + 2, y + yy, xr - x - 2, 1, P.iron[2]); px(x + 2, y + yy, P.iron[0]); px(x + 3, y + yy, P.iron[3]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
+      }
+      R(x + 2, y + 40, 38, 1, P.iron[0]); R(x + 3, y + 41, 37, 1, P.iron[4]); R(x + 2, y + 46, 44, 1, P.iron[0]);
+      box(x + 8, y + 35, 32, 6, IRON); R(x + 9, y + 36, 30, 1, P.iron[4]);
+    },
+  };
+  const MO_CHEEK = {   // 炮耳座：画在炮管前面（近侧那片墙板），把炮尾夹住
+    block(x, y) { box(x + 18, y + 26, 13, 11, IRON); R(x + 19, y + 27, 11, 1, P.iron[4]); },
+    box(x, y) { box(x + 16, y + 25, 17, 11, IRON); R(x + 17, y + 26, 15, 1, P.iron[4]); R(x + 17, y + 31, 15, 1, P.iron[1]); },
+    trap(x, y) {
+      for (let yy = 25; yy <= 35; yy++) {
+        const k = Math.round((yy - 25) * 0.4), x0 = x + 18 - k, x1 = x + 31 + k;
+        R(x0, y + yy, x1 - x0, 1, P.iron[2]); px(x0, y + yy, P.iron[0]); px(x0 + 1, y + yy, P.iron[3]); px(x1 - 1, y + yy, P.iron[0]); px(x1 - 2, y + yy, P.iron[4]);
+      }
+      R(x + 18, y + 25, 13, 1, P.iron[0]); R(x + 19, y + 26, 11, 1, P.iron[4]);
+    },
+  };
+  // 炮管：u 沿炮管（0 = 耳轴，正向朝炮口），v 垂直于炮管（负 = 向光的一侧）。越往炮口越粗
+  function moProfile(T) {
+    const c = T.fat ? 7 : 6, b = T.fat ? 8 : 7, m = b + 1;
+    return [[-7, -4, 3], [-4, 5, c], [5, 21, b], [21, 25, m]];
+  }
+  function moTube(x, y, o, T) {
+    const a = (o.a == null ? 55 : o.a) * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a), d = Math.round((o.k || 0) * 6);
+    const segs = moProfile(T), hoopU = T.hoops === 2 ? [[10, 12], [15, 17]] : T.hoops === 1 ? [[13, 15]] : [];
+    const cx = x + MP.x, cy = y + MP.y;
+    const uv = (px0, py0) => { const dx = px0 + 0.5 - cx, dy = py0 + 0.5 - cy; return [dx * cs - dy * sn + d, dx * sn + dy * cs]; };
+    const hwAt = (u) => { for (const [u0, u1, hw] of segs) if (u >= u0 && u < u1) return hw + (hoopU.some(([h0, h1]) => u >= h0 && u < h1) ? 1 : 0); return -1; };
+    const inside = (px0, py0) => { const [u, v] = uv(px0, py0), hw = hwAt(u); return hw > 0 && Math.abs(v) <= hw; };
+    for (let py0 = cy - 34; py0 <= cy + 14; py0++) for (let px0 = cx - 14; px0 <= cx + 34; px0++) {
+      if (!inside(px0, py0)) continue;
+      const [u, v] = uv(px0, py0), hw = hwAt(u);
+      let c = P.iron[3];
+      if (!inside(px0 - 1, py0) || !inside(px0 + 1, py0) || !inside(px0, py0 - 1) || !inside(px0, py0 + 1)) c = P.iron[0];
+      else if (u > 23.5 && Math.abs(v) < hw - 2) c = P.black;                                   // 炮口（大口径）
+      else if (u >= 3 && u < 5) c = v < 0 ? P.brass[3] : P.brass[1];                            // 黄铜箍
+      else if (v < -hw + 2.2) c = P.iron[4];
+      else if (v > hw * 0.45) c = P.iron[2];
+      if (c === P.iron[3] && hoopU.some(([h0, h1]) => u >= h0 && u < h0 + 1)) c = P.iron[4];
+      px(px0, py0, c);
+    }
+    if ((o.k || 0) >= 0.85) for (let t = 25; t < 31; t++) { const w = Math.max(1, 5 - (t - 25) * 0.7); for (let q = -w; q <= w; q++) px(Math.round(cx + cs * (t - d) + sn * q), Math.round(cy - sn * (t - d) + cs * q), t < 28 ? P.fire[3] : P.fire[2]); }
+  }
+  function moBase(g, x, y, T, o = {}) {
+    SA.CAND.use(g);
+    MO_BED[T.bed](x, y);
+    const Z = MOZ[T.bed === 'block' ? 'block' : 'step'];
+    vents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
+    if (T.corners) { corner(x + 2, y + 42, 1, -1); corner(x + (T.bed === 'slant' ? 40 : 41), y + 42, -1, -1); }
+    moTube(x, y, o, T);
+    MO_CHEEK[T.cheek](x, y);
+    R(x + MP.x - 2, y + MP.y - 2, 5, 5, P.brass[0]); R(x + MP.x - 1, y + MP.y - 1, 3, 3, P.brass[3]); px(x + MP.x, y + MP.y, P.brass[0]);   // 方形固定螺栓（炮耳）
+  }
+  // 叠加件：铆钉；垫底：活动齿轮（炮耳小齿轮跟炮管转，两侧大齿轮反向转）
+  function moOver(g, x, y, T, o = {}) {
+    SA.CAND.use(g);
+    const Z = MOZ[T.bed === 'block' ? 'block' : 'step'].riv, [n, kind] = T.riv, step = (Z.x1 - Z.x0) / (n - 1);
+    for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, RIVET_C[kind]);
+    const a = (o.a == null ? 55 : o.a) * Math.PI / 180;
+    const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
+    gearRot(x + MP.x, y + MP.y, 6, 0, -a);                     // 炮耳小齿轮：跟炮管一起转（逆时针 = 抬头）
+    for (const gx of [10.5, 37.5]) gearRot(x + gx, y + 29, 10, 4, a * 0.6, { rim: 3, hub: 2, sw: 1.6, n: 12 });   // 两侧大齿轮：反向转（3px 轮缘不断、小轮毂 + 四根粗辐条，镂空更大）
+    g.globalCompositeOperation = prev;
+  }
+  // 可转动的齿轮：把遮罩整体转 θ（弧度）
+  function gearRot(cx, cy, r, k, th, opt) {
+    const m = gearMask(r, k, 0, 0, opt), c0 = Math.cos(th), s0 = Math.sin(th), x0 = Math.floor(cx - r - 1), y0 = Math.floor(cy - r - 1), N = Math.ceil(r * 2 + 3);
+    const at = (i, j) => { const dx = x0 + i + 0.5 - cx, dy = y0 + j + 0.5 - cy; return m(dx * c0 + dy * s0, -dx * s0 + dy * c0); };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      if (!at(i, j)) continue;
+      let c = P.brass[2];
+      if (!at(i, j - 1) || !at(i, j + 1) || !at(i - 1, j) || !at(i + 1, j)) c = P.brass[0];
+      else if (!at(i, j - 2) && y0 + j + 0.5 < cy) c = P.brass[3];
+      else if (!at(i, j + 2) && y0 + j + 0.5 > cy) c = P.brass[1];
+      px(x0 + i, y0 + j, c);
+    }
+  }
+  const MO_ZONES_VIEW = [
+    ['炮管（越往炮口越粗）+ 炮口朝天', '#8f8a80', (x, y) => [x + 20, y + 4, 22, 30]],
+    ['两侧活动大齿轮（随仰角转）', '#f5d77a', (x, y) => [x + 0, y + 18, 48, 20]],
+    ['炮耳座（画在炮管前面）', '#c9a0ff', (x, y) => [x + 16, y + 25, 17, 12]],
+    ['散热区（炮床正面左段）', '#46c2c9', (x, y) => [x + 5, y + 39, 12, 5]],
+    ['铆钉（炮床上沿右段）', '#6fcf6a', (x, y) => [x + 31, y + 35, 12, 4]],
+    ['包角位（钢起）', '#ef7a21', (x, y) => [x + 2, y + 42, 5, 5], (x, y) => [x + 41, y + 42, 5, 5]],
+  ];
+  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard, partsGears, gearSet, MO_TIERS, moBase, moOver, MO_ZONES_VIEW };
 })();
