@@ -37,9 +37,10 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>直射火炮 · 高阶造型语言 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v2 · 排布规则 · 2026-09-27</small></h1>
+    <h1>直射火炮 · 高阶造型语言 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v3 · 2026-09-27</small></h1>
     <p><b>问题：</b>镀镍起，描线 + 越来越复杂的造型让零件脱离了蒸汽朋克、显得「高级」；乌兹钢的圆顶和圆润线条像外星科技；以太的线路 + 圆润 + 看不清的细节，又难认又太科幻。</p>
-    <p><b>v2（按反馈）：</b>定方案 A，保留铭牌、铆钉、包角铁、压力表、铁箍。上一版零件乱放、压住散热口、铭牌没有固定位置——这一版先定<b>排布规则</b>：炮塔侧面露出来的那块立面按上下分区（接缝线 → 散热区 → 铭牌区），角上是包角位，上层炮廓左侧是表位，每区只放一类东西、互相留 1 像素空隙。<b>散热口也是语言</b>：T1～2 两道横槽 → T3～4 三道 → T5 双列 → T6 斜百叶。造型：<b>T1～T4 方方正正，T5～T6 自带斜向板</b>。</p>
+    <p><b>v3（按反馈）：</b>包角铁从钢开始；接缝铆钉 T1～3 黄铜色、镀镍起换成钢质淡青；铭牌改成<b>珐琅铭牌</b>（深色底 + 黄铜边和刻字），放在象牙白上也分得开；钢 / 镀镍的炮口重做成<b>连在一起的阶梯式方形制退器</b>；压力表放大（直径 11），镀镍起就有。铆钉、铭牌、压力表在材质处理之后才画，颜色由档位规则决定，不会被换色吃掉。</p>
+    <p><b>v2：</b>定方案 A，保留铭牌、铆钉、包角铁、压力表、铁箍。上一版零件乱放、压住散热口、铭牌没有固定位置——这一版先定<b>排布规则</b>：炮塔侧面露出来的那块立面按上下分区（接缝线 → 散热区 → 铭牌区），角上是包角位，上层炮廓左侧是表位，每区只放一类东西、互相留 1 像素空隙。<b>散热口也是语言</b>：T1～2 两道横槽 → T3～4 三道 → T5 双列 → T6 斜百叶。造型：<b>T1～T4 方方正正，T5～T6 自带斜向板</b>。</p>
     <p><b>v1 的思路：</b>① 造型只用直线：第三阶段不再用圆顶和刻槽，改成<b>阶梯式炮廓 + 铁箍炮身 + 方形制退器</b>（维多利亚工业建筑和早期火炮的语言）。② 高阶身份交给一套<b>可复用的装饰零件</b>：铭牌、包角铁、铆钉排、顶饰、檐口线脚、徽记、压力表、铁箍。每件都小、直、放在固定挂点上，其他模块也能直接用。③ <b>每档只换或只加一件</b>，不靠堆细节。④ 材质颜色用已定稿的六档（和游戏一致），描线可以在顶栏关掉对比。</p>
   </header>
   <div class="cbar">
@@ -63,7 +64,7 @@
 
   <section>
     <h2 class="sec">方案对比 <small>T1 → T6 · 每行一个方案 · 材质用定稿色</small></h2>
-    <p class="lead">第一行游戏现状，第二行上一版 A，第三行按排布规则重做的 A v2。每格下面的小图是 1× 实机大小。</p>
+    <p class="lead">第一行游戏现状，第二行 A v1，第三行按排布规则和这一轮反馈改的 A v3。每格下面的小图是 1× 实机大小。</p>
     <div class="scroll"><table class="mx" id="schemes"></table></div>
   </section>
 
@@ -134,8 +135,11 @@
   function a2Cv(tier, mt, lineOn) {
     const c = document.createElement('canvas'); c.width = OX + 48 + 36; c.height = OY + 48 + 4;
     const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 48, 48);
-    K.drawA2(g, OX, OY, tier, {});
-    return mt ? applyMat(c, mt, OX, OY, lineOn) : c;
+    if (!mt) { K.drawA2(g, OX, OY, tier, {}); return c; }
+    K.drawA2Base(g, OX, OY, tier, {});
+    applyMat(c, mt, OX, OY, lineOn);
+    K.drawA2Over(c.getContext('2d'), OX, OY, tier);   // 铆钉、铭牌、压力表在材质之后画，颜色不被换掉
+    return c;
   }
   // 排布规则图：原画（T6 的样子）放大 6 倍，上面叠分区框
   function renderZones() {
@@ -155,7 +159,7 @@
     const T = $('vents'); T.replaceChildren(el('tr', {}, ...K.TIERS_A2.map((t, i) => { const th = el('th', {}, `T${i + 1} ${SA.MATS[i + 1].name} · ${{ rows: '横槽', grid: '双列', louver: '斜百叶' }[t.vent[0]]} ×${t.vent[1]}`); th.style.color = SA.MATS[i + 1].chip; return th; })));
     T.append(el('tr', {}, ...K.TIERS_A2.map((t, i) => {
       const c = document.createElement('canvas'); c.width = 30; c.height = 22; const g = c.getContext('2d');
-      const tmp = a2Cv({ ...t, parts: [], riv: 0 }, i + 1, false);
+      const tmp = a2Cv({ ...t, parts: [], riv: [0, 'brass'] }, i + 1, false);
       g.drawImage(tmp, OX + 4, OY + 18, 26, 18, 2, 2, 26, 18);
       return el('td', {}, show(c, st.zoom));
     })));
@@ -174,7 +178,7 @@
       T.append(el('tr', {}, el('th', { className: 'rh' }, sc.name, el('small', {}, sc.note)),
         ...sc.tiers.map((t, i) => { const cv = cannonCv(t, i + 1, st.line); return el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1)); })));
     }
-    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v2 · 排布规则', el('small', {}, '分区摆放；散热口 2 → 3 → 双列 → 斜百叶；T1～4 方正、T5～6 斜板；每档只多一件：铭牌 → 包角铁 → 压力表')),
+    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v3 · 排布规则', el('small', {}, '分区摆放；散热口 2 → 3 → 双列 → 斜百叶；T1～4 方正、T5～6 斜板；包角铁钢起；铆钉黄铜 → 镀镍起钢质淡青；珐琅铭牌 + 大压力表镀镍起')),
       ...K.TIERS_A2.map((t, i) => { const cv = a2Cv(t, i + 1, st.line); return el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1)); })));
   }
   // 车体片段：装甲（游戏画法）+ 锅炉 + 这门炮，同一种材料
@@ -194,7 +198,7 @@
   function renderCtx() {
     const T = $('ctx'); T.replaceChildren(head());
     T.append(el('tr', {}, el('th', { className: 'rh' }, K.SCHEMES[0].name), ...K.SCHEMES[0].tiers.map((t, i) => el('td', {}, show(chunk(t, i + 1, false), 2)))));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v2 · 排布规则'), ...K.TIERS_A2.map((t, i) => el('td', {}, show(chunk(t, i + 1, true), 2)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v3 · 排布规则'), ...K.TIERS_A2.map((t, i) => el('td', {}, show(chunk(t, i + 1, true), 2)))));
   }
   function renderParts() {
     const box = $('parts'); box.replaceChildren();

@@ -114,6 +114,13 @@ SA.CNLAB = (() => {
         for (const rb of [4, 8, 12]) R(bx + rb, Y + 22, 1, 10, P.iron[1]);
         band(bx + 15, Y + 20, 14); band(bx + 23, Y + 22, 10);
         for (const mx of [27, 32]) { R(bx + mx, Y + 19, 4, 16, P.iron[0]); R(bx + mx + 1, Y + 20, 2, 14, P.iron[3]); R(bx + mx + 1, Y + 20, 2, 1, P.iron[4]); }
+      } else if (barrel === 5) {   // v3 钢 / 镀镍：炮尾套筒 + 一道箍 + 阶梯式方形制退器（两段连在一起，一眼是炮口）
+        tube(bx, 30, Y + 22, 10);
+        tube(bx, 14, Y + 20, 14);
+        band(bx + 14, Y + 21, 12);
+        R(bx + 24, Y + 20, 5, 14, P.iron[0]); R(bx + 25, Y + 21, 3, 12, P.iron[3]); R(bx + 25, Y + 21, 3, 1, P.iron[4]);
+        R(bx + 28, Y + 18, 8, 18, P.iron[0]); R(bx + 29, Y + 19, 6, 16, P.iron[3]); R(bx + 29, Y + 19, 6, 1, P.iron[4]);
+        for (const sy of [21, 25, 29]) R(bx + 30, Y + sy, 4, 2, P.dark[0]);
       } else if (barrel === 3) {   // 游戏现在的阶段 ③：刻槽 + 喇叭制退器
         R(X + 40, Y + 16, 14, 5, P.dark[0]); R(X + 40, Y + 17, 14, 3, P.iron[2]); R(X + 40, Y + 17, 14, 1, P.iron[4]);
         tube(bx, 28, Y + 22, 10);
@@ -158,7 +165,7 @@ SA.CNLAB = (() => {
     seam: { y: 19, x0: 10, x1: 23 },          // 铆钉接缝（铆钉占 y 18～20，左边让出包角位）
     vent: { x: 7, y: 22, w: 16, h: 9 },       // 散热区（y 22～30）
     plate: { x: 7, y: 32 },                   // 铭牌（10×6，y 32～37；下面 y 39 是黄铜腰线）
-    gauge: { x: 11, y: 10 },                  // 压力表中心
+    gauge: { x: 11, y: 11 },                  // 压力表中心（直径 11）
   };
   // 散热口：暗线 + 下面一道亮线（有进深）。排法：rows 单列横槽 / grid 双列横槽 / louver 斜百叶
   function vents(x, y, style, n) {
@@ -182,7 +189,7 @@ SA.CNLAB = (() => {
       body(x, y);
     },
     box(x, y) {      // 方方正正的平顶炮廓 + 方舱盖
-      box(x + 5, y + 5, 28, 12, IRON); R(x + 8, y + 9, 12, 2, P.dark[0]);
+      box(x + 5, y + 5, 28, 12, IRON); R(x + 18, y + 9, 11, 2, P.dark[0]);   // 观察缝在右，左边是表位
       box(x + 11, y + 1, 8, 5, IRON);
       body(x, y);
     },
@@ -197,32 +204,55 @@ SA.CNLAB = (() => {
       body(x, y);
     },
   };
-  // T1～T6：炮塔、炮管、散热口排法 + 数量、接缝铆钉数、零件（每档只多一件）
+  // T1～T6：炮塔、炮管、散热口排法 + 数量、接缝铆钉（数量 + 材质）、零件
+  // v3 反馈：包角铁从钢开始；铆钉 T1～3 黄铜色、镀镍起钢质淡青；压力表放大、镀镍起就有；钢 / 镀镍的炮口重做（炮管 5）
   const TIERS_A2 = [
-    { t: 'square', b: 1, vent: ['rows', 2], riv: 2, parts: [] },
-    { t: 'square', b: 1, vent: ['rows', 2], riv: 2, parts: [] },
-    { t: 'box', b: 2, vent: ['rows', 3], riv: 3, parts: [] },
-    { t: 'box', b: 2, vent: ['rows', 3], riv: 3, parts: ['plate'] },
-    { t: 'slant', b: 4, vent: ['grid', 3], riv: 4, parts: ['plate', 'corners'] },
-    { t: 'slant', b: 4, vent: ['louver', 4], riv: 4, parts: ['plate', 'corners', 'gauge'] },
+    { t: 'square', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { t: 'square', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { t: 'box', b: 5, vent: ['rows', 3], riv: [3, 'brass'], parts: ['corners'] },
+    { t: 'box', b: 5, vent: ['rows', 3], riv: [3, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { t: 'slant', b: 4, vent: ['grid', 3], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { t: 'slant', b: 4, vent: ['louver', 4], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
   ];
-  function drawA2(g0, x, y, tier, o = {}) {
+  // 底图：参与材质处理（铁件跟材料走）
+  function drawA2Base(g0, x, y, tier, o = {}) {
     SA.CAND.use(g0);
     TOWER[tier.t](x, y);
     vents(x, y, tier.vent[0], tier.vent[1]);
-    seamRivets(x, y, tier.riv);
-    if (tier.parts.includes('plate')) PARTS.plate(x + ZONE.plate.x, y + ZONE.plate.y);
     if (tier.parts.includes('corners')) { PARTS.corner(x + 3, y + 16, 1, 1); PARTS.corner(x + 3, y + 40, 1, -1); PARTS.corner(x + 40, y + 40, -1, -1); }
-    if (tier.parts.includes('gauge')) PARTS.gauge(x + ZONE.gauge.x, y + ZONE.gauge.y);
     gun(x, y, o, tier.b);
   }
+  // 叠加件：材质处理之后画，颜色固定——铆钉黄铜 / 钢质淡青、珐琅铭牌（深底 + 黄铜边和刻字，放在任何底色上都分得开）、大压力表
+  const RIVET_C = { brass: [P.brass[3], P.brass[2], P.brass[0]], steel: ['#e2eef0', '#9fb4b8', '#2c3637'] };
+  function rivetC(x, y, c) { R(x, y, 2, 2, c[0]); px(x + 1, y + 1, c[1]); px(x + 2, y + 1, c[2]); px(x + 1, y + 2, c[2]); }
+  function enamelPlate(x, y) {
+    R(x, y, 10, 6, P.brass[0]); R(x + 1, y + 1, 8, 4, P.brass[2]); R(x + 1, y + 1, 8, 1, P.brass[3]);
+    R(x + 2, y + 2, 6, 2, '#1c1a1f');
+    R(x + 3, y + 2, 4, 1, P.brass[1]); R(x + 3, y + 3, 3, 1, P.brass[1]);
+  }
+  function bigGauge(cx, cy) {
+    disc(cx, cy, 5, P.brass[0]); disc(cx, cy, 4, P.brass[2]); disc(cx, cy, 3.2, P.steam[2]);
+    px(Math.round(cx - 3), Math.round(cy - 3), P.brass[3]);
+    for (let i = 0; i < 4; i++) { const a = Math.PI * (1.6 + i * 0.14); px(Math.round(cx - 0.5 + Math.cos(a) * 2.4), Math.round(cy - 0.5 + Math.sin(a) * 2.4), P.gauge[1]); }
+    line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 2.5), Math.round(cy - 2), 1, P.dark[0]);
+    px(Math.round(cx - 0.5), Math.round(cy - 0.5), P.fire[1]);
+  }
+  function drawA2Over(g0, x, y, tier) {
+    SA.CAND.use(g0);
+    const Z = ZONE.seam, [n, kind] = tier.riv, step = n > 1 ? (Z.x1 - Z.x0) / (n - 1) : 0;
+    for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y - 1, RIVET_C[kind]);
+    if (tier.parts.includes('plate')) enamelPlate(x + ZONE.plate.x, y + ZONE.plate.y);
+    if (tier.parts.includes('gauge')) bigGauge(x + ZONE.gauge.x, y + ZONE.gauge.y);
+  }
+  // 不套材质时（排布规则图）两步连着画
+  function drawA2(g0, x, y, tier, o = {}) { drawA2Base(g0, x, y, tier, o); drawA2Over(g0, x, y, tier); }
   // 排布规则图：在 6 倍图上画出各区
   const ZONES_VIEW = [
     ['接缝线 · 铆钉', '#6fcf6a', (x, y) => [x + ZONE.seam.x0 - 1, y + ZONE.seam.y - 2, ZONE.seam.x1 - ZONE.seam.x0 + 4, 4]],
     ['散热区', '#46c2c9', (x, y) => [x + ZONE.vent.x, y + ZONE.vent.y, ZONE.vent.w, ZONE.vent.h]],
     ['铭牌区', '#f5d77a', (x, y) => [x + ZONE.plate.x, y + ZONE.plate.y, 10, 6]],
     ['包角位', '#ef7a21', (x, y) => [x + 3, y + 16, 5, 5], (x, y) => [x + 3, y + 40, 5, 5], (x, y) => [x + 40, y + 40, 5, 5]],
-    ['表位（最高档）', '#ff6b9a', (x, y) => [x + ZONE.gauge.x - 4, y + ZONE.gauge.y - 4, 8, 8]],
+    ['表位（镀镍起）', '#ff6b9a', (x, y) => [x + ZONE.gauge.x - 5, y + ZONE.gauge.y - 5, 11, 11]],
     ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 26, y + 14, 20, 26]],
   ];
 
@@ -252,5 +282,5 @@ SA.CNLAB = (() => {
     if (parts.includes('finial')) ANCHOR.finial(x, y, h);
     gun(x, y, o, b);
   }
-  return { PARTS, PART_INFO, SCHEMES, drawCannon, PIV, TIERS_A2, drawA2, ZONES_VIEW, ZONE };
+  return { PARTS, PART_INFO, SCHEMES, drawCannon, PIV, TIERS_A2, drawA2, drawA2Base, drawA2Over, ZONES_VIEW, ZONE };
 })();
