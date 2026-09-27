@@ -376,6 +376,67 @@ SA.SPR = (() => {
       R(x + 17, y + 9, 10, 2, P.dark[0]); box(x + 11, y, 8, 5, IRON); cannonBase(x, y);
     },
   };
+  // ---------- 火炮家族（2026-09-27 定稿，样机 tools/gun-family-lab.html，规则 docs/visual-rules.md）----------
+  // 窄区散热口（中炮）：slits 竖缝 / slits2 密排竖缝 / grid2 两行短竖缝 / louver2 两行斜百叶；(zx, zy) 是区的左上角，h 是缝高
+  function slimVents(x, y, zx, zy, h, style, n) {
+    const slit = (sx, sy, hh) => { R(x + sx, y + sy, 1, hh, P.iron[0]); R(x + sx + 1, y + sy, 1, hh, P.iron[3]); };
+    if (style === 'slits') for (let i = 0; i < n; i++) slit(zx + i * 3, zy, h);
+    else if (style === 'slits2') for (let i = 0; i < n; i++) slit(zx + i * 2, zy, h);
+    else if (style === 'grid2') for (const ry of [0, 3]) for (let i = 0; i < n; i++) slit(zx + i * 2, zy + ry, 2);
+    else if (style === 'louver2') for (const ry of [0, 3]) for (let i = 0; i < n; i++) for (let k = 0; k < 2; k++) { R(x + zx + i * 2 + k, y + zy + ry + k, 1, 1, P.iron[0]); R(x + zx + i * 2 + k + 1, y + zy + ry + k, 1, 1, P.iron[3]); }
+  }
+  // 小压力表 直径 7（2×1 模块用；1×1 不放）
+  function gaugeS(cx, cy) {
+    disc(cx, cy, 3.4, P.brass[0]); disc(cx, cy, 2.6, P.steam[2]);
+    R(Math.round(cx - 2), Math.round(cy - 2), 1, 1, P.brass[3]);
+    R(Math.round(cx + 1), Math.round(cy - 2), 1, 1, P.gauge[1]); R(Math.round(cx + 2), Math.round(cy - 1), 1, 1, P.gauge[1]);
+    line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 2), Math.round(cy - 1.5), 1, P.dark[0]);
+  }
+  // 中炮 2×1 的立面分区：T1～2 敞开炮架（散热口在炮组下方、铆钉在前挡板脚）；T3～6 炮廓（表位左上、散热区在表位下、铆钉压炮廓和底座的接缝）
+  const CANNON_M_ZONE = {
+    open: { vent: { x: 11, y: 18, h: 3 }, rivets: { y: 19, xs: [27, 30] } },
+    hood: { vent: { x: 3, y: 13, h: 5 }, rivets: { y: 18, x0: 4, x1: 28 }, gauge: { x: 6.5, y: 8.5 } },
+  };
+  const CANNON_M_TIERS = [
+    { h: 'open', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'open', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['grid2', 3], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['louver2', 3], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  const CANNON_M_HOOD = {
+    open(x, y) { box(x + 1, y + 12, 30, 12, IRON); R(x + 2, y + 22, 28, 1, P.brass[2]); box(x + 26, y + 12, 7, 11, IRON); },   // 敞开炮架 + 低矮前挡板
+    box(x, y) { box(x + 1, y + 18, 33, 6, IRON); R(x + 2, y + 22, 31, 1, P.brass[2]); box(x + 2, y + 3, 29, 16, IRON); R(x + 3, y + 4, 27, 1, P.iron[4]); },   // 方平顶炮廓
+    slant(x, y) {                                                                                                                                             // 前沿斜板
+      box(x + 1, y + 18, 33, 6, IRON); R(x + 2, y + 22, 31, 1, P.brass[2]);
+      for (let yy = 3; yy <= 18; yy++) {
+        const xr = x + 26 + Math.round((yy - 3) * 0.35);
+        R(x + 2, y + yy, xr - x - 2, 1, P.iron[2]); R(x + 2, y + yy, 1, 1, P.iron[0]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]); R(x + 3, y + yy, 1, 1, P.iron[3]);
+      }
+      R(x + 2, y + 3, 24, 1, P.iron[0]); R(x + 3, y + 4, 22, 1, P.iron[4]);
+    },
+  };
+  // 小炮 1×1：只靠剪影，不放身份件（visual-rules §3.5）。滑架 → 方箱 → 斜板炮座；铸造瓶身 → 方套箱 → 斜肩套箱
+  const CANNON_S_TIERS = [
+    { m: 'slide', form: 'cast' }, { m: 'slide', form: 'cast' },
+    { m: 'box', form: 'jacket' }, { m: 'box', form: 'jacket' },
+    { m: 'slant', form: 'slant' }, { m: 'slant', form: 'slant' },
+  ];
+  const CANNON_S_MOUNT = {
+    slide(x, y) { box(x + 1, y + 19, 23, 5, DARK); R(x + 2, y + 19, 21, 1, P.iron[3]); for (const wx of [4, 20]) { disc(x + wx, y + 22.5, 2, P.dark[0]); R(x + wx, y + 22, 1, 1, P.iron[3]); } },
+    box(x, y) { box(x + 1, y + 19, 23, 5, IRON); R(x + 2, y + 20, 21, 1, P.iron[4]); },
+    slant(x, y) {
+      for (let yy = 19; yy <= 23; yy++) {
+        const xr = x + 20 + Math.round((yy - 19) * 0.8);
+        R(x + 1, y + yy, xr - x - 1, 1, P.iron[2]); R(x + 1, y + yy, 1, 1, P.iron[0]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
+      }
+      R(x + 1, y + 19, 20, 1, P.iron[0]); R(x + 2, y + 20, 18, 1, P.iron[4]); R(x + 1, y + 23, 23, 1, P.iron[0]);
+    },
+  };
+  // 方形固定螺栓（耳轴）：火炮家族共用
+  const trunnionBolt = (cx, cy) => { R(cx - 2, cy - 2, 5, 5, P.brass[0]); R(cx - 1, cy - 1, 3, 3, P.brass[3]); R(cx, cy, 1, 1, P.brass[0]); };
+
   // 材质处理之后才画的「身份件」：DRAW 画铁件，OVER 画颜色固定的零件
   const OVER = {
     cannon(x, y, q) {
@@ -383,6 +444,12 @@ SA.SPR = (() => {
       PART.seam(x, y, Z.seam, T.riv[0], RIVET_TIER[T.riv[1]]);
       if (T.parts.includes('plate')) PART.plate(x + Z.plate.x, y + Z.plate.y);
       if (T.parts.includes('gauge')) PART.gauge(x + Z.gauge.x, y + Z.gauge.y);
+    },
+    cannon_m(x, y, q) {
+      const T = CANNON_M_TIERS[(q.mt || 1) - 1], c = RIVET_TIER[T.riv[1]];
+      if (T.h === 'open') for (const fx of CANNON_M_ZONE.open.rivets.xs) PART.rivet(x + fx, y + CANNON_M_ZONE.open.rivets.y, c);
+      else PART.seam(x, y, CANNON_M_ZONE.hood.rivets, T.riv[0], c);
+      if (T.parts.includes('gauge')) gaugeS(x + CANNON_M_ZONE.hood.gauge.x, y + CANNON_M_ZONE.hood.gauge.y);
     },
   };
 
@@ -571,41 +638,71 @@ SA.SPR = (() => {
       });
       disc(x + 34, y + 27, 3, P.brass[0]); disc(x + 34, y + 27, 2, P.brass[3]);   // 耳轴
     },
-    // 中炮 2×1（48×24，横躺）：炮架 + 摇架 + 炮管绕耳轴 (18,13) 转。三个外观阶段（黄铜熟铁 / 钢镀镍 / 史诗传奇）：
-    // ① 低矮炮架 + 前挡板；② 前面立起一块斜挡板、摇架下挂驻退筒；③ 铆接炮廓 + 包住耳轴的半圆防盾、摇架带高低机齿弧
+    // 中炮 2×1（48×24，横躺，2026-09-27 定稿）：炮组绕耳轴 (18,13) 转，炮口末端在耳轴前 41（blen 40）。和直射火炮同构——
+    // T1～2 敞开炮架 + 低前挡板、T3～4 方平顶炮廓、T5～6 斜板炮廓；炮管 ① 素管 + 黄铜箍 + 小方制退器，② 炮尾套筒 + 箍 + 连体阶梯制退器，③ 粗炮身 + 三道铁箍 + 大方制退器。
+    // 散热口每档至少 3 个；铆钉 / 小压力表在 OVER.cannon_m 里画
     cannon_m(x, y, o) {
-      const st = o.st || 1;
-      if (st === 3) {
-        box(x + 1, y + 9, 30, 14, IRON);
-        R(x + 2, y + 18, 28, 1, P.brass[2]); R(x + 2, y + 19, 28, 1, P.brass[1]);
-        for (const rx of [4, 10, 26]) rivet(x + rx, y + 12);
-        R(x + 5, y + 15, 7, 1, P.dark[0]);   // 观察缝
-        disc(x + 18, y + 13, 9.5, P.iron[0]); disc(x + 18, y + 13, 8.5, P.iron[3]); disc(x + 17, y + 12, 6.5, P.iron[4]); disc(x + 18, y + 13, 5.5, P.iron[2]);
-        for (let a = 0; a < 7; a++) { const ang = Math.PI * (1 + a / 6); R(Math.round(x + 18 + Math.cos(ang) * 8), Math.round(y + 13 + Math.sin(ang) * 8), 1, 1, P.brass[3]); }
-      } else {
-        box(x + 2, y + 10, 26, 13, IRON);
-        R(x + 3, y + 19, 24, 1, P.brass[2]); R(x + 3, y + 20, 24, 1, P.brass[1]);
-        rivet(x + 5, y + 13); rivet(x + 23, y + 13);
-        if (st === 2) {
-          for (let yy = 4; yy <= 22; yy++) {   // 斜挡板：顶往后仰
-            const xs = x + 25 + Math.round((yy - 4) * 0.3);
-            R(xs, y + yy, 6, 1, P.iron[2]); R(xs, y + yy, 1, 1, P.iron[4]); R(xs + 5, y + yy, 1, 1, P.iron[0]);
-          }
-          R(x + 25, y + 4, 6, 1, P.iron[0]); R(x + 26, y + 5, 4, 1, P.iron[4]);
-          rivet(x + 27, y + 8); rivet(x + 29, y + 17);
-        } else box(x + 26, y + 12, 5, 11, IRON);
-      }
-      gunShield(x + 30, y + 13, o.up, 6);
+      const T = CANNON_M_TIERS[(o.mt || 1) - 1], Z = CANNON_M_ZONE[T.h === 'open' ? 'open' : 'hood'];
+      CANNON_M_HOOD[T.h](x, y);
+      slimVents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
+      if (T.parts.includes('corners')) { PART.corner(x + 2, y + 3, 1, 1); PART.corner(x + 1, y + 19, 1, -1); }
+      gunShield(x + 33, y + 13, o.up, 6);
       const d = rcPx('cannon_m', o.k);
       turn(x + 18, y + 13, o.a, (X, Y) => {
         X += x; Y += y;
-        box(X + 10, Y + 7, 14, 11, BRASS);
-        R(X + 12, Y + 9, 1, 7, P.brass[3]);
-        if (st === 2) { R(X + 13, Y + 16, 14, 4, P.iron[0]); R(X + 14, Y + 17, 12, 2, P.iron[3]); R(X + 14, Y + 17, 12, 1, P.iron[4]); }
-        if (st === 3) for (let a = 0; a < 5; a++) R(X + 10 + a * 3, Y + 17, 2, 2, P.brass[a % 2 ? 1 : 3]);   // 齿弧
-        mBarrel(X + 22 - d, Y + 10, 31, st, o.k || 0);
+        box(X + 11, Y + 7, 12, 11, BRASS); R(X + 13, Y + 9, 1, 7, P.brass[3]);   // 黄铜摇架
+        const end = X + 59 - d, b0 = X + 22 - d;
+        const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
+        const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+        const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
+        const brake = (x0, y0, w, hh, n) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (let i = 0; i < n; i++) R(x0 + 2, y0 + 2 + i * 3, w - 4, 1, P.dark[0]); };
+        if (T.b === 1) { tube(b0, end - 5, Y + 10, 6); band(b0 + 12, Y + 9, 8); brake(end - 6, Y + 8, 6, 10, 2); }
+        else if (T.b === 2) {
+          tube(b0, end - 8, Y + 10, 6); tube(b0, b0 + 14, Y + 9, 8); band(b0 + 14, Y + 9, 8);
+          R(end - 9, Y + 9, 3, 8, P.iron[0]); R(end - 8, Y + 10, 1, 6, P.iron[3]);
+          brake(end - 6, Y + 7, 6, 12, 3);
+        } else { tube(b0, end - 6, Y + 9, 8); for (const hb of [3, 11, 19]) hoop(b0 + hb, Y + 8, 10); brake(end - 7, Y + 7, 7, 12, 3); }
+        if ((o.k || 0) >= 7) { R(end, Y + 10, 3, 6, P.fire[3]); R(end + 3, Y + 11, 2, 4, P.fire[2]); }   // 刚开炮：炮口余焰
       });
-      disc(x + 18, y + 13, 2.5, P.brass[0]); disc(x + 18, y + 13, 1.5, P.brass[3]);
+      trunnionBolt(x + 18, y + 13);
+    },
+    // 小炮 1×1（卡隆短炮，2026-09-27 定稿）：只靠剪影，不放铆钉 / 散热口 / 压力表 / 包角铁（visual-rules §3.5）。
+    // 长药室 17×15 撑满格子上半；炮组绕耳轴 (12,13) 转，炮口末端在耳轴前 24。只留方形固定螺栓 + 药室一道黄铜箍
+    cannon_s(x, y, o) {
+      const T = CANNON_S_TIERS[(o.mt || 1) - 1];
+      CANNON_S_MOUNT[T.m](x, y);
+      gunShield(x + 21, y + 13, o.up, 4);
+      const d = rcPx('cannon_s', o.k);
+      turn(x + 12, y + 13, o.a, (X, Y) => {
+        const C = X + x + 12 - d, M = Y + y + 13, end = C + 24;
+        const col = (cx, t, b) => { R(cx, t, 1, b - t + 1, P.iron[0]); if (b - t > 1) { R(cx, t + 1, 1, b - t - 1, P.iron[3]); R(cx, t + 1, 1, 1, P.iron[4]); if (b - t > 3) R(cx, t + 2, 1, 1, P.iron[4]); R(cx, b - 1, 1, 1, P.iron[2]); } };
+        const hoop = (hx, hh) => { R(hx, M - hh, 2, hh * 2 + 1, P.iron[0]); R(hx, M - hh + 1, 2, hh * 2 - 1, P.iron[2]); R(hx, M - hh + 1, 1, hh * 2 - 1, P.iron[4]); };
+        const ring = (x0, w, hh) => { R(x0, M - hh, w, hh * 2 + 1, P.iron[0]); R(x0 + 1, M - hh + 1, w - 2, hh * 2 - 1, P.iron[3]); R(x0 + 1, M - hh + 1, w - 2, 1, P.iron[4]); };
+        if (T.form === 'cast') {   // 铸造瓶身：圆尾钮 + 两端倒角的长药室 + 细炮管 + 方口箍
+          disc(C - 10.5, M, 2.5, P.iron[0]); disc(C - 10.5, M, 1.5, P.iron[3]);
+          [4, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 5, 4].forEach((hh, i) => col(C - 9 + i, M - hh, M + hh));
+          for (let i = C + 8; i < end - 3; i++) col(i, M - 3, M + 3);
+          ring(end - 3, 3, 4); R(end - 1, M, 1, 1, P.black);
+        } else {                   // 方套箱（T5～6 前肩斜切）：方尾钮 + 17×15 套箱（倒 1px 角）
+          const slant = T.form === 'slant', x0 = C - 9, n = 17;
+          R(C - 12, M - 2, 3, 5, P.iron[0]); R(C - 11, M - 1, 1, 3, P.iron[3]); R(C - 11, M - 1, 1, 1, P.iron[4]);
+          for (let i = 0; i < n; i++) {
+            const edge = i === 0 || i === n - 1;
+            const t = M - 7 + (slant && i >= 7 ? Math.round((i - 7) * 0.6) : 0) + (edge ? 1 : 0), b = M + 7 - (edge ? 1 : 0);
+            R(x0 + i, t, 1, b - t + 1, P.iron[0]);
+            if (!edge) { R(x0 + i, t + 1, 1, b - t - 1, P.iron[2]); R(x0 + i, t + 1, 1, 1, P.iron[4]); R(x0 + i, b - 1, 1, 1, P.iron[1]); }
+            if (i === 1) R(x0 + i, t + 1, 1, b - t - 1, P.iron[3]);
+            if (i === n - 2) R(x0 + i, t + 1, 1, b - t - 1, P.iron[1]);
+          }
+          const hh = slant ? 4 : 3;
+          for (let i = C + 8; i < end - 5; i++) col(i, M - hh, M + hh);
+          if (!slant) { col(C + 8, M - 5, M + 5); col(C + 9, M - 5, M + 5); R(C + 9, M - 5, 1, 11, P.iron[0]); hoop(C + 14, 4); ring(end - 6, 3, 4); ring(end - 3, 3, 5); R(end - 1, M, 1, 1, P.black); }   // 台阶收口 + 铁箍 + 阶梯方口
+          else { hoop(C + 11, 5); ring(end - 6, 6, 5); R(end - 4, M - 2, 3, 1, P.dark[0]); R(end - 4, M + 2, 3, 1, P.dark[0]); }   // 粗箍 + 方制退器
+        }
+        R(C - 5, M - 7, 2, 15, P.brass[1]); R(C - 5, M - 7, 1, 15, P.brass[3]);   // 药室黄铜箍
+        if ((o.k || 0) >= 7) { R(end, M - 2, 3, 5, P.fire[3]); R(end + 3, M - 1, 2, 3, P.fire[2]); }
+      });
+      trunnionBolt(x + 12, y + 13);
     },
     // ---------- 小模块：24px 原生画（不再借大模块缩小），像素大小和大模块一样 ----------
     // 1×1 驾驶舱：铁头盔 + 黄铜舷窗，窗里是小黑炭球驾驶员（联合驾驶舱里的驾驶员也按这个大小）
@@ -911,7 +1008,7 @@ SA.SPR = (() => {
       case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
       case 'cockpit': case 'copilot': case 'helmet': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
-      case 'cannon': case 'cannon_m': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
+      case 'cannon': case 'cannon_m': case 'cannon_s': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;

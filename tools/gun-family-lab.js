@@ -2,7 +2,7 @@
 // 只用直线；形体在 T3、T5 跃迁；散热口逐档变多、排法变化；铆钉 T1～3 黄铜、镀镍起钢质淡青；包角铁钢起；
 // 小模块零件做减法——中炮不放铭牌，镀镍起只加一块小压力表（直径 7）；小炮 1×1 不放任何零件，只靠剪影。
 //
-// 中炮 2×1（48×24），耳轴 (18,13)，炮口末端 x 53，仰角 −8°～30°。形体和直射火炮一一对应：
+// 中炮 2×1（48×24），耳轴 (18,13)，炮口末端 x 59（2026-09-27 按用户要求加长 6px，blen 34 → 40），仰角 −8°～30°。形体和直射火炮一一对应：
 //   T1～2 敞开式炮架 + 低矮前挡板（对应直射火炮的方指挥塔）；
 //   T3～4 方方正正的平顶炮廓把炮座罩起来，炮管从炮廓里伸出（对应方平顶炮廓）；
 //   T5～6 炮廓前沿做成斜板（对应斜板炮廓）。
@@ -68,7 +68,7 @@ SA.GFLAB = (() => {
   // 炮组：黄铜摇架（10×8，压在炮廓上）+ 炮管（三种，全直线，和直射火炮同一套），炮口末端在 x 53
   function mGun(x, y, o, barrel) {
     turn(x + 18, y + 13, o.a || 0, (PX, PY) => {
-      const X = PX - 18, Y = PY - 13, d = Math.round((o.k || 0) * 6), end = X + 53 - d;
+      const X = PX - 18, Y = PY - 13, d = Math.round((o.k || 0) * 6), end = X + 59 - d;
       box(X + 11, Y + 7, 12, 11, BRASS); R(X + 13, Y + 9, 1, 7, P.brass[3]);   // 摇架（接近旧版大小，给左块留 x 3～10）
       const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
       const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
@@ -76,14 +76,14 @@ SA.GFLAB = (() => {
       const brake = (x0, y0, w, hh, n) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (let i = 0; i < n; i++) R(x0 + 2, y0 + 2 + i * 3, w - 4, 1, P.dark[0]); };
       const b0 = X + 22 - d;
       if (barrel === 1) {        // ① 素管 + 一道黄铜箍 + 小方制退器
-        tube(b0, end - 5, Y + 10, 6); band(b0 + 9, Y + 9, 8);
+        tube(b0, end - 5, Y + 10, 6); band(b0 + 12, Y + 9, 8);
         brake(end - 6, Y + 8, 6, 10, 2);
       } else if (barrel === 2) { // ② 炮尾套筒 + 一道箍 + 连体阶梯制退器
-        tube(b0, end - 8, Y + 10, 6); tube(b0, b0 + 11, Y + 9, 8); band(b0 + 11, Y + 9, 8);
+        tube(b0, end - 8, Y + 10, 6); tube(b0, b0 + 14, Y + 9, 8); band(b0 + 14, Y + 9, 8);
         R(end - 9, Y + 9, 3, 8, P.iron[0]); R(end - 8, Y + 10, 1, 6, P.iron[3]);
         brake(end - 6, Y + 7, 6, 12, 3);
       } else {                   // ③ 粗炮身 + 三道铁箍 + 大方制退器
-        tube(b0, end - 6, Y + 9, 8); for (const hb of [3, 9, 15]) hoop(b0 + hb, Y + 8, 10);
+        tube(b0, end - 6, Y + 9, 8); for (const hb of [3, 11, 19]) hoop(b0 + hb, Y + 8, 10);
         brake(end - 7, Y + 7, 7, 12, 3);
       }
       if ((o.k || 0) >= 0.85) { R(end, Y + 10, 3, 6, P.fire[3]); R(end + 3, Y + 11, 2, 4, P.fire[2]); }
@@ -125,7 +125,7 @@ SA.GFLAB = (() => {
   ];
   // ---------- 小炮（卡隆短炮）1×1 · v3：剪影优先 ----------
   // 用户：1×1 不做复杂装饰，识别度和低视觉压力优先，剪影是识别的核心；而且格子上方 1/3 不能空着。
-  // 所以：不放铆钉、散热口、压力表、包角铁；把卡隆短炮本身放大——粗药室高 17（y 5～21），撑满格子上半；
+  // 所以：不放铆钉、散热口、压力表、包角铁；把卡隆短炮本身放大——长药室 17 长 × 15 高（y 6～20），撑满格子上半；
   // 档位只靠轮廓变：T1～2 铸造「瓶身」（两端倒角 + 圆尾钮 + 细炮管）→ T3～4 药室整个包进方套箱（剪影变方块）+ 台阶收口 → T5～6 套箱前肩斜切（梯形）+ 粗炮管。
   // 只保留两样结构件：耳轴的方形固定螺栓、药室上一道黄铜箍（火力的颜色）。24×24，耳轴 (12,13)，炮口末端 x 36。
   const MOUNT = {
@@ -149,29 +149,29 @@ SA.GFLAB = (() => {
       const d = Math.round((o.k || 0) * 4), C = PX - d, Y = PY, end = C + 24;
       const hoop = (hx, hh) => { R(hx, Y - hh, 2, hh * 2 + 1, P.iron[0]); R(hx, Y - hh + 1, 2, hh * 2 - 1, P.iron[2]); R(hx, Y - hh + 1, 1, hh * 2 - 1, P.iron[4]); };
       const ring = (x0, w, hh) => { R(x0, Y - hh, w, hh * 2 + 1, P.iron[0]); R(x0 + 1, Y - hh + 1, w - 2, hh * 2 - 1, P.iron[3]); R(x0 + 1, Y - hh + 1, w - 2, 1, P.iron[4]); };
-      if (form === 'cast') {         // T1～2 铸造卡隆：尾钮 + 两端倒角的粗药室（高 17）+ 收口 + 细炮管 + 方口箍
+      if (form === 'cast') {         // T1～2 铸造卡隆：尾钮 + 两端倒角的长药室（17 长 × 15 高）+ 收口 + 细炮管 + 方口箍
         disc(C - 10.5, Y, 2.5, P.iron[0]); disc(C - 10.5, Y, 1.5, P.iron[3]);
-        const prof = [5, 7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 6, 5];   // 药室每列的半高（C-9～C+3）
+        const prof = [4, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 5, 4];   // 药室每列的半高（C-9～C+7）
         prof.forEach((hh, i) => colV(C - 9 + i, Y - hh, Y + hh));
-        for (let i = C + 4; i < end - 3; i++) colV(i, Y - 3, Y + 3);
-        R(C - 5, Y - 8, 2, 17, P.brass[1]); R(C - 5, Y - 8, 1, 17, P.brass[3]);   // 药室黄铜箍
+        for (let i = C + 8; i < end - 3; i++) colV(i, Y - 3, Y + 3);
+        R(C - 5, Y - 7, 2, 15, P.brass[1]); R(C - 5, Y - 7, 1, 15, P.brass[3]);   // 药室黄铜箍
         ring(end - 3, 3, 4); px(end - 1, Y, P.black);
-      } else {                       // T3～6：整个药室包进方套箱（14×17，倒 1px 角）；T5～6 前肩斜切成梯形
-        const slant = form === 'slant', x0 = C - 9, n = 13;
+      } else {                       // T3～6：整个药室包进方套箱（17×15，倒 1px 角）；T5～6 前肩斜切成梯形
+        const slant = form === 'slant', x0 = C - 9, n = 17;
         R(C - 12, Y - 2, 3, 5, P.iron[0]); R(C - 11, Y - 1, 1, 3, P.iron[3]); px(C - 11, Y - 1, P.iron[4]);   // 方尾钮
         for (let i = 0; i < n; i++) {
-          const t = Y - 8 + (slant && i >= 5 ? Math.round((i - 5) * 0.75) : 0) + (i === 0 || i === n - 1 ? 1 : 0), b = Y + 8 - (i === 0 || i === n - 1 ? 1 : 0);
+          const t = Y - 7 + (slant && i >= 7 ? Math.round((i - 7) * 0.6) : 0) + (i === 0 || i === n - 1 ? 1 : 0), b = Y + 7 - (i === 0 || i === n - 1 ? 1 : 0);
           const edge = i === 0 || i === n - 1;
           R(x0 + i, t, 1, b - t + 1, P.iron[0]);
           if (!edge) { R(x0 + i, t + 1, 1, b - t - 1, P.iron[2]); px(x0 + i, t + 1, P.iron[4]); px(x0 + i, b - 1, P.iron[1]); }
           if (i === 1) R(x0 + i, t + 1, 1, b - t - 1, P.iron[3]);
           if (i === n - 2) R(x0 + i, t + 1, 1, b - t - 1, P.iron[1]);
         }
-        R(C - 5, Y - 8, 2, 17, P.brass[1]); R(C - 5, Y - 8, 1, 17, P.brass[3]);   // 黄铜箍
+        R(C - 5, Y - 7, 2, 15, P.brass[1]); R(C - 5, Y - 7, 1, 15, P.brass[3]);   // 黄铜箍
         const hh = slant ? 4 : 3;
-        for (let i = C + 4; i < end - 5; i++) colV(i, Y - hh, Y + hh);
-        if (!slant) { colV(C + 4, Y - 5, Y + 5); colV(C + 5, Y - 5, Y + 5); R(C + 5, Y - 5, 1, 11, P.iron[0]); hoop(C + 12, 4); ring(end - 6, 3, 4); ring(end - 3, 3, 5); px(end - 1, Y, P.black); }   // 收口台阶 + 一道铁箍 + 阶梯方口
-        else { hoop(C + 8, 5); ring(end - 6, 6, 5); R(end - 4, Y - 2, 3, 1, P.dark[0]); R(end - 4, Y + 2, 3, 1, P.dark[0]); }   // 一道粗箍 + 方制退器
+        for (let i = C + 8; i < end - 5; i++) colV(i, Y - hh, Y + hh);
+        if (!slant) { colV(C + 8, Y - 5, Y + 5); colV(C + 9, Y - 5, Y + 5); R(C + 9, Y - 5, 1, 11, P.iron[0]); hoop(C + 14, 4); ring(end - 6, 3, 4); ring(end - 3, 3, 5); px(end - 1, Y, P.black); }   // 收口台阶 + 一道铁箍 + 阶梯方口
+        else { hoop(C + 11, 5); ring(end - 6, 6, 5); R(end - 4, Y - 2, 3, 1, P.dark[0]); R(end - 4, Y + 2, 3, 1, P.dark[0]); }   // 一道粗箍 + 方制退器
       }
       if ((o.k || 0) >= 0.85) { R(end, Y - 2, 3, 5, P.fire[3]); R(end + 3, Y - 1, 2, 3, P.fire[2]); }
     });

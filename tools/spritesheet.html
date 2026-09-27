@@ -39,7 +39,7 @@ const cell = (id, o) => {
   SA.SPR.drawModule(g, id, 16, 16, { heat: 0.6, water: 0.6, t: 0.3, ...o });
   return cv;
 };
-const MATRIX = ['cannon_m', 'cannon', 'side_cannon', 'mg', 'mortar', 'track', 'boiler', 'water', 'helmet', 'cockpit', 'armor', 'armor_heavy', 'plate', 'tank_tall', 'bucket', 'spike', 'piston'];
+const MATRIX = ['cannon_s', 'cannon_m', 'cannon', 'side_cannon', 'mg', 'mortar', 'track', 'boiler', 'water', 'helmet', 'cockpit', 'armor', 'armor_heavy', 'plate', 'tank_tall', 'bucket', 'spike', 'piston'];
 MT.append(Object.assign(document.createElement('tr'), { innerHTML: '<th></th>' + SA.MATS.slice(1).map((m, i) => `<th style="padding:4px 8px;color:${m.chip}">${m.name}<br><small class="muted">阶段 ${SA.stageOf('cannon', i + 1)}</small></th>`).join('') + '<th>改装 1 / 2 / 3</th>' }));
 for (const id of MATRIX) {
   const tr = document.createElement('tr');
