@@ -123,5 +123,94 @@ SA.GFLAB = (() => {
     ['包角位', '#ef7a21', (x, y) => [x + 2, y + 3, 5, 5], (x, y) => [x + 1, y + 19, 5, 5]],
     ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 11, y + 6, 21, 12]],
   ];
-  return { M_TIERS, mBase, mOver, M_ZONES_VIEW };
+  // ---------- 小炮（卡隆短炮）1×1 ----------
+  // 24×24，耳轴 (12,13)，炮口末端 x 36，仰角 −8°～30°。保留卡隆短炮的招牌剪影：粗药室（9 高）+ 尾钮 + 细炮管（5 高）。
+  // 形体和家族一一对应：T1～2 滑架（暗铁滑轨 + 两个小轮）；T3～4 方箱炮座；T5～6 炮座前沿斜板。
+  // 立面分区（按炮管扫动核对：−8° 时炮口下沿最低到 y 18，30° 时炮尾沉到炮座左端）：
+  //   炮座 x 1～23、y 18～23；左端 x 1～8 给炮尾让位，不放身份件；
+  //   铆钉 = 炮座顶线（y 18）x 9～15；散热口 = x 9～16、y 21～22（至少 3 个）；表位（镀镍起）= 炮座右端（中心 (20, 20.5)，直径 5，1×1 减半）；
+  //   包角位 = 炮座左下（钢起）。
+  const SZ = { rivets: { y: 18, x0: 9, x1: 15 }, vent: { x: 9, y: 21, h: 2 }, gauge: { cx: 20, cy: 20.5 } };
+  function tinyGauge(cx, cy) {   // 直径 5：黄铜圈 + 白表盘 + 指针
+    disc(cx, cy, 2.6, P.brass[0]); disc(cx, cy, 1.8, P.steam[2]);
+    px(Math.round(cx - 1.5), Math.round(cy - 1.5), P.brass[3]); px(Math.round(cx + 0.5), Math.round(cy - 1.5), P.gauge[1]);
+    px(Math.round(cx - 0.5), Math.round(cy - 0.5), P.dark[0]); px(Math.round(cx - 1.5), Math.round(cy - 0.5), P.dark[0]);
+  }
+  const MOUNT = {
+    slide(x, y) {                    // 滑架：暗铁滑轨 + 两个小轮 + 耳轴托架
+      box(x + 8, y + 15, 9, 4, SA.CAND.DARK);
+      box(x + 1, y + 18, 23, 6, SA.CAND.DARK); R(x + 2, y + 18, 21, 1, P.iron[3]);
+      for (const wx of [4, 20]) { disc(x + wx, y + 22.5, 2, P.dark[0]); px(x + wx, y + 22, P.iron[3]); }
+    },
+    box(x, y) { box(x + 8, y + 15, 9, 4, IRON); box(x + 1, y + 18, 23, 6, IRON); R(x + 2, y + 19, 21, 1, P.iron[4]); },
+    slant(x, y) {
+      box(x + 8, y + 15, 9, 4, IRON);
+      for (let yy = 18; yy <= 23; yy++) {
+        const xr = x + 19 + Math.round((yy - 18) * 0.8);
+        R(x + 1, y + yy, xr - x - 1, 1, P.iron[2]); px(x + 1, y + yy, P.iron[0]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
+      }
+      R(x + 1, y + 18, 19, 1, P.iron[0]); R(x + 2, y + 19, 17, 1, P.iron[4]); R(x + 1, y + 23, 23, 1, P.iron[0]);
+    },
+  };
+  function sGun(x, y, o, barrel) {
+    turn(x + 12, y + 13, o.a || 0, (PX, PY) => {
+      const d = Math.round((o.k || 0) * 4), C = PX - d, Y = PY, end = C + 24;   // C = 耳轴（随后坐移动），炮口末端在耳轴前 24
+      const col = (cx, y0, hh) => { R(cx, y0, 1, hh, P.iron[0]); R(cx, y0 + 1, 1, hh - 2, P.iron[3]); px(cx, y0 + 1, P.iron[4]); px(cx, y0 + hh - 2, P.iron[2]); };
+      const tube = (x0, x1, y0, hh) => { for (let i = x0; i < x1; i++) col(i, y0, hh); };
+      const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+      const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
+      const ring = (x0, w, y0, hh) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); };
+      R(C - 12, Y - 2, 3, 5, P.iron[0]); R(C - 11, Y - 1, 1, 3, P.iron[3]);   // 尾钮
+      tube(C - 9, C + 3, Y - 4, 9);                                          // 粗药室
+      tube(C + 3, C + 5, Y - 3, 7);                                          // 收口
+      tube(C + 5, end - 3, Y - 2, 5);                                        // 细炮管
+      band(C - 6, Y - 5, 11);                                                // 药室黄铜箍（全档都有）
+      if (barrel === 1) {        // ① 方口箍
+        ring(end - 3, 3, Y - 3, 7); px(end - 1, Y, P.black);
+      } else if (barrel === 2) { // ② 炮管一道铁箍 + 阶梯方口（两段连在一起）
+        hoop(C + 10, Y - 3, 7);
+        ring(end - 6, 3, Y - 3, 7); ring(end - 3, 3, Y - 4, 9); px(end - 1, Y, P.black);
+      } else {                   // ③ 三道铁箍 + 方制退器（两道开槽）
+        for (const hb of [7, 11, 15]) hoop(C + hb, Y - 3, 7);
+        ring(end - 6, 6, Y - 4, 9); R(end - 4, Y - 2, 3, 1, P.dark[0]); R(end - 4, Y + 1, 3, 1, P.dark[0]);
+      }
+      if ((o.k || 0) >= 0.85) { R(end, Y - 2, 3, 5, P.fire[3]); R(end + 3, Y - 1, 2, 3, P.fire[2]); }
+    });
+    R(x + 10, y + 11, 5, 5, P.brass[0]); R(x + 11, y + 12, 3, 3, P.brass[3]); px(x + 12, y + 13, P.brass[0]);   // 方形固定螺栓（耳轴）
+  }
+  const S_TIERS = [
+    { m: 'slide', b: 1, vent: ['slits2', 3], riv: [2, 'brass'], parts: [] },
+    { m: 'slide', b: 1, vent: ['slits2', 3], riv: [2, 'brass'], parts: [] },
+    { m: 'box', b: 2, vent: ['slits2', 4], riv: [2, 'brass'], parts: ['corners'] },
+    { m: 'box', b: 2, vent: ['slits2', 4], riv: [2, 'steel'], parts: ['corners', 'gauge'] },
+    { m: 'slant', b: 3, vent: ['pairs1', 2], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { m: 'slant', b: 3, vent: ['louverS', 3], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  function sVents(x, y, style, n) {
+    const Z = SZ.vent, slit = (sx) => { R(x + Z.x + sx, y + Z.y, 1, Z.h, P.iron[0]); R(x + Z.x + sx + 1, y + Z.y, 1, Z.h, P.iron[3]); };
+    if (style === 'slits2') for (let i = 0; i < n; i++) slit(i * 2);
+    else if (style === 'pairs1') for (let i = 0; i < n; i++) { slit(i * 5); slit(i * 5 + 2); }     // 两组、每组两道：共 4
+    else if (style === 'louverS') for (let i = 0; i < n; i++) { px(x + Z.x + i * 3, y + Z.y + 1, P.iron[0]); px(x + Z.x + i * 3 + 1, y + Z.y, P.iron[0]); px(x + Z.x + i * 3 + 1, y + Z.y + 1, P.iron[3]); px(x + Z.x + i * 3 + 2, y + Z.y, P.iron[3]); }
+  }
+  function sBase(g, x, y, T, o = {}) {
+    SA.CAND.use(g);
+    MOUNT[T.m](x, y);
+    sVents(x, y, T.vent[0], T.vent[1]);
+    if (T.parts.includes('corners')) corner(x + 1, y + 19, 1, -1);
+    sGun(x, y, o, T.b);
+  }
+  function sOver(g, x, y, T) {
+    SA.CAND.use(g);
+    const [n, kind] = T.riv, c = RIVET_C[kind], Z = SZ.rivets, step = n > 1 ? (Z.x1 - Z.x0) / (n - 1) : 0;
+    for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, c);
+    if (T.parts.includes('gauge')) tinyGauge(x + SZ.gauge.cx, y + SZ.gauge.cy);
+  }
+  const S_ZONES_VIEW = [
+    ['接缝 · 铆钉', '#6fcf6a', (x, y) => [x + 9, y + 18, 9, 3]],
+    ['散热区', '#46c2c9', (x, y) => [x + 9, y + 21, 8, 2]],
+    ['表位（镀镍起，直径 5）', '#ff6b9a', (x, y) => [x + 17, y + 18, 6, 6]],
+    ['包角位（钢起）', '#ef7a21', (x, y) => [x + 1, y + 19, 5, 5]],
+    ['炮身 + 扫过的范围（不放身份件）', '#a8a39a', (x, y) => [x - 1, y + 6, 25, 12]],
+  ];
+  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW };
 })();
