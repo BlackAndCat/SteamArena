@@ -1,13 +1,12 @@
-// 材质语言 v2 · 第三轮：把颜色找回来，但用低饱和和讲究的用法（tools/material-lab.html 专用，只做视觉，游戏里仍是 decorate）。
-// 一种材料 = 明度曲线 + 若干「染色手法」的组合，每种手法都可以单独开关、调色相和强度：
-//   wash   整体掺色：整条色阶带一点色相（低饱和）
-//   split  冷暖分离：暗部一个色相、亮部另一个色相，中间阶保持基调
-//   mottle 杂色斑：平整面上零散的小色斑（像氧化、回火、铜绿），按覆盖率控制
-//   edge   关键点增色：只给亮边（受光的最亮一阶）上色；hue 为 'iris' 时亮边按位置轮换色相（贝母 / 虹彩）
-//   temper 回火色带：钢回火时出现的麦黄 → 褐 → 紫 → 蓝，按斜向宽带轻轻铺在中间几阶
-//   trim   饰件换料：黄铜饰件换成紫铜 / 玫瑰金 / 淡金
-// 染色一律「保留原像素的明度、只换色相和饱和度」，所以明度结构（形体、光影）不变，也不会混出脏色。
-// 紧固件：自动认出 rivet() 画的铆钉，默认只换每个模块四角各一颗（不用逐个模块写代码）。所有材料都不发光。
+// 材质语言 v2 · 第四轮（tools/material-lab.html 专用，只做视觉，游戏里仍是 decorate）。
+// 上一轮的反馈：乌兹钢的晕染和彩色「油星」显得廉价；杂色脏；亮边染色看不出来；暗部 / 亮部染色分不出区别。
+// 这一轮换成区分度更强、也更「维多利亚机器」的手法：
+//   wash   金属本色：整条色阶带一点色相（低饱和，保留）
+//   paint  漆面：模块的大面（固有色和亮侧两阶）刷一层深色瓷漆，受光的亮边和暗部斜面仍是金属——像蒸汽机车的涂装，漆色 + 金属边，一眼分得开
+//   line   描线：离模块外沿 3 像素处一道 1 像素细线（金 / 奶白 / 朱红 / 黑），维多利亚机车的面板饰线；自动算出来，不用逐个模块画
+//   tex    只改明度（一阶）的精细纹理：细大马士革、机刻纹（钟表上的扭索纹）、花纹板、珍珠纹、拉丝、锻打麻点——不带颜色，所以不会「油」
+//   trim   饰件换料：黄铜饰件换紫铜 / 玫瑰金 / 淡金
+// 染色一律保留原像素明度、只换色相和饱和度；漆面按金属原来的明度换成漆的明度。紧固件默认只换四角。都不发光。
 window.SA = window.SA || {};
 
 SA.MATLAB = (() => {
@@ -17,14 +16,11 @@ SA.MATLAB = (() => {
   const k3 = (r, g, b) => (r << 16) | (g << 8) | b;
   const lum = ([r, g, b]) => 0.3 * r + 0.59 * g + 0.11 * b;
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  function hsl(h, s, l) {   // h 度，s / l 0~100 → [r, g, b]
+  function hsl(h, s, l) {
     h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(100, s)) / 100; l = Math.max(0, Math.min(100, l)) / 100;
     const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
     return [0, 8, 4].map(n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))));
   }
-  const lightOf = ([r, g, b]) => (Math.max(r, g, b) + Math.min(r, g, b)) / 510 * 100;
-  const recolor = (c, h, s) => hsl(h, s, lightOf(c));   // 保留明度，只换色相 / 饱和度
-  const hueLerp = (a, b, t) => { let d = ((b - a + 540) % 360) - 180; return a + d * t; };
 
   // ---------- 源像素分类 ----------
   const SRC = new Map();
@@ -46,65 +42,69 @@ SA.MATLAB = (() => {
     return { kind: 'iron', lv: best };
   }
 
-  // ---------- 明度基调 ----------
+  // ---------- 预设 ----------
   const TONE = { dark: [9, 15, 25, 38, 55], mid: [14, 24, 38, 54, 75], light: [22, 36, 56, 74, 91], iron: [12, 19, 29, 39, 50] };
-  const TRIMS = {
-    brass: null,
-    copper: ['#4a2014', '#8c4526', '#c26a3e', '#e8a07a'],
-    rosegold: ['#4d2a24', '#93594c', '#cf8f7c', '#f0c3b0'],
-    palegold: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'],
+  const TRIMS = { brass: null, copper: ['#4a2014', '#8c4526', '#c26a3e', '#e8a07a'], rosegold: ['#4d2a24', '#93594c', '#cf8f7c', '#f0c3b0'], palegold: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'] };
+  const TRIM_NAME = { brass: '黄铜', copper: '紫铜', rosegold: '玫瑰金', palegold: '淡金' };
+  // 维多利亚瓷漆：h 色相、s 饱和度、k 相对金属明度的深浅（< 1 更深）
+  const PAINTS = {
+    crimson: { name: '深红（米德兰）', h: 352, s: 42, k: 0.72 },
+    ochre: { name: '赭橙', h: 20, s: 42, k: 0.78 },
+    mustard: { name: '芥黄', h: 42, s: 38, k: 0.86 },
+    brunswick: { name: '布伦瑞克绿', h: 150, s: 30, k: 0.62 },
+    teal: { name: '孔雀青', h: 186, s: 30, k: 0.66 },
+    navy: { name: '海军蓝', h: 222, s: 34, k: 0.62 },
+    plum: { name: '李紫', h: 320, s: 22, k: 0.58 },
+    black: { name: '黑漆', h: 220, s: 8, k: 0.38 },
+    ivory: { name: '象牙白', h: 45, s: 24, k: 1.3 },
   };
-  const TEMPER = [48, 32, 18, 290, 225, 205];   // 回火色：麦黄、金、褐、紫、蓝、浅蓝
+  const LINES = { gold: ['金', '#d9a441'], cream: ['奶白', '#e8dcb8'], red: ['朱红', '#b04a32'], white: ['银白', '#dfe3e8'], black: ['黑', '#15161a'] };
+  const TEX_NAME = { pits: '锻打麻点', damascus: '细大马士革', guilloche: '机刻纹', checker: '花纹板', perlage: '珍珠纹', brushed: '拉丝' };
+  const PIN_NAME = { rivet: '原样铆钉', bolt: '六角螺栓', brass: '花钉', gold: '销钉', pearl: '珍珠色钉', dark: '暗色钉' };
 
-  // 由参数生成完整色阶
   function build(c) {
     c.L = c.L || TONE[c.tone || 'mid'];
-    const wash = c.wash || { h: 210, s: 0 }, sp = c.split;
-    c.iron = c.L.map((l, i) => {
-      let h = wash.h, s = wash.s;
-      // 冷暖分离：0~2 阶（暗部和固有色）用暗部色相，3~4 阶（亮侧，装甲这类亮面模块的大面积就在第 3 阶）用亮部色相；两边饱和度可以分开给
-      if (sp) { const hs = sp.hs == null ? sp.s : sp.hs; if (i <= 2) { h = sp.sh; s = Math.max(s, sp.s * (i === 2 ? 0.8 : 1)); } else { h = sp.hh; s = Math.max(s, hs * (i === 4 ? 0.8 : 1)); } }
-      return hsl(h, i === 4 ? s * 0.8 : s, l);
-    });
+    const w = c.wash || { h: 210, s: 0 };
+    c.iron = c.L.map((l, i) => hsl(w.h, i === 4 ? w.s * 0.8 : w.s, l));
     const dl = [c.L[0] * 0.45, c.L[0] * 0.75, c.L[0] * 1.08, (c.L[0] + c.L[1]) * 0.55];
-    c.dark = dl.map(l => hsl(sp ? sp.sh : wash.h, (sp ? Math.max(wash.s, sp.s) : wash.s) * 0.9, l));
+    c.dark = dl.map(l => hsl(w.h, w.s * 0.9, l));
     c.rust = P.rust.map(h => { const x = rgbOf(h), Lx = lum(x); let b = 0; c.iron.forEach((v, i) => { if (Math.abs(lum(v) - Lx) < Math.abs(lum(c.iron[b]) - Lx)) b = i; }); return mix(x, c.iron[b], 0.3); });
+    if (c.paint) { const p = typeof c.paint === 'string' ? PAINTS[c.paint] : c.paint; c.paintC = c.L.map(l => hsl(p.h, p.s, Math.min(92, l * p.k))); }
+    else c.paintC = null;
+    c.lineC = c.line ? rgbOf(LINES[c.line] ? LINES[c.line][1] : c.line) : null;   // line 可以是预设名，也可以直接给色值
     c.trimC = c.trim && TRIMS[c.trim] ? TRIMS[c.trim].map(rgbOf) : null;
-    c.swatch = [...c.iron, ...c.dark].map(hexOf);
     c.spec = c.spec || 'crisp'; c.pin = c.pin || 'rivet';
+    c.swatch = [...c.iron, ...(c.paintC ? c.paintC.slice(1, 4) : [])].map(hexOf);
     return c;
   }
-  // 候选：id、名字、说明 + 参数
   const K = (id, name, desc, o) => build({ id, name, desc, ...o });
+  // 层级思路：T3 钢 = 金属本色；T4 镀镍 = 亮 + 精加工纹理；T5 乌兹钢 = 暗 + 细纹或开始上漆；T6 以太 = 整套漆面涂装 + 描线
   const CANDS = {
-    iron: [K('I1', '熟铁', '暗、暖灰、哑光，锻打麻点（你满意的现状观感，保留）', { L: TONE.iron, wash: { h: 40, s: 4 }, spec: 'matte', tex: 'pits' })],
+    iron: [K('I1', '熟铁', '暗、暖灰、哑光，锻打麻点（保留）', { L: TONE.iron, wash: { h: 40, s: 4 }, spec: 'matte', tex: 'pits' })],
     steel: [
-      K('S1', '淡青钢', '整体掺一点点青：钢灰里透着冷意，六角螺栓', { tone: 'mid', wash: { h: 190, s: 9 }, pin: 'bolt' }),
-      K('S2', '青钢 · 青亮边', '底色几乎中性，只有受光的亮边带青', { tone: 'mid', wash: { h: 200, s: 5 }, edge: { h: 188, s: 32 }, pin: 'bolt' }),
-      K('S3', '青灰钢 · 青斑', '中性钢上零散几块淡青色斑，像冷却水留下的痕', { tone: 'mid', wash: { h: 205, s: 5 }, mottle: { h: 185, s: 22, cov: 0.16 }, pin: 'bolt' }),
+      K('S1', '淡青钢', '整体掺一点点青，干净，六角螺栓', { tone: 'mid', wash: { h: 190, s: 9 }, pin: 'bolt' }),
+      K('S2', '淡青钢 · 花纹板', '淡青钢加一层只改明度的菱形防滑纹，工业味', { tone: 'mid', wash: { h: 190, s: 8 }, tex: 'checker', pin: 'bolt' }),
+      K('S3', '淡青钢 · 银白描线', '淡青钢，面板里一道银白细线', { tone: 'mid', wash: { h: 190, s: 9 }, line: 'white', pin: 'bolt' }),
     ],
     nickel: [
-      K('N1', '暖银 · 金色高光', '冷暖分离：暗部偏冷蓝灰，亮部偏金，整体仍是银', { tone: 'light', split: { sh: 220, hh: 45, s: 16 }, spec: 'glint', pin: 'brass' }),
-      K('N2', '玫瑰镍', '整体掺一点玫瑰粉，像老式镀镍器具泛的暖光', { tone: 'light', wash: { h: 350, s: 11 }, spec: 'glint', pin: 'brass' }),
-      K('N3', '翠镍', '整体掺一点点绿（镍矿本来泛绿），高光柔和', { tone: 'light', wash: { h: 150, s: 10 }, spec: 'soft', pin: 'brass' }),
-      K('N4', '银 · 铜斑', '近中性的银上零散几块紫铜色斑，饰件换紫铜', { tone: 'light', wash: { h: 40, s: 4 }, mottle: { h: 18, s: 30, cov: 0.14 }, trim: 'copper', spec: 'glint', pin: 'brass' }),
-      K('N5', '冷银 · 紫影', '冷暖分离：暗部带一点紫，亮部偏暖白', { tone: 'light', split: { sh: 270, hh: 50, s: 14 }, spec: 'glint', pin: 'brass' }),
+      K('N1', '亮银 · 机刻纹', '最亮的银，大面上一圈圈只改明度的扭索纹（钟表机芯那种），黄铜花钉', { tone: 'light', wash: { h: 40, s: 5 }, tex: 'guilloche', spec: 'glint', pin: 'brass' }),
+      K('N2', '亮银 · 珍珠纹', '亮银，大面上细密的小圆涡纹（高级机芯的珍珠纹）', { tone: 'light', wash: { h: 40, s: 5 }, tex: 'perlage', spec: 'glint', pin: 'brass' }),
+      K('N3', '亮银 · 金描线', '亮银，面板里一道金色细线，花钉', { tone: 'light', wash: { h: 40, s: 5 }, line: 'gold', spec: 'glint', pin: 'brass' }),
+      K('N4', '暖银 · 深红漆', '大面刷深红瓷漆，亮边是银——漆色和金属对比最强', { tone: 'light', wash: { h: 40, s: 5 }, paint: 'crimson', spec: 'glint', pin: 'brass' }),
     ],
     wootz: [
-      K('W1', '回火虹彩', '钢回火时的麦黄 → 褐 → 紫 → 蓝，按斜向宽带淡淡铺开；流水纹', { tone: 'dark', wash: { h: 220, s: 4 }, temper: { s: 20 }, tex: 'watered', pin: 'gold' }),
-      K('W2', '牛血暗钢', '整体掺一点暗红（牛血红），流水纹，金销', { tone: 'dark', wash: { h: 355, s: 16 }, tex: 'watered', pin: 'gold' }),
-      K('W3', '暗钢 · 铜绿斑', '暗钢上零散的铜绿色斑，像老武器的氧化痕', { tone: 'dark', wash: { h: 30, s: 5 }, mottle: { h: 165, s: 26, cov: 0.18 }, tex: 'watered', pin: 'gold' }),
-      K('W4', '琥珀暗钢', '冷暖分离：暗部冷蓝，亮部琥珀橙', { tone: 'dark', split: { sh: 220, hh: 32, s: 22 }, tex: 'watered', pin: 'gold' }),
-      K('W5', '暗钢 · 蓝紫回火边', '底色中性暗钢，只有亮边带回火的蓝紫', { tone: 'dark', wash: { h: 220, s: 5 }, edge: { h: 262, s: 38 }, tex: 'watered', pin: 'gold' }),
+      K('W1', '暗钢 · 细大马士革', '中性暗钢，只改明度的细密折叠纹，不带任何颜色', { tone: 'dark', wash: { h: 215, s: 4 }, tex: 'damascus', pin: 'gold' }),
+      K('W2', '炭钢 · 金描线', '接近黑的炭钢，面板里一道金线，金销', { tone: 'dark', wash: { h: 30, s: 4 }, line: 'gold', pin: 'gold' }),
+      K('W3', '暗钢 · 布伦瑞克绿漆', '大面刷深绿瓷漆（英国机车的布伦瑞克绿），暗钢边', { tone: 'dark', wash: { h: 215, s: 4 }, paint: 'brunswick', pin: 'gold' }),
+      K('W4', '暗钢 · 大马士革 + 朱红描线', '细大马士革纹，再加一道朱红细线', { tone: 'dark', wash: { h: 215, s: 4 }, tex: 'damascus', line: 'red', pin: 'gold' }),
     ],
     aether: [
-      K('E1', '黑金', '近黑的石墨，亮边一道金，饰件换淡金', { L: [7, 12, 20, 30, 45], wash: { h: 35, s: 6 }, edge: { h: 45, s: 55 }, trim: 'palegold', pin: 'gold' }),
-      K('E2', '午夜蓝 · 金边', '深午夜蓝（低饱和），亮边金色，金钉', { tone: 'dark', wash: { h: 222, s: 18 }, edge: { h: 45, s: 45 }, pin: 'gold' }),
-      K('E3', '翡翠', '整体掺淡翡翠绿，高光柔和，饰件淡金', { tone: 'mid', wash: { h: 155, s: 15 }, spec: 'soft', trim: 'palegold', pin: 'gold' }),
-      K('E4', '珍珠虹彩', '浅暖白底，亮边按位置轮换淡淡的虹彩色（贝母光）', { tone: 'light', wash: { h: 30, s: 5 }, edge: { h: 'iris', s: 30 }, pin: 'pearl' }),
-      K('E5', '玫瑰铜', '整体掺玫瑰铜色，饰件玫瑰金', { tone: 'mid', wash: { h: 12, s: 16 }, trim: 'rosegold', pin: 'gold' }),
-      K('E6', '酒红 · 金边', '暗酒红（低饱和），亮边金色', { tone: 'dark', wash: { h: 345, s: 16 }, edge: { h: 45, s: 45 }, pin: 'gold' }),
-      K('E7', '孔雀蓝 · 铜斑', '暗孔雀蓝底，零散紫铜色斑，饰件紫铜', { tone: 'dark', wash: { h: 188, s: 16 }, mottle: { h: 20, s: 30, cov: 0.12 }, trim: 'copper', pin: 'gold' }),
+      K('E1', '黑漆 · 金描线', '整车黑色瓷漆 + 金色描线 + 淡金饰件——维多利亚最经典的高级涂装', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'black', line: 'gold', trim: 'palegold', pin: 'gold' }),
+      K('E2', '海军蓝漆 · 金描线', '深海军蓝瓷漆 + 金色描线', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'navy', line: 'gold', pin: 'gold' }),
+      K('E3', '象牙白漆 · 金描线', '象牙白瓷漆 + 金色描线 + 淡金饰件，最亮、最「礼仪」', { tone: 'mid', wash: { h: 40, s: 4 }, paint: 'ivory', line: 'gold', trim: 'palegold', pin: 'gold' }),
+      K('E4', '深红漆 · 奶白描线', '米德兰深红瓷漆 + 奶白描线', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'crimson', line: 'cream', pin: 'gold' }),
+      K('E5', '孔雀青漆 · 铜描线', '孔雀青瓷漆 + 紫铜饰件', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'teal', line: 'cream', trim: 'copper', pin: 'gold' }),
+      K('E6', '铂银 · 机刻纹 + 金描线', '不上漆：亮铂银 + 机刻纹 + 金描线，金属本身做到最精', { tone: 'light', wash: { h: 210, s: 4 }, tex: 'guilloche', line: 'gold', spec: 'soft', pin: 'gold' }),
     ],
   };
   const sel = { iron: 'I1', steel: 'S1', nickel: 'N1', wootz: 'W1', aether: 'E1' };
@@ -112,13 +112,6 @@ SA.MATLAB = (() => {
   const pick = (key) => override || (CANDS[key] || []).find(c => c.id === sel[key]);
 
   const hash = (x, y) => (Math.imul(x + 101, 73856093) ^ Math.imul(y + 37, 19349663)) >>> 0;
-  const rnd = (x, y) => (hash(x, y) % 1000) / 1000;
-  // 值噪声：3px 一格，双线性插值（杂色斑用，按模块内坐标取，同一模块每次一样）
-  function noise(x, y, cs = 3) {
-    const gx = Math.floor(x / cs), gy = Math.floor(y / cs), fx = x / cs - gx, fy = y / cs - gy;
-    const a = rnd(gx, gy), b = rnd(gx + 1, gy), c = rnd(gx, gy + 1), d = rnd(gx + 1, gy + 1);
-    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
-  }
   const PIN = {
     bolt: (c) => [c.iron[4], c.iron[3], c.iron[3], c.iron[1]],
     brass: (c) => (c.trimC ? [c.trimC[3], c.trimC[2], c.trimC[2], c.trimC[1]] : [P.brass[3], P.brass[2], P.brass[2], P.brass[1]].map(rgbOf)),
@@ -126,20 +119,28 @@ SA.MATLAB = (() => {
     pearl: () => ['#f4f1ea', '#d9d4c9', '#d9d4c9', '#aaa497'].map(rgbOf),
     dark: (c) => [c.iron[1], c.iron[0], c.iron[0], c.dark[0]],
   };
-  const PIN_NAME = { rivet: '原样圆铆钉', bolt: '六角螺栓', brass: '花钉', gold: '销钉', pearl: '珍珠色钉', dark: '暗色钉' };
-  const TRIM_NAME = { brass: '黄铜', copper: '紫铜', rosegold: '玫瑰金', palegold: '淡金' };
-  // 手法说明（卡片上的小标签）
   function describe(c) {
     const t = [];
-    if (c.wash && c.wash.s) t.push(`掺色 ${Math.round(c.wash.h)}° ${c.wash.s}%`);
-    if (c.split) t.push(`冷暖分离 ${c.split.sh}°/${c.split.hh}°`);
-    if (c.mottle) t.push(`杂色斑 ${c.mottle.h}° ${Math.round(c.mottle.cov * 100)}%`);
-    if (c.edge) t.push(`亮边 ${c.edge.h === 'iris' ? '虹彩' : c.edge.h + '°'}`);
-    if (c.temper) t.push('回火色带');
+    if (c.wash && c.wash.s) t.push(`本色 ${Math.round(c.wash.h)}° ${c.wash.s}%`);
+    if (c.paint) t.push(`漆面 ${typeof c.paint === 'string' ? PAINTS[c.paint].name : c.paint.h + '°'}`);
+    if (c.line) t.push(`${LINES[c.line] ? LINES[c.line][0] : c.line}描线`);
+    if (c.tex) t.push(TEX_NAME[c.tex]);
     if (c.trim && c.trim !== 'brass') t.push(`饰件 ${TRIM_NAME[c.trim]}`);
-    if (c.tex) t.push({ pits: '麻点', watered: '流水纹', brushed: '拉丝', meteor: '结晶纹' }[c.tex]);
     t.push(PIN_NAME[c.pin]);
     return t.join(' · ');
+  }
+
+  // 只改明度的纹理：返回 -1 / 0 / +1
+  function texAt(tex, lx, ly, cx, cy) {
+    switch (tex) {
+      case 'pits': { const h = hash(Math.floor(lx / 4), Math.floor(ly / 4)); return (((lx % 4) + 4) % 4) === h % 4 && (((ly % 4) + 4) % 4) === (h >> 2) % 4 ? (h % 5 === 0 ? 1 : -1) : 0; }
+      case 'damascus': { const f = ly + 1.6 * Math.sin(lx * 0.3 + ly * 0.1), fr = ((f / 5) % 1 + 1) % 1; return fr < 0.16 && (hash(lx, ly) % 4) ? 1 : 0; }   // 5px 一道、断续的细线
+      case 'guilloche': { const dx = lx - cx, dy = ly - cy, r = Math.sqrt(dx * dx + dy * dy) + 0.7 * Math.sin(Math.atan2(dy, dx) * 8); return ((r / 5) % 1 + 1) % 1 < 0.2 ? 1 : 0; }   // 5px 一圈的同心扭索纹
+      case 'checker': { const u = ((lx % 6) + 6) % 6, v = ((ly % 6) + 6) % 6, alt = (Math.floor(lx / 6) + Math.floor(ly / 6)) % 2; return (alt ? (u === v && u >= 1 && u <= 3) : (u + v === 4 && u >= 1 && u <= 3)) ? 1 : 0; }
+      case 'perlage': { const gx = Math.floor(lx / 5), gy = Math.floor(ly / 5), ox = (gy % 2) * 2.5; const ccx = gx * 5 + 2.5 + ox, ccy = gy * 5 + 2.5; const d = Math.hypot(lx + 0.5 - ccx, ly + 0.5 - ccy); return d > 2.2 && d < 3.2 && (lx + 0.5 - ccx) + (ly + 0.5 - ccy) < 0 ? 1 : 0; }
+      case 'brushed': { const h = hash(Math.floor(lx / 6), ly); return h % 5 === 0 && ((lx % 6) + 6) % 6 < 3 ? 1 : 0; }
+    }
+    return 0;
   }
 
   function pass(cv, mat, ox, oy, skip = []) {
@@ -147,15 +148,17 @@ SA.MATLAB = (() => {
     if (!M) return;
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
     const src = new Array(W * H).fill(null), brass = new Int8Array(W * H).fill(-1);
+    let bx0 = W, by0 = H, bx1 = 0, by1 = 0;
     for (let i = 0; i < W * H; i++) {
       if (d[i * 4 + 3] < 8) continue;
       const kk = k3(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
       if (M.trimC && BRASS.has(kk)) { brass[i] = BRASS.get(kk); continue; }
       const c = classify(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]);
       if (!c) continue;
-      const lx = i % W - ox, ly = Math.floor(i / W) - oy;
+      const x = i % W, y = Math.floor(i / W), lx = x - ox, ly = y - oy;
       if (c.kind === 'dark' && skip.some(([sx, sy, sw, sh]) => lx >= sx && lx < sx + sw && ly >= sy && ly < sy + sh)) continue;
       src[i] = c;
+      bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y);
     }
     const isM = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !!src[y * W + x];
     const lvAt = (x, y) => { if (!isM(x, y)) return -1; const c = src[y * W + x]; return c.kind === 'iron' ? c.lv : -1; };
@@ -165,42 +168,35 @@ SA.MATLAB = (() => {
       if (c) out[i] = c.kind === 'dark' ? M.dark[c.lv] : c.kind === 'rust' ? M.rust[c.lv] : M.iron[c.lv];
       else if (brass[i] >= 0) out[i] = M.trimC[brass[i]];
     }
+    // 离非金属的距离（4 邻域，最多算到 5）：描线用
+    const dist = new Uint8Array(W * H);
+    if (M.lineC) {
+      const q = [];
+      for (let i = 0; i < W * H; i++) { if (!src[i] || src[i].kind !== 'iron') { dist[i] = 0; } else { dist[i] = 255; } }
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (dist[i] === 0) continue; if (!isM(x - 1, y) || !isM(x + 1, y) || !isM(x, y - 1) || !isM(x, y + 1)) { dist[i] = 1; q.push(i); } }
+      for (let h = 0; h < q.length; h++) {
+        const i = q[h], x = i % W, y = Math.floor(i / W); if (dist[i] >= 5) continue;
+        for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + a, Y = y + b; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (dist[j] === 255) { dist[j] = dist[i] + 1; q.push(j); } }
+      }
+    }
     const lvC = (lv) => M.iron[Math.max(0, Math.min(4, lv))];
     const flat = (x, y) => isM(x - 1, y) && isM(x + 1, y) && isM(x, y - 1) && isM(x, y + 1) && isM(x - 1, y - 1) && isM(x + 1, y + 1);
+    const cx = (bx0 + bx1) / 2 - ox, cy = (by0 + by1) / 2 - oy;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, c = src[i]; if (!c || c.kind !== 'iron') continue;
-      const lx = x - ox, ly = y - oy, fl = flat(x, y);
-      // 反光
+      const lx = x - ox, ly = y - oy, face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
       const corner = c.lv === 4 && !isM(x, y - 1) && !isM(x - 1, y);
       if (M.spec === 'matte' && c.lv === 4) out[i] = lvC(3);
       else if (M.spec === 'crisp' && corner) out[i] = mix(M.iron[4], [255, 255, 255], 0.45);
       else if (M.spec === 'glint' && corner) out[i] = rgbOf(P.white);
       else if (M.spec === 'soft' && c.lv === 4 && (lx + ly) % 2) out[i] = mix(M.iron[3], M.iron[4], 0.5);
-      // 纹理：只在平整面的中间两阶，只动一阶
-      if (fl && (c.lv === 2 || c.lv === 3)) {
-        if (M.tex === 'pits') {
-          const bx = Math.floor(lx / 4), by = Math.floor(ly / 4), h = hash(bx, by);
-          if ((((lx % 4) + 4) % 4) === h % 4 && (((ly % 4) + 4) % 4) === (h >> 2) % 4) out[i] = lvC(c.lv + (h % 5 === 0 ? 1 : -1));
-        } else if (M.tex === 'watered') {
-          const f = ly * 0.9 + 2.4 * Math.sin(lx * 0.3 + ly * 0.07), fr = ((f / 5) % 1 + 1) % 1;
-          if (fr < 0.14) out[i] = lvC(c.lv + 1);
-        } else if (M.tex === 'brushed') {
-          const h = hash(Math.floor(lx / 6), ly); if (h % 5 === 0 && ((lx % 6) + 6) % 6 < 3) out[i] = lvC(c.lv + 1);
-        } else if (M.tex === 'meteor') {
-          const a = ((lx + ly * 2) % 7 + 7) % 7, b = ((lx * 2 - ly) % 9 + 9) % 9; if (a === 0 || b === 0) out[i] = lvC(c.lv + 1);
-        }
+      if (M.paintC && face) {
+        out[i] = M.paintC[c.lv];
+      } else if (M.tex && face && fl) {
+        const t = texAt(M.tex, lx, ly, cx, cy); if (t) out[i] = lvC(c.lv + t);
       }
-      // 回火色带：中间三阶，斜向宽带，保留明度只换色相
-      if (M.temper && c.lv >= 1 && c.lv <= 3) {
-        const t = ((ly + lx * 0.35) / 11 % TEMPER.length + TEMPER.length) % TEMPER.length, a = Math.floor(t), f = t - a;
-        out[i] = recolor(out[i], hueLerp(TEMPER[a], TEMPER[(a + 1) % TEMPER.length], f), M.temper.s);
-      }
-      // 杂色斑：平整面上，值噪声超过阈值的地方染色
-      if (M.mottle && c.lv >= 1 && c.lv <= 3 && fl && noise(lx + 17, ly + 5) > 1 - M.mottle.cov * 1.9) out[i] = recolor(out[i], M.mottle.h, M.mottle.s);
-      // 关键点增色：只染亮边
-      if (M.edge && c.lv === 4) out[i] = recolor(out[i], M.edge.h === 'iris' ? ((lx + ly) * 23 % 360 + 360) % 360 : M.edge.h, M.edge.s);
+      if (M.lineC && face && dist[i] === 3 && fl) out[i] = M.lineC;
     }
-    // 紧固件
     if (pins !== 'off' && PIN[M.pin]) {
       const found = [];
       for (let y = 0; y < H - 2; y++) for (let x = 0; x < W - 2; x++) {
@@ -211,8 +207,8 @@ SA.MATLAB = (() => {
       let use = found;
       if (pins === 'corner' && found.length > 4) {
         const xs = found.map(p => p[0]), ys = found.map(p => p[1]), set = new Set();
-        for (const cx of [Math.min(...xs), Math.max(...xs)]) for (const cy of [Math.min(...ys), Math.max(...ys)]) {
-          let best = 0, bd = 1e9; found.forEach((p, k) => { const dd = (p[0] - cx) ** 2 + (p[1] - cy) ** 2; if (dd < bd) { bd = dd; best = k; } }); set.add(best);
+        for (const ax of [Math.min(...xs), Math.max(...xs)]) for (const ay of [Math.min(...ys), Math.max(...ys)]) {
+          let best = 0, bd = 1e9; found.forEach((p, k) => { const dd = (p[0] - ax) ** 2 + (p[1] - ay) ** 2; if (dd < bd) { bd = dd; best = k; } }); set.add(best);
         }
         use = [...set].map(k => found[k]);
       }
@@ -223,8 +219,7 @@ SA.MATLAB = (() => {
     g.putImageData(img, 0, 0);
   }
   return {
-    CANDS, TONE, TRIMS, TRIM_NAME, sel, pass, pick, build, describe,
-    setPins: (m) => { pins = m; }, getPins: () => pins,
-    setOverride: (c) => { override = c || null; },
+    CANDS, TONE, TRIMS, TRIM_NAME, PAINTS, LINES, TEX_NAME, PIN_NAME, sel, pass, pick, build, describe,
+    setPins: (m) => { pins = m; }, getPins: () => pins, setOverride: (c) => { override = c || null; },
   };
 })();

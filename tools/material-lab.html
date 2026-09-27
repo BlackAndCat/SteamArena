@@ -18,7 +18,7 @@
   p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
   .mlrow { margin-bottom: 18px; }
-  .mlrow h3 { margin: 0 0 8px; font-size: 16px; display: block; }
+  .mlrow h3 { margin: 0 0 8px; font-size: 16px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 10px; }
   .card { padding: 10px 12px; cursor: pointer; border: 2px solid var(--dark0); }
   .card:hover { background: var(--dark1); }
@@ -40,13 +40,14 @@
   .scroll { overflow-x: auto; }
   .note { font-size: 11px; color: var(--muted); }
   .mixer { display: grid; grid-template-columns: 380px 1fr; gap: 14px; padding: 12px; }
-  .mixer .ctl { display: grid; gap: 7px; font-size: 12.5px; }
+  .mixer .ctl { display: grid; gap: 7px; font-size: 12.5px; align-content: start; }
   .mixer .ctl .r { display: grid; grid-template-columns: 78px 1fr 44px; gap: 6px; align-items: center; }
   .mixer .ctl .r span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .mixer .ctl .g { margin-top: 4px; font-weight: 700; color: var(--brass3); display: flex; gap: 6px; align-items: center; }
+  .mixer .ctl .g { margin-top: 4px; font-weight: 700; color: var(--brass3); }
   .mixer input[type=range] { width: 100%; accent-color: var(--brass2); }
   .mixer select { background: var(--dark2); color: var(--text); border: 1px solid var(--dark3); padding: 2px 4px; }
   .mixer textarea { width: 100%; height: 70px; background: var(--dark1); color: var(--iron4); border: 1px solid var(--dark3); font: 11px/1.4 ui-monospace, Consolas, monospace; }
+  .mixer .live { font-size: 12px; color: var(--gauge2); margin: 6px 0; }
   .rec { padding: 14px 16px; line-height: 1.8; font-size: 13.5px; }
   .rec ul { margin: 4px 0 10px; padding-left: 22px; }
   @media (max-width: 900px) { .mixer { grid-template-columns: 1fr; } }
@@ -54,9 +55,10 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">第三轮 · 把颜色找回来 · 2026-09-27</small></h1>
-    <p>上一轮只剩灰和银，拉不开对比。这一轮把红橙黄绿青蓝紫都拿回来，但只用低饱和度，并且讲究「颜色放在哪」：<b>整体掺色</b>（整条色阶带一点色相）、<b>冷暖分离</b>（暗部一个色、亮部另一个色）、<b>杂色斑</b>（零散的小色块，像氧化、回火、铜绿）、<b>关键点增色</b>（只染亮边）、<b>回火色带</b>、<b>饰件换料</b>（黄铜换紫铜 / 玫瑰金 / 淡金）。所有染色都保留原像素的明度、只换色相和饱和度，所以形体和光影不变。都不发光。</p>
-    <p>先看第一张表：同样 7 种色相、6 种手法，看哪种「放颜色的方式」最高级；再看为每种材料配好的方案（点卡片选中）；想自己拧就用调配台。熟铁保留，钢掺回一点青，镀镍、乌兹钢、以太重新配色。</p>
+    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">第四轮 · 漆面、描线与精细纹理 · 2026-09-27</small></h1>
+    <p>上一轮的问题：乌兹钢的晕染和彩色油光显得廉价；杂色斑脏；亮边染色看不出来；暗部 / 亮部染色分不出区别。这一轮全部去掉，换成区分度更强、也更「维多利亚机器」的三种手法：</p>
+    <p><b>① 漆面</b>——模块的大面刷一层深色瓷漆，受光的亮边和斜面仍露出金属，像蒸汽机车的涂装（布伦瑞克绿、米德兰深红、海军蓝、黑漆……）；<b>② 描线</b>——离模块外沿 3 像素处一道 1 像素的金 / 奶白 / 朱红细线，自动算出来，不用逐个模块画；<b>③ 精细纹理</b>——细大马士革、机刻纹、花纹板、珍珠纹，只改明度、不带颜色，所以不会「油」。</p>
+    <p>层级思路（配好的方案按这个排）：<b>钢 = 金属本色</b>（掺一点青）→ <b>镀镍 = 亮银 + 精加工纹理</b> → <b>乌兹钢 = 暗钢 + 细纹，开始上漆和描线</b> → <b>以太 = 整套瓷漆涂装 + 金描线</b>。熟铁保留。都不发光。</p>
   </header>
   <div class="cbar">
     <span class="lbl">当前选择</span><span class="pickd" id="pickd"></span><button class="btn small" id="copy">复制</button>
@@ -66,9 +68,14 @@
   </div>
 
   <section>
-    <h2 class="sec">染色手法测试 <small>7 种色相 × 6 种手法 · 中明度基底 · 装甲 + 直射火炮（2×）</small></h2>
-    <p class="lead">同一个色相，放的方式不同，感觉差很多：整体掺色最直观但容易「脏」；冷暖分离最有绘画感；杂色斑像旧金属；只染亮边最克制、最「高级」。这张表用来找你喜欢的放法和色相，下面的方案就是从这里配出来的。</p>
+    <h2 class="sec">漆面与描线测试 <small>9 种维多利亚瓷漆 × 4 种用法 · 装甲 + 直射火炮（2×）</small></h2>
+    <p class="lead">第一行只刷漆；第二行刷漆再加金描线；第三行不刷漆，只在金属上加同色系的描线；最后一行是上一轮的「金属本色掺色」做参照。</p>
     <div class="scroll"><table class="mx" id="test"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">纹理测试 <small>只改明度一阶、不带颜色 · 三种金属底色</small></h2>
+    <div class="scroll"><table class="mx" id="tex"></table></div>
   </section>
 
   <section>
@@ -77,10 +84,10 @@
   </section>
 
   <section>
-    <h2 class="sec">调配台 <small>自己拧参数；「设为选择」后会作为该材料的一张卡片加进去</small></h2>
+    <h2 class="sec">调配台 <small>改任何一项都立刻套到所选材料上，下面的整车、模块、新造型跟着变</small></h2>
     <div class="panel mixer">
       <div class="ctl" id="mix"></div>
-      <div><div class="prev" id="mixPrev"></div><div class="tags" id="mixTags"></div><textarea id="mixOut" readonly></textarea></div>
+      <div><div class="prev" id="mixPrev"></div><div class="live" id="mixLive"></div><div class="tags" id="mixTags"></div><textarea id="mixOut" readonly></textarea></div>
     </div>
   </section>
 
@@ -104,8 +111,8 @@
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>第一张表里，你喜欢哪几种「放颜色的方式」、哪些色相（可以直接说「亮边 + 蓝」「冷暖分离 + 橙」这样）。</li>
-        <li>钢、镀镍、乌兹钢、以太各选一张卡（或用调配台调一张），把顶栏「当前选择」复制给我；调配台调出来的，把下面那段参数也一起给我。</li>
+        <li>漆面 / 描线 / 纹理这三种手法，哪些可以用、用在哪一级。</li>
+        <li>各材料选哪张卡，或者用调配台调（调配台的改动会直接变成该材料的选择），把顶栏「当前选择」和调配台下面的参数复制给我。</li>
         <li>紧固件：只换四角（推荐）/ 全部 / 不换。</li>
       </ul>
     </div>
@@ -125,8 +132,8 @@
   const MTS = [1, 2, 3, 4, 5, 6], KEYS = ['steel', 'nickel', 'wootz', 'aether'];
   const mtOf = (key) => SA.MATS.findIndex(x => x && x.key === key);
   const nameOf = (key) => SA.MATS[mtOf(key)].name;
-  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel3') || '{}'); for (const k of KEYS) if (s[k] && L.CANDS[k].some(c => c.id === s[k])) L.sel[k] = s[k]; } catch (e) {}
-  const save = () => { try { localStorage.setItem('sa.matlab.sel3', JSON.stringify(L.sel)); } catch (e) {} };
+  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel4') || '{}'); for (const k of KEYS) if (s[k] && L.CANDS[k].some(c => c.id === s[k])) L.sel[k] = s[k]; } catch (e) {}
+  const save = () => { try { localStorage.setItem('sa.matlab.sel4', JSON.stringify(L.sel)); } catch (e) {} };
   const pickText = () => KEYS.map(k => `${nameOf(k)} ${L.sel[k]}（${L.pick(k).name}）`).join(' · ') + ` · 紧固件：${{ corner: '只换四角', all: '全部', off: '不换' }[L.getPins()]}`;
 
   function gray(src) {
@@ -156,30 +163,34 @@
     return c;
   }
   const usePass = (on) => SA.SPR.setMatPass(on ? L.pass : null);
-  const withCand = (cand, fn) => { L.setOverride(cand); usePass(true); const r = fn(); L.setOverride(null); return r; };
+  const withCand = (cand, fn) => { L.setOverride(cand); usePass(true); const r = fn(); L.setOverride(null); usePass(false); return r; };
   const BPS = SA.OFFICIAL_BLUEPRINTS.filter((_, i) => i !== 1);
   const preview = (cand, mt) => withCand(cand, () => [show(carCanvas(BPS[0], mt), 2), show(modCanvas('armor', mt), 2), show(modCanvas('cannon', mt), 2), show(modCanvas('boiler', mt), 2)]);
   const swatch = (c) => el('span', { className: 'sw' }, ...c.swatch.map(h => { const i = el('i'); i.style.background = h; return i; }));
+  const pair = (cand) => withCand(cand, () => [show(modCanvas('armor', 3), 2), show(modCanvas('cannon', 3), 2)]);
 
-  // ---------- 染色手法测试 ----------
-  const HUES = [['红', 0], ['橙', 28], ['黄', 50], ['绿', 125], ['青', 185], ['蓝', 222], ['紫', 280]];
-  const TECH = [
-    ['整体掺色 · 轻', '整条色阶带 8% 的色相', (h) => ({ wash: { h, s: 8 } })],
-    ['整体掺色 · 中', '整条色阶带 18% 的色相', (h) => ({ wash: { h, s: 18 } })],
-    ['暗部染色', '冷暖分离：暗部和固有色是该色，亮侧近中性暖白', (h) => ({ split: { sh: h, hh: 45, s: 22, hs: 6 } })],
-    ['亮部染色', '冷暖分离：暗部近中性冷灰，亮侧是该色', (h) => ({ split: { sh: 220, hh: h, s: 6, hs: 20 } })],
-    ['杂色斑', '中性底 + 零散色斑（覆盖约 16%）', (h) => ({ wash: { h: 210, s: 4 }, mottle: { h, s: 30, cov: 0.16 } })],
-    ['关键点 · 亮边', '中性底，只有受光亮边是该色', (h) => ({ wash: { h: 210, s: 4 }, edge: { h, s: 48 } })],
-  ];
+  // ---------- 漆面与描线测试 ----------
+  const PK = Object.keys(L.PAINTS);
   function renderTest() {
-    const T = $('test'); T.replaceChildren(el('tr', {}, el('th'), ...HUES.map(([n, h]) => { const th = el('th', {}, n); th.style.color = `hsl(${h} 60% 62%)`; return th; })));
-    for (const [name, desc, mk] of TECH) {
-      T.append(el('tr', {}, el('th', { className: 'rh' }, name, el('small', {}, desc)), ...HUES.map(([, h]) => {
-        const cand = L.build({ id: 'T', name: 't', tone: 'mid', pin: 'rivet', ...mk(h) });
-        return el('td', {}, el('div', {}, ...withCand(cand, () => [show(modCanvas('armor', 3), 2), show(modCanvas('cannon', 3), 2)])));
-      })));
-    }
-    usePass(false);
+    const T = $('test'); T.replaceChildren(el('tr', {}, el('th'), ...PK.map(k => { const p = L.PAINTS[k], th = el('th', {}, p.name); th.style.color = `hsl(${p.h} ${Math.max(30, p.s)}% ${k === 'black' ? 70 : 62}%)`; return th; })));
+    const rows = [
+      ['只刷漆', '大面瓷漆，亮边露金属', (k) => ({ tone: 'mid', wash: { h: 220, s: 4 }, paint: k })],
+      ['刷漆 + 金描线', '再加一道金色细线', (k) => ({ tone: 'mid', wash: { h: 220, s: 4 }, paint: k, line: 'gold' })],
+      ['金属 + 同色描线', '不刷漆，只在金属上描一道该色细线', (k) => { const p = L.PAINTS[k]; return { tone: 'mid', wash: { h: 220, s: 4 }, line: `hsl(${p.h},${Math.max(35, p.s + 10)}%,${k === 'black' ? 12 : 58}%)` }; }],
+      ['金属本色掺色（参照）', '上一轮的做法，整条色阶带 14% 的色相', (k) => ({ tone: 'mid', wash: { h: L.PAINTS[k].h, s: k === 'black' || k === 'ivory' ? 4 : 14 } })],
+    ];
+    for (const [name, desc, mk] of rows) T.append(el('tr', {}, el('th', { className: 'rh' }, name, el('small', {}, desc)), ...PK.map(k => {
+      const o = mk(k); if (o.line && o.line.startsWith('hsl')) o.line = hslHex(o.line);
+      return el('td', {}, el('div', {}, ...pair(L.build({ id: 'T', name: 't', pin: 'rivet', ...o }))));
+    })));
+  }
+  function hslHex(s) { const m = s.match(/hsl\(([\d.]+),([\d.]+)%,([\d.]+)%\)/), c = document.createElement('canvas').getContext('2d'); c.fillStyle = `hsl(${m[1]} ${m[2]}% ${m[3]}%)`; return c.fillStyle; }
+  // ---------- 纹理测试 ----------
+  function renderTex() {
+    const bases = [['淡青钢（中）', { tone: 'mid', wash: { h: 190, s: 8 } }], ['亮银（亮）', { tone: 'light', wash: { h: 40, s: 5 }, spec: 'glint' }], ['暗钢（暗）', { tone: 'dark', wash: { h: 215, s: 4 } }]];
+    const T = $('tex'); T.replaceChildren(el('tr', {}, el('th'), ...bases.map(([n]) => el('th', {}, n))));
+    for (const tex of [null, 'damascus', 'guilloche', 'checker', 'perlage', 'brushed', 'pits'])
+      T.append(el('tr', {}, el('th', { className: 'rh' }, tex ? L.TEX_NAME[tex] : '无纹理'), ...bases.map(([, b]) => el('td', {}, el('div', {}, ...pair(L.build({ id: 'T', name: 't', pin: 'rivet', ...b, tex })))))));
   }
 
   // ---------- 方案卡片 ----------
@@ -192,57 +203,60 @@
           el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`)),
           el('div', { className: 'd' }, cand.desc), el('div', { className: 'prev' }, ...preview(cand, mt)),
           el('div', { className: 'tags' }, swatch(cand), L.describe(cand)));
-        if (key !== 'iron') card.onclick = () => { L.sel[key] = cand.id; save(); renderAll(false); };
+        if (key !== 'iron') card.onclick = () => { L.sel[key] = cand.id; save(); renderPicker(); renderProg(); };
         row.append(card);
       }
       const name = el('span', {}, nameOf(key)); name.style.color = SA.MATS[mt].chip;
-      box.append(el('div', { className: 'mlrow' }, el('h3', {}, name, key === 'iron' ? el('span', { className: 'note' }, '　保留') : key === 'steel' ? el('span', { className: 'note' }, '　掺回一点青') : ''), row));
+      box.append(el('div', { className: 'mlrow' }, el('h3', {}, name), row));
     }
-    usePass(false);
   }
 
-  // ---------- 调配台 ----------
-  const mx = { key: 'aether', tone: 'dark', wh: 222, ws: 12, sp: false, sh: 220, hh: 40, ss: 18, hs: 12, mo: false, mh: 20, mcov: 14, ms: 28, ed: true, eh: 45, es: 45, iris: false, te: false, ts: 20, trim: 'brass', tex: '', pin: 'gold', spec: 'crisp' };
+  // ---------- 调配台：任何改动立即套到所选材料 ----------
+  const mx = { key: 'aether', tone: 'mid', wh: 220, ws: 4, paint: 'black', ph: 222, ps: 34, pk: 62, line: 'gold', tex: '', trim: 'brass', spec: 'crisp', pin: 'gold' };
   function mixCand() {
-    const c = { id: `${nameOf(mx.key)}自调`, name: '调配台', desc: '调配台调出来的方案', tone: mx.tone, wash: { h: mx.wh, s: mx.ws }, spec: mx.spec, pin: mx.pin, trim: mx.trim };
-    if (mx.sp) c.split = { sh: mx.sh, hh: mx.hh, s: mx.ss, hs: mx.hs };
-    if (mx.mo) c.mottle = { h: mx.mh, s: mx.ms, cov: mx.mcov / 100 };
-    if (mx.ed) c.edge = { h: mx.iris ? 'iris' : mx.eh, s: mx.es };
-    if (mx.te) c.temper = { s: mx.ts };
+    const c = { id: `${nameOf(mx.key)}·调配台`, name: '调配台', desc: '调配台调出来的方案（改动实时生效）', tone: mx.tone, wash: { h: mx.wh, s: mx.ws }, spec: mx.spec, pin: mx.pin, trim: mx.trim };
+    if (mx.paint === 'custom') c.paint = { h: mx.ph, s: mx.ps, k: mx.pk / 100 }; else if (mx.paint) c.paint = mx.paint;
+    if (mx.line) c.line = mx.line;
     if (mx.tex) c.tex = mx.tex;
     return L.build(c);
   }
+  const ctl = {};
   function buildMixer() {
     const box = $('mix'); box.replaceChildren();
-    const sel = (k, opts) => { const s = el('select'); for (const [v, t] of opts) s.append(el('option', { value: v, selected: mx[k] === v }, t)); s.onchange = () => { mx[k] = s.value; renderMix(); }; return s; };
-    const rng = (label, k, min, max, unit = '') => { const v = el('span', {}, mx[k] + unit), r = el('input', { type: 'range', min, max, value: mx[k] }); r.oninput = () => { mx[k] = +r.value; v.textContent = mx[k] + unit; renderMix(); }; return el('div', { className: 'r' }, el('span', {}, label), r, v); };
-    const chk = (label, k) => { const c = el('input', { type: 'checkbox', checked: mx[k] }); c.onchange = () => { mx[k] = c.checked; renderMix(); }; return el('label', { className: 'g' }, c, label); };
-    const setBtn = el('button', { className: 'btn small primary' }, '设为该材料的选择');
-    setBtn.onclick = () => { const c = mixCand(), list = L.CANDS[mx.key], i = list.findIndex(x => x.name === '调配台'); if (i >= 0) list[i] = c; else list.push(c); L.sel[mx.key] = c.id; save(); renderAll(false); };
+    const sel = (k, opts) => { const s = el('select'); for (const [v, t] of opts) s.append(el('option', { value: v, selected: mx[k] === v }, t)); s.onchange = () => { mx[k] = s.value; changed(k); }; ctl[k] = s; return s; };
+    const rng = (label, k, min, max, unit = '', onTouch) => { const v = el('span', {}, mx[k] + unit), r = el('input', { type: 'range', min, max, value: mx[k] }); r.oninput = () => { mx[k] = +r.value; v.textContent = mx[k] + unit; if (onTouch) onTouch(); changed(k); }; ctl[k] = r; return el('div', { className: 'r' }, el('span', {}, label), r, v); };
+    // 动了漆色的滑杆就自动切到「自定漆色」，保证改动一定看得见
+    const touchPaint = () => { if (mx.paint !== 'custom') { mx.paint = 'custom'; ctl.paint.value = 'custom'; } };
     box.append(
       el('div', { className: 'r' }, el('span', {}, '调给'), sel('key', KEYS.map(k => [k, nameOf(k)])), el('span')),
       el('div', { className: 'r' }, el('span', {}, '明度基调'), sel('tone', [['dark', '暗'], ['mid', '中'], ['light', '亮']]), el('span')),
-      el('div', { className: 'g' }, '整体掺色'), rng('色相', 'wh', 0, 359, '°'), rng('饱和度', 'ws', 0, 35, '%'),
-      chk('冷暖分离', 'sp'), rng('暗部色相', 'sh', 0, 359, '°'), rng('暗部饱和', 'ss', 0, 40, '%'), rng('亮部色相', 'hh', 0, 359, '°'), rng('亮部饱和', 'hs', 0, 40, '%'),
-      chk('杂色斑', 'mo'), rng('色相', 'mh', 0, 359, '°'), rng('覆盖率', 'mcov', 2, 35, '%'), rng('饱和度', 'ms', 0, 50, '%'),
-      chk('关键点 · 亮边', 'ed'), chk('亮边用虹彩（按位置轮换色相）', 'iris'), rng('色相', 'eh', 0, 359, '°'), rng('饱和度', 'es', 0, 70, '%'),
-      chk('回火色带', 'te'), rng('饱和度', 'ts', 0, 40, '%'),
+      el('div', { className: 'g' }, '金属本色'), rng('色相', 'wh', 0, 359, '°'), rng('饱和度', 'ws', 0, 30, '%'),
+      el('div', { className: 'g' }, '漆面'),
+      el('div', { className: 'r' }, el('span', {}, '漆色'), sel('paint', [['', '不刷漆'], ...Object.entries(L.PAINTS).map(([k, p]) => [k, p.name]), ['custom', '自定（用下面三条）']]), el('span')),
+      rng('色相', 'ph', 0, 359, '°', touchPaint), rng('饱和度', 'ps', 0, 60, '%', touchPaint), rng('深浅', 'pk', 30, 140, '%', touchPaint),
+      el('div', { className: 'g' }, '细节'),
+      el('div', { className: 'r' }, el('span', {}, '描线'), sel('line', [['', '无'], ...Object.entries(L.LINES).map(([k, v]) => [k, v[0]])]), el('span')),
+      el('div', { className: 'r' }, el('span', {}, '纹理'), sel('tex', [['', '无'], ...Object.entries(L.TEX_NAME)]), el('span')),
       el('div', { className: 'r' }, el('span', {}, '饰件'), sel('trim', Object.entries(L.TRIM_NAME)), el('span')),
       el('div', { className: 'r' }, el('span', {}, '反光'), sel('spec', [['crisp', '锐利亮边'], ['glint', '受光角白点'], ['soft', '柔和'], ['matte', '哑光']]), el('span')),
-      el('div', { className: 'r' }, el('span', {}, '纹理'), sel('tex', [['', '无'], ['watered', '流水纹'], ['brushed', '拉丝'], ['meteor', '结晶纹'], ['pits', '麻点']]), el('span')),
-      el('div', { className: 'r' }, el('span', {}, '紧固件'), sel('pin', [['rivet', '原样铆钉'], ['bolt', '六角螺栓'], ['brass', '花钉'], ['gold', '销钉'], ['pearl', '珍珠色钉'], ['dark', '暗色钉']]), el('span')),
-      setBtn);
+      el('div', { className: 'r' }, el('span', {}, '紧固件'), sel('pin', Object.entries(L.PIN_NAME)), el('span')));
   }
-  let mixTimer = 0;
-  function renderMix() {
-    clearTimeout(mixTimer);
-    mixTimer = setTimeout(() => {
-      const c = mixCand();
-      $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key))); usePass(false);
-      $('mixTags').replaceChildren(swatch(c), L.describe(c));
-      const { id, name, desc, iron, dark, rust, trimC, swatch: s, L: Lv, ...params } = c;
-      $('mixOut').value = JSON.stringify({ 材料: nameOf(mx.key), ...params, 色阶: s });
-    }, 60);
+  let mixTimer = 0, progTimer = 0;
+  function changed(k) {
+    clearTimeout(mixTimer); clearTimeout(progTimer);
+    mixTimer = setTimeout(() => applyMix(k === 'key'), 40);
+  }
+  function applyMix(keyChanged) {
+    const c = mixCand(), list = L.CANDS[mx.key], i = list.findIndex(x => x.name === '调配台');
+    if (i >= 0) list[i] = c; else list.push(c);
+    L.sel[mx.key] = c.id;
+    $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key)));
+    $('mixLive').textContent = `已套用到「${nameOf(mx.key)}」——下面的整车、模块、新造型会跟着变（方案卡片里也多了一张「调配台」）`;
+    $('mixTags').replaceChildren(swatch(c), L.describe(c));
+    const { id, name, desc, iron, dark, rust, trimC, paintC, lineC, swatch: s, L: Lv, ...params } = c;
+    $('mixOut').value = JSON.stringify({ 材料: nameOf(mx.key), ...params });
+    $('pickd').textContent = pickText();
+    progTimer = setTimeout(() => { renderPicker(); renderProg(); }, keyChanged ? 0 : 350);
   }
 
   // ---------- 进阶 / 模块 / 新造型 ----------
@@ -278,14 +292,17 @@
     const apply = (s, ox, oy, mt, on) => { const c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); if (mt > 1) (on ? L.pass : SA.SPR.decorate)(c, SA.MATS[mt], ox, oy, []); return c; };
     for (const [name, mk] of favs) T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...MTS.map(mt => { const [s, ox, oy] = mk(); return el('td', {}, el('div', {}, ...passes().map(on => show(apply(s, ox, oy, mt, on), 2)))); })));
   }
-  function renderAll(withTest = true) { $('pickd').textContent = pickText(); if (withTest) renderTest(); renderPicker(); renderMix(); renderCars(); renderMods(); renderFav(); }
+  function renderProg() { $('pickd').textContent = pickText(); renderCars(); renderMods(); renderFav(); }
+  function renderAll() { renderTest(); renderTex(); renderPicker(); renderProg(); }
 
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('pins'), v => L.setPins(v));
   seg($('mode'), v => st.mode = v);
-  $('cmp').onclick = () => { st.cmp = !st.cmp; $('cmp').textContent = '并排对照现状：' + (st.cmp ? '开' : '关'); $('cmp').classList.toggle('on', st.cmp); renderAll(false); };
-  $('copy').onclick = () => { try { navigator.clipboard.writeText(pickText()); $('copy').textContent = '已复制'; setTimeout(() => $('copy').textContent = '复制', 900); } catch (e) {} };
+  $('cmp').onclick = () => { st.cmp = !st.cmp; $('cmp').textContent = '并排对照现状：' + (st.cmp ? '开' : '关'); $('cmp').classList.toggle('on', st.cmp); renderProg(); };
+  $('copy').onclick = () => { try { navigator.clipboard.writeText(pickText() + '\n' + $('mixOut').value); $('copy').textContent = '已复制'; setTimeout(() => $('copy').textContent = '复制', 900); } catch (e) {} };
   buildMixer(); renderAll();
+  // 调配台先只画自己的预览，不抢默认选择；动了任何一项才套用
+  (() => { const c = mixCand(); $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key))); $('mixTags').replaceChildren(swatch(c), L.describe(c)); $('mixLive').textContent = '改任何一项，就会套用到上面「调给」的材料'; })();
   window.__matReady = true;
 })();
 </script></body></html>
