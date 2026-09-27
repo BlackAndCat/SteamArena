@@ -55,9 +55,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">第五轮 · 定稿 + 黄铜的语言 · 2026-09-27</small></h1>
-    <p><b>已定稿并接进游戏</b>（<code>js/palette.js</code> 的 <code>SA.PAL.mat</code> + <code>js/sprites.js</code> 的材质处理）：熟铁（保留）· 钢 = 淡青 + 放稀的花纹板 · 镀镍 = 象牙白漆 + 金描线 · 乌兹钢 = 布伦瑞克绿漆 · 以太合金 = 海军蓝漆 + 象牙白描线。</p>
-    <p><b>这一轮要定的是黄铜（T1）</b>：上一版太淡、不够「铜」。这次直接用 Lospec 上成熟像素调色板里的黄铜 / 铜色阶——AAP-64（Adigun A. Polack）、Apollo（AdamCYounis）、Endesga 64（ENDESGA）、Resurrect 64（Kerrie Lake）。它们的共同做法是<b>色相随明度偏移</b>：暗部红褐 / 紫褐、中间调铜橙、亮部黄金、高光奶黄——之前只用一个色相、又压低了饱和度，所以没有铜味。点卡片就能在整车进阶里看到它和后面五档放在一起的效果。</p>
+    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">定稿 · T1～T6 · 2026-09-27</small></h1>
+    <p><b>已定稿并接进游戏</b>（<code>js/palette.js</code> 的 <code>SA.PAL.mat</code> + <code>js/sprites.js</code> 的材质处理）：黄铜 = AAP-64 旧黄铜（提饱和）· 熟铁（保留）· 钢 = 淡青 + 放稀的花纹板 · 镀镍 = 象牙白漆 + 金描线 · 乌兹钢 = 布伦瑞克绿漆 · 以太合金 = 海军蓝漆 + 象牙白描线。</p>
+    <p><b>黄铜（T1）也已定稿并进游戏</b>：AAP-64（Adigun A. Polack）调色板的旧黄铜色阶，饱和度提高到 1.45 倍。成熟像素调色板的共同做法是<b>色相随明度偏移</b>：暗部红褐、中间调铜橙、亮部黄金、高光奶黄——之前只用一个色相、又压低饱和度，所以发灰、没有铜味。下面保留了其他几套黄铜 / 铜色阶作对照（AAP-64、Apollo、Endesga 64、Resurrect 64），点卡片可以在整车进阶里比较。</p>
   </header>
   <div class="cbar">
     <span class="lbl">当前选择</span><span class="pickd" id="pickd"></span><button class="btn small" id="copy">复制</button>
@@ -98,8 +98,7 @@
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>黄铜选哪个方向（B1～B6），或者用调配台调一版（调配台默认调给黄铜，改动实时生效），把顶栏「当前选择」和调配台参数复制给我。</li>
-        <li>定下来以后我把黄铜也写进 <code>SA.PAL.mat</code>，游戏里 T1 就有自己的样子了。</li>
+        <li>六档材料都已定稿并进游戏。以后要微调某一档：用调配台调出参数，交给 Opus 更新 <code>SA.PAL.mat</code>。</li>
       </ul>
     </div>
   </section>

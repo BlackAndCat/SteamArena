@@ -894,7 +894,7 @@ SA.SPR = (() => {
     if (o.mt > 1) q.mt = o.mt;
     return q;
   }
-  // ---------- 材料（2026-09-27 定稿，色值在 palette.js 的 SA.PAL.mat，样机 tools/material-lab.html）----------
+  // ---------- 材料（2026-09-27 定稿，T1 黄铜到 T6 以太，色值在 palette.js 的 SA.PAL.mat，样机 tools/material-lab.html）----------
   // 金属像素（冷铁 / 暗铁 / 锈钢）按「阶」换成材料自己的颜色，不混色；黄铜饰件、炉火、水、玻璃、皮革、驾驶员保持原色。
   // 在此之上，每种材料最多再加：瓷漆（只刷模块大面的第 2、3 阶，亮边和斜面仍露金属）、描线（离模块外沿 3px 的 1px 线，自动算）、
   // 只改明度一阶的纹理（熟铁麻点、钢花纹板）、反光方式、四角紧固件（自动认出 rivet() 画的铆钉，只换最靠四个角的各一颗）。
@@ -987,6 +987,7 @@ SA.SPR = (() => {
       const lx = x - ox, ly = y - oy, face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
       if (M.spec === 'matte' && c.lv === 4) out[i] = M.ironC[3];   // 哑光：亮边压一阶
       else if (M.spec === 'crisp' && c.lv === 4 && !isM(x, y - 1) && !isM(x - 1, y)) out[i] = mixC(M.ironC[4], [255, 255, 255], 0.45);   // 受光角一个亮点
+      else if (M.spec === 'soft' && c.lv === 4 && (lx + ly) % 2) out[i] = mixC(M.ironC[3], M.ironC[4], 0.5);   // 柔和：亮边隔一个像素压半阶
       if (M.paintC && face) out[i] = M.paintC[c.lv];
       else if (M.tex && face && fl) { const t = texAt(M.tex, lx, ly); if (t) out[i] = M.ironC[Math.max(0, Math.min(4, c.lv + t))]; }
       if (dist && face && fl && dist[i] === 3) out[i] = M.lineC;
@@ -1027,7 +1028,7 @@ SA.SPR = (() => {
       ctx = cv.getContext('2d');
       DRAW[id](pd.l, pd.t, q);
       attach(id, q, f, pd.l, pd.t);
-      if (q.mt > 1 || matPass) (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 黄铜（T1）是原画；样机页换了处理时 T1 也交给它
+      (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
       cache.set(key, cv);
     }
     return cv;

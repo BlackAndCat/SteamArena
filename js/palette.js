@@ -41,11 +41,18 @@ SA.CAT = {
   ram:       { name: '撞击', plate: SA.PAL.rust[2],  ink: SA.PAL.rust[0],  ui: SA.PAL.rust[2] },
 };
 
-// 材料（T2～T6，2026-09-27 用户定稿，见 tools/material-lab.html）：金属按阶换成这里的颜色，不混色。
+// 材料（T1～T6，2026-09-27 用户定稿，见 tools/material-lab.html）：金属按阶换成这里的颜色，不混色。
 // iron / dark / rust：冷铁 5 阶、暗铁 4 阶、锈钢 4 阶的替换色；paint：瓷漆（只刷模块大面的第 2、3 阶，亮边和斜面仍是金属）；
 // line：离模块外沿 3px 的描线色；trim：黄铜饰件换成的颜色；tex：只改明度的纹理；spec：反光；pin：四角铆钉换成的紧固件。
-// 黄铜（T1）是原画，不在这里。
+// 原画（冷蓝铁 SA.PAL.iron / dark）是所有材料的「源色」：画模块时照常用它，六种材料都从它换过来。
 SA.PAL.mat = {
+  // 黄铜：AAP-64（Adigun A. Polack）调色板的旧黄铜色阶，饱和度提高到 1.45 倍；色相随明度从红褐走到金黄
+  brass: {
+    iron: ['#453831', '#5f4e3f', '#81674d', '#ae8854', '#d4b37e'], dark: ['#1f1916', '#302722', '#453831', '#524338'],
+    rust: ['#392119', '#623527', '#9a5a40', '#c6895c'],
+    paint: null, line: null, trim: null,
+    tex: null, spec: 'soft', pin: 'rivet',
+  },
   // 熟铁：暗、暖灰、哑光，锻打麻点
   iron: {
     iron: ['#201f1d', '#32312f', '#4d4b47', '#67655f', '#84817b'], dark: ['#0e0e0d', '#181716', '#222120', '#2d2c2a'],

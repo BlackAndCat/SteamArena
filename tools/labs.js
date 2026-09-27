@@ -25,8 +25,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
-    { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v6', date: '2026-09-27', status: 'explore',
-      desc: 'T2～T6 已定稿并进游戏；黄铜（T1）改用成熟像素调色板（AAP-64、Apollo、Endesga 64、Resurrect 64）的黄铜 / 铜色阶，7 版点选对比', docs: ['docs/board-opus.md'] },
+    { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v6', date: '2026-09-27', status: 'shipped',
+      desc: 'T1～T6 材料定稿并进游戏（黄铜 AAP-64 旧黄铜提饱和、熟铁、淡青钢花纹板、象牙白漆金描线、布伦瑞克绿漆、海军蓝漆象牙白描线）；保留调配台和黄铜对照', docs: ['docs/board-opus.md'] },
     { id: 'sprites', group: 'spec', url: 'spritesheet.html', name: '模块精灵表', ver: 'live', date: '2026-09-24', status: 'live',
       desc: '全部模块的像素图、外观阶段 × 材料矩阵、改装挂件、炮管后坐与供弹动态帧', docs: ['docs/module-plan.md'] },
     { id: 'cannon-s', group: 'module', url: 'cannon-s-lab.html', name: '小炮 · 造型与材质语法', ver: 'v2', date: '2026-09-27', status: 'explore',

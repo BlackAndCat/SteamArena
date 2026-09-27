@@ -123,7 +123,8 @@ SA.MATLAB = (() => {
   //   AAP-64（Adigun A. Polack）、Apollo（AdamCYounis）、Endesga 64（ENDESGA）、Resurrect 64（Kerrie Lake）
   // 共同点：色相随明度偏移——暗部红褐 / 紫褐，中间调铜橙，亮部黄金，高光奶黄。这正是「铜味」的来源。
   CANDS.brass = [
-    K('B1', '现状原画', '冷蓝铁 + 黄铜饰件（游戏里现在的 T1）', { orig: true }),
+    K('T1定', 'AAP-64 旧黄铜 · 提饱和（定稿）', 'C4 的 AAP-64 旧黄铜色阶，饱和度提高到 1.45 倍，去掉发灰感（2026-09-27 用户定稿）', { ramp: ['#453831', '#5f4e3f', '#81674d', '#ae8854', '#d4b37e'], hi: '#f1d79d', spec: 'soft' }),
+    K('B1', '旧原画', '冷蓝铁 + 黄铜饰件（改版前游戏里的 T1）', { orig: true }),
     K('C1', 'AAP-64 黄铜', 'Adigun Polack 的 AAP-64 调色板里的黄铜色阶：暗部红褐、亮部金黄，最经典的像素黄铜', { ramp: ['#322b28', '#71413b', '#bb7547', '#dba463', '#f4d29c'], hi: '#fef3c0', spec: 'shine' }),
     K('C2', 'Apollo 黄铜', 'AdamCYounis 的 Apollo 调色板：更深、更偏红的黄铜，暗部带紫褐', { ramp: ['#341c27', '#602c2c', '#884b2b', '#be772b', '#de9e41'], hi: '#e8c170', spec: 'shine' }),
     K('C3', 'Endesga 64 紫铜', 'ENDESGA 的 Endesga 64：偏粉橙的紫铜色阶，比黄铜更「红铜」', { ramp: ['#391f21', '#5d2c28', '#8a4836', '#bf6f4a', '#e69c69'], hi: '#f6ca9f', spec: 'shine' }),
@@ -132,7 +133,8 @@ SA.MATLAB = (() => {
     K('C6', 'AAP-64 黄铜 · 铁箍', '同 C1 的黄铜身，但黄铜饰件反过来换成冷铁（铜身铁箍），饰件和机身拉开', { ramp: ['#322b28', '#71413b', '#bb7547', '#dba463', '#f4d29c'], hi: '#fef3c0', spec: 'shine', trim: 'iron' }),
     K('C7', 'Resurrect 64 亮铜（偏艳，作对照）', 'Kerrie Lake 的 Resurrect 64：最亮、最饱和的铜金色阶，放在这里看「太艳」的边界在哪', { ramp: ['#7a3045', '#9e4539', '#cd683d', '#e6904e', '#fbb954'], hi: '#fbff86', spec: 'shine' }),
   ];
-  const sel = { brass: 'B1', iron: 'I1', steel: 'S定', nickel: 'N定', wootz: 'W定', aether: 'E定' };
+  FINAL.brass = CANDS.brass[0];
+  const sel = { brass: 'T1定', iron: 'I1', steel: 'S定', nickel: 'N定', wootz: 'W定', aether: 'E定' };
   let pins = 'corner', override = null;
   const pick = (key) => override || (CANDS[key] || []).find(c => c.id === sel[key]);
 
