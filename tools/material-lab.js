@@ -44,8 +44,8 @@ SA.MATLAB = (() => {
 
   // ---------- 预设 ----------
   const TONE = { dark: [9, 15, 25, 38, 55], mid: [14, 24, 38, 54, 75], light: [22, 36, 56, 74, 91], iron: [12, 19, 29, 39, 50] };
-  const TRIMS = { brass: null, copper: ['#4a2014', '#8c4526', '#c26a3e', '#e8a07a'], rosegold: ['#4d2a24', '#93594c', '#cf8f7c', '#f0c3b0'], palegold: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'] };
-  const TRIM_NAME = { brass: '黄铜', copper: '紫铜', rosegold: '玫瑰金', palegold: '淡金' };
+  const TRIMS = { brass: null, iron: [P.iron[0], P.iron[2], P.iron[3], P.iron[4]], copper: ['#4a2014', '#8c4526', '#c26a3e', '#e8a07a'], rosegold: ['#4d2a24', '#93594c', '#cf8f7c', '#f0c3b0'], palegold: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'] };
+  const TRIM_NAME = { brass: '黄铜', iron: '冷铁', copper: '紫铜', rosegold: '玫瑰金', palegold: '淡金' };
   // 维多利亚瓷漆：h 色相、s 饱和度、k 相对金属明度的深浅（< 1 更深）
   const PAINTS = {
     crimson: { name: '深红（米德兰）', h: 352, s: 42, k: 0.72 },
@@ -65,9 +65,10 @@ SA.MATLAB = (() => {
   function build(c) {
     c.L = c.L || TONE[c.tone || 'mid'];
     const w = c.wash || { h: 210, s: 0 };
-    c.iron = c.L.map((l, i) => hsl(w.h, i === 4 ? w.s * 0.8 : w.s, l));
+    c.iron = c.ramp ? c.ramp.map(rgbOf) : c.L.map((l, i) => hsl(w.h, i === 4 ? w.s * 0.8 : w.s, l));
     const dl = [c.L[0] * 0.45, c.L[0] * 0.75, c.L[0] * 1.08, (c.L[0] + c.L[1]) * 0.55];
-    c.dark = dl.map(l => hsl(w.h, w.s * 0.9, l));
+    c.dark = c.ramp ? [mix(c.iron[0], [0, 0, 0], 0.55), mix(c.iron[0], [0, 0, 0], 0.3), c.iron[0], mix(c.iron[0], c.iron[1], 0.5)] : dl.map(l => hsl(w.h, w.s * 0.9, l));
+    c.hiC = c.hi ? rgbOf(c.hi) : null;
     c.rust = P.rust.map(h => { const x = rgbOf(h), Lx = lum(x); let b = 0; c.iron.forEach((v, i) => { if (Math.abs(lum(v) - Lx) < Math.abs(lum(c.iron[b]) - Lx)) b = i; }); return mix(x, c.iron[b], 0.3); });
     if (c.paint) { const p = typeof c.paint === 'string' ? PAINTS[c.paint] : c.paint; c.paintC = c.L.map(l => hsl(p.h, p.s, Math.min(92, l * p.k))); }
     else c.paintC = null;
@@ -118,13 +119,18 @@ SA.MATLAB = (() => {
   };
   for (const k of ['steel', 'nickel', 'wootz', 'aether']) CANDS[k].unshift(FINAL[k]);
   // ---------- 黄铜（T1）：最初的零件，要有自己的语言 ----------
+  // 色阶取自 Lospec 上常用的成熟像素调色板（冷铁 0～4 阶依次替换成下面 5 色，hi 是受光角的高光）：
+  //   AAP-64（Adigun A. Polack）、Apollo（AdamCYounis）、Endesga 64（ENDESGA）、Resurrect 64（Kerrie Lake）
+  // 共同点：色相随明度偏移——暗部红褐 / 紫褐，中间调铜橙，亮部黄金，高光奶黄。这正是「铜味」的来源。
   CANDS.brass = [
     K('B1', '现状原画', '冷蓝铁 + 黄铜饰件（游戏里现在的 T1）', { orig: true }),
-    K('B2', '黄铜包边', '铁身不变，所有受光亮边都换成黄铜——「铜包边」的学徒件', { orig: false, L: [15, 23, 34, 49, 69], wash: { h: 220, s: 12 }, rim: true, spec: 'crisp' }),
-    K('B3', '铁红底漆', '大面是还没上面漆的铁红色底漆（刚出车间的新零件），金属边是生铁', { tone: 'mid', wash: { h: 215, s: 8 }, paint: { h: 12, s: 34, k: 0.82 }, spec: 'matte' }),
-    K('B4', '铸铜', '整件是暗铸青铜色（低饱和），麻点，像铸造出来的粗坯', { tone: 'mid', wash: { h: 30, s: 20 }, tex: 'pits', spec: 'soft' }),
-    K('B5', '生铁 · 黄铜描线', '中性生铁 + 一道黄铜细线：黄铜只在线上', { tone: 'mid', wash: { h: 210, s: 6 }, line: '#b08a3a' }),   // 描线用比饰件暗一点的黄铜色
-    K('B6', '黄铜本色', '整件带淡黄铜色的金属（比饰件暗、饱和度低，饰件仍然最亮）', { tone: 'mid', wash: { h: 40, s: 18 }, spec: 'soft' }),
+    K('C1', 'AAP-64 黄铜', 'Adigun Polack 的 AAP-64 调色板里的黄铜色阶：暗部红褐、亮部金黄，最经典的像素黄铜', { ramp: ['#322b28', '#71413b', '#bb7547', '#dba463', '#f4d29c'], hi: '#fef3c0', spec: 'shine' }),
+    K('C2', 'Apollo 黄铜', 'AdamCYounis 的 Apollo 调色板：更深、更偏红的黄铜，暗部带紫褐', { ramp: ['#341c27', '#602c2c', '#884b2b', '#be772b', '#de9e41'], hi: '#e8c170', spec: 'shine' }),
+    K('C3', 'Endesga 64 紫铜', 'ENDESGA 的 Endesga 64：偏粉橙的紫铜色阶，比黄铜更「红铜」', { ramp: ['#391f21', '#5d2c28', '#8a4836', '#bf6f4a', '#e69c69'], hi: '#f6ca9f', spec: 'shine' }),
+    K('C4', 'AAP-64 旧黄铜', 'AAP-64 里去饱和的旧黄铜 / 卡其色阶：像用久了的黄铜，最克制', { ramp: ['#423934', '#5a4e44', '#796755', '#a08662', '#c7b08b'], hi: '#e4d2aa', spec: 'soft' }),
+    K('C5', 'Apollo 青铜', 'Apollo 里低饱和的青铜 / 皮革色阶：偏暗的古铜', { ramp: ['#4d2b32', '#7a4841', '#ad7757', '#c09473', '#d7b594'], hi: '#e7d5b3', spec: 'shine' }),
+    K('C6', 'AAP-64 黄铜 · 铁箍', '同 C1 的黄铜身，但黄铜饰件反过来换成冷铁（铜身铁箍），饰件和机身拉开', { ramp: ['#322b28', '#71413b', '#bb7547', '#dba463', '#f4d29c'], hi: '#fef3c0', spec: 'shine', trim: 'iron' }),
+    K('C7', 'Resurrect 64 亮铜（偏艳，作对照）', 'Kerrie Lake 的 Resurrect 64：最亮、最饱和的铜金色阶，放在这里看「太艳」的边界在哪', { ramp: ['#7a3045', '#9e4539', '#cd683d', '#e6904e', '#fbb954'], hi: '#fbff86', spec: 'shine' }),
   ];
   const sel = { brass: 'B1', iron: 'I1', steel: 'S定', nickel: 'N定', wootz: 'W定', aether: 'E定' };
   let pins = 'corner', override = null;
@@ -210,6 +216,7 @@ SA.MATLAB = (() => {
       else if (M.spec === 'crisp' && corner) out[i] = mix(M.iron[4], [255, 255, 255], 0.45);
       else if (M.spec === 'glint' && corner) out[i] = rgbOf(P.white);
       else if (M.spec === 'soft' && c.lv === 4 && (lx + ly) % 2) out[i] = mix(M.iron[3], M.iron[4], 0.5);
+      else if (M.spec === 'shine' && corner) out[i] = M.hiC || rgbOf(P.white);
       if (M.paintC && face) {
         out[i] = M.paintC[c.lv];
       } else if (M.tex && face && fl) {
