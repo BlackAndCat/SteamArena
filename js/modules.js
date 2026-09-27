@@ -153,13 +153,13 @@ SA.MODULES = {
   },
   tank_s: {
     name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1,
-    price: 20, hp: 28, power: 0, water: 12, cool: 1, kg: 75, q: 1,
-    desc: '只占一个小格的水罐：水 12、每秒冷却 1。',
+    price: 20, hp: 28, power: 0, water: 36, cool: 1, kg: 75, q: 1,
+    desc: '只占一个小格的水罐：水 36、每秒冷却 1。',
   },
   tank_tall: {
     name: '水罐', cat: 'cooling', layer: 'body', w: 1, h: 2,
-    price: 38, hp: 52, power: 0, water: 25, cool: 2, kg: 150, q: 1,
-    desc: '竖着的细水罐，占 1×2 小格：水 25、每秒冷却 2，塞进缝里正好。',
+    price: 38, hp: 52, power: 0, water: 75, cool: 2, kg: 150, q: 1,
+    desc: '竖着的细水罐，占 1×2 小格：水 75、每秒冷却 2，塞进缝里正好。',
   },
   // 已取消：功能并入驾驶员人数。定义留着给旧存档 / 旧分享码解码，读进来一律换成联合驾驶舱（SA.RETIRED）
   copilot: {
