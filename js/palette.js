@@ -67,11 +67,11 @@ SA.PAL.mat = {
     paint: null, line: null, trim: null,
     tex: 'checker', spec: 'crisp', pin: 'bolt',
   },
-  // 镀镍：象牙白瓷漆 + 金色描线 + 淡金饰件
+  // 镀镍：象牙白瓷漆 + 淡金饰件（描线已关）
   nickel: {
     iron: ['#252422', '#403e3b', '#65625d', '#8e8b85', '#c1c0bd'], dark: ['#11100f', '#1c1b1a', '#282725', '#373633'],
     rust: ['#301b15', '#60362a', '#915945', '#bc8a6b'],
-    paint: ['#3a3423', '#63593c', '#9c8d60', '#c5bca1', '#efede6'], line: '#d9a441', trim: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'],
+    paint: ['#3a3423', '#63593c', '#9c8d60', '#c5bca1', '#efede6'], line: null, trim: ['#4a4128', '#8c7d4e', '#c9b882', '#eee3bd'],   // 描线（原 #d9a441 金）按直射火炮定稿关掉：线条太多会显得「高级」
     tex: null, spec: 'crisp', pin: 'gold',
   },
   // 乌兹钢：暗钢边 + 布伦瑞克绿瓷漆
@@ -81,11 +81,11 @@ SA.PAL.mat = {
     paint: ['#0a120e', '#111f18', '#1c3328', '#2a4e3c', '#3d7157'], line: null, trim: null,
     tex: null, spec: 'crisp', pin: 'gold',
   },
-  // 以太合金：海军蓝瓷漆 + 象牙白描线
+  // 以太合金：海军蓝瓷漆（描线已关）
   aether: {
     iron: ['#222325', '#3b3c40', '#5d6065', '#85888e', '#bdbfc1'], dark: ['#0f1011', '#1a1a1c', '#252628', '#333537'],
     rust: ['#2f1b16', '#5f362b', '#8f5847', '#ba896e'],
-    paint: ['#0f131e', '#192133', '#283451', '#384a72', '#4e669f'], line: '#e8dcb8', trim: null,
+    paint: ['#0f131e', '#192133', '#283451', '#384a72', '#4e669f'], line: null, trim: null,   // 描线（原 #e8dcb8 象牙白）同上关掉
     tex: null, spec: 'crisp', pin: 'gold',
   },
 };

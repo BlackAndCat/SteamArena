@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直射火炮 · 高阶造型语言</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  table.mx { border-collapse: collapse; }
+  table.mx th { font-size: 12px; padding: 4px 6px; }
+  table.mx th.rh { text-align: right; vertical-align: middle; min-width: 150px; max-width: 220px; line-height: 1.45; }
+  table.mx th.rh small { display: block; font-weight: 400; color: var(--muted); }
+  table.mx td { padding: 3px; text-align: center; vertical-align: middle; }
+  table.mx canvas { background: var(--bg2); display: inline-block; }
+  .scroll { overflow-x: auto; }
+  .parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  .part { padding: 10px 12px; }
+  .part b { color: var(--brass3); font-size: 14px; }
+  .part p { margin: 4px 0 8px; font-size: 12px; line-height: 1.55; color: var(--iron4); }
+  .part .row { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; background: var(--bg2); padding: 6px; }
+  .rules { margin: 0; padding-left: 20px; line-height: 1.85; font-size: 13px; max-width: 90em; }
+  .rules b { color: var(--brass3); }
+  .rec { padding: 14px 16px; line-height: 1.8; font-size: 13.5px; }
+  .rec h3 { margin: 0 0 6px; color: var(--brass3); font-size: 15px; }
+  .rec ul, .rec ol { margin: 4px 0 10px; padding-left: 22px; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>直射火炮 · 高阶造型语言 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v3 · 2026-09-27</small></h1>
+    <p><b>问题：</b>镀镍起，描线 + 越来越复杂的造型让零件脱离了蒸汽朋克、显得「高级」；乌兹钢的圆顶和圆润线条像外星科技；以太的线路 + 圆润 + 看不清的细节，又难认又太科幻。</p>
+    <p><b>v3（按反馈）：</b>包角铁从钢开始；接缝铆钉 T1～3 黄铜色、镀镍起换成钢质淡青；铭牌改成<b>珐琅铭牌</b>（深色底 + 黄铜边和刻字），放在象牙白上也分得开；钢 / 镀镍的炮口重做成<b>连在一起的阶梯式方形制退器</b>；压力表放大（直径 11），镀镍起就有。铆钉、铭牌、压力表在材质处理之后才画，颜色由档位规则决定，不会被换色吃掉。</p>
+    <p><b>v2：</b>定方案 A，保留铭牌、铆钉、包角铁、压力表、铁箍。上一版零件乱放、压住散热口、铭牌没有固定位置——这一版先定<b>排布规则</b>：炮塔侧面露出来的那块立面按上下分区（接缝线 → 散热区 → 铭牌区），角上是包角位，上层炮廓左侧是表位，每区只放一类东西、互相留 1 像素空隙。<b>散热口也是语言</b>：T1～2 两道横槽 → T3～4 三道 → T5 双列 → T6 斜百叶。造型：<b>T1～T4 方方正正，T5～T6 自带斜向板</b>。</p>
+    <p><b>v1 的思路：</b>① 造型只用直线：第三阶段不再用圆顶和刻槽，改成<b>阶梯式炮廓 + 铁箍炮身 + 方形制退器</b>（维多利亚工业建筑和早期火炮的语言）。② 高阶身份交给一套<b>可复用的装饰零件</b>：铭牌、包角铁、铆钉排、顶饰、檐口线脚、徽记、压力表、铁箍。每件都小、直、放在固定挂点上，其他模块也能直接用。③ <b>每档只换或只加一件</b>，不靠堆细节。④ 材质颜色用已定稿的六档（和游戏一致），描线可以在顶栏关掉对比。</p>
+  </header>
+  <div class="cbar">
+    <span class="lbl">描线</span><span class="seg" id="line"><button class="btn small" data-v="on">开（游戏现状）</button><button class="btn small on" data-v="off">关</button></span>
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
+    <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button></span>
+  </div>
+
+  <section>
+    <h2 class="sec">排布规则 <small>A v2 · 6× · 彩色框是分区，右边是六档</small></h2>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <canvas id="zones"></canvas>
+      <div id="zlegend" style="font-size:13px;line-height:2"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">散热口排法 <small>档位越高越多，排法也变 · 3×</small></h2>
+    <div class="scroll"><table class="mx" id="vents"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">方案对比 <small>T1 → T6 · 每行一个方案 · 材质用定稿色</small></h2>
+    <p class="lead">第一行游戏现状，第二行 A v1，第三行按排布规则和这一轮反馈改的 A v3。每格下面的小图是 1× 实机大小。</p>
+    <div class="scroll"><table class="mx" id="schemes"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">放进车体 <small>2× · 上：现状　下：A v2（同材质的装甲 + 锅炉放在旁边）</small></h2>
+    <div class="scroll"><table class="mx" id="ctx"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">可复用的装饰零件 <small>4× 放在一块铁板上 · 下面一行是六档材质下的样子（2×）</small></h2>
+    <p class="lead">零件按原画的冷铁 + 黄铜画：铁的部分（包角铁、铆钉、铁箍、檐口）跟着材料换色，黄铜的部分（铭牌、徽记、顶饰、压力表）保持黄铜（镀镍的饰件是淡金）。每件都有固定的挂点，其他模块照着同样的位置放。</p>
+    <div class="parts" id="parts"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">规则草案</h2>
+    <ol class="rules">
+      <li><b>只用直线和直角。</b>高阶不再出现圆顶、弧形炮廓、刻槽、喇叭口；圆只用在耳轴、压力表、顶饰这种本来就圆的小零件上。</li>
+      <li><b>每档只换或只加一件零件。</b>高阶靠「更好的那一件」，不靠更多的细节。</li>
+      <li><b>零件有固定挂点。</b>铭牌 / 徽记在最大平面的左下，包角铁在外沿角上，铆钉排在顶接缝，顶饰在最高点，檐口在顶边。</li>
+      <li><b>黄铜件是身份，铁件是结构。</b>铭牌、徽记、顶饰是黄铜（醒目），角铁、铆钉、铁箍是铁（跟材料走、不抢戏）。</li>
+      <li><b>描线可选。</b>瓷漆本身已经足够区分材料，描线会让画面变复杂；建议关掉，或者只留给最高一档。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2 class="sec">需要你决定</h2>
+    <div class="panel rec">
+      <ul>
+        <li>A v2 的排布规则、散热口排法、「T1～4 方正 / T5～6 斜板」是否 OK。</li>
+        <li>描线是全部关掉，还是只留给以太（现在按顶栏开关，默认关）。</li>
+        <li>OK 的话我把直射火炮的六档造型写进游戏（阶段按材料一档一变），零件做成公共画法，再按同样的分区推到其他模块。</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="cand-kit.js"></script>
+<script src="material-lab.js"></script>
+<script src="cannon-lab.js"></script>
+<script src="labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, K = SA.CNLAB, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { line: false, mode: 'color', zoom: 3 };
+  const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
+  // 材质：用定稿配置（和游戏一致）；描线关掉时去掉 line
+  function candFor(mt, lineOn) {
+    const base = L.FINAL[KEYS[mt]];
+    return lineOn || !base.line ? base : L.build({ ...base, line: null });
+  }
+  function applyMat(cv, mt, ox, oy, lineOn = st.line) {
+    L.setOverride(candFor(mt, lineOn)); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null);
+    return cv;
+  }
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  const OX = 4, OY = 10;
+  function a2Cv(tier, mt, lineOn) {
+    const c = document.createElement('canvas'); c.width = OX + 48 + 36; c.height = OY + 48 + 4;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 48, 48);
+    if (!mt) { K.drawA2(g, OX, OY, tier, {}); return c; }
+    K.drawA2Base(g, OX, OY, tier, {});
+    applyMat(c, mt, OX, OY, lineOn);
+    K.drawA2Over(c.getContext('2d'), OX, OY, tier);   // 铆钉、铭牌、压力表在材质之后画，颜色不被换掉
+    return c;
+  }
+  // 排布规则图：原画（T6 的样子）放大 6 倍，上面叠分区框
+  function renderZones() {
+    const z = 6, src = a2Cv(K.TIERS_A2[5], 0), cv = $('zones');
+    cv.width = src.width * z; cv.height = src.height * z;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, cv.width, cv.height);
+    const leg = $('zlegend'); leg.replaceChildren();
+    for (const [name, col, ...rects] of K.ZONES_VIEW) {
+      g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([6, 3]);
+      for (const f of rects) { const [x, y, w, h] = f(OX, OY); g.strokeRect(x * z + 1, y * z + 1, w * z - 2, h * z - 2); }
+      const sw = el('span', { style: `display:inline-block;width:14px;height:10px;border:2px dashed ${col};margin-right:8px;vertical-align:middle` });
+      leg.append(el('div', {}, sw, name));
+    }
+    leg.append(el('div', { className: 'note', style: 'margin-top:8px;max-width:30em;line-height:1.7' }, '规则：每区只放一类东西；零件之间、零件和散热口之间至少空 1 像素；铆钉只打在接缝下沿、等距；包角铁只在炮座露出来的三个角；压力表只在最高档、上层炮廓左侧；炮组那块永远不放东西。'));
+  }
+  function renderVents() {
+    const T = $('vents'); T.replaceChildren(el('tr', {}, ...K.TIERS_A2.map((t, i) => { const th = el('th', {}, `T${i + 1} ${SA.MATS[i + 1].name} · ${{ rows: '横槽', grid: '双列', louver: '斜百叶' }[t.vent[0]]} ×${t.vent[1]}`); th.style.color = SA.MATS[i + 1].chip; return th; })));
+    T.append(el('tr', {}, ...K.TIERS_A2.map((t, i) => {
+      const c = document.createElement('canvas'); c.width = 30; c.height = 22; const g = c.getContext('2d');
+      const tmp = a2Cv({ ...t, parts: [], riv: [0, 'brass'] }, i + 1, false);
+      g.drawImage(tmp, OX + 4, OY + 18, 26, 18, 2, 2, 26, 18);
+      return el('td', {}, show(c, st.zoom));
+    })));
+  }
+  // 一门炮：原画画好 → 套材质
+  function cannonCv(tier, mt, lineOn) {
+    const [h, b, parts] = tier, c = document.createElement('canvas'); c.width = OX + 48 + 36; c.height = OY + 48 + 4;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 48, 48);
+    K.drawCannon(g, OX, OY, h, b, parts, {});
+    return applyMat(c, mt, OX, OY, lineOn);
+  }
+  const head = () => el('tr', {}, el('th'), ...[1, 2, 3, 4, 5, 6].map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }));
+  function renderSchemes() {
+    const T = $('schemes'); T.replaceChildren(head());
+    for (const sc of K.SCHEMES.filter(x => x.id === 'now' || x.id === 'A')) {
+      T.append(el('tr', {}, el('th', { className: 'rh' }, sc.name, el('small', {}, sc.note)),
+        ...sc.tiers.map((t, i) => { const cv = cannonCv(t, i + 1, st.line); return el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1)); })));
+    }
+    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v3 · 排布规则', el('small', {}, '分区摆放；散热口 2 → 3 → 双列 → 斜百叶；T1～4 方正、T5～6 斜板；包角铁钢起；铆钉黄铜 → 镀镍起钢质淡青；珐琅铭牌 + 大压力表镀镍起')),
+      ...K.TIERS_A2.map((t, i) => { const cv = a2Cv(t, i + 1, st.line); return el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1)); })));
+  }
+  // 车体片段：装甲（游戏画法）+ 锅炉 + 这门炮，同一种材料
+  function chunk(tier, mt, a2) {
+    const c = document.createElement('canvas'); c.width = 4 + 96 + 48 + 36; c.height = 10 + 48 + 4;
+    const g = c.getContext('2d');
+    g.fillStyle = P.iron[0]; g.fillRect(3, 9, 146, 50); g.fillStyle = P.iron[1]; g.fillRect(4, 10, 144, 48);
+    // 每个游戏模块单独拿原画（不套材质），再和炮用同一套材质处理，描线和四角钉按模块各算各的
+    for (const [id, dx, o] of [['armor', 0, {}], ['boiler', 48, { heat: 0.6, t: 0.3 }]]) {
+      const m = document.createElement('canvas'); m.width = 56; m.height = 64; const mg = m.getContext('2d');
+      SA.SPR.setMatPass(() => {}); SA.SPR.drawModule(mg, id, 4, 10, o); SA.SPR.setMatPass(null);
+      applyMat(m, mt, 4, 10); g.drawImage(m, dx, 0);
+    }
+    const gunC = a2 ? a2Cv(tier, mt, st.line) : cannonCv(tier, mt, st.line); g.drawImage(gunC, 96, 0);
+    return c;
+  }
+  function renderCtx() {
+    const T = $('ctx'); T.replaceChildren(head());
+    T.append(el('tr', {}, el('th', { className: 'rh' }, K.SCHEMES[0].name), ...K.SCHEMES[0].tiers.map((t, i) => el('td', {}, show(chunk(t, i + 1, false), 2)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, 'A v3 · 排布规则'), ...K.TIERS_A2.map((t, i) => el('td', {}, show(chunk(t, i + 1, true), 2)))));
+  }
+  function renderParts() {
+    const box = $('parts'); box.replaceChildren();
+    const DRAW = {
+      plate: (x, y) => K.PARTS.plate(x + 7, y + 8), corner: (x, y) => { K.PARTS.corner(x + 2, y + 2, 1, 1); K.PARTS.corner(x + 17, y + 17, -1, -1); },
+      rivets: (x, y) => K.PARTS.rivets(x + 2, y + 10, 4), finial: (x, y) => K.PARTS.finial(x + 11, y + 12), cornice: (x, y) => K.PARTS.cornice(x + 2, y + 4, 20),
+      crest: (x, y) => K.PARTS.crest(x + 7, y + 6), gauge: (x, y) => K.PARTS.gauge(x + 12, y + 12), hoops: (x, y) => { SA.CAND.tube(x + 1, y + 8, 22, 8); K.PARTS.hoops(x + 4, y + 8, 8, 3); },
+    };
+    for (const [id, name, desc, size] of K.PART_INFO) {
+      const mk = (mt) => {
+        const c = document.createElement('canvas'); c.width = 32; c.height = 32; const g = c.getContext('2d');
+        SA.CAND.use(g); SA.CAND.box(4, 6, 24, 24, SA.CAND.IRON);
+        DRAW[id](4, 6);
+        return mt > 1 || mt === 1 ? applyMat(c, mt, 4, 6) : c;
+      };
+      box.append(el('div', { className: 'panel part' }, el('b', {}, name), el('span', { className: 'lbl', style: 'margin-left:8px;font-size:11px;color:var(--muted)' }, size),
+        el('p', {}, desc), el('div', { className: 'row' }, show(mk(0), 4), ...[1, 2, 3, 4, 5, 6].map(mt => show(mk(mt), 2)))));
+    }
+  }
+  function renderAll() { renderZones(); renderVents(); renderSchemes(); renderCtx(); renderParts(); }
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
+  seg($('line'), v => st.line = v === 'on');
+  seg($('mode'), v => st.mode = v);
+  seg($('zoom'), v => st.zoom = +v);
+  renderAll();
+  window.__cnReady = true;
+})();
+</script></body></html>

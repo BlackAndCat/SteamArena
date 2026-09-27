@@ -113,9 +113,9 @@ SA.MATLAB = (() => {
   const FINAL = {
     iron: CANDS.iron[0],
     steel: K('S定', '淡青钢 · 花纹板', '淡青钢 + 放稀的花纹板（8px 一格），六角螺栓', { tone: 'mid', wash: { h: 190, s: 8 }, tex: 'checker', pin: 'bolt' }),
-    nickel: K('N定', '象牙白漆 · 金描线', '象牙白瓷漆 + 金色描线 + 淡金饰件', { tone: 'mid', wash: { h: 40, s: 4 }, paint: 'ivory', line: 'gold', trim: 'palegold', pin: 'gold' }),
+    nickel: K('N定', '象牙白漆 · 金描线', '象牙白瓷漆 + 金色描线 + 淡金饰件', { tone: 'mid', wash: { h: 40, s: 4 }, paint: 'ivory', trim: 'palegold', pin: 'gold' }),   // 描线 2026-09-27 关掉（和游戏一致）
     wootz: K('W定', '布伦瑞克绿漆', '暗钢边 + 布伦瑞克绿瓷漆，金销', { tone: 'dark', wash: { h: 215, s: 4 }, paint: 'brunswick', pin: 'gold' }),
-    aether: K('E定', '海军蓝漆 · 象牙白描线', '海军蓝瓷漆 + 象牙白（奶白）描线，金钉', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'navy', line: 'cream', pin: 'gold' }),
+    aether: K('E定', '海军蓝漆 · 象牙白描线', '海军蓝瓷漆 + 象牙白（奶白）描线，金钉', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'navy', pin: 'gold' }),   // 描线 2026-09-27 关掉（和游戏一致）
   };
   for (const k of ['steel', 'nickel', 'wootz', 'aether']) CANDS[k].unshift(FINAL[k]);
   // ---------- 黄铜（T1）：最初的零件，要有自己的语言 ----------
