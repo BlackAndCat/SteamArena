@@ -123,7 +123,7 @@ SA.MATLAB = (() => {
     K('B2', '黄铜包边', '铁身不变，所有受光亮边都换成黄铜——「铜包边」的学徒件', { orig: false, L: [15, 23, 34, 49, 69], wash: { h: 220, s: 12 }, rim: true, spec: 'crisp' }),
     K('B3', '铁红底漆', '大面是还没上面漆的铁红色底漆（刚出车间的新零件），金属边是生铁', { tone: 'mid', wash: { h: 215, s: 8 }, paint: { h: 12, s: 34, k: 0.82 }, spec: 'matte' }),
     K('B4', '铸铜', '整件是暗铸青铜色（低饱和），麻点，像铸造出来的粗坯', { tone: 'mid', wash: { h: 30, s: 20 }, tex: 'pits', spec: 'soft' }),
-    K('B5', '生铁 · 黄铜描线', '中性生铁 + 一道黄铜细线：黄铜只在线上', { tone: 'mid', wash: { h: 210, s: 6 }, line: '#b08a3a' }),
+    K('B5', '生铁 · 黄铜描线', '中性生铁 + 一道黄铜细线：黄铜只在线上', { tone: 'mid', wash: { h: 210, s: 6 }, line: '#b08a3a' }),   // 描线用比饰件暗一点的黄铜色
     K('B6', '黄铜本色', '整件带淡黄铜色的金属（比饰件暗、饱和度低，饰件仍然最亮）', { tone: 'mid', wash: { h: 40, s: 18 }, spec: 'soft' }),
   ];
   const sel = { brass: 'B1', iron: 'I1', steel: 'S定', nickel: 'N定', wootz: 'W定', aether: 'E定' };
@@ -142,7 +142,7 @@ SA.MATLAB = (() => {
     const t = [];
     if (c.wash && c.wash.s) t.push(`本色 ${Math.round(c.wash.h)}° ${c.wash.s}%`);
     if (c.paint) t.push(`漆面 ${typeof c.paint === 'string' ? PAINTS[c.paint].name : c.paint.h + '°'}`);
-    if (c.line) t.push(`${LINES[c.line] ? LINES[c.line][0] : c.line}描线`);
+    if (c.line) t.push(`${LINES[c.line] ? LINES[c.line][0] : '自定色'}描线`);
     if (c.tex) t.push(TEX_NAME[c.tex]);
     if (c.trim && c.trim !== 'brass') t.push(`饰件 ${TRIM_NAME[c.trim]}`);
     t.push(PIN_NAME[c.pin]);

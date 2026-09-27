@@ -162,7 +162,7 @@
       const c = el('div', { className: 'panel card' + (click && cand.id === L.sel[key] ? ' on' : '') },
         el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`)),
         el('div', { className: 'd' }, cand.desc), el('div', { className: 'prev' }, ...preview(cand, mtOf(key))),
-        el('div', { className: 'tags' }, cand.orig ? '游戏里现在的 T1 原画' : [swatch(cand), L.describe(cand)]));
+        el('div', { className: 'tags' }, ...(cand.orig ? ['游戏里现在的 T1 原画'] : [swatch(cand), L.describe(cand)])));
       if (click) c.onclick = () => { L.sel[key] = cand.id; save(); renderPicker(); renderProg(); };
       else c.style.cursor = 'default';
       return c;
