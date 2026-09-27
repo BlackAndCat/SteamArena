@@ -450,7 +450,7 @@ SA.SPR = (() => {
   // 转动只在 4 个对称帧之间切换：齿相位 0 / 半齿 × 辐条正 / 斜。齿轮画在 UNDER[id]（材质处理之后垫在最后面），颜色固定真黄铜。
   const GEAR_SPEC = {
     S: { D: 10, n: 8, tw: 2, rim: 0, hub: 1.6, sw: 0, spokes: 0, tone: 2 },
-    M: { D: 14, n: 8, tw: 2, rim: 2, hub: 2.2, sw: 2, spokes: 4, tone: 3 },
+    M: { D: 14, n: 8, tw: 2, rim: 2, hub: 2.2, sw: 2, spokes: 4, tone: 2 },
     L: { D: 18, n: 12, tw: 2, rim: 2, hub: 2.8, sw: 2, spokes: 4, tone: 2 },
     XL: { D: 24, n: 16, tw: 2, rim: 3, hub: 3.6, sw: 4, spokes: 4, tone: 1 },
   };
@@ -476,18 +476,49 @@ SA.SPR = (() => {
       return 0;
     };
   }
-  const gearCache = new Map();   // 1/8 扇区的遮罩按（尺寸, 帧）缓存
-  PART.gear = (cx, cy, size, frame = 0) => {
-    const sp = GEAR_SPEC[size], h = sp.D / 2, key = size + frame;
-    let cells = gearCache.get(key);
-    if (!cells) {
-      const m = gearSymMask(sp, frame); cells = [];
-      for (let j = 0; j < h; j++) for (let i = j; i < h; i++) { const v = m(i + 0.5, j + 0.5); if (v) cells.push([i, j, v]); }
-      gearCache.set(key, cells);
+  // 金属感（v7，用户：纯色做底图不错，在此基础上加高光和阴影，但不要硬描边）：形状仍然 8 向对称，只在颜色上加光——
+  //   ① 斜面：朝左上的边（上 / 左是空的）亮一阶，朝右下的边暗一阶——是本色的邻阶，不是深色描边；
+  //   ② 轮缘 + 齿：左上一段弧亮一阶（再叠斜面就是最亮的高光），右下一段弧暗一阶；
+  //   ③ 轮毂：比本体亮一阶，左上一个更亮的高光点；轴孔最深。暗部最低只到本色下一阶，不出现描边色。
+  // 1/8 扇区镜像成整张 D×D 网格（0 空 / 1 本体 / 2 轮毂 / 3 轴孔）
+  function gearGrid(sp, frame) {
+    const m = gearSymMask(sp, frame), D = sp.D, h = D / 2, g = new Uint8Array(D * D);
+    for (let j = 0; j < h; j++) for (let i = j; i < h; i++) {
+      const v = m(i + 0.5, j + 0.5);
+      if (!v) continue;
+      for (const [a, b] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1]) g[(sy > 0 ? h + b : h - b - 1) * D + (sx > 0 ? h + a : h - a - 1)] = v;
     }
-    const col = [null, P.brass[sp.tone], sp.tone === 3 ? P.brass[1] : P.brass[3], P.brass[0]];
-    for (const [i, j, v] of cells) for (const [a0, b0] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1])
-      R(cx + (sx > 0 ? a0 : -a0 - 1), cy + (sy > 0 ? b0 : -b0 - 1), 1, 1, col[v]);
+    return g;
+  }
+  // 按网格上色，返回 [[dx, dy, 颜色], ...]（dx / dy 相对圆心左上角）
+  function gearPaint(sp, g) {
+    const D = sp.D, h = D / 2, base = sp.tone, rimIn = h - 2 - sp.rim - 0.5, out = [];
+    const RAMP = [P.brass[0], P.brass[1], P.brass[2], P.brass[3], '#f6dc92'];
+    const at = (i, j) => (i < 0 || j < 0 || i >= D || j >= D) ? 0 : g[j * D + i];
+    for (let j = 0; j < D; j++) for (let i = 0; i < D; i++) {
+      const v = g[j * D + i];
+      if (!v) continue;
+      const ox = i + 0.5 - h, oy = j + 0.5 - h, d = Math.hypot(ox, oy), nd = (ox + oy) / (d * Math.SQRT2 || 1);
+      let k;
+      if (v === 3) k = 0;
+      else if (v === 2) k = base + 1 + (ox + oy < -1 ? 1 : 0) - ((at(i + 1, j) !== 2 || at(i, j + 1) !== 2) && ox + oy > 0 ? 1 : 0);
+      else {
+        let s = 0;
+        if (!sp.spokes || d > rimIn) s += nd < -0.55 ? 1 : nd > 0.55 ? -1 : 0;          // 轮缘 / 齿的弧光
+        const lit = !at(i, j - 1) || !at(i - 1, j), dark = !at(i, j + 1) || !at(i + 1, j);
+        if (lit && !dark) s += 1; else if (dark && !lit) s -= 1;                          // 斜面
+        k = base + Math.max(-1, Math.min(2, s));
+      }
+      out.push([i - h, j - h, RAMP[Math.max(1, Math.min(4, k))]]);
+      if (v === 3) out[out.length - 1][2] = RAMP[0];
+    }
+    return out;
+  }
+  const gearCache = new Map();   // 上好色的像素表，按（尺寸, 帧）缓存
+  PART.gear = (cx, cy, size, frame = 0) => {
+    const sp = GEAR_SPEC[size], key = size + frame;
+    if (!gearCache.has(key)) gearCache.set(key, gearPaint(sp, gearGrid(sp, frame)));
+    for (const [dx, dy, c] of gearCache.get(key)) R(cx + dx, cy + dy, 1, 1, c);
   };
   // 预制齿轮组：超大（D24，一整个 24px 块）在最后，大、中、小依次叠在前面咬合；(x, y) = 超大齿轮圆心。
   // 在 destination-over 下画，先画的在前面：小 → 中 → 大 → 超大
@@ -904,7 +935,15 @@ SA.SPR = (() => {
         bolted(x + 41, y + (o.up >= 3 ? 22 : 30), 6, o.up >= 3 ? 18 : 10);
         if (o.up >= 2) bolted(x + 1, y + 30, 6, 10);
       }
-      mortarTube(x + 24, y + 30, o.a == null ? 55 : o.a, rcPx('mortar', o.k), T, (o.k || 0) >= 7);
+      const ang = o.a == null ? 55 : o.a, rk = rcPx('mortar', o.k);
+      mortarTube(x + 24, y + 30, ang, rk, T, (o.k || 0) >= 7);
+      {   // 传动示意：左侧大齿轮轮毂的曲柄销 → 炮管背面的吊耳（随仰角摆）
+        const ar = ang * Math.PI / 180, u = 12 - rk, v = -8.5;
+        const lx = Math.round(x + 24 + Math.cos(ar) * u + Math.sin(ar) * v), ly = Math.round(y + 30 - Math.sin(ar) * u + Math.cos(ar) * v);
+        line(x + 10, y + 29, lx, ly, 3, P.iron[0]); line(x + 10, y + 29, lx, ly, 1, P.iron[3]);
+        disc(lx + 0.5, ly + 0.5, 2, P.brass[0]); disc(lx + 0.5, ly + 0.5, 1.2, P.brass[2]);
+        disc(x + 10, y + 29, 2.2, P.brass[0]); disc(x + 10, y + 29, 1.3, P.brass[3]);
+      }
       MORTAR_CHEEK[T.cheek](x, y);
       trunnionBolt(x + 24, y + 30);
     },

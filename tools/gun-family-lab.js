@@ -364,7 +364,7 @@ SA.GFLAB = (() => {
     L: { D: 18, n: 12, tw: 2, rim: 2, hub: 2.8, sw: 2, spokes: 4 },
     XL: { D: 24, n: 16, tw: 2, rim: 3, hub: 3.6, sw: 4, spokes: 4 },
   };
-  const GEAR_TONE = { XL: 1, L: 2, M: 3, S: 2 };   // 在后面的大齿轮暗、在前面的小齿轮亮，叠在一起也分得开
+  const GEAR_TONE = { XL: 1, L: 2, M: 2, S: 2 };   // 最后面的超大齿轮暗一阶；其余同一本色，叠在一起靠各自的斜面光分开
   function gearSymMask(sp, frame) {
     const R0 = sp.D / 2, rb = R0 - 2, half = (frame & 1) ? 0.5 : 0, diag = (frame & 2) ? Math.PI / 4 : 0;
     return (ox, oy) => {                     // ox ≥ oy ≥ 0（1/8 扇区）
@@ -388,18 +388,49 @@ SA.GFLAB = (() => {
     };
   }
   // (cx, cy) = 圆心（像素角，整数）；size = 'S' | 'M' | 'L' | 'XL'；frame = 0～3
-  function gearSym(cx, cy, size, frame = 0) {
-    const sp = GEAR_SPEC[size], m = gearSymMask(sp, frame), h = sp.D / 2;
-    const col = [null, P.brass[GEAR_TONE[size]], P.brass[3], P.brass[0]];
-    if (GEAR_TONE[size] === 3) col[2] = P.brass[1];                       // 最亮的那只：轮毂反过来用暗色
-    for (let j = 0; j < h; j++) for (let i = j; i < h; i++) {             // 1/8 扇区：i ≥ j
+  // 金属感（v7，用户：纯色做底图不错，在此基础上加高光和阴影，但不要硬描边）：形状仍然 8 向对称，只在颜色上加光——
+  //   ① 斜面：朝左上的边（上 / 左是空的）亮一阶，朝右下的边暗一阶——是本色的邻阶，不是深色描边；
+  //   ② 轮缘 + 齿：左上一段弧亮一阶（再叠斜面就是最亮的高光），右下一段弧暗一阶；
+  //   ③ 轮毂：比本体亮一阶，左上一个更亮的高光点；轴孔最深。暗部最低只到本色下一阶，不出现描边色。
+  // 1/8 扇区镜像成整张 D×D 网格（0 空 / 1 本体 / 2 轮毂 / 3 轴孔）
+  function gearGrid(sp, frame) {
+    const m = gearSymMask(sp, frame), D = sp.D, h = D / 2, g = new Uint8Array(D * D);
+    for (let j = 0; j < h; j++) for (let i = j; i < h; i++) {
       const v = m(i + 0.5, j + 0.5);
       if (!v) continue;
-      const c = col[v];
-      for (const [a, b] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1]) {
-        px(cx + (sx > 0 ? a : -a - 1), cy + (sy > 0 ? b : -b - 1), c);
-      }
+      for (const [a, b] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1]) g[(sy > 0 ? h + b : h - b - 1) * D + (sx > 0 ? h + a : h - a - 1)] = v;
     }
+    return g;
+  }
+  // 按网格上色，返回 [[dx, dy, 颜色], ...]（dx / dy 相对圆心左上角）
+  function gearPaint(sp, g) {
+    const D = sp.D, h = D / 2, base = sp.tone, rimIn = h - 2 - sp.rim - 0.5, out = [];
+    const RAMP = [P.brass[0], P.brass[1], P.brass[2], P.brass[3], '#f6dc92'];
+    const at = (i, j) => (i < 0 || j < 0 || i >= D || j >= D) ? 0 : g[j * D + i];
+    for (let j = 0; j < D; j++) for (let i = 0; i < D; i++) {
+      const v = g[j * D + i];
+      if (!v) continue;
+      const ox = i + 0.5 - h, oy = j + 0.5 - h, d = Math.hypot(ox, oy), nd = (ox + oy) / (d * Math.SQRT2 || 1);
+      let k;
+      if (v === 3) k = 0;
+      else if (v === 2) k = base + 1 + (ox + oy < -1 ? 1 : 0) - ((at(i + 1, j) !== 2 || at(i, j + 1) !== 2) && ox + oy > 0 ? 1 : 0);
+      else {
+        let s = 0;
+        if (!sp.spokes || d > rimIn) s += nd < -0.55 ? 1 : nd > 0.55 ? -1 : 0;          // 轮缘 / 齿的弧光
+        const lit = !at(i, j - 1) || !at(i - 1, j), dark = !at(i, j + 1) || !at(i + 1, j);
+        if (lit && !dark) s += 1; else if (dark && !lit) s -= 1;                          // 斜面
+        k = base + Math.max(-1, Math.min(2, s));
+      }
+      out.push([i - h, j - h, RAMP[Math.max(1, Math.min(4, k))]]);
+      if (v === 3) out[out.length - 1][2] = RAMP[0];
+    }
+    return out;
+  }
+  const gearPainted = new Map();
+  function gearSym(cx, cy, size, frame = 0) {
+    const sp = Object.assign({ tone: GEAR_TONE[size] }, GEAR_SPEC[size]), key = size + frame;
+    if (!gearPainted.has(key)) gearPainted.set(key, gearPaint(sp, gearGrid(sp, frame)));
+    for (const [dx, dy, c] of gearPainted.get(key)) px(cx + dx, cy + dy, c);
   }
   // 预制齿轮组：大（r 14，6 辐）在后，中（r 9，十字 4 辐）、小（r 6，实心环 + 轮毂）叠在它前面并咬合。(x, y) = 大齿轮中心。
   // 画的顺序配合 destination-over：先画的在前面（小 → 中 → 大）
@@ -569,6 +600,18 @@ SA.GFLAB = (() => {
     }
     if ((o.k || 0) >= 0.85) for (let t = 25; t < 31; t++) { const w = Math.max(1, 5 - (t - 25) * 0.7); for (let q = -w; q <= w; q++) px(Math.round(cx + cs * (t - d) + sn * q), Math.round(cy - sn * (t - d) + cs * q), t < 28 ? P.fire[3] : P.fire[2]); }
   }
+  // 传动示意（v2，用户：臼炮和齿轮没联动）：左侧大齿轮轮毂上的曲柄销 → 炮管背面的吊耳，一根直连杆；
+  // 仰角变了吊耳跟着炮管走、连杆跟着摆，看得出是齿轮在推炮管
+  function moLug(x, y, o) {
+    const a = (o.a == null ? 55 : o.a) * Math.PI / 180, d = Math.round((o.k || 0) * 6), u = 12 - d, v = -8.5;
+    return [Math.round(x + MP.x + Math.cos(a) * u + Math.sin(a) * v), Math.round(y + MP.y - Math.sin(a) * u + Math.cos(a) * v)];
+  }
+  function moLink(x, y, o) {
+    const [lx, ly] = moLug(x, y, o);
+    line(x + 10, y + 29, lx, ly, 3, P.iron[0]); line(x + 10, y + 29, lx, ly, 1, P.iron[3]);
+    disc(lx + 0.5, ly + 0.5, 2, P.brass[0]); disc(lx + 0.5, ly + 0.5, 1.2, P.brass[2]);        // 炮管上的吊耳
+    disc(x + 10, y + 29, 2.2, P.brass[0]); disc(x + 10, y + 29, 1.3, P.brass[3]);             // 齿轮轮毂上的曲柄销
+  }
   function moBase(g, x, y, T, o = {}) {
     SA.CAND.use(g);
     MO_BED[T.bed](x, y);
@@ -576,6 +619,7 @@ SA.GFLAB = (() => {
     vents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
     if (T.corners) { corner(x + 2, y + 42, 1, -1); corner(x + (T.bed === 'slant' ? 40 : 41), y + 42, -1, -1); }
     moTube(x, y, o, T);
+    moLink(x, y, o);
     MO_CHEEK[T.cheek](x, y);
     R(x + MP.x - 2, y + MP.y - 2, 5, 5, P.brass[0]); R(x + MP.x - 1, y + MP.y - 1, 3, 3, P.brass[3]); px(x + MP.x, y + MP.y, P.brass[0]);   // 方形固定螺栓（炮耳）
   }
@@ -606,7 +650,7 @@ SA.GFLAB = (() => {
   }
   const MO_ZONES_VIEW = [
     ['炮管（越往炮口越粗）+ 炮口朝天', '#8f8a80', (x, y) => [x + 20, y + 4, 22, 30]],
-    ['两侧活动大齿轮（随仰角转）', '#f5d77a', (x, y) => [x + 0, y + 18, 48, 20]],
+    ['两侧活动大齿轮（随仰角转）+ 连杆推炮管', '#f5d77a', (x, y) => [x + 0, y + 14, 48, 24]],
     ['炮耳座（画在炮管前面）', '#c9a0ff', (x, y) => [x + 16, y + 25, 17, 12]],
     ['散热区（炮床正面左段）', '#46c2c9', (x, y) => [x + 5, y + 39, 12, 5]],
     ['铆钉（炮床上沿右段）', '#6fcf6a', (x, y) => [x + 31, y + 35, 12, 4]],
