@@ -776,7 +776,9 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
       // 这里仍要求兜底车辆携带奖励件，只增加有限的确定性重试，避免偶然布局失败中断整章生成。
       let fallback = minimalVehicle(SA, spec, forced);
       if (!fallback && forced) {
-        for (let retry = 0; retry < 24 && !fallback; retry++) {
+        // 奖励件有时需要多次随机旋转和落点尝试；增加重试上限只影响极少数初始化失败，
+        // 不改变已生成候选的固定种子顺序，也避免偶发的整章中断。
+        for (let retry = 0; retry < 128 && !fallback; retry++) {
           const retryRng = new RNG(rng.int(0x7fffffff) + retry + 1);
           fallback = randomVehicle(SA, spec, retryRng, forced);
         }
@@ -827,7 +829,7 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
     if (v) population.push(v);
     else {
       let fallback = minimalVehicle(SA, spec, forced);
-      if (!fallback && forced) for (let retry = 0; retry < 24 && !fallback; retry++) fallback = randomVehicle(SA, spec, new RNG(rng.int(0x7fffffff) + retry + 1), forced);
+      if (!fallback && forced) for (let retry = 0; retry < 128 && !fallback; retry++) fallback = randomVehicle(SA, spec, new RNG(rng.int(0x7fffffff) + retry + 1), forced);
       if (fallback) population.push(fallback); else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有可用的最小合法车辆`);
     }
   }

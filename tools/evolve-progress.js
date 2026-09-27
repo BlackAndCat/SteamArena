@@ -28,12 +28,14 @@ function chineseProgress(event) {
 
 function create(options = {}) {
   const directory = path.resolve(options.directory || DEFAULT_OUT);
-  fs.mkdirSync(directory, { recursive: true });
+  const ensureDirectory = () => fs.mkdirSync(directory, { recursive: true });
+  ensureDirectory();
   const logFile = path.join(directory, 'evolve-progress.jsonl'), liveFile = path.join(directory, 'evolve-live.json');
   fs.writeFileSync(logFile, '', 'utf8');
   let logBytes = 0, truncated = false;
   function onProgress(event) {
     if (!event || typeof event !== 'object') return;
+    ensureDirectory();
     const line = `${JSON.stringify(event)}\n`, bytes = Buffer.byteLength(line, 'utf8');
     if (!truncated && logBytes + bytes > LOG_LIMIT) {
       const marker = `${JSON.stringify({ phase: 'truncated', truncated: true, limitBytes: LOG_LIMIT, elapsedMs: event.elapsedMs })}\n`;
@@ -43,6 +45,7 @@ function create(options = {}) {
     console.log(chineseProgress(event));
   }
   function onCheckpoint(report) {
+    ensureDirectory();
     const content = JSON.stringify(report, null, 2), bytes = Buffer.byteLength(content, 'utf8');
     if (bytes > CHECKPOINT_LIMIT) throw new Error(`进化检查点超过上限：${bytes} > ${CHECKPOINT_LIMIT} 字节`);
     atomicWrite(liveFile, content);
