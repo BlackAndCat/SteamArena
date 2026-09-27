@@ -294,20 +294,20 @@
     const check = SA.StageCars.validate(preview, state.ci, state.si, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
 
-    // 统一走规则层保存接口：服务器可用时写入 js/stage-cars.js；不可用时由接口复制降级文本，
-    // 但当前页面仍立即应用这辆车，避免把“已复制待粘贴”误报成按钮报错。
+    // 统一走规则层保存接口：先写浏览器本机存档并广播给正式游戏页，再尽力同步 js/stage-cars.js。
     const result = await SA.Camp.dev.saveStageCar(state.ci, state.si, meta);
     if (!result || !result.record) throw new Error('保存接口没有返回关卡车记录');
     const records = { ...(SA.STAGE_CARS.records || {}), [result.record.id]: result.record };
     SA.STAGE_CARS.records = records;
     if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
-    return { ...result, check, persisted: Number.isFinite(result.response) && result.response >= 200 && result.response < 300 };
+    return { ...result, check };
   }
 
   function saveNotice(result, action) {
     const warning = result.check?.warnings?.length ? `\n警告：${result.check.warnings.join('；')}` : '';
-    if (result.persisted) return `已${action}，并写入 js/stage-cars.js。正式游戏重新载入后会使用这辆车。${warning}`;
-    return `已${action}到当前页面，但本机写入服务器不可用。记录已复制到剪贴板，请启动 python tools/serve.py 后再按一次保存，正式游戏才能在重新载入后保留。${warning}`;
+    if (result.filePersisted) return `已${action}，同时写入 js/stage-cars.js；正式游戏已立即应用，无需重启。${warning}`;
+    if (result.localPersisted || result.channelSent) return `已${action}到本机存档，正式游戏已立即应用，无需启动写入服务或重启。${warning}`;
+    return `已${action}到当前页面，但浏览器禁止本机存档；保持正式游戏页面打开即可看到本次修改，关闭页面后不会保留。${warning}`;
   }
 
   function testVehicle() {

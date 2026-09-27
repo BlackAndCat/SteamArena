@@ -2,6 +2,91 @@
 // 数据在 content.js 的 SA.CAMPAIGN；存档在 SA.S.d.camp
 window.SA = window.SA || {};
 
+// 关卡车先保存到浏览器本机存档，再尽力同步到 js/stage-cars.js。
+// 这样直接打开 index.html 时也能立即把工作台结果同步到已打开的正式游戏页，
+// 不把本地工具服务器当成保存功能的前置条件。
+const STAGE_CARS_LOCAL_KEY = 'steam_arena_stage_cars_local_v1';
+const STAGE_CARS_CHANNEL_NAME = 'steam-arena-stage-cars';
+let stageCarsChannel = null;
+
+function readLocalStageCars(text) {
+  try {
+    const raw = text === undefined
+      ? (typeof localStorage === 'undefined' ? '' : localStorage.getItem(STAGE_CARS_LOCAL_KEY))
+      : text;
+    if (!raw) return null;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object' || !parsed.records || typeof parsed.records !== 'object' || Array.isArray(parsed.records)) return null;
+    return { version: 1, records: parsed.records, updatedAt: parsed.updatedAt || null };
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyLocalStageCars(payload) {
+  if (!SA.STAGE_CARS || !SA.StageCars) return { ok: false, count: 0 };
+  if (!SA.__STAGE_CARS_FILE_RECORDS) SA.__STAGE_CARS_FILE_RECORDS = { ...(SA.STAGE_CARS.records || {}) };
+  const local = arguments.length ? payload : readLocalStageCars();
+  SA.STAGE_CARS.records = { ...SA.__STAGE_CARS_FILE_RECORDS, ...(local?.records || {}) };
+  if (typeof SA.StageCars.applyToCampaign === 'function') SA.StageCars.applyToCampaign();
+  return { ok: !!local, count: Object.keys(local?.records || {}).length };
+}
+
+function refreshStageCarsScreen() {
+  // 正式游戏正在战役列表时立即重画；战斗中不强行切屏，下一次进入战役会读到新车。
+  if (SA.current === 'arena' && SA.Arena?.open) SA.Arena.open(undefined, true);
+  else if (SA.current === 'garage' && SA.Editor?.open) SA.Editor.open();
+  if (SA.UI?.topbar) SA.UI.topbar();
+}
+
+function openStageCarsChannel() {
+  if (stageCarsChannel || typeof BroadcastChannel !== 'function') return stageCarsChannel;
+  try {
+    stageCarsChannel = new BroadcastChannel(STAGE_CARS_CHANNEL_NAME);
+    stageCarsChannel.onmessage = event => {
+      if (event.data?.type !== 'replace') return;
+      applyLocalStageCars(event.data.payload || null);
+      refreshStageCarsScreen();
+    };
+  } catch (error) {
+    stageCarsChannel = null;
+  }
+  return stageCarsChannel;
+}
+
+function saveLocalStageCars(records) {
+  const payload = { version: 1, records, updatedAt: new Date().toISOString() };
+  let localPersisted = false;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STAGE_CARS_LOCAL_KEY, JSON.stringify(payload));
+      localPersisted = true;
+    }
+  } catch (error) {
+    // 隐私模式或 file:// 策略禁止 localStorage 时，仍尝试用同源频道同步已打开的正式游戏页。
+  }
+  const channel = openStageCarsChannel();
+  let channelSent = false;
+  try {
+    if (channel) { channel.postMessage({ type: 'replace', payload }); channelSent = true; }
+  } catch (error) {
+    channelSent = false;
+  }
+  applyLocalStageCars(payload);
+  return { localPersisted, channelSent, payload };
+}
+
+function installStageCarsLocalSync() {
+  if (typeof window === 'undefined' || window.__SA_STAGE_CARS_LOCAL_SYNC__) return;
+  window.__SA_STAGE_CARS_LOCAL_SYNC__ = true;
+  openStageCarsChannel();
+  window.addEventListener('storage', event => {
+    if (event.key !== STAGE_CARS_LOCAL_KEY) return;
+    applyLocalStageCars(readLocalStageCars(event.newValue));
+    refreshStageCarsScreen();
+  });
+}
+
 SA.Camp = (() => {
   const M = SA.MODULES;
   const d = () => SA.S.d;
@@ -214,24 +299,26 @@ SA.Camp = (() => {
     if (!check.ok) throw new Error(`关卡车不能保存：${check.errors.join('；')}`);
     if (check.warnings.length) console.warn(`关卡车保存警告（允许保存）：${check.warnings.join('；')}`);
     const payload = { version: 1, records: { ...(SA.STAGE_CARS.records || {}), [record.id]: record } };
+    // 先落浏览器本机存档并广播，正式游戏页无需重启就能看到这辆车。
+    const local = saveLocalStageCars(payload.records);
     let response = null;
-    try {
+    let filePersisted = false;
+    let serverError = null;
+    // file:// 页面没有可写的 HTTP 接口，直接跳过请求，避免保存按钮等待或弹出降级文本。
+    const canWriteFile = typeof location === 'undefined' || !['file:', 'about:'].includes(location.protocol);
+    if (canWriteFile) try {
       response = await fetch('/__stage-cars/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      SA.STAGE_CARS.records = payload.records;
-      if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+      filePersisted = true;
     } catch (error) {
-      const text = `window.SA.STAGE_CARS.records = ${JSON.stringify(payload.records, null, 2)};\nif (window.SA.StageCars && window.SA.StageCars.data) window.SA.StageCars.data.records = window.SA.STAGE_CARS.records;`;
-      try { if (typeof navigator !== 'undefined' && navigator.clipboard) await navigator.clipboard.writeText(text); } catch (copyError) { /* 没有剪贴板时仍返回文本 */ }
-      console.warn(`本地服务器不可用，请把下面内容粘贴进 js/stage-cars.js：\n${text}`, error);
-      record.saveFallback = text;
+      serverError = error;
+      console.info('关卡车已保存到浏览器本机；未同步 js/stage-cars.js。', error);
     }
-    // 即使服务器暂时不可用，也把当前页的战役对象更新到手工车，方便继续检查和试驾；
-    // 持久化状态由 response 是否为 2xx 单独标记，避免界面把降级复制提示当成异常。
-    SA.STAGE_CARS.records = payload.records;
-    if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+    // 无论文件同步是否成功，都把当前页的战役对象更新到手工车。
+    applyLocalStageCars(local.payload);
     return { record, stats: check.stats, warnings: check.warnings, response: response && response.status,
-      persisted: !!(response && response.ok), fallback: record.saveFallback || null };
+      persisted: local.localPersisted || filePersisted, localPersisted: local.localPersisted,
+      channelSent: local.channelSent, filePersisted, serverError };
   }
 
   const dev = {
@@ -259,3 +346,10 @@ SA.Camp = (() => {
   return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
 })();
 SA.dev = SA.Camp.dev;
+if (SA.StageCars) {
+  SA.StageCars.localKey = STAGE_CARS_LOCAL_KEY;
+  SA.StageCars.applyLocal = applyLocalStageCars;
+  SA.StageCars.saveLocal = saveLocalStageCars;
+  applyLocalStageCars();
+  installStageCarsLocalSync();
+}
