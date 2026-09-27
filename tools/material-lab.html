@@ -55,31 +55,18 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">第四轮 · 漆面、描线与精细纹理 · 2026-09-27</small></h1>
-    <p>上一轮的问题：乌兹钢的晕染和彩色油光显得廉价；杂色斑脏；亮边染色看不出来；暗部 / 亮部染色分不出区别。这一轮全部去掉，换成区分度更强、也更「维多利亚机器」的三种手法：</p>
-    <p><b>① 漆面</b>——模块的大面刷一层深色瓷漆，受光的亮边和斜面仍露出金属，像蒸汽机车的涂装（布伦瑞克绿、米德兰深红、海军蓝、黑漆……）；<b>② 描线</b>——离模块外沿 3 像素处一道 1 像素的金 / 奶白 / 朱红细线，自动算出来，不用逐个模块画；<b>③ 精细纹理</b>——细大马士革、机刻纹、花纹板、珍珠纹，只改明度、不带颜色，所以不会「油」。</p>
-    <p>层级思路（配好的方案按这个排）：<b>钢 = 金属本色</b>（掺一点青）→ <b>镀镍 = 亮银 + 精加工纹理</b> → <b>乌兹钢 = 暗钢 + 细纹，开始上漆和描线</b> → <b>以太 = 整套瓷漆涂装 + 金描线</b>。熟铁保留。都不发光。</p>
+    <h1>材质语言 v2 <small style="font-size:13px;color:var(--muted);letter-spacing:0">第五轮 · 定稿 + 黄铜的语言 · 2026-09-27</small></h1>
+    <p><b>已定稿并接进游戏</b>（<code>js/palette.js</code> 的 <code>SA.PAL.mat</code> + <code>js/sprites.js</code> 的材质处理）：熟铁（保留）· 钢 = 淡青 + 放稀的花纹板 · 镀镍 = 象牙白漆 + 金描线 · 乌兹钢 = 布伦瑞克绿漆 · 以太合金 = 海军蓝漆 + 象牙白描线。</p>
+    <p><b>这一轮要定的是黄铜（T1）</b>：它是玩家最早拿到的零件，现在只是「冷蓝铁 + 黄铜饰件」的原画，没有自己的语言。下面给了 6 个方向，点卡片就能在整车进阶里看到它和后面五档放在一起的效果；也可以用调配台（默认调给黄铜）。</p>
   </header>
   <div class="cbar">
     <span class="lbl">当前选择</span><span class="pickd" id="pickd"></span><button class="btn small" id="copy">复制</button>
     <span class="lbl">紧固件</span><span class="seg" id="pins"><button class="btn small on" data-v="corner">只换四角</button><button class="btn small" data-v="all">全部</button><button class="btn small" data-v="off">不换</button></span>
-    <button class="btn small on" id="cmp">并排对照现状：开</button>
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
   </div>
 
   <section>
-    <h2 class="sec">漆面与描线测试 <small>9 种维多利亚瓷漆 × 4 种用法 · 装甲 + 直射火炮（2×）</small></h2>
-    <p class="lead">第一行只刷漆；第二行刷漆再加金描线；第三行不刷漆，只在金属上加同色系的描线；最后一行是上一轮的「金属本色掺色」做参照。</p>
-    <div class="scroll"><table class="mx" id="test"></table></div>
-  </section>
-
-  <section>
-    <h2 class="sec">纹理测试 <small>只改明度一阶、不带颜色 · 三种金属底色</small></h2>
-    <div class="scroll"><table class="mx" id="tex"></table></div>
-  </section>
-
-  <section>
-    <h2 class="sec">配好的方案 <small>点卡片选中；整车 + 装甲、火炮、锅炉（2×）</small></h2>
+    <h2 class="sec">黄铜（T1）的方向 + 已定稿的五档 <small>黄铜点卡片选中；后面五档是定稿，只供对照</small></h2>
     <div id="picker"></div>
   </section>
 
@@ -93,7 +80,7 @@
 
   <section>
     <h2 class="sec">T1 → T6 整车进阶 <small id="progCap"></small></h2>
-    <p class="lead">同一辆车换六种材料，上排现状、下排当前选择。黄铜是原画，不参与材质处理。</p>
+    <p class="lead">同一辆车换六种材料：第一列是当前选中的黄铜方向，后五列是定稿（和游戏里一致）。</p>
     <div class="scroll"><table class="mx" id="cars"></table></div>
   </section>
 
@@ -111,9 +98,8 @@
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>漆面 / 描线 / 纹理这三种手法，哪些可以用、用在哪一级。</li>
-        <li>各材料选哪张卡，或者用调配台调（调配台的改动会直接变成该材料的选择），把顶栏「当前选择」和调配台下面的参数复制给我。</li>
-        <li>紧固件：只换四角（推荐）/ 全部 / 不换。</li>
+        <li>黄铜选哪个方向（B1～B6），或者用调配台调一版（调配台默认调给黄铜，改动实时生效），把顶栏「当前选择」和调配台参数复制给我。</li>
+        <li>定下来以后我把黄铜也写进 <code>SA.PAL.mat</code>，游戏里 T1 就有自己的样子了。</li>
       </ul>
     </div>
   </section>
@@ -128,13 +114,13 @@
 (() => {
   const L = SA.MATLAB, P = SA.PAL, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
-  const st = { cmp: true, mode: 'color' };
-  const MTS = [1, 2, 3, 4, 5, 6], KEYS = ['steel', 'nickel', 'wootz', 'aether'];
+  const st = { mode: 'color' };
+  const MTS = [1, 2, 3, 4, 5, 6], KEYS = ['brass', 'steel', 'nickel', 'wootz', 'aether'];
   const mtOf = (key) => SA.MATS.findIndex(x => x && x.key === key);
   const nameOf = (key) => SA.MATS[mtOf(key)].name;
-  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel4') || '{}'); for (const k of KEYS) if (s[k] && L.CANDS[k].some(c => c.id === s[k])) L.sel[k] = s[k]; } catch (e) {}
-  const save = () => { try { localStorage.setItem('sa.matlab.sel4', JSON.stringify(L.sel)); } catch (e) {} };
-  const pickText = () => KEYS.map(k => `${nameOf(k)} ${L.sel[k]}（${L.pick(k).name}）`).join(' · ') + ` · 紧固件：${{ corner: '只换四角', all: '全部', off: '不换' }[L.getPins()]}`;
+  try { const s = JSON.parse(localStorage.getItem('sa.matlab.sel5') || '{}'); if (s.brass && L.CANDS.brass.some(c => c.id === s.brass)) L.sel.brass = s.brass; } catch (e) {}
+  const save = () => { try { localStorage.setItem('sa.matlab.sel5', JSON.stringify({ brass: L.sel.brass })); } catch (e) {} };
+  const pickText = () => `黄铜 ${L.sel.brass}（${L.pick('brass').name}）· 其余五档为定稿`;
 
   function gray(src) {
     if (st.mode !== 'gray') return src;
@@ -169,50 +155,25 @@
   const swatch = (c) => el('span', { className: 'sw' }, ...c.swatch.map(h => { const i = el('i'); i.style.background = h; return i; }));
   const pair = (cand) => withCand(cand, () => [show(modCanvas('armor', 3), 2), show(modCanvas('cannon', 3), 2)]);
 
-  // ---------- 漆面与描线测试 ----------
-  const PK = Object.keys(L.PAINTS);
-  function renderTest() {
-    const T = $('test'); T.replaceChildren(el('tr', {}, el('th'), ...PK.map(k => { const p = L.PAINTS[k], th = el('th', {}, p.name); th.style.color = `hsl(${p.h} ${Math.max(30, p.s)}% ${k === 'black' ? 70 : 62}%)`; return th; })));
-    const rows = [
-      ['只刷漆', '大面瓷漆，亮边露金属', (k) => ({ tone: 'mid', wash: { h: 220, s: 4 }, paint: k })],
-      ['刷漆 + 金描线', '再加一道金色细线', (k) => ({ tone: 'mid', wash: { h: 220, s: 4 }, paint: k, line: 'gold' })],
-      ['金属 + 同色描线', '不刷漆，只在金属上描一道该色细线', (k) => { const p = L.PAINTS[k]; return { tone: 'mid', wash: { h: 220, s: 4 }, line: `hsl(${p.h},${Math.max(35, p.s + 10)}%,${k === 'black' ? 12 : 58}%)` }; }],
-      ['金属本色掺色（参照）', '上一轮的做法，整条色阶带 14% 的色相', (k) => ({ tone: 'mid', wash: { h: L.PAINTS[k].h, s: k === 'black' || k === 'ivory' ? 4 : 14 } })],
-    ];
-    for (const [name, desc, mk] of rows) T.append(el('tr', {}, el('th', { className: 'rh' }, name, el('small', {}, desc)), ...PK.map(k => {
-      const o = mk(k); if (o.line && o.line.startsWith('hsl')) o.line = hslHex(o.line);
-      return el('td', {}, el('div', {}, ...pair(L.build({ id: 'T', name: 't', pin: 'rivet', ...o }))));
-    })));
-  }
-  function hslHex(s) { const m = s.match(/hsl\(([\d.]+),([\d.]+)%,([\d.]+)%\)/), c = document.createElement('canvas').getContext('2d'); c.fillStyle = `hsl(${m[1]} ${m[2]}% ${m[3]}%)`; return c.fillStyle; }
-  // ---------- 纹理测试 ----------
-  function renderTex() {
-    const bases = [['淡青钢（中）', { tone: 'mid', wash: { h: 190, s: 8 } }], ['亮银（亮）', { tone: 'light', wash: { h: 40, s: 5 }, spec: 'glint' }], ['暗钢（暗）', { tone: 'dark', wash: { h: 215, s: 4 } }]];
-    const T = $('tex'); T.replaceChildren(el('tr', {}, el('th'), ...bases.map(([n]) => el('th', {}, n))));
-    for (const tex of [null, 'damascus', 'guilloche', 'checker', 'perlage', 'brushed', 'pits'])
-      T.append(el('tr', {}, el('th', { className: 'rh' }, tex ? L.TEX_NAME[tex] : '无纹理'), ...bases.map(([, b]) => el('td', {}, el('div', {}, ...pair(L.build({ id: 'T', name: 't', pin: 'rivet', ...b, tex })))))));
-  }
-
   // ---------- 方案卡片 ----------
   function renderPicker() {
     const box = $('picker'); box.replaceChildren();
-    for (const key of ['iron', ...KEYS]) {
-      const mt = mtOf(key), row = el('div', { className: 'cards' });
-      for (const cand of L.CANDS[key]) {
-        const card = el('div', { className: 'panel card' + (cand.id === L.sel[key] ? ' on' : '') },
-          el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`)),
-          el('div', { className: 'd' }, cand.desc), el('div', { className: 'prev' }, ...preview(cand, mt)),
-          el('div', { className: 'tags' }, swatch(cand), L.describe(cand)));
-        if (key !== 'iron') card.onclick = () => { L.sel[key] = cand.id; save(); renderPicker(); renderProg(); };
-        row.append(card);
-      }
-      const name = el('span', {}, nameOf(key)); name.style.color = SA.MATS[mt].chip;
-      box.append(el('div', { className: 'mlrow' }, el('h3', {}, name), row));
-    }
+    const card = (key, cand, click) => {
+      const c = el('div', { className: 'panel card' + (click && cand.id === L.sel[key] ? ' on' : '') },
+        el('div', { className: 't' }, el('b', {}, `${cand.id} · ${cand.name}`)),
+        el('div', { className: 'd' }, cand.desc), el('div', { className: 'prev' }, ...preview(cand, mtOf(key))),
+        el('div', { className: 'tags' }, cand.orig ? '游戏里现在的 T1 原画' : [swatch(cand), L.describe(cand)]));
+      if (click) c.onclick = () => { L.sel[key] = cand.id; save(); renderPicker(); renderProg(); };
+      else c.style.cursor = 'default';
+      return c;
+    };
+    const head = (key, note) => { const n = el('span', {}, nameOf(key)); n.style.color = SA.MATS[mtOf(key)].chip; return el('h3', {}, n, el('span', { className: 'note' }, note)); };
+    box.append(el('div', { className: 'mlrow' }, head('brass', '　T1 · 最初的零件，挑一个方向'), el('div', { className: 'cards' }, ...L.CANDS.brass.map(c => card('brass', c, true)))));
+    box.append(el('div', { className: 'mlrow' }, el('h3', {}, '已定稿', el('span', { className: 'note' }, '　T2～T6，和游戏里一致')), el('div', { className: 'cards' }, ...['iron', 'steel', 'nickel', 'wootz', 'aether'].map(k => card(k, L.FINAL[k], false)))));
   }
 
   // ---------- 调配台：任何改动立即套到所选材料 ----------
-  const mx = { key: 'aether', tone: 'mid', wh: 220, ws: 4, paint: 'black', ph: 222, ps: 34, pk: 62, line: 'gold', tex: '', trim: 'brass', spec: 'crisp', pin: 'gold' };
+  const mx = { key: 'brass', tone: 'mid', wh: 40, ws: 14, paint: '', ph: 12, ps: 34, pk: 82, line: '', tex: '', trim: 'brass', spec: 'soft', pin: 'rivet' };
   function mixCand() {
     const c = { id: `${nameOf(mx.key)}·调配台`, name: '调配台', desc: '调配台调出来的方案（改动实时生效）', tone: mx.tone, wash: { h: mx.wh, s: mx.ws }, spec: mx.spec, pin: mx.pin, trim: mx.trim };
     if (mx.paint === 'custom') c.paint = { h: mx.ph, s: mx.ps, k: mx.pk / 100 }; else if (mx.paint) c.paint = mx.paint;
@@ -249,6 +210,7 @@
   function applyMix(keyChanged) {
     const c = mixCand(), list = L.CANDS[mx.key], i = list.findIndex(x => x.name === '调配台');
     if (i >= 0) list[i] = c; else list.push(c);
+    if (mx.key !== 'brass') L.FINAL[mx.key] = c;   // 调给已定稿的材料时只改这一页的预览，游戏不变
     L.sel[mx.key] = c.id;
     $('mixPrev').replaceChildren(...preview(c, mtOf(mx.key)));
     $('mixLive').textContent = `已套用到「${nameOf(mx.key)}」——下面的整车、模块、新造型会跟着变（方案卡片里也多了一张「调配台」）`;
@@ -261,13 +223,13 @@
 
   // ---------- 进阶 / 模块 / 新造型 ----------
   const head = () => el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, SA.MATS[mt].name); th.style.color = SA.MATS[mt].chip; return th; }));
-  const passes = () => st.cmp ? [false, true] : [true];
+  const passes = () => [true];
   function renderCars() {
     $('progCap').textContent = pickText();
     const T = $('cars'); T.replaceChildren(head());
     for (const bp of BPS) for (const on of passes()) {
       usePass(on);
-      T.append(el('tr', {}, el('th', { className: 'rh' }, bp.name.split(' · ')[1], el('small', {}, on ? '当前选择' : '现状')), ...MTS.map(mt => el('td', {}, show(carCanvas(bp, mt), 2)))));
+      T.append(el('tr', {}, el('th', { className: 'rh' }, bp.name.split(' · ')[1]), ...MTS.map(mt => el('td', {}, show(carCanvas(bp, mt), 2)))));
     }
     usePass(false);
   }
@@ -289,16 +251,15 @@
       ['黄铜望远镜', () => { const s = C.sprite('periscope', cand('periscope', 'B'), {}); return [s, s.ox, s.oy]; }],
       ['万向环', () => { const s = C.sprite('gyroscope', cand('gyroscope', 'A'), { t: 2 }); return [s, s.ox, s.oy]; }],
     ];
-    const apply = (s, ox, oy, mt, on) => { const c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); if (mt > 1) (on ? L.pass : SA.SPR.decorate)(c, SA.MATS[mt], ox, oy, []); return c; };
-    for (const [name, mk] of favs) T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...MTS.map(mt => { const [s, ox, oy] = mk(); return el('td', {}, el('div', {}, ...passes().map(on => show(apply(s, ox, oy, mt, on), 2)))); })));
+    const apply = (s, ox, oy, mt) => { const c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); L.pass(c, SA.MATS[mt], ox, oy, []); return c; };
+    for (const [name, mk] of favs) T.append(el('tr', {}, el('th', { className: 'rh' }, name), ...MTS.map(mt => { const [s, ox, oy] = mk(); return el('td', {}, el("div", {}, show(apply(s, ox, oy, mt), 2))); })));
   }
   function renderProg() { $('pickd').textContent = pickText(); renderCars(); renderMods(); renderFav(); }
-  function renderAll() { renderTest(); renderTex(); renderPicker(); renderProg(); }
+  function renderAll() { renderPicker(); renderProg(); }
 
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('pins'), v => L.setPins(v));
   seg($('mode'), v => st.mode = v);
-  $('cmp').onclick = () => { st.cmp = !st.cmp; $('cmp').textContent = '并排对照现状：' + (st.cmp ? '开' : '关'); $('cmp').classList.toggle('on', st.cmp); renderProg(); };
   $('copy').onclick = () => { try { navigator.clipboard.writeText(pickText() + '\n' + $('mixOut').value); $('copy').textContent = '已复制'; setTimeout(() => $('copy').textContent = '复制', 900); } catch (e) {} };
   buildMixer(); renderAll();
   // 调配台先只画自己的预览，不抢默认选择；动了任何一项才套用

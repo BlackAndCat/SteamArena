@@ -72,6 +72,7 @@ SA.MATLAB = (() => {
     if (c.paint) { const p = typeof c.paint === 'string' ? PAINTS[c.paint] : c.paint; c.paintC = c.L.map(l => hsl(p.h, p.s, Math.min(92, l * p.k))); }
     else c.paintC = null;
     c.lineC = c.line ? rgbOf(LINES[c.line] ? LINES[c.line][1] : c.line) : null;   // line 可以是预设名，也可以直接给色值
+    c.rimC = c.rim ? [P.brass[1], P.brass[3]].map(rgbOf) : null;   // rim：亮边直接换成黄铜（包边）
     c.trimC = c.trim && TRIMS[c.trim] ? TRIMS[c.trim].map(rgbOf) : null;
     c.spec = c.spec || 'crisp'; c.pin = c.pin || 'rivet';
     c.swatch = [...c.iron, ...(c.paintC ? c.paintC.slice(1, 4) : [])].map(hexOf);
@@ -107,7 +108,25 @@ SA.MATLAB = (() => {
       K('E6', '铂银 · 机刻纹 + 金描线', '不上漆：亮铂银 + 机刻纹 + 金描线，金属本身做到最精', { tone: 'light', wash: { h: 210, s: 4 }, tex: 'guilloche', line: 'gold', spec: 'soft', pin: 'gold' }),
     ],
   };
-  const sel = { iron: 'I1', steel: 'S1', nickel: 'N1', wootz: 'W1', aether: 'E1' };
+  // ---------- 定稿（2026-09-27 用户选定）----------
+  const FINAL = {
+    iron: CANDS.iron[0],
+    steel: K('S定', '淡青钢 · 花纹板', '淡青钢 + 放稀的花纹板（8px 一格），六角螺栓', { tone: 'mid', wash: { h: 190, s: 8 }, tex: 'checker', pin: 'bolt' }),
+    nickel: K('N定', '象牙白漆 · 金描线', '象牙白瓷漆 + 金色描线 + 淡金饰件', { tone: 'mid', wash: { h: 40, s: 4 }, paint: 'ivory', line: 'gold', trim: 'palegold', pin: 'gold' }),
+    wootz: K('W定', '布伦瑞克绿漆', '暗钢边 + 布伦瑞克绿瓷漆，金销', { tone: 'dark', wash: { h: 215, s: 4 }, paint: 'brunswick', pin: 'gold' }),
+    aether: K('E定', '海军蓝漆 · 象牙白描线', '海军蓝瓷漆 + 象牙白（奶白）描线，金钉', { tone: 'mid', wash: { h: 220, s: 4 }, paint: 'navy', line: 'cream', pin: 'gold' }),
+  };
+  for (const k of ['steel', 'nickel', 'wootz', 'aether']) CANDS[k].unshift(FINAL[k]);
+  // ---------- 黄铜（T1）：最初的零件，要有自己的语言 ----------
+  CANDS.brass = [
+    K('B1', '现状原画', '冷蓝铁 + 黄铜饰件（游戏里现在的 T1）', { orig: true }),
+    K('B2', '黄铜包边', '铁身不变，所有受光亮边都换成黄铜——「铜包边」的学徒件', { orig: false, L: [15, 23, 34, 49, 69], wash: { h: 220, s: 12 }, rim: true, spec: 'crisp' }),
+    K('B3', '铁红底漆', '大面是还没上面漆的铁红色底漆（刚出车间的新零件），金属边是生铁', { tone: 'mid', wash: { h: 215, s: 8 }, paint: { h: 12, s: 34, k: 0.82 }, spec: 'matte' }),
+    K('B4', '铸铜', '整件是暗铸青铜色（低饱和），麻点，像铸造出来的粗坯', { tone: 'mid', wash: { h: 30, s: 20 }, tex: 'pits', spec: 'soft' }),
+    K('B5', '生铁 · 黄铜描线', '中性生铁 + 一道黄铜细线：黄铜只在线上', { tone: 'mid', wash: { h: 210, s: 6 }, line: '#b08a3a' }),
+    K('B6', '黄铜本色', '整件带淡黄铜色的金属（比饰件暗、饱和度低，饰件仍然最亮）', { tone: 'mid', wash: { h: 40, s: 18 }, spec: 'soft' }),
+  ];
+  const sel = { brass: 'B1', iron: 'I1', steel: 'S定', nickel: 'N定', wootz: 'W定', aether: 'E定' };
   let pins = 'corner', override = null;
   const pick = (key) => override || (CANDS[key] || []).find(c => c.id === sel[key]);
 
@@ -136,7 +155,7 @@ SA.MATLAB = (() => {
       case 'pits': { const h = hash(Math.floor(lx / 4), Math.floor(ly / 4)); return (((lx % 4) + 4) % 4) === h % 4 && (((ly % 4) + 4) % 4) === (h >> 2) % 4 ? (h % 5 === 0 ? 1 : -1) : 0; }
       case 'damascus': { const f = ly + 1.6 * Math.sin(lx * 0.3 + ly * 0.1), fr = ((f / 5) % 1 + 1) % 1; return fr < 0.16 && (hash(lx, ly) % 4) ? 1 : 0; }   // 5px 一道、断续的细线
       case 'guilloche': { const dx = lx - cx, dy = ly - cy, r = Math.sqrt(dx * dx + dy * dy) + 0.7 * Math.sin(Math.atan2(dy, dx) * 8); return ((r / 5) % 1 + 1) % 1 < 0.2 ? 1 : 0; }   // 5px 一圈的同心扭索纹
-      case 'checker': { const u = ((lx % 6) + 6) % 6, v = ((ly % 6) + 6) % 6, alt = (Math.floor(lx / 6) + Math.floor(ly / 6)) % 2; return (alt ? (u === v && u >= 1 && u <= 3) : (u + v === 4 && u >= 1 && u <= 3)) ? 1 : 0; }
+      case 'checker': { const u = ((lx % 8) + 8) % 8, v = ((ly % 8) + 8) % 8, alt = (Math.floor(lx / 8) + Math.floor(ly / 8)) % 2; return (alt ? (u === v && (u === 3 || u === 4)) : (u + v === 7 && (u === 3 || u === 4))) ? 1 : 0; }   // 8px 一格、每格一道 2px 斜纹（用户嫌 6px 太密）
       case 'perlage': { const gx = Math.floor(lx / 5), gy = Math.floor(ly / 5), ox = (gy % 2) * 2.5; const ccx = gx * 5 + 2.5 + ox, ccy = gy * 5 + 2.5; const d = Math.hypot(lx + 0.5 - ccx, ly + 0.5 - ccy); return d > 2.2 && d < 3.2 && (lx + 0.5 - ccx) + (ly + 0.5 - ccy) < 0 ? 1 : 0; }
       case 'brushed': { const h = hash(Math.floor(lx / 6), ly); return h % 5 === 0 && ((lx % 6) + 6) % 6 < 3 ? 1 : 0; }
     }
@@ -145,7 +164,7 @@ SA.MATLAB = (() => {
 
   function pass(cv, mat, ox, oy, skip = []) {
     const M = pick(mat.key);
-    if (!M) return;
+    if (!M || M.orig) return;
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
     const src = new Array(W * H).fill(null), brass = new Int8Array(W * H).fill(-1);
     let bx0 = W, by0 = H, bx1 = 0, by1 = 0;
@@ -186,6 +205,7 @@ SA.MATLAB = (() => {
       const i = y * W + x, c = src[i]; if (!c || c.kind !== 'iron') continue;
       const lx = x - ox, ly = y - oy, face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
       const corner = c.lv === 4 && !isM(x, y - 1) && !isM(x - 1, y);
+      if (M.rimC && c.lv === 4) { out[i] = M.rimC[corner ? 1 : 0]; continue; }
       if (M.spec === 'matte' && c.lv === 4) out[i] = lvC(3);
       else if (M.spec === 'crisp' && corner) out[i] = mix(M.iron[4], [255, 255, 255], 0.45);
       else if (M.spec === 'glint' && corner) out[i] = rgbOf(P.white);
@@ -219,7 +239,7 @@ SA.MATLAB = (() => {
     g.putImageData(img, 0, 0);
   }
   return {
-    CANDS, TONE, TRIMS, TRIM_NAME, PAINTS, LINES, TEX_NAME, PIN_NAME, sel, pass, pick, build, describe,
+    CANDS, FINAL, TONE, TRIMS, TRIM_NAME, PAINTS, LINES, TEX_NAME, PIN_NAME, sel, pass, pick, build, describe,
     setPins: (m) => { pins = m; }, getPins: () => pins, setOverride: (c) => { override = c || null; },
   };
 })();
