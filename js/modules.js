@@ -322,7 +322,7 @@ SA.MODULES = {
   },
   water: {
     name: '水箱', cat: 'cooling', layer: 'body',
-    price: 70, hp: 100, power: 0, water: 50, q: 1, cool: 4, kg: 300,
+    price: 70, hp: 100, power: 0, water: 150, q: 1, cool: 4, kg: 300,
     desc: '每秒吸收 4 热量并消耗水。水烧干后热量会迅速堆积。',
   },
   bucket: {
