@@ -666,8 +666,9 @@ SA.GFLAB = (() => {
   //   中层：炮耳架墙板、转盘、加固底座（桁架格构 + 两侧斜撑支腿 + 地脚板 + 一排地脚螺栓）、左侧脚手架（立杆 + 剪刀撑 + 木跳板 + 爬梯）；
   //   前景：粗短炮筒（长 ≈ 宽，越往炮口越粗）+ 扇形齿弧 + 脚手架平台上的操作员小煤球（条纹工程师帽，手扶操纵杆）。
   // 耳轴 (48,58)，炮口末端离耳轴 26；静止仰角 75°（画面按 55°～85° 设计）。
+  // v3：炮口加厚 + 端面椭圆露出炮口；背景钢板墙（X 肋 + 细密铆钉）+ 角撑 + 系梁；底座加厚；大中齿轮更多；独立燃煤仓；墙板两侧斜撑梁。
   const GP = { x: 48, y: 58 };
-  const G_SEGS = [[-16, -12, 9], [-12, -2, 14], [-2, 16, 16], [16, 22, 17], [22, 26, 19]];
+  const G_SEGS = [[-16, -12, 9], [-12, -2, 14], [-2, 15, 16], [15, 19, 17], [19, 26, 20]];   // v3：炮口箍加厚（7 长、半宽 20）
   const G_HOOPS = [[4, 7], [11, 14]];
   const WOOD = P.leather;
   // 工字钢立柱：两侧翼缘 + 中间腹板
@@ -688,12 +689,25 @@ SA.GFLAB = (() => {
       const [u, v] = uv(px0, py0), hw = hwAt(u);
       let c = P.iron[3];
       if (!inside(px0 - 1, py0) || !inside(px0 + 1, py0) || !inside(px0, py0 - 1) || !inside(px0, py0 + 1)) c = P.iron[0];
-      else if (u > 24.5 && Math.abs(v) < hw - 3) c = P.black;
       else if (u >= -1 && u < 2) c = v < 0 ? P.brass[3] : P.brass[1];
       else if (v < -hw + 3) c = P.iron[4];
       else if (v > hw * 0.5) c = P.iron[2];
       if (c === P.iron[3] && G_HOOPS.some(([h0]) => u >= h0 && u < h0 + 1)) c = P.iron[4];
       if (c === P.iron[3] && Math.abs(u - 16) < 0.5) c = P.iron[2];
+      px(px0, py0, c);
+    }
+    // 炮口端面：垂直于炮筒的圆，看成略倾斜的椭圆（短轴 = 半宽 × 0.38）——外圈厚边、里面黑洞、远侧一道内壁，露出炮口和炮壁的厚度
+    const mu = 26 - d, R0 = 20, Rs = R0 * 0.38, Ri = 0.66;
+    const mouth = (px0, py0) => { const [u, v] = uv(px0, py0), uu = u - 26; return (uu / Rs) ** 2 + (v / R0) ** 2; };
+    for (let py0 = cy - 60; py0 <= cy + 20; py0++) for (let px0 = cx - 40; px0 <= cx + 40; px0++) {
+      const e = mouth(px0, py0);
+      if (e > 1) continue;
+      const [u, v] = uv(px0, py0), uu = u - 26;
+      let c;
+      if (e > 0.86) c = P.iron[0];                                               // 外沿
+      else if (e > Ri * Ri) c = uu > 0 ? (v < 0 ? P.iron[4] : P.iron[3]) : P.iron[2];   // 厚边：朝上的一半亮
+      else if (e > Ri * Ri * 0.8) c = P.iron[0];                                 // 内沿
+      else c = uu > Rs * 0.15 ? P.black : P.dark[1];                            // 黑洞 + 远侧内壁
       px(px0, py0, c);
     }
     if ((o.k || 0) >= 0.85) for (let t = 26; t < 38; t++) { const w = Math.max(1, 13 - (t - 26) * 1.1); for (let q = -w; q <= w; q++) px(Math.round(cx + cs * (t - d) + sn * q), Math.round(cy - sn * (t - d) + cs * q), t < 31 ? P.fire[3] : P.fire[2]); }
@@ -709,74 +723,107 @@ SA.GFLAB = (() => {
   }
   // 俯仰丝杠（代替 v1 的齿弧）：转盘上的铰座 → 炮筒下侧的吊耳，一根带螺纹的粗杆，随仰角伸缩；超大齿轮在后面驱动它
   function gJack(x, y, o) {
-    const a = (o.a == null ? 75 : o.a) * Math.PI / 180, d = Math.round((o.k || 0) * 7), u = 8 - d, v = 17.5;
+    const a = (o.a == null ? 75 : o.a) * Math.PI / 180, d = Math.round((o.k || 0) * 7), u = 8 - d, v = 17.5;   // 吊耳在炮筒下侧
     const lx = Math.round(x + GP.x + Math.cos(a) * u + Math.sin(a) * v), ly = Math.round(y + GP.y - Math.sin(a) * u + Math.cos(a) * v);
-    const bx = x + 68, by = y + 71, n = Math.max(Math.abs(lx - bx), Math.abs(ly - by)) || 1;
+    const bx = x + 68, by = y + 68, n = Math.max(Math.abs(lx - bx), Math.abs(ly - by)) || 1;
     line(bx, by, lx, ly, 4, P.iron[0]); line(bx, by, lx, ly, 2, P.iron[3]);
     for (let t = 2; t < n - 2; t += 3) px(Math.round(bx + (lx - bx) * t / n), Math.round(by + (ly - by) * t / n), P.iron[4]);   // 螺纹
     R(bx - 3, by - 1, 7, 4, P.dark[0]); R(bx - 2, by - 1, 5, 1, P.dark[3]);                                                      // 铰座
     disc(lx + 0.5, ly + 0.5, 2.4, P.brass[0]); disc(lx + 0.5, ly + 0.5, 1.4, P.brass[2]);                                       // 吊耳
   }
+  // 背景钢板墙：每块 12×12 的钢板压一个 X 字加强肋，接缝上一排 1px 细铆钉（每 2px 一颗）；整体压暗，只做底纹
+  function plateWall(x0, y0, x1, y1) {
+    R(x0, y0, x1 - x0, y1 - y0, P.dark[1]);
+    for (let py0 = y0; py0 < y1; py0 += 12) for (let px0 = x0; px0 < x1; px0 += 12) {
+      const w = Math.min(12, x1 - px0), h = Math.min(12, y1 - py0);
+      for (let t = 1; t < Math.min(w, h) - 1; t++) { px(px0 + t, py0 + t, P.dark[2]); px(px0 + w - 1 - t, py0 + t, P.dark[2]); }
+      R(px0, py0, w, 1, P.dark[0]); R(px0, py0, 1, h, P.dark[0]);
+      for (let t = 2; t < w; t += 2) px(px0 + t, py0 + 1, P.dark[3]);
+      for (let t = 2; t < h; t += 2) px(px0 + 1, py0 + t, P.dark[3]);
+    }
+  }
+  // 独立燃煤仓：挂在右立柱上的漏斗仓，顶上一堆煤块，仓壁铆接、一道 X 撑、一道黄铜箍，底下一个卸煤闸门
+  function coalBunker(x0, y0) {
+    for (let yy = 0; yy <= 26; yy++) {
+      const k = Math.max(0, Math.round((yy - 12) * 0.45)), l = x0 + k, r = x0 + 18 - k;
+      R(l, y0 + yy, r - l, 1, P.iron[2]); px(l, y0 + yy, P.iron[0]); px(l + 1, y0 + yy, P.iron[3]); px(r - 1, y0 + yy, P.iron[0]);
+    }
+    R(x0, y0, 18, 1, P.iron[0]); R(x0, y0 + 26, 18, 1, P.iron[0]);
+    line(x0 + 2, y0 + 3, x0 + 15, y0 + 11, 1, P.iron[1]); line(x0 + 15, y0 + 3, x0 + 2, y0 + 11, 1, P.iron[1]);   // X 撑
+    R(x0 + 1, y0 + 13, 16, 1, P.brass[1]);
+    for (let i = 0; i < 5; i++) { rivetC(x0 + 2 + i * 3, y0 + 1, RIVET_C.steel); }
+    for (const [cx0, cy0, rr] of [[3, -1, 2.5], [7, -2, 3], [12, -2, 3], [15, -1, 2.2], [9, 0, 2]]) { disc(x0 + cx0, y0 + cy0, rr, P.dark[0]); disc(x0 + cx0 - 0.6, y0 + cy0 - 0.6, rr - 1, P.dark[2]); }   // 煤堆
+    R(x0 + 6, y0 + 27, 7, 4, P.dark[0]); R(x0 + 7, y0 + 28, 5, 1, P.dark[3]); R(x0 + 7, y0 + 30, 5, 1, P.brass[1]);   // 卸煤闸门
+    R(x0 + 17, y0 + 4, 5, 2, P.dark[0]); R(x0 + 17, y0 + 18, 5, 2, P.dark[0]);                                         // 挂到立柱上的托架
+  }
   function gBase(g, x, y, o = {}) {
     SA.CAND.use(g);
-    // ---- 背景：钢桁架龙门吊 + 吊车 + 悬吊炮弹 ----
+    // ---- 背景：钢板墙（X 加强肋 + 细密铆钉）→ 龙门吊 + 支撑梁 ----
+    plateWall(x + 6, y + 9, x + 90, y + 70);
+    R(x + 6, y + 36, 84, 3, P.dark[0]); R(x + 6, y + 36, 84, 1, P.dark[3]);                                               // 中间一道系梁
     ibeamV(x + 1, y + 6, y + 80); ibeamV(x + 90, y + 6, y + 80);
     trussH(x + 1, x + 95, y + 2, 7);
-    R(x + 70, y + 9, 12, 4, P.dark[0]); R(x + 71, y + 9, 10, 1, P.dark[3]); disc(x + 72.5, y + 9, 1.5, P.dark[2]); disc(x + 79.5, y + 9, 1.5, P.dark[2]);   // 吊车小车
-    for (let yy = 13; yy < 26; yy++) px(x + 76, y + yy, yy % 2 ? P.iron[4] : P.iron[1]);                                                              // 铁链
-    R(x + 75, y + 26, 3, 2, P.iron[0]);                                                                                                                  // 吊钩
-    R(x + 72, y + 28, 9, 3, P.brass[0]); R(x + 73, y + 29, 7, 1, P.brass[3]);                                                                            // 炮弹吊环 + 弹底
-    R(x + 71, y + 31, 11, 13, P.brass[0]); R(x + 72, y + 31, 9, 13, P.brass[2]); R(x + 72, y + 31, 2, 13, P.brass[3]); R(x + 79, y + 31, 2, 13, P.brass[1]);   // 弹壳
-    R(x + 72, y + 34, 9, 1, P.brass[1]); R(x + 72, y + 38, 9, 1, P.brass[1]);                                                                            // 弹带
-    for (let k = 0; k < 5; k++) R(x + 72 + k, y + 44 + k, 9 - k * 2, 1, k === 4 ? P.iron[0] : P.iron[3]);                                                // 弹头
-    // 背景齿轮：一只超大齿轮在炮耳架右后方（驱动俯仰丝杠），和悬吊炮弹之间留空
-    gearSym(x + 78, y + 64, 'XL', 0);
-    // ---- 中层：加固底座 ----
-    // 两侧斜撑支腿 + 地脚板
-    for (const [x0, dir] of [[6, -1], [88, 1]]) { line(x + x0, y + 78, x + x0 + dir * 5, y + 91, 3, P.iron[0]); line(x + x0, y + 78, x + x0 + dir * 5, y + 91, 1, P.iron[3]); }
-    R(x + 0, y + 91, 12, 5, P.iron[0]); R(x + 1, y + 92, 10, 1, P.iron[4]); R(x + 84, y + 91, 12, 5, P.iron[0]); R(x + 85, y + 92, 10, 1, P.iron[4]);
-    // 桁架格构底座：上下弦 + X 撑
-    box(x + 8, y + 78, 80, 16, IRON); R(x + 9, y + 79, 78, 1, P.iron[4]);
-    for (let bx = 10; bx < 86; bx += 12) { R(x + bx, y + 81, 10, 10, P.iron[1]); line(x + bx, y + 81, x + bx + 9, y + 90, 1, P.iron[3]); line(x + bx + 9, y + 81, x + bx, y + 90, 1, P.iron[3]); R(x + bx - 2, y + 80, 2, 12, P.iron[2]); }
-    R(x + 86, y + 80, 2, 12, P.iron[2]);
-    // 转盘
-    box(x + 18, y + 71, 60, 8, SA.CAND.DARK); R(x + 19, y + 72, 58, 1, P.dark[3]); R(x + 19, y + 75, 58, 1, P.brass[1]);
+    for (const [x0, dir] of [[6, 1], [90, -1]]) for (let t = 0; t < 10; t++) R(x + x0 + (dir > 0 ? t : -t - 1), y + 9 + t, 1, 10 - t, t < 2 ? P.dark[0] : P.dark[2]);   // 立柱和梁的角撑板
+    // 吊车 + 悬吊炮弹（挪到脚手架上方，操作员旁边）
+    R(x + 33, y + 9, 12, 4, P.dark[0]); R(x + 34, y + 9, 10, 1, P.dark[3]); disc(x + 35.5, y + 9, 1.5, P.dark[2]); disc(x + 42.5, y + 9, 1.5, P.dark[2]);
+    for (let yy = 13; yy < 16; yy++) px(x + 39, y + yy, yy % 2 ? P.iron[4] : P.iron[1]);
+    R(x + 38, y + 16, 3, 2, P.iron[0]);
+    R(x + 35, y + 18, 9, 2, P.brass[0]); R(x + 34, y + 20, 11, 10, P.brass[0]); R(x + 35, y + 20, 9, 10, P.brass[2]); R(x + 35, y + 20, 2, 10, P.brass[3]); R(x + 42, y + 20, 2, 10, P.brass[1]);
+    R(x + 35, y + 23, 9, 1, P.brass[1]); for (let k = 0; k < 5; k++) R(x + 35 + k, y + 30 + k, 9 - k * 2, 1, k === 4 ? P.iron[0] : P.iron[3]);
+    // 燃煤仓（挂在右立柱上）
+    coalBunker(x + 70, y + 12);
+    // 大中齿轮：巨型在炮耳架右后、大在它左上、中在右边咬着巨型（脚手架后面试过一只，透过立杆和爬梯显得碎，去掉）
+    gearSym(x + 76, y + 60, 'XXL', 0); gearSym(x + 60, y + 44, 'L', 1); gearSym(x + 90, y + 50, 'M', 0);
+    // ---- 中层：加固底座（加厚）----
+    for (const [x0, dir] of [[8, -1], [87, 1]]) {                                                                          // 斜撑支腿（5px 粗）+ 小斜撑
+      line(x + x0, y + 76, x + x0 + dir * 6, y + 90, 5, P.iron[0]); line(x + x0, y + 76, x + x0 + dir * 6, y + 90, 3, P.iron[2]); line(x + x0, y + 76, x + x0 + dir * 6, y + 90, 1, P.iron[4]);
+      line(x + x0 + dir * 3, y + 83, x + x0 - dir * 6, y + 83, 2, P.iron[0]);
+    }
+    R(x + 0, y + 89, 16, 7, P.iron[0]); R(x + 1, y + 90, 14, 1, P.iron[4]); R(x + 1, y + 91, 14, 4, P.iron[2]);            // 地脚板
+    R(x + 80, y + 89, 16, 7, P.iron[0]); R(x + 81, y + 90, 14, 1, P.iron[4]); R(x + 81, y + 91, 14, 4, P.iron[2]);
+    box(x + 8, y + 75, 80, 19, IRON);
+    R(x + 9, y + 76, 78, 4, P.iron[3]); R(x + 9, y + 76, 78, 1, P.iron[4]); R(x + 9, y + 79, 78, 1, P.iron[0]);             // 4px 上弦
+    R(x + 9, y + 90, 78, 3, P.iron[3]); R(x + 9, y + 90, 78, 1, P.iron[0]);                                                  // 下弦
+    for (let bx = 11; bx < 85; bx += 12) { R(x + bx, y + 80, 10, 10, P.iron[1]); line(x + bx, y + 80, x + bx + 9, y + 89, 2, P.iron[3]); line(x + bx + 9, y + 80, x + bx, y + 89, 2, P.iron[3]); R(x + bx - 2, y + 80, 2, 10, P.iron[2]); }
+    R(x + 83, y + 80, 4, 10, P.iron[2]);
+    box(x + 16, y + 68, 64, 8, SA.CAND.DARK); R(x + 17, y + 69, 62, 1, P.dark[3]); R(x + 17, y + 72, 62, 1, P.brass[1]);   // 转盘
     // ---- 中层：左侧脚手架 ----
-    for (const px0 of [9, 26]) { R(x + px0, y + 26, 2, 52, P.iron[0]); R(x + px0, y + 26, 1, 52, P.iron[3]); }            // 立杆
-    for (const ly of [26, 48, 66]) { R(x + 9, y + ly, 19, 2, P.iron[0]); R(x + 9, y + ly, 19, 1, P.iron[3]); }           // 横杆
-    line(x + 11, y + 50, x + 25, y + 64, 1, P.iron[2]); line(x + 25, y + 50, x + 11, y + 64, 1, P.iron[2]);            // 剪刀撑
-    R(x + 7, y + 44, 24, 3, WOOD[1]); R(x + 7, y + 44, 24, 1, WOOD[2]); for (let i = 10; i < 30; i += 6) px(x + i, y + 45, WOOD[0]);   // 木跳板
-    for (let ry = 50; ry < 76; ry += 4) R(x + 14, y + ry, 6, 1, P.iron[4]);                                              // 爬梯
-    R(x + 13, y + 48, 1, 28, P.iron[0]); R(x + 20, y + 48, 1, 28, P.iron[0]);
+    for (const px0 of [9, 26]) { R(x + px0, y + 26, 2, 49, P.iron[0]); R(x + px0, y + 26, 1, 49, P.iron[3]); }
+    for (const ly of [26, 48, 64]) { R(x + 9, y + ly, 19, 2, P.iron[0]); R(x + 9, y + ly, 19, 1, P.iron[3]); }
+    line(x + 11, y + 50, x + 25, y + 62, 1, P.iron[2]); line(x + 25, y + 50, x + 11, y + 62, 1, P.iron[2]);
+    R(x + 7, y + 44, 24, 3, WOOD[1]); R(x + 7, y + 44, 24, 1, WOOD[2]); for (let i = 10; i < 30; i += 6) px(x + i, y + 45, WOOD[0]);
+    for (let ry = 50; ry < 74; ry += 4) R(x + 14, y + ry, 6, 1, P.iron[4]);
+    R(x + 13, y + 48, 1, 26, P.iron[0]); R(x + 20, y + 48, 1, 26, P.iron[0]);
+    // 炮耳架两侧的斜撑梁（从转盘撑到墙板）
+    for (const [x0, x1] of [[30, 38], [66, 58]]) { line(x + x0, y + 68, x + x1, y + 54, 3, P.iron[0]); line(x + x0, y + 68, x + x1, y + 54, 1, P.iron[3]); }
     // ---- 前景：炮筒 + 俯仰丝杠；近侧炮耳架墙板挡住炮尾 ----
     gTube(x, y, o);
     gJack(x, y, o);
-    for (let yy = 54; yy <= 71; yy++) {
-      const k = Math.round((71 - yy) * 0.35), x0 = x + 34 + k, x1 = x + 63 - k;
+    for (let yy = 52; yy <= 68; yy++) {
+      const k = Math.round((68 - yy) * 0.35), x0 = x + 34 + k, x1 = x + 63 - k;
       R(x0, y + yy, x1 - x0, 1, P.iron[2]); px(x0, y + yy, P.iron[0]); px(x0 + 1, y + yy, P.iron[3]); px(x1 - 1, y + yy, P.iron[0]); px(x1 - 2, y + yy, P.iron[4]);
     }
-    R(x + 40, y + 54, 17, 1, P.iron[0]); R(x + 41, y + 55, 15, 1, P.iron[4]);
+    R(x + 40, y + 52, 17, 1, P.iron[0]); R(x + 41, y + 53, 15, 1, P.iron[4]);
     R(x + GP.x - 4, y + GP.y - 4, 9, 9, P.brass[0]); R(x + GP.x - 3, y + GP.y - 3, 7, 7, P.brass[3]); R(x + GP.x - 2, y + GP.y - 2, 5, 5, P.brass[1]); px(x + GP.x, y + GP.y, P.brass[0]);
-    // 操作员：站在脚手架平台上
     engineer(x + 19, y + 38);
-    // 零件：散热口（底座左段）、包角
     corner(x + 8, y + 89, 1, -1); corner(x + 83, y + 89, -1, -1);
   }
   function gOver(g, x, y) {
     SA.CAND.use(g);
-    for (let i = 0; i < 7; i++) { const bx = x + 12 + i * 12; R(bx, y + 93, 3, 3, P.dark[0]); px(bx + 1, y + 93, P.iron[4]); }   // 地脚螺栓
-    for (const bx of [3, 8, 87, 92]) { R(x + bx, y + 93, 2, 2, P.dark[0]); px(x + bx, y + 93, P.iron[4]); }
-    for (let i = 0; i < 5; i++) rivetC(x + 22 + i * 13, y + 72, RIVET_C.steel);                                                   // 转盘铆钉
-    const ex = x + 43, ey = y + 63;                                                                                                   // 墙板铭牌
+    for (let i = 0; i < 12; i++) rivetC(x + 11 + i * 6.5 | 0, y + 76, RIVET_C.steel);                                            // 上弦一排大铆钉
+    for (const bx of [2, 7, 12, 82, 87, 92]) { R(x + bx, y + 92, 3, 3, P.dark[0]); px(x + bx + 1, y + 92, P.iron[4]); px(x + bx + 1, y + 93, P.dark[3]); }   // 地脚板大螺栓
+    for (let i = 0; i < 6; i++) { const bx = x + 14 + i * 13; R(bx, y + 93, 2, 2, P.dark[0]); px(bx, y + 93, P.iron[4]); }        // 下弦地脚螺栓
+    const ex = x + 43, ey = y + 60;                                                                                                    // 墙板铭牌
     R(ex, ey, 12, 7, P.brass[0]); R(ex + 1, ey + 1, 10, 5, P.brass[2]); R(ex + 1, ey + 1, 10, 1, P.brass[3]);
     R(ex + 2, ey + 2, 8, 3, '#1c1a1f'); R(ex + 3, ey + 3, 6, 1, P.brass[1]);
   }
   const G_ZONES_VIEW = [
-    ['背景：桁架龙门吊 + 吊车 + 悬吊炮弹', '#f5d77a', (x, y) => [x + 0, y + 1, 96, 50]],
-    ['前景：粗短炮筒（长 ≈ 宽）+ 俯仰丝杠', '#8f8a80', (x, y) => [x + 28, y + 24, 46, 48]],
-    ['中层：左侧脚手架 + 操作员平台', '#c9a0ff', (x, y) => [x + 6, y + 30, 26, 48]],
-    ['中层：加固底座（格构 + 斜撑支腿 + 地脚板 + 地脚螺栓）', '#6fcf6a', (x, y) => [x + 0, y + 70, 96, 26]],
-    ['零件：铭牌 / 转盘铆钉 / 包角', '#ef7a21', (x, y) => [x + 42, y + 62, 14, 9]],
+    ['背景：钢板墙（X 肋 + 细密铆钉）+ 龙门吊 + 角撑 + 系梁', '#f5d77a', (x, y) => [x + 0, y + 1, 96, 70]],
+    ['前景：粗短炮筒 + 加厚炮口（露出炮口）+ 俯仰丝杠', '#8f8a80', (x, y) => [x + 26, y + 18, 50, 52]],
+    ['独立燃煤仓', '#ff6b9a', (x, y) => [x + 68, y + 9, 26, 35]],
+    ['脚手架 + 操作员 + 吊弹', '#c9a0ff', (x, y) => [x + 6, y + 8, 40, 68]],
+    ['加固底座（4px 上弦、深格构、粗支腿、大地脚板）', '#6fcf6a', (x, y) => [x + 0, y + 67, 96, 29]],
   ];
+
   return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard, partsGears, gearSet, MO_TIERS, moBase, moOver, MO_ZONES_VIEW, gBase, gOver, G_ZONES_VIEW };
 })();
