@@ -20,6 +20,7 @@ const os = require('os');
 const { Worker } = require('worker_threads');
 const config = require('./evolve-config');
 const storage = require('./evolve-storage');
+const { createEvaluationPool } = require('./evolve-pool');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
@@ -814,6 +815,54 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
   return { scored: [], archive: { buckets: {}, toxic: [], odd: [] } };
 }
 
+// 异步候选评估：随机种子、车辆生成和最终排序仍在主线程按原顺序执行，
+// 只有相互独立的候选评分交给常驻 worker，因此不改变固定种子结果。
+async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, onProgress, shouldStop, telemetry) {
+  const population = [], wanted = Math.max(4, config.population.size);
+  const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
+  while (population.length < wanted) {
+    const forced = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25)) ? spec.rewardModule : null;
+    let v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
+    if (forced && (!v || !rewardPresent(v))) v = randomVehicle(SA, spec, rng, forced);
+    if (v) population.push(v);
+    else {
+      let fallback = minimalVehicle(SA, spec, forced);
+      if (!fallback && forced) for (let retry = 0; retry < 24 && !fallback; retry++) fallback = randomVehicle(SA, spec, new RNG(rng.int(0x7fffffff) + retry + 1), forced);
+      if (fallback) population.push(fallback); else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有可用的最小合法车辆`);
+    }
+  }
+  let current = population;
+  for (let generation = 0; generation < config.population.generations; generation++) {
+    if (shouldStop?.()) return { interrupted: true };
+    const tasks = current.map((vehicle, index) => ({ vehicle, opponents, spec, seed: rng.int(0x7fffffff) + index, games: quickGames, performance: config.performance }));
+    onProgress?.({ phase: 'generation-start', chapter: spec.chapter, stage: spec.stage, generation, completed: 0, total: tasks.length });
+    let completed = 0;
+    const scored = (await Promise.all(tasks.map((task, index) => pool.evaluate([task]).then(([result]) => {
+      completed++; telemetry.completedCandidates++;
+      onProgress?.({ phase: 'candidate', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length, index });
+      return { vehicle: task.vehicle, evaluationSeed: task.seed, ...result };
+    })))).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
+    onProgress?.({ phase: 'generation-end', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length });
+    const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
+    if (spec.rewardModule) {
+      const rewardSeed = scored.find(item => rewardPresent(item.vehicle));
+      if (rewardSeed && !keep.some(item => rewardPresent(item.vehicle))) keep[keep.length - 1] = rewardSeed;
+    }
+    if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
+    current = keep.map(x => x.vehicle);
+    while (current.length < wanted) {
+      const source = rng.pick(keep).vehicle;
+      let child = mutate(SA, source, spec, rng);
+      if (spec.rewardModule && (!child || !rewardPresent(child))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
+      if (!child) child = randomVehicle(SA, spec, rng, spec.rewardModule) || minimalVehicle(SA, spec, spec.rewardModule);
+      if (!child) child = randomVehicle(SA, spec, rng) || minimalVehicle(SA, spec);
+      if (!child) throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有任何合法候选`);
+      current.push(child);
+    }
+  }
+  return { scored: [], archive: { buckets: {}, toxic: [], odd: [] } };
+}
+
 function campaignOpponents(SA, chapter, stage) {
   const stages = SA.CAMPAIGN[chapter].stages;
   const chosen = [stageFor(SA, chapter, stage), ...stages.map((_, i) => i === stage ? null : stageFor(SA, chapter, i)), stageFor(SA, Math.max(0, chapter - 1), SA.CAMPAIGN[Math.max(0, chapter - 1)]?.stages.length - 1)].filter(Boolean).slice(0, config.evaluation.anchorCount);
@@ -943,6 +992,72 @@ function run(options = {}) {
   const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)]));
   if (options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
   return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, cache: duelCache ? duelCache.summary() : { disabled: true }, chapters: chapterReports, selectionFailures, candidates: all };
+}
+
+function checkpointChapter(chapter, pendingStages, SA) {
+  return pendingStages ? { chapter, name: SA.CAMPAIGN[chapter]?.name, stages: pendingStages.map(entry => ({ spec: entry.spec, count: entry.count, top: entry.records, archive: entry.archive, selected: null, selection: null })) } : null;
+}
+
+// 长跑入口：候选评分使用常驻 worker，阶段边界写入进度和检查点；同步 run() 保留给旧工具。
+async function runAsync(options = {}) {
+  const { SA } = loadGame(), fingerprint = ruleFingerprint(SA);
+  const chapters = Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length), quickGames = options.games || config.evaluation.quickGames;
+  const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
+  const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
+  const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0 };
+  const pool = createEvaluationPool(workerCount);
+  let previous = [], previousBoss = { vehicle: SA.V.fromAscii('序章开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) }, status = 'complete';
+  const progress = event => options.onProgress?.({ ...event, elapsedMs: Date.now() - telemetry.startedAt });
+  const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
+  progress({ phase: 'start', total: chapters });
+  try {
+    chapterLoop: for (let chapter = 0; chapter < chapters; chapter++) {
+      if (options.shouldStop?.()) { status = 'interrupted'; break; }
+      const pendingStages = [], priorBoss = previousBoss;
+      const manualBossIndex = SA.CAMPAIGN[chapter].stages.findIndex((_, index) => { const item = stageFor(SA, chapter, index); return item?.source === 'manual' && item.locked && item.boss && item.vehicle; });
+      const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
+      let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
+      for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+        if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
+        const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
+        if (actual?.source === 'manual' && actual.locked) {
+          const manual = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
+          all.push(manual); pendingStages.push({ spec, locked: true, records: [manual], count: 0, archive: { buckets: 0, coveredRatio: 0, toxic: 0, odd: 0, toxicCodes: [], oddCodes: [], toxicCells: [], oddCells: [] } });
+          if (actual.boss) chapterBoss = { vehicle: actual.vehicle, ...manual };
+          previous = [actual.vehicle, ...previous].slice(0, config.population.size); telemetry.completedStages++;
+          progress({ phase: 'stage-end', chapter, stage, completed: 1, total: 1, locked: true }); checkpoint(checkpointChapter(chapter, pendingStages, SA));
+          continue;
+        }
+        const result = await generateChapterAsync(SA, spec, previous, campaignOpponents(SA, chapter, stage), rng, quickGames, pool, progress, options.shouldStop, telemetry);
+        if (result.interrupted) { status = 'interrupted'; break chapterLoop; }
+        const top = result.scored.slice(0, Math.min(8, result.scored.length)), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
+        const bucketCount = Object.keys(result.archive.buckets).length;
+        pendingStages.push({ spec, scored: top, records, count: result.scored.length, archive: { buckets: bucketCount, coveredRatio: bucketCount / Math.max(1, result.scored.length), toxic: result.archive.toxic.length, odd: result.archive.odd.length, toxicCodes: result.archive.toxic.map(item => SA.V.encode(item.vehicle)), oddCodes: result.archive.odd.map(item => SA.V.encode(item.vehicle)), toxicCells: result.archive.toxic.map(item => cellsOf(SA, item.vehicle)), oddCells: result.archive.odd.map(item => cellsOf(SA, item.vehicle)) } });
+        all.push(...records); previous = top.map(x => x.vehicle); telemetry.completedStages++;
+        progress({ phase: 'stage-end', chapter, stage, completed: 1, total: 1, candidates: result.scored.length }); checkpoint(checkpointChapter(chapter, pendingStages, SA));
+      }
+      if (status === 'interrupted') break;
+      const bossEntry = pendingStages.find(entry => entry.spec.boss && entry.scored?.length);
+      if (bossEntry) chapterBoss = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, seed + chapter * 10000 + bossEntry.spec.stage * 101, new Set(), duelCache).selected || bossEntry.scored[0];
+      previousBoss = chapterBoss || previousBoss;
+      const usedStyles = new Set();
+      const stages = pendingStages.map((entry, stage) => {
+        const { spec, scored, records } = entry;
+        if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
+        const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache);
+        const selectedIndex = Math.max(0, scored.indexOf(selection.selected)); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
+        const hardConditions = { reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
+        const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key); if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });
+        return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
+      });
+      chapterReports.push({ chapter, name: SA.CAMPAIGN[chapter].name, stages }); telemetry.completedChapters++;
+      progress({ phase: 'chapter-end', chapter, completed: chapter + 1, total: chapters }); checkpoint(null);
+    }
+    if (status === 'complete' && options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
+    const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)])); telemetry.elapsedMs = Date.now() - telemetry.startedAt;
+    progress({ phase: status === 'complete' ? 'complete' : 'interrupted', completed: telemetry.completedChapters, total: chapters }); checkpoint(null, status);
+    return { status, generatedAt: new Date().toISOString(), seed, rules: fingerprint, moduleValues, config, cache: duelCache.summary(), chapters: chapterReports, selectionFailures, candidates: all, telemetry };
+  } finally { await pool.close(); }
 }
 
 function check() {
@@ -1233,4 +1348,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

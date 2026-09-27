@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "seed": 20260927,
+  "requested": 120,
+  "completed": 120,
+  "errors": [],
+  "counts": {
+    "timeout": 5,
+    "overLimit": 0,
+    "stuck": 0,
+    "bounds": 0,
+    "durability": 0,
+    "nonFinite": 0,
+    "outOfArena": 0,
+    "shareMismatch": 0,
+    "migration": 0,
+    "illegal": 0
+  },
+  "coverage": {
+    "modules": [
+      "armor",
+      "armor_heavy",
+      "autoloader",
+      "biped",
+      "boiler",
+      "boss_core",
+      "boss_lens",
+      "boss_ram",
+      "bucket",
+      "cannon",
+      "cannon_giant",
+      "cannon_heavy",
+      "cannon_m",
+      "cannon_s",
+      "cockpit",
+      "cockpit_pair",
+      "condenser",
+      "flamer",
+      "gyroscope",
+      "harpoon",
+      "helmet",
+      "mg",
+      "mg2",
+      "mortar",
+      "mortar_s",
+      "periscope",
+      "piston",
+      "plate",
+      "pressure_chamber",
+      "pressure_tank",
+      "quad",
+      "radiator",
+      "rangefinder",
+      "rocket_rack",
+      "side_cannon",
+      "spike",
+      "steamjet",
+      "tank_s",
+      "tank_tall",
+      "track",
+      "water"
+    ],
+    "missingModules": [],
+    "terrains": [
+      "crates",
+      "flat",
+      "hills",
+      "mine",
+      "mud",
+      "yard"
+    ],
+    "styles": [
+      "kite",
+      "rush",
+      "turtle",
+      "wander"
+    ],
+    "materials": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "upgrades": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "chassis": [
+      "biped",
+      "quad",
+      "track"
+    ],
+    "fixtures": {
+      "biped": {
+        "winner": "p",
+        "seconds": 56.69999999999934,
+        "issues": []
+      },
+      "quad": {
+        "winner": "e",
+        "seconds": 34.66666666666726,
+        "issues": []
+      }
+    }
+  },
+  "maxBattleSeconds": 101.83333333333012,
+  "outputError": "EPERM"
+}
