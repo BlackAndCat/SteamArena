@@ -29,7 +29,7 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮、小炮、侧炮、重炮已进游戏 · 臼炮 v1 · 2026-09-27</small></h1>
+    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">小炮～臼炮已进游戏 · 巨炮 v1 · 2026-09-27</small></h1>
     <p>按 <code>docs/visual-rules.md</code> 把直射火炮的做法推到中炮（2×1，横躺长炮）。<b>形体和直射火炮一一对应</b>：T1～2 敞开式炮架 + 低矮前挡板 → T3～4 方方正正的平顶炮廓把炮座罩起来 → T5～6 炮廓前沿做成斜板。<b>炮管</b>三种和直射火炮同一套：素管 + 一道箍 + 小方制退器 → 炮尾套筒 + 连体阶梯制退器 → 粗炮身 + 三道铁箍 + 大方制退器。<b>散热口</b>：2 道竖缝 → 3 道 → 成对竖缝 → 斜百叶。<b>小模块做减法</b>：不放铭牌；镀镍起只在炮廓左上加一块小压力表（直径 7）；接缝铆钉 2 → 3 → 4 颗，T1～3 黄铜、镀镍起钢质淡青；钢起有包角铁。</p>
     <p><b>v3（按反馈）：</b>摇架恢复到接近旧版的大小，耳轴处画回方形固定螺栓（方框 + 中心点）；散热口每档至少 3 个：T1～2 三道竖缝 → T3～4 四道密排竖缝 → T5 两行短竖缝 → T6 两行斜百叶。</p>
     <p>v1 试过「高防盾 / 斜防盾」，在 24px 高的模块上读成一根竖杆，已放弃，改成和直射火炮同构的炮廓。分区按炮管的仰角范围（−8°～30°）核对过：压力表、散热口、铆钉都在炮管扫不到的地方。</p>
@@ -126,11 +126,23 @@
   </section>
 
   <section>
+    <h2 class="sec">巨炮 · 4×4 超大型臼炮 v1 <small>只有 T6 以太合金 · 4× 分区图</small></h2>
+    <p class="lead">参考「卡尔」臼炮、「大贝尔塔」一类超重型攻城炮：<b>炮管相对整体很短、越往炮口越粗</b>（和臼炮同一家族），三道铁箍 + 炮尾黄铜箍 + 炮口厚箍；两堵<b>梯形炮耳架墙板</b>（前后沿都斜，T6 的斜向板）坐在<b>转盘 + 底座</b>上；俯仰靠一段<b>扇形齿弧</b>（暗铁腹板 + 黄铜齿圈，跟炮管转）被墙板上的小齿轮咬住，小齿轮再由身后的齿轮链带动。</p>
+    <p class="lead"><b>大空间的设计原则</b>：① <b>三层纵深</b>——背景机构（黄铜传动链：从俯仰小齿轮往左上爬，超大 D24 → 巨型 D32 → 大 D20，不悬空）/ 中层结构（墙板、转盘、底座，跟材料）/ 前景主体（炮管 + 齿弧），每层只用自己的色系；② <b>一个主体、一条主弧</b>——炮管是唯一主体，齿弧是唯一的大弧，其余给它们让位；③ <b>大平面安静</b>，细节只集中在焦点（炮耳、炮尾、炮口），大面只用接缝分块，接缝对齐 24px 子格线，让 4×4 读成一台机器而不是 16 块；④ <b>像素尺寸不变</b>——铆钉还是 3px、接缝还是 1px，大东西用重复的单元堆出来，不把小零件放大；⑤ 零件规则照旧：散热口底座左段、铭牌底座右段、铆钉在底座上沿和墙板接缝、包角铁在底座两角。耳轴 (46,44)，炮口末端离耳轴 52（出框 2px），仰角 −5°～36°。</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start"><canvas id="gzones"></canvas><div id="glegend" style="font-size:13px;line-height:2"></div></div>
+  </section>
+
+  <section>
+    <h2 class="sec">巨炮仰角 <small>−5° / 0° / 18° / 36° / 开炮 · 3× · 下面是 1× 和直射火炮、重炮的大小对照</small></h2>
+    <div class="scroll"><table class="mx" id="gangles"></table></div>
+  </section>
+
+  <section>
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>臼炮 v1 是否 OK：短粗、越往炮口越粗的炮管 + 炮耳座 + 炮床 + 两侧活动大齿轮（随仰角转）。</li><li>OK 后写进游戏（piv [24,30]、blen 24），小臼炮（1×1）照同一剪影做只靠剪影的版本。</li>
-        <li>OK 的话写进游戏（耳轴 / 炮口按新画面改 piv、blen），再做巨炮。</li>
+        <li>巨炮 v1 是否 OK：超大型臼炮（炮管越往炮口越粗）+ 梯形墙板 + 转盘底座 + 扇形齿弧 + 从俯仰小齿轮往上爬的齿轮链；大空间用「三层纵深 / 一个主体 / 大平面安静 / 像素尺寸不变」处理。</li>
+        <li>机制上巨炮现在是直射（仰角 −5°～36°）。「超大型臼炮」要不要改成高抛？那是数值 / 规则，归 astra；画面的结构已经能撑到 82°。</li>
       </ul>
     </div>
   </section>
@@ -335,7 +347,32 @@
     TA.replaceChildren(el('tr', {}, el('th'), ...A.map(([a, k]) => el('th', {}, k ? `${a}° · 开炮` : `${a}°`))));
     for (const mt of [1, 4, 6]) TA.append(el('tr', {}, el('th', { className: 'rh' }, `T${mt} ${SA.MATS[mt].name}`), ...A.map(([a, k]) => el('td', {}, show(moNew(mt, { a, k }), st.zoom)))));
   }
-  function renderAll() { renderZones(); renderTiers(); renderAngles(); renderCtx(); renderSmall(); renderSide(); renderHeavy(); renderMortar(); }
+  // ---------- 巨炮 ----------
+  const GOX = 6, GOY = 8;
+  function gNew(o = {}, raw = false) {
+    const c = document.createElement('canvas'); c.width = GOX + 96 + 20; c.height = GOY + 96 + 4;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(GOX, GOY, 96, 96);
+    G.gBase(g, GOX, GOY, o);
+    if (!raw) applyMat(c, 6, GOX, GOY);
+    G.gOver(c.getContext('2d'), GOX, GOY);
+    return c;
+  }
+  function renderGiant() {
+    const z = 4, src = gNew({}, false), cv = $('gzones');
+    cv.width = src.width * z; cv.height = src.height * z;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, cv.width, cv.height);
+    const leg = $('glegend'); leg.replaceChildren();
+    for (const [name, col, ...rects] of G.G_ZONES_VIEW) {
+      g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([6, 3]);
+      for (const f of rects) { const [x, y, w, hh] = f(GOX, GOY); g.strokeRect(x * z + 1, y * z + 1, w * z - 2, hh * z - 2); }
+      leg.append(el('div', {}, el('span', { style: `display:inline-block;width:14px;height:10px;border:2px dashed ${col};margin-right:8px;vertical-align:middle` }), name));
+    }
+    const A = [[-5, 0], [0, 0], [18, 0], [36, 0], [0, 1]], T = $('gangles');
+    T.replaceChildren(el('tr', {}, ...A.map(([a, k]) => el('th', {}, k ? `${a}° · 开炮` : `${a}°`))));
+    T.append(el('tr', {}, ...A.map(([a, k]) => el('td', {}, show(gNew({ a, k }), st.zoom)))));
+    T.append(el('tr', {}, el('td', { colSpan: 5, style: 'text-align:left' }, show(gNew(), 1), ' ', show(gameMod('cannon', 6, 48, 48), 1), ' ', show(gameMod('cannon_heavy', 6, 72, 48), 1))));
+  }
+  function renderAll() { renderZones(); renderTiers(); renderAngles(); renderCtx(); renderSmall(); renderSide(); renderHeavy(); renderMortar(); renderGiant(); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
