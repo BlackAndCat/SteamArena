@@ -2,7 +2,7 @@
 
 > 2026-09-27 · Opus。由材质语言 v2（`tools/material-lab.html`）和直射火炮高阶造型（`tools/cannon-lab.html`）两轮探索、用户多轮整改意见总结而来。
 > 以后画任何模块的六档外观（T1 黄铜 → T6 以太合金）都按这份做；和 `docs/art-style.md`、`docs/art-direction.md` 冲突时以本文件为准。
-> 已落地：六档材质（`js/palette.js` 的 `SA.PAL.mat` + `js/sprites.js` 的 `decorate`）、直射火炮六档造型（`sprites.js` 的 `DRAW.cannon` / `OVER.cannon`、公共零件 `PART`）；中炮、小炮六档（`DRAW.cannon_m` / `OVER.cannon_m`、`DRAW.cannon_s`、`DRAW.side_cannon` / `OVER.side_cannon`，样机 `tools/gun-family-lab.html`）。
+> 已落地：六档材质（`js/palette.js` 的 `SA.PAL.mat` + `js/sprites.js` 的 `decorate`）、直射火炮六档造型（`sprites.js` 的 `DRAW.cannon` / `OVER.cannon`、公共零件 `PART`）；中炮、小炮六档（`DRAW.cannon_m` / `OVER.cannon_m`、`DRAW.cannon_s`、`DRAW.side_cannon` / `OVER.side_cannon`、`DRAW.cannon_heavy` / `OVER` / `UNDER.cannon_heavy`，样机 `tools/gun-family-lab.html`）。
 
 ---
 
@@ -125,9 +125,14 @@
 | 压力表 `gauge` | 直径 11 | 黄铜圈 + 白表盘 + 绿区 + 指针 | 镀镍起 | OVER |
 | 铁箍 | 3×高 | 铁（跟材料） | 炮身，T5～6 | DRAW |
 
+| 预制齿轮组 `gearSet` | 大 r14 / 中 r9 / 小 r6，大在后、中小在前咬合 | 真黄铜（固定） | 重炮起；臼炮做活动齿轮 | UNDER（垫在最后面） |
+| 传动杆 `shaft` + 轴套 `collar`、连杆 `link` | 2px 铁杆 / 黄铜销 | 铁（跟材料） | 配齿轮用 | DRAW |
+
 备用（样机里有，暂未采用）：徽记、顶饰、檐口线脚。
 
-**两步画法**：跟材料换色的铁件在 `DRAW[id]` 里画；颜色必须固定的身份件（铆钉、铭牌、压力表）在 `OVER[id]` 里画——渲染管线是 `DRAW → 改装挂件 → 材质处理 → OVER`。这样铭牌永远不会和底色同色，铆钉颜色由档位决定。
+**齿轮的画法**（用户整改：齿轮要大、镂空、有力、颜色纯、不杂）：先算形状遮罩再上色，贴空处描边、其余纯色、上沿一道亮下沿一道暗，只用 4 个黄铜色；r ≥ 9 的齿 / 轮缘 / 辐条 3px；小齿轮不开斜辐条（会锯齿）。齿轮不做装饰堆砌：一组齿轮 + 传动杆就够，其余底座装饰全去掉（重炮 v3 的铜管、阀门、减重窗、手轮都被否）。
+
+**三步画法**：跟材料换色的铁件在 `DRAW[id]` 里画；颜色必须固定的身份件（铆钉、铭牌、压力表）在 `OVER[id]` 里画；颜色固定、又必须在最后面的背景件（齿轮组）在 `UNDER[id]` 里画（destination-over）——渲染管线是 `DRAW → 改装挂件 → 材质处理 → OVER → UNDER`。这样铭牌永远不会和底色同色，铆钉颜色由档位决定。
 
 ---
 
@@ -181,7 +186,7 @@
 
 ## 8. 下一步：火炮家族再设计
 
-按本规则依次做：**中炮（2×1）✅ → 小炮（1×1，卡隆短炮）✅ → 侧炮 ✅ → 重炮（2×4）→ 巨炮（4×4）**。要点：
+按本规则依次做：**中炮（2×1）✅ → 小炮（1×1，卡隆短炮）✅ → 侧炮 ✅ → 重炮（改成横躺 3×2）✅ → 臼炮→ 巨炮（4×4）**。要点：
 
 - 每个模块先画出自己的立面分区（`*_ZONE`）；小模块立面小，散热口和零件按比例减半；**1×1 不放零件，只靠剪影（§3.5）**。
 - 形体跃迁、散热口表、铆钉颜色、零件出现档位全部沿用本文件，保证同一档的火炮家族一眼是一套。

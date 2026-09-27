@@ -15,7 +15,7 @@ SA.MODULE_ART = {
   cannon: { vis: [1, 3, 5], piv: [34, 27], blen: 40, barrel: 24, rcPx: 9, back: 0.05, ret: 2.2 },
   cannon_m: { vis: [1, 3, 5], piv: [18, 13], blen: 40, barrel: 18, rcPx: 6, back: 0.05, ret: 2.4 },
   cannon_s: { vis: [1, 3, 5], piv: [12, 13], blen: 24, barrel: 12, rcPx: 4, back: 0.03, ret: 2.8 },
-  cannon_heavy: { vis: [4, 5], art: 'cannon', placeholder: '重炮', piv: [30, 22], blen: 43, barrel: 34, rcPx: 12, back: 0.08, ret: 1.8 },
+  cannon_heavy: { vis: [4, 5], piv: [34, 24], blen: 42, barrel: 34, rcPx: 12, back: 0.08, ret: 1.8 },
   cannon_giant: { vis: [6], art: 'cannon', placeholder: '巨炮', piv: [58, 30], blen: 66, barrel: 48, rcPx: 16, back: 0.1, ret: 1.4 },
   mortar: { piv: [20, 30], blen: 27, barrel: 0, rcPx: 6, back: 0.06, ret: 2.5 },
   mg: { piv: [34, 29], blen: 26, barrel: 12, rcPx: 2, back: 0, ret: 14 },

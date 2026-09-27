@@ -443,6 +443,65 @@ SA.SPR = (() => {
       SIDE_ARM.solid(x, y);
     },
   };
+  // ---------- 齿轮与传动件（2026-09-27 定稿，样机 tools/gun-family-lab.html 重炮 v5）----------
+  // 镂空齿轮：先算形状遮罩（齿 + 轮缘 + 直辐条 + 轮毂，辐条之间镂空），再上色——贴着空处的像素描边，其余纯色，
+  // 上沿一道亮、下沿一道暗，只用 4 个黄铜色，所以不糊。齿数按「2px 齿 + 2px 空」（r ≥ 9 时 3px 齿 + 2px 空）算。
+  // 齿轮颜色固定为真黄铜：放在 UNDER[id] 里，在材质处理之后用 destination-over 垫在整张精灵最后面画。
+  function gearMask(r, k, ph, sp) {
+    const big = r >= 9, n = Math.max(6, Math.round(Math.PI * 2 * r / (big ? 5 : 4))), frac = big ? 0.6 : 0.5;
+    const rb = r - 2, rim = big ? 3 : 2, hubR = big ? 3 : 2, sw = big ? 1.6 : 1.2;
+    return (dx, dy) => {
+      const d = Math.hypot(dx, dy);
+      if (d > r + 0.2) return false;
+      if (d > rb) { const f = ((((Math.atan2(dy, dx) / (Math.PI * 2)) * n + ph) % 1) + 1) % 1; return f < frac; }
+      if (d > rb - rim) return true;
+      if (d <= hubR + 0.4) return d > 0.9;          // 轮毂，中间留轴孔
+      if (!k) return true;                          // 不开辐条：实心轮盘
+      for (let i = 0; i < k; i++) {
+        const a0 = sp + i * Math.PI * 2 / k, along = dx * Math.cos(a0) + dy * Math.sin(a0), across = -dx * Math.sin(a0) + dy * Math.cos(a0);
+        if (along > 0 && Math.abs(across) < sw) return true;
+      }
+      return false;
+    };
+  }
+  function gear(cx, cy, r, k, ph = 0, sp = 0) {
+    const m = gearMask(r, k, ph, sp), x0 = Math.floor(cx - r - 1), y0 = Math.floor(cy - r - 1), n = Math.ceil(r * 2 + 3);
+    const at = (i, j) => m(x0 + i + 0.5 - cx, y0 + j + 0.5 - cy);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      if (!at(i, j)) continue;
+      let c = P.brass[2];
+      if (!at(i, j - 1) || !at(i, j + 1) || !at(i - 1, j) || !at(i + 1, j)) c = P.brass[0];
+      else if (!at(i, j - 2) && y0 + j + 0.5 < cy) c = P.brass[3];
+      else if (!at(i, j + 2) && y0 + j + 0.5 > cy) c = P.brass[1];
+      R(x0 + i, y0 + j, 1, 1, c);
+    }
+  }
+  // 预制齿轮组：大（r 14，6 辐）在后，中（r 9，十字辐）、小（r 6，实心轮盘）叠在前面并咬合；(x, y) = 大齿轮中心。
+  // 在 destination-over 下画：先画的在前面（小 → 中 → 大）。rot = 转动相位（0～1，活动设计用）
+  const GEARSET = [[32, -6, 6, 0, 0.5, 0], [19, -4, 9, 4, 0.25, 0], [0, 0, 14, 6, 0, 0]];
+  PART.gearSet = (x, y, rot = 0) => { for (const [dx, dy, r, k, ph, sp] of GEARSET) gear(x + dx, y + dy, r, k, ph + rot * (r === 14 ? 1 : -1), sp + rot * Math.PI * 2 / (r === 14 ? 22 : 11)); };
+  // 传动杆（2px 铁杆，上沿亮）+ 黄铜轴套；连杆（任意方向的直杆，两端黄铜销）
+  PART.shaft = (x0, x1, y0) => { R(x0, y0, x1 - x0, 2, P.iron[0]); R(x0, y0, x1 - x0, 1, P.iron[3]); };
+  PART.collar = (x0, y0) => { R(x0, y0 - 1, 2, 4, P.brass[1]); R(x0, y0 - 1, 1, 4, P.brass[3]); };
+  PART.link = (x0, y0, x1, y1) => { line(x0, y0, x1, y1, 2, P.iron[0]); line(x0, y0, x1, y1, 1, P.iron[3]); disc(x0 + 0.5, y0 + 0.5, 1.3, P.brass[2]); disc(x1 + 0.5, y1 + 0.5, 1.3, P.brass[2]); };
+  // 重炮 3×2（镀镍起，T4～T6）：台阶形炮耳架（T5～6 前沿斜切）+ 带滚轮的铁滑轨；背景齿轮组 + 传动杆
+  const HEAVY_TIERS = { 4: { slant: false, heavy: false, riv: 3 }, 5: { slant: true, heavy: true, riv: 4 }, 6: { slant: true, heavy: true, riv: 4 } };
+  const heavyTier = (mt) => HEAVY_TIERS[Math.max(4, Math.min(6, mt || 4))];
+  const HEAVY_CHEEK = {
+    step: [...Array(8).fill(34), ...Array(8).fill(30), ...Array(25).fill(25), ...Array(4).fill(31)],
+    slant: [...Array(8).fill(34), ...Array(8).fill(30), ...Array(19).fill(25), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => 25 + Math.round(i * 1.4))],
+  };
+  // 台阶形墙板：tops[i] 是 x0 + i 这一列的上沿，底边统一到 bot
+  function steppedPlate(x, y, x0, tops, bot) {
+    tops.forEach((t, i) => {
+      const xx = x + x0 + i, prev = i ? tops[i - 1] : 99, next = i < tops.length - 1 ? tops[i + 1] : 99;
+      R(xx, y + t, 1, bot - t + 1, P.iron[2]); R(xx, y + t, 1, 1, P.iron[0]); R(xx, y + t + 1, 1, 1, P.iron[4]); R(xx, y + bot, 1, 1, P.iron[0]);
+      if (prev > t) R(xx, y + t, 1, Math.min(prev, bot) - t + 1, P.iron[0]);
+      if (prev > t && i) R(xx + 1, y + t + 1, 1, Math.min(prev, bot) - t - 1, P.iron[3]);
+      if (next > t) R(xx, y + t, 1, Math.min(next, bot) - t + 1, P.iron[0]);
+    });
+  }
+
   // 方形固定螺栓（耳轴）：火炮家族共用
   const trunnionBolt = (cx, cy) => { R(cx - 2, cy - 2, 5, 5, P.brass[0]); R(cx - 1, cy - 1, 3, 3, P.brass[3]); R(cx, cy, 1, 1, P.brass[0]); };
 
@@ -453,6 +512,10 @@ SA.SPR = (() => {
       PART.seam(x, y, Z.seam, T.riv[0], RIVET_TIER[T.riv[1]]);
       if (T.parts.includes('plate')) PART.plate(x + Z.plate.x, y + Z.plate.y);
       if (T.parts.includes('gauge')) PART.gauge(x + Z.gauge.x, y + Z.gauge.y);
+    },
+    cannon_heavy(x, y, q) {   // 滑轨上沿的钢质铆钉
+      const n = heavyTier(q.mt).riv, step = 61 / (n - 1);
+      for (let i = 0; i < n; i++) PART.rivet(Math.round(x + 5 + i * step), y + 41, RIVET_TIER.steel);
     },
     side_cannon(x, y, q) {
       const T = SIDE_TIERS[(q.mt || 1) - 1], c = RIVET_TIER[T.riv[1]];
@@ -466,6 +529,11 @@ SA.SPR = (() => {
       else PART.seam(x, y, CANNON_M_ZONE.hood.rivets, T.riv[0], c);
       if (T.parts.includes('gauge')) gaugeS(x + CANNON_M_ZONE.hood.gauge.x, y + CANNON_M_ZONE.hood.gauge.y);
     },
+  };
+
+  // 垫在最后面的背景件（材质处理之后、destination-over）：颜色固定、永远在整张精灵后面
+  const UNDER = {
+    cannon_heavy(x, y) { PART.gearSet(x + 17, y + 14); },
   };
 
   const DRAW = {
@@ -797,6 +865,37 @@ SA.SPR = (() => {
         R(bx, y + 41, 3, 4, P.dark[0]); R(bx, y + 41, 2, 3, P.brass[2]); R(bx, y + 41, 2, 1, P.brass[3]);
       }
     },
+    // 重炮 3×2（72×48，横躺，镀镍起，2026-09-27 定稿，样机 tools/gun-family-lab.html v5）：参考 19 世纪套箍式攻城 / 岸防重炮——
+    // 台阶式炮身（炮尾最粗、直线台阶收细、炮尾钮、炮尾黄铜箍）+ 台阶形铁炮耳架 + 带三个滚轮的铁滑轨；
+    // 背景是预制齿轮组（UNDER.cannon_heavy）+ 两根传动杆。耳轴 (34,24)，炮口末端 x 76（出框 4px，blen 42）。
+    // T4 台阶形炮耳架；T5～6 炮耳架前沿斜切 + 炮身更粗、炮管两道铁箍；铆钉在 OVER.cannon_heavy
+    cannon_heavy(x, y, o) {
+      const T = heavyTier(o.mt);
+      PART.link(x + 52, y + 11, x + 60, y + 37);                                                   // 传动杆：小齿轮曲柄 → 滑轨前端
+      box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                        // 铁滑轨
+      for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); R(x + wx, y + 45, 1, 1, P.brass[2]); }
+      steppedPlate(x, y, 12, T.slant ? HEAVY_CHEEK.slant : HEAVY_CHEEK.step, 39);                  // 炮耳架
+      PART.shaft(x + 14, x + 54, y + 36); PART.collar(x + 22, y + 36); PART.collar(x + 46, y + 36);   // 炮耳架长轴
+      gunShield(x + 58, y + 24, o.up, 9);
+      const d = rcPx('cannon_heavy', o.k);
+      turn(x + 34, y + 24, o.a, (X, Y) => {
+        const C = X + x + 34 - d, M = Y + y + 24, H = T.heavy;
+        const segs = [[-27, -25, 3], [-25, -24, 2], [-24, -8, H ? 11 : 10], [-8, 8, 9], [8, 18, H ? 8 : 7], [18, 37, H ? 6 : 5], [37, 42, H ? 7 : 6]];
+        for (const [a0, a1, hh] of segs) for (let i = C + a0; i < C + a1; i++) {
+          R(i, M - hh, 1, hh * 2 + 1, P.iron[0]);
+          if (hh > 1) { R(i, M - hh + 1, 1, hh * 2 - 1, P.iron[3]); R(i, M - hh + 1, 1, 1, P.iron[4]); if (hh > 3) { R(i, M - hh + 2, 1, 1, P.iron[4]); R(i, M + hh - 2, 1, 2, P.iron[2]); } }
+        }
+        segs.forEach(([a0, , hh], k) => { if (k && segs[k - 1][2] > hh) R(C + a0, M - hh + 1, 1, hh * 2 - 1, P.iron[2]); });   // 台阶的阴影面
+        R(C - 28, M - 2, 1, 5, P.iron[0]);                                                                                   // 炮尾钮后沿
+        const bh = H ? 11 : 10;
+        R(C - 12, M - bh, 2, bh * 2 + 1, P.brass[1]); R(C - 12, M - bh, 1, bh * 2 + 1, P.brass[3]);                           // 炮尾黄铜箍
+        if (H) for (const hx of [23, 31]) { R(C + hx, M - 7, 2, 15, P.iron[0]); R(C + hx, M - 6, 1, 13, P.iron[4]); }       // 炮管铁箍
+        else { R(C + 27, M - 6, 2, 13, P.iron[0]); R(C + 27, M - 5, 1, 11, P.iron[4]); }
+        R(C + 41, M - 2, 1, 5, P.black);
+        if ((o.k || 0) >= 7) { R(C + 42, M - 5, 4, 11, P.fire[3]); R(C + 46, M - 3, 3, 7, P.fire[2]); }
+      });
+      disc(x + 34, y + 24, 3.6, P.brass[0]); disc(x + 34, y + 24, 2.6, P.brass[2]); R(x + 33, y + 23, 1, 1, P.brass[3]); R(x + 34, y + 24, 1, 1, P.brass[0]);   // 炮耳
+    },
     // 侧炮 2×2（侧挂层，2026-09-27 定稿，样机 tools/gun-family-lab.html）：挂板 + 暗铁悬吊臂 + 吊着的长炮，只画骨架、透出后面的主体模块。
     // T1～2 窄挂板 + 粗方柱、T3～4 方箱挂板 + 双柱横撑、T5～6 斜板挂板 + 实心腹板；炮管同中炮一套，炮口末端在耳轴前 48。
     // 零件只放挂板：上沿铆钉、中右散热口、钢起包角铁、镀镍起左侧小压力表（OVER.side_cannon）
@@ -1030,7 +1129,7 @@ SA.SPR = (() => {
       case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
       case 'cockpit': case 'copilot': case 'helmet': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
-      case 'cannon': case 'cannon_m': case 'cannon_s': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
+      case 'cannon': case 'cannon_m': case 'cannon_s': case 'cannon_heavy': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
@@ -1192,6 +1291,7 @@ SA.SPR = (() => {
       attach(id, q, f, pd.l, pd.t);
       (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
       if (OVER[id]) { ctx = cv.getContext('2d'); OVER[id](pd.l, pd.t, q); }        // 身份件（铆钉、铭牌、压力表）最后画，颜色不被材质换掉
+      if (UNDER[id]) { ctx = cv.getContext('2d'); ctx.globalCompositeOperation = 'destination-over'; UNDER[id](pd.l, pd.t, q); ctx.globalCompositeOperation = 'source-over'; }   // 背景齿轮：垫在最后面
       cache.set(key, cv);
     }
     return cv;
