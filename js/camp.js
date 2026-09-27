@@ -22,7 +22,9 @@ SA.Camp = (() => {
   function stage(ci = c().ch, si = c().st) {
     const ch = SA.CAMPAIGN[ci], o = ch && ch.stages[si];
     if (!o) return null;
-    return { ...o, ci, si, chapter: ch, vehicle: SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []) };
+    const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
+    if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
+    return { ...merged, ci, si, chapter: ch };
   }
   const current = () => (done() ? null : stage());
 
@@ -48,7 +50,7 @@ SA.Camp = (() => {
   function backfill() {
     const C = c();
     SA.CAMPAIGN.forEach((ch, ci) => {
-      ch.stages.forEach((s, si) => { if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
+      ch.stages.forEach((raw, si) => { const s = stage(ci, si) || raw; if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
       if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
     });
   }
@@ -148,11 +150,90 @@ SA.Camp = (() => {
   const introIfNew = (...args) => SA.CampUI.introIfNew(...args);
   const matChip = (...args) => SA.CampUI.matChip(...args);
 
+  // 设计存档只存在当前页面内：不写正式存档，退出时恢复快照。
+  let designSnapshot = null;
+  function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function restoreObject(target, snapshot) {
+    for (const key of Object.keys(target)) delete target[key];
+    Object.assign(target, clone(snapshot));
+  }
+  function designMode() {
+    if (designSnapshot) return { active: true, save: false };
+    designSnapshot = clone(SA.S.d);
+    try { localStorage.removeItem('steam_arena_design_v1'); } catch (error) { /* 隐私模式 */ }
+    const D = SA.S.d, C = D.camp;
+    C.feat = Object.keys(SA.FEATURES || {});
+    C.mods = Object.keys(M).filter(id => !M[id].retired);
+    C.mat = Math.max(1, (SA.MATS || []).length - 1);
+    C.grid = { cols: 8, rows: 6 };
+    C.ch = 0; C.st = 0; C.done = false; C.intro = -1;
+    D.money = 999999999;
+    D.debt = 0;
+    // 设计存档把每种非退役模块的各级材料都放进库存，避免工作台还要经过
+    // 商店购买或材料升级流程；唯一件也只在这个隔离存档里提供，不会写进正式库存。
+    D.inv = {};
+    for (const id of Object.keys(M)) {
+      if (M[id].retired) continue;
+      for (let mt = 1; mt <= (SA.MAT_MAX || 1); mt++) D.inv[SA.invKey(id, mt)] = 99;
+    }
+    D.ingots = { wootz: 999999, aether: 999999 };
+    if (D.vehicle) D.vehicle.lim = { ...C.grid };
+    return { active: true, save: false, money: D.money, grid: C.grid, modules: C.mods.length };
+  }
+  function exitDesign() {
+    if (!designSnapshot) return { active: false, restored: false };
+    restoreObject(SA.S.d, designSnapshot);
+    designSnapshot = null;
+    SA.S.save();
+    try { localStorage.removeItem('steam_arena_design_v1'); } catch (error) { /* 隐私模式 */ }
+    if (SA.UI && SA.UI.topbar) SA.UI.topbar();
+    return { active: false, restored: true };
+  }
+  const isDesignMode = () => !!designSnapshot;
+  function loadStageCar(chapter, stageIndex) {
+    if (!designSnapshot) designMode();
+    const st = stage(chapter, stageIndex);
+    if (!st) throw new Error(`找不到第 ${chapter + 1} 章第 ${stageIndex + 1} 关`);
+    const v = SA.V.clone(st.vehicle);
+    v.name = st.name;
+    v.lim = { cols: 8, rows: 6 };
+    SA.S.d.vehicle = v;
+    SA.S.d.camp.grid = { cols: 8, rows: 6 };
+    syncLim();
+    // 控制台调用时直接切进现有车间；工具页没有 SA.nav 时只更新设计存档。
+    if (typeof SA.nav === 'function' && SA.Editor) SA.nav('garage');
+    return { ...st, vehicle: v, design: true };
+  }
+  async function saveStageCar(chapter, stageIndex, meta = {}) {
+    if (!designSnapshot) throw new Error('请先调用 SA.dev.designMode()');
+    const st = stage(chapter, stageIndex);
+    if (!st) throw new Error(`找不到第 ${chapter + 1} 章第 ${stageIndex + 1} 关`);
+    const v = SA.V.clone(SA.S.d.vehicle);
+    const record = SA.StageCars.makeRecord(chapter, stageIndex, st, v, meta);
+    const check = SA.StageCars.validate(record, chapter, stageIndex, v);
+    if (!check.ok) throw new Error(`关卡车不能保存：${check.errors.join('；')}`);
+    if (check.warnings.length) console.warn(`关卡车保存警告（允许保存）：${check.warnings.join('；')}`);
+    const payload = { version: 1, records: { ...(SA.STAGE_CARS.records || {}), [record.id]: record } };
+    let response = null;
+    try {
+      response = await fetch('/__stage-cars/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      SA.STAGE_CARS.records = payload.records;
+      if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+    } catch (error) {
+      const text = `window.SA.STAGE_CARS.records = ${JSON.stringify(payload.records, null, 2)};\nif (window.SA.StageCars && window.SA.StageCars.data) window.SA.StageCars.data.records = window.SA.STAGE_CARS.records;`;
+      try { if (typeof navigator !== 'undefined' && navigator.clipboard) await navigator.clipboard.writeText(text); } catch (copyError) { /* 没有剪贴板时仍返回文本 */ }
+      console.warn(`本地服务器不可用，请把下面内容粘贴进 js/stage-cars.js：\n${text}`, error);
+      record.saveFallback = text;
+    }
+    return { record, stats: check.stats, warnings: check.warnings, response: response && response.status };
+  }
+
   const dev = {
     goto(ci) {
       const C = c();
       for (let i = 0; i < ci && i < SA.CAMPAIGN.length; i++) {
-        for (const s of SA.CAMPAIGN[i].stages) applyUnlock(s.unlock);
+        for (let si = 0; si < SA.CAMPAIGN[i].stages.length; si++) applyUnlock(stage(i, si)?.unlock || SA.CAMPAIGN[i].stages[si].unlock);
         applyUnlock(SA.CAMPAIGN[i].unlock);
       }
       Object.assign(C, { ch: Math.min(ci, SA.CAMPAIGN.length - 1), st: 0, intro: -1, done: ci >= SA.CAMPAIGN.length });
@@ -164,8 +245,12 @@ SA.Camp = (() => {
     sandbox: (...args) => SA.CampUI.sandbox(...args),
     drive: (...args) => SA.CampUI.drive(...args),
     panel: (...args) => SA.CampUI.devPanel(...args),
+    designMode,
+    exitDesign,
+    loadStageCar,
+    saveStageCar,
   };
 
-  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, dev };
+  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
 })();
 SA.dev = SA.Camp.dev;

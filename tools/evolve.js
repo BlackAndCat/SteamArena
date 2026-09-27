@@ -85,9 +85,30 @@ function loadGame() {
   // Node 诊断只需要规则层；不加载 battle-view，避免 debug.step 的无画面检查误触发精灵绘制。
   // 浏览器页面仍按 index / tools/sim.html 的脚本顺序加载 battle-view.js。
   const files = ['js/palette.js', 'js/modules.js', 'js/module-art.js', 'js/dynamics.js', 'js/sprites.js', 'js/legs.js', 'js/vehicle.js',
-    'js/content.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle.js'];
+    'js/content.js', 'js/build-sys.js', 'js/stage-cars.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle.js'];
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), context, { filename: file });
   return { context, SA: context.SA };
+}
+
+// 取得一关实际会使用的车辆：手工记录优先，原始内容作为回退。
+function stageFor(SA, chapter, stage) {
+  const base = SA.CAMPAIGN[chapter]?.stages?.[stage];
+  if (!base) return null;
+  const merged = SA.StageCars ? SA.StageCars.merge(base, chapter, stage) : { ...base, source: 'original', locked: false };
+  if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
+  return merged;
+}
+
+function manualCandidateRecord(SA, stage, chapter, index, fingerprint) {
+  const vehicle = stage.vehicle, stats = SA.V.stats(vehicle), rec = stage.stageCar || {};
+  return {
+    name: stage.name, code: SA.V.encode(vehicle), cells: SA.StageCars.cellsOf(vehicle),
+    style: stage.style || 'wander',
+    spec: { chapter, stage: index, terrain: stage.terrain || 'flat', rewardModule: stage.spec?.reward || null },
+    source: 'manual', locked: stage.locked !== false, manualVersion: rec.updatedAt || rec.version || null,
+    rules: fingerprint, strength: stats.rating, performance: null,
+    stats: { rating: stats.rating, value: stats.value, hp: stats.hp, dps: stats.dps, heatDps: stats.heatDps, water: stats.water, cool: stats.cool },
+  };
 }
 
 // 对象键排序后再序列化，确保同一规则在不同 Node 版本中得到同一输入。
@@ -135,8 +156,9 @@ function progressAt(SA, chapter, stage) {
     const ch = SA.CAMPAIGN[ci];
     const stop = ci === chapter ? stage : ch.stages.length;
     for (let si = 0; si < stop; si++) {
-      progress.prizes += ch.stages[si].prize || 0;
-      addUnlock(progress, ch.stages[si].unlock);
+      const actual = stageFor(SA, ci, si) || ch.stages[si];
+      progress.prizes += actual.prize || 0;
+      addUnlock(progress, actual.unlock);
     }
     if (ci < chapter) {
       addUnlock(progress, ch.unlock);
@@ -151,30 +173,31 @@ function progressAt(SA, chapter, stage) {
 
 function stageSpec(SA, chapter, stage) {
   const ch = SA.CAMPAIGN[chapter], current = ch.stages[stage], progress = progressAt(SA, chapter, stage);
+  const actual = stageFor(SA, chapter, stage) || current;
   const design = current.spec || {};
   // 只有真正的新解锁才算奖励件；开局库存或此前已获得的模块不能重复作为奖励，
   // 否则序章会把 plate 当作奖励并错误触发“奖励效果”门槛。
   // 一关可能同时解锁多个模块：奖励车只绑定其中一个，但这些新模块都要进入本关
   // 的敌车候选约束，避免第二个解锁模块被错误地推迟到下一关。
-  const unlockExtras = [...(current.unlock?.mods || []), ...(stage === ch.stages.length - 1 ? (ch.unlock?.mods || []) : [])];
+  const unlockExtras = [...(actual.unlock?.mods || []), ...(stage === ch.stages.length - 1 ? (ch.unlock?.mods || []) : [])];
   const rawReward = design.reward || unlockExtras.find(id => !progress.mods.has(id)) || null;
   const reward = rawReward && !progress.mods.has(rawReward) ? rawReward : null;
   // Boss 专属件和本关解锁件必须进入候选约束，否则奖励车永远只能携带普通件。
   // 这些额外模块只在对应关卡可用，不改变玩家在上一关的实际库存。
-  const stageExtras = [...(current.subs || []).map(row => row[2]), ...unlockExtras].filter(id => SA.MODULES[id]);
+  const stageExtras = [...(actual.subs || []).map(row => row[2]), ...unlockExtras].filter(id => SA.MODULES[id]);
   if (reward && SA.MODULES[reward]) stageExtras.push(reward);
   const available = [...new Set([...progress.mods, ...stageExtras])].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired && (stageExtras.includes(id) || (SA.MODULES[id].minMt || 1) <= progress.mat));
-  const budget = progress.budget * ((current.boss || reward) ? config.budget.bossMultiplier : 1);
+  const budget = progress.budget * ((actual.boss || reward) ? config.budget.bossMultiplier : 1);
   const hasEpic = stageExtras.some(id => SA.MODULES[id]?.special || id === 'cannon_giant');
   const epicBudget = hasEpic ? progress.budget * config.budget.epicMultiplier : budget;
   return {
-    chapter, stage, name: current.name, terrain: design.terrain || current.terrain || 'flat', style: current.style || null,
+    chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null,
     lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
-    uniqueLoot: (current.uniqueLoot || []).map(item => ({ ...item })),
-    chapterHasBoss: ch.stages.some(row => !!row.boss),
-    boss: !!current.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
+    uniqueLoot: (actual.uniqueLoot || []).map(item => ({ ...item })),
+    chapterHasBoss: ch.stages.some((row, index) => !!(stageFor(SA, chapter, index)?.boss || row.boss)),
+    boss: !!actual.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
     availableMods: available,
-    target: { bossWinRate: design.targetStrength || (current.boss ? [0.6, 0.7] : [0.65, 0.8]) },
+    target: { bossWinRate: design.targetStrength || (actual.boss ? [0.6, 0.7] : [0.65, 0.8]) },
   };
 }
 
@@ -741,8 +764,35 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
 
 function campaignOpponents(SA, chapter, stage) {
   const stages = SA.CAMPAIGN[chapter].stages;
-  const chosen = [stages[stage], ...stages.filter((_, i) => i !== stage), SA.CAMPAIGN[Math.max(0, chapter - 1)]?.stages.at(-1)].filter(Boolean).slice(0, config.evaluation.anchorCount);
-  return chosen.map(item => SA.V.fromAscii(item.name, item.rows, item.sides || [], item.mt || 1, item.elite || [], item.subs || []));
+  const chosen = [stageFor(SA, chapter, stage), ...stages.map((_, i) => i === stage ? null : stageFor(SA, chapter, i)), stageFor(SA, Math.max(0, chapter - 1), SA.CAMPAIGN[Math.max(0, chapter - 1)]?.stages.length - 1)].filter(Boolean).slice(0, config.evaluation.anchorCount);
+  return chosen.map(item => item.vehicle || SA.V.fromAscii(item.name, item.rows, item.sides || [], item.mt || 1, item.elite || [], item.subs || []));
+}
+
+// 补丁只允许在内存里应用到未锁定的原始关卡；锁定记录绝不触碰 stage-cars.js。
+function applyStagePatch(SA, chapter, stage, patch = {}) {
+  const actual = stageFor(SA, chapter, stage);
+  if (!actual) return { applied: false, reason: '关卡不存在' };
+  if (actual.source === 'manual' && actual.locked) return { applied: false, reason: '手工锁定，未改动', locked: true };
+  const target = SA.CAMPAIGN[chapter].stages[stage];
+  // 已解锁的手工记录仍由 stage-cars.js 管理；补丁更新记录本身，避免写入
+  // content.js 后又被手工记录覆盖。没有手工记录时才改原始战役字段。
+  if (actual.source === 'manual' && actual.stageCar && SA.StageCars?.makeRecord) {
+    const base = { ...target, ...actual };
+    const vehicle = patch.cells
+      ? SA.V.fromCells(actual.name || target.name, patch.cells)
+      : SA.V.fromAscii(actual.name || target.name, patch.rows || actual.rows, patch.sides || actual.sides || [], patch.mt || actual.mt || 1, patch.elite || actual.elite || [], patch.subs || actual.subs || []);
+    const next = SA.StageCars.makeRecord(chapter, stage, base, vehicle, {
+      ...actual.stageCar, ...patch, name: actual.name, pilot: actual.pilot, blurb: actual.blurb, weakness: actual.weakness,
+      style: patch.style ?? actual.style, aim: patch.aim ?? actual.aim, terrain: patch.terrain ?? actual.terrain,
+      boss: patch.boss ?? actual.boss, prize: actual.prize, unlock: actual.unlock, uniqueLoot: actual.uniqueLoot, locked: false,
+    });
+    SA.STAGE_CARS.records[`${chapter}:${stage}`] = next;
+    if (SA.StageCars.data) SA.StageCars.data.records = SA.STAGE_CARS.records;
+    if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+    return { applied: true, manual: true, record: next, stage: SA.CAMPAIGN[chapter].stages[stage] };
+  }
+  for (const key of ['rows', 'subs', 'sides', 'mt', 'elite', 'style', 'terrain', 'boss']) if (patch[key] !== undefined) target[key] = patch[key];
+  return { applied: true, stage: target };
 }
 
 function run(options = {}) {
@@ -758,9 +808,26 @@ function run(options = {}) {
   for (let chapter = 0; chapter < chapters; chapter++) {
     const pendingStages = [];
     const priorBoss = previousBoss;
-    let chapterBoss = null;
+    // 先登记本章已经锁定的手工 Boss。它是这一档的标尺车，即使 Boss 排在
+    // 章节末尾，前面的普通关也要以它作为参考，而不是等生成器自己猜一台。
+    const manualBossIndex = SA.CAMPAIGN[chapter].stages.findIndex((_, index) => {
+      const item = stageFor(SA, chapter, index);
+      return item?.source === 'manual' && item.locked && item.boss && item.vehicle;
+    });
+    const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
+    let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
       const spec = stageSpec(SA, chapter, stage);
+      const actual = stageFor(SA, chapter, stage);
+      if (actual?.source === 'manual' && actual.locked) {
+        const manual = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
+        all.push(manual);
+        pendingStages.push({ spec, locked: true, manual: actual, scored: [], records: [manual], count: 0,
+          archive: { buckets: 0, coveredRatio: 0, toxic: 0, odd: 0, toxicCodes: [], oddCodes: [], toxicCells: [], oddCells: [] } });
+        if (actual.boss) chapterBoss = { vehicle: actual.vehicle, ...manual };
+        previous = [actual.vehicle, ...previous].slice(0, config.population.size);
+        continue;
+      }
       const opponents = campaignOpponents(SA, chapter, stage);
       const result = generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames);
       const top = result.scored.slice(0, Math.min(8, result.scored.length));
@@ -790,6 +857,11 @@ function run(options = {}) {
     const usedStyles = new Set();
     const stages = pendingStages.map((entry, stage) => {
       const { spec, scored, records } = entry;
+      if (entry.locked) return {
+        spec, count: 0, selected: records[0], source: 'manual', locked: true,
+        selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] },
+        top: records, archive: entry.archive,
+      };
       // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
       const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
       const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles);
@@ -1083,4 +1155,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };

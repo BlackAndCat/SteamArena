@@ -6,6 +6,8 @@
  */
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const evolve = require('./evolve');
 const coverage = require('./evolve-coverage');
 const calibration = require('./ai-calibration');
@@ -109,6 +111,23 @@ function shareGarageCheck() {
   return { examples: examples.length, roundTrip: true };
 }
 
+function lockedStageCheck() {
+  const { SA } = evolve.loadGame();
+  const file = path.join(__dirname, '..', 'js', 'stage-cars.js');
+  const before = fs.readFileSync(file);
+  const original = SA.STAGE_CARS.records;
+  const base = SA.CAMPAIGN[0].stages[0];
+  const v = SA.V.fromAscii('锁定夹具', base.rows, base.sides || [], base.mt || 1, base.elite || [], base.subs || []);
+  SA.STAGE_CARS.records = { '0:0': SA.StageCars.makeRecord(0, 0, base, v, { locked: true }) };
+  let result;
+  try { result = evolve.applyStagePatch(SA, 0, 0, { rows: ['........', '........', '........', '........', '...K....', '...TT...'] }); }
+  finally { SA.STAGE_CARS.records = original; }
+  const after = fs.readFileSync(file);
+  if (!result || result.applied || result.reason !== '手工锁定，未改动') throw new Error(`锁定关卡补丁未拒绝：${JSON.stringify(result)}`);
+  if (!before.equals(after)) throw new Error('锁定关卡尝试补丁后 stage-cars.js 内容发生变化');
+  return { rejected: true, unchanged: true, reason: result.reason };
+}
+
 async function main() {
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
@@ -121,11 +140,13 @@ async function main() {
   const unique = uniqueRuleCheck();
   const side = sideRuleCheck();
   const shareGarage = shareGarageCheck();
+  const locked = lockedStageCheck();
   const battle = battleConstants.run();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
   result.unique = unique;
   result.side = side;
   result.shareGarage = shareGarage;
+  result.locked = locked;
   result.battle = battle;
   console.log(JSON.stringify(result, null, 2));
 }

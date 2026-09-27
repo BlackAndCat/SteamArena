@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关卡车工作台</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; overflow: auto; }
+    body { max-width: 1500px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0 0 4px; color: var(--brass2); font-size: 22px; }
+    h2 { margin: 18px 0 8px; color: var(--brass3); font-size: 16px; }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; }
+    .panel { background: var(--dark1); border: 1px solid var(--dark3); padding: 10px; }
+    .stage-list { display: grid; gap: 4px; }
+    .stage-list button { text-align: left; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 7px; cursor: pointer; }
+    .stage-list button.selected, .stage-list button:hover { border-color: var(--brass2); }
+    .tag { display: inline-block; margin-left: 5px; padding: 1px 4px; border: 1px solid var(--dark3); font-size: 10px; color: var(--muted); }
+    .tag.manual { color: var(--gauge2); border-color: var(--gauge2); }
+    .tag.locked { color: var(--fire3); border-color: var(--fire2); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 8px 12px; }
+    label { display: grid; gap: 3px; color: var(--muted); font-size: 12px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 5px; font: inherit; }
+    textarea { min-height: 62px; resize: vertical; }
+    .wide { grid-column: 1 / -1; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+    .preview { min-height: 190px; display: flex; align-items: center; justify-content: center; background: var(--dark0); border: 1px solid var(--dark3); overflow: auto; }
+    .preview canvas { image-rendering: pixelated; max-width: 100%; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px; }
+    .stat { border: 1px solid var(--dark3); padding: 5px 7px; background: var(--dark0); }
+    .stat b { display: block; color: var(--brass3); font-size: 16px; }
+    .notice { padding: 7px 9px; border: 1px solid var(--dark3); background: var(--dark0); margin: 7px 0; white-space: pre-wrap; }
+    .notice.bad { border-color: var(--fire2); color: var(--fire3); }
+    .notice.ok { border-color: var(--gauge1); color: var(--gauge2); }
+    .notice.warn { border-color: var(--brass2); color: var(--brass3); }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid var(--dark3); padding: 4px 6px; text-align: left; }
+    th { color: var(--muted); background: var(--dark2); }
+    .muted { color: var(--muted); font-size: 12px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>关卡车工作台</h1>
+  <p class="muted">手工关卡车保存到 <code>js/stage-cars.js</code>，默认带锁；进化报告会读取但跳过锁定记录。改车前可在游戏控制台调用 <code>SA.dev.designMode()</code>，搭好后用 <code>SA.dev.loadStageCar(ch, st)</code> / <code>SA.dev.saveStageCar(ch, st)</code>。</p>
+  <div class="layout">
+    <aside class="panel">
+      <h2>序章～第二章</h2>
+      <div id="stage-list" class="stage-list"></div>
+      <h2>进度一览</h2>
+      <div id="progress"></div>
+    </aside>
+    <main>
+      <section class="panel">
+        <div id="title"></div>
+        <div id="preview" class="preview"></div>
+        <div id="stats" class="stats"></div>
+        <div id="warnings"></div>
+      </section>
+      <section class="panel">
+        <h2>关卡字段</h2>
+        <div class="grid">
+          <label>关卡名<input id="name"></label>
+          <label>驾驶员<input id="pilot"></label>
+          <label>AI 性格<select id="style"><option value="wander">游走</option><option value="rush">冲锋</option><option value="kite">放风筝</option><option value="turtle">龟缩</option></select></label>
+          <label>枪法 <span><input id="aim" type="number" min="0" max="1" step="0.01"></span></label>
+          <label>场地<select id="terrain"></select></label>
+          <label>Boss <input id="boss" type="checkbox"></label>
+          <label>奖金<input id="prize" type="number" min="0" step="10"></label>
+          <label>通关解锁模块（逗号分隔）<input id="unlock-mods" placeholder="例如 mortar_s,condenser"></label>
+          <label>通关解锁功能（逗号分隔）<input id="unlock-feat" placeholder="例如 side,upgrade"></label>
+          <label>通关解锁最高材料<input id="unlock-mat" type="number" min="0" max="6" step="1" placeholder="不改动"></label>
+          <label>通关解锁改装台<input id="unlock-grid" placeholder="例如 6x4"></label>
+          <label class="wide">可缴获件（JSON）<textarea id="loot" placeholder='[{"id":"boss_lens","mt":5,"once":true}]'></textarea></label>
+          <label class="wide">赛前介绍<textarea id="blurb"></textarea></label>
+          <label class="wide">弱点提示<textarea id="weakness"></textarea></label>
+        </div>
+        <div class="buttons">
+          <button class="btn primary" id="save">保存为手工关卡车</button>
+          <button class="btn" id="unlock">解锁（允许进化器改）</button>
+          <button class="btn" id="relock">重新锁定</button>
+          <button class="btn" id="import">导入分享码 / 模块清单</button>
+          <select id="candidate" style="max-width:320px"><option value="">进化报告候选车</option></select>
+          <button class="btn" id="candidate-import">拿候选车作底稿</button>
+          <button class="btn" id="drive">一键试驾</button>
+        </div>
+        <div id="import-box" class="notice" hidden>
+          <label>粘贴 SA2 分享码或完整模块清单 JSON<textarea id="import-value" placeholder="SA2.… 或 [[层,行,列,id,材料,改装等级],…]"></textarea></label>
+          <div class="buttons"><button class="btn primary" id="import-confirm">确认导入</button><button class="btn" id="import-cancel">取消</button></div>
+        </div>
+        <div class="muted">导入框接受 <code>SA2.…</code> 分享码、<code>[[层,行,列,id,材料,改装等级],…]</code>，或包含 <code>cells</code> 的 JSON 对象。</div>
+      </section>
+      <section class="panel">
+        <h2>快速测试</h2>
+        <div class="buttons"><label style="display:flex;align-items:center;gap:6px">每种参考车局数 <input id="games" type="number" value="20" min="1" max="200" style="width:90px"></label><button class="btn primary" id="test">固定种子测试</button></div>
+        <div id="test-result" class="notice">尚未测试。</div>
+      </section>
+    </main>
+  </div>
+  <script src="../js/palette.js"></script>
+  <script src="../js/modules.js"></script>
+  <script src="../js/module-art.js"></script>
+  <script src="../js/dynamics.js"></script>
+  <script src="../js/sprites.js"></script>
+  <script src="../js/legs.js"></script>
+  <script src="../js/vehicle.js"></script>
+  <script>window.SA_STAGE_CARS_SCRIPT = true;</script>
+  <script src="../js/content.js"></script>
+  <script src="../js/build-sys.js"></script>
+  <script src="../js/stage-cars.js"></script>
+  <script src="../js/state.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/camp.js"></script>
+  <script src="../js/camp-ui.js"></script>
+  <script src="../js/terrain-art.js"></script>
+  <script src="../js/battle-view.js"></script>
+  <script src="../js/battle.js"></script>
+  <script src="stage-editor.js"></script>
+</body>
+</html>

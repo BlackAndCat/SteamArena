@@ -326,3 +326,12 @@ SA.STREET_PILOTS = [
   ['钟表匠学徒 奥利', '发条'], ['面包师 胖墩', '烤炉'], ['邮差 老乔', '急件'], ['擦鞋匠 小山姆', '鞋油罐'],
   ['磨刀匠 老维克', '砂轮'], ['送奶工 玛吉', '奶桶'], ['车夫 霍布斯', '老马'], ['修伞匠 皮普', '黑伞'],
 ];
+
+// 游戏入口由 Opus 维护，不能要求它为了数据文件改动页面结构。解析主页面时同步插入
+// 手工关卡数据脚本；Node 工具和独立工具页会显式加载同一文件，因此不会依赖 document。
+if (typeof document !== 'undefined' && document.readyState === 'loading' && !window.SA_STAGE_CARS_SCRIPT) {
+  window.SA_STAGE_CARS_SCRIPT = true;
+  const source = document.currentScript && document.currentScript.src;
+  const stageCars = source ? new URL('stage-cars.js', source).href : 'js/stage-cars.js';
+  document.write('<script src="' + stageCars + '"></' + 'script>');
+}

@@ -3,6 +3,7 @@ window.SA = window.SA || {};
 
 SA.S = (() => {
   const KEY = 'steam_arena_save_v2';   // v2：战役 + 材料（v1 的旧存档不再读取）
+  const DESIGN_KEY = 'steam_arena_design_v1'; // 设计模式的临时存档，与正式进度完全分开
   let d = null;
 
   function fresh() {
@@ -57,7 +58,12 @@ SA.S = (() => {
     for (const id of [...SA.CAMP_START.mods, ...C.mods]) { const f = SA.liveId(id); if (!mods.includes(f)) mods.push(f); }
     C.mods = mods;
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) { /* 隐私模式 */ } }
+  function save() {
+    try {
+      const key = SA.Camp && SA.Camp.isDesignMode && SA.Camp.isDesignMode() ? DESIGN_KEY : KEY;
+      localStorage.setItem(key, JSON.stringify(d));
+    } catch (e) { /* 隐私模式 */ }
+  }
   function reset() { d = fresh(); save(); return d; }
 
   // 库存按「模块 + 材料」分开记：黄铜的键就是 id，其余是 id@材料（SA.invKey）
@@ -97,6 +103,7 @@ SA.S = (() => {
   }
 
   function repairCost(cell) {
+    if (SA.Camp && SA.Camp.isDesignMode && SA.Camp.isDesignMode()) return 0;
     // 修满 = 模块总价值（含材料和改装）× 该模块的修理费比例（SA.repairRate），按损伤比例计；报废的也按修满算
     const lost = 1 - Math.max(0, cell.hp) / SA.V.maxHp(cell);
     return lost <= 0 ? 0 : Math.max(1, Math.ceil(lost * SA.cellValue(cell) * SA.repairRate(cell.id)));
@@ -238,10 +245,10 @@ SA.S = (() => {
         const beaten = over || chapterIndex < C.ch || (chapterIndex === C.ch && i < C.st);
         const next = !over && chapterIndex === C.ch && i === C.st;
         const replay = beaten;
-        return { key: `${chapterIndex},${i}`, name: o.name, pilot: o.pilot, blurb: o.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : o.prize, boss: o.boss, terrain: o.terrain || 'flat', replay, next,
-          tag: replay ? ['ok', '可重打'] : next ? ['next', o.boss ? 'Boss' : '下一场'] : ['no', o.boss ? 'Boss' : `第 ${i + 1} 场`],
-          title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${o.name}`, lock: replay || next ? null : '先完成前面的战役',
-          start: () => SA.Battle.start({ mode: 'campaign', replay, enemyVehicle: stage.vehicle, enemyName: o.name, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, hpMul: 1, prize: replay ? 0 : o.prize, uniqueLoot: o.uniqueLoot || [] }) };
+        return { key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
+          tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
+          title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
+          start: () => SA.Battle.start({ mode: 'campaign', replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) };
       }));
     }
     if (mode === 'side') return SA.Camp.sideEntries().map(e => ({

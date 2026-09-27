@@ -33,6 +33,7 @@
 | astra | `js/battle.js`、`js/build-sys.js`、`js/modules.js`（只含机制字段，见 §2.3）、`js/vehicle.js`、`js/camp.js`、`js/content.js`、`js/state.js`、`js/street.js`、`tools/sim.html`、`tools/sim.js`、今后新增的检查脚本、`docs/game-design.md`、`docs/codex-task-*.md` |
 | Opus | `js/main.js`、`js/build-vis.js`、`js/editor.js`、`js/ui.js`、`js/arena.js`、`js/blueprints.js`、`js/module-art.js`、`js/battle-view.js`、`js/camp-ui.js`、`js/sprites.js`、`js/legs.js`、`js/dynamics.js`、`js/terrain-art.js`、`js/palette.js`、`css/style.css`、`index.html` 的结构、各样机页（`tools/*-lab.*`、`tools/mech-kit.*`、`tools/biped-v2.*`、`tools/spritesheet.html`、`tools/chassis-lab.html`）、`docs/art-direction.md`、`docs/true-biped.md` 的视觉章节 |
 | astra | `js/text-manager.js`、`text/`、`tools/serve.py`、`README.md`、`docs/module-plan.md`、`docs/board-astra.md` |
+| 用户专属 | `js/stage-cars.js`：关卡车手工设计记录；代理不得手工修改，必须通过 `tools/stage-editor.html` / `tools/serve.py` 按用户操作写入 |
 | Opus | `docs/board-opus.md` |
 | 用户批准 | 本文件的公共协作约定；改规则须用户同意 |
 

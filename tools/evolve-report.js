@@ -23,7 +23,11 @@
   const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
   const fix = (x, d = 0) => (x == null || !Number.isFinite(+x) ? '—' : (+x).toFixed(d));
   const terrainName = (k) => (SA.TERRAINS[k] ? SA.TERRAINS[k].name : k || '平地');
-  const stageName = (ci, si) => { const s = SA.CAMPAIGN[ci] && SA.CAMPAIGN[ci].stages[si]; return s ? s.name : `第 ${ci + 1} 章第 ${si + 1} 关`; };
+  const stageName = (ci, si) => {
+    const raw = SA.CAMPAIGN[ci] && SA.CAMPAIGN[ci].stages[si];
+    const s = raw && SA.StageCars ? SA.StageCars.merge(raw, ci, si) : raw;
+    return s ? s.name : `第 ${ci + 1} 章第 ${si + 1} 关`;
+  };
   const chapterShort = (ci) => (SA.CAMPAIGN[ci] ? SA.CAMPAIGN[ci].name.split(' · ')[0] : `第 ${ci + 1} 章`);
 
   const st = { report: null, label: '', chapter: 'all', fingerprint: null, grid: null };
@@ -357,9 +361,10 @@
   function stageOpponent(rec) {
     const sp = rec.spec || {};
     if (sp.chapter == null || sp.stage == null) return null;
-    const o = SA.CAMPAIGN[sp.chapter] && SA.CAMPAIGN[sp.chapter].stages[sp.stage];
+    const raw = SA.CAMPAIGN[sp.chapter] && SA.CAMPAIGN[sp.chapter].stages[sp.stage];
+    const o = raw && SA.StageCars ? SA.StageCars.merge(raw, sp.chapter, sp.stage) : raw;
     if (!o) return null;
-    return { o, v: SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []) };
+    return { o, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []) };
   }
   // 按报告里的种子重跑典型对局：和 tools/evolve.js 的 duel 同样的参数（候选车在左、这一关的战役对手在右）
   function replay(rec) {
