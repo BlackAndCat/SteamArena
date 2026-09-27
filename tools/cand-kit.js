@@ -122,5 +122,6 @@ SA.CAND = (() => {
     IRON, IRONL, DARK, BRASS, RUST, SOOT_PILOT, SOOT_CO,
     MODS, BATCH, add, sprite, padOf, isGun,
     ctx: () => g,
+    use: (c) => { g = c; },   // 其他样机页借这些画图函数画到自己的画布上
   };
 })();
