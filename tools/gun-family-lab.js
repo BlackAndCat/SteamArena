@@ -1,6 +1,6 @@
 // 火炮家族 · 六档再设计（tools/gun-family-lab.html 专用，只做视觉，不改游戏）。按 docs/visual-rules.md：
 // 只用直线；形体在 T3、T5 跃迁；散热口逐档变多、排法变化；铆钉 T1～3 黄铜、镀镍起钢质淡青；包角铁钢起；
-// 小模块零件做减法——中炮不放铭牌，镀镍起只加一块小压力表（直径 7）。
+// 小模块零件做减法——中炮不放铭牌，镀镍起只加一块小压力表（直径 7）；小炮 1×1 不放任何零件，只靠剪影。
 //
 // 中炮 2×1（48×24），耳轴 (18,13)，炮口末端 x 53，仰角 −8°～30°。形体和直射火炮一一对应：
 //   T1～2 敞开式炮架 + 低矮前挡板（对应直射火炮的方指挥塔）；
@@ -123,94 +123,70 @@ SA.GFLAB = (() => {
     ['包角位', '#ef7a21', (x, y) => [x + 2, y + 3, 5, 5], (x, y) => [x + 1, y + 19, 5, 5]],
     ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 11, y + 6, 21, 12]],
   ];
-  // ---------- 小炮（卡隆短炮）1×1 ----------
-  // 24×24，耳轴 (12,13)，炮口末端 x 36，仰角 −8°～30°。保留卡隆短炮的招牌剪影：粗药室（9 高）+ 尾钮 + 细炮管（5 高）。
-  // 形体和家族一一对应：T1～2 滑架（暗铁滑轨 + 两个小轮）；T3～4 方箱炮座；T5～6 炮座前沿斜板。
-  // 立面分区（按炮管扫动核对：−8° 时炮口下沿最低到 y 18，30° 时炮尾沉到炮座左端）：
-  //   炮座 x 1～23、y 18～23；左端 x 1～8 给炮尾让位，不放身份件；
-  //   铆钉 = 炮座顶线（y 18）x 9～15；散热口 = x 9～16、y 21～22（至少 3 个）；表位（镀镍起）= 炮座右端（中心 (20, 20.5)，直径 5，1×1 减半）；
-  //   包角位 = 炮座左下（钢起）。
-  const SZ = { rivets: { y: 18, x0: 9, x1: 15 }, vent: { x: 9, y: 21, h: 2 }, gauge: { cx: 20, cy: 20.5 } };
-  function tinyGauge(cx, cy) {   // 直径 5：黄铜圈 + 白表盘 + 指针
-    disc(cx, cy, 2.6, P.brass[0]); disc(cx, cy, 1.8, P.steam[2]);
-    px(Math.round(cx - 1.5), Math.round(cy - 1.5), P.brass[3]); px(Math.round(cx + 0.5), Math.round(cy - 1.5), P.gauge[1]);
-    px(Math.round(cx - 0.5), Math.round(cy - 0.5), P.dark[0]); px(Math.round(cx - 1.5), Math.round(cy - 0.5), P.dark[0]);
-  }
+  // ---------- 小炮（卡隆短炮）1×1 · v3：剪影优先 ----------
+  // 用户：1×1 不做复杂装饰，识别度和低视觉压力优先，剪影是识别的核心；而且格子上方 1/3 不能空着。
+  // 所以：不放铆钉、散热口、压力表、包角铁；把卡隆短炮本身放大——粗药室高 17（y 5～21），撑满格子上半；
+  // 档位只靠轮廓变：T1～2 铸造「瓶身」（两端倒角 + 圆尾钮 + 细炮管）→ T3～4 药室整个包进方套箱（剪影变方块）+ 台阶收口 → T5～6 套箱前肩斜切（梯形）+ 粗炮管。
+  // 只保留两样结构件：耳轴的方形固定螺栓、药室上一道黄铜箍（火力的颜色）。24×24，耳轴 (12,13)，炮口末端 x 36。
   const MOUNT = {
-    slide(x, y) {                    // 滑架：暗铁滑轨 + 两个小轮 + 耳轴托架
-      box(x + 8, y + 15, 9, 4, SA.CAND.DARK);
-      box(x + 1, y + 18, 23, 6, SA.CAND.DARK); R(x + 2, y + 18, 21, 1, P.iron[3]);
+    slide(x, y) {                    // 滑架：暗铁滑轨 + 两个小轮
+      box(x + 1, y + 19, 23, 5, SA.CAND.DARK); R(x + 2, y + 19, 21, 1, P.iron[3]);
       for (const wx of [4, 20]) { disc(x + wx, y + 22.5, 2, P.dark[0]); px(x + wx, y + 22, P.iron[3]); }
     },
-    box(x, y) { box(x + 8, y + 15, 9, 4, IRON); box(x + 1, y + 18, 23, 6, IRON); R(x + 2, y + 19, 21, 1, P.iron[4]); },
+    box(x, y) { box(x + 1, y + 19, 23, 5, IRON); R(x + 2, y + 20, 21, 1, P.iron[4]); },
     slant(x, y) {
-      box(x + 8, y + 15, 9, 4, IRON);
-      for (let yy = 18; yy <= 23; yy++) {
-        const xr = x + 19 + Math.round((yy - 18) * 0.8);
+      for (let yy = 19; yy <= 23; yy++) {
+        const xr = x + 20 + Math.round((yy - 19) * 0.8);
         R(x + 1, y + yy, xr - x - 1, 1, P.iron[2]); px(x + 1, y + yy, P.iron[0]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
       }
-      R(x + 1, y + 18, 19, 1, P.iron[0]); R(x + 2, y + 19, 17, 1, P.iron[4]); R(x + 1, y + 23, 23, 1, P.iron[0]);
+      R(x + 1, y + 19, 20, 1, P.iron[0]); R(x + 2, y + 20, 18, 1, P.iron[4]); R(x + 1, y + 23, 23, 1, P.iron[0]);
     },
   };
-  function sGun(x, y, o, barrel) {
+  // 一列圆管：上下描边、上沿亮、下沿暗（t / b 是这一列的上下沿）
+  const colV = (cx, t, b) => { R(cx, t, 1, b - t + 1, P.iron[0]); if (b - t > 1) { R(cx, t + 1, 1, b - t - 1, P.iron[3]); px(cx, t + 1, P.iron[4]); if (b - t > 3) px(cx, t + 2, P.iron[4]); px(cx, b - 1, P.iron[2]); } };
+  function sGun(x, y, o, form) {
     turn(x + 12, y + 13, o.a || 0, (PX, PY) => {
-      const d = Math.round((o.k || 0) * 4), C = PX - d, Y = PY, end = C + 24;   // C = 耳轴（随后坐移动），炮口末端在耳轴前 24
-      const col = (cx, y0, hh) => { R(cx, y0, 1, hh, P.iron[0]); R(cx, y0 + 1, 1, hh - 2, P.iron[3]); px(cx, y0 + 1, P.iron[4]); px(cx, y0 + hh - 2, P.iron[2]); };
-      const tube = (x0, x1, y0, hh) => { for (let i = x0; i < x1; i++) col(i, y0, hh); };
-      const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
-      const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
-      const ring = (x0, w, y0, hh) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); };
-      R(C - 12, Y - 2, 3, 5, P.iron[0]); R(C - 11, Y - 1, 1, 3, P.iron[3]);   // 尾钮
-      tube(C - 9, C + 3, Y - 4, 9);                                          // 粗药室
-      tube(C + 3, C + 5, Y - 3, 7);                                          // 收口
-      tube(C + 5, end - 3, Y - 2, 5);                                        // 细炮管
-      band(C - 6, Y - 5, 11);                                                // 药室黄铜箍（全档都有）
-      if (barrel === 1) {        // ① 方口箍
-        ring(end - 3, 3, Y - 3, 7); px(end - 1, Y, P.black);
-      } else if (barrel === 2) { // ② 炮管一道铁箍 + 阶梯方口（两段连在一起）
-        hoop(C + 10, Y - 3, 7);
-        ring(end - 6, 3, Y - 3, 7); ring(end - 3, 3, Y - 4, 9); px(end - 1, Y, P.black);
-      } else {                   // ③ 三道铁箍 + 方制退器（两道开槽）
-        for (const hb of [7, 11, 15]) hoop(C + hb, Y - 3, 7);
-        ring(end - 6, 6, Y - 4, 9); R(end - 4, Y - 2, 3, 1, P.dark[0]); R(end - 4, Y + 1, 3, 1, P.dark[0]);
+      const d = Math.round((o.k || 0) * 4), C = PX - d, Y = PY, end = C + 24;
+      const hoop = (hx, hh) => { R(hx, Y - hh, 2, hh * 2 + 1, P.iron[0]); R(hx, Y - hh + 1, 2, hh * 2 - 1, P.iron[2]); R(hx, Y - hh + 1, 1, hh * 2 - 1, P.iron[4]); };
+      const ring = (x0, w, hh) => { R(x0, Y - hh, w, hh * 2 + 1, P.iron[0]); R(x0 + 1, Y - hh + 1, w - 2, hh * 2 - 1, P.iron[3]); R(x0 + 1, Y - hh + 1, w - 2, 1, P.iron[4]); };
+      if (form === 'cast') {         // T1～2 铸造卡隆：尾钮 + 两端倒角的粗药室（高 17）+ 收口 + 细炮管 + 方口箍
+        disc(C - 10.5, Y, 2.5, P.iron[0]); disc(C - 10.5, Y, 1.5, P.iron[3]);
+        const prof = [5, 7, 8, 8, 8, 8, 8, 8, 8, 8, 7, 6, 5];   // 药室每列的半高（C-9～C+3）
+        prof.forEach((hh, i) => colV(C - 9 + i, Y - hh, Y + hh));
+        for (let i = C + 4; i < end - 3; i++) colV(i, Y - 3, Y + 3);
+        R(C - 5, Y - 8, 2, 17, P.brass[1]); R(C - 5, Y - 8, 1, 17, P.brass[3]);   // 药室黄铜箍
+        ring(end - 3, 3, 4); px(end - 1, Y, P.black);
+      } else {                       // T3～6：整个药室包进方套箱（14×17，倒 1px 角）；T5～6 前肩斜切成梯形
+        const slant = form === 'slant', x0 = C - 9, n = 13;
+        R(C - 12, Y - 2, 3, 5, P.iron[0]); R(C - 11, Y - 1, 1, 3, P.iron[3]); px(C - 11, Y - 1, P.iron[4]);   // 方尾钮
+        for (let i = 0; i < n; i++) {
+          const t = Y - 8 + (slant && i >= 5 ? Math.round((i - 5) * 0.75) : 0) + (i === 0 || i === n - 1 ? 1 : 0), b = Y + 8 - (i === 0 || i === n - 1 ? 1 : 0);
+          const edge = i === 0 || i === n - 1;
+          R(x0 + i, t, 1, b - t + 1, P.iron[0]);
+          if (!edge) { R(x0 + i, t + 1, 1, b - t - 1, P.iron[2]); px(x0 + i, t + 1, P.iron[4]); px(x0 + i, b - 1, P.iron[1]); }
+          if (i === 1) R(x0 + i, t + 1, 1, b - t - 1, P.iron[3]);
+          if (i === n - 2) R(x0 + i, t + 1, 1, b - t - 1, P.iron[1]);
+        }
+        R(C - 5, Y - 8, 2, 17, P.brass[1]); R(C - 5, Y - 8, 1, 17, P.brass[3]);   // 黄铜箍
+        const hh = slant ? 4 : 3;
+        for (let i = C + 4; i < end - 5; i++) colV(i, Y - hh, Y + hh);
+        if (!slant) { colV(C + 4, Y - 5, Y + 5); colV(C + 5, Y - 5, Y + 5); R(C + 5, Y - 5, 1, 11, P.iron[0]); hoop(C + 12, 4); ring(end - 6, 3, 4); ring(end - 3, 3, 5); px(end - 1, Y, P.black); }   // 收口台阶 + 一道铁箍 + 阶梯方口
+        else { hoop(C + 8, 5); ring(end - 6, 6, 5); R(end - 4, Y - 2, 3, 1, P.dark[0]); R(end - 4, Y + 2, 3, 1, P.dark[0]); }   // 一道粗箍 + 方制退器
       }
       if ((o.k || 0) >= 0.85) { R(end, Y - 2, 3, 5, P.fire[3]); R(end + 3, Y - 1, 2, 3, P.fire[2]); }
     });
     R(x + 10, y + 11, 5, 5, P.brass[0]); R(x + 11, y + 12, 3, 3, P.brass[3]); px(x + 12, y + 13, P.brass[0]);   // 方形固定螺栓（耳轴）
   }
   const S_TIERS = [
-    { m: 'slide', b: 1, vent: ['slits2', 3], riv: [2, 'brass'], parts: [] },
-    { m: 'slide', b: 1, vent: ['slits2', 3], riv: [2, 'brass'], parts: [] },
-    { m: 'box', b: 2, vent: ['slits2', 4], riv: [2, 'brass'], parts: ['corners'] },
-    { m: 'box', b: 2, vent: ['slits2', 4], riv: [2, 'steel'], parts: ['corners', 'gauge'] },
-    { m: 'slant', b: 3, vent: ['pairs1', 2], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
-    { m: 'slant', b: 3, vent: ['louverS', 3], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { m: 'slide', form: 'cast' }, { m: 'slide', form: 'cast' },
+    { m: 'box', form: 'jacket' }, { m: 'box', form: 'jacket' },
+    { m: 'slant', form: 'slant' }, { m: 'slant', form: 'slant' },
   ];
-  function sVents(x, y, style, n) {
-    const Z = SZ.vent, slit = (sx) => { R(x + Z.x + sx, y + Z.y, 1, Z.h, P.iron[0]); R(x + Z.x + sx + 1, y + Z.y, 1, Z.h, P.iron[3]); };
-    if (style === 'slits2') for (let i = 0; i < n; i++) slit(i * 2);
-    else if (style === 'pairs1') for (let i = 0; i < n; i++) { slit(i * 5); slit(i * 5 + 2); }     // 两组、每组两道：共 4
-    else if (style === 'louverS') for (let i = 0; i < n; i++) { px(x + Z.x + i * 3, y + Z.y + 1, P.iron[0]); px(x + Z.x + i * 3 + 1, y + Z.y, P.iron[0]); px(x + Z.x + i * 3 + 1, y + Z.y + 1, P.iron[3]); px(x + Z.x + i * 3 + 2, y + Z.y, P.iron[3]); }
-  }
-  function sBase(g, x, y, T, o = {}) {
-    SA.CAND.use(g);
-    MOUNT[T.m](x, y);
-    sVents(x, y, T.vent[0], T.vent[1]);
-    if (T.parts.includes('corners')) corner(x + 1, y + 19, 1, -1);
-    sGun(x, y, o, T.b);
-  }
-  function sOver(g, x, y, T) {
-    SA.CAND.use(g);
-    const [n, kind] = T.riv, c = RIVET_C[kind], Z = SZ.rivets, step = n > 1 ? (Z.x1 - Z.x0) / (n - 1) : 0;
-    for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, c);
-    if (T.parts.includes('gauge')) tinyGauge(x + SZ.gauge.cx, y + SZ.gauge.cy);
-  }
+  function sBase(g, x, y, T, o = {}) { SA.CAND.use(g); MOUNT[T.m](x, y); sGun(x, y, o, T.form); }
+  function sOver() {}   // 1×1 不放身份件
   const S_ZONES_VIEW = [
-    ['接缝 · 铆钉', '#6fcf6a', (x, y) => [x + 9, y + 18, 9, 3]],
-    ['散热区', '#46c2c9', (x, y) => [x + 9, y + 21, 8, 2]],
-    ['表位（镀镍起，直径 5）', '#ff6b9a', (x, y) => [x + 17, y + 18, 6, 6]],
-    ['包角位（钢起）', '#ef7a21', (x, y) => [x + 1, y + 19, 5, 5]],
-    ['炮身 + 扫过的范围（不放身份件）', '#a8a39a', (x, y) => [x - 1, y + 6, 25, 12]],
+    ['炮身（识别的核心）', '#f5d77a', (x, y) => [x, y + 4, 24, 15]],
+    ['炮座', '#46c2c9', (x, y) => [x + 1, y + 19, 23, 5]],
   ];
   return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW };
 })();
