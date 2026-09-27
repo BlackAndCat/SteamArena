@@ -29,7 +29,7 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮、小炮、侧炮已进游戏 · 重炮 v4（历史重炮 + 镂空齿轮背景）· 2026-09-27</small></h1>
+    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮、小炮、侧炮已进游戏 · 重炮 v5（历史重炮 + 预制齿轮组）· 2026-09-27</small></h1>
     <p>按 <code>docs/visual-rules.md</code> 把直射火炮的做法推到中炮（2×1，横躺长炮）。<b>形体和直射火炮一一对应</b>：T1～2 敞开式炮架 + 低矮前挡板 → T3～4 方方正正的平顶炮廓把炮座罩起来 → T5～6 炮廓前沿做成斜板。<b>炮管</b>三种和直射火炮同一套：素管 + 一道箍 + 小方制退器 → 炮尾套筒 + 连体阶梯制退器 → 粗炮身 + 三道铁箍 + 大方制退器。<b>散热口</b>：2 道竖缝 → 3 道 → 成对竖缝 → 斜百叶。<b>小模块做减法</b>：不放铭牌；镀镍起只在炮廓左上加一块小压力表（直径 7）；接缝铆钉 2 → 3 → 4 颗，T1～3 黄铜、镀镍起钢质淡青；钢起有包角铁。</p>
     <p><b>v3（按反馈）：</b>摇架恢复到接近旧版的大小，耳轴处画回方形固定螺栓（方框 + 中心点）；散热口每档至少 3 个：T1～2 三道竖缝 → T3～4 四道密排竖缝 → T5 两行短竖缝 → T6 两行斜百叶。</p>
     <p>v1 试过「高防盾 / 斜防盾」，在 24px 高的模块上读成一根竖杆，已放弃，改成和直射火炮同构的炮廓。分区按炮管的仰角范围（−8°～30°）核对过：压力表、散热口、铆钉都在炮管扫不到的地方。</p>
@@ -93,13 +93,14 @@
   </section>
 
   <section>
-    <h2 class="sec">重炮 · 3×2 v4 历史重炮 + 背景齿轮组 <small>镀镍起，只有 T4～T6 · 6× 分区图（T6 原画）</small></h2>
-    <p class="lead"><b>v4（按反馈，在方案 C 的基础上）</b>：齿轮换成<b>镂空大齿轮</b>——径向方齿 + 粗轮缘 + 直辐条 + 轮毂，辐条之间是空的；大（半径 13，6 辐）/ 中（9，5 辐）/ 小（6，4 辐）三个互相咬着组成背景，被炮身挡住下半也没关系。<b>底座减法</b>：去掉手轮、小齿轮、齿弧、紫铜管、阀门、炮架齿轮组、减重窗，只留<b>大中小齿轮 + 传动杆</b>（大齿轮曲柄到滑轨前端的连杆 + 炮耳架上一根长轴）；耳轴下移 6px，把格子上部让给齿轮组。炮身不变（台阶式、炮尾钮、黄铜箍），<b>炮口出框 4px</b>。档位：T4 台阶形炮耳架 → T5～6 前沿斜切 + 炮身更粗、两道铁箍；铆钉只在滑轨上（3 → 4 → 4）。</p>
+    <h2 class="sec">重炮 · 3×2 v5 历史重炮 + 预制齿轮组 <small>镀镍起，只有 T4～T6 · 6× 分区图（T6 原画）</small></h2>
+    <p class="lead"><b>v5（按反馈）</b>：齿轮组做成<b>预制件</b> <code>gearSet</code>：<b>大齿轮</b>（半径 14，6 辐）放在后部（炮尾后上方），<b>中</b>（9，十字 4 辐）、<b>小</b>（6，实心轮盘 + 轮毂）叠在它前面并咬合（小尺寸不开斜辐条，免得锯齿）。齿轮<b>重画得纯</b>：先算形状遮罩（齿 + 轮缘 + 直辐条 + 轮毂，辐条间镂空），贴空处的像素一律描边、其余纯色填充，上沿一道亮、下沿一道暗，只用 4 个黄铜色；齿按「2px 齿 + 2px 空」算。<b>颜色固定为真黄铜</b>：在材质处理之后、垫在整张精灵最后面画，不再被材料换色（v4 在镀镍上发白、发灰就是这个原因）。底座仍然只有齿轮 + 传动杆（小齿轮曲柄 → 滑轨前端的连杆 + 炮耳架长轴），炮口出框 4px。</p>
+
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start"><canvas id="hzones"></canvas><div id="hlegend" style="font-size:13px;line-height:2"></div></div>
   </section>
 
   <section>
-    <h2 class="sec">装饰零件板 <small>5× · 镂空齿轮（半径 7 / 10 / 14）· 大中小啮合组 · 传动杆 + 轴套 · 连杆 · 放在 T4 / T5 / T6 底板上</small></h2>
+    <h2 class="sec">装饰零件板 <small>5× · 预制齿轮组（大在后、中小叠在前咬合）· 单个镂空齿轮（半径 6 / 9 / 14）· 传动杆 + 轴套 · 连杆 · 放在 T4 / T5 / T6 底板上</small></h2>
     <div class="scroll" id="hparts"></div>
   </section>
 
@@ -112,7 +113,7 @@
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>重炮 v4（镂空大中小齿轮背景 + 传动杆，底座减法，炮口出框）是否 OK；OK 后写进游戏（piv [34,24]、blen 42、去掉占位）。</li><li>镂空齿轮要不要作为公共装饰件推广到别的模块。</li>
+        <li>重炮 v5（预制齿轮组 + 传动杆，底座减法，炮口出框）是否 OK；OK 后写进游戏（piv [34,24]、blen 42、去掉占位）。</li><li>镂空齿轮要不要作为公共装饰件推广到别的模块。</li>
         <li>OK 的话写进游戏（耳轴 / 炮口按新画面改 piv、blen），再做巨炮。</li>
       </ul>
     </div>
@@ -267,10 +268,11 @@
   }
   function hNewV(mt, v, o = {}, raw = false) {
     const T = G.H_TIERS[Math.max(4, mt)], c = document.createElement('canvas'); c.width = HOX + 72 + 16; c.height = HOY + 48 + 6;
-    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(HOX, HOY, 72, 48);
+    const g = c.getContext('2d');
     G.hBase(g, HOX, HOY, T, o, v);
     if (!raw) applyMat(c, mt, HOX, HOY);
-    G.hOver(c.getContext('2d'), HOX, HOY, T);
+    G.hOver(g, HOX, HOY, T);
+    g.globalCompositeOperation = 'destination-over'; g.fillStyle = P.iron[1]; g.fillRect(HOX, HOY, 72, 48); g.globalCompositeOperation = 'source-over';
     return c;
   }
   function renderHeavy() {
@@ -286,14 +288,15 @@
     const PB = $('hparts'); PB.replaceChildren();
     for (const mt of [4, 5, 6]) {
       const c = document.createElement('canvas'); c.width = 80; c.height = 62;
-      const g2 = c.getContext('2d'); g2.fillStyle = P.iron[2]; g2.fillRect(0, 0, 80, 62);
-      G.partsBoard(g2, 2, 1); applyMat(c, mt, 0, 0);
+      const g2 = c.getContext('2d');
+      G.partsBoard(g2, 2, 1); applyMat(c, mt, 0, 0); G.partsGears(g2, 2, 1);
+      g2.globalCompositeOperation = 'destination-over'; g2.fillStyle = P.iron[2]; g2.fillRect(0, 0, 80, 62); g2.globalCompositeOperation = 'source-over';
       const wrap = el('div', { style: 'display:inline-block;margin:0 10px 8px 0;text-align:center;font-size:12px' }, show(c, 5), el('div', {}, `T${mt} ${SA.MATS[mt].name}`));
       PB.append(wrap);
     }
     const MTS = [4, 5, 6], T = $('htiers');
     T.replaceChildren(el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }), el('th', {}, 'T6 · −6°'), el('th', {}, 'T6 · 34°')));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '重炮 · v4', el('small', {}, '镂空大中小齿轮背景 + 传动杆；台阶式炮身，炮口出框')), ...MTS.map(mt => cell(hNewV(mt))), el('td', {}, show(hNewV(6, 'C', { a: -6 }), st.zoom)), el('td', {}, show(hNewV(6, 'C', { a: 34 }), st.zoom))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '重炮 · v5', el('small', {}, '预制齿轮组（大在后、中小在前咬合，纯黄铜）+ 传动杆；台阶式炮身，炮口出框')), ...MTS.map(mt => cell(hNewV(mt))), el('td', {}, show(hNewV(6, 'C', { a: -6 }), st.zoom)), el('td', {}, show(hNewV(6, 'C', { a: 34 }), st.zoom))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '直射火炮 · 已进游戏'), ...MTS.map(mt => cell(gameMod('cannon', mt, 48, 48)))));
   }
   function renderAll() { renderZones(); renderTiers(); renderAngles(); renderCtx(); renderSmall(); renderSide(); renderHeavy(); }

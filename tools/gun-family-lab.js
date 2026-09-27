@@ -319,39 +319,61 @@ SA.GFLAB = (() => {
   function flangeH(x0, y0) { R(x0, y0 - 1, 2, 5, P.brass[0]); R(x0, y0 - 1, 1, 5, P.brass[3]); }
   function flangeV(x0, y0) { R(x0 - 1, y0, 5, 2, P.brass[0]); R(x0 - 1, y0, 5, 1, P.brass[3]); }
   function valve(cx, cy) { R(cx - 2, cy - 1, 5, 3, P.brass[1]); R(cx - 2, cy - 1, 5, 1, P.brass[3]); R(cx, cy - 4, 1, 3, P.iron[0]); R(cx - 2, cy - 5, 5, 1, P.iron[3]); }
-  // 镂空齿轮（v4，用户：齿轮要大、镂空、有力，可以被挡）：径向方齿 + 粗轮缘 + 直辐条 + 轮毂，辐条之间是空的（透出后面）。
-  // r = 齿顶半径，n = 齿数，k = 辐条数，ph = 齿的相位（0～1），sp = 辐条相位（弧度）
-  function gearOpen(cx, cy, r, n, k, ph = 0, sp = 0) {
-    const rb = r - 2, rim = r >= 10 ? 3 : 2, hubR = r >= 10 ? r * 0.2 : 1.6, tw = r >= 10 ? 3 : 2;
-    for (let yy = Math.floor(cy - r - 1); yy <= Math.ceil(cy + r + 1); yy++) for (let xx = Math.floor(cx - r - 1); xx <= Math.ceil(cx + r + 1); xx++) {
-      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
-      const lit = dx + dy < 0;
-      let c = null;
-      if (d > rb && d <= r) {                                   // 齿：离最近一个齿中线的横向距离 < 齿宽一半
-        const step = Math.PI * 2 / n, t = Math.round((ang / step) - ph) + ph, off = Math.abs(Math.sin(ang - t * step)) * d;
-        if (off < tw / 2) c = d > r - 0.8 ? P.brass[0] : (lit ? P.brass[3] : P.brass[1]);
-      } else if (d <= rb && d > rb - rim) {                     // 轮缘
-        c = d > rb - 0.8 || d < rb - rim + 0.8 ? P.brass[0] : (lit ? P.brass[3] : P.brass[2]);
-      } else if (d <= hubR + 1) {                               // 轮毂
-        c = d > hubR ? P.brass[0] : (d < 1 ? P.brass[0] : (lit ? P.brass[3] : P.brass[2]));
-      } else if (d < rb - rim + 0.5) {                          // 辐条（直线，宽 2～3），其余镂空
-        const sw = r >= 10 ? 1.5 : 1.6;
-        for (let i = 0; i < k; i++) {
-          const a0 = sp + i * Math.PI * 2 / k, along = dx * Math.cos(a0) + dy * Math.sin(a0), across = -dx * Math.sin(a0) + dy * Math.cos(a0);
-          if (along > 0 && Math.abs(across) < sw) c = Math.abs(across) > sw - 0.7 ? P.brass[0] : (lit ? P.brass[3] : P.brass[2]);
-        }
+  // 镂空齿轮（v5，用户：颜色要纯、不要杂、不要断断续续）：先算形状遮罩（齿 + 轮缘 + 直辐条 + 轮毂，辐条之间镂空），
+  // 再上色——贴着空处的像素一律描边，其余纯色填充；上半部分紧贴描边下面一像素提亮、下半部分紧贴描边上面一像素压暗。
+  // 只用 4 个黄铜色，不做逐像素明暗，所以不会糊。齿数按「2px 齿 + 2px 空」（r ≥ 9 时 3px 齿 + 2px 空）算。
+  // 颜色固定为真黄铜（不跟材料换），在材质处理之后、垫在整张精灵后面画（destination-over），所以永远是纯黄铜、永远在最后面。
+  function gearMask(r, k, ph, sp) {
+    const big = r >= 9, n = Math.max(6, Math.round(Math.PI * 2 * r / (big ? 5 : 4))), frac = big ? 0.6 : 0.5;
+    const rb = r - 2, rim = big ? 3 : 2, hubR = big ? 3 : 2, sw = big ? 1.6 : 1.2;   // r ≥ 9：3px 齿 / 轮缘 / 辐条，中间才有填充色
+    return (dx, dy) => {
+      const d = Math.hypot(dx, dy);
+      if (d > r + 0.2) return false;
+      if (d > rb) { const f = ((((Math.atan2(dy, dx) / (Math.PI * 2)) * n + ph) % 1) + 1) % 1; return f < frac; }
+      if (d > rb - rim) return true;
+      if (d <= hubR + 0.4) return d > 0.9;                    // 轮毂，中间留一个轴孔
+      if (!k) return true;                                    // 不开辐条的小齿轮：实心轮盘
+      for (let i = 0; i < k; i++) {
+        const a0 = sp + i * Math.PI * 2 / k, along = dx * Math.cos(a0) + dy * Math.sin(a0), across = -dx * Math.sin(a0) + dy * Math.cos(a0);
+        if (along > 0 && Math.abs(across) < sw) return true;
       }
-      if (c) px(xx, yy, c);
+      return false;
+    };
+  }
+  function gearClean(cx, cy, r, k, ph = 0, sp = 0) {
+    const m = gearMask(r, k, ph, sp), x0 = Math.floor(cx - r - 1), y0 = Math.floor(cy - r - 1), W2 = Math.ceil(r * 2 + 3);
+    const at = (i, j) => m(x0 + i + 0.5 - cx, y0 + j + 0.5 - cy);
+    for (let j = 0; j < W2; j++) for (let i = 0; i < W2; i++) {
+      if (!at(i, j)) continue;
+      const up = at(i, j - 1), dn = at(i, j + 1), lf = at(i - 1, j), rt = at(i + 1, j);
+      let c = P.brass[2];
+      if (!up || !dn || !lf || !rt) c = P.brass[0];
+      else if (!at(i, j - 2) && y0 + j + 0.5 < cy) c = P.brass[3];
+      else if (!at(i, j + 2) && y0 + j + 0.5 > cy) c = P.brass[1];
+      px(x0 + i, y0 + j, c);
     }
   }
-  // 零件板（样机页单独展示）
+  // 预制齿轮组：大（r 14，6 辐）在后，中（r 9，十字 4 辐）、小（r 6，实心环 + 轮毂）叠在它前面并咬合。(x, y) = 大齿轮中心。
+  // 画的顺序配合 destination-over：先画的在前面（小 → 中 → 大）
+  const GEARSET = [[32, -6, 6, 0, 0.5, 0], [19, -4, 9, 4, 0.25, 0], [0, 0, 14, 6, 0, 0]];   // 中齿轮十字辐条、小齿轮不开辐条（小尺寸的斜辐条会锯齿）
+  function gearSet(g, x, y) {
+    SA.CAND.use(g);
+    const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
+    for (const [dx, dy, r, k, ph, sp] of GEARSET) gearClean(x + dx, y + dy, r, k, ph, sp);
+    g.globalCompositeOperation = prev;
+  }
+  // 零件板（样机页单独展示）：先画铁件（传动杆、连杆），材质处理之后再垫齿轮
   function partsBoard(g, x, y) {
     SA.CAND.use(g);
-    gearOpen(x + 8, y + 9, 7, 10, 4); gearOpen(x + 26, y + 11, 10, 14, 5, 0, 0.3); gearOpen(x + 54, y + 15, 14, 18, 6, 0, 0.2);
-    // 大中小啮合成组
-    gearOpen(x + 16, y + 44, 13, 16, 6, 0.5, 0.1); gearOpen(x + 36.5, y + 36, 9, 12, 5, 0.25, 0.5); gearOpen(x + 49.5, y + 45, 6, 9, 4, 0.5);
-    shaftH(x + 56, x + 74, y + 45); collar(x + 64, y + 45);
-    link(x + 20, y + 40, x + 36, y + 55);
+    shaftH(x + 50, x + 76, y + 50); collar(x + 60, y + 50);
+    link(x + 52, y + 44, x + 70, y + 30);
+  }
+  function partsGears(g, x, y) {
+    gearSet(g, x + 16, y + 17);
+    SA.CAND.use(g);
+    const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
+    gearClean(x + 10, y + 46, 6, 0); gearClean(x + 28, y + 44, 9, 4); gearClean(x + 62, y + 14, 14, 6);
+    g.globalCompositeOperation = prev;
   }
 
   // ---------- 重炮 3×2（72 × 48，横躺，镀镍起：T4～T6）· v3 历史重炮 ----------
@@ -383,12 +405,11 @@ SA.GFLAB = (() => {
   }
   const CHEEK_TOPS = [...Array(8).fill(34), ...Array(8).fill(30), ...Array(25).fill(25), ...Array(4).fill(31)];   // x 12～56：T4 台阶形
   const CHEEK_SLANT = [...Array(8).fill(34), ...Array(8).fill(30), ...Array(19).fill(25), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => 25 + Math.round(i * 1.4))];   // T5～6：前沿斜切
-  // 背景齿轮组（v4）：大（r 13，6 辐）在炮管后面、中（r 9，5 辐）在炮尾后上、小（r 6，4 辐）在炮口上方，三个互相咬着；
+  // 背景齿轮组（v5 起是预制件 gearSet）：大齿轮在炮尾后上方，中、小叠在它前面并咬合；
   // 被炮身挡住下半也没关系，上半露出来就是「炮背后的钟表机构」。全部落在 48 高的格子里（y ≥ 0）。
-  const GEARS = [[53, 14, 13, 16, 6, 0.5, 0.25], [32.5, 9.5, 9, 10, 4, 0.25, 0.4], [18.5, 6.5, 6, 7, 3, 0.5, 0.3]];
+  const GEAR_AT = { x: 17, y: 14 };   // 预制齿轮组的大齿轮中心：在炮尾后上方（用户：大齿轮放后部）
   function carriage(x, y, T) {
-    for (const [gx, gy, r, n, k, ph, sp] of GEARS) gearOpen(x + gx, y + gy, r, n, k, ph, sp);
-    link(x + 60, y + 9, x + 66, y + 37);                                                        // 传动杆：大齿轮曲柄 → 滑轨前端（从炮管后面穿过）
+    link(x + 52, y + 11, x + 60, y + 37);                                                       // 传动杆：小齿轮曲柄 → 滑轨前端（从炮管后面穿过）
     box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                     // 铁滑轨
     for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); px(x + wx, y + 45, P.brass[2]); }   // 滚轮
     stepped(x, y, 12, T.shield ? CHEEK_SLANT : CHEEK_TOPS, 39);                                // 炮耳架：T4 台阶形，T5～6 前沿斜切
@@ -415,19 +436,21 @@ SA.GFLAB = (() => {
     disc(x + HP.x, y + HP.y, 3.6, P.brass[0]); disc(x + HP.x, y + HP.y, 2.6, P.brass[2]); px(x + HP.x - 1, y + HP.y - 1, P.brass[3]); px(x + HP.x, y + HP.y, P.brass[0]);   // 炮耳（本来就圆）
   }
   function hBase(g, x, y, T, o = {}) { SA.CAND.use(g); carriage(x, y, T); hGun(x, y, o, T); }
-  function hOver(g, x, y, T) {   // 只剩铆钉：打在滑轨上沿（钢质）
+  function hOver(g, x, y, T) {   // 铆钉（滑轨上沿，钢质）+ 垫在最后面的预制齿轮组
+    gearSet(g, x + GEAR_AT.x, y + GEAR_AT.y);
     SA.CAND.use(g);
     const n = T.riv, x0 = 5, x1 = 66, step = (x1 - x0) / (n - 1);
     for (let i = 0; i < n; i++) rivetC(Math.round(x + x0 + i * step), y + 41, RIVET_C.steel);
   }
   const H_ZONES_VIEW = [
     ['炮身（随炮转，炮口出框 4px）', '#8f8a80', (x, y) => [x + 7, y + 13, 70, 23]],
-    ['背景齿轮组：大 / 中 / 小（可被炮身挡住）', '#f5d77a', (x, y) => [x + 12, y + 0, 55, 28]],
-    ['传动杆：曲柄连杆 + 炮耳架长轴', '#ef7a21', (x, y) => [x + 13, y + 8, 55, 31]],
+    ['预制齿轮组：大（后）+ 中 + 小（前，咬合）', '#f5d77a', (x, y) => [x + 2, y + 0, 54, 29]],
+    ['传动杆：曲柄连杆 + 炮耳架长轴', '#ef7a21', (x, y) => [x + 13, y + 10, 50, 29]],
     ['炮耳架（T4 台阶 / T5～6 斜切）', '#46c2c9', (x, y) => [x + 12, y + 25, 45, 15]],
     ['滑轨 · 铆钉', '#6fcf6a', (x, y) => [x + 1, y + 39, 70, 6]],
   ];
 
 
-  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard };
+
+  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard, partsGears, gearSet };
 })();
