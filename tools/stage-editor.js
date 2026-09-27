@@ -9,6 +9,149 @@
   let assemblyOpen = false;
   let shopObserver = null;
   let toastTimer = null;
+  const RECENT_MODULES_KEY = 'steam_arena_stage_recent_modules_v1';
+  const RECENT_MODULES_LIMIT = 12;
+  let recentModules = loadRecentModules();
+  let moduleTools = null;
+  let updatingModuleTools = false;
+  const searchExpandedGroups = new Set();
+
+  // 只在工具页给原车间图标附加库存键；图片和原生点击、拖拽处理均保持不变。
+  const moduleCanvas = SA.SPR.moduleCanvas;
+  SA.SPR.moduleCanvas = (id, scale = 1, mt = 1) => {
+    const canvas = moduleCanvas(id, scale, mt);
+    canvas.dataset.stockKey = SA.invKey(id, mt);
+    return canvas;
+  };
+  // 通过摆放校验并实际扣取库存后才记为“使用”，浏览、失败摆放和拆卸不污染历史。
+  const installStock = SA.S.installStock;
+  SA.S.installStock = (...args) => {
+    const result = installStock(...args);
+    if (assemblyOpen && SA.Camp.isDesignMode()) {
+      const key = SA.invKey(args[1], args[4]);
+      recentModules = [key, ...loadRecentModules().filter(item => item !== key)].slice(0, RECENT_MODULES_LIMIT);
+      try { localStorage.setItem(RECENT_MODULES_KEY, JSON.stringify(recentModules)); }
+      catch (error) { showToast('模块已装上，但浏览器未能保存最近使用记录。', 'warn'); }
+    }
+    return result;
+  };
+
+  // 最近使用属于本机工具偏好，独立于正式 / 设计存档，换车和重开游戏都不会清空。
+  function loadRecentModules() {
+    try {
+      const keys = JSON.parse(localStorage.getItem(RECENT_MODULES_KEY)) || [];
+      if (!Array.isArray(keys)) return [];
+      return [...new Set(keys)].filter(key => {
+        if (typeof key !== 'string') return false;
+        const { id, mt } = SA.parseKey(key);
+        return SA.MODULES[id] && !SA.MODULES[id].retired && SA.MATS[mt];
+      }).slice(0, RECENT_MODULES_LIMIT);
+    } catch (error) { return []; }
+  }
+  function stockKeyOf(row) { return row?.querySelector('canvas[data-stock-key]')?.dataset.stockKey; }
+  function moduleGroup(cat) { return document.querySelector(`.assembly-screen .panel-list .grp.cat-${cat}`); }
+
+  // 搜索时临时展开折叠分类，清空搜索或离开车间后还原原有折叠习惯。
+  function restoreModuleGroups() {
+    const cats = [...searchExpandedGroups]; searchExpandedGroups.clear();
+    for (const cat of cats) {
+      const group = moduleGroup(cat);
+      if (group && !group.classList.contains('folded')) group.click();
+    }
+  }
+  function filterModules(list) {
+    const terms = $('stage-module-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length) {
+      for (const cat of Object.keys(SA.CAT)) {
+        const group = moduleGroup(cat);
+        if (group?.classList.contains('folded')) {
+          searchExpandedGroups.add(cat);
+          group.click();
+          // 折叠分类的点击会让原车间重绘清单，必须拿到重绘后的列表再继续筛选。
+          list = document.querySelector('.assembly-screen .panel-list');
+        }
+      }
+    } else {
+      restoreModuleGroups();
+      list = document.querySelector('.assembly-screen .panel-list');
+    }
+    if (!list) return null;
+    let group = null, matches = 0, visible = false, total = 0;
+    for (const item of list.children) {
+      if (item.classList.contains('grp')) {
+        if (group) group.hidden = terms.length > 0 && matches === 0;
+        group = item; matches = 0;
+      } else if (item.classList.contains('mrow')) {
+        const { id, mt } = SA.parseKey(stockKeyOf(item)), mod = SA.MODULES[id];
+        const text = [id, mod?.name, SA.CAT[mod?.cat]?.name, SA.MATS[mt]?.name, SA.MATS[mt]?.rank].join(' ').toLowerCase();
+        visible = terms.every(term => text.includes(term));
+        item.hidden = !visible;
+        if (visible) { matches++; total++; }
+      } else if (item.classList.contains('mdetail')) item.hidden = !visible;
+    }
+    if (group) group.hidden = terms.length > 0 && matches === 0;
+    const empty = $('stage-search-empty');
+    if (empty) empty.hidden = !terms.length || total > 0;
+    return list;
+  }
+
+  // 快捷栏仍选中原车间的库存项，沿用材料、层位、连续安装和摆放校验。
+  function selectRecentModule(key) {
+    $('stage-module-search').value = '';
+    updateWorkshopModules(true);
+    const { id } = SA.parseKey(key), group = moduleGroup(SA.MODULES[id].cat);
+    if (group?.classList.contains('folded')) group.click();
+    const row = [...document.querySelectorAll('.assembly-screen .panel-list .mrow')].find(item => stockKeyOf(item) === key);
+    if (row && !row.classList.contains('sel')) row.click();
+  }
+  function renderRecentModules(list) {
+    const selected = stockKeyOf(list.querySelector('.mrow.sel'));
+    const items = recentModules.map(key => {
+      const { id, mt } = SA.parseKey(key), name = SA.MODULES[id].name, material = SA.MATS[mt].name;
+      const picture = SA.SPR.moduleCanvas(id, 1, mt); picture.setAttribute('aria-hidden', 'true');
+      return SA.h('button', { type: 'button', class: `stage-recent-module ${selected === key ? 'selected' : ''}`,
+        title: `${name} · ${material}：点击后在车上安装`, 'aria-label': `最近使用：${name} · ${material}`,
+        'aria-pressed': String(selected === key), disabled: !(SA.S.d.inv[key] > 0), onclick: () => selectRecentModule(key) },
+        picture, SA.h('b', {}, name), SA.h('span', { class: 'muted' }, material));
+    });
+    $('stage-recent-list').replaceChildren(...items);
+    $('stage-recent-empty').hidden = items.length > 0;
+  }
+  function updateWorkshopModules(resetScroll = false) {
+    if (updatingModuleTools) return;
+    const tools = document.querySelector('.assembly-screen .panel-tools'), list = document.querySelector('.assembly-screen .panel-list');
+    if (!tools || !list) return;
+    updatingModuleTools = true;
+    try {
+      // 原车间重画库存时重新筛选；暂时断开观察，避免筛选自己的 DOM 变化形成循环。
+      if (shopObserver) shopObserver.disconnect();
+      hideShopControl();
+      if (!moduleTools) {
+        moduleTools = SA.h('div', { class: 'stage-module-tools' },
+          SA.h('input', { id: 'stage-module-search', type: 'search', placeholder: '搜索模块名称 / 类别 / 材料', 'aria-label': '搜索模块',
+            oninput: () => updateWorkshopModules(true) }),
+          SA.h('div', { id: 'stage-search-empty', class: 'stage-search-empty muted' }, '没有匹配的模块'),
+          SA.h('div', { class: 'muted' }, '最近使用'),
+          SA.h('div', { id: 'stage-recent-list', class: 'stage-recent-list', role: 'group', 'aria-label': '最近使用的模块' }),
+          SA.h('div', { id: 'stage-recent-empty', class: 'muted' }, '装上模块后显示在这里'));
+      }
+      if (tools.nextElementSibling !== moduleTools) tools.after(moduleTools);
+      moduleTools.hidden = !list.querySelector('.grp');
+      let currentList = list;
+      if (!moduleTools.hidden) currentList = filterModules(currentList) || currentList;
+      renderRecentModules(currentList);
+      if (resetScroll) currentList.scrollTop = 0;
+      // 只观察库存清单；工具条由本函数维护，避免 hideShopControl 触发自循环。
+      if (shopObserver) shopObserver.observe(currentList, { childList: true });
+    } finally {
+      updatingModuleTools = false;
+    }
+  }
+  window.addEventListener('storage', event => {
+    if (event.key !== RECENT_MODULES_KEY) return;
+    recentModules = loadRecentModules();
+    if (assemblyOpen) updateWorkshopModules();
+  });
 
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x])); }
   // 工作台反馈采用非阻塞气泡；保存时不能用 alert 卡住车间和拖拽操作。
@@ -82,12 +225,8 @@
       $('assembly-title').innerHTML = $('title').innerHTML;
       setTab('assembly');
       SA.Editor.open();
-      hideShopControl();
-      const toolPanel = document.querySelector('.assembly-screen .ed-panel .panel-tools');
-      if (toolPanel) {
-        shopObserver = new MutationObserver(hideShopControl);
-        shopObserver.observe(toolPanel, { childList: true });
-      }
+      shopObserver = new MutationObserver(() => updateWorkshopModules());
+      updateWorkshopModules();
       syncAssemblyVehicle();
     } catch (error) {
       assemblyOpen = false;
@@ -101,6 +240,7 @@
     const vehicle = SA.V.clone(syncAssemblyVehicle());
     SA.current = 'stage-editor'; document.body.dataset.screen = 'stage-editor';
     if (shopObserver) { shopObserver.disconnect(); shopObserver = null; }
+    restoreModuleGroups();
     if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
     assemblyOpen = false;
     $('assembly-screen').hidden = true; $('assembly-empty').hidden = false;

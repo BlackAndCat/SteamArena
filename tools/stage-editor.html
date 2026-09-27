@@ -46,6 +46,20 @@
     .assembly-screen { min-height: 650px; height: min(780px, 72vh); background: var(--dark0); border: 1px solid var(--dark3); overflow: hidden; }
     .assembly-screen #screen { height: 100%; min-height: 0; }
     .assembly-screen .ed { height: 100%; }
+    /* 搜索和最近使用固定在模块清单标题下；库存列表保留原车间的滚动与拖拽。 */
+    .stage-module-tools { display: grid; gap: 5px; padding: 0 12px 8px; border-bottom: 2px solid var(--dark0); }
+    .stage-module-tools input { min-width: 0; font-size: 13px; }
+    .stage-recent-list { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 3px; }
+    .stage-recent-list:empty { display: none; }
+    .stage-recent-module { flex: 0 0 76px; display: grid; justify-items: center; gap: 2px; min-width: 0; padding: 4px; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); cursor: pointer; }
+    .stage-recent-module:hover, .stage-recent-module.selected { border-color: var(--brass2); background: var(--dark2); }
+    .stage-recent-module:disabled { opacity: .5; cursor: default; }
+    .stage-recent-module:focus-visible { outline: 2px solid var(--brass3); }
+    .stage-recent-module canvas { width: 42px !important; height: 36px !important; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+    .stage-recent-module b { max-width: 68px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+    .stage-recent-module .muted { font-size: 10px; }
+    .stage-search-empty { padding: 12px 4px; }
+    .stage-module-tools[hidden], .assembly-screen .panel-list > [hidden] { display: none; }
     .assembly-empty { min-height: 240px; display: grid; place-items: center; text-align: center; padding: 20px; }
     .assembly-empty[hidden] { display: none; }
     .assembly-empty b { color: var(--brass3); font-size: 18px; }
