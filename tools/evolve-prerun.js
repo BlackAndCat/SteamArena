@@ -12,7 +12,13 @@ function markdown(report) {
   for (const chapter of report.chapters || []) for (const stage of chapter.stages || []) rows.push(`|${chapter.chapter + 1}|${stage.spec.name}|${stage.selected?.name || '未选出'}|${stage.spec.terrain}|${stage.archive?.toxic || 0}|${stage.archive?.odd || 0}|${stage.selection?.failed?.join(',') || '—'}|`);
   const stages = report.chapters?.flatMap(ch => ch.stages || []) || [];
   const toxic = stages.reduce((n, s) => n + (s.archive?.toxic || 0), 0), odd = stages.reduce((n, s) => n + (s.archive?.odd || 0), 0);
-  return ['# K8 全战役进化预演', '', `参数：seed=${report.seed}，章节=${report.chapters?.length || 0}，候选=${report.candidates?.length || 0}；population.size=${report.config.population.size}、generations=${report.config.population.generations}、quickGames=${report.config.evaluation.quickGames}、archiveGames=${report.config.evaluation.archiveGames}。`, `状态：${report.status || 'complete'}（running / interrupted 表示尚未生成完整报告）。`, '', '|章节|关卡|选车|地形|毒瘤|奇特|未达标|', '|---:|---|---|---|---:|---:|---|', ...rows, '', '## 统计', '', `- 选关失败记录：${report.selectionFailures?.length || 0}；毒瘤候选累计 ${toxic}，奇特构筑累计 ${odd}。`, '- 这是预演，不应用到 js/content.js，也不使用 --generate 严格替换关卡车。'].join('\n');
+  const reasons = {};
+  for (const item of report.selectionFailures || []) for (const reason of item.failed || []) reasons[reason] = (reasons[reason] || 0) + 1;
+  const telemetry = report.telemetry || {};
+  const elapsed = Number.isFinite(telemetry.elapsedMs) ? `${(telemetry.elapsedMs / 60000).toFixed(2)} 分钟` : '未知';
+  const throughput = Number.isFinite(telemetry.completedCandidates) && telemetry.elapsedMs > 0 ? `${(telemetry.completedCandidates / (telemetry.elapsedMs / 1000)).toFixed(2)} 候选/秒` : '未知';
+  const cache = report.cache || {};
+  return ['# K8 全战役进化预演', '', `参数：seed=${report.seed}，章节=${report.chapters?.length || 0}，候选=${report.candidates?.length || 0}；population.size=${report.config.population.size}、generations=${report.config.population.generations}、quickGames=${report.config.evaluation.quickGames}、archiveGames=${report.config.evaluation.archiveGames}。`, `状态：${report.status || 'complete'}（running / interrupted 表示尚未生成完整报告）。`, '', '## 运行数据', '', `- worker：${telemetry.workerCount || '未知'}；候选评估：${telemetry.completedCandidates || 0}；阶段：${telemetry.completedStages || 0}；耗时：${elapsed}；吞吐：${throughput}。`, `- 对局缓存：命中 ${cache.hits || 0}、未命中 ${cache.misses || 0}、命中率 ${Number.isFinite(cache.hitRate) ? (cache.hitRate * 100).toFixed(1) : '0.0'}%，淘汰 ${cache.evictions || 0}。`, '- 分段日志：`tools/evolve-progress/evolve-progress.jsonl`；实时检查点：`tools/evolve-progress/evolve-live.json`。', '', '|章节|关卡|选车|地形|毒瘤|奇特|未达标|', '|---:|---|---|---|---:|---:|---|', ...rows, '', '## 统计', '', `- 选关失败记录：${report.selectionFailures?.length || 0}；毒瘤候选累计 ${toxic}，奇特构筑累计 ${odd}。`, `- 未达标原因计数：${Object.entries(reasons).map(([key, value]) => `${key}=${value}`).join('，') || '无'}。`, '- 这是预演，不应用到 js/content.js，也不使用 --generate 严格替换关卡车。'].join('\n');
 }
 
 function write(report) {
