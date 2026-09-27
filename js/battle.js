@@ -35,11 +35,12 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '',
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '', failureType: null, failureAt: null,
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
-      focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: 0, bipedHipHp: 0, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
+      focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: 0, bipedHipHp: 0, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0,
+      holdSeconds: 0, fireHeldSeconds: 0, ventCount: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
     s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
     refresh(s);
@@ -132,8 +133,24 @@ SA.Battle = (() => {
 
   function kill(s, reason) {
     if (s.dead) return;
-    s.dead = true; s.reason = reason; s.fireHeld = false; s.dir = 0;
+    s.dead = true; s.reason = reason; s.failureAt = B.t;
+    s.failureType = reason.includes('锅炉烧干') ? 'overheat' : (reason.includes('水') ? 'dry' : null);
+    s.fireHeldAtFailure = !!s.fireHeld; s.holdAtFailure = !!s.hold; s.ventAtFailure = !!s.vented;
+    s.dir = 0; s.fireHeld = false;
     for (let i = 0; i < 50; i++) emit('part', { type: 'steam', x: s.x + VW / 2 + rnd(-120, 120), y: VY + (s.yo || 0) + 120 + rnd(-90, 90), vx: rnd(-30, 30), vy: rnd(-90, -24), life: rnd(1, 2.2), col: undefined });
+  }
+
+  // 诊断遥测：只记录首次触达阈值的时间，不参与战斗判定。
+  function markTelemetry(s) {
+    if (s.firstWaterEmptyAt == null && s.water <= 0) s.firstWaterEmptyAt = B.t;
+    if (s.firstHeatMaxAt == null && s.heat >= K.HEAT_MAX) s.firstHeatMaxAt = B.t;
+  }
+
+  // 诊断只读耐久快照，供经济模拟按实际受损模块估算修理费；不参与判定。
+  function cellTelemetry(v) {
+    const out = [];
+    SA.V.each(v, (cell, r, c, layer) => out.push({ id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: cell.hp, max: SA.V.maxHp(cell), r, c, layer }));
+    return out;
   }
 
   // ---------- 地形 ----------
@@ -743,6 +760,8 @@ SA.Battle = (() => {
   // ---------- 模拟 ----------
   function sim(s, o, dt) {
     if (s.dead) { drive(s, dt); return; }
+    if (s.hold) s.holdSeconds += dt;
+    if (s.fireHeld) s.fireHeldSeconds += dt;
     updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时按 STORE_RELEASE_PER_SEC 限制释放。
     const baseSupply = s.supply;
@@ -773,6 +792,7 @@ SA.Battle = (() => {
     s.heat = Math.max(0, s.heat);
     s.maxHeat = Math.max(s.maxHeat, s.heat);
     s.minWater = Math.min(s.minWater, s.water);
+    markTelemetry(s);
     if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
     const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
     const aiming = s.fireHeld && aimPt && s.power > 0 && !s.hold && !o.dead;
@@ -783,6 +803,7 @@ SA.Battle = (() => {
     if (firing) {
       // 蒸汽喷射器持续工作时额外耗水；普通武器仍按每发 FIRE_WATER 结算。
       for (const w of s.weapons) if (w.cell.id === s.sel && w.m.waterPerSec) s.water = Math.max(0, s.water - w.m.waterPerSec * dt);
+      markTelemetry(s);
     }
     // 瞄准稳定度：按住就慢慢蓄满（准星收紧、散布缩小），车身晃动会拖慢蓄力并不断把它抖散
     const selW = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
@@ -954,6 +975,7 @@ SA.Battle = (() => {
   function vent() {
     if (!B || B.p.vented || B.p.dead) return false;
     B.p.vented = true;
+    B.p.ventCount++;
     B.p.heat = Math.max(0, B.p.heat - T.VENT_HEAT);
     for (let i = 0; i < 30; i++) emit('part', {
       type: 'steam', x: B.p.x + VW / 2 + rnd(-90, 90), y: VY + rnd(30, 240),
@@ -1137,9 +1159,9 @@ SA.Battle = (() => {
       B.result = { winner: B.draw ? 'draw' : B.e.dead && !B.p.dead ? 'p' : B.p.dead && !B.e.dead ? 'e' : 'draw',
         t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt,
         effectStats: { p: B.p.effects, e: B.e.effects },
-        events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, minWater: B.p.minWater }, e: { ...B.e.events, maxHeat: B.e.maxHeat, minWater: B.e.minWater } },
+        events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, minWater: B.p.minWater, failureType: B.p.failureType, failureAt: B.p.failureAt, firstWaterEmptyAt: B.p.firstWaterEmptyAt, firstHeatMaxAt: B.p.firstHeatMaxAt, fireHeldAtFailure: B.p.fireHeldAtFailure, holdAtFailure: B.p.holdAtFailure, ventAtFailure: B.p.ventAtFailure, holdSeconds: B.p.holdSeconds, fireHeldSeconds: B.p.fireHeldSeconds, ventCount: B.p.ventCount }, e: { ...B.e.events, maxHeat: B.e.maxHeat, minWater: B.e.minWater, failureType: B.e.failureType, failureAt: B.e.failureAt, firstWaterEmptyAt: B.e.firstWaterEmptyAt, firstHeatMaxAt: B.e.firstHeatMaxAt, fireHeldAtFailure: B.e.fireHeldAtFailure, holdAtFailure: B.e.holdAtFailure, ventAtFailure: B.e.ventAtFailure, holdSeconds: B.e.holdSeconds, fireHeldSeconds: B.e.fireHeldSeconds, ventCount: B.e.ventCount } },
         // 无画面诊断只读快照：用于压力测试发现位置、耐久、热量和水量越界，不参与判胜或 AI。
-        state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water } },
+        state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water, cells: cellTelemetry(B.p.v) }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water, cells: cellTelemetry(B.e.v) } },
         metrics: { ...B.metrics }, timeout: B.timeout || null };
       return;
     }
@@ -1243,5 +1265,5 @@ SA.Battle = (() => {
     vent, retreat, acceptSurrender, refuseSurrender,
     emit: (type, data) => emit(type, data),
   });
-  return { start, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender };
+  return { start, startState, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender };
 })();

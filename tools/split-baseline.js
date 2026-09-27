@@ -17,6 +17,11 @@ const { loadGame } = require('./evolve');
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_FILE = path.join(__dirname, 'out', 'split-baseline.json');
 const SEEDS = [101, 202, 303, 404];
+// 战斗新增的只读根因遥测不属于拆分行为基线；基线只比较原有事件字段。
+const LEGACY_EVENT_KEYS = ['fire', 'hit', 'ricochet', 'chargedHit', 'ram', 'kick', 'knock', 'terrainBlock', 'highHit', 'downhillRam', 'destroyed', 'maxHeat', 'minWater'];
+function legacyEvents(events) {
+  return Object.fromEntries(['p', 'e'].map(side => [side, Object.fromEntries(LEGACY_EVENT_KEYS.filter(key => events?.[side]?.[key] !== undefined).map(key => [key, events[side][key]]))]));
+}
 
 // 这四台官方车分别覆盖履带、铲斗、四足和双足构型；每关按种子轮换玩家车。
 function vehicles(SA) {
@@ -73,7 +78,7 @@ function makeBaseline() {
             winner: result.winner,
             t: result.t,
             reason: result.reason,
-            events: result.events,
+            events: legacyEvents(result.events),
           });
         }
       }

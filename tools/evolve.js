@@ -82,8 +82,10 @@ function createGameContext() {
 
 function loadGame() {
   const context = createGameContext();
+  // Node 诊断只需要规则层；不加载 battle-view，避免 debug.step 的无画面检查误触发精灵绘制。
+  // 浏览器页面仍按 index / tools/sim.html 的脚本顺序加载 battle-view.js。
   const files = ['js/palette.js', 'js/modules.js', 'js/module-art.js', 'js/dynamics.js', 'js/sprites.js', 'js/legs.js', 'js/vehicle.js',
-    'js/content.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle-view.js', 'js/battle.js'];
+    'js/content.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle.js'];
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), context, { filename: file });
   return { context, SA: context.SA };
 }

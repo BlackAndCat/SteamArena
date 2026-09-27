@@ -14,7 +14,9 @@ function checkStoreRelease(SA) {
   const enemy = SA.V.fromAscii('蓄压检查敌车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs);
   SA.S.reset();
   SA.S.d.vehicle = tankVehicle;
-  SA.Battle.start({ mode: 'friendly', enemyVehicle: enemy, enemyName: '检查目标', terrain: 'flat', hpMul: 1 });
+  // Node 诊断不加载画面层；startState 与 start 使用同一套规则状态初始化。
+  if (SA.Battle.startState) SA.Battle.startState({ mode: 'friendly', enemyVehicle: enemy, enemyName: '检查目标', terrain: 'flat', hpMul: 1 });
+  else SA.Battle.start({ mode: 'friendly', enemyVehicle: enemy, enemyName: '检查目标', terrain: 'flat', hpMul: 1 });
   const side = SA.Battle.debug.B;
   assert(side && side.p, '战斗调试状态未创建');
   // 直接构造“库存不足”的战斗状态，避免依赖具体车辆配平；随后按真实帧推进。
