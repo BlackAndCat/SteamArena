@@ -208,12 +208,12 @@ SA.MODULES = {
     desc: '占一个小格的轻型火炮，便宜、耗能低，适合把早期的缝隙变成第二个射击位。',
   },
   cannon_heavy: {
-    name: '重炮', cat: 'firepower', layer: 'body', w: 2, h: 4, minMt: 4, lowAlt: 'cannon',
+    name: '重炮', cat: 'firepower', layer: 'body', w: 3, h: 2, minMt: 4, lowAlt: 'cannon',
     price: 330, hp: 260, power: 6, kg: 900, q: 4,
     dmg: 58, reload: 4.6, heat: 11, proj: 'shell', v: 900, g: 1, spread: 10, arc: 'low', kick: 110,
     elev: [-6, 34], slew: 16, windup: 0.55, wild: 0.08, rest: 0, aimT: 1.8,
 
-    desc: '镀镍材料起才可制造的长身火炮。伤害高、耗能高，占四行，前方必须留出完整炮口通道。',
+    desc: '镀镍材料起才可制造的超大口径火炮。伤害高、耗能高，横躺占三列两行，前方必须留出完整炮口通道。',
   },
   cannon_giant: {
     name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', unique: { mt: 6, once: true, source: 'salvage' },
