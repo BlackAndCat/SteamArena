@@ -443,43 +443,56 @@ SA.SPR = (() => {
       SIDE_ARM.solid(x, y);
     },
   };
-  // ---------- 齿轮与传动件（2026-09-27 定稿，样机 tools/gun-family-lab.html 重炮 v5）----------
-  // 镂空齿轮：先算形状遮罩（齿 + 轮缘 + 直辐条 + 轮毂，辐条之间镂空），再上色——贴着空处的像素描边，其余纯色，
-  // 上沿一道亮、下沿一道暗，只用 4 个黄铜色，所以不糊。齿数按「2px 齿 + 2px 空」（r ≥ 9 时 3px 齿 + 2px 空）算。
-  // 齿轮颜色固定为真黄铜：放在 UNDER[id] 里，在材质处理之后用 destination-over 垫在整张精灵最后面画。
-  function gearMask(r, k, ph, sp) {
-    const big = r >= 9, n = Math.max(6, Math.round(Math.PI * 2 * r / (big ? 5 : 4))), frac = big ? 0.6 : 0.5;
-    const rb = r - 2, rim = big ? 3 : 2, hubR = big ? 3 : 2, sw = big ? 1.6 : 1.2;
-    return (dx, dy) => {
-      const d = Math.hypot(dx, dy);
-      if (d > r + 0.2) return false;
-      if (d > rb) { const f = ((((Math.atan2(dy, dx) / (Math.PI * 2)) * n + ph) % 1) + 1) % 1; return f < frac; }
-      if (d > rb - rim) return true;
-      if (d <= hubR + 0.4) return d > 0.9;          // 轮毂，中间留轴孔
-      if (!k) return true;                          // 不开辐条：实心轮盘
-      for (let i = 0; i < k; i++) {
-        const a0 = sp + i * Math.PI * 2 / k, along = dx * Math.cos(a0) + dy * Math.sin(a0), across = -dx * Math.sin(a0) + dy * Math.cos(a0);
-        if (along > 0 && Math.abs(across) < sw) return true;
+  // ---------- 齿轮与传动件（2026-09-27 定稿，样机 tools/gun-family-lab.html 齿轮 v6）----------
+  // 对称齿轮：直径 D 取偶数、圆心落在像素角上；只算 1/8 扇区（0 ≤ y ≤ x）再镜像到 8 个扇区 → 像素级完全对称，没有杂边。
+  // 矩形齿（径向 2px 深、横向 tw 宽，齿数是 4 的倍数、0° 有一个齿）；辐条沿坐标轴或对角线。
+  // 整只齿轮一种纯色（没有描边、没有明暗）：后面的大齿轮暗、前面的小齿轮亮；轮毂一个实心圆、轴孔 2×2。
+  // 转动只在 4 个对称帧之间切换：齿相位 0 / 半齿 × 辐条正 / 斜。齿轮画在 UNDER[id]（材质处理之后垫在最后面），颜色固定真黄铜。
+  const GEAR_SPEC = {
+    S: { D: 10, n: 8, tw: 2, rim: 0, hub: 1.6, sw: 0, spokes: 0, tone: 2 },
+    M: { D: 14, n: 8, tw: 2, rim: 2, hub: 2.2, sw: 2, spokes: 4, tone: 3 },
+    L: { D: 18, n: 12, tw: 2, rim: 2, hub: 2.8, sw: 2, spokes: 4, tone: 2 },
+    XL: { D: 24, n: 16, tw: 2, rim: 3, hub: 3.6, sw: 4, spokes: 4, tone: 1 },
+  };
+  function gearSymMask(sp, frame) {
+    const R0 = sp.D / 2, rb = R0 - 2, half = (frame & 1) ? 0.5 : 0, diag = (frame & 2) ? Math.PI / 4 : 0;
+    return (ox, oy) => {
+      const d = Math.hypot(ox, oy);
+      if (d > R0) return 0;
+      if (d > rb) {
+        for (let k = 0; k < sp.n; k++) {
+          const t = (k + half) * Math.PI * 2 / sp.n;
+          if (ox * Math.cos(t) + oy * Math.sin(t) > rb - 0.5 && Math.abs(-ox * Math.sin(t) + oy * Math.cos(t)) < sp.tw / 2) return 1;
+        }
+        return 0;
       }
-      return false;
+      if (d < 1) return 3;
+      if (d <= sp.hub) return 2;
+      if (!sp.spokes || d > rb - sp.rim) return 1;
+      for (let k = 0; k < sp.spokes; k++) {
+        const t = diag + k * Math.PI * 2 / sp.spokes;
+        if (ox * Math.cos(t) + oy * Math.sin(t) > 0 && Math.abs(-ox * Math.sin(t) + oy * Math.cos(t)) < sp.sw / 2) return 1;
+      }
+      return 0;
     };
   }
-  function gear(cx, cy, r, k, ph = 0, sp = 0) {
-    const m = gearMask(r, k, ph, sp), x0 = Math.floor(cx - r - 1), y0 = Math.floor(cy - r - 1), n = Math.ceil(r * 2 + 3);
-    const at = (i, j) => m(x0 + i + 0.5 - cx, y0 + j + 0.5 - cy);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      if (!at(i, j)) continue;
-      let c = P.brass[2];
-      if (!at(i, j - 1) || !at(i, j + 1) || !at(i - 1, j) || !at(i + 1, j)) c = P.brass[0];
-      else if (!at(i, j - 2) && y0 + j + 0.5 < cy) c = P.brass[3];
-      else if (!at(i, j + 2) && y0 + j + 0.5 > cy) c = P.brass[1];
-      R(x0 + i, y0 + j, 1, 1, c);
+  const gearCache = new Map();   // 1/8 扇区的遮罩按（尺寸, 帧）缓存
+  PART.gear = (cx, cy, size, frame = 0) => {
+    const sp = GEAR_SPEC[size], h = sp.D / 2, key = size + frame;
+    let cells = gearCache.get(key);
+    if (!cells) {
+      const m = gearSymMask(sp, frame); cells = [];
+      for (let j = 0; j < h; j++) for (let i = j; i < h; i++) { const v = m(i + 0.5, j + 0.5); if (v) cells.push([i, j, v]); }
+      gearCache.set(key, cells);
     }
-  }
-  // 预制齿轮组：大（r 14，6 辐）在后，中（r 9，十字辐）、小（r 6，实心轮盘）叠在前面并咬合；(x, y) = 大齿轮中心。
-  // 在 destination-over 下画：先画的在前面（小 → 中 → 大）。rot = 转动相位（0～1，活动设计用）
-  const GEARSET = [[32, -6, 6, 0, 0.5, 0], [19, -4, 9, 4, 0.25, 0], [0, 0, 14, 6, 0, 0]];
-  PART.gearSet = (x, y, rot = 0) => { for (const [dx, dy, r, k, ph, sp] of GEARSET) gear(x + dx, y + dy, r, k, ph + rot * (r === 14 ? 1 : -1), sp + rot * Math.PI * 2 / (r === 14 ? 22 : 11)); };
+    const col = [null, P.brass[sp.tone], sp.tone === 3 ? P.brass[1] : P.brass[3], P.brass[0]];
+    for (const [i, j, v] of cells) for (const [a0, b0] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1])
+      R(cx + (sx > 0 ? a0 : -a0 - 1), cy + (sy > 0 ? b0 : -b0 - 1), 1, 1, col[v]);
+  };
+  // 预制齿轮组：超大（D24，一整个 24px 块）在最后，大、中、小依次叠在前面咬合；(x, y) = 超大齿轮圆心。
+  // 在 destination-over 下画，先画的在前面：小 → 中 → 大 → 超大
+  const GEARSET = [[43, -7, 'S', 1], [34, -4, 'M', 0], [20, -3, 'L', 1], [0, 0, 'XL', 0]];
+  PART.gearSet = (x, y) => { for (const [dx, dy, size, f] of GEARSET) PART.gear(x + dx, y + dy, size, f); };
   // 传动杆（2px 铁杆，上沿亮）+ 黄铜轴套；连杆（任意方向的直杆，两端黄铜销）
   PART.shaft = (x0, x1, y0) => { R(x0, y0, x1 - x0, 2, P.iron[0]); R(x0, y0, x1 - x0, 1, P.iron[3]); };
   PART.collar = (x0, y0) => { R(x0, y0 - 1, 2, 4, P.brass[1]); R(x0, y0 - 1, 1, 4, P.brass[3]); };
@@ -502,6 +515,62 @@ SA.SPR = (() => {
     });
   }
 
+  // 臼炮 2×2（高抛火炮）：炮床 + 炮耳座 + 越往炮口越粗的短炮管；两侧活动大齿轮在 UNDER.mortar
+  const MORTAR_TIERS = [
+    { bed: 'block', cheek: 'block', hoops: 0, fat: false, vent: ['slits', 3], riv: [2, 'brass'], corners: false },
+    { bed: 'block', cheek: 'block', hoops: 0, fat: false, vent: ['slits', 3], riv: [2, 'brass'], corners: false },
+    { bed: 'step', cheek: 'box', hoops: 1, fat: true, vent: ['slits2', 4], riv: [3, 'brass'], corners: true },
+    { bed: 'step', cheek: 'box', hoops: 1, fat: true, vent: ['slits2', 4], riv: [3, 'steel'], corners: true },
+    { bed: 'slant', cheek: 'trap', hoops: 2, fat: true, vent: ['grid2', 4], riv: [4, 'steel'], corners: true },
+    { bed: 'slant', cheek: 'trap', hoops: 2, fat: true, vent: ['louver2', 4], riv: [4, 'steel'], corners: true },
+  ];
+  const MORTAR_ZONE = { block: { vent: { x: 8, y: 40, h: 3 }, riv: { y: 38, x0: 33, x1: 40 } }, step: { vent: { x: 6, y: 42, h: 3 }, riv: { y: 36, x0: 32, x1: 38 } } };
+  const MORTAR_BED = {
+    block(x, y) { box(x + 3, y + 36, 42, 11, IRON); R(x + 4, y + 37, 40, 1, P.iron[4]); R(x + 4, y + 45, 40, 1, P.brass[2]); },
+    step(x, y) { box(x + 2, y + 40, 44, 7, IRON); R(x + 3, y + 41, 42, 1, P.iron[4]); box(x + 8, y + 35, 32, 6, IRON); R(x + 9, y + 36, 30, 1, P.iron[4]); },
+    slant(x, y) {
+      for (let yy = 40; yy <= 46; yy++) {
+        const xr = x + 40 + Math.round((yy - 40) * 0.9);
+        R(x + 2, y + yy, xr - x - 2, 1, P.iron[2]); R(x + 2, y + yy, 1, 1, P.iron[0]); R(x + 3, y + yy, 1, 1, P.iron[3]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
+      }
+      R(x + 2, y + 40, 38, 1, P.iron[0]); R(x + 3, y + 41, 37, 1, P.iron[4]); R(x + 2, y + 46, 44, 1, P.iron[0]);
+      box(x + 8, y + 35, 32, 6, IRON); R(x + 9, y + 36, 30, 1, P.iron[4]);
+    },
+  };
+  const MORTAR_CHEEK = {   // 炮耳座：画在炮管前面（近侧墙板），夹住炮尾
+    block(x, y) { box(x + 18, y + 26, 13, 11, IRON); R(x + 19, y + 27, 11, 1, P.iron[4]); },
+    box(x, y) { box(x + 16, y + 25, 17, 11, IRON); R(x + 17, y + 26, 15, 1, P.iron[4]); R(x + 17, y + 31, 15, 1, P.iron[1]); },
+    trap(x, y) {
+      for (let yy = 25; yy <= 35; yy++) {
+        const k = Math.round((yy - 25) * 0.4), x0 = x + 18 - k, x1 = x + 31 + k;
+        R(x0, y + yy, x1 - x0, 1, P.iron[2]); R(x0, y + yy, 1, 1, P.iron[0]); R(x0 + 1, y + yy, 1, 1, P.iron[3]); R(x1 - 1, y + yy, 1, 1, P.iron[0]); R(x1 - 2, y + yy, 1, 1, P.iron[4]);
+      }
+      R(x + 18, y + 25, 13, 1, P.iron[0]); R(x + 19, y + 26, 11, 1, P.iron[4]);
+    },
+  };
+  // 臼炮炮管：按旋转后的坐标逐像素算（u 沿炮管、v 垂直，负 = 向光），82° 也不锯齿；越往炮口越粗
+  function mortarTube(cx, cy, aDeg, d, T, fire) {
+    const a = aDeg * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+    const c1 = T.fat ? 7 : 6, b1 = T.fat ? 8 : 7, segs = [[-7, -4, 3], [-4, 5, c1], [5, 21, b1], [21, 25, b1 + 1]];
+    const hoopU = T.hoops === 2 ? [[10, 12], [15, 17]] : T.hoops === 1 ? [[13, 15]] : [];
+    const uv = (px0, py0) => { const dx = px0 + 0.5 - cx, dy = py0 + 0.5 - cy; return [dx * cs - dy * sn + d, dx * sn + dy * cs]; };
+    const hwAt = (u) => { for (const [u0, u1, hw] of segs) if (u >= u0 && u < u1) return hw + (hoopU.some(([h0, h1]) => u >= h0 && u < h1) ? 1 : 0); return -1; };
+    const inside = (px0, py0) => { const [u, v] = uv(px0, py0), hw = hwAt(u); return hw > 0 && Math.abs(v) <= hw; };
+    for (let py0 = cy - 34; py0 <= cy + 14; py0++) for (let px0 = cx - 14; px0 <= cx + 34; px0++) {
+      if (!inside(px0, py0)) continue;
+      const [u, v] = uv(px0, py0), hw = hwAt(u);
+      let c = P.iron[3];
+      if (!inside(px0 - 1, py0) || !inside(px0 + 1, py0) || !inside(px0, py0 - 1) || !inside(px0, py0 + 1)) c = P.iron[0];
+      else if (u > 23.5 && Math.abs(v) < hw - 2) c = P.black;
+      else if (u >= 3 && u < 5) c = v < 0 ? P.brass[3] : P.brass[1];
+      else if (v < -hw + 2.2) c = P.iron[4];
+      else if (v > hw * 0.45) c = P.iron[2];
+      if (c === P.iron[3] && hoopU.some(([h0]) => u >= h0 && u < h0 + 1)) c = P.iron[4];
+      R(px0, py0, 1, 1, c);
+    }
+    if (fire) for (let t = 25; t < 31; t++) { const w = Math.max(1, 5 - (t - 25) * 0.7); for (let q = -w; q <= w; q++) R(Math.round(cx + cs * (t - d) + sn * q), Math.round(cy - sn * (t - d) + cs * q), 1, 1, t < 28 ? P.fire[3] : P.fire[2]); }
+  }
+
   // 方形固定螺栓（耳轴）：火炮家族共用
   const trunnionBolt = (cx, cy) => { R(cx - 2, cy - 2, 5, 5, P.brass[0]); R(cx - 1, cy - 1, 3, 3, P.brass[3]); R(cx, cy, 1, 1, P.brass[0]); };
 
@@ -512,6 +581,10 @@ SA.SPR = (() => {
       PART.seam(x, y, Z.seam, T.riv[0], RIVET_TIER[T.riv[1]]);
       if (T.parts.includes('plate')) PART.plate(x + Z.plate.x, y + Z.plate.y);
       if (T.parts.includes('gauge')) PART.gauge(x + Z.gauge.x, y + Z.gauge.y);
+    },
+    mortar(x, y, q) {   // 炮床上沿右段的铆钉
+      const T = MORTAR_TIERS[(q.mt || 1) - 1], Z = MORTAR_ZONE[T.bed === 'block' ? 'block' : 'step'].riv, [n, kind] = T.riv, step = (Z.x1 - Z.x0) / (n - 1);
+      for (let i = 0; i < n; i++) PART.rivet(Math.round(x + Z.x0 + i * step), y + Z.y, RIVET_TIER[kind]);
     },
     cannon_heavy(x, y, q) {   // 滑轨上沿的钢质铆钉
       const n = heavyTier(q.mt).riv, step = 61 / (n - 1);
@@ -533,7 +606,12 @@ SA.SPR = (() => {
 
   // 垫在最后面的背景件（材质处理之后、destination-over）：颜色固定、永远在整张精灵后面
   const UNDER = {
-    cannon_heavy(x, y) { PART.gearSet(x + 17, y + 14); },
+    cannon_heavy(x, y) { PART.gearSet(x + 13, y + 12); },
+    mortar(x, y, q) {   // 活动设计：炮耳小齿轮 + 两侧大齿轮，仰角每 6° 换一个对称帧（两侧反向）
+      const f = Math.floor((q.a == null ? 55 : q.a) / 6) % 4;
+      PART.gear(x + 24, y + 30, 'S', f);
+      for (const gx of [10, 38]) PART.gear(x + gx, y + 29, 'L', 3 - f);
+    },
   };
 
   const DRAW = {
@@ -813,28 +891,22 @@ SA.SPR = (() => {
     // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
     tank_s(x, y, o) { tankArt(x, y, 24, o); },
     tank_tall(x, y, o) { tankArt(x, y, 48, o); },
+    // 臼炮 2×2（高抛火炮，2026-09-27 定稿，样机 tools/gun-family-lab.html 臼炮 v1）：参考 19 世纪攻城 / 岸防臼炮——
+    // 炮管短粗、越往炮口越粗、炮口厚箍 + 大口径黑洞；炮耳在炮尾，夹在炮耳座里（炮耳座画在炮管前面）；低矮厚重的炮床；
+    // 两侧活动大齿轮在 UNDER.mortar（随仰角转）。T1～2 方炮床 + 方炮耳座 → T3～4 台阶炮床 + 加厚炮耳座、一道铁箍 → T5～6 炮床前沿斜切 + 梯形炮耳座、两道铁箍。
+    // 耳轴 (24,30)，炮口末端离耳轴 24（blen 24）
     mortar(x, y, o) {
-      // 朝天粗管：一眼看出“往上打”
-      box(x + 3, y + 28, 42, 17, IRON);
-      R(x + 4, y + 39, 40, 1, P.brass[2]);
-      box(x + 11, y + 22, 7, 12, DARK); box(x + 24, y + 22, 7, 12, DARK);
-      if (o.up) {   // 高抛炮的炮盾：炮座一圈护板，二级加两侧挡板，三级加前护板
-        bolted(x + 2, y + 25, 44, 4);
-        if (o.up >= 2) { bolted(x + 2, y + 17, 5, 11); bolted(x + 41, y + 17, 5, 11); }
-        if (o.up >= 3) bolted(x + 36, y + 21, 8, 22);
+      const T = MORTAR_TIERS[(o.mt || 1) - 1], Z = MORTAR_ZONE[T.bed === 'block' ? 'block' : 'step'];
+      MORTAR_BED[T.bed](x, y);
+      slimVents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
+      if (T.corners) { PART.corner(x + 2, y + 42, 1, -1); PART.corner(x + (T.bed === 'slant' ? 40 : 41), y + 42, -1, -1); }
+      if (o.up) {   // 改装：炮床两端立护板，三级前护板加高
+        bolted(x + 41, y + (o.up >= 3 ? 22 : 30), 6, o.up >= 3 ? 18 : 10);
+        if (o.up >= 2) bolted(x + 1, y + 30, 6, 10);
       }
-      const k = rcPx('mortar', o.k);
-      const ang = (o.a == null ? 55 : o.a) * Math.PI / 180;
-      const dx = Math.cos(ang), dy = -Math.sin(ang), px = x + 20 - dx * k, py = y + 30 - dy * k, L = 27;
-      for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 6, P.iron[0]);
-      for (let t = 0; t <= L; t += 1) disc(px + dx * t, py + dy * t, 5, P.iron[3]);
-      for (let t = 0; t <= L; t += 1) disc(px + dx * t + 2.6, py + dy * t + 1.8, 1.4, P.iron[2]);
-      for (let t = 0; t <= L; t += 1) disc(px + dx * t - 2.8, py + dy * t - 1.9, 1, P.iron[4]);
-      for (const bt of [9, 18]) for (let t = bt; t <= bt + 2; t++) { disc(px + dx * t, py + dy * t, 6.2, P.brass[0]); disc(px + dx * t, py + dy * t, 5.2, P.brass[2]); }
-      disc(px + dx * L, py + dy * L, 6.5, P.iron[0]);
-      disc(px + dx * L, py + dy * L, 5.5, P.iron[2]);
-      disc(px + dx * L, py + dy * L, 3.3, P.black);
-      disc(x + 20, y + 31, 6, P.brass[0]); disc(x + 20, y + 31, 5, P.brass[1]); disc(x + 19.5, y + 30.5, 3, P.brass[2]); R(x + 19, y + 30, 2, 2, P.brass[0]);
+      mortarTube(x + 24, y + 30, o.a == null ? 55 : o.a, rcPx('mortar', o.k), T, (o.k || 0) >= 7);
+      MORTAR_CHEEK[T.cheek](x, y);
+      trunnionBolt(x + 24, y + 30);
     },
     mg(x, y, o) {
       housing(x, y, false);
@@ -871,7 +943,7 @@ SA.SPR = (() => {
     // T4 台阶形炮耳架；T5～6 炮耳架前沿斜切 + 炮身更粗、炮管两道铁箍；铆钉在 OVER.cannon_heavy
     cannon_heavy(x, y, o) {
       const T = heavyTier(o.mt);
-      PART.link(x + 52, y + 11, x + 60, y + 37);                                                   // 传动杆：小齿轮曲柄 → 滑轨前端
+      PART.link(x + 58, y + 8, x + 62, y + 37);                                                    // 传动杆：小齿轮曲柄 → 滑轨前端
       box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                        // 铁滑轨
       for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); R(x + wx, y + 45, 1, 1, P.brass[2]); }
       steppedPlate(x, y, 12, T.slant ? HEAVY_CHEEK.slant : HEAVY_CHEEK.step, 39);                  // 炮耳架

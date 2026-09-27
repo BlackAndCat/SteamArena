@@ -100,7 +100,7 @@
   </section>
 
   <section>
-    <h2 class="sec">装饰零件板 <small>5× · 预制齿轮组（大在后、中小叠在前咬合）· 单个镂空齿轮（半径 6 / 9 / 14）· 传动杆 + 轴套 · 连杆 · 放在 T4 / T5 / T6 底板上</small></h2>
+    <h2 class="sec">装饰零件板 <small>5× · v6 对称齿轮：小 D10 / 中 D14 / 大 D18 / 超大 D24（一整个 24px 块）· 预制齿轮组 · 传动杆 · 连杆 · 放在 T4 / T5 / T6 底板上</small></h2>
     <div class="scroll" id="hparts"></div>
   </section>
 
@@ -303,10 +303,10 @@
     }
     const PB = $('hparts'); PB.replaceChildren();
     for (const mt of [4, 5, 6]) {
-      const c = document.createElement('canvas'); c.width = 80; c.height = 62;
+      const c = document.createElement('canvas'); c.width = 84; c.height = 60;
       const g2 = c.getContext('2d');
       G.partsBoard(g2, 2, 1); applyMat(c, mt, 0, 0); G.partsGears(g2, 2, 1);
-      g2.globalCompositeOperation = 'destination-over'; g2.fillStyle = P.iron[2]; g2.fillRect(0, 0, 80, 62); g2.globalCompositeOperation = 'source-over';
+      g2.globalCompositeOperation = 'destination-over'; g2.fillStyle = P.iron[2]; g2.fillRect(0, 0, 84, 60); g2.globalCompositeOperation = 'source-over';
       const wrap = el('div', { style: 'display:inline-block;margin:0 10px 8px 0;text-align:center;font-size:12px' }, show(c, 5), el('div', {}, `T${mt} ${SA.MATS[mt].name}`));
       PB.append(wrap);
     }

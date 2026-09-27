@@ -353,13 +353,63 @@ SA.GFLAB = (() => {
       px(x0 + i, y0 + j, c);
     }
   }
+  // ---------- 对称齿轮（v6，用户：边缘杂色、奇怪的突起太多，显得不规则、脆弱；要纯色、完美对称、禁止杂边）----------
+  // 做法：直径 D 取偶数，圆心落在像素角上；只算 1/8 扇区（0 ≤ y ≤ x），再镜像到 8 个扇区 → 像素级完全对称。
+  // 齿是矩形（沿径向 2px 深、横向 tw 宽），齿数是 4 的倍数且有一个齿在 0°；辐条沿坐标轴（或对角线），宽度固定。
+  // 上色：整只齿轮只用一种纯色（没有描边、没有明暗），轮毂一个浅色实心圆，轴孔一个深色 2×2。
+  // 转动（活动设计）：只在 4 个对称帧之间切换——齿相位 0 / 半齿 × 辐条正 / 斜，每一帧都 8 向对称。
+  const GEAR_SPEC = {
+    S: { D: 10, n: 8, tw: 2, rim: 0, hub: 1.6, sw: 0, spokes: 0 },
+    M: { D: 14, n: 8, tw: 2, rim: 2, hub: 2.2, sw: 2, spokes: 4 },
+    L: { D: 18, n: 12, tw: 2, rim: 2, hub: 2.8, sw: 2, spokes: 4 },
+    XL: { D: 24, n: 16, tw: 2, rim: 3, hub: 3.6, sw: 4, spokes: 4 },
+  };
+  const GEAR_TONE = { XL: 1, L: 2, M: 3, S: 2 };   // 在后面的大齿轮暗、在前面的小齿轮亮，叠在一起也分得开
+  function gearSymMask(sp, frame) {
+    const R0 = sp.D / 2, rb = R0 - 2, half = (frame & 1) ? 0.5 : 0, diag = (frame & 2) ? Math.PI / 4 : 0;
+    return (ox, oy) => {                     // ox ≥ oy ≥ 0（1/8 扇区）
+      const d = Math.hypot(ox, oy);
+      if (d > R0) return 0;
+      if (d > rb) {                          // 矩形齿
+        for (let k = 0; k < sp.n; k++) {
+          const t = (k + half) * Math.PI * 2 / sp.n, al = ox * Math.cos(t) + oy * Math.sin(t), ac = -ox * Math.sin(t) + oy * Math.cos(t);
+          if (al > rb - 0.5 && Math.abs(ac) < sp.tw / 2) return 1;
+        }
+        return 0;
+      }
+      if (d < 1) return 3;                   // 轴孔
+      if (d <= sp.hub) return 2;             // 轮毂
+      if (!sp.spokes || d > rb - sp.rim) return 1;   // 实心小齿轮 / 轮缘
+      for (let k = 0; k < sp.spokes; k++) {
+        const t = diag + k * Math.PI * 2 / sp.spokes, al = ox * Math.cos(t) + oy * Math.sin(t), ac = -ox * Math.sin(t) + oy * Math.cos(t);
+        if (al > 0 && Math.abs(ac) < sp.sw / 2) return 1;
+      }
+      return 0;
+    };
+  }
+  // (cx, cy) = 圆心（像素角，整数）；size = 'S' | 'M' | 'L' | 'XL'；frame = 0～3
+  function gearSym(cx, cy, size, frame = 0) {
+    const sp = GEAR_SPEC[size], m = gearSymMask(sp, frame), h = sp.D / 2;
+    const col = [null, P.brass[GEAR_TONE[size]], P.brass[3], P.brass[0]];
+    if (GEAR_TONE[size] === 3) col[2] = P.brass[1];                       // 最亮的那只：轮毂反过来用暗色
+    for (let j = 0; j < h; j++) for (let i = j; i < h; i++) {             // 1/8 扇区：i ≥ j
+      const v = m(i + 0.5, j + 0.5);
+      if (!v) continue;
+      const c = col[v];
+      for (const [a, b] of [[i, j], [j, i]]) for (const sx of [1, -1]) for (const sy of [1, -1]) {
+        px(cx + (sx > 0 ? a : -a - 1), cy + (sy > 0 ? b : -b - 1), c);
+      }
+    }
+  }
   // 预制齿轮组：大（r 14，6 辐）在后，中（r 9，十字 4 辐）、小（r 6，实心环 + 轮毂）叠在它前面并咬合。(x, y) = 大齿轮中心。
   // 画的顺序配合 destination-over：先画的在前面（小 → 中 → 大）
-  const GEARSET = [[32, -6, 6, 0, 0.5, 0], [19, -4, 9, 4, 0.25, 0], [0, 0, 14, 6, 0, 0]];   // 中齿轮十字辐条、小齿轮不开辐条（小尺寸的斜辐条会锯齿）
+  // v6：超大（D24，一整个 24px 块）在最后，大（D18）、中（D14）、小（D10）依次叠在前面、互相咬合；(x, y) = 超大齿轮圆心。
+  // destination-over 下先画的在前面：小 → 中 → 大 → 超大。相邻两只的圆心距 = 两个齿顶半径之和 − 2（齿深）
+  const GEARSET = [[43, -7, 'S', 1], [34, -4, 'M', 0], [20, -3, 'L', 1], [0, 0, 'XL', 0]];
   function gearSet(g, x, y) {
     SA.CAND.use(g);
     const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
-    for (const [dx, dy, r, k, ph, sp] of GEARSET) gearClean(x + dx, y + dy, r, k, ph, sp);
+    for (const [dx, dy, size, f] of GEARSET) gearSym(x + dx, y + dy, size, f);
     g.globalCompositeOperation = prev;
   }
   // 零件板（样机页单独展示）：先画铁件（传动杆、连杆），材质处理之后再垫齿轮
@@ -372,7 +422,7 @@ SA.GFLAB = (() => {
     gearSet(g, x + 16, y + 17);
     SA.CAND.use(g);
     const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
-    gearClean(x + 10, y + 46, 6, 0); gearClean(x + 28, y + 44, 9, 4); gearClean(x + 62, y + 14, 14, 6);
+    gearSym(x + 8, y + 50, 'S'); gearSym(x + 24, y + 48, 'M'); gearSym(x + 45, y + 46, 'L'); gearSym(x + 66, y + 44, 'XL', 2);
     g.globalCompositeOperation = prev;
   }
 
@@ -407,9 +457,9 @@ SA.GFLAB = (() => {
   const CHEEK_SLANT = [...Array(8).fill(34), ...Array(8).fill(30), ...Array(19).fill(25), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => 25 + Math.round(i * 1.4))];   // T5～6：前沿斜切
   // 背景齿轮组（v5 起是预制件 gearSet）：大齿轮在炮尾后上方，中、小叠在它前面并咬合；
   // 被炮身挡住下半也没关系，上半露出来就是「炮背后的钟表机构」。全部落在 48 高的格子里（y ≥ 0）。
-  const GEAR_AT = { x: 17, y: 14 };   // 预制齿轮组的大齿轮中心：在炮尾后上方（用户：大齿轮放后部）
+  const GEAR_AT = { x: 13, y: 12 };   // v6：超大齿轮圆心（炮尾后上方，左边露出来）   // 预制齿轮组的大齿轮中心：在炮尾后上方（用户：大齿轮放后部）
   function carriage(x, y, T) {
-    link(x + 52, y + 11, x + 60, y + 37);                                                       // 传动杆：小齿轮曲柄 → 滑轨前端（从炮管后面穿过）
+    link(x + 58, y + 8, x + 62, y + 37);                                                        // 传动杆：小齿轮曲柄 → 滑轨前端（从炮管后面穿过）
     box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                     // 铁滑轨
     for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); px(x + wx, y + 45, P.brass[2]); }   // 滚轮
     stepped(x, y, 12, T.shield ? CHEEK_SLANT : CHEEK_TOPS, 39);                                // 炮耳架：T4 台阶形，T5～6 前沿斜切
@@ -536,8 +586,9 @@ SA.GFLAB = (() => {
     for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, RIVET_C[kind]);
     const a = (o.a == null ? 55 : o.a) * Math.PI / 180;
     const prev = g.globalCompositeOperation; g.globalCompositeOperation = 'destination-over';
-    gearRot(x + MP.x, y + MP.y, 6, 0, -a);                     // 炮耳小齿轮：跟炮管一起转（逆时针 = 抬头）
-    for (const gx of [10.5, 37.5]) gearRot(x + gx, y + 29, 10, 4, a * 0.6, { rim: 3, hub: 2, sw: 1.6, n: 12 });   // 两侧大齿轮：反向转（3px 轮缘不断、小轮毂 + 四根粗辐条，镂空更大）
+    const f = Math.floor((o.a == null ? 55 : o.a) / 6) % 4;   // 活动设计：仰角每 6° 换一个对称帧
+    gearSym(x + MP.x, y + MP.y, 'S', f);                                                  // 炮耳小齿轮
+    for (const gx of [10, 38]) gearSym(x + gx, y + 29, 'L', 3 - f);                       // 两侧大齿轮：反向转
     g.globalCompositeOperation = prev;
   }
   // 可转动的齿轮：把遮罩整体转 θ（弧度）
