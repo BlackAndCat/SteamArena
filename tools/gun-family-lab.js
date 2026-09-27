@@ -275,104 +275,159 @@ SA.GFLAB = (() => {
     ['包角位（钢起）', '#ef7a21', (x, y) => [x + 3, y + 2, 5, 5], (x, y) => [x + 27, y + 11, 5, 5]],
     ['悬吊臂 + 炮组（不放东西）', '#a8a39a', (x, y) => [x + 8, y + 12, 20, 29]],
   ];
-  // ---------- 重炮 3×2（72 宽 × 48 高，横躺，镀镍起才有：只画 T4～T6）· v2 ----------
-  // 用户：v1 和直射火炮太像。重炮要超大口径、厚重、粗犷；不要弹药库，3×2 全是炮；炮管在三格内铺满，
-  // 「短」是相对整体体积而言——炮身粗到让炮管显得短。
-  // 剪影：没有炮廓，一门露天的攻城重炮趴在低矮厚重的滑座上——巨大方炮尾 + 黄铜耳轴箍 + 粗炮管（16～18 高）+ 顶上一根复进筒 + 大方制退器。
-  // 耳轴 (30,22)，炮口末端 x 73（blen 43），仰角 −6°～34°。
-  // 形体：T4 方炮尾 + 方滑座；T5～6 炮尾后上角斜切 + 滑座前端斜板（冰川板）。
-  // 分区：滑座左段 = 散热口（高仰角时炮尾会扫过，只放散热口）；滑座右段 = 上沿铆钉 + 铭牌；包角 = 滑座两个底角；
-  //       压力表（直径 11）装在炮尾侧面左上，随炮转动（OVER 里也用 turn 画）。
-  const HZ = { vent: { x: 8, y: 36 }, seam: { y: 36, x0: 38, x1: 58 }, plate: { x: 39, y: 40 }, gauge: { cx: 16.5, cy: 17.5 } };
-  const HP = { x: 30, y: 22 };
-  function bigGauge(cx, cy) {
-    disc(cx, cy, 5, P.brass[0]); disc(cx, cy, 4, P.brass[2]); disc(cx, cy, 3.2, P.steam[2]);
-    px(Math.round(cx - 3), Math.round(cy - 3), P.brass[3]);
-    for (let i = 0; i < 4; i++) { const a = Math.PI * (1.6 + i * 0.14); px(Math.round(cx - 0.5 + Math.cos(a) * 2.4), Math.round(cy - 0.5 + Math.sin(a) * 2.4), P.gauge[1]); }
-    line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 2.5), Math.round(cy - 2), 1, P.dark[0]);
-    px(Math.round(cx - 0.5), Math.round(cy - 0.5), P.fire[1]);
+  // ---------- 装饰零件试验：齿轮 / 齿轮组 / 传动杆 / 手轮 / 铜管 ----------
+  // 齿轮本来就是圆的，按 §3.1「圆只留给本来就圆的小零件」允许。黄铜件在材质处理里只换成该材料的饰件色（trim），不染瓷漆；
+  // 铜管用单独的紫铜色阶（不在铁 / 暗铁 / 锈的源色里，材质处理不动它）。
+  const COPPER = ['#3b1e16', '#74391f', '#b0603a', '#dd9a6a'];
+  // 齿轮：r = 齿顶半径，n = 齿数，ph = 相位（0～1）。轮体是干净的圆盘（描边 + 亮 / 暗半边），齿是一圈 1px（r ≥ 6 时 2px）的方齿；
+  // r ≥ 7 开四个减重孔。小齿轮不做逐像素齿形，避免糊成一团
+  function gear(cx, cy, r, n, ph = 0, holes = r >= 7) {
+    const rb = r - (r >= 6 ? 2 : 1), tw = r >= 6 ? 2 : 1;
+    for (let k = 0; k < n; k++) {
+      const a = (k + ph) / n * Math.PI * 2, tx = cx + Math.cos(a) * (rb + tw * 0.5) - tw / 2, ty = cy + Math.sin(a) * (rb + tw * 0.5) - tw / 2;
+      R(Math.round(tx), Math.round(ty), tw, tw, P.brass[0]);
+    }
+    for (let yy = Math.floor(cy - rb - 1); yy <= Math.ceil(cy + rb + 1); yy++) for (let xx = Math.floor(cx - rb - 1); xx <= Math.ceil(cx + rb + 1); xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.hypot(dx, dy);
+      if (d > rb + 0.3) continue;
+      let c = d > rb - 0.7 ? P.brass[0] : (d > rb - 1.7 ? (dx + dy < 0 ? P.brass[3] : P.brass[1]) : P.brass[2]);
+      if (holes) for (let k = 0; k < 4; k++) { const ha = Math.PI / 4 + k * Math.PI / 2; if (Math.hypot(dx - Math.cos(ha) * rb * 0.52, dy - Math.sin(ha) * rb * 0.52) < rb * 0.2 + 0.3) c = P.dark[0]; }
+      if (rb >= 3 && d < rb * 0.3 + 0.5) c = d < 0.8 ? P.brass[3] : P.brass[0];
+      else if (rb < 3 && d < 0.8) c = P.brass[0];   // 小齿轮只点一个轴心
+      px(xx, yy, c);
+    }
   }
-  function enamel(x, y) {
-    R(x, y, 10, 6, P.brass[0]); R(x + 1, y + 1, 8, 4, P.brass[2]); R(x + 1, y + 1, 8, 1, P.brass[3]);
-    R(x + 2, y + 2, 6, 2, '#1c1a1f'); R(x + 3, y + 2, 4, 1, P.brass[1]); R(x + 3, y + 3, 3, 1, P.brass[1]);
+  // 手轮：铁轮圈 + 四根辐条 + 黄铜轮毂 + 一个摇柄
+  function handwheel(cx, cy, r) {
+    for (let yy = Math.floor(cy - r - 1); yy <= Math.ceil(cy + r + 1); yy++) for (let xx = Math.floor(cx - r - 1); xx <= Math.ceil(cx + r + 1); xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.hypot(dx, dy);
+      if (d <= r && d > r - 1.3) px(xx, yy, dx + dy < 0 ? P.iron[4] : P.iron[0]);
+      else if (d <= r - 1.3 && (Math.abs(dx) < 0.6 || Math.abs(dy) < 0.6)) px(xx, yy, P.iron[2]);
+    }
+    disc(cx, cy, 1.4, P.brass[0]); px(Math.floor(cx), Math.floor(cy), P.brass[3]);
+    R(Math.round(cx + r - 1), Math.round(cy - r) - 1, 2, 2, P.brass[2]);
   }
-  function wideVents(x, y, style, n) {   // 同直射火炮 PART.vents：rows 横槽 / grid 双列 / louver 斜百叶
-    const Z = HZ.vent, slot = (sx, sy, w) => { R(x + sx, y + sy, w, 1, P.iron[0]); R(x + sx, y + sy + 1, w, 1, P.iron[3]); };
-    if (style === 'rows') for (let i = 0; i < n; i++) slot(Z.x, Z.y + 1 + i * 3, 12);
-    else if (style === 'grid') for (let c = 0; c < 2; c++) for (let i = 0; i < n; i++) slot(Z.x + c * 8, Z.y + i * 3, 6);
-    else if (style === 'louver') for (let i = 0; i < n; i++) for (let k = 0; k < 7; k++) { px(x + Z.x + i * 4 + (k >> 1), y + Z.y + k, P.iron[0]); px(x + Z.x + i * 4 + (k >> 1) + 1, y + Z.y + k, P.iron[3]); }
+  // 传动杆：铁杆 + 黄铜轴套；水平 / 竖直
+  function shaftH(x0, x1, y0) { R(x0, y0, x1 - x0, 2, P.iron[0]); R(x0, y0, x1 - x0, 1, P.iron[3]); }
+  function shaftV(x0, y0, y1) { R(x0, y0, 2, y1 - y0, P.iron[0]); R(x0, y0, 1, y1 - y0, P.iron[3]); }
+  function collar(x0, y0, vertical = false) { if (vertical) { R(x0 - 1, y0, 4, 2, P.brass[1]); R(x0 - 1, y0, 4, 1, P.brass[3]); } else { R(x0, y0 - 1, 2, 4, P.brass[1]); R(x0, y0 - 1, 1, 4, P.brass[3]); } }
+  // 连杆（曲柄销到曲柄销的斜杆，一条直线）
+  function link(x0, y0, x1, y1) { line(x0, y0, x1, y1, 2, P.iron[0]); line(x0, y0, x1, y1, 1, P.iron[3]); disc(x0 + 0.5, y0 + 0.5, 1.3, P.brass[2]); disc(x1 + 0.5, y1 + 0.5, 1.3, P.brass[2]); }
+  // 铜管（3px：亮 / 中 / 暗），直角弯头，接头处黄铜法兰
+  function pipeH(x0, x1, y0) { R(x0, y0, x1 - x0, 1, COPPER[3]); R(x0, y0 + 1, x1 - x0, 1, COPPER[2]); R(x0, y0 + 2, x1 - x0, 1, COPPER[0]); }
+  function pipeV(x0, y0, y1) { R(x0, y0, 1, y1 - y0, COPPER[3]); R(x0 + 1, y0, 1, y1 - y0, COPPER[2]); R(x0 + 2, y0, 1, y1 - y0, COPPER[0]); }
+  function flangeH(x0, y0) { R(x0, y0 - 1, 2, 5, P.brass[0]); R(x0, y0 - 1, 1, 5, P.brass[3]); }
+  function flangeV(x0, y0) { R(x0 - 1, y0, 5, 2, P.brass[0]); R(x0 - 1, y0, 5, 1, P.brass[3]); }
+  function valve(cx, cy) { R(cx - 2, cy - 1, 5, 3, P.brass[1]); R(cx - 2, cy - 1, 5, 1, P.brass[3]); R(cx, cy - 4, 1, 3, P.iron[0]); R(cx - 2, cy - 5, 5, 1, P.iron[3]); }
+  // 零件板（样机页单独展示）
+  function partsBoard(g, x, y) {
+    SA.CAND.use(g);
+    gear(x + 6, y + 8, 3, 8); gear(x + 16, y + 8, 4, 10); gear(x + 28, y + 8, 5, 12); gear(x + 43, y + 9, 7, 14); gear(x + 62, y + 10, 9, 18);
+    gear(x + 8, y + 28, 5, 12, 0); gear(x + 16.5, y + 28, 3.5, 8, 0.5);                    // 一对啮合
+    gear(x + 30, y + 30, 5, 12); gear(x + 38.5, y + 26, 3.5, 8, 0.5); gear(x + 44, y + 32, 3, 8, 0.25);   // 齿轮组
+    handwheel(x + 58, y + 29, 5);
+    shaftH(x + 2, x + 30, y + 42); collar(x + 9, y + 42); collar(x + 22, y + 42); handwheel(x + 34, y + 43, 4);
+    link(x + 44, y + 46, x + 56, y + 38);
+    pipeH(x + 2, x + 24, y + 52); flangeH(x + 12, y + 52); pipeV(x + 22, y + 52, y + 62); flangeV(x + 22, y + 58); valve(x + 33, y + 56); pipeH(x + 24, x + 32, y + 56);
   }
-  const SLED = {                     // 低矮厚重的滑座（固定不转）
-    box(x, y) { box(x + 2, y + 34, 64, 14, IRON); R(x + 3, y + 35, 62, 1, P.iron[4]); R(x + 3, y + 46, 62, 1, P.brass[2]); },
-    slant(x, y) {                    // 前端冰川板：前沿往前下方斜
-      for (let yy = 34; yy <= 47; yy++) {
-        const xr = x + 58 + Math.round((yy - 34) * 0.62);
-        R(x + 2, y + yy, xr - x - 2, 1, P.iron[2]); px(x + 2, y + yy, P.iron[0]); px(x + 3, y + yy, P.iron[3]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
-      }
-      R(x + 2, y + 34, 56, 1, P.iron[0]); R(x + 3, y + 35, 55, 1, P.iron[4]); R(x + 2, y + 47, 65, 1, P.iron[0]); R(x + 3, y + 46, 62, 1, P.brass[2]);
-    },
+
+  // ---------- 重炮 3×2（72 × 48，横躺，镀镍起：T4～T6）· v3 历史重炮 ----------
+  // 用户：v2 不够蒸汽朋克、偏高科技；取消仪表；背景加黄铜齿轮和铜管；参考历史重炮重新设计。
+  // 参考 19 世纪的套箍式攻城 / 岸防重炮（阿姆斯特朗、罗德曼一类）：
+  //   炮身 = 炮尾最粗、一段段台阶式收细到炮口（全是直线台阶），尾端一个炮尾钮；
+  //   炮架 = 两片台阶形铁炮耳架（墙板）夹着炮耳，坐在带滚轮的铁滑轨上；
+  //   俯仰 = 炮尾下方一段黄铜齿弧，由炮架上的小齿轮咬住，传动杆接到后面的手轮。
+  // 耳轴 (34,18)，炮口末端 x 72（blen 38），仰角 −6°～34°。
+  // 档位：T4 台阶形炮耳架；T5～6 炮耳架前沿斜切（斜向板）+ 炮身更粗、炮管两道铁箍。（试过立一块斜防盾，读成竖杆，放弃）
+  // 三种装饰浓度（试验）：A 只有俯仰机构（齿弧 + 小齿轮 + 传动杆 + 手轮）+ 炮架减重窗；
+  //                     B = A + 炮架上一组黄铜齿轮（档位越高齿轮越多）+ 紫铜液压管；
+  //                     C = B + 炮尾后面的大钟表齿轮背景 + 连杆。
+  const HP = { x: 34, y: 18 };
+  const H_TIERS = {
+    4: { shield: false, heavy: false, win: 3, gears: 1, riv: 3 },
+    5: { shield: true, heavy: true, win: 4, gears: 2, riv: 4 },
+    6: { shield: true, heavy: true, win: 4, gears: 3, riv: 4, win2: true },
   };
+  // 台阶形炮耳架：tops[i] 是 x0+i 这一列的上沿，底边统一到 bot
+  function stepped(x, y, x0, tops, bot) {
+    tops.forEach((t, i) => {
+      const xx = x + x0 + i, prev = i ? tops[i - 1] : 99, next = i < tops.length - 1 ? tops[i + 1] : 99;
+      R(xx, y + t, 1, bot - t + 1, P.iron[2]); px(xx, y + t, P.iron[0]); px(xx, y + t + 1, P.iron[4]); px(xx, y + bot, P.iron[0]);
+      if (prev > t) R(xx, y + t, 1, Math.min(prev, bot) - t + 1, P.iron[0]);
+      if (prev > t && i) R(xx + 1, y + t + 1, 1, Math.min(prev, bot) - t - 1, P.iron[3]);
+      if (next > t) R(xx, y + t, 1, Math.min(next, bot) - t + 1, P.iron[0]);
+    });
+  }
+  const CHEEK_TOPS = [...Array(8).fill(30), ...Array(8).fill(24), ...Array(25).fill(19), ...Array(4).fill(25)];   // x 12～56：T4 台阶形
+  const CHEEK_SLANT = [...Array(8).fill(30), ...Array(8).fill(24), ...Array(19).fill(19), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => 19 + Math.round(i * 2))];   // T5～6：前沿斜切
+  function carriage(x, y, T, v) {
+    if (v === 'C') {                                   // 背景钟表齿轮（被炮尾挡住一部分）
+      gear(x + 9, y + 10, 9, 14, 0); gear(x + 22, y + 4, 5, 10, 0.5);
+      link(x + 12, y + 13, x + 19, y + 27);
+    }
+    box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                     // 铁滑轨
+    for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); px(x + wx, y + 45, P.brass[2]); }   // 滚轮
+    stepped(x, y, 12, T.shield ? CHEEK_SLANT : CHEEK_TOPS, 39);                                // 炮耳架：T4 台阶形，T5～6 前沿斜切
+    // 减重窗（代替散热口的档位语言）：炮耳架中段，炮身挡不到的地方
+    const wy = 29;
+    for (let i = 0; i < T.win; i++) { R(x + 40 + i * 3, y + wy, 2, 4, P.dark[0]); px(x + 41 + i * 3, y + wy + 3, P.iron[3]); }
+    if (T.win2) for (let i = 0; i < T.win; i++) { R(x + 40 + i * 3, y + wy - 5, 2, 3, P.dark[0]); }
+    // 俯仰机构：小齿轮（咬炮尾下的齿弧）+ 传动杆 + 手轮
+    shaftH(x + 7, x + 18, y + 33); collar(x + 13, y + 33);
+    handwheel(x + 6, y + 33, 5);
+    R(x + 3, y + 36, 7, 3, P.iron[0]); R(x + 4, y + 36, 5, 1, P.iron[3]); R(x + 5, y + 33, 2, 3, P.iron[0]);   // 手轮支架
+    gear(x + 18.5, y + 33.5, 3.5, 8, 0.25, false);
+    if (v !== 'A') {
+      // 炮架上的黄铜齿轮组：档位越高齿轮越多
+      const G = [[45, 31, 5, 10, 0], [51.5, 26.5, 3, 8, 0.5], [38.5, 34.5, 3, 8, 0.5]];
+      for (let i = 0; i < T.gears; i++) gear(x + G[i][0], y + G[i][1], G[i][2], G[i][3], G[i][4], false);
+      // 紫铜液压管：沿炮耳架下沿走，前端弯上去接一个阀门
+      pipeH(x + 13, x + 54, y + 36); flangeH(x + 24, y + 36); flangeH(x + 42, y + 36);
+      pipeV(x + 53, y + 27, y + 39); flangeV(x + 53, y + 31); valve(x + 54, y + 26);
+    }
+  }
   function hGun(x, y, o, T) {
     turn(x + HP.x, y + HP.y, o.a || 0, (PX, PY) => {
-      const X = PX - HP.x, Y = PY - HP.y, d = Math.round((o.k || 0) * 12), end = X + 73 - d;
-      const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 2, P.iron[4]); R(x0, y0 + hh - 3, x1 - x0, 2, P.iron[2]); };
-      const hoop = (hx, y0, hh) => { R(hx, y0, 3, hh, P.iron[0]); R(hx, y0 + 1, 3, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
-      const brake = (x0, y0, w, hh, n) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (let i = 0; i < n; i++) R(x0 + 2, y0 + 4 + i * 5, w - 4, 2, P.dark[0]); };
-      // 巨大方炮尾（T5～6 后上角斜切）
-      const bx0 = X + 8 - d, bx1 = X + 31 - d;
-      for (let xx = bx0; xx < bx1; xx++) {
-        const top = Y + 9 + (T.h === 'slant' ? Math.max(0, 7 - (xx - bx0)) : 0);
-        R(xx, top, 1, Y + 36 - top, P.iron[0]);
-        if (xx > bx0 && xx < bx1 - 1) { R(xx, top + 1, 1, Y + 34 - top, P.iron[2]); px(xx, top + 1, P.iron[4]); R(xx, Y + 33, 1, 2, P.iron[1]); }
+      const d = Math.round((o.k || 0) * 12), C = PX - d, M = PY;
+      // 炮尾下的黄铜齿弧（和炮身一起转，被炮架上的小齿轮咬住）
+      for (let yy = M; yy <= M + 20; yy++) for (let xx = C - 20; xx <= C + 4; xx++) {
+        const dx = xx + 0.5 - C, dy = yy + 0.5 - M, dd = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (ang < 95 || ang > 168) continue;
+        const tooth = Math.floor(ang / 5) % 2 === 0;
+        if (dd >= 14 && dd <= 17.5) px(xx, yy, dd > 16.5 ? P.brass[0] : (dd < 15 ? P.brass[3] : P.brass[2]));
+        else if (dd > 17.5 && dd <= 19 && tooth) px(xx, yy, P.brass[0]);
       }
-      R(bx0 + 1, Y + 16, 1, 18, P.iron[3]);
-      R(bx0 + 4, Y + 27, 20, 1, P.iron[0]); R(bx0 + 4, Y + 28, 20, 1, P.iron[3]);   // 炮闩横缝
-      // 黄铜耳轴箍（火炮家族的黄铜摇架）
-      box(X + 26 - d, Y + 8, 11, 29, BRASS); R(X + 28 - d, Y + 10, 1, 25, P.brass[3]);
-      // 顶上复进筒 + 两道卡箍
-      R(X + 36 - d, Y + 6, 24, 6, P.iron[0]); R(X + 37 - d, Y + 7, 22, 4, P.iron[3]); R(X + 37 - d, Y + 7, 22, 1, P.iron[4]);
-      for (const cx of [40, 54]) { R(X + cx - d, Y + 5, 3, 8, P.dark[0]); R(X + cx + 1 - d, Y + 6, 1, 6, P.dark[3]); }   // 卡箍只到炮管上沿
-      const b0 = X + 37 - d;
-      if (T.b === 2) {             // T4：炮尾套筒 + 一道黄铜箍 + 连体阶梯制退器
-        tube(b0, end - 12, Y + 14, 16); tube(b0, b0 + 10, Y + 12, 20);
-        R(b0 + 10, Y + 13, 3, 18, P.brass[1]); R(b0 + 10, Y + 13, 1, 18, P.brass[3]);
-        R(end - 17, Y + 11, 6, 22, P.iron[0]); R(end - 16, Y + 12, 4, 20, P.iron[3]); R(end - 16, Y + 12, 4, 1, P.iron[4]);
-        brake(end - 11, Y + 8, 11, 28, 5);
-      } else {                     // T5～6：更粗的炮身 + 两道铁箍 + 大方制退器
-        tube(b0, end - 12, Y + 13, 18); for (const hb of [3, 17]) hoop(b0 + hb, Y + 11, 22);   // 铁箍和复进筒卡箍对齐
-        brake(end - 12, Y + 7, 12, 30, 5);
+      for (const aa of [98, 164]) { const ca = Math.cos(aa * Math.PI / 180), sa = Math.sin(aa * Math.PI / 180); line(Math.round(C + ca * 8), Math.round(M + sa * 8), Math.round(C + ca * 14), Math.round(M + sa * 14), 2, P.brass[0]); }   // 齿弧的两根撑杆
+      // 台阶式炮身：[起, 止, 半高]（相对耳轴）
+      const H = T.heavy;
+      const segs = [[-27, -25, 3], [-25, -24, 2], [-24, -8, H ? 11 : 10], [-8, 8, 9], [8, 18, H ? 8 : 7], [18, 33, H ? 6 : 5], [33, 38, H ? 7 : 6]];
+      for (const [a0, a1, hh] of segs) for (let i = C + a0; i < C + a1; i++) {
+        R(i, M - hh, 1, hh * 2 + 1, P.iron[0]);
+        if (hh > 1) { R(i, M - hh + 1, 1, hh * 2 - 1, P.iron[3]); px(i, M - hh + 1, P.iron[4]); if (hh > 3) { px(i, M - hh + 2, P.iron[4]); R(i, M + hh - 2, 1, 2, P.iron[2]); } }
       }
-      if ((o.k || 0) >= 0.85) { R(end, Y + 15, 4, 14, P.fire[3]); R(end + 4, Y + 18, 3, 8, P.fire[2]); }
+      segs.forEach(([a0, a1, hh], k) => { if (k && segs[k - 1][2] > hh) R(C + a0, M - hh + 1, 1, hh * 2 - 1, P.iron[2]); });   // 收细处只压暗一列（台阶的阴影面）
+      R(C - 28, M - 2, 1, 5, P.iron[0]);                                                                                          // 炮尾钮后沿
+      R(C - 12, M - (H ? 11 : 10), 2, (H ? 11 : 10) * 2 + 1, P.brass[1]); R(C - 12, M - (H ? 11 : 10), 1, (H ? 11 : 10) * 2 + 1, P.brass[3]);   // 炮尾黄铜箍
+      if (H) for (const hx of [22, 28]) { R(C + hx, M - 7, 2, 15, P.iron[0]); R(C + hx, M - 6, 1, 13, P.iron[4]); }                            // 炮管铁箍
+      else { R(C + 25, M - 6, 2, 13, P.iron[0]); R(C + 25, M - 5, 1, 11, P.iron[4]); }
+      R(C + 37, M - 2, 1, 5, P.black);                                                                                                          // 炮口
+      if ((o.k || 0) >= 0.85) { R(C + 38, M - 5, 4, 11, P.fire[3]); R(C + 42, M - 3, 3, 7, P.fire[2]); }
     });
-    R(x + HP.x - 3, y + HP.y - 3, 7, 7, P.brass[0]); R(x + HP.x - 2, y + HP.y - 2, 5, 5, P.brass[3]); R(x + HP.x - 1, y + HP.y - 1, 3, 3, P.brass[1]); px(x + HP.x, y + HP.y, P.brass[0]);   // 大号方形固定螺栓
+    disc(x + HP.x, y + HP.y, 3.6, P.brass[0]); disc(x + HP.x, y + HP.y, 2.6, P.brass[2]); px(x + HP.x - 1, y + HP.y - 1, P.brass[3]); px(x + HP.x, y + HP.y, P.brass[0]);   // 炮耳（本来就圆）
   }
-  const H_TIERS = {
-    4: { h: 'box', b: 2, vent: ['rows', 3], riv: 3 },
-    5: { h: 'slant', b: 3, vent: ['grid', 3], riv: 4 },
-    6: { h: 'slant', b: 3, vent: ['louver', 4], riv: 4 },
-  };
-  function hBase(g, x, y, T, o = {}) {
+  function hBase(g, x, y, T, o = {}, v = 'B') { SA.CAND.use(g); carriage(x, y, T, v); hGun(x, y, o, T); }
+  function hOver(g, x, y, T) {   // 只剩铆钉：打在滑轨上沿（钢质）
     SA.CAND.use(g);
-    SLED[T.h](x, y);
-    wideVents(x, y, T.vent[0], T.vent[1]);
-    corner(x + 2, y + 43, 1, -1); corner(x + 61, y + 43, -1, -1);
-    hGun(x, y, o, T);
-  }
-  function hOver(g, x, y, T, o = {}) {
-    SA.CAND.use(g);
-    const Z = HZ.seam, step = (Z.x1 - Z.x0) / (T.riv - 1);
-    for (let i = 0; i < T.riv; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, RIVET_C.steel);
-    enamel(x + HZ.plate.x, y + HZ.plate.y);
-    const d = Math.round((o.k || 0) * 12);
-    turn(x + HP.x, y + HP.y, o.a || 0, (PX, PY) => bigGauge(PX - HP.x + HZ.gauge.cx - d, PY - HP.y + HZ.gauge.cy));   // 压力表随炮尾转
+    const n = T.riv + 2, x0 = 5, x1 = 66, step = (x1 - x0) / (n - 1);
+    for (let i = 0; i < n; i++) rivetC(Math.round(x + x0 + i * step), y + 41, RIVET_C.steel);
   }
   const H_ZONES_VIEW = [
-    ['表位（炮尾侧面，直径 11）', '#ff6b9a', (x, y) => [x + 11, y + 12, 12, 12]],
-    ['散热区（炮尾扫得到，只放散热口）', '#46c2c9', (x, y) => [x + 7, y + 35, 18, 9]],
-    ['接缝 · 铆钉', '#6fcf6a', (x, y) => [x + 37, y + 35, 25, 4]],
-    ['铭牌区', '#f5d77a', (x, y) => [x + 38, y + 39, 12, 7]],
-    ['包角位', '#ef7a21', (x, y) => [x + 2, y + 43, 5, 5], (x, y) => [x + 61, y + 43, 5, 5]],
-    ['炮组（不放东西）', '#8f8a80', (x, y) => [x + 8, y + 6, 66, 31]],
+    ['炮身 + 齿弧（随炮转）', '#8f8a80', (x, y) => [x + 7, y + 7, 66, 26]],
+    ['俯仰机构：手轮 + 传动杆 + 小齿轮', '#f5d77a', (x, y) => [x + 0, y + 26, 24, 13]],
+    ['减重窗（档位 3 → 4 → 双排）', '#46c2c9', (x, y) => [x + 39, y + 23, 12, 11]],
+    ['黄铜齿轮组（B / C，档位 1 → 2 → 3 个）', '#ff6b9a', (x, y) => [x + 36, y + 24, 20, 12]],
+    ['紫铜液压管 + 阀门', '#ef7a21', (x, y) => [x + 13, y + 22, 45, 17]],
+    ['滑轨 · 铆钉', '#6fcf6a', (x, y) => [x + 1, y + 39, 70, 6]],
   ];
-  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW };
+  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW, H_TIERS, hBase, hOver, H_ZONES_VIEW, partsBoard };
 })();
