@@ -33,6 +33,12 @@
     .notice.bad { border-color: var(--fire2); color: var(--fire3); }
     .notice.ok { border-color: var(--gauge1); color: var(--gauge2); }
     .notice.warn { border-color: var(--brass2); color: var(--brass3); }
+    /* 保存反馈使用非阻塞悬浮气泡，不打断车间操作。 */
+    .stage-toast { position: fixed; right: 18px; bottom: 18px; z-index: 90; width: min(430px, calc(100vw - 36px)); padding: 10px 13px; border: 1px solid var(--brass2); background: var(--dark1); color: var(--text); box-shadow: 4px 4px 0 rgba(0,0,0,.42); white-space: pre-wrap; line-height: 1.45; }
+    .stage-toast.ok { border-color: var(--gauge1); color: var(--gauge2); }
+    .stage-toast.warn { border-color: var(--brass2); color: var(--brass3); }
+    .stage-toast.bad { border-color: var(--fire2); color: var(--fire3); }
+    .stage-toast[hidden] { display: none; }
     .tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
     .tab-button { color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 7px 11px; cursor: pointer; }
     .tab-button.active, .tab-button:hover { color: var(--brass3); border-color: var(--brass2); background: var(--dark2); }
@@ -104,10 +110,10 @@
       <section class="panel tab-panel" data-tab-panel="assembly">
         <div id="assembly-title"></div>
         <div class="buttons">
-          <button class="btn primary" id="assembly-open">开始 / 继续拼装</button>
+          <button class="btn primary" id="assembly-open">重新打开拼装车间</button>
           <button class="btn" id="assembly-exit">结束拼装并恢复正式存档</button>
         </div>
-        <div id="assembly-empty" class="assembly-empty"><div><b>这里就是改装台</b><p class="muted">点击上方按钮进入车间。右侧模块清单里的模块可以直接选中，再点击车体格子安装；也可以拖动、对调、拆下。</p></div></div>
+        <div id="assembly-empty" class="assembly-empty"><div><b>这里就是改装台</b><p class="muted">选中左侧关卡后会自动进入车间。右侧模块清单里的模块可以直接选中，再点击车体格子安装；也可以拖动、对调、拆下。</p></div></div>
         <div id="assembly-screen" class="assembly-screen" hidden><div id="screen"></div></div>
       </section>
       <section class="panel tab-panel" data-tab-panel="overview" hidden>
@@ -168,6 +174,7 @@
   </div>
   <div id="side" hidden></div>
   <div id="modal" hidden></div>
+  <div id="stage-toast" class="stage-toast" role="status" aria-live="polite" hidden></div>
   <script src="../js/palette.js"></script>
   <script src="../js/modules.js"></script>
   <script src="../js/module-art.js"></script>

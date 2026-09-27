@@ -8,8 +8,19 @@
   const [chapterCount] = [3];
   let assemblyOpen = false;
   let shopObserver = null;
+  let toastTimer = null;
 
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x])); }
+  // 工作台反馈采用非阻塞气泡；保存时不能用 alert 卡住车间和拖拽操作。
+  function showToast(message, level = 'ok') {
+    const toast = $('stage-toast');
+    if (!toast) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    toast.className = `stage-toast ${level}`;
+    toast.textContent = message;
+    toast.hidden = false;
+    toastTimer = setTimeout(() => { toast.hidden = true; }, level === 'bad' ? 6000 : 4500);
+  }
   function stageAt(ci, si) { return SA.CAMPAIGN[ci]?.stages?.[si] || null; }
   function actualStage(ci, si) {
     const base = stageAt(ci, si);
@@ -81,7 +92,7 @@
     } catch (error) {
       assemblyOpen = false;
       if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
-      alert(`无法打开拼装车间：${error.message}`);
+      showToast(`无法打开拼装车间：${error.message}`, 'bad');
     }
   }
   function exitAssembly() {
@@ -250,6 +261,8 @@
     const st = actualStage(ci, si); state.vehicle = st.vehicle;
     fillFields(st); renderPreview(state.vehicle); renderStats(state.vehicle); renderList(); renderProgress(); renderCandidateList();
     $('test-result').textContent = '尚未测试。';
+    // 选中左侧关卡后直接打开右侧车间，避免用户还要再按一次“开始 / 继续拼装”。
+    openAssembly();
   }
 
   // 保存后只刷新工作台数据；拼装页保持打开，避免用户每保存一次就被踢回概览。
@@ -272,22 +285,29 @@
     return SA.V.fromCells($('name').value || '导入关卡车', cells);
   }
 
-  function saveRecord(lockValue) {
+  async function saveRecord(lockValue) {
+    // 保存按钮可以在任意页签按下；如果用户刚退出车间，先自动恢复隔离设计存档。
+    if (!assemblyOpen) openAssembly();
+    if (!assemblyOpen || !SA.Camp?.dev?.saveStageCar) throw new Error('车间尚未打开，无法保存关卡车');
     const vehicle = syncAssemblyVehicle(), meta = readFields(); if (lockValue !== undefined) meta.locked = lockValue;
-    const record = SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta);
-    const check = SA.StageCars.validate(record, state.ci, state.si, vehicle);
+    const preview = SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta);
+    const check = SA.StageCars.validate(preview, state.ci, state.si, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
-    const records = { ...(SA.STAGE_CARS.records || {}), [record.id]: record };
-    return fetch('/__stage-cars/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: 1, records }) }).then(response => {
-      if (!response.ok) throw new Error(`服务器返回 HTTP ${response.status}`);
-      SA.STAGE_CARS.records = records;
-      if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
-      return { record, check };
-    }).catch(async error => {
-      const text = `window.SA.STAGE_CARS.records = ${JSON.stringify(records, null, 2)};\nif (window.SA.StageCars && window.SA.StageCars.data) window.SA.StageCars.data.records = window.SA.STAGE_CARS.records;`;
-      try { if (typeof navigator !== 'undefined' && navigator.clipboard) await navigator.clipboard.writeText(text); } catch (copyError) { /* 只读环境没有剪贴板 */ }
-      throw new Error(`${error.message}。记录已复制到剪贴板，请粘贴到 js/stage-cars.js：\n${text}`);
-    });
+
+    // 统一走规则层保存接口：服务器可用时写入 js/stage-cars.js；不可用时由接口复制降级文本，
+    // 但当前页面仍立即应用这辆车，避免把“已复制待粘贴”误报成按钮报错。
+    const result = await SA.Camp.dev.saveStageCar(state.ci, state.si, meta);
+    if (!result || !result.record) throw new Error('保存接口没有返回关卡车记录');
+    const records = { ...(SA.STAGE_CARS.records || {}), [result.record.id]: result.record };
+    SA.STAGE_CARS.records = records;
+    if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+    return { ...result, check, persisted: Number.isFinite(result.response) && result.response >= 200 && result.response < 300 };
+  }
+
+  function saveNotice(result, action) {
+    const warning = result.check?.warnings?.length ? `\n警告：${result.check.warnings.join('；')}` : '';
+    if (result.persisted) return `已${action}，并写入 js/stage-cars.js。正式游戏重新载入后会使用这辆车。${warning}`;
+    return `已${action}到当前页面，但本机写入服务器不可用。记录已复制到剪贴板，请启动 python tools/serve.py 后再按一次保存，正式游戏才能在重新载入后保留。${warning}`;
   }
 
   function testVehicle() {
@@ -321,25 +341,33 @@
   $('open-modules').onclick = openModulePicker;
   $('module-picker-cancel').onclick = closeModulePicker;
   $('module-picker-confirm').onclick = confirmModulePicker;
-  $('save').onclick = async () => { try { const result = await saveRecord(); alert(`已保存并锁定。${result.check.warnings.length ? `\n警告：${result.check.warnings.join('；')}` : ''}`); refreshAfterSave(result); } catch (error) { alert(error.message); } };
-  $('unlock').onclick = async () => { try { const result = await saveRecord(false); refreshAfterSave(result); } catch (error) { alert(error.message); } };
-  $('relock').onclick = async () => { try { const result = await saveRecord(true); refreshAfterSave(result); } catch (error) { alert(error.message); } };
+  $('save').onclick = async () => { try { const result = await saveRecord(); refreshAfterSave(result); showToast(saveNotice(result, '保存并锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`保存失败：${error.message}`, 'bad'); } };
+  $('unlock').onclick = async () => { try { const result = await saveRecord(false); refreshAfterSave(result); showToast(saveNotice(result, '保存并解锁'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`解锁保存失败：${error.message}`, 'bad'); } };
+  $('relock').onclick = async () => { try { const result = await saveRecord(true); refreshAfterSave(result); showToast(saveNotice(result, '保存并重新锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`重新锁定失败：${error.message}`, 'bad'); } };
   $('import').onclick = () => { $('import-box').hidden = false; $('import-value').focus(); };
   $('import-cancel').onclick = () => { $('import-box').hidden = true; $('import-value').value = ''; };
   $('import-confirm').onclick = () => {
     const value = $('import-value').value;
-    if (!value.trim()) return;
+    if (!value.trim()) { showToast('请先粘贴 SA2 分享码或完整模块清单', 'warn'); return; }
     try {
       setWorkingVehicle(parseImport(value));
       $('import-box').hidden = true;
       $('import-value').value = '';
-    } catch (error) { alert(error.message); }
+    } catch (error) { showToast(error.message, 'bad'); }
   };
-  $('candidate-import').onclick = () => { const i = +$('candidate').value; if (!Number.isInteger(i)) return; let picks = []; try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (error) { return; } const p = picks[i]; if (!p) return; setWorkingVehicle(p.cells ? SA.V.fromCells($('name').value || p.name, p.cells) : SA.V.decode(p.code)); };
+  $('candidate-import').onclick = () => {
+    const raw = $('candidate').value;
+    if (!raw) { showToast('请先选择一辆进化报告候选车', 'warn'); return; }
+    const i = Number(raw); if (!Number.isInteger(i)) { showToast('候选车编号无效', 'bad'); return; }
+    let picks = []; try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (error) { showToast(`候选车列表读取失败：${error.message}`, 'bad'); return; }
+    const p = picks[i]; if (!p) { showToast('候选车不存在，请重新打开进化报告', 'warn'); return; }
+    try { setWorkingVehicle(p.cells ? SA.V.fromCells($('name').value || p.name, p.cells) : SA.V.decode(p.code)); }
+    catch (error) { showToast(`候选车导入失败：${error.message}`, 'bad'); }
+  };
   $('test').onclick = () => { try { testVehicle(); } catch (error) { $('test-result').className = 'notice bad'; $('test-result').textContent = `测试失败：${error.message}`; } };
   $('drive').onclick = () => {
     const vehicle = syncAssemblyVehicle();
-    if (!vehicle) return;
+    if (!vehicle) { showToast('请先选择一关并打开车间', 'warn'); return; }
     localStorage.setItem('steam_arena_evolve_picks', JSON.stringify([{ name: $('name').value || '手工关卡车', cells: cellsOf(vehicle), terrain: $('terrain').value, style: $('style').value, from: `关卡车工作台 · ${$('name').value}` }]));
     const opened = window.open('../index.html#sandbox=evolve', '_blank', 'noopener');
     // 某些内置浏览器会拦截脚本新标签；同页跳转仍然能进入现有试驾场。

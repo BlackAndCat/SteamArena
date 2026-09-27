@@ -226,7 +226,12 @@ SA.Camp = (() => {
       console.warn(`本地服务器不可用，请把下面内容粘贴进 js/stage-cars.js：\n${text}`, error);
       record.saveFallback = text;
     }
-    return { record, stats: check.stats, warnings: check.warnings, response: response && response.status };
+    // 即使服务器暂时不可用，也把当前页的战役对象更新到手工车，方便继续检查和试驾；
+    // 持久化状态由 response 是否为 2xx 单独标记，避免界面把降级复制提示当成异常。
+    SA.STAGE_CARS.records = payload.records;
+    if (SA.StageCars.applyToCampaign) SA.StageCars.applyToCampaign();
+    return { record, stats: check.stats, warnings: check.warnings, response: response && response.status,
+      persisted: !!(response && response.ok), fallback: record.saveFallback || null };
   }
 
   const dev = {
