@@ -69,9 +69,9 @@ K9 早期验证使用序章铲斗车和第一章动力车各 20 局：铲斗车�
 ## 5. 提交与最终检查
 
 - `08e2ae3 sys: add overnight diagnostics and evolve fixes`：压力测试、战斗只读遥测、进化器约束 / 奖励修复、覆盖检查、预演工具和看板状态。
-- 下一提交：P2 健康诊断、经济模拟和本早报。
+- `68f5ea9 sys: add p2 diagnostics and overnight report`：P2 健康诊断、贪心经济模拟和本早报。
 
-已执行或将作为提交前检查执行：改动 JavaScript 的 `node --check`、`git diff --check`、`node tools/evolve-check.js`、压力测试 10000 局和 P2 自检。最终提交前再确认 `main` 工作树只含本轮后台文件，并立即推送 `origin/main`。
+已执行改动 JavaScript 的 `node --check`、`git diff --check`、`node tools/evolve-check.js`、压力测试 10000 局和 P2 自检；`main` 工作树已确认干净，两个后台提交均已推送到 `origin/main`。
 
 ## 待用户决定（按优先级）
 
