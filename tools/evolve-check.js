@@ -132,6 +132,7 @@ async function main() {
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
   const impact = evolve.impactCheck();
+  const cache = evolve.cacheCheck();
   const modules = coverage.run();
   if (modules.found !== modules.total) throw new Error(`模块覆盖不完整：${modules.found}/${modules.total}`);
   const ai = calibration.selfCheck();
@@ -147,6 +148,7 @@ async function main() {
   result.side = side;
   result.shareGarage = shareGarage;
   result.locked = locked;
+  result.cache = cache;
   result.battle = battle;
   console.log(JSON.stringify(result, null, 2));
 }

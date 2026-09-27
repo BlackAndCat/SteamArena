@@ -493,7 +493,57 @@ function strengthFromRows(rows) {
   return { strength, strengthCi: ci.reduce((sum, value) => sum + value, 0) / ci.length };
 }
 
-function duel(SA, candidate, opponent, spec, seed, games) {
+// 单次进化运行内的确定性对局缓存。
+//
+// 评分和选关证据会重复请求同一组双向对局；缓存只保存 duel() 的聚合结果，
+// 不跨 run() / 规则指纹复用，也不缓存 Battle.simulate 的完整状态，避免改变
+// 随机种子语义或把大量事件对象留在内存里。车辆键必须包含材料和改装等级，
+// 因为 SA.V.encode() 只表示布局。
+function createDuelCache(SA, maxEntries = 50000) {
+  const entries = new Map(), fingerprints = new WeakMap(), fingerprintIds = new Map();
+  let nextVehicleId = 1;
+  let hits = 0, misses = 0, evictions = 0;
+  const vehicleKey = vehicle => {
+    if (!vehicle || typeof vehicle !== 'object') return String(vehicle);
+    let key = fingerprints.get(vehicle);
+    if (!key) {
+      const fingerprint = JSON.stringify(cellsOf(SA, vehicle));
+      key = fingerprintIds.get(fingerprint);
+      if (!key) { key = nextVehicleId++; fingerprintIds.set(fingerprint, key); }
+      fingerprints.set(vehicle, key);
+    }
+    return key;
+  };
+  return {
+    key(candidate, opponent, spec, seed, games) {
+      return `${vehicleKey(candidate)}|${vehicleKey(opponent)}|${spec?.style || 'wander'}|${spec?.terrain || 'flat'}|${seed}|${games}`;
+    },
+    get(key) {
+      if (!entries.has(key)) { misses++; return undefined; }
+      hits++;
+      const value = entries.get(key);
+      // 维持简单的 LRU 顺序；结果本身只读，避免深拷贝战斗事件造成额外开销。
+      entries.delete(key); entries.set(key, value);
+      return value;
+    },
+    set(key, value) {
+      if (entries.has(key)) entries.delete(key);
+      entries.set(key, value);
+      while (entries.size > Math.max(1, maxEntries)) { entries.delete(entries.keys().next().value); evictions++; }
+    },
+    summary() {
+      const total = hits + misses;
+      return { entries: entries.size, maxEntries, hits, misses, evictions, hitRate: hits / Math.max(1, total) };
+    },
+  };
+}
+
+function duel(SA, candidate, opponent, spec, seed, games, duelCache = null) {
+  const cacheKey = duelCache?.key(candidate, opponent, spec, seed, games);
+  if (cacheKey) {
+    const cached = duelCache.get(cacheKey);
+    if (cached) return cached;
+  }
   let wins = 0, draws = 0, totalTime = 0, performance = 0, resultSample = null;
   for (let i = 0; i < games; i++) {
     const seedA = seed + i * 2;
@@ -502,7 +552,9 @@ function duel(SA, candidate, opponent, spec, seed, games) {
     for (const r of [a, b]) { if (r.winner === 'p') wins++; else if (r.winner === 'draw') draws++; totalTime += r.t; performance += performanceScore(r, 'p', config.performance); resultSample = resultSample || { ...r, seed: r === a ? seedA : seedA + 1 }; }
   }
   const n = games * 2;
-  return { wins, draws, n, winRate: (wins + draws * 0.5) / Math.max(1, n), time: totalTime / Math.max(1, n), performance: performance / Math.max(1, n), sample: resultSample };
+  const result = { wins, draws, n, winRate: (wins + draws * 0.5) / Math.max(1, n), time: totalTime / Math.max(1, n), performance: performance / Math.max(1, n), sample: resultSample };
+  if (cacheKey) duelCache.set(cacheKey, result);
+  return result;
 }
 
 function styleFor(SA, v) {
@@ -519,20 +571,20 @@ function chassisFor(SA, v) {
   return ids[0] || 'track';
 }
 
-function evaluateCandidate(SA, candidate, opponents, spec, seed, games) {
-  const rows = opponents.map((opponent, i) => duel(SA, candidate, opponent, spec, seed + i * 1009, games));
+function evaluateCandidate(SA, candidate, opponents, spec, seed, games, duelCache = null) {
+  const rows = opponents.map((opponent, i) => duel(SA, candidate, opponent, spec, seed + i * 1009, games, duelCache));
   const strengthData = strengthFromRows(rows);
   const performance = rows.reduce((sum, row) => sum + row.performance, 0) / Math.max(1, rows.length);
   // 性格不是静态标签：用同一标尺车分别试跑四种行为，选表现分最高者。
   const styles = ['rush', 'kite', 'turtle', 'wander'];
   const styleTrials = styles.map((style, i) => {
-    const probe = opponents[0] && duel(SA, candidate, opponents[0], { ...spec, style }, seed + 700001 + i * 1009, 1);
+    const probe = opponents[0] && duel(SA, candidate, opponents[0], { ...spec, style }, seed + 700001 + i * 1009, 1, duelCache);
     return { style, performance: probe?.performance || 0, winRate: probe?.winRate || 0 };
   });
   const boundStyle = styleTrials.slice().sort((a, b) => (b.performance + b.winRate * 10) - (a.performance + a.winRate * 10))[0]?.style || styleFor(SA, candidate);
   let terrainStrength = strengthData.strength, terrainDelta = 0;
   if (spec.terrain && spec.terrain !== 'flat') {
-    const flatRows = opponents.map((opponent, i) => duel(SA, candidate, opponent, { ...spec, terrain: 'flat' }, seed + 800001 + i * 1009, Math.max(1, Math.min(2, games))));
+    const flatRows = opponents.map((opponent, i) => duel(SA, candidate, opponent, { ...spec, terrain: 'flat' }, seed + 800001 + i * 1009, Math.max(1, Math.min(2, games)), duelCache));
     terrainStrength = strengthFromRows(flatRows).strength;
     terrainDelta = strengthData.strength - terrainStrength;
   }
@@ -645,7 +697,7 @@ function replacementFor(SA, vehicle, targetId, spec) {
 
 // P5 选关证据：每一关只从本轮已评分候选中选车，并把硬条件和目标强度写入报告。
 // 这些数值用于离线筛选，不会改动战役原有的名称、奖励或解锁字段。
-function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed, usedStyles = new Set()) {
+function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed, usedStyles = new Set(), duelCache = null) {
   const nonToxic = scored.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
   const cleanPool = nonToxic.length ? nonToxic : scored;
   const reward = spec.rewardModule;
@@ -661,30 +713,30 @@ function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed,
       // Boss 的平均胜率排除携带本关新奖励件的候选，避免把下一档装备当作本档标尺。
       const peers = scored.filter(peer => peer !== item && (!reward || !hasReward(peer))).slice(0, config.evaluation.anchorCount);
       const stablePeers = peers.length ? peers : scored.filter(peer => peer !== item).slice(0, config.evaluation.anchorCount);
-      const rows = stablePeers.map((peer, i) => duel(SA, item.vehicle, peer.vehicle, spec, seed + i * 41, 1));
-      const reverseRows = stablePeers.map((peer, i) => duel(SA, peer.vehicle, item.vehicle, spec, seed + 5001 + i * 41, 1));
+      const rows = stablePeers.map((peer, i) => duel(SA, item.vehicle, peer.vehicle, spec, seed + i * 41, 1, duelCache));
+      const reverseRows = stablePeers.map((peer, i) => duel(SA, peer.vehicle, item.vehicle, spec, seed + 5001 + i * 41, 1, duelCache));
       own.bossAverageWinRate = rows.length ? rows.reduce((sum, row) => sum + row.winRate, 0) / rows.length : 0.5;
       own.bossReverseWinRate = reverseRows.length ? reverseRows.reduce((sum, row) => sum + row.winRate, 0) / reverseRows.length : 0.5;
       own.target = spec.target.bossWinRate;
       own.targetPass = own.bossAverageWinRate >= 0.5 && own.bossReverseWinRate <= 0.5 && own.bossGenericPass;
       if (previousBoss) {
-        own.previousBossWinRate = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 997, 2).winRate;
+        own.previousBossWinRate = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 997, 2, duelCache).winRate;
         own.previousBossPass = own.previousBossWinRate < 0.3;
       } else { own.previousBossWinRate = null; own.previousBossPass = true; }
     } else if (previousBoss && spec.chapterHasBoss) {
-      const bossRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 997, 2).winRate;
+      const bossRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 997, 2, duelCache).winRate;
       own.bossWinRate = bossRate;
       own.target = [0.6, 0.8];
       own.targetPass = bossRate >= 0.6 && bossRate <= 0.8;
       if (reward) {
-        own.rewardWinRateAgainstPreviousBoss = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 1997, 3).winRate;
+        own.rewardWinRateAgainstPreviousBoss = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 1997, 3, duelCache).winRate;
         own.rewardLowerBoundPass = own.rewardWinRateAgainstPreviousBoss >= 0.6;
-        own.previousBossWinRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 2997, 3).winRate;
+        own.previousBossWinRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 2997, 3, duelCache).winRate;
         own.rewardCrushGuardPass = own.previousBossWinRate >= 0.15;
         own.rewardUsage = usageAgainst(SA, item.vehicle, previousBoss.vehicle, spec, seed + 3997, 2, reward);
         own.rewardEffectPass = Object.values(own.rewardUsage.module || {}).some(value => value >= config.reward.effectMin);
         const control = replacementFor(SA, item.vehicle, reward, spec);
-        own.rewardControl = control ? duel(SA, control, previousBoss.vehicle, spec, seed + 4997, 3).winRate : null;
+        own.rewardControl = control ? duel(SA, control, previousBoss.vehicle, spec, seed + 4997, 3, duelCache).winRate : null;
         own.rewardContrastPass = own.rewardControl == null ? null : own.rewardWinRateAgainstPreviousBoss - own.rewardControl >= config.reward.controlDelta;
       }
     }
@@ -706,7 +758,7 @@ function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed,
   return { selected: selected?.item || null, evidence: selected?.evidence || null, candidateCount: candidates.length, fingerprint };
 }
 
-function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames) {
+function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames, duelCache = null) {
   const population = [];
   const wanted = Math.max(4, config.population.size);
   const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
@@ -736,7 +788,7 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
   for (let generation = 0; generation < config.population.generations; generation++) {
     const scored = current.map((vehicle, index) => {
       const evalSeed = rng.int(0x7fffffff) + index;
-      const result = evaluateCandidate(SA, vehicle, opponents, spec, evalSeed, quickGames);
+      const result = evaluateCandidate(SA, vehicle, opponents, spec, evalSeed, quickGames, duelCache);
       return { vehicle, evaluationSeed: evalSeed, ...result };
     }).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
@@ -802,6 +854,7 @@ function run(options = {}) {
   const quickGames = options.games || config.evaluation.quickGames;
   const rng = new RNG(options.seed || 20260925);
   const all = [], chapterReports = [], selectionFailures = [];
+  const duelCache = options.cache === false ? null : createDuelCache(SA);
   let previous = [];
   // 序章没有上一档 Boss，用开局车作为第一组标尺。
   let previousBoss = { vehicle: SA.V.fromAscii('序章开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) };
@@ -829,6 +882,8 @@ function run(options = {}) {
         continue;
       }
       const opponents = campaignOpponents(SA, chapter, stage);
+      // 候选评分的每个种子通常只跑一次；缓存专用于选关证据阶段的重复请求，
+      // 避免为没有复用机会的评分对局增加键构造开销。
       const result = generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames);
       const top = result.scored.slice(0, Math.min(8, result.scored.length));
       const records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
@@ -850,7 +905,7 @@ function run(options = {}) {
     // 不能直接取强度第一名，否则奖励、反向胜率和 Boss 目标没有参与选关。
     const bossEntry = pendingStages.find(entry => entry.spec.boss && entry.scored.length);
     if (bossEntry) {
-      const bossSelection = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + bossEntry.spec.stage * 101);
+      const bossSelection = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + bossEntry.spec.stage * 101, new Set(), duelCache);
       chapterBoss = bossSelection.selected || bossEntry.scored[0];
     }
     previousBoss = chapterBoss || previousBoss;
@@ -864,7 +919,7 @@ function run(options = {}) {
       };
       // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
       const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
-      const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles);
+      const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache);
       const selectedIndex = Math.max(0, scored.indexOf(selection.selected));
       if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
       const hardConditions = {
@@ -887,7 +942,7 @@ function run(options = {}) {
   }
   const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)]));
   if (options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
-  return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, chapters: chapterReports, selectionFailures, candidates: all };
+  return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, cache: duelCache ? duelCache.summary() : { disabled: true }, chapters: chapterReports, selectionFailures, candidates: all };
 }
 
 function check() {
@@ -930,6 +985,28 @@ function check() {
     }
   }
   return { fingerprint: fp, vehicle: SA.V.stats(a), legalMutations, mutationOps: [...new Set(mutationOps)].sort((x, y) => x - y), share: { roundTrip: true, legacyMigrated: true }, result: duelA, campaign: { stages: stages.length, finite: true, specs: campaignSpecs } };
+}
+
+// 缓存夹具：同一车辆、规格、种子和局数必须逐字节复用 duel 聚合结果，
+// 同时确认改装字段进入键，避免布局相同的车辆错误共用结果。
+function cacheCheck() {
+  const { SA } = loadGame();
+  const spec = stageSpec(SA, 0, 0);
+  const first = minimalVehicle(SA, spec), second = SA.V.fromAscii('缓存夹具对手', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+  if (!first || !second) throw new Error('缓存夹具无法生成合法车辆');
+  const cache = createDuelCache(SA, 8);
+  const a = duel(SA, first, second, { terrain: 'flat', style: 'wander' }, 424242, 2, cache);
+  const b = duel(SA, first, second, { terrain: 'flat', style: 'wander' }, 424242, 2, cache);
+  if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error('对局缓存命中后结果发生变化');
+  const summary = cache.summary();
+  if (summary.hits !== 1 || summary.misses !== 1) throw new Error(`缓存命中计数错误：${JSON.stringify(summary)}`);
+  const modified = SA.V.clone(first);
+  let modifiedCell = null;
+  SA.V.each(modified, cell => { if (!modifiedCell) modifiedCell = cell; });
+  if (modifiedCell) modifiedCell.lv = (modifiedCell.lv || 0) + 1;
+  duel(SA, modified, second, { terrain: 'flat', style: 'wander' }, 424242, 2, cache);
+  if (cache.summary().misses !== 2) throw new Error('改装变化错误命中旧缓存');
+  return cache.summary();
 }
 
 // 进化评估的并行入口。普通生成默认走同步路径，调试和大批量运行可以把单局
@@ -1133,6 +1210,7 @@ async function main(argv) {
   if (mode === '--check') { console.log(JSON.stringify(check(), null, 2)); return; }
   if (mode === '--parallel-check') { console.log(JSON.stringify(await parallelCheck(), null, 2)); return; }
   if (mode === '--impact-check') { console.log(JSON.stringify(impactCheck(), null, 2)); return; }
+  if (mode === '--cache-check') { console.log(JSON.stringify(cacheCheck(), null, 2)); return; }
   if (mode === '--health') { console.log(JSON.stringify(healthCheck(Number(argv[1]) || 4), null, 2)); return; }
   if (mode === '--impact') {
     if (!argv[1]) throw new Error('--impact 需要一个旧报告 JSON 路径');
@@ -1155,4 +1233,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
