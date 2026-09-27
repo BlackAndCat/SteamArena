@@ -449,10 +449,12 @@ SA.SPR = (() => {
   // 整只齿轮一种纯色（没有描边、没有明暗）：后面的大齿轮暗、前面的小齿轮亮；轮毂一个实心圆、轴孔 2×2。
   // 转动只在 4 个对称帧之间切换：齿相位 0 / 半齿 × 辐条正 / 斜。齿轮画在 UNDER[id]（材质处理之后垫在最后面），颜色固定真黄铜。
   const GEAR_SPEC = {
+    XS: { D: 8, n: 8, tw: 2, rim: 0, hub: 1.2, sw: 0, spokes: 0, tone: 2 },
     S: { D: 10, n: 8, tw: 2, rim: 0, hub: 1.6, sw: 0, spokes: 0, tone: 2 },
     M: { D: 14, n: 8, tw: 2, rim: 2, hub: 2.2, sw: 2, spokes: 4, tone: 2 },
-    L: { D: 18, n: 12, tw: 2, rim: 2, hub: 2.8, sw: 2, spokes: 4, tone: 2 },
+    L: { D: 20, n: 12, tw: 2, rim: 2, hub: 3, sw: 2, spokes: 4, tone: 2 },
     XL: { D: 24, n: 16, tw: 2, rim: 3, hub: 3.6, sw: 4, spokes: 4, tone: 1 },
+    XXL: { D: 32, n: 20, tw: 2, rim: 3, hub: 4.6, sw: 4, spokes: 4, tone: 1 },
   };
   function gearSymMask(sp, frame) {
     const R0 = sp.D / 2, rb = R0 - 2, half = (frame & 1) ? 0.5 : 0, diag = (frame & 2) ? Math.PI / 4 : 0;
@@ -493,7 +495,7 @@ SA.SPR = (() => {
   // 按网格上色，返回 [[dx, dy, 颜色], ...]（dx / dy 相对圆心左上角）
   function gearPaint(sp, g) {
     const D = sp.D, h = D / 2, base = sp.tone, rimIn = h - 2 - sp.rim - 0.5, out = [];
-    const RAMP = [P.brass[0], P.brass[1], P.brass[2], P.brass[3], '#f6dc92'];
+    const RAMP = GEAR_RAMP;
     const at = (i, j) => (i < 0 || j < 0 || i >= D || j >= D) ? 0 : g[j * D + i];
     for (let j = 0; j < D; j++) for (let i = 0; i < D; i++) {
       const v = g[j * D + i];
@@ -514,6 +516,9 @@ SA.SPR = (() => {
     }
     return out;
   }
+  // 齿轮色阶 = 黄铜挪开一个色值（蓝通道 ±1）：肉眼一样，但材质处理按精确色匹配黄铜、认不出它，饱和色又原样保留 →
+  // 齿轮可以画在 DRAW 的任何层次（夹在炮耳架和炮管之间、被炮床挡住……），在所有材料上都是纯黄铜
+  const GEAR_RAMP = [...P.brass, '#f6dc92'].map(h => { const n = parseInt(h.slice(1), 16), b = n & 255; return '#' + ((n & 0xffff00) | (b > 0 ? b - 1 : 1)).toString(16).padStart(6, '0'); });
   const gearCache = new Map();   // 上好色的像素表，按（尺寸, 帧）缓存
   PART.gear = (cx, cy, size, frame = 0) => {
     const sp = GEAR_SPEC[size], key = size + frame;
@@ -636,14 +641,8 @@ SA.SPR = (() => {
   };
 
   // 垫在最后面的背景件（材质处理之后、destination-over）：颜色固定、永远在整张精灵后面
-  const UNDER = {
-    cannon_heavy(x, y) { PART.gearSet(x + 13, y + 12); },
-    mortar(x, y, q) {   // 活动设计：炮耳小齿轮 + 两侧大齿轮，仰角每 6° 换一个对称帧（两侧反向）
-      const f = Math.floor((q.a == null ? 55 : q.a) / 6) % 4;
-      PART.gear(x + 24, y + 30, 'S', f);
-      for (const gx of [10, 38]) PART.gear(x + gx, y + 29, 'L', 3 - f);
-    },
-  };
+  const UNDER = {};   // 齿轮改用 GEAR_RAMP 后直接画在 DRAW 里，这里暂时不用（管线保留）
+
 
   const DRAW = {
     armor(x, y) {
@@ -928,16 +927,11 @@ SA.SPR = (() => {
     // 耳轴 (24,30)，炮口末端离耳轴 24（blen 24）
     mortar(x, y, o) {
       const T = MORTAR_TIERS[(o.mt || 1) - 1], Z = MORTAR_ZONE[T.bed === 'block' ? 'block' : 'step'];
-      MORTAR_BED[T.bed](x, y);
-      slimVents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
-      if (T.corners) { PART.corner(x + 2, y + 42, 1, -1); PART.corner(x + (T.bed === 'slant' ? 40 : 41), y + 42, -1, -1); }
-      if (o.up) {   // 改装：炮床两端立护板，三级前护板加高
-        bolted(x + 41, y + (o.up >= 3 ? 22 : 30), 6, o.up >= 3 ? 18 : 10);
-        if (o.up >= 2) bolted(x + 1, y + 30, 6, 10);
-      }
-      const ang = o.a == null ? 55 : o.a, rk = rcPx('mortar', o.k);
+      const ang = o.a == null ? 55 : o.a, rk = rcPx('mortar', o.k), f = Math.floor(ang / 6) % 4;   // 活动设计：仰角每 6° 换一个对称帧
+      PART.gear(x + 10, y + 29, 'L', 3 - f);                                                        // 左齿轮：在最后面
+      PART.gear(x + 24, y + 30, 'S', f);                                                            // 炮耳小齿轮
       mortarTube(x + 24, y + 30, ang, rk, T, (o.k || 0) >= 7);
-      {   // 传动示意：左侧大齿轮轮毂的曲柄销 → 炮管背面的吊耳（随仰角摆）
+      {   // 传动示意：左齿轮轮毂的曲柄销 → 炮管背面的吊耳（随仰角摆）
         const ar = ang * Math.PI / 180, u = 12 - rk, v = -8.5;
         const lx = Math.round(x + 24 + Math.cos(ar) * u + Math.sin(ar) * v), ly = Math.round(y + 30 - Math.sin(ar) * u + Math.cos(ar) * v);
         line(x + 10, y + 29, lx, ly, 3, P.iron[0]); line(x + 10, y + 29, lx, ly, 1, P.iron[3]);
@@ -946,6 +940,14 @@ SA.SPR = (() => {
       }
       MORTAR_CHEEK[T.cheek](x, y);
       trunnionBolt(x + 24, y + 30);
+      PART.gear(x + 38, y + 29, 'L', f);                                                            // 右齿轮：在炮身和炮耳座前面
+      MORTAR_BED[T.bed](x, y);                                                                       // 炮床最后画，挡住两只齿轮的下半
+      slimVents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
+      if (T.corners) { PART.corner(x + 2, y + 42, 1, -1); PART.corner(x + (T.bed === 'slant' ? 40 : 41), y + 42, -1, -1); }
+      if (o.up) {   // 改装：炮床两端立护板，三级前护板加高
+        bolted(x + 41, y + (o.up >= 3 ? 22 : 30), 6, o.up >= 3 ? 18 : 10);
+        if (o.up >= 2) bolted(x + 1, y + 30, 6, 10);
+      }
     },
     mg(x, y, o) {
       housing(x, y, false);
@@ -978,14 +980,17 @@ SA.SPR = (() => {
     },
     // 重炮 3×2（72×48，横躺，镀镍起，2026-09-27 定稿，样机 tools/gun-family-lab.html v5）：参考 19 世纪套箍式攻城 / 岸防重炮——
     // 台阶式炮身（炮尾最粗、直线台阶收细、炮尾钮、炮尾黄铜箍）+ 台阶形铁炮耳架 + 带三个滚轮的铁滑轨；
-    // 背景是预制齿轮组（UNDER.cannon_heavy）+ 两根传动杆。耳轴 (34,24)，炮口末端 x 76（出框 4px，blen 42）。
+    // 背景齿轮：巨型 + 大 + 中在炮身后，迷你夹在炮耳架和炮身之间；炮耳架上一根长轴。耳轴 (34,24)，炮口末端 x 76（出框 4px，blen 42）。
     // T4 台阶形炮耳架；T5～6 炮耳架前沿斜切 + 炮身更粗、炮管两道铁箍；铆钉在 OVER.cannon_heavy
     cannon_heavy(x, y, o) {
       const T = heavyTier(o.mt);
-      PART.link(x + 58, y + 8, x + 62, y + 37);                                                    // 传动杆：小齿轮曲柄 → 滑轨前端
+      // 齿轮（用户按图排的大小和位置）：巨型 D32 在炮尾后面、大 D20 在右上、中 D14 在炮耳上方——都在炮身后面；
+      // 迷你 D8 在炮耳下方，夹在炮耳架前、炮身后
+      PART.gear(x + 16, y + 25, 'XXL', 0); PART.gear(x + 26, y + 11, 'L', 1); PART.gear(x + 38, y + 20, 'M', 0);
       box(x + 1, y + 39, 70, 6, IRON); R(x + 2, y + 40, 68, 1, P.iron[4]);                        // 铁滑轨
       for (const wx of [9, 36, 63]) { disc(x + wx, y + 45.5, 2.6, P.dark[0]); disc(x + wx, y + 45.5, 1.6, P.dark[2]); R(x + wx, y + 45, 1, 1, P.brass[2]); }
       steppedPlate(x, y, 12, T.slant ? HEAVY_CHEEK.slant : HEAVY_CHEEK.step, 39);                  // 炮耳架
+      PART.gear(x + 32, y + 34, 'XS', 1);
       PART.shaft(x + 14, x + 54, y + 36); PART.collar(x + 22, y + 36); PART.collar(x + 46, y + 36);   // 炮耳架长轴
       gunShield(x + 58, y + 24, o.up, 9);
       const d = rcPx('cannon_heavy', o.k);

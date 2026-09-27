@@ -282,15 +282,14 @@
     G.hOver(c.getContext('2d'), HOX, HOY, T, o);
     return c;
   }
-  function hNewV(mt, v, o = {}, raw = false) {
-    const T = G.H_TIERS[Math.max(4, mt)], c = document.createElement('canvas'); c.width = HOX + 72 + 16; c.height = HOY + 48 + 6;
-    const g = c.getContext('2d');
-    G.hBase(g, HOX, HOY, T, o, v);
-    if (!raw) applyMat(c, mt, HOX, HOY);
-    G.hOver(g, HOX, HOY, T);
-    g.globalCompositeOperation = 'destination-over'; g.fillStyle = P.iron[1]; g.fillRect(HOX, HOY, 72, 48); g.globalCompositeOperation = 'source-over';
+  // 重炮、臼炮已进游戏：样机直接用游戏的画（SA.SPR.drawModule），不再维护两份
+  function gameDraw(id, mt, w, h2, ox, oy, o = {}) {
+    const c = document.createElement('canvas'); c.width = ox + w + 16; c.height = oy + h2 + 6;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(ox, oy, w, h2);
+    SA.SPR.drawModule(g, id, ox, oy, { mt, a: o.a, recoil: o.k || 0 });
     return c;
   }
+  function hNewV(mt, v, o = {}) { return gameDraw('cannon_heavy', Math.max(4, mt), 72, 48, HOX, HOY, o); }
   function renderHeavy() {
     const z = 6, src = hNewV(6, 'C', {}, true), cv = $('hzones');
     cv.width = src.width * z; cv.height = src.height * z;
@@ -312,20 +311,12 @@
     }
     const MTS = [4, 5, 6], T = $('htiers');
     T.replaceChildren(el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }), el('th', {}, 'T6 · −6°'), el('th', {}, 'T6 · 34°')));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '重炮 · v5', el('small', {}, '预制齿轮组（大在后、中小在前咬合，纯黄铜）+ 传动杆；台阶式炮身，炮口出框')), ...MTS.map(mt => cell(hNewV(mt))), el('td', {}, show(hNewV(6, 'C', { a: -6 }), st.zoom)), el('td', {}, show(hNewV(6, 'C', { a: 34 }), st.zoom))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '重炮 · 游戏（v6 齿轮）', el('small', {}, '巨型 D32 在炮尾后、大 D20 右上、中 D14 炮耳上方、迷你 D8 夹在炮耳架和炮身之间')), ...MTS.map(mt => cell(hNewV(mt))), el('td', {}, show(hNewV(6, 'C', { a: -6 }), st.zoom)), el('td', {}, show(hNewV(6, 'C', { a: 34 }), st.zoom))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '直射火炮 · 已进游戏'), ...MTS.map(mt => cell(gameMod('cannon', mt, 48, 48)))));
   }
   // ---------- 臼炮 ----------
   const MOX = 6, MOY = 10;
-  function moNew(mt, o = {}, raw = false) {
-    const T = G.MO_TIERS[mt - 1], c = document.createElement('canvas'); c.width = MOX + 48 + 16; c.height = MOY + 48 + 4;
-    const g = c.getContext('2d');
-    G.moBase(g, MOX, MOY, T, o);
-    if (!raw) applyMat(c, mt, MOX, MOY);
-    G.moOver(g, MOX, MOY, T, o);
-    g.globalCompositeOperation = 'destination-over'; g.fillStyle = P.iron[1]; g.fillRect(MOX, MOY, 48, 48); g.globalCompositeOperation = 'source-over';
-    return c;
-  }
+  function moNew(mt, o = {}) { return gameDraw('mortar', mt, 48, 48, MOX, MOY, o); }
   function renderMortar() {
     const z = 6, src = moNew(6, {}, true), cv = $('mozones');
     cv.width = src.width * z; cv.height = src.height * z;
@@ -338,7 +329,7 @@
     }
     const T = $('motiers'); T.replaceChildren(head());
     T.append(el('tr', {}, el('th', { className: 'rh' }, '臼炮 · 游戏现状', el('small', {}, '圆管斜插在炮座上，两根支柱')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('mortar', mt, 48, 48)))));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '臼炮 · 新方案 v1', el('small', {}, '短粗、越往炮口越粗；炮耳座 + 炮床；两侧活动大齿轮')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(moNew(mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '臼炮 · 游戏（v2）', el('small', {}, '齿轮一前一后：左在最后，右挡住炮身和炮耳座、被炮床挡住；连杆推炮管')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(moNew(mt)))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 已进游戏', el('small', {}, '对照：剪影不能撞')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('cannon_m', mt, 48, 24)))));
     const A = [[32, 0], [55, 0], [82, 0], [55, 1]], TA = $('moangles');
     TA.replaceChildren(el('tr', {}, el('th'), ...A.map(([a, k]) => el('th', {}, k ? `${a}° · 开炮` : `${a}°`))));
