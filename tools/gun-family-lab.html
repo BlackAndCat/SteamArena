@@ -233,7 +233,7 @@
     }
     const T = $('sdtiers'); T.replaceChildren(head());
     T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · 游戏现状', el('small', {}, '暗铁挂板 + 吊杆 + 黄铜摇架 + 旧三阶段炮管')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('side_cannon', mt, 48, 48)))));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · 新方案 v1', el('small', {}, '窄挂板 + 单吊杆 → 方箱挂板 + 双吊杆横撑 → 斜板挂板；零件只在挂板上')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(sdNew(mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · 新方案 v2', el('small', {}, '悬吊臂加厚：粗方柱两道筋 → 双柱两道横撑 → 实心腹板；零件只在挂板上')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(sdNew(mt)))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 已进游戏'), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('cannon_m', mt, 48, 24)))));
     const TC = $('sdctx'); TC.replaceChildren(head());
     TC.append(el('tr', {}, el('th', { className: 'rh' }, '叠在装甲前 · 0°'), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(sdNew(mt, {}, false, armorUnder(mt)), 2)))));

@@ -191,7 +191,7 @@ SA.GFLAB = (() => {
   // ---------- 侧炮 2×2（侧挂层）----------
   // 侧挂层的招牌剪影：上面一块挂架板（栓在主体模块上）+ 吊杆 + 下面吊着一门长炮。48×48 里大部分是空的，透出后面的主体模块，所以只画骨架。
   // 耳轴 (18,34)，炮口末端 x 66（blen 48），仰角 −6°～24°。
-  // 吊杆一律暗铁，挂板跟材料。形体：T1～2 窄挂板 + 单根方吊杆 → T3～4 方箱挂板 + 双吊杆 + 横撑（梯形桁架）→ T5～6 挂板前沿斜板。
+  // 悬吊臂一律暗铁、加厚（v2）；挂板跟材料。形体：T1～2 窄挂板 + 粗方柱两道筋 → T3～4 方箱挂板 + 双柱两道横撑 → T5～6 斜板挂板 + 实心腹板。
   // 分区只在挂板上（炮组和吊杆不放东西）：铆钉 = 挂板上沿接缝；散热区 = 挂板中右；表位（镀镍起）= 挂板左；包角 = 挂板左上 + 右下。
   const SDZ = {
     post: { vent: { x: 12, y: 5, h: 4 }, rivets: { y: 5, xs: [7, 24] } },
@@ -199,17 +199,32 @@ SA.GFLAB = (() => {
   };
   // 吊杆用暗铁（骨架在主体模块前面要分得开）；挂板用铁（跟材料）
   const post = (x, y, w, h) => { R(x, y, w, h, P.dark[0]); R(x + 1, y, w - 2, h, P.dark[2]); R(x + 1, y, 1, h, P.dark[3]); };
-  const truss = (x, y) => { post(x + 12, y + 16, 3, 13); post(x + 21, y + 16, 3, 13); R(x + 12, y + 21, 12, 2, P.dark[0]); R(x + 13, y + 21, 10, 1, P.dark[3]); };
+  // 悬吊臂（v2 加厚）：上下都有法兰；T1～2 粗方柱 + 两道加强筋，T3～4 双柱 + 两道横撑，T5～6 整块实心腹板 + 竖筋
+  const flange = (x, y, w) => { R(x, y, w, 2, P.dark[0]); R(x + 1, y, w - 2, 1, P.dark[3]); };
+  const rib = (x, y, w) => { R(x, y, w, 1, P.dark[0]); R(x, y + 1, w, 1, P.dark[3]); };
+  const ARM = {
+    post(x, y) { post(x + 13, y + 12, 7, 15); rib(x + 13, y + 16, 7); rib(x + 13, y + 21, 7); flange(x + 10, y + 12, 13); flange(x + 10, y + 25, 13); },
+    truss(x, y) {
+      post(x + 11, y + 16, 5, 11); post(x + 20, y + 16, 5, 11);
+      for (const ry of [19, 23]) { R(x + 16, y + ry, 4, 2, P.dark[0]); R(x + 16, y + ry, 4, 1, P.dark[3]); }
+      flange(x + 9, y + 16, 18); flange(x + 9, y + 25, 18);
+    },
+    solid(x, y) {
+      R(x + 11, y + 16, 14, 11, P.dark[0]); R(x + 12, y + 16, 12, 11, P.dark[2]); R(x + 12, y + 16, 1, 11, P.dark[3]);
+      for (const vx of [15, 20]) { R(x + vx, y + 17, 1, 9, P.dark[0]); R(x + vx + 1, y + 17, 1, 9, P.dark[3]); }
+      flange(x + 9, y + 16, 18); flange(x + 9, y + 25, 18);
+    },
+  };
   const HANG = {
-    post(x, y) { box(x + 5, y + 3, 23, 9, IRON); R(x + 6, y + 4, 21, 1, P.iron[4]); post(x + 14, y + 12, 5, 17); },
-    box(x, y) { box(x + 3, y + 2, 29, 14, IRON); R(x + 4, y + 3, 27, 1, P.iron[4]); truss(x, y); },
+    post(x, y) { box(x + 5, y + 3, 23, 9, IRON); R(x + 6, y + 4, 21, 1, P.iron[4]); ARM.post(x, y); },
+    box(x, y) { box(x + 3, y + 2, 29, 14, IRON); R(x + 4, y + 3, 27, 1, P.iron[4]); ARM.truss(x, y); },
     slant(x, y) {
       for (let yy = 2; yy <= 15; yy++) {
         const xr = x + 26 + Math.round((yy - 2) * 0.4);
         R(x + 3, y + yy, xr - x - 3, 1, P.iron[2]); px(x + 3, y + yy, P.iron[0]); px(x + 4, y + yy, P.iron[3]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
       }
       R(x + 3, y + 2, 23, 1, P.iron[0]); R(x + 4, y + 3, 21, 1, P.iron[4]); R(x + 3, y + 15, 28, 1, P.iron[0]);
-      truss(x, y);
+      ARM.solid(x, y);
     },
   };
   function sdGun(x, y, o, barrel) {
@@ -258,7 +273,7 @@ SA.GFLAB = (() => {
     ['表位（镀镍起）', '#ff6b9a', (x, y) => [x + 4, y + 7, 9, 8]],
     ['散热区', '#46c2c9', (x, y) => [x + 15, y + 8, 10, 5]],
     ['包角位（钢起）', '#ef7a21', (x, y) => [x + 3, y + 2, 5, 5], (x, y) => [x + 27, y + 11, 5, 5]],
-    ['吊杆 + 炮组（不放东西）', '#a8a39a', (x, y) => [x + 8, y + 16, 19, 25]],
+    ['悬吊臂 + 炮组（不放东西）', '#a8a39a', (x, y) => [x + 8, y + 12, 20, 29]],
   ];
   return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW };
 })();

@@ -95,41 +95,6 @@ SA.SPR = (() => {
   // 后坐量化档 k（0~8）→ 该武器的制退位移（px）
   const rcPx = (id, k) => Math.round((k || 0) / 8 * (SA.MODULES[id].rcPx || 0));
 
-  // 中炮家族的炮管（中炮、侧炮共用）：从 bx 起、总长 len（最后一段是炮口），细管占 ty..ty+5。
-  // 三个外观阶段只改炮身和炮口装饰，炮口末端位置不变（piv / blen 不动）：
-  // ① 素管 + 一道箍 + 方炮口；② 加厚的炮尾套筒 + 两道黄铜箍 + 喇叭口；③ 通长刻槽炮身 + 上方复进筒 + 三孔制退器
-  function mBarrel(bx, ty, len, st, k) {
-    const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
-    const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
-    const end = bx + len;
-    if (st === 3) {
-      tube(bx, end - 8, ty, 6);
-      for (let i = bx + 1; i < end - 9; i += 2) R(i, ty + 3, 1, 1, P.iron[2]);   // 刻槽
-      R(bx + 1, ty - 3, 15, 3, P.iron[0]); R(bx + 1, ty - 2, 15, 1, P.iron[4]);   // 复进筒
-      R(bx + 3, ty - 1, 2, 1, P.brass[2]); R(bx + 12, ty - 1, 2, 1, P.brass[2]);
-      hoop(bx + 7, ty - 1, 8); hoop(end - 13, ty - 1, 8);
-      R(end - 8, ty - 3, 8, 12, P.iron[0]); R(end - 7, ty - 2, 6, 10, P.iron[3]); R(end - 7, ty - 2, 6, 1, P.iron[4]);
-      for (const sx of [end - 6, end - 4, end - 2]) R(sx, ty, 1, 6, P.dark[0]);
-      if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
-      return;
-    }
-    if (st === 2) {
-      tube(bx, end - 5, ty, 6);
-      tube(bx, bx + 13, ty - 1, 8);   // 炮尾套筒
-      hoop(bx + 3, ty - 2, 10); hoop(bx + 10, ty - 2, 10); hoop(end - 11, ty - 1, 8);
-      R(end - 6, ty - 2, 6, 10, P.iron[0]); R(end - 5, ty - 1, 4, 8, P.iron[3]); R(end - 5, ty - 1, 4, 1, P.iron[4]);
-      R(end - 2, ty - 3, 2, 12, P.iron[0]); R(end - 2, ty - 2, 1, 10, P.iron[4]);   // 喇叭口外沿
-      R(end - 4, ty + 2, 2, 2, P.dark[0]);
-      if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
-      return;
-    }
-    tube(bx, end - 5, ty, 6);
-    hoop(bx + 9, ty - 1, 8);
-    R(end - 6, ty - 2, 6, 10, P.iron[0]); R(end - 5, ty - 1, 4, 8, P.iron[3]); R(end - 5, ty - 1, 4, 1, P.iron[4]);
-    for (const sy of [0, 3]) R(end - 4, ty + sy, 2, 2, P.dark[0]);
-    if (k >= 7) { R(end, ty, 3, 6, P.fire[3]); R(end + 3, ty + 1, 2, 4, P.fire[2]); }
-  }
-
   // ---------- 改装挂件（V3）：炮盾 / 加固裙板 / 加厚撞面 / 附加装甲，每级多挂一层，画成冷铁（材料装饰层照常换色）----------
   const bolted = (x, y, w, h) => { box(x, y, w, h, IRONL); if (w >= 5 && h >= 5) { R(x + 1, y + 1, 1, 1, P.iron[4]); R(x + w - 2, y + h - 2, 1, 1, P.iron[1]); } };
   // 炮盾：立在耳轴前面的防盾，炮管画在它上面（所以不用开炮口缝）。cx = 防盾左边，cy = 耳轴高度，hh = 一级的半高；
@@ -434,6 +399,50 @@ SA.SPR = (() => {
       R(x + 1, y + 19, 20, 1, P.iron[0]); R(x + 2, y + 20, 18, 1, P.iron[4]); R(x + 1, y + 23, 23, 1, P.iron[0]);
     },
   };
+  // 侧炮 2×2（侧挂层）：挂板（跟材料）+ 暗铁悬吊臂 + 吊着的长炮；零件只放挂板上
+  const SIDE_ZONE = {
+    post: { vent: { x: 12, y: 5, h: 4 }, rivets: { y: 5, xs: [7, 24] } },
+    box: { vent: { x: 15, y: 8, h: 5 }, rivets: { y: 3, x0: 14, x1: 26 }, gauge: { x: 8.5, y: 10.5 } },
+  };
+  const SIDE_TIERS = [
+    { h: 'post', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'post', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['grid2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['louver2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  // 悬吊臂：上下法兰；T1～2 粗方柱 + 两道加强筋，T3～4 双柱 + 两道横撑，T5～6 实心腹板 + 竖筋
+  const SIDE_ARM = (() => {
+    const col = (x, y, w, h) => { R(x, y, w, h, P.dark[0]); R(x + 1, y, w - 2, h, P.dark[2]); R(x + 1, y, 1, h, P.dark[3]); };
+    const flange = (x, y, w) => { R(x, y, w, 2, P.dark[0]); R(x + 1, y, w - 2, 1, P.dark[3]); };
+    const rib = (x, y, w) => { R(x, y, w, 1, P.dark[0]); R(x, y + 1, w, 1, P.dark[3]); };
+    return {
+      post(x, y) { col(x + 13, y + 12, 7, 15); rib(x + 13, y + 16, 7); rib(x + 13, y + 21, 7); flange(x + 10, y + 12, 13); flange(x + 10, y + 25, 13); },
+      truss(x, y) {
+        col(x + 11, y + 16, 5, 11); col(x + 20, y + 16, 5, 11);
+        for (const ry of [19, 23]) { R(x + 16, y + ry, 4, 2, P.dark[0]); R(x + 16, y + ry, 4, 1, P.dark[3]); }
+        flange(x + 9, y + 16, 18); flange(x + 9, y + 25, 18);
+      },
+      solid(x, y) {
+        R(x + 11, y + 16, 14, 11, P.dark[0]); R(x + 12, y + 16, 12, 11, P.dark[2]); R(x + 12, y + 16, 1, 11, P.dark[3]);
+        for (const vx of [15, 20]) { R(x + vx, y + 17, 1, 9, P.dark[0]); R(x + vx + 1, y + 17, 1, 9, P.dark[3]); }
+        flange(x + 9, y + 16, 18); flange(x + 9, y + 25, 18);
+      },
+    };
+  })();
+  const SIDE_HANG = {
+    post(x, y) { box(x + 5, y + 3, 23, 9, IRON); R(x + 6, y + 4, 21, 1, P.iron[4]); SIDE_ARM.post(x, y); },
+    box(x, y) { box(x + 3, y + 2, 29, 14, IRON); R(x + 4, y + 3, 27, 1, P.iron[4]); SIDE_ARM.truss(x, y); },
+    slant(x, y) {
+      for (let yy = 2; yy <= 15; yy++) {
+        const xr = x + 26 + Math.round((yy - 2) * 0.4);
+        R(x + 3, y + yy, xr - x - 3, 1, P.iron[2]); R(x + 3, y + yy, 1, 1, P.iron[0]); R(x + 4, y + yy, 1, 1, P.iron[3]); R(xr - 1, y + yy, 1, 1, P.iron[0]); R(xr - 2, y + yy, 1, 1, P.iron[4]);
+      }
+      R(x + 3, y + 2, 23, 1, P.iron[0]); R(x + 4, y + 3, 21, 1, P.iron[4]); R(x + 3, y + 15, 28, 1, P.iron[0]);
+      SIDE_ARM.solid(x, y);
+    },
+  };
   // 方形固定螺栓（耳轴）：火炮家族共用
   const trunnionBolt = (cx, cy) => { R(cx - 2, cy - 2, 5, 5, P.brass[0]); R(cx - 1, cy - 1, 3, 3, P.brass[3]); R(cx, cy, 1, 1, P.brass[0]); };
 
@@ -444,6 +453,12 @@ SA.SPR = (() => {
       PART.seam(x, y, Z.seam, T.riv[0], RIVET_TIER[T.riv[1]]);
       if (T.parts.includes('plate')) PART.plate(x + Z.plate.x, y + Z.plate.y);
       if (T.parts.includes('gauge')) PART.gauge(x + Z.gauge.x, y + Z.gauge.y);
+    },
+    side_cannon(x, y, q) {
+      const T = SIDE_TIERS[(q.mt || 1) - 1], c = RIVET_TIER[T.riv[1]];
+      if (T.h === 'post') for (const fx of SIDE_ZONE.post.rivets.xs) PART.rivet(x + fx, y + SIDE_ZONE.post.rivets.y, c);
+      else PART.seam(x, y, SIDE_ZONE.box.rivets, T.riv[0], c);
+      if (T.parts.includes('gauge')) gaugeS(x + SIDE_ZONE.box.gauge.x, y + SIDE_ZONE.box.gauge.y);
     },
     cannon_m(x, y, q) {
       const T = CANNON_M_TIERS[(q.mt || 1) - 1], c = RIVET_TIER[T.riv[1]];
@@ -782,26 +797,33 @@ SA.SPR = (() => {
         R(bx, y + 41, 3, 4, P.dark[0]); R(bx, y + 41, 2, 3, P.brass[2]); R(bx, y + 41, 2, 1, P.brass[3]);
       }
     },
+    // 侧炮 2×2（侧挂层，2026-09-27 定稿，样机 tools/gun-family-lab.html）：挂板 + 暗铁悬吊臂 + 吊着的长炮，只画骨架、透出后面的主体模块。
+    // T1～2 窄挂板 + 粗方柱、T3～4 方箱挂板 + 双柱横撑、T5～6 斜板挂板 + 实心腹板；炮管同中炮一套，炮口末端在耳轴前 48。
+    // 零件只放挂板：上沿铆钉、中右散热口、钢起包角铁、镀镍起左侧小压力表（OVER.side_cannon）
     side_cannon(x, y, o) {
-      // 外挂支架（侧挂层独有的剪影）吊着一门中炮：炮管和中炮同一家族，外观阶段跟着中炮走
-      const st = o.st || 1;
-      box(x + 6, y + 3, 20, 9, DARK);
-      rivet(x + 9, y + 6, P.iron[3]); rivet(x + 21, y + 6, P.iron[3]);
-      if (st > 1) R(x + 7, y + 10, 18, 1, P.brass[2]);
-      R(x + 13, y + 11, 6, 17, P.dark[0]);
-      R(x + 14, y + 11, 4, 17, P.iron[2]);
-      R(x + 14, y + 11, 1, 17, P.iron[3]);
-      if (st === 3) for (const sy of [15, 21]) R(x + 13, y + sy, 6, 2, P.brass[1]);
+      const T = SIDE_TIERS[(o.mt || 1) - 1], Z = SIDE_ZONE[T.h === 'post' ? 'post' : 'box'];
+      SIDE_HANG[T.h](x, y);
+      slimVents(x, y, Z.vent.x, Z.vent.y, Z.vent.h, T.vent[0], T.vent[1]);
+      if (T.parts.includes('corners')) { PART.corner(x + 3, y + 2, 1, 1); PART.corner(x + (T.h === 'slant' ? 25 : 27), y + 11, -1, -1); }
       gunShield(x + 29, y + 34, o.up, 8);
-      const k = rcPx('side_cannon', o.k);
+      const d = rcPx('side_cannon', o.k);
       turn(x + 18, y + 34, o.a, (X, Y) => {
         X += x; Y += y;
-        box(X + 7, Y + 27, 22, 14, BRASS);
-        R(X + 9, Y + 29, 1, 10, P.brass[3]);
-        if (st === 2) { R(X + 12, Y + 39, 16, 4, P.iron[0]); R(X + 13, Y + 40, 14, 2, P.iron[3]); }
-        mBarrel(X + 26 - k, Y + 31, 40, st, o.k || 0);
+        box(X + 8, Y + 27, 19, 14, BRASS); R(X + 10, Y + 29, 1, 10, P.brass[3]);   // 黄铜摇架
+        const end = X + 66 - d, b0 = X + 26 - d;
+        const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
+        const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+        const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
+        const brake = (x0, y0, w, hh, n) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (let i = 0; i < n; i++) R(x0 + 2, y0 + 2 + i * 3, w - 4, 1, P.dark[0]); };
+        if (T.b === 1) { tube(b0, end - 5, Y + 31, 6); band(b0 + 16, Y + 30, 8); brake(end - 6, Y + 29, 6, 10, 2); }
+        else if (T.b === 2) {
+          tube(b0, end - 8, Y + 31, 6); tube(b0, b0 + 16, Y + 30, 8); band(b0 + 16, Y + 30, 8);
+          R(end - 9, Y + 30, 3, 8, P.iron[0]); R(end - 8, Y + 31, 1, 6, P.iron[3]);
+          brake(end - 6, Y + 28, 6, 12, 3);
+        } else { tube(b0, end - 6, Y + 30, 8); for (const hb of [4, 14, 24]) hoop(b0 + hb, Y + 29, 10); brake(end - 7, Y + 28, 7, 12, 3); }
+        if ((o.k || 0) >= 7) { R(end, Y + 31, 3, 6, P.fire[3]); R(end + 3, Y + 32, 2, 4, P.fire[2]); }
       });
-      disc(x + 18, y + 34, 4, P.dark[0]); disc(x + 18, y + 34, 3, P.brass[1]); disc(x + 17.5, y + 33.5, 1.6, P.brass[3]);
+      trunnionBolt(x + 18, y + 34);
     },
     bucket(x, y, o = {}) {
       // 铲斗：装在底盘前方，弧形推土板 + 齿。阶段 ②（史诗起）：斗板加三道黄铜箍、四颗齿、上臂加液压缸

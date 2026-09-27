@@ -2,7 +2,7 @@
 
 > 2026-09-27 · Opus。由材质语言 v2（`tools/material-lab.html`）和直射火炮高阶造型（`tools/cannon-lab.html`）两轮探索、用户多轮整改意见总结而来。
 > 以后画任何模块的六档外观（T1 黄铜 → T6 以太合金）都按这份做；和 `docs/art-style.md`、`docs/art-direction.md` 冲突时以本文件为准。
-> 已落地：六档材质（`js/palette.js` 的 `SA.PAL.mat` + `js/sprites.js` 的 `decorate`）、直射火炮六档造型（`sprites.js` 的 `DRAW.cannon` / `OVER.cannon`、公共零件 `PART`）；中炮、小炮六档（`DRAW.cannon_m` / `OVER.cannon_m`、`DRAW.cannon_s`，样机 `tools/gun-family-lab.html`）。
+> 已落地：六档材质（`js/palette.js` 的 `SA.PAL.mat` + `js/sprites.js` 的 `decorate`）、直射火炮六档造型（`sprites.js` 的 `DRAW.cannon` / `OVER.cannon`、公共零件 `PART`）；中炮、小炮六档（`DRAW.cannon_m` / `OVER.cannon_m`、`DRAW.cannon_s`、`DRAW.side_cannon` / `OVER.side_cannon`，样机 `tools/gun-family-lab.html`）。
 
 ---
 
@@ -181,7 +181,7 @@
 
 ## 8. 下一步：火炮家族再设计
 
-按本规则依次做：**中炮（2×1）✅ → 小炮（1×1，卡隆短炮）✅ → 侧炮 → 重炮（2×4）→ 巨炮（4×4）**。要点：
+按本规则依次做：**中炮（2×1）✅ → 小炮（1×1，卡隆短炮）✅ → 侧炮 ✅ → 重炮（2×4）→ 巨炮（4×4）**。要点：
 
 - 每个模块先画出自己的立面分区（`*_ZONE`）；小模块立面小，散热口和零件按比例减半；**1×1 不放零件，只靠剪影（§3.5）**。
 - 形体跃迁、散热口表、铆钉颜色、零件出现档位全部沿用本文件，保证同一档的火炮家族一眼是一套。

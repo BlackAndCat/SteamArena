@@ -34,7 +34,7 @@ SA.LABS = {
     { id: 'cannon-hi', group: 'module', url: 'cannon-lab.html', name: '直射火炮 · 高阶造型语言', ver: 'v3', date: '2026-09-27', status: 'shipped',
       desc: '方案 A v3：立面分区排布；散热口逐档变；T1～4 方正、T5～6 斜板；包角铁钢起；铆钉黄铜 → 镀镍起钢质淡青；珐琅铭牌 + 大压力表镀镍起；钢 / 镀镍炮口重做', docs: ['docs/visual-rules.md'] },
     { id: 'gun-family', group: 'module', url: 'gun-family-lab.html', name: '火炮家族 · 六档再设计', ver: 'v4', date: '2026-09-27', status: 'explore',
-      desc: '按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮 v1（窄挂板 + 单吊杆 → 方箱挂板 + 双吊杆横撑 → 斜板挂板）。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
+      desc: '按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；下一个是重炮。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
     { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '新模块造型候选（暂停）', ver: 'v1', date: '2026-09-27', status: 'explore',
       desc: '20 个借形占位模块每个 2～3 个候选：T1 原画、1× / 剪影、仰角范围、六阶材料换色、放进车体；按早期 → 中期 → 后期排列', docs: ['docs/board-opus.md', 'docs/reports/2026-09-27-visual-overnight.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',
