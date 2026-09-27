@@ -188,5 +188,77 @@ SA.GFLAB = (() => {
     ['炮身（识别的核心）', '#f5d77a', (x, y) => [x, y + 4, 24, 15]],
     ['炮座', '#46c2c9', (x, y) => [x + 1, y + 19, 23, 5]],
   ];
-  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW };
+  // ---------- 侧炮 2×2（侧挂层）----------
+  // 侧挂层的招牌剪影：上面一块挂架板（栓在主体模块上）+ 吊杆 + 下面吊着一门长炮。48×48 里大部分是空的，透出后面的主体模块，所以只画骨架。
+  // 耳轴 (18,34)，炮口末端 x 66（blen 48），仰角 −6°～24°。
+  // 吊杆一律暗铁，挂板跟材料。形体：T1～2 窄挂板 + 单根方吊杆 → T3～4 方箱挂板 + 双吊杆 + 横撑（梯形桁架）→ T5～6 挂板前沿斜板。
+  // 分区只在挂板上（炮组和吊杆不放东西）：铆钉 = 挂板上沿接缝；散热区 = 挂板中右；表位（镀镍起）= 挂板左；包角 = 挂板左上 + 右下。
+  const SDZ = {
+    post: { vent: { x: 12, y: 5, h: 4 }, rivets: { y: 5, xs: [7, 24] } },
+    box: { vent: { x: 15, y: 8, h: 5 }, rivets: { y: 3, x0: 14, x1: 26 }, gauge: { cx: 8.5, cy: 10.5 } },
+  };
+  // 吊杆用暗铁（骨架在主体模块前面要分得开）；挂板用铁（跟材料）
+  const post = (x, y, w, h) => { R(x, y, w, h, P.dark[0]); R(x + 1, y, w - 2, h, P.dark[2]); R(x + 1, y, 1, h, P.dark[3]); };
+  const truss = (x, y) => { post(x + 12, y + 16, 3, 13); post(x + 21, y + 16, 3, 13); R(x + 12, y + 21, 12, 2, P.dark[0]); R(x + 13, y + 21, 10, 1, P.dark[3]); };
+  const HANG = {
+    post(x, y) { box(x + 5, y + 3, 23, 9, IRON); R(x + 6, y + 4, 21, 1, P.iron[4]); post(x + 14, y + 12, 5, 17); },
+    box(x, y) { box(x + 3, y + 2, 29, 14, IRON); R(x + 4, y + 3, 27, 1, P.iron[4]); truss(x, y); },
+    slant(x, y) {
+      for (let yy = 2; yy <= 15; yy++) {
+        const xr = x + 26 + Math.round((yy - 2) * 0.4);
+        R(x + 3, y + yy, xr - x - 3, 1, P.iron[2]); px(x + 3, y + yy, P.iron[0]); px(x + 4, y + yy, P.iron[3]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
+      }
+      R(x + 3, y + 2, 23, 1, P.iron[0]); R(x + 4, y + 3, 21, 1, P.iron[4]); R(x + 3, y + 15, 28, 1, P.iron[0]);
+      truss(x, y);
+    },
+  };
+  function sdGun(x, y, o, barrel) {
+    turn(x + 18, y + 34, o.a || 0, (PX, PY) => {
+      const X = PX - 18, Y = PY - 34, d = Math.round((o.k || 0) * 7), end = X + 66 - d, b0 = X + 26 - d;
+      box(X + 8, Y + 27, 19, 14, BRASS); R(X + 10, Y + 29, 1, 10, P.brass[3]);   // 黄铜摇架
+      const tube = (x0, x1, y0, hh) => { R(x0, y0, x1 - x0, hh, P.iron[0]); R(x0, y0 + 1, x1 - x0, hh - 2, P.iron[3]); R(x0, y0 + 1, x1 - x0, 1, P.iron[4]); R(x0, y0 + hh - 2, x1 - x0, 1, P.iron[2]); };
+      const band = (hx, y0, hh) => { R(hx, y0, 2, hh, P.brass[1]); R(hx, y0, 1, hh, P.brass[3]); };
+      const hoop = (hx, y0, hh) => { R(hx, y0, 2, hh, P.iron[0]); R(hx, y0 + 1, 2, hh - 2, P.iron[2]); R(hx, y0 + 1, 1, hh - 2, P.iron[4]); };
+      const brake = (x0, y0, w, hh, n) => { R(x0, y0, w, hh, P.iron[0]); R(x0 + 1, y0 + 1, w - 2, hh - 2, P.iron[3]); R(x0 + 1, y0 + 1, w - 2, 1, P.iron[4]); for (let i = 0; i < n; i++) R(x0 + 2, y0 + 2 + i * 3, w - 4, 1, P.dark[0]); };
+      if (barrel === 1) { tube(b0, end - 5, Y + 31, 6); band(b0 + 16, Y + 30, 8); brake(end - 6, Y + 29, 6, 10, 2); }
+      else if (barrel === 2) {
+        tube(b0, end - 8, Y + 31, 6); tube(b0, b0 + 16, Y + 30, 8); band(b0 + 16, Y + 30, 8);
+        R(end - 9, Y + 30, 3, 8, P.iron[0]); R(end - 8, Y + 31, 1, 6, P.iron[3]);
+        brake(end - 6, Y + 28, 6, 12, 3);
+      } else { tube(b0, end - 6, Y + 30, 8); for (const hb of [4, 14, 24]) hoop(b0 + hb, Y + 29, 10); brake(end - 7, Y + 28, 7, 12, 3); }
+      if ((o.k || 0) >= 0.85) { R(end, Y + 31, 3, 6, P.fire[3]); R(end + 3, Y + 32, 2, 4, P.fire[2]); }
+    });
+    R(x + 16, y + 32, 5, 5, P.brass[0]); R(x + 17, y + 33, 3, 3, P.brass[3]); px(x + 18, y + 34, P.brass[0]);   // 方形固定螺栓
+  }
+  const SD_TIERS = [
+    { h: 'post', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'post', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { h: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['grid2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { h: 'slant', b: 3, vent: ['louver2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  function sdBase(g, x, y, T, o = {}) {
+    SA.CAND.use(g);
+    HANG[T.h](x, y);
+    const Z = SDZ[T.h === 'post' ? 'post' : 'box'].vent;
+    vents(x, y, Z.x, Z.y, Z.h, T.vent[0], T.vent[1]);
+    if (T.parts.includes('corners')) { corner(x + 3, y + 2, 1, 1); corner(x + (T.h === 'slant' ? 25 : 27), y + 11, -1, -1); }
+    sdGun(x, y, o, T.b);
+  }
+  function sdOver(g, x, y, T) {
+    SA.CAND.use(g);
+    const [n, kind] = T.riv, c = RIVET_C[kind];
+    if (T.h === 'post') for (const fx of SDZ.post.rivets.xs) rivetC(x + fx, y + SDZ.post.rivets.y, c);
+    else { const Z = SDZ.box.rivets, step = (Z.x1 - Z.x0) / (n - 1); for (let i = 0; i < n; i++) rivetC(Math.round(x + Z.x0 + i * step), y + Z.y, c); }
+    if (T.parts.includes('gauge')) smallGauge(x + SDZ.box.gauge.cx, y + SDZ.box.gauge.cy);
+  }
+  const SD_ZONES_VIEW = [
+    ['接缝 · 铆钉（挂板上沿）', '#6fcf6a', (x, y) => [x + 14, y + 3, 15, 3]],
+    ['表位（镀镍起）', '#ff6b9a', (x, y) => [x + 4, y + 7, 9, 8]],
+    ['散热区', '#46c2c9', (x, y) => [x + 15, y + 8, 10, 5]],
+    ['包角位（钢起）', '#ef7a21', (x, y) => [x + 3, y + 2, 5, 5], (x, y) => [x + 27, y + 11, 5, 5]],
+    ['吊杆 + 炮组（不放东西）', '#a8a39a', (x, y) => [x + 8, y + 16, 19, 25]],
+  ];
+  return { M_TIERS, mBase, mOver, M_ZONES_VIEW, S_TIERS, sBase, sOver, S_ZONES_VIEW, SD_TIERS, sdBase, sdOver, SD_ZONES_VIEW };
 })();
