@@ -29,7 +29,7 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮、小炮已进游戏 · 侧炮 v1 · 2026-09-27</small></h1>
+    <h1>火炮家族 · 六档再设计 <small style="font-size:13px;color:var(--muted);letter-spacing:0">中炮、小炮、侧炮已进游戏 · 重炮 v1 · 2026-09-27</small></h1>
     <p>按 <code>docs/visual-rules.md</code> 把直射火炮的做法推到中炮（2×1，横躺长炮）。<b>形体和直射火炮一一对应</b>：T1～2 敞开式炮架 + 低矮前挡板 → T3～4 方方正正的平顶炮廓把炮座罩起来 → T5～6 炮廓前沿做成斜板。<b>炮管</b>三种和直射火炮同一套：素管 + 一道箍 + 小方制退器 → 炮尾套筒 + 连体阶梯制退器 → 粗炮身 + 三道铁箍 + 大方制退器。<b>散热口</b>：2 道竖缝 → 3 道 → 成对竖缝 → 斜百叶。<b>小模块做减法</b>：不放铭牌；镀镍起只在炮廓左上加一块小压力表（直径 7）；接缝铆钉 2 → 3 → 4 颗，T1～3 黄铜、镀镍起钢质淡青；钢起有包角铁。</p>
     <p><b>v3（按反馈）：</b>摇架恢复到接近旧版的大小，耳轴处画回方形固定螺栓（方框 + 中心点）；散热口每档至少 3 个：T1～2 三道竖缝 → T3～4 四道密排竖缝 → T5 两行短竖缝 → T6 两行斜百叶。</p>
     <p>v1 试过「高防盾 / 斜防盾」，在 24px 高的模块上读成一根竖杆，已放弃，改成和直射火炮同构的炮廓。分区按炮管的仰角范围（−8°～30°）核对过：压力表、散热口、铆钉都在炮管扫不到的地方。</p>
@@ -93,11 +93,22 @@
   </section>
 
   <section>
+    <h2 class="sec">重炮 · 2×4 <small>镀镍起才有，只有 T4～T6 三档 · 5× 分区图（T6 原画）</small></h2>
+    <p class="lead"><b>两层立面</b>：上层是炮廓 + 炮组（和直射火炮同一套），下层是弹药库。T4 方平顶炮廓，T5～6 炮廓前上角斜板（和直射火炮同一条斜线）；下层三档都方正。<b>炮管</b>更粗：T4 炮尾套筒 + 连体阶梯制退器，T5～6 粗炮身 + 三道铁箍 + 大方制退器，炮身下挂复进杆。<b>零件</b>三档都全：压力表（直径 11）在炮廓左上，观察缝在右上；两层接缝上一排钢质铆钉（3 → 4 → 4）；下层左上散热口（三道横槽 → 双列 → 斜百叶），下面是珐琅铭牌；包角铁在炮廓左上和下层两个底角。<b>身份件</b>是下层右侧的弹药提升窗，窗里叠着三发黄铜炮弹（功能区，不放零件）。耳轴 (27,30)，炮口末端 x 85（长身：比直射火炮的炮管长一截）。</p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start"><canvas id="hzones"></canvas><div id="hlegend" style="font-size:13px;line-height:2"></div></div>
+  </section>
+
+  <section>
+    <h2 class="sec">重炮三档 <small>和直射火炮同档对照 · 仰角 −6° / 34° · 每格下面是 1×</small></h2>
+    <div class="scroll"><table class="mx" id="htiers"></table></div>
+  </section>
+
+  <section>
     <h2 class="sec">需要你决定</h2>
     <div class="panel rec">
       <ul>
-        <li>侧炮 v1 是否 OK：窄挂板 + 单吊杆 → 方箱挂板 + 双吊杆横撑 → 斜板挂板；零件只放在挂板上。</li>
-        <li>OK 的话写进游戏，接着做重炮 → 巨炮。</li>
+        <li>重炮 v1 是否 OK：上层炮廓 + 炮组、下层弹药库 + 提升窗；T4 方平顶 → T5～6 斜板。</li>
+        <li>OK 的话写进游戏（耳轴 / 炮口按新画面改 piv、blen），再做巨炮。</li>
       </ul>
     </div>
   </section>
@@ -233,13 +244,38 @@
     }
     const T = $('sdtiers'); T.replaceChildren(head());
     T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · 游戏现状', el('small', {}, '暗铁挂板 + 吊杆 + 黄铜摇架 + 旧三阶段炮管')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('side_cannon', mt, 48, 48)))));
-    T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · 新方案 v2', el('small', {}, '悬吊臂加厚：粗方柱两道筋 → 双柱两道横撑 → 实心腹板；零件只在挂板上')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(sdNew(mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '侧炮 · v2（已进游戏）', el('small', {}, '悬吊臂加厚：粗方柱两道筋 → 双柱两道横撑 → 实心腹板；零件只在挂板上')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(sdNew(mt)))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '中炮 · 已进游戏'), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('cannon_m', mt, 48, 24)))));
     const TC = $('sdctx'); TC.replaceChildren(head());
     TC.append(el('tr', {}, el('th', { className: 'rh' }, '叠在装甲前 · 0°'), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(sdNew(mt, {}, false, armorUnder(mt)), 2)))));
     for (const a of [-6, 24]) TC.append(el('tr', {}, el('th', { className: 'rh' }, `仰角 ${a}°`), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(sdNew(mt, { a }, false, armorUnder(mt)), 2)))));
   }
-  function renderAll() { renderZones(); renderTiers(); renderAngles(); renderCtx(); renderSmall(); renderSide(); }
+  // ---------- 重炮 ----------
+  const HOX = 6, HOY = 22;
+  function hNew(mt, o = {}, raw = false) {
+    const T = G.H_TIERS[Math.max(4, mt)], c = document.createElement('canvas'); c.width = HOX + 48 + 50; c.height = HOY + 96 + 4;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(HOX, HOY, 48, 96);
+    G.hBase(g, HOX, HOY, T, o);
+    if (!raw) applyMat(c, mt, HOX, HOY);
+    G.hOver(c.getContext('2d'), HOX, HOY, T);
+    return c;
+  }
+  function renderHeavy() {
+    const z = 5, src = hNew(6, {}, true), cv = $('hzones');
+    cv.width = src.width * z; cv.height = src.height * z;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, cv.width, cv.height);
+    const leg = $('hlegend'); leg.replaceChildren();
+    for (const [name, col, ...rects] of G.H_ZONES_VIEW) {
+      g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([6, 3]);
+      for (const f of rects) { const [x, y, w, h] = f(HOX, HOY); g.strokeRect(x * z + 1, y * z + 1, w * z - 2, h * z - 2); }
+      leg.append(el('div', {}, el('span', { style: `display:inline-block;width:14px;height:10px;border:2px dashed ${col};margin-right:8px;vertical-align:middle` }), name));
+    }
+    const MTS = [4, 5, 6], T = $('htiers');
+    T.replaceChildren(el('tr', {}, el('th'), ...MTS.map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }), el('th', {}, 'T6 · −6°'), el('th', {}, 'T6 · 34°')));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '重炮 · 新方案 v1', el('small', {}, '上层炮廓 + 炮组，下层弹药库 + 提升窗；T4 方平顶 → T5～6 斜板')), ...MTS.map(mt => cell(hNew(mt))), el('td', {}, show(hNew(6, { a: -6 }), st.zoom)), el('td', {}, show(hNew(6, { a: 34 }), st.zoom))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '直射火炮 · 已进游戏'), ...MTS.map(mt => cell(gameMod('cannon', mt, 48, 48)))));
+  }
+  function renderAll() { renderZones(); renderTiers(); renderAngles(); renderCtx(); renderSmall(); renderSide(); renderHeavy(); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
