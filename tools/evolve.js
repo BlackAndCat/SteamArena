@@ -152,11 +152,14 @@ function stageSpec(SA, chapter, stage) {
   const design = current.spec || {};
   // 只有真正的新解锁才算奖励件；开局库存或此前已获得的模块不能重复作为奖励，
   // 否则序章会把 plate 当作奖励并错误触发“奖励效果”门槛。
-  const rawReward = design.reward || current.unlock?.mods?.[0] || (stage === ch.stages.length - 1 ? ch.unlock?.mods?.[0] : null);
+  // 一关可能同时解锁多个模块：奖励车只绑定其中一个，但这些新模块都要进入本关
+  // 的敌车候选约束，避免第二个解锁模块被错误地推迟到下一关。
+  const unlockExtras = [...(current.unlock?.mods || []), ...(stage === ch.stages.length - 1 ? (ch.unlock?.mods || []) : [])];
+  const rawReward = design.reward || unlockExtras.find(id => !progress.mods.has(id)) || null;
   const reward = rawReward && !progress.mods.has(rawReward) ? rawReward : null;
   // Boss 专属件和本关解锁件必须进入候选约束，否则奖励车永远只能携带普通件。
   // 这些额外模块只在对应关卡可用，不改变玩家在上一关的实际库存。
-  const stageExtras = (current.subs || []).map(row => row[2]).filter(id => SA.MODULES[id]);
+  const stageExtras = [...(current.subs || []).map(row => row[2]), ...unlockExtras].filter(id => SA.MODULES[id]);
   if (reward && SA.MODULES[reward]) stageExtras.push(reward);
   const available = [...new Set([...progress.mods, ...stageExtras])].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired && (stageExtras.includes(id) || (SA.MODULES[id].minMt || 1) <= progress.mat));
   const budget = progress.budget * ((current.boss || reward) ? config.budget.bossMultiplier : 1);
@@ -258,7 +261,8 @@ function hasWeapon(SA, v) {
 
 function legalVehicle(SA, v, spec) {
   const stats = SA.V.stats(v);
-  return mandatoryOk(SA, v) && stats.canDeploy && !stats.blocked?.length && stats.value <= spec.budget;
+  const unavailable = Object.keys(counts(SA, v)).filter(id => !spec.availableMods.includes(id) && !SA.MODULES[id]?.retired);
+  return mandatoryOk(SA, v) && !unavailable.length && stats.canDeploy && !stats.blocked?.length && stats.value <= spec.budget;
 }
 
 function pickWeapon(SA, spec, rng, style) {
@@ -680,11 +684,14 @@ function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed,
 function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames) {
   const population = [];
   const wanted = Math.max(4, config.population.size);
+  const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
   while (population.length < wanted) {
     // 奖励关至少半数初始种群强制携带奖励件，避免进化淘汰后报告只能挑一台“不带奖励”的普通车。
     const rewardSeed = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25));
     const forced = rewardSeed ? spec.rewardModule : null;
-    const v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
+    let v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
+    // 继承 / 变异路径不能绕过奖励件约束；缺奖励时改用强制奖励种子重试。
+    if (forced && (!v || !rewardPresent(v))) v = randomVehicle(SA, spec, rng, forced);
     if (v) population.push(v);
     else {
       // 某些奖励件（例如 2×2 重型装甲）在狭小地图上并非每个随机种子都能直接摆下。
@@ -708,12 +715,23 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
       return { vehicle, evaluationSeed: evalSeed, ...result };
     }).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
+    // 奖励件是关卡规格的硬条件，不能因强度排序把最后一台奖励候选截掉。
+    if (spec.rewardModule) {
+      const rewardSeed = scored.find(item => rewardPresent(item.vehicle));
+      if (rewardSeed && !keep.some(item => rewardPresent(item.vehicle))) keep[keep.length - 1] = rewardSeed;
+    }
     if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
     current = [...keep.map(x => x.vehicle)];
     while (current.length < wanted) {
       const source = rng.pick(keep).vehicle;
-      const child = mutate(SA, source, spec, rng);
-      if (child) current.push(child); else current.push(randomVehicle(SA, spec, rng));
+      let child = mutate(SA, source, spec, rng);
+      if (spec.rewardModule && (!child || !rewardPresent(child))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
+      if (!child) child = randomVehicle(SA, spec, rng, spec.rewardModule) || minimalVehicle(SA, spec, spec.rewardModule);
+      // 奖励件在当前尺寸 / 预算下可能确实摆不下；保留普通合法候选，
+      // 让报告记录 reward 失败，而不是让整档预演中断。
+      if (!child) child = randomVehicle(SA, spec, rng) || minimalVehicle(SA, spec);
+      if (!child) throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有任何合法候选`);
+      current.push(child);
     }
   }
   return { scored: [], archive: { buckets: {}, toxic: [], odd: [] } };
@@ -940,10 +958,17 @@ function healthCheck(games = 4) {
   const heatRows = heatVehicle ? healthRows(SA, heatVehicle, normal, { terrain: 'flat', style: 'rush' }, 18000, games) : [];
   const earlyHeatWins = heatRows.filter(row => row.winner === 'p' && row.t < 25 && /烧干|锅炉/.test(row.reason || '')).length;
   const parameterSearch = [];
-  const original = { BATTLE_TIME: SA.K.BATTLE_TIME, KNOCK_MAX: SA.K.KNOCK_MAX };
+  // P2 只在本地 VM 临时扰动热量、冷却、耗水和时长常数；每轮结束恢复原值，
+  // 让报告能给出敏感度，但不会把任何推荐值写回游戏。
+  const original = {
+    IDLE_HEAT: SA.K.IDLE_HEAT, DISSIPATE: SA.K.DISSIPATE, WATER_PER_HEAT: SA.K.WATER_PER_HEAT,
+    FIRE_WATER: SA.K.FIRE_WATER, COOL_FULL: SA.K.COOL_FULL, BATTLE_TIME: SA.K.BATTLE_TIME, KNOCK_MAX: SA.K.KNOCK_MAX,
+  };
   try {
     for (const key of Object.keys(original)) for (const factor of [0.9, 1, 1.1]) {
-      SA.K[key] = Math.max(1, Math.round(original[key] * factor));
+      SA.K[key] = ['BATTLE_TIME', 'KNOCK_MAX'].includes(key)
+        ? Math.max(1, Math.round(original[key] * factor))
+        : Math.max(0.01, original[key] * factor);
       const rows = healthRows(SA, anchors[1], anchors[2], { terrain: 'flat', style: 'wander' }, 19000 + parameterSearch.length * 20, Math.max(1, Math.min(2, games)));
       const summary = outcomeSummary(SA, rows);
       const distance = Math.abs(summary.avgTime - 45) + summary.heatRate * 50 + summary.timeoutRate * 50 + summary.drawRate * 30;
