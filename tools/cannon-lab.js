@@ -146,13 +146,93 @@ SA.CNLAB = (() => {
     cornice: (x, y, h) => { if (h === 'step') PARTS.cornice(x + 7, y + 5, 28); else if (h === 2) PARTS.cornice(x + 5, y + 3, 26); else PARTS.cornice(x + 10, y + 6, 22); },
   };
   // tiers：T1～T6 各一个 { h 炮塔, b 炮管, parts 零件 }
+  // ================= 方案 A v2：排布规则 =================
+  // 炮塔侧面露在炮组左边的那块（模块内 x 4～25、y 16～38）是唯一能放东西的「立面」，按上下分区，每区只放一类东西：
+  //   接缝线（y 18～20）—— 铆钉，只打在上下两块板的接缝下沿，等距；
+  //   散热区（y 22～30）—— 散热口，档位越高越多，排法也变；
+  //   铭牌区（y 32～37）—— 铭牌，在散热区正下方、黄铜腰线之上，左对齐散热口；
+  //   包角位            —— 炮座外沿的三个露出来的角（左上、左下、右下）；
+  //   表位              —— 上层炮廓的左侧平面（斜板前面那块），只有最高档有压力表。
+  // 零件之间、零件和散热口之间至少空 1 像素；任何零件都不压散热口、不压观察缝。
+  const ZONE = {
+    seam: { y: 19, x0: 10, x1: 23 },          // 铆钉接缝（铆钉占 y 18～20，左边让出包角位）
+    vent: { x: 7, y: 22, w: 16, h: 9 },       // 散热区（y 22～30）
+    plate: { x: 7, y: 32 },                   // 铭牌（10×6，y 32～37；下面 y 39 是黄铜腰线）
+    gauge: { x: 11, y: 10 },                  // 压力表中心
+  };
+  // 散热口：暗线 + 下面一道亮线（有进深）。排法：rows 单列横槽 / grid 双列横槽 / louver 斜百叶
+  function vents(x, y, style, n) {
+    const Z = ZONE.vent, slot = (sx, sy, w) => { R(x + sx, y + sy, w, 1, P.iron[0]); R(x + sx, y + sy + 1, w, 1, P.iron[3]); };
+    if (style === 'rows') { const gap = n <= 2 ? 4 : 3; for (let i = 0; i < n; i++) slot(Z.x, Z.y + 1 + i * gap, 12); }
+    else if (style === 'grid') { for (let c = 0; c < 2; c++) for (let i = 0; i < n; i++) slot(Z.x + c * 8, Z.y + i * 3, 6); }
+    else if (style === 'louver') { for (let i = 0; i < n; i++) for (let k = 0; k < 7; k++) { px(x + Z.x + i * 4 + (k >> 1), y + Z.y + k, P.iron[0]); px(x + Z.x + i * 4 + (k >> 1) + 1, y + Z.y + k, P.iron[3]); } }
+  }
+  function seamRivets(x, y, n) {
+    const Z = ZONE.seam, step = n > 1 ? (Z.x1 - Z.x0) / (n - 1) : 0;
+    for (let i = 0; i < n; i++) rivet(Math.round(x + Z.x0 + i * step), y + Z.y - 1, P.iron[3]);
+  }
+  // 三种炮塔：方（T1～2）、方 + 平顶炮廓（T3～4）、斜板炮廓（T5～6）。下层炮座都是同一块 42×29 的箱体
+  function body(x, y) {
+    box(x + 3, y + 16, 42, 29, IRON);
+    R(x + 4, y + 39, 40, 1, P.brass[2]); R(x + 4, y + 40, 40, 1, P.brass[1]);
+  }
+  const TOWER = {
+    square(x, y) {   // 原画的方指挥塔
+      box(x + 10, y + 7, 22, 10, IRON); R(x + 14, y + 10, 12, 1, P.iron[0]);
+      body(x, y);
+    },
+    box(x, y) {      // 方方正正的平顶炮廓 + 方舱盖
+      box(x + 5, y + 5, 28, 12, IRON); R(x + 8, y + 9, 12, 2, P.dark[0]);
+      box(x + 11, y + 1, 8, 5, IRON);
+      body(x, y);
+    },
+    slant(x, y) {    // 斜向板：炮廓前沿向后倾（同钢 / 镀镍原来的斜板）
+      for (let yy = 5; yy <= 16; yy++) {
+        const xr = x + 31 + Math.round((yy - 5) * 1.2);
+        R(x + 5, y + yy, xr - x - 5, 1, P.iron[2]); px(x + 5, y + yy, P.iron[0]); px(xr - 1, y + yy, P.iron[0]); px(xr - 2, y + yy, P.iron[4]);
+      }
+      R(x + 5, y + 4, 26, 1, P.iron[0]); R(x + 6, y + 5, 24, 1, P.iron[4]);
+      R(x + 17, y + 9, 10, 2, P.dark[0]);   // 观察缝挪到右边，左边留给表位
+      box(x + 11, y, 8, 5, IRON);
+      body(x, y);
+    },
+  };
+  // T1～T6：炮塔、炮管、散热口排法 + 数量、接缝铆钉数、零件（每档只多一件）
+  const TIERS_A2 = [
+    { t: 'square', b: 1, vent: ['rows', 2], riv: 2, parts: [] },
+    { t: 'square', b: 1, vent: ['rows', 2], riv: 2, parts: [] },
+    { t: 'box', b: 2, vent: ['rows', 3], riv: 3, parts: [] },
+    { t: 'box', b: 2, vent: ['rows', 3], riv: 3, parts: ['plate'] },
+    { t: 'slant', b: 4, vent: ['grid', 3], riv: 4, parts: ['plate', 'corners'] },
+    { t: 'slant', b: 4, vent: ['louver', 4], riv: 4, parts: ['plate', 'corners', 'gauge'] },
+  ];
+  function drawA2(g0, x, y, tier, o = {}) {
+    SA.CAND.use(g0);
+    TOWER[tier.t](x, y);
+    vents(x, y, tier.vent[0], tier.vent[1]);
+    seamRivets(x, y, tier.riv);
+    if (tier.parts.includes('plate')) PARTS.plate(x + ZONE.plate.x, y + ZONE.plate.y);
+    if (tier.parts.includes('corners')) { PARTS.corner(x + 3, y + 16, 1, 1); PARTS.corner(x + 3, y + 40, 1, -1); PARTS.corner(x + 40, y + 40, -1, -1); }
+    if (tier.parts.includes('gauge')) PARTS.gauge(x + ZONE.gauge.x, y + ZONE.gauge.y);
+    gun(x, y, o, tier.b);
+  }
+  // 排布规则图：在 6 倍图上画出各区
+  const ZONES_VIEW = [
+    ['接缝线 · 铆钉', '#6fcf6a', (x, y) => [x + ZONE.seam.x0 - 1, y + ZONE.seam.y - 2, ZONE.seam.x1 - ZONE.seam.x0 + 4, 4]],
+    ['散热区', '#46c2c9', (x, y) => [x + ZONE.vent.x, y + ZONE.vent.y, ZONE.vent.w, ZONE.vent.h]],
+    ['铭牌区', '#f5d77a', (x, y) => [x + ZONE.plate.x, y + ZONE.plate.y, 10, 6]],
+    ['包角位', '#ef7a21', (x, y) => [x + 3, y + 16, 5, 5], (x, y) => [x + 3, y + 40, 5, 5], (x, y) => [x + 40, y + 40, 5, 5]],
+    ['表位（最高档）', '#ff6b9a', (x, y) => [x + ZONE.gauge.x - 4, y + ZONE.gauge.y - 4, 8, 8]],
+    ['炮组（不放东西）', '#a8a39a', (x, y) => [x + 26, y + 14, 20, 26]],
+  ];
+
   const SCHEMES = [
     {
       id: 'now', name: '现状（游戏里）', note: '阶段 ①②③ 按 vis [1,3,5]：乌兹钢和以太是圆顶 + 刻槽 + 喇叭口',
       tiers: [[1, 1, []], [1, 1, []], [2, 2, []], [2, 2, []], ['dome', 3, []], ['dome', 3, []]],
     },
     {
-      id: 'A', name: 'A · 直线三段 + 每档一件', note: '阶段 ③ 换成阶梯式炮廓 + 铁箍炮身（全直线）；镀镍起每档只多一件零件：铭牌 → 包角铁 → 徽记（替换铭牌）',
+      id: 'A', name: 'A v1 · 直线三段 + 每档一件（上一版）', note: '阶段 ③ 换成阶梯式炮廓 + 铁箍炮身（全直线）；镀镍起每档只多一件零件：铭牌 → 包角铁 → 徽记（替换铭牌）',
       tiers: [[1, 1, []], [1, 1, []], [2, 2, []], [2, 2, ['plate']], ['step', 4, ['plate', 'corners']], ['step', 4, ['crest', 'corners']]],
     },
     {
@@ -172,5 +252,5 @@ SA.CNLAB = (() => {
     if (parts.includes('finial')) ANCHOR.finial(x, y, h);
     gun(x, y, o, b);
   }
-  return { PARTS, PART_INFO, SCHEMES, drawCannon, PIV };
+  return { PARTS, PART_INFO, SCHEMES, drawCannon, PIV, TIERS_A2, drawA2, ZONES_VIEW, ZONE };
 })();
