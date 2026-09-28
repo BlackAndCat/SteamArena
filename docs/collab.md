@@ -54,8 +54,9 @@
 
 ### 2.3 模块字段的归属（`js/modules.js` / `js/module-art.js`）
 
-- **视觉字段**（只写在 `js/module-art.js`，逻辑只读不写）：`vis`、`art`、`placeholder`、`piv`、`blen`、`barrel`、`rcPx`、`back`、`ret`、`susp.pts` / `susp.splay` / `susp.hips`。Opus 可以改它们去对齐画面。其中 `piv` / `blen` 决定炮弹出膛位置，改的时候要告诉 astra。
-- **其余字段**都归 astra：数值、机制、尺寸 `w` / `h`、解锁、`kick`（影响车身物理）、`susp.up` / `susp.down` / `susp.follow`。
+- **视觉字段**（只写在 `js/module-art.js`，逻辑只读不写）：`vis`、`art`、`placeholder`、`piv`、`blen`、`barrel`、`rcPx`、`back`、`ret`、`susp.pts` / `susp.splay` / `susp.hips`。Opus 可以改它们去对齐画面。
+- **火炮的出膛口、角度和动画数据归 Claude（Opus）**（2026-09-28 用户定）：出膛口 `piv` / `blen`、炮管 `barrel`、后坐 / 复位 `rcPx` / `back` / `ret`，以及仰角范围 `elev` 和静止角 `rest`，都由 Opus 按画面定；`elev` / `rest` 目前还写在 `js/modules.js` 里，Opus 可以直接改这两个字段（只改它们）。astra 不涉及这些，只管数值和功能正常（伤害、装填、弹速、散布、`arc` 直射 / 高抛、间接射击、AI 能否正常瞄准开火等）；Opus 改了这些数据后，astra 发现数值或功能异常再在看板提出。
+- **其余字段**都归 astra：数值、机制、尺寸 `w` / `h`、解锁、`kick`（影响车身物理）、`slew`（转炮速度）、`susp.up` / `susp.down` / `susp.follow`。
 - astra 加新字段时，在 `modules.js` 顶部的注释里写清含义；如果需要画出来，在相应看板说明要画什么、从哪个状态读。
 
 ## 3. Git 规则
@@ -153,6 +154,7 @@ git push origin main
 | 2026-09-26 | **第四章主题按下不表**，等前几章做出来、测试充分再定 |
 | 2026-09-26 | **四足整件可以多件首尾相连**（车体蜈蚣）：同一行里一件接一件，中间不能隔空（隔空的标红）；不能和别的底盘混用。修正此前「每车一个」的说法 |
 | 2026-09-26 | **真双足底盘固定 1 大格宽 × 2 层**（= 2×4 子格，48×96，同 `tools/chassis-lab.html` 样机）：上一层是胯、下一层是腿区；不做可变宽度。旧存档里的多格双足只保留一格作胯，其余退回库存。数据和规则由 astra 改（见 `docs/board-astra.md`） |
+| 2026-09-28 | **火炮的出膛口、角度、动画数据交给 Claude（Opus）**：`piv` / `blen` / `barrel` / `rcPx` / `back` / `ret` 和仰角范围 `elev`、静止角 `rest` 由 Opus 按画面定；astra 不涉及这方面，只管数值和功能正常（见 §2.3） |
 | 更早 | 其余已定事项见 `docs/module-plan.md` §0 和 `docs/game-design.md` |
 
 ## 6. 看板入口

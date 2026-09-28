@@ -125,5 +125,5 @@
 
 1. 在候选页（`tools/module-candidates.html`）按类别找到它，请用户挑候选或给方向。
 2. 在样机页里迭代（火炮类参考 `tools/gun-family-lab.html` 的做法：分区图 + 各档对照 + 仰角 / 状态检查）。
-3. 用户定稿后搬进 `js/sprites.js`（`DRAW` / `OVER`），外观字段写在 `js/module-art.js`，去掉 `art` / `placeholder`；改了 `piv` / `blen` 要通知 astra。
+3. 用户定稿后搬进 `js/sprites.js`（`DRAW` / `OVER`），外观字段写在 `js/module-art.js`，去掉 `art` / `placeholder`。火炮的出膛口、角度、动画数据（`piv` / `blen` / `barrel` / `rcPx` / `back` / `ret`、仰角范围 `elev`、静止角 `rest`）都由 Opus 按画面定，不用等 astra（`docs/collab.md` §2.3）；astra 只管数值和功能正常。
 4. 更新 `js/build-vis.js`，改本表和 `tools/art-progress.js` 的状态，在 `docs/board-opus.md` 记一笔。
