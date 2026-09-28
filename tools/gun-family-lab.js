@@ -671,6 +671,7 @@ SA.GFLAB = (() => {
   const G_SEGS = [[-16, -12, 9], [-12, -2, 14], [-2, 20, 16], [20, 25, 17], [25, 34, 20]];   // v5：炮身加长 1/5（42 → 50），炮口箍 9 长、半宽 20
   const G_HOOPS = [[4, 7], [12, 15]];
   const G_END = 34;
+  const G_TILT = 0.38;   // v6：截面椭圆的扁度（短轴 / 长轴）；炮口端面、箍的下沿、铁箍、接缝都用这一个比例，才读成同一根圆筒
   const WOOD = P.leather;
   // 工字钢立柱：两侧翼缘 + 中间腹板
   function ibeamV(x0, y0, y1) { R(x0, y0, 5, y1 - y0, P.dark[0]); R(x0 + 1, y0, 1, y1 - y0, P.dark[3]); R(x0 + 2, y0, 1, y1 - y0, P.dark[1]); R(x0 + 3, y0, 1, y1 - y0, P.dark[3]); }
@@ -687,14 +688,14 @@ SA.GFLAB = (() => {
     const inside = (px0, py0) => { const [u, v] = uv(px0, py0), hw = hwAt(u); return hw > 0 && Math.abs(v) <= hw; };
     for (let py0 = cy - 50; py0 <= cy + 30; py0++) for (let px0 = cx - 40; px0 <= cx + 40; px0++) {
       if (!inside(px0, py0)) continue;
-      const [u, v] = uv(px0, py0), hw = hwAt(u);
+      const [u, v] = uv(px0, py0), hw = hwAt(u), uc = u + G_TILT * Math.sqrt(Math.max(0, hw * hw - v * v));   // uc：按椭圆弧弯过的截面位置
       let c = P.iron[3];
       if (!inside(px0 - 1, py0) || !inside(px0 + 1, py0) || !inside(px0, py0 - 1) || !inside(px0, py0 + 1)) c = P.iron[0];
-      else if (u >= -1 && u < 2) c = v < 0 ? P.brass[3] : P.brass[1];
+      else if (uc >= -1 && uc < 2) c = v < 0 ? P.brass[3] : P.brass[1];
       else if (v < -hw + 3) c = P.iron[4];
       else if (v > hw * 0.5) c = P.iron[2];
-      if (c === P.iron[3] && G_HOOPS.some(([h0]) => u >= h0 && u < h0 + 1)) c = P.iron[4];
-      if (c === P.iron[3] && Math.abs(u - 20) < 0.5) c = P.iron[2];
+      if (c === P.iron[3] && G_HOOPS.some(([h0]) => uc >= h0 && uc < h0 + 1)) c = P.iron[4];
+      if (c === P.iron[3] && Math.abs(uc - 20) < 0.5) c = P.iron[2];
       px(px0, py0, c);
     }
     if ((o.k || 0) >= 0.85) for (let t = G_END; t < G_END + 12; t++) { const w = Math.max(1, 13 - (t - G_END) * 1.1); for (let q = -w; q <= w; q++) px(Math.round(cx + cs * (t - d) + sn * q), Math.round(cy - sn * (t - d) + cs * q), t < G_END + 5 ? P.fire[3] : P.fire[2]); }
@@ -704,9 +705,11 @@ SA.GFLAB = (() => {
   const IVORY = ['#63593c', '#9c8d60', '#c5bca1', '#efede6'];
   function gMuzzle(x, y, o) {
     const a = (o.a == null ? 75 : o.a) * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a), d = Math.round((o.k || 0) * 7);
-    const cx = x + GP.x, cy = y + GP.y, R0 = 20, Rs = R0 * 0.38, Ri = 0.66, U0 = 25;
+    const cx = x + GP.x, cy = y + GP.y, R0 = 20, Rs = R0 * G_TILT, Ri = 0.66, U0 = 25;
     const uv = (px0, py0) => { const dx = px0 + 0.5 - cx, dy = py0 + 0.5 - cy; return [dx * cs - dy * sn + d, dx * sn + dy * cs]; };
-    const inCollar = (px0, py0) => { const [u, v] = uv(px0, py0); return u >= U0 && u < G_END && Math.abs(v) <= R0; };
+    // v6（用户：白色包口不是圆弧形、很怪）：箍的下沿不再是直线，而是和端面同扁度的椭圆弧（中间往炮尾方向鼓），整只箍读成一段圆筒
+    const lowAt = (v) => U0 - Rs * Math.sqrt(Math.max(0, 1 - (v / R0) ** 2));
+    const inCollar = (px0, py0) => { const [u, v] = uv(px0, py0); return Math.abs(v) <= R0 && u >= lowAt(v) && u < G_END; };
     // 象牙白炮口箍：包住炮筒最上面 9 个单位（v5：往下延伸盖住一截炮身），按圆筒打光
     for (let py0 = cy - 60; py0 <= cy + 20; py0++) for (let px0 = cx - 40; px0 <= cx + 40; px0++) {
       if (!inCollar(px0, py0)) continue;
@@ -715,7 +718,7 @@ SA.GFLAB = (() => {
       if (!inCollar(px0 - 1, py0) || !inCollar(px0 + 1, py0) || !inCollar(px0, py0 - 1) || !inCollar(px0, py0 + 1)) c = IVORY[0];
       else if (v < -R0 + 4) c = IVORY[3];
       else if (v > R0 * 0.45) c = IVORY[1];
-      if (c === IVORY[2] && u < U0 + 1.5) c = IVORY[1];                          // 下沿一道阴影：看出箍的厚度
+      if (c === IVORY[2] && u < lowAt(v) + 1.5) c = IVORY[1];   // v6：阴影也沿椭圆弧                          // 下沿一道阴影：看出箍的厚度
       px(px0, py0, c);
     }
     // 炮口端面：略倾斜的椭圆——外沿、厚边（朝上一半亮）、内沿、黑洞 + 远侧内壁
@@ -829,7 +832,12 @@ SA.GFLAB = (() => {
       R(x0, y + yy, x1 - x0, 1, P.iron[2]); px(x0, y + yy, P.iron[0]); px(x0 + 1, y + yy, P.iron[3]); px(x1 - 1, y + yy, P.iron[0]); px(x1 - 2, y + yy, P.iron[4]);
     }
     R(x + 33, y + 56, 28, 1, P.iron[0]); R(x + 34, y + 57, 26, 1, P.iron[4]); R(x + 26, y + 68, 42, 1, P.iron[1]);
-    box(x + 12, y + 72, 72, 7, SA.CAND.DARK); R(x + 13, y + 73, 70, 1, P.dark[3]); R(x + 13, y + 75, 70, 1, P.brass[1]);   // 转盘
+    // 转盘（v6，用户：底座要更有质感）：回转支承——上沿倒角高光、一圈黄铜齿圈（齿和齿槽交替）、下面一排螺栓，两端露出轴承端面
+    R(x + 12, y + 72, 72, 7, P.dark[0]);
+    R(x + 13, y + 73, 70, 1, P.iron[4]); R(x + 13, y + 74, 70, 1, P.iron[2]);
+    for (let t = 0; t < 70; t++) { const tooth = t % 3 !== 2; px(x + 13 + t, y + 75, tooth ? P.brass[3] : P.brass[0]); px(x + 13 + t, y + 76, tooth ? P.brass[1] : P.brass[0]); }
+    R(x + 13, y + 77, 70, 1, P.dark[2]); for (let t = 3; t < 70; t += 6) px(x + 13 + t, y + 77, P.iron[4]);
+    for (const ex of [12, 81]) { R(x + ex, y + 73, 3, 5, P.iron[1]); px(x + ex + 1, y + 74, P.iron[4]); px(x + ex + 1, y + 76, P.dark[0]); }
     // 加固底座（v5 变矮：15 高）：粗斜撑支腿 + 地脚板 + 上弦 + 一排黄铜螺旋弹簧 + 下弦
     for (const [x0, dir] of [[6, -1], [89, 1]]) {
       line(x + x0, y + 80, x + x0 + dir * 4, y + 90, 5, P.iron[0]); line(x + x0, y + 80, x + x0 + dir * 4, y + 90, 3, P.iron[2]); line(x + x0, y + 80, x + x0 + dir * 4, y + 90, 1, P.iron[4]);
@@ -837,22 +845,34 @@ SA.GFLAB = (() => {
     R(x + 0, y + 89, 14, 7, P.iron[0]); R(x + 1, y + 90, 12, 1, P.iron[4]); R(x + 1, y + 91, 12, 4, P.iron[2]);
     R(x + 82, y + 89, 14, 7, P.iron[0]); R(x + 83, y + 90, 12, 1, P.iron[4]); R(x + 83, y + 91, 12, 4, P.iron[2]);
     box(x + 5, y + 79, 86, 15, IRON);
-    R(x + 6, y + 80, 84, 2, P.iron[3]); R(x + 6, y + 80, 84, 1, P.iron[4]); R(x + 6, y + 82, 84, 1, P.iron[0]);             // 上弦
-    R(x + 6, y + 91, 84, 2, P.iron[3]); R(x + 6, y + 91, 84, 1, P.iron[0]);                                                  // 下弦
-    R(x + 6, y + 83, 84, 8, P.dark[0]);                                                                                       // 弹簧后面的暗槽
-    for (let bx = 12; bx < 88; bx += 12) coilSpring(x + bx, y + 83, 8);                                                       // 一排黄铜螺旋弹簧
+    // v6：上下弦做出厚度（亮面 + 投影），弹簧仓用铁立柱隔成一格一格，像火车转向架的悬挂舱
+    R(x + 6, y + 80, 84, 1, P.iron[4]); R(x + 6, y + 81, 84, 1, P.iron[0]);                                                  // 上弦（下沿投影）
+    R(x + 6, y + 82, 84, 10, P.dark[0]); R(x + 6, y + 82, 84, 1, P.black);                                                   // 弹簧仓（加高到 10），上沿压一道黑影
+    R(x + 6, y + 92, 84, 1, P.iron[4]);                                                                                       // 下弦亮面
+    for (const sx of [6, 20, 34, 48, 62, 76, 88]) {                                                                           // 铁立柱隔板：左亮右暗 + 中间一颗螺栓
+      const w = sx === 6 || sx === 88 ? 2 : 3;
+      R(x + sx, y + 82, w, 10, P.iron[2]); R(x + sx, y + 82, 1, 10, P.iron[4]);
+      if (w === 3) { R(x + sx + 2, y + 82, 1, 10, P.iron[0]); px(x + sx + 1, y + 85, P.iron[4]); px(x + sx + 1, y + 86, P.dark[0]); }
+    }
+    for (let i = 0; i < 6; i++) coilSpring(x + 13 + i * 14, y + 82, 10);                                                     // 六根黄铜螺旋弹簧，一格一根
     R(x + GP.x - 4, y + GP.y - 4, 9, 9, P.brass[0]); R(x + GP.x - 3, y + GP.y - 3, 7, 7, P.brass[3]); R(x + GP.x - 2, y + GP.y - 2, 5, 5, P.brass[1]); px(x + GP.x, y + GP.y, P.brass[0]);
     engineer(x + 19, y + 38);
     corner(x + 5, y + 89, 1, -1); corner(x + 86, y + 89, -1, -1);
     g.restore();
   }
-  // 黄铜螺旋弹簧（v5，用户：原来的看不出是弹簧）：按螺旋线逐点画，后半圈暗、前半圈亮，上下各一块端板；cx = 中线，y0 = 顶，h = 高
+  // 黄铜螺旋弹簧（v6，用户：v5 还是看不出是弹簧——8px 里 2.5 圈，每圈只落 1～2px，读成一摞横条）：
+  // 窄一点（7 宽）、圈距 4px，每圈拆成一笔后半圈（右上 → 左下，暗）和一笔前半圈（左 → 右下，亮 + 下面一道阴影），
+  // 圈与圈之间露出暗槽；中间一根暗铁导杆从缝里透出来；上下端板比弹簧宽。cx = 中线，y0 = 顶，h = 高
   function coilSpring(cx, y0, h) {
-    const r = 4, turns = 2.5, pts = [];
-    for (let t = 0; t <= turns * Math.PI * 2; t += 0.04) pts.push([Math.round(cx + Math.cos(t) * r - 0.5), Math.round(y0 + 1.5 + t / (turns * Math.PI * 2) * (h - 3)), Math.sin(t) > 0]);
-    for (const [px0, py0, front] of pts) if (!front) px(px0, py0, P.brass[0]);
-    for (const [px0, py0, front] of pts) if (front) px(px0, py0, px0 < cx ? P.brass[3] : P.brass[2]);
-    R(cx - r - 1, y0, r * 2 + 2, 1, P.brass[1]); R(cx - r - 1, y0 + h - 1, r * 2 + 2, 1, P.brass[1]);
+    const hw = 3, pitch = 4, top = y0 + 1, n = Math.floor((h - 2) / pitch);
+    R(cx, top, 1, h - 2, P.dark[3]);                                                                            // 导杆
+    for (let k = 0; k < n; k++) {
+      const yy = top + k * pitch;
+      line(cx + hw, yy, cx - hw, yy + 2, 1, P.brass[0]);                                                         // 后半圈
+      line(cx - hw, yy + 2, cx + hw, yy + 4, 1, P.brass[3]);                                                     // 前半圈（亮）
+      line(cx - hw + 1, yy + 3, cx + hw, yy + 5, 1, P.brass[1]);                                                 // 前半圈下侧阴影
+    }
+    R(cx - hw - 1, y0, hw * 2 + 3, 1, P.brass[2]); R(cx - hw - 1, y0 + h - 1, hw * 2 + 3, 1, P.brass[1]);        // 上下端板
   }
   function gOver(g, x, y, o = {}) {
     SA.CAND.use(g);
