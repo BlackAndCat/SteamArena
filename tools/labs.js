@@ -21,6 +21,7 @@ SA.LABS = {
   // 同一条演进线上的版本（从旧到新）
   LINES: [
     { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'chassis'] },
+    { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
@@ -29,14 +30,14 @@ SA.LABS = {
       desc: 'T1～T6 材料定稿并进游戏（黄铜 AAP-64 旧黄铜提饱和、熟铁、淡青钢花纹板、象牙白漆金描线、布伦瑞克绿漆、海军蓝漆象牙白描线）；保留调配台和黄铜对照', docs: ['docs/board-opus.md'] },
     { id: 'sprites', group: 'spec', url: 'spritesheet.html', name: '模块精灵表', ver: 'live', date: '2026-09-24', status: 'live',
       desc: '全部模块的像素图、外观阶段 × 材料矩阵、改装挂件、炮管后坐与供弹动态帧', docs: ['docs/module-plan.md'] },
-    { id: 'cannon-s', group: 'module', url: 'cannon-s-lab.html', name: '小炮 · 造型与材质语法', ver: 'v2', date: '2026-09-27', status: 'explore',
-      desc: '五个造型方向 × 六种材料的材质语法（材料换零件画法而不是换色）；v2 加了 C 卡隆短炮的三个外观阶段', docs: ['docs/board-opus.md'] },
+    { id: 'cannon-s', group: 'module', url: 'cannon-s-lab.html', name: '小炮 · 造型与材质语法', ver: 'v2', date: '2026-09-27', status: 'archived',
+      desc: '火炮家族的早期探索（已归档）：五个造型方向 × 六种材料的材质语法；C 卡隆短炮三阶段。定稿的小炮在「火炮家族 · 六档再设计」里', docs: ['docs/board-opus.md'] },
     { id: 'cannon-hi', group: 'module', url: 'cannon-lab.html', name: '直射火炮 · 高阶造型语言', ver: 'v3', date: '2026-09-27', status: 'shipped',
       desc: '方案 A v3：立面分区排布；散热口逐档变；T1～4 方正、T5～6 斜板；包角铁钢起；铆钉黄铜 → 镀镍起钢质淡青；珐琅铭牌 + 大压力表镀镍起；钢 / 镀镍炮口重做', docs: ['docs/visual-rules.md'] },
-    { id: 'gun-family', group: 'module', url: 'gun-family-lab.html', name: '火炮家族 · 六档再设计', ver: 'v14', date: '2026-09-27', status: 'explore',
-      desc: '按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v5（4×4 攻城臼炮阵地：象牙白炮口箍、黄铜弹簧矮底座、黄铜炮弹、24px 钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
-    { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '新模块造型候选（暂停）', ver: 'v1', date: '2026-09-27', status: 'explore',
-      desc: '20 个借形占位模块每个 2～3 个候选：T1 原画、1× / 剪影、仰角范围、六阶材料换色、放进车体；按早期 → 中期 → 后期排列', docs: ['docs/board-opus.md', 'docs/reports/2026-09-27-visual-overnight.md'] },
+    { id: 'gun-family', group: 'module', url: 'gun-family-lab.html', name: '火炮家族 · 六档再设计', ver: 'v15', date: '2026-09-28', status: 'shipped',
+      desc: '火炮家族全部定稿进游戏（2026-09-28 巨炮 v6 进游戏后归档）。按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v6（4×4 攻城臼炮阵地：椭圆弧象牙白炮口箍、分格弹簧底座 + 回转支承、黄铜炮弹、钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）也已进游戏。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
+    { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '新模块造型候选 · 进度总览', ver: 'v2', date: '2026-09-28', status: 'explore',
+      desc: '全部模块的美术进度：按类别 / 状态筛选，每个模块的最新探索和历史探索；未画模块的 2～3 个候选（T1 原画、1× / 剪影、仰角、六阶材料、放进车体）。计划表见 docs/art-plan.md', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',
       desc: '四足 4×2 整件（蜘蛛）+ 真双足 2×4（陀螺胯、一对长腿）；外观和步态已进游戏', docs: ['docs/true-biped.md §8'] },
     { id: 'mech-kit', group: 'chassis', url: 'mech-kit.html', name: '机甲套件 · 子格验证', ver: 'v3', date: '2026-09-25', status: 'archived',

@@ -16,7 +16,7 @@ SA.MODULE_ART = {
   cannon_m: { vis: [1, 3, 5], piv: [18, 13], blen: 40, barrel: 18, rcPx: 6, back: 0.05, ret: 2.4 },
   cannon_s: { vis: [1, 3, 5], piv: [12, 13], blen: 24, barrel: 12, rcPx: 4, back: 0.03, ret: 2.8 },
   cannon_heavy: { vis: [4, 5], piv: [34, 24], blen: 42, barrel: 34, rcPx: 12, back: 0.08, ret: 1.8 },
-  cannon_giant: { vis: [6], art: 'cannon', placeholder: '巨炮', piv: [58, 30], blen: 66, barrel: 48, rcPx: 16, back: 0.1, ret: 1.4 },
+  cannon_giant: { vis: [6], piv: [48, 58], blen: 34, barrel: 34, rcPx: 7, back: 0.1, ret: 1.4 },   // 2026-09-28 专用造型进游戏：耳轴 / 炮口端面按样机 v6
   mortar: { piv: [24, 30], blen: 24, barrel: 0, rcPx: 6, back: 0.06, ret: 2.5 },
   mg: { piv: [34, 29], blen: 26, barrel: 12, rcPx: 2, back: 0, ret: 14 },
   side_cannon: { vis: [1, 3, 5], piv: [18, 34], blen: 48, barrel: 18, rcPx: 7, back: 0.04, ret: 2.6 },

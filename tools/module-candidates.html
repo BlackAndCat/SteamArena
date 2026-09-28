@@ -34,12 +34,39 @@
   .strip .s { display: grid; justify-items: center; gap: 2px; font-size: 10px; }
   .cap { font-size: 11px; color: var(--muted); margin-top: 8px; }
   .bg canvas { background: var(--bg2); }
+  /* v2：进度总览 + 类别 / 状态筛选 + 探索历史 */
+  .fbtn { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid var(--dark3); background: none; color: var(--iron4); cursor: pointer; }
+  .fbtn:hover { border-color: var(--brass1); color: var(--brass3); }
+  .fbtn.on { color: #11100e; border-color: transparent; }
+  .fbtn i { font-style: normal; opacity: .75; margin-left: 4px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; color: #11100e; white-space: nowrap; }
+  section.ov { padding: 18px 0 8px; border-bottom: 3px solid var(--dark0); }
+  section.ov h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: 2px; color: var(--brass2); }
+  .tier { margin: 14px 0 4px; }
+  .tier h3 { margin: 0; font-size: 15px; color: var(--brass3); }
+  .tier .tdesc { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .tile { display: grid; grid-template-columns: 76px 1fr; gap: 10px; padding: 8px 10px; align-items: start; text-decoration: none; color: inherit; }
+  .tile .pic { width: 76px; height: 64px; display: grid; place-items: center; background: var(--bg2); }
+  .tile .pic canvas { max-width: 72px; max-height: 60px; }
+  .tile b { font-size: 14px; }
+  .tile .row1 { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .tile .pri { font-size: 11px; color: var(--brass2); font-weight: 700; }
+  .tile .tn { font-size: 11.5px; line-height: 1.5; color: var(--iron4); margin-top: 3px; }
+  .tile .hl { font-size: 11px; margin-top: 3px; }
+  .tile .hl a { color: var(--brass3); }
+  .hist { margin: 0 0 10px; font-size: 12px; line-height: 1.8; color: var(--iron4); }
+  .hist a { color: var(--brass3); }
+  .hist .tag { margin-right: 4px; }
+  details.old > summary { cursor: pointer; font-size: 13px; color: var(--muted); margin: 4px 0 8px; }
+  .hidden { display: none !important; }
 </style></head>
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>新模块造型候选 <small style="font-size:13px;color:var(--muted);letter-spacing:0">夜间探索 v1 · 2026-09-27</small></h1>
-    <p>目前借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
+    <h1>新模块造型候选 · 进度总览 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v2 · 2026-09-28</small></h1>
+    <p><b>进度总览</b>列出全部 41 个模块的美术状态（已进游戏 / 探索中 / 候选待选 / 旧画待复核），按优先级分档，每个模块附最新一次探索和历史探索的链接；上面的按钮可以按<b>类别</b>和<b>状态</b>筛选。计划表的文字版见 <code>docs/art-plan.md</code>，数据在 <code>tools/art-progress.js</code>。</p>
+    <p><b>候选</b>（2026-09-27 夜间探索 v1）：当时借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
   </header>
   <div class="cbar">
     <div class="row">
@@ -49,8 +76,11 @@
       <button class="btn small primary" id="fire">开火</button>
       <span class="lbl" id="count"></span>
     </div>
+    <div class="row"><span class="lbl">类别</span><span id="fcat" class="row"></span></div>
+    <div class="row"><span class="lbl">状态</span><span id="fst" class="row"></span></div>
     <div class="row chipnav" id="nav"></div>
   </div>
+  <section class="ov" id="overview"><h2>进度总览</h2><div id="ovbody"></div></section>
   <div id="mods"></div>
 </div>
 
@@ -59,11 +89,16 @@
 <script src="cand-early.js"></script>
 <script src="cand-mid.js"></script>
 <script src="cand-late.js"></script>
+<script src="art-progress.js"></script>
 <script src="labs.js"></script>
 <script>
 (() => {
   const C = SA.CAND, P = SA.PAL, $ = (id) => document.getElementById(id);
-  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const el = (tag, props = {}, ...kids) => {
+    const { dataset, ...rest } = props, e = Object.assign(document.createElement(tag), rest);
+    if (dataset) Object.assign(e.dataset, dataset);
+    e.append(...kids.flat(2).filter(k => k != null && k !== '')); return e;
+  };
   const st = { mode: 'color', zoom: 3, anim: true, t: 0, k: 0 };
   const LAYER = { body: '主体', side: '侧挂', ram: '撞击', chassis: '底盘' };
   const ORDER = { early: 0, mid: 1, late: 2 };
@@ -138,11 +173,80 @@
       const now = document.createElement('canvas'); now.width = f.w * 24 + 4; now.height = f.h * 24 + 4;
       SA.SPR.drawModule(now.getContext('2d'), md.id, 2, 2, {}); now.style.width = now.width + 'px';
       const meta = `${md.id} · ${f.w}×${f.h} 子格（${f.w * 24}×${f.h * 24}px）· ${LAYER[m.layer] || m.layer}` + (C.isGun(md.id) ? ` · 耳轴 (${m.piv}) 炮口长 ${m.blen} · 仰角 ${m.elev[0]}°～${m.elev[1]}°` : '') + ` · ${C.BATCH[md.batch]}`;
-      return el('section', { className: 'mod', id: md.id },
-        el('div', { className: 'mh' }, el('h2', {}, m.name), catChip(m), el('span', { className: 'meta' }, meta)),
-        el('p', { className: 'note' }, el('span', { className: 'now' }, '现在的占位：', now), '　', md.note),
-        el('div', { className: 'cands' }, ...md.cands.map(cd => card(md, cd))));
+      const ap = AP.MODS[md.id] || {}, done = ap.status === 'done';
+      const cands = el('div', { className: 'cands' }, ...md.cands.map(cd => card(md, cd)));
+      return el('section', { className: 'mod', id: md.id, dataset: { cat: catOf(md.id), st: ap.status || 'todo' } },
+        el('div', { className: 'mh' }, el('h2', {}, m.name), catChip(m), stTag(ap.status), ap.pri ? el('span', { className: 'meta' }, `优先级 #${ap.pri}`) : null, el('span', { className: 'meta' }, meta)),
+        histList(ap.hist),
+        el('p', { className: 'note' }, el('span', { className: 'now' }, done ? '游戏里现在：' : '现在的占位：', now), '　', md.note),
+        done ? el('details', { className: 'old' }, el('summary', {}, `历史探索：${md.cands.length} 个夜间候选（已被定稿造型取代，点开查看）`), cands) : cands);
     }));
+  }
+  // ---------- v2：进度总览（读 tools/art-progress.js）+ 类别 / 状态筛选 ----------
+  const AP = SA.ARTPLAN;
+  const catOf = (id) => SA.MODULES[id].layer === 'ram' ? 'ram' : SA.MODULES[id].cat;
+  const stTag = (s) => { const d = AP.STATUS[s || 'todo'], t = el('span', { className: 'tag' }, d.name); t.style.background = d.color; return t; };
+  const LAB_ST = { shipped: 'done', archived: 'legacy', explore: 'wip', live: 'done' };   // 样机状态 → 标签配色
+  const LAB_NAME = { shipped: '定稿', archived: '历史', explore: '探索中', live: '现行' };
+  function histList(h) {
+    if (!h || !h.length) return null;
+    return el('div', { className: 'hist' }, '探索历史：', ...h.slice().reverse().flatMap(([date, what, url, s], i) => {
+      const t = el('span', { className: 'tag' }, LAB_NAME[s] || s); t.style.background = AP.STATUS[LAB_ST[s] || 'todo'].color;
+      return [i ? '　←　' : '', t, el('a', { href: url }, what), ` ${date.slice(5)}`];
+    }));
+  }
+  // 当前游戏里的样子（占位模块画成文字方块）：画在大画布上再按内容裁边
+  function gamePic(id) {
+    const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 140; c.height = f.h * 24 + 90;
+    SA.SPR.drawModule(c.getContext('2d'), id, 64, 56, { mt: 1 });
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) if (d[(yy * c.width + xx) * 4 + 3] > 8) { x0 = Math.min(x0, xx); x1 = Math.max(x1, xx); y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); }
+    return x1 < x0 ? c : cropped(c, [x0, y0, x1 - x0 + 1, y1 - y0 + 1]);
+  }
+  const hasCand = new Set(mods.map(md => md.id));
+  function tile(id) {
+    const m = SA.MODULES[id], ap = AP.MODS[id], last = (ap.hist || [])[ap.hist.length - 1];
+    const pic = gamePic(id), sc = Math.max(1, Math.min(2, Math.floor(Math.min(72 / pic.width, 60 / pic.height))));
+    pic.style.width = pic.width * sc + 'px'; pic.style.height = pic.height * sc + 'px';
+    return el('div', { className: 'panel tile', dataset: { cat: catOf(id), st: ap.status } },
+      el('div', { className: 'pic' }, pic),
+      el('div', {},
+        el('div', { className: 'row1' }, ap.pri ? el('span', { className: 'pri' }, `#${ap.pri}`) : null, el('b', {}, m.name), stTag(ap.status), catChip(m)),
+        el('div', { className: 'tn' }, `${AP.CH[ap.ch] || ''} · ${ap.note}`),
+        el('div', { className: 'hl' }, last ? ['最新：', el('a', { href: last[2] }, last[1]), ` ${last[0].slice(5)}`] : '还没有探索记录',
+          hasCand.has(id) ? ['　', el('a', { href: '#' + id }, '看候选 ↓')] : null)));
+  }
+  function buildOverview() {
+    const ids = Object.keys(AP.MODS).filter(id => SA.MODULES[id]);
+    const done = ids.filter(id => !AP.MODS[id].pri);
+    const todo = ids.filter(id => AP.MODS[id].pri).sort((a, b) => AP.MODS[a].pri - AP.MODS[b].pri);
+    const groups = [{ name: `已完成（${done.length}）`, desc: '按 docs/visual-rules.md 定稿并进游戏', ids: done }];
+    let from = 0;
+    for (const t of AP.TIERS) { groups.push({ name: t.name, desc: t.desc, ids: todo.filter(id => AP.MODS[id].pri > from && AP.MODS[id].pri <= t.to) }); from = t.to; }
+    const n = (s) => ids.filter(id => AP.MODS[id].status === s).length;
+    $('ovbody').replaceChildren(
+      el('p', { className: 'note' }, `共 ${ids.length} 个模块：已进游戏 ${n('done')}、探索中 ${n('wip')}、候选待选 ${n('cand')}、旧画待复核 ${n('legacy')}。还没画完的：${n('wip') + n('cand') + n('todo')} 项。`),
+      ...groups.map(g => el('div', { className: 'tier' }, el('h3', {}, g.name), el('div', { className: 'tdesc' }, g.desc), el('div', { className: 'tiles' }, ...g.ids.map(tile)))));
+  }
+  const flt = { cat: '', st: '' };
+  function filterBar() {
+    const ids = Object.keys(AP.MODS).filter(id => SA.MODULES[id]);
+    const btn = (key, v, label, color, count) => {
+      const b = el('button', { className: 'fbtn' + (flt[key] === v ? ' on' : '') }, label, el('i', {}, count));
+      if (flt[key] === v) b.style.background = color || 'var(--brass2)';
+      b.onclick = () => { flt[key] = v; filterBar(); applyFilter(); };
+      return b;
+    };
+    const cats = [...new Set(ids.map(catOf))];
+    $('fcat').replaceChildren(btn('cat', '', '全部', null, ids.length), ...cats.map(c => btn('cat', c, (SA.CAT[c] || SA.CAT.structure).name, (SA.CAT[c] || SA.CAT.structure).ui, ids.filter(id => catOf(id) === c).length)));
+    $('fst').replaceChildren(btn('st', '', '全部', null, ids.length), ...Object.keys(AP.STATUS).map(s => btn('st', s, AP.STATUS[s].name, AP.STATUS[s].color, ids.filter(id => AP.MODS[id].status === s).length)));
+  }
+  function applyFilter() {
+    const ok = (e) => (!flt.cat || e.dataset.cat === flt.cat) && (!flt.st || e.dataset.st === flt.st);
+    document.querySelectorAll('.tile, section.mod').forEach(e => e.classList.toggle('hidden', !ok(e)));
+    document.querySelectorAll('.tier').forEach(t => t.classList.toggle('hidden', !t.querySelector('.tile:not(.hidden)')));
+    document.querySelectorAll('#nav a').forEach(a => { const s = document.getElementById(a.getAttribute('href').slice(1)); a.classList.toggle('hidden', !!s && s.classList.contains('hidden')); });
   }
   function card(md, cd) {
     const id = md.id, m = SA.MODULES[id];
@@ -195,7 +299,8 @@
       draw1(cv, id, cd, kind);
     }
   }, 125);
-  build(); render();
+  build(); buildOverview(); filterBar(); render();
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }   // 从总览 / 计划表跳过来时定位到模块
   window.__candReady = true;
 })();
 </script></body></html>

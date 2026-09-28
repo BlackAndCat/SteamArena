@@ -718,7 +718,7 @@ SA.GFLAB = (() => {
       if (!inCollar(px0 - 1, py0) || !inCollar(px0 + 1, py0) || !inCollar(px0, py0 - 1) || !inCollar(px0, py0 + 1)) c = IVORY[0];
       else if (v < -R0 + 4) c = IVORY[3];
       else if (v > R0 * 0.45) c = IVORY[1];
-      if (c === IVORY[2] && u < lowAt(v) + 1.5) c = IVORY[1];   // v6：阴影也沿椭圆弧                          // 下沿一道阴影：看出箍的厚度
+      if (c === IVORY[2] && u < lowAt(v) + 1.5) c = IVORY[1];   // 下沿一道阴影（沿椭圆弧）：看出箍的厚度
       px(px0, py0, c);
     }
     // 炮口端面：略倾斜的椭圆——外沿、厚边（朝上一半亮）、内沿、黑洞 + 远侧内壁
