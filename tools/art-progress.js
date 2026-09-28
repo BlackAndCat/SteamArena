@@ -80,7 +80,7 @@ SA.ARTPLAN = {
     rocket_rack: { status: 'cand', pri: 17, ch: 4, note: '2×2，数得出 4 发；另需尾焰', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rocket_rack', 'explore']] },
     pressure_tank: { status: 'cand', pri: 18, ch: 4, note: '1×2 储能，存量看得见、没有青色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_tank', 'explore']] },
     rangefinder: { status: 'cand', pri: 19, ch: 4, note: '1×1，合像测距仪长横管', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rangefinder', 'explore']] },
-    mg2: { status: 'cand', pri: 20, ch: 4, note: '2×2，两门并在一起、两条弹链。机枪系列最大 2×2：它和机炮同尺寸，是否保留 / 改名待用户定', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore']] },
+    mg2: { status: 'cand', pri: 20, ch: 4, note: '2×2，两门并在一起、两条弹链。和机炮同为 2×2，用户定：保留（2026-09-28），剪影要和机炮分开', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore']] },
     radiator: { status: 'cand', pri: 21, ch: 4, note: '1×2 侧挂，真镂空格栅', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#radiator', 'explore']] },
     gyroscope: { status: 'cand', pri: 22, ch: 4, note: '1×1，和双足胯里的陀螺仪同一语言', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#gyroscope', 'explore']] },
     // ---------- 第 6 档：唯一件（每个存档只拿到一次）----------
