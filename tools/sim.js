@@ -263,7 +263,7 @@
     const base = REF[ci] || REF[REF.length - 1];
     // 每章至少尝试一次已解锁的武器；没有对应大格时替换第一处武器位，避免新模块永远不进入测试池。
     const weapon = ['C', 'M', 'P', 'L', 'R', 'G', 'J', 'F'];
-    const weaponName = { C: '直射炮', M: '机枪', P: '高抛炮', L: '小炮', R: '重炮', G: '火箭架', J: '鱼叉', F: '喷火器' };
+    const weaponName = { C: '直射炮', M: '机炮', P: '高抛炮', L: '小炮', R: '重炮', G: '火箭架', J: '鱼叉', F: '喷火器' };
     const weaponId = { C: 'cannon', M: 'mg', P: 'mortar', L: 'cannon_s', R: 'cannon_heavy', G: 'rocket_rack', J: 'harpoon', F: 'flamer' };
     const available = availableMods(ci, 0);
     const out = [];

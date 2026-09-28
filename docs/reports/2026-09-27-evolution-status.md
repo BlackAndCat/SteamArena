@@ -41,6 +41,9 @@
 
 机器有 RTX 5070 Ti（16,303 MiB，compute capability 12.0），但 Node v24.14.0 没有 `navigator.gpu`，`--experimental-webgpu` 也不支持。当前战斗状态机包含碰撞、遮挡、可变结束时间和大量分支；只把短 AI 决策链搬到 GPU 预计收益有限。若以后试验 GPU，需要把整个战斗步进重写成 WGSL / CUDA 数据布局，并用固定种子逐事件差分验证，不能直接替换当前 worker 路径。
 
+已用浏览器 WebGPU 做了独立批量算术基准（`tools/gpu-benchmark.html`）：RTX 5070 Ti 的 `nvidia / blackwell` adapter 对固定输入的 CPU / WGSL 结果最大误差为 `3.81e-5`，全部一致；重复 5 次时，4K / 16K / 64K / 262K / 1,048K 候选的 GPU 含回读加速分别为约 `0.00× / 0.02× / 0.11× / 0.39× / 0.95×`。这只是可批量预筛算式，当前预演 1,632 次候选远未达到回读平衡点，因此不接入正式生成器。
+
+
 ## 已通过的检查
 
 - `node tools/evolve-check.js`：规则指纹 `d0855c6e53d80650`，战役 17 关有限性通过，41 / 41 模块覆盖，分享码往返、旧存档迁移、AI 确定性、底盘夹具、并行检查和缓存检查通过。

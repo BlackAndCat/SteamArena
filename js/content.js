@@ -10,7 +10,7 @@ SA.STARTER = {
 SA.OPPONENTS = [
   {
     name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 150, aim: 0.65,
-    blurb: '拿铁匠铺的边角料拼出来的，但老汤姆的机枪从不卡壳。',
+    blurb: '拿铁匠铺的边角料拼出来的，但老汤姆的机炮从不卡壳。',
     rows: ['........', '........', '........', '...KM...', '...OWA..', '...TTT..'], sides: [],
   },
   {
@@ -69,7 +69,7 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // spec：每关的探索稿规格。terrain / reward / lesson / targetStrength / performanceMin 供进化报告和验收读取，
 // 它描述设计意图，不直接替代战斗数值或敌车的实际布局；关卡调整时优先改这里和 unlock 的对应关系。
 // subs：用子格坐标放置 1×1 / 1×2 / Boss 大件，坐标仍是 24px 最小格；无专用美术的模块由通用占位显示。
-// 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 直射火炮 / 机枪，黄铜材料，4×3 改装台
+// 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 中炮 / 机炮，黄铜材料，4×3 改装台
 SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
   garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
@@ -98,21 +98,21 @@ SA.CAMPAIGN = [
     stages: [
       {
         name: '破铜烂铁号', pilot: '学徒 小皮普', prize: 60, aim: 0.35, style: 'turtle',
-        blurb: '铁匠铺学徒拿废料拼的练习车，只有一挺机枪，枪法也很烂。放心开火。',
+        blurb: '铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。',
         rows: ['........', '........', '........', '...K....', '...OM...', '...TT...'],
-        spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机枪：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
-        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一挺机枪和两块铁装甲，再给你一只小水罐练习冷却。' },
+        spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一门机炮和两块铁装甲，再给你一只小水罐练习冷却。' },
       },
       {
         name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 120, aim: 0.6,
-        blurb: '老汤姆的机枪从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。',
+        blurb: '老汤姆的机炮从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。',
         rows: ['........', '........', '........', '...KM...', '...OWA..', '...TTU..'],
         spec: { terrain: 'flat', reward: 'bucket', lesson: '铲斗近战：没有好炮时，用动力和铲斗贴身推倒早期薄甲车。', targetStrength: [0.65, 0.8], performanceMin: 35 },
         unlock: { mods: ['bucket'], note: '缴获铲斗：前期瞄准困难时，先用动力和铲斗贴近解决战斗。' },
       },
     ],
-    unlock: { feat: ['shop'], mods: ['tank_tall', 'cannon_s'], grid: { cols: 5, rows: 3 },
-      note: '商店开张：没库存的模块直接放上车就是购买。每个大格可以拆成 2×2 小格：小水罐、水罐和小炮用来补缝或增加早期火力。' },
+    unlock: { feat: ['shop'], mods: ['tank_tall', 'cannon_s', 'mg_s', 'boiler_s'], grid: { cols: 5, rows: 3 },
+      note: '商店开张：没库存的模块直接放上车就是购买。每个大格可以拆成 2×2 小格：小水罐、水罐、小炮、车载机枪和竖式锅炉用来补缝、增加火力或供能。' },
   },
   {
     name: '第一章 · 后巷', place: '白教堂后巷',
@@ -120,16 +120,16 @@ SA.CAMPAIGN = [
     stages: [
       {
         name: '铁皮罐头', pilot: '锅炉工 胖哈利', prize: 130, terrain: 'crates', aim: 0.55, style: 'turtle',
-        blurb: '车头糊满了铁皮，机枪打上去只冒火星（装甲每发减伤）。用直射火炮把铁皮凿穿，再打它的火炮。',
+        blurb: '车头糊满了铁皮，机炮打上去只冒火星（装甲每发减伤）。用直射火炮把铁皮凿穿，再打它的火炮。',
         rows: ['........', '........', '...K....', '..OWL...', '..OWAA..', '..TTTT..'],
         spec: { terrain: 'crates', reward: null, lesson: '推与挡的第一题：货箱能挡低平火力，薄甲应由直射火炮先打开缺口。', targetStrength: [0.65, 0.8], performanceMin: 35 },
         unlock: { feat: ['street', 'bank'], note: '街头赛和银行开放：先用短赛补足改装预算，再决定把钱投到武器还是冷却。' },
       },
       {
         name: '双管哨兵', pilot: '扒手 机灵杰克', prize: 150, aim: 0.65, style: 'kite',
-        blurb: '上下两挺机枪一起扫，跑得还快，专挑没护甲的模块。把锅炉、驾驶舱藏到装甲后面，拉近了打。',
+        blurb: '上下两门机炮一起扫，跑得还快，专挑没护甲的模块。把锅炉、驾驶舱藏到装甲后面，拉近了打。',
         rows: ['........', '........', '...M....', '..KAM...', '..OWA...', '..TTT...'], subs: [[4, 10, 'periscope'], [4, 12, 'autoloader']],
-        spec: { terrain: 'flat', reward: 'periscope', lesson: '观察与装填：先用辅助件改善瞄准和装填，再处理会拉扯距离的机枪车。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+        spec: { terrain: 'flat', reward: 'periscope', lesson: '观察与装填：先用辅助件改善瞄准和装填，再处理会拉扯距离的机炮车。', targetStrength: [0.65, 0.8], performanceMin: 35 },
         unlock: { mods: ['periscope', 'autoloader'], note: '观察镜和装弹机开放：装到车上即可改善瞄准和装填，被击毁后效果消失。' },
       },
       {
@@ -141,8 +141,8 @@ SA.CAMPAIGN = [
         unlock: { feat: ['side'], mods: ['side_cannon', 'armor_heavy'], note: '缴获侧炮和重装甲：侧挂层能从装甲外侧射击，重装甲则把正面推撞的成本降下来。' },
       },
     ],
-    unlock: { mods: ['quad', 'cannon'], mat: 2, grid: { cols: 5, rows: 4 },
-      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。四足和直射火炮到手，观察镜、装弹机和侧挂件都是可击毁的实体模块。街头赛可以刷钱，银行可以贷款。' },
+    unlock: { mods: ['quad', 'cannon', 'mg_heavy'], mat: 2, grid: { cols: 5, rows: 4 },
+      note: '熟铁材料开放：选中车上的模块就能升级材料，所有属性 ×1.2。四足、直射火炮和重机枪到手，观察镜、装弹机和侧挂件都是可击毁的实体模块。街头赛可以刷钱，银行可以贷款。' },
   },
   {
     name: '第二章 · 码头区', place: '泰晤士河码头',
@@ -229,8 +229,8 @@ SA.CAMPAIGN = [
         unlock: { mods: ['cockpit', 'boss_core'], note: '联合驾驶舱和圣堂压力核心开放：四个驾驶员协同操作，核心提供动力、储压、储水和持续冷却。' },
       },
     ],
-    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['mg2', 'radiator', 'gyroscope'], grid: { cols: 7, rows: 5 },
-      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片和陀螺仪补齐火力与控制；委托、下注和蓝图库开放，有些委托会付乌兹钢锭。' },
+    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['mg2', 'radiator', 'gyroscope', 'boiler_l', 'water_l'], grid: { cols: 7, rows: 5 },
+      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片、陀螺仪、大型锅炉和大水箱补齐火力、控制与后勤；委托、下注和蓝图库开放，有些委托会付乌兹钢锭。' },
   },
   {
     name: '第五章 · 水晶宫', place: '海德公园 · 水晶宫',
@@ -238,9 +238,9 @@ SA.CAMPAIGN = [
     stages: [
       {
         name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, terrain: 'crates', aim: 0.9, mt: 4,
-        blurb: '三挺机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机枪就只能冒火星。',
+        blurb: '三门机炮、一组双联机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机炮就只能冒火星。',
         rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..B.....'], subs: [[2, 10, 'mg2']],
-        spec: { terrain: 'crates', reward: null, lesson: '综合考试一：重装甲、机枪火力网和双足机动同时出现，检验前几章的防守与接近。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+        spec: { terrain: 'crates', reward: null, lesson: '综合考试一：重装甲、机炮与双联机枪火力网和双足机动同时出现，检验前几章的防守与接近。', targetStrength: [0.65, 0.8], performanceMin: 35 },
       },
       {
         name: '煤灰寡妇 · 复仇', pilot: '玛莎·布莱克', prize: 600, terrain: 'yard', aim: 0.9, boss: true, mt: 4,
@@ -310,7 +310,7 @@ SA.CLOUD_PRESETS = [
 // 官方蓝图：基础构型，不能删除
 SA.OFFICIAL_BLUEPRINTS = [
   { name: '履带 · 基础炮车', desc: '起步用的稳妥构型：一门直射火炮，装甲护住锅炉。', rows: ['........', '........', '........', '...KC...', '...OWA..', '...TTT..'] },
-  { name: '履带 · 铲斗推土机', desc: '宽履带加车头铲斗，机枪压制，靠冲撞把对手推出去。', rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'] },
+  { name: '履带 · 铲斗推土机', desc: '宽履带加车头铲斗，机炮压制，靠冲撞把对手推出去。', rows: ['........', '........', '........', '...KM...', '..WOAA..', '..TTTTU.'] },
   { name: '四足 · 稳定炮台', desc: '四足平台散布小，直射炮平推，顶上高抛炮砸顶。', rows: ['........', '........', '...P....', '..WKC...', '..OOA...', '..Q.....'] },
   { name: '双足 · 轻骑兵', desc: '跑得快、难命中，装甲前焊着撞角，适合贴脸冲锋。', rows: ['........', '........', '........', '...KM...', '...OAX..', '...B....'] },
 ];

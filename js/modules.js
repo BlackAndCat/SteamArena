@@ -7,7 +7,7 @@
 window.SA = window.SA || {};
 
 // 格子：子格 24px，全车 16 列 × 12 行（= 以前的 8 × 6 大格，每个大格分成 2×2 子格）。
-// 模块记在左上角那一格（锚点），占 w×h 个子格：现有模块都是 2×2（画面 48px），新增 1×1、1×2 的小模块。
+// 模块记在左上角那一格（锚点），占 w×h 个子格；未写尺寸的旧模块默认 2×2，新模块可占 1×1、1×2 或 3×3。
 // 关卡 / 蓝图的 ASCII 仍按大格写，读进来时换算成子格（SA.V.fromAscii）
 SA.K = {
   COLS: 16,
@@ -170,14 +170,14 @@ SA.MODULES = {
   armor: {
     name: '铁装甲', cat: 'structure', layer: 'body',
     price: 40, hp: 160, power: 0, armor: 3, kg: 350, q: 1,
-    desc: '廉价的挡箭牌，不耗动力但有分量。护甲 3：每发炮弹先减掉 3 点伤害，机枪打上去只冒火星。直射炮弹会先打中弹道上的第一个模块。',
+    desc: '廉价的挡箭牌，不耗动力但有分量。护甲 3：每发炮弹先减掉 3 点伤害，机炮打上去只冒火星。直射炮弹会先打中弹道上的第一个模块。',
   },
   armor_heavy: {
     name: '重装甲', cat: 'structure', layer: 'body',
     price: 95, hp: 320, power: 0, armor: 6, kg: 750, q: 2,
-    desc: '两倍厚度，护甲 6，机枪基本打不动；也重了一倍多：吃掉底盘承重，拖慢车速。',
+    desc: '两倍厚度，护甲 6，机炮基本打不动；也重了一倍多：吃掉底盘承重，拖慢车速。',
   },
-  // 火炮家族：小炮 1×1、中炮 2×1（横躺）、直射火炮 2×2、重炮 2×4、巨炮 4×4（见 docs/module-plan.md）。
+  // 火炮家族：小炮 1×1、中炮 2×1（横躺）、直射火炮 2×2、重炮 3×2、巨炮 4×4（高抛，见 docs/module-plan.md）。
   // minMt：最低材料，低于它的模块不存在（关卡里低材料的车改用 lowAlt）；vis：从哪几级材料开始换外形
   cannon: {
     name: '直射火炮', cat: 'firepower', layer: 'body', minMt: 2, lowAlt: 'cannon_m',
@@ -218,10 +218,10 @@ SA.MODULES = {
   cannon_giant: {
     name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', unique: { mt: 6, once: true, source: 'salvage' },
     price: 760, hp: 420, power: 10, kg: 1800, q: 5,
-    dmg: 104, reload: 6.8, heat: 18, proj: 'shell', v: 960, g: 1, spread: 8, arc: 'low', kick: 180,
-    elev: [-5, 36], slew: 11, windup: 0.8, wild: 0.04, rest: 0, aimT: 2.4,
+    dmg: 104, reload: 6.8, heat: 18, proj: 'shell', v: 820, g: 1, spread: 0, arc: 'high', indirect: true, kick: 180,
+    elev: [-5, 36], slew: 11, windup: 0.8, wild: 0, rest: 0, aimT: 2.4,
 
-    desc: '女王号缴获的终局火炮。它把改装台的大块空间换成一次决定性的重击，热量和动力压力都最高。',
+    desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，近处有射击盲区；热量和动力压力都最高。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
@@ -232,7 +232,7 @@ SA.MODULES = {
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
   mg: {
-    name: '机枪', cat: 'firepower', layer: 'body',
+    name: '机炮', cat: 'firepower', layer: 'body',
     price: 110, hp: 130, power: 2, kg: 150, q: 1,
     dmg: 5, reload: 0.4, heat: 1.2, proj: 'bullet', v: 1230, g: 0.27, spread: 10, arc: 'low', kick: 5,
     elev: [-8, 32], slew: 50, windup: 0.15, wild: 0.1, rest: 0, aimT: 0.4,
@@ -373,6 +373,35 @@ SA.MODULES = {
     price: 90, hp: 30, kg: 60, q: 1, swayMul: 0.7,
     desc: '实体辅助件：全车车身晃动 ×0.7；被毁即失效。',
   },
+  mg_s: {
+    name: '车载机枪', cat: 'firepower', layer: 'body', w: 1, h: 1,
+    price: 48, hp: 48, power: 1, kg: 55, q: 1,
+    dmg: 2, reload: 0.3, heat: 0.65, proj: 'bullet', v: 1150, g: 0.27, spread: 13, arc: 'low', kick: 2,
+    slew: 60, windup: 0.1, wild: 0.1, aimT: 0.3,
+    desc: '占一个小格的车载机枪，耗能和重量都低；适合补空位，但单发伤害和穿深有限。',
+  },
+  mg_heavy: {
+    name: '重机枪', cat: 'firepower', layer: 'body', w: 1, h: 2,
+    price: 78, hp: 82, power: 1.5, kg: 105, q: 1,
+    dmg: 3.5, reload: 0.35, heat: 0.9, proj: 'bullet', v: 1200, g: 0.27, spread: 11, arc: 'low', kick: 3.5,
+    slew: 55, windup: 0.12, wild: 0.1, aimT: 0.35,
+    desc: '竖立的重机枪，占 1×2 小格；伤害和穿深高于车载机枪，但需要更多动力。',
+  },
+  boiler_s: {
+    name: '竖式锅炉', cat: 'energy', layer: 'body', w: 1, h: 2,
+    price: 72, hp: 70, power: 0, supply: 3, heatRate: 0.8, explode: 22, kg: 240, q: 1,
+    desc: '占 1×2 小格的小型锅炉，提供 3 点动力；动力用得越满，产热越多，被击毁会爆炸。',
+  },
+  boiler_l: {
+    name: '大型锅炉', cat: 'energy', layer: 'body', w: 3, h: 3,
+    price: 290, hp: 250, power: 0, supply: 13.5, heatRate: 3.4, explode: 80, kg: 1235, q: 3,
+    desc: '占 3×3 小格的大型锅炉，提供 13.5 点动力；容量充足，但重量、产热和殉爆风险都高。',
+  },
+  water_l: {
+    name: '大水箱', cat: 'cooling', layer: 'body', w: 3, h: 3,
+    price: 158, hp: 210, power: 0, water: 340, cool: 9, kg: 675, q: 2,
+    desc: '占 3×3 小格，储水 340、每秒冷却 9；适合需要长时间开火的大型战车。',
+  },
 };
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
@@ -380,13 +409,14 @@ SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'copilot', 'helmet', 'plate', 'tank_s', 'tank_tall', 'cannon_m',
   'cannon_s', 'cannon_heavy', 'cannon_giant', 'pressure_tank', 'pressure_chamber', 'cockpit_pair',
   'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer',
-  'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'steamjet', 'periscope', 'autoloader', 'rangefinder', 'gyroscope'];   // 新模块只能追加在末尾：分享码按这里的序号编码
+  'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'steamjet', 'periscope', 'autoloader', 'rangefinder', 'gyroscope',
+  'mg_s', 'mg_heavy', 'boiler_s', 'boiler_l', 'water_l'];   // 新模块只能追加在末尾：分享码按这里的序号编码
 
 // 穿深（K1，docs/campaign-direction.md §3）：炮弹打到有护甲的模块时和装甲厚度（护甲值，随材料放大）比较，
 // 穿深不够就有概率弹开（battle.js 的 projectileDamage）。穿深不随材料放大，所以越往后装甲越难打穿。
 // ricochet：额外的弹开概率（侧炮定位是补强而不是主力）。喷射类武器不会弹开。数值暂定，等系统健康测试校准
 const PENETRATION = {
-  mg: 3, mg2: 3, cannon_s: 3.5, cannon_m: 5, cannon: 7, cannon_heavy: 11, cannon_giant: 16,
+  mg: 3, mg2: 3, mg_s: 2, mg_heavy: 2.5, cannon_s: 3.5, cannon_m: 5, cannon: 7, cannon_heavy: 11, cannon_giant: 16,
   mortar: 6, mortar_s: 4, side_cannon: [3, 0.1], rocket_rack: 4, harpoon: 4, flamer: 99, steamjet: 99,
 };
 for (const id in PENETRATION) {
@@ -399,12 +429,12 @@ for (const id in PENETRATION) {
 // 2026-09-26 用户选定 astra 提出的这套较高的比例；整体水平等经济模拟再校准
 const REPAIR_RATE = {
   plate: 0.03, armor: 0.04, armor_heavy: 0.045,
-  water: 0.06, tank_s: 0.05, tank_tall: 0.055, radiator: 0.07, condenser: 0.08,
+  water: 0.06, water_l: 0.06, tank_s: 0.05, tank_tall: 0.055, radiator: 0.07, condenser: 0.08,
   track: 0.08, quad: 0.09, biped: 0.1,
   helmet: 0.24, cockpit_pair: 0.27, cockpit: 0.28, copilot: 0.24,
-  boiler: 0.26, pressure_chamber: 0.12, pressure_tank: 0.1,
+  boiler: 0.26, boiler_s: 0.26, boiler_l: 0.26, pressure_chamber: 0.12, pressure_tank: 0.1,
   periscope: 0.18, autoloader: 0.19, rangefinder: 0.18, gyroscope: 0.19,
-  mg: 0.09, mg2: 0.11, cannon_s: 0.1, cannon_m: 0.12, cannon: 0.14, cannon_heavy: 0.18, cannon_giant: 0.22,
+  mg: 0.09, mg2: 0.11, mg_s: 0.08, mg_heavy: 0.085, cannon_s: 0.1, cannon_m: 0.12, cannon: 0.14, cannon_heavy: 0.18, cannon_giant: 0.22,
   mortar: 0.15, mortar_s: 0.12, side_cannon: 0.14, rocket_rack: 0.16, harpoon: 0.14, flamer: 0.12, steamjet: 0.12,
   bucket: 1 / 8, spike: 0.16, piston: 1 / 5,
   boss_core: 0.24, boss_lens: 0.22, boss_ram: 0.2,

@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-26-battle-constants';
+SA.RULES_VERSION = '2026-09-28-giant-indirect-module-family';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -12,7 +12,7 @@ SA.Battle = (() => {
   const alive = SA.V.alive;
   // 武器组顺序同时决定驾驶员接管顺序。新模块追加到末尾，避免旧分享码的手操顺序变化。
   const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mortar_s', 'mg', 'mg2', 'side_cannon',
-    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet'];
+    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'mg_s', 'mg_heavy'];
   let B = null;
   let view = null;
   const CAMERA_ZMIN = 0.62;
@@ -290,9 +290,9 @@ SA.Battle = (() => {
     return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= bipedLegStart(s) ? 'leg' : 'hip') : null } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
-  function muzzle(s, w) {
+  function muzzle(s, w, deg = barrel(s, w)) {
     const x0 = cellX(s, w.c), y0 = cellY(w.r, s);
-    const [px, py] = w.m.piv || [C / 2, C / 2], a = barrel(s, w) * Math.PI / 180;
+    const [px, py] = w.m.piv || [C / 2, C / 2], a = deg * Math.PI / 180;
     const dx = Math.cos(a) * (w.m.blen || C / 2), dy = -Math.sin(a) * (w.m.blen || C / 2);
     const mx = isP(s) ? x0 + px + dx : x0 + C - px - dx;
     return toWorld(s, mx, y0 + py + dy);
@@ -323,15 +323,31 @@ SA.Battle = (() => {
   };
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
   function aimAngle(s, w, tx, ty) {
-    const [x0, y0] = muzzle(s, w);
-    const sol = solve(x0, y0, tx, ty, w.m.v, K.GRAVITY * w.m.g, w.m.arc === 'high');
+    let a = barrel(s, w), sol, raw, behind;
+    const [lo, hi] = w.m.elev;
+    // 高抛炮的炮口会随仰角明显移动：从候选仰角的炮口迭代求解，
+    // 让 AI 预判、慢速转炮后的发射和弹道预览使用同一个出膛点。
+    for (let i = 0; i < (w.m.indirect ? 4 : 1); i++) {
+      const [x0, y0] = muzzle(s, w, a);
+      behind = (isP(s) ? 1 : -1) * (tx - x0) <= 0;
+      sol = solve(x0, y0, tx, ty, w.m.v, K.GRAVITY * w.m.g, w.m.arc === 'high');
+      raw = sol.a * 180 / Math.PI - pitchOf(s);
+      a = clamp(raw, lo, hi);
+    }
     // 世界里要的仰角 → 炮管相对车身的仰角（车身在坡上抬头 / 低头，射界也跟着车身走）
-    const raw = sol.a * 180 / Math.PI - pitchOf(s), [lo, hi] = w.m.elev;
-    return { a: clamp(raw, lo, hi), reach: sol.reach, over: sol.reach && raw > hi ? 'high' : sol.reach && raw < lo ? 'low' : null };
+    return { a, reach: sol.reach, behind, over: sol.reach && raw > hi ? 'high' : sol.reach && raw < lo ? 'low' : null };
   }
   const barrel = (s, w) => (s.elev[w.key] != null ? s.elev[w.key] : w.m.rest);
+  // 间接火力必须有可达目标，并能在本帧完成转炮才开火；齐射与副驾驶共用此条件。
+  // 直射武器保留原来的提前松手射击规则，巨炮等慢转高抛炮不会横着浪费首发。
+  function indirectReady(s, w, pt, dt) {
+    if (!w.m.indirect) return true;
+    if (!pt) return false;
+    const aim = aimAngle(s, w, pt[0], pt[1]);
+    return aim.reach && !aim.over && !aim.behind && Math.abs(aim.a - barrel(s, w)) <= w.m.slew * dt;
+  }
   function launch(s, w, deg, jitter) {
-    const [x0, y0] = muzzle(s, w);
+    const [x0, y0] = muzzle(s, w, deg);
     const a = (deg + jitter) * Math.PI / 180;
     const dir = isP(s) ? 1 : -1;
     const wa = a + pitchOf(s) * Math.PI / 180;   // 炮管仰角（相对车身）+ 车身抬头 = 世界里的仰角
@@ -339,7 +355,8 @@ SA.Battle = (() => {
   }
   // 推进一步并检测命中：侧挂模式只和侧挂层碰撞
   function advance(sh, def, dt) {
-    sh.x += sh.vx * dt; sh.y += sh.vy * dt; sh.vy += sh.g * dt;
+    // 匀加速位移与 solve 的解析抛物线一致，避免高抛长航时累积半帧重力误差。
+    sh.x += sh.vx * dt; sh.y += sh.vy * dt + sh.g * dt * dt / 2; sh.vy += sh.g * dt;
     const cell = cellAt(def, sh.x, sh.y);
     if (cell) {
       const hit = modAt(def, sh.side ? 'side' : 'body', cell.r, cell.c);
@@ -355,7 +372,7 @@ SA.Battle = (() => {
   // 镜头状态同时服务于画面和炮弹出界判定；无画面模拟也必须更新它，保持战斗边界与实战一致。
   function camera(dt) {
     const pr = cellX(B.p, B.p.minCol), er = cellX(B.e, B.e.minCol) + C;
-    const lob = B.p.sel === 'mortar';
+    const lob = B.p.weapons.some(w => w.cell.id === B.p.sel && w.m.indirect);
     const tz = clamp((W - 60) / (er - pr + 360), CAMERA_ZMIN, lob ? 1.25 : 1.8);
     const cam = B.cam;
     cam.z += (tz - cam.z) * Math.min(1, dt * 3);
@@ -829,7 +846,7 @@ SA.Battle = (() => {
     // 手操的这一组是齐射：组里每门炮都装好了才一起开火（其他驾驶员管的组照旧各打各的）
     const salvo = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);
     const salvoReady = salvo.length > 0 && salvo.every(w => s.timers[w.key] <= 0);
-    const salvoGo = salvoReady && firing && salvo.every(w => ready(w));
+    const salvoGo = salvoReady && firing && salvo.every(w => ready(w) && indirectReady(s, w, aimPt, dt));
     const again = rnd(T.SALVO_FACTOR_MIN, T.SALVO_FACTOR_MAX);   // 同一轮齐射用同一个装填时间，下一轮还是一起好
     for (const w of s.weapons) {
       if (w.blocked) continue;
@@ -842,7 +859,7 @@ SA.Battle = (() => {
       if (mine) {
         if (salvoGo) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * again; s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
         else s.timers[w.key] = 0;
-      } else if (co && coPt && Math.abs(want - cur) < T.AIM_TURN_THRESHOLD) { fire(s, o, w, !!coAt && coAt.layer === 'side', T.COPILOT_FOCUS); s.timers[w.key] = w.m.reload * rnd(T.COPILOT_RELOAD_FACTOR_MIN, T.COPILOT_RELOAD_FACTOR_MAX); }
+      } else if (co && coPt && Math.abs(want - cur) < T.AIM_TURN_THRESHOLD && indirectReady(s, w, coPt, dt)) { fire(s, o, w, !!coAt && coAt.layer === 'side', T.COPILOT_FOCUS); s.timers[w.key] = w.m.reload * rnd(T.COPILOT_RELOAD_FACTOR_MIN, T.COPILOT_RELOAD_FACTOR_MAX); }
       else s.timers[w.key] = 0;
     }
     if (s.kick) { s.focus *= s.kick; s.kick = 0; }   // 后坐力把准星震开（快枪只震掉一点）
@@ -871,7 +888,7 @@ SA.Battle = (() => {
     SA.V.each(o.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const id = cell.id;
-      const w = layer === 'side' ? T.AI_TARGET_WEIGHTS.side : M[id].dmg ? T.AI_TARGET_WEIGHTS.weapon : SA.isCockpit(id) ? T.AI_TARGET_WEIGHTS.cockpit : id === 'boiler' ? T.AI_TARGET_WEIGHTS.boiler : id === 'water' ? T.AI_TARGET_WEIGHTS.water : M[id].layer === 'chassis' ? T.AI_TARGET_WEIGHTS.chassis : T.AI_TARGET_WEIGHTS.other;
+      const w = layer === 'side' ? T.AI_TARGET_WEIGHTS.side : M[id].dmg ? T.AI_TARGET_WEIGHTS.weapon : SA.isCockpit(id) ? T.AI_TARGET_WEIGHTS.cockpit : M[id].supply ? T.AI_TARGET_WEIGHTS.boiler : M[id].water ? T.AI_TARGET_WEIGHTS.water : M[id].layer === 'chassis' ? T.AI_TARGET_WEIGHTS.chassis : T.AI_TARGET_WEIGHTS.other;
       cands.push({ w, t: { layer, r, c } });
     });
     let x = random() * cands.reduce((a, b) => a + b.w, 0);
@@ -911,7 +928,7 @@ SA.Battle = (() => {
         const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
         const pr = w && predict(s, o, w, aimAngle(s, w, pt[0], pt[1]).a, false);
-        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect));
+        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect && !x.blocked));
       }
     }
     s.fireHeld = !!s.target;
@@ -927,8 +944,15 @@ SA.Battle = (() => {
       s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
     }
     const selected = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
+    // 高抛射界有近端盲区和最远距离，沿用模块的角度配置判断，不写死巨炮的视觉参数。
+    // 近到抬不够炮口时后退，远到弹道不可达或压不低时前进；进入射界后仍按原性格移动。
+    const aimPt = selected && selected.m.indirect ? aiAimPoint(s, o) : null;
+    const lob = aimPt ? aimAngle(s, selected, aimPt[0], aimPt[1]) : null;
+    const fwd = isP(s) ? 1 : -1;
     const gapNow = selected && selected.m.range ? Math.abs(frontEdge(o) - frontEdge(s)) : 0;
-    if (selected && selected.m.range && gapNow > selected.m.range * T.AI_RANGE_MARGIN) s.dir = isP(s) ? 1 : -1;
+    if (lob && (lob.behind || lob.over === 'high')) s.dir = -fwd;
+    else if (lob && (!lob.reach || lob.over === 'low')) s.dir = fwd;
+    else if (selected && selected.m.range && gapNow > selected.m.range * T.AI_RANGE_MARGIN) s.dir = fwd;
     else if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < T.AI_CONTACT_SPEED) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME); }
     else s.dir = Math.abs(s.goalX - s.x) > T.AI_GOAL_EPSILON ? Math.sign(s.goalX - s.x) : 0;
   }

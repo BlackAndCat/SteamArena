@@ -12,6 +12,7 @@ const evolve = require('./evolve');
 const coverage = require('./evolve-coverage');
 const calibration = require('./ai-calibration');
 const battleConstants = require('./battle-constants-check');
+const evolveCandidates = require('./evolve-candidates-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -143,7 +144,8 @@ async function main() {
   const shareGarage = shareGarageCheck();
   const locked = lockedStageCheck();
   const battle = battleConstants.run();
-  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai };
+  const selectedView = evolveCandidates.run();
+  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai, selectedView };
   result.unique = unique;
   result.side = side;
   result.shareGarage = shareGarage;
