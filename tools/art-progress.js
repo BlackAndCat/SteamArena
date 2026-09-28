@@ -6,6 +6,7 @@
 // pri：优先级序号（1 最先做）；已完成的没有 pri。ch：玩家第一次拿到它的章节（0 = 开局 / 序章；null = 未定）
 // plan 模块在 SA.MODULES 里还没有，所以自带 name / size / cat；id 是暂定的，以 astra 落地的为准
 // hist：探索历史（从旧到新）：[日期, 版本 / 内容, 样机页, 样机状态]
+// lab：候选画在哪个样机脚本里（SA[lab].CANDS，候选页直接读来显示）；pick：用户已选的候选 key
 window.SA = window.SA || {};
 
 SA.ARTPLAN = {
@@ -66,7 +67,7 @@ SA.ARTPLAN = {
     mg_heavy: { status: 'plan', pri: 10, ch: null, name: '重机枪', size: '1×2', cat: 'firepower',
       note: '机枪系列中档（竖 1×2）。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [] },
     // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
-    boiler_s: { status: 'wip', pri: 11, ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
+    boiler_s: { status: 'wip', pri: 11, pick: 'C', lab: 'BLLAB', ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
       note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）。v1 三个方向（A 立式锅炉 / B 炉灶式 / C 高烟囱）× 六档，用户选 C 高烟囱，下一步细化 C 的六档；数据仍等 astra',
       hist: [['2026-09-28', 'v1 三个方向 × 六档 → 用户选 C 高烟囱', 'boiler-lab.html', 'explore']] },
     boiler_l: { status: 'plan', pri: 12, ch: null, name: '大型锅炉', size: '3×3', cat: 'energy',

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>新模块造型候选</title>
+<title>模块造型 · 全部进度</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
   html, body { height: auto; }
@@ -12,75 +12,77 @@
   .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); padding: 8px 0; border-bottom: 1px solid var(--dark2); display: grid; gap: 6px; }
   .cbar .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
   .cbar .lbl { font-size: 12px; color: var(--muted); }
-  .chipnav a { font-size: 12px; color: var(--iron4); text-decoration: none; padding: 2px 7px; border: 1px solid var(--dark3); white-space: nowrap; }
-  .chipnav a:hover { color: var(--brass3); border-color: var(--brass1); }
-  .chipnav a b { color: var(--brass2); font-weight: 400; margin-left: 3px; }
-  .chipnav .btl { font-size: 11px; color: var(--muted); margin: 0 2px 0 6px; }
+  .chipnav a { font-size: 12px; color: var(--iron4); text-decoration: none; padding: 1px 6px; border: 1px solid var(--dark3); border-left: 4px solid var(--st, var(--dark3)); white-space: nowrap; }
+  .chipnav a:hover { color: var(--brass3); border-color: var(--brass1); border-left-color: var(--st); }
+  .chipnav .btl { font-size: 11px; color: var(--muted); margin: 0 2px 0 8px; }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
-  section.mod { padding: 22px 0 6px; border-bottom: 1px dashed var(--dark3); }
-  .mh { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 6px; }
-  .mh h2 { margin: 0; font-size: 19px; font-weight: 900; letter-spacing: 2px; }
-  .mh .meta { font-size: 12px; color: var(--muted); }
   .cat { font-size: 11px; font-weight: 700; padding: 1px 6px; color: #11100e; }
-  .note { margin: 0 0 10px; font-size: 13px; line-height: 1.65; color: var(--iron4); max-width: 86em; }
-  .note .now { display: inline-flex; gap: 6px; align-items: center; vertical-align: middle; }
-  .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
-  .cand { padding: 10px 12px; }
-  .cand h3 { margin: 0 0 4px; font-size: 15px; color: var(--brass3); }
-  .cand .idea { margin: 0 0 8px; font-size: 12.5px; line-height: 1.6; }
-  .cand .main { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-  .cand .mini { display: grid; gap: 4px; justify-items: center; font-size: 10px; color: var(--muted); }
-  .strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; align-items: flex-end; }
-  .strip .s { display: grid; justify-items: center; gap: 2px; font-size: 10px; }
-  .cap { font-size: 11px; color: var(--muted); margin-top: 8px; }
-  .bg canvas { background: var(--bg2); }
-  /* v2：进度总览 + 类别 / 状态筛选 + 探索历史 */
   .fbtn { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid var(--dark3); background: none; color: var(--iron4); cursor: pointer; }
   .fbtn:hover { border-color: var(--brass1); color: var(--brass3); }
   .fbtn.on { color: #11100e; border-color: transparent; }
   .fbtn i { font-style: normal; opacity: .75; margin-left: 4px; }
   .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; color: #11100e; white-space: nowrap; }
-  section.ov { padding: 18px 0 8px; border-bottom: 3px solid var(--dark0); }
-  section.ov h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: 2px; color: var(--brass2); }
-  .tier { margin: 14px 0 4px; }
-  .tier h3 { margin: 0; font-size: 15px; color: var(--brass3); }
-  .tier .tdesc { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
-  .tile { display: grid; grid-template-columns: 76px 1fr; gap: 10px; padding: 8px 10px; align-items: start; text-decoration: none; color: inherit; }
-  .tile .pic { width: 76px; height: 64px; display: grid; place-items: center; background: var(--bg2); }
-  .tile .pic canvas { max-width: 72px; max-height: 60px; }
-  .tile b { font-size: 14px; }
-  .tile .row1 { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
-  .tile .pri { font-size: 11px; color: var(--brass2); font-weight: 700; }
-  .tile .tn { font-size: 11.5px; line-height: 1.5; color: var(--iron4); margin-top: 3px; }
-  .tile .hl { font-size: 11px; margin-top: 3px; }
-  .tile .hl a { color: var(--brass3); }
-  .hist { margin: 0 0 10px; font-size: 12px; line-height: 1.8; color: var(--iron4); }
-  .hist a { color: var(--brass3); }
-  .hist .tag { margin-right: 4px; }
-  details.old > summary { cursor: pointer; font-size: 13px; color: var(--muted); margin: 4px 0 8px; }
+  section.ov { padding: 14px 0 6px; }
+  section.ov h2 { margin: 0; font-size: 18px; letter-spacing: 2px; color: var(--brass2); }
+  .pbar { display: flex; height: 14px; border: 2px solid var(--dark0); margin: 8px 0 4px; }
+  .pbar span { display: block; height: 100%; }
+  .plegend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--iron4); }
+  .plegend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+  /* v3：全部模块一个画廊，一个模块一行，按计划表分档 */
+  .mgrp { margin-top: 22px; }
+  .mgrp > h3 { margin: 0; font-size: 17px; color: var(--brass2); letter-spacing: 2px; }
+  .mgrp > .tdesc { font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
+  section.mod { position: relative; padding: 10px 12px 8px; margin: 8px 0; border: 2px solid var(--dark2); border-left: 6px solid var(--st, var(--dark3)); background: var(--bg1, #1b1a19); }
+  section.mod.passed { background: linear-gradient(90deg, rgba(70,194,201,.13), rgba(70,194,201,0) 60%), var(--bg1, #1b1a19); border-color: #2c6f73; border-left-color: #46c2c9; }
+  section.mod.slim { padding: 6px 12px; }
+  .mh { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin: 0 0 4px; padding-right: 150px; }
+  .mh h2 { margin: 0; font-size: 17px; font-weight: 900; letter-spacing: 1px; }
+  .mh .meta { font-size: 12px; color: var(--muted); }
+  .mh .pri { font-size: 12px; color: var(--brass2); font-weight: 700; }
+  .line1 { font-size: 12px; color: var(--iron4); margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 150px; }
+  .line1 a { color: var(--brass3); }
+  .stamp { position: absolute; top: 8px; right: 12px; transform: rotate(-6deg); font-size: 20px; font-weight: 900; letter-spacing: 3px; padding: 2px 10px; border: 4px double currentColor; color: #46c2c9; background: rgba(0,0,0,.3); pointer-events: none; }
+  .stamp small { display: block; font-size: 10px; letter-spacing: 1px; font-weight: 700; text-align: center; }
+  .stamp.pick { color: #d9a441; }
+  .items { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .item { display: grid; gap: 4px; justify-items: start; }
+  .item .lab { font-size: 12px; color: var(--brass3); display: flex; gap: 6px; align-items: center; }
+  .item.chosen { outline: 2px solid #d9a441; outline-offset: 4px; }
+  .item.dim { opacity: .5; }
+  .item.dim:hover { opacity: 1; }
+  .ok { font-size: 11px; font-weight: 700; padding: 0 5px; background: #d9a441; color: #11100e; }
+  .tiers6 { display: flex; gap: 3px; align-items: flex-end; }
+  .missing { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+  .missing .box { width: 22px; height: 22px; border: 2px dashed var(--st); display: grid; place-items: center; font-size: 10px; color: var(--st); }
+  details.more { margin-top: 6px; }
+  details.more > summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .detail { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-top: 6px; }
+  .detail .panel { padding: 8px 10px; }
+  .detail h4 { margin: 0 0 4px; font-size: 13px; color: var(--brass3); }
+  .detail p { margin: 0 0 6px; font-size: 12px; line-height: 1.6; }
+  .strip { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end; font-size: 10px; color: var(--muted); }
+  .strip .s { display: grid; justify-items: center; gap: 2px; }
   .hidden { display: none !important; }
 </style></head>
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>新模块造型候选 · 进度总览 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v2 · 2026-09-28</small></h1>
-    <p><b>进度总览</b>列出全部模块（含计划新增、游戏里还没有的）的美术状态（已进游戏 / 探索中 / 候选待选 / 计划中 / 旧画待复核），按优先级分档，每个模块附最新一次探索和历史探索的链接；上面的按钮可以按<b>类别</b>和<b>状态</b>筛选。计划表的文字版见 <code>docs/art-plan.md</code>，数据在 <code>tools/art-progress.js</code>。</p>
-    <p><b>候选</b>（2026-09-27 夜间探索 v1）：当时借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
+    <h1>模块造型 · 全部进度 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v3 · 2026-09-28</small></h1>
+    <p>全部模块放在一个画廊里，按计划表分档（<code>docs/art-plan.md</code>，数据 <code>tools/art-progress.js</code>），一个模块一行。<b>已完成</b>的盖「已通过」印章，直接看定稿；<b>有候选</b>的并排放候选（金框 = 用户已选）；<b>游戏里还没有 / 还没候选</b>的只占一窄行。默认只看 T1，点「六档」看每张图的六种材料；想法说明、1×、剪影、仰角收在每行的「细节」里。</p>
   </header>
   <div class="cbar">
     <div class="row">
       <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="sil">剪影</button><button class="btn small" data-v="gray">灰度</button></span>
       <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button><button class="btn small" data-v="4">4×</button></span>
+      <span class="lbl">材料</span><span class="seg" id="six"><button class="btn small on" data-v="0">只看 T1</button><button class="btn small" data-v="1">六档</button></span>
       <button class="btn small on" id="anim">动画：开</button>
       <button class="btn small primary" id="fire">开火</button>
-      <span class="lbl" id="count"></span>
     </div>
     <div class="row"><span class="lbl">类别</span><span id="fcat" class="row"></span></div>
     <div class="row"><span class="lbl">状态</span><span id="fst" class="row"></span></div>
     <div class="row chipnav" id="nav"></div>
   </div>
-  <section class="ov" id="overview"><h2>进度总览</h2><div id="ovbody"></div></section>
+  <section class="ov" id="overview"><h2>进度</h2><div id="ovbody"></div></section>
   <div id="mods"></div>
 </div>
 
@@ -89,21 +91,29 @@
 <script src="cand-early.js"></script>
 <script src="cand-mid.js"></script>
 <script src="cand-late.js"></script>
+<script src="boiler-lab.js"></script>
 <script src="art-progress.js"></script>
 <script src="labs.js"></script>
 <script>
 (() => {
-  const C = SA.CAND, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const C = SA.CAND, P = SA.PAL, AP = SA.ARTPLAN, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => {
-    const { dataset, ...rest } = props, e = Object.assign(document.createElement(tag), rest);
+    const { dataset, style, ...rest } = props, e = Object.assign(document.createElement(tag), rest);
     if (dataset) Object.assign(e.dataset, dataset);
+    if (style) e.style.cssText = style;
     e.append(...kids.flat(2).filter(k => k != null && k !== '')); return e;
   };
-  const st = { mode: 'color', zoom: 3, anim: true, t: 0, k: 0 };
+  const st = { mode: 'color', zoom: 3, six: false, anim: true, t: 0, k: 0 };
   const LAYER = { body: '主体', side: '侧挂', ram: '撞击', chassis: '底盘' };
-  const ORDER = { early: 0, mid: 1, late: 2 };
-  const mods = C.MODS.slice().sort((a, b) => ORDER[a.batch] - ORDER[b.batch]);
+  const NIGHT = new Map(C.MODS.map(md => [md.id, md]));
+  const modOf = (id) => SA.MODULES[id] || { name: AP.MODS[id].name, cat: AP.MODS[id].cat, layer: 'body' };
+  const catOf = (id) => modOf(id).layer === 'ram' ? 'ram' : modOf(id).cat;
+  const catChip = (id) => { const c = SA.CAT[catOf(id)] || SA.CAT.structure, t = el('span', { className: 'cat' }, c.name); t.style.background = c.ui; return t; };
+  const stTag = (s) => { const d = AP.STATUS[s || 'todo'], t = el('span', { className: 'tag' }, d.name); t.style.background = d.color; return t; };
+  const LAB_ST = { shipped: 'done', archived: 'legacy', explore: 'wip', live: 'done' };
+  const LAB_NAME = { shipped: '定稿', archived: '历史', explore: '探索中', live: '现行' };
 
+  // ---------- 画图工具 ----------
   function filtered(src, mode) {
     if (mode === 'color') return src;
     const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
@@ -116,21 +126,15 @@
     }
     g.putImageData(img, 0, 0); return c;
   }
-  // 按内容裁掉四周空白：同一个候选、同一个仰角共用一个裁切框（开火、动画时画布大小不跳）
-  const crops = new Map();
-  function cropOf(key, id, cd, a) {
-    if (crops.has(key)) return crops.get(key);
-    const src = withHull(id, C.sprite(id, cd, { a })), d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
-    let x0 = src.width, y0 = src.height, x1 = 0, y1 = 0;
+  function bbox(src) {
+    const d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
+    let x0 = src.width, y0 = src.height, x1 = -1, y1 = -1;
     for (let yy = 0; yy < src.height; yy++) for (let xx = 0; xx < src.width; xx++) if (d[(yy * src.width + xx) * 4 + 3] > 8) { x0 = Math.min(x0, xx); x1 = Math.max(x1, xx); y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); }
-    const gun = C.isGun(id), r = [Math.max(0, x0 - 3), Math.max(0, y0 - 3), 0, 0];
-    r[2] = Math.min(src.width, x1 + (gun ? 8 : 4)) - r[0]; r[3] = Math.min(src.height, y1 + 4) - r[1];
-    crops.set(key, r); return r;
+    return x1 < 0 ? [0, 0, src.width - 1, src.height - 1] : [x0, y0, x1, y1];
   }
-  function cropped(src, r) {
-    const c = document.createElement('canvas'); c.width = r[2]; c.height = r[3];
-    c.getContext('2d').drawImage(src, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]); return c;
-  }
+  const union = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+  const toRect = (b, pad, W, H) => { const x = Math.max(0, b[0] - pad), y = Math.max(0, b[1] - pad); return [x, y, Math.min(W, b[2] + pad + 1) - x, Math.min(H, b[3] + pad + 1) - y]; };
+  function cropped(src, r) { const c = document.createElement('canvas'); c.width = r[2]; c.height = r[3]; c.getContext('2d').drawImage(src, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]); return c; }
   function paint(dst, src, z, mode = st.mode) {
     const s = filtered(src, mode);
     dst.width = s.width; dst.height = s.height;
@@ -138,108 +142,129 @@
     dst.style.width = s.width * z + 'px'; dst.style.height = s.height * z + 'px';
     return dst;
   }
-  // 主体层模块下面垫一块车体框架色（和游戏里一样，模块嵌在舱位里）
   function withHull(id, src) {
     const m = SA.MODULES[id];
-    if (m.layer !== 'body') return src;
+    if (!m || m.layer !== 'body') return src;
     const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
     const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(src.ox, src.oy, src.fw, src.fh); g.drawImage(src, 0, 0);
     Object.assign(c, { ox: src.ox, oy: src.oy, fw: src.fw, fh: src.fh }); return c;
   }
-  // 车体片段：左边两列甲片，右边放候选；侧挂件压在甲片上面
-  function chunk(id, cand) {
-    const m = SA.MODULES[id], src = C.sprite(id, cand, { t: st.t }), W = src.fw, H = src.fh, side = m.layer === 'side';
-    const hullW = side ? W + 24 : W + 48, c = document.createElement('canvas');
-    c.width = src.width + (side ? 24 : 48); c.height = src.height;
-    const g = c.getContext('2d'), x0 = src.ox, y0 = src.oy;
-    if (m.layer !== 'ram') { g.fillStyle = P.iron[0]; g.fillRect(x0 - 1, y0 - 1, (side ? W + 24 : 48 + (m.layer === 'body' ? W : 0)) + 2, H + 2); g.fillStyle = P.iron[1]; g.fillRect(x0, y0, side ? W + 24 : 48 + (m.layer === 'body' ? W : 0), H); }
-    for (let yy = 0; yy < H; yy += 24) for (let xx = 0; xx < (side ? W + 24 : 48); xx += 24) SA.SPR.drawModule(g, 'plate', x0 + xx, y0 + yy, {});
-    g.drawImage(src, side ? 12 : 48, 0);
-    return c;
-  }
-  function catChip(m) { const c = SA.CAT[m.layer === 'ram' ? 'ram' : m.cat] || SA.CAT.structure, t = el('span', { className: 'cat' }, c.name); t.style.background = c.ui; return t; }
-  const live = [];   // 需要随动画重画的 [画布, 模块, 候选]
-  function build() {
-    let n = 0;
-    const nav = [];
-    for (const b of ['early', 'mid', 'late']) {
-      nav.push(el('span', { className: 'btl' }, C.BATCH[b].replace(/（.*）/, '')));
-      for (const md of mods.filter(x => x.batch === b)) { nav.push(el('a', { href: '#' + md.id }, SA.MODULES[md.id].name, el('b', {}, md.cands.length))); n += md.cands.length; }
-    }
-    $('nav').replaceChildren(...nav);
-    $('count').textContent = `${mods.length} 个模块 · ${n} 个候选`;
-    $('mods').replaceChildren(...mods.map(md => {
-      const m = SA.MODULES[md.id], f = SA.fp(md.id);
-      const now = document.createElement('canvas'); now.width = f.w * 24 + 4; now.height = f.h * 24 + 4;
-      SA.SPR.drawModule(now.getContext('2d'), md.id, 2, 2, {}); now.style.width = now.width + 'px';
-      const meta = `${md.id} · ${f.w}×${f.h} 子格（${f.w * 24}×${f.h * 24}px）· ${LAYER[m.layer] || m.layer}` + (C.isGun(md.id) ? ` · 耳轴 (${m.piv}) 炮口长 ${m.blen} · 仰角 ${m.elev[0]}°～${m.elev[1]}°` : '') + ` · ${C.BATCH[md.batch]}`;
-      const ap = AP.MODS[md.id] || {}, done = ap.status === 'done';
-      const cands = el('div', { className: 'cands' }, ...md.cands.map(cd => card(md, cd)));
-      return el('section', { className: 'mod', id: md.id, dataset: { cat: catOf(md.id), st: ap.status || 'todo' } },
-        el('div', { className: 'mh' }, el('h2', {}, m.name), catChip(m), stTag(ap.status), ap.pri ? el('span', { className: 'meta' }, `优先级 #${ap.pri}`) : null, el('span', { className: 'meta' }, meta)),
-        histList(ap.hist),
-        el('p', { className: 'note' }, el('span', { className: 'now' }, done ? '游戏里现在：' : '现在的占位：', now), '　', md.note),
-        done ? el('details', { className: 'old' }, el('summary', {}, `历史探索：${md.cands.length} 个夜间候选（已被定稿造型取代，点开查看）`), cands) : cands);
-    }));
-  }
-  // ---------- v2：进度总览（读 tools/art-progress.js）+ 类别 / 状态筛选 ----------
-  const AP = SA.ARTPLAN;
-  // 计划中的新模块（status plan）在 SA.MODULES 里还没有：名字、尺寸、类别读 art-progress.js 自带的字段
-  const modOf = (id) => SA.MODULES[id] || { name: AP.MODS[id].name, cat: AP.MODS[id].cat, layer: 'body' };
-  const catOf = (id) => modOf(id).layer === 'ram' ? 'ram' : modOf(id).cat;
-  const stTag = (s) => { const d = AP.STATUS[s || 'todo'], t = el('span', { className: 'tag' }, d.name); t.style.background = d.color; return t; };
-  const LAB_ST = { shipped: 'done', archived: 'legacy', explore: 'wip', live: 'done' };   // 样机状态 → 标签配色
-  const LAB_NAME = { shipped: '定稿', archived: '历史', explore: '探索中', live: '现行' };
-  function histList(h) {
-    if (!h || !h.length) return null;
-    return el('div', { className: 'hist' }, '探索历史：', ...h.slice().reverse().flatMap(([date, what, url, s], i) => {
-      const t = el('span', { className: 'tag' }, LAB_NAME[s] || s); t.style.background = AP.STATUS[LAB_ST[s] || 'todo'].color;
-      return [i ? '　←　' : '', t, el('a', { href: url }, what), ` ${date.slice(5)}`];
-    }));
-  }
-  // 当前游戏里的样子（占位模块画成文字方块）：画在大画布上再按内容裁边
-  function gamePic(id) {
-    if (!SA.MODULES[id]) {   // 还没实装：按计划尺寸画一个虚线框
-      const [w, h] = AP.MODS[id].size.split('×').map(Number), c = document.createElement('canvas'); c.width = w * 24; c.height = h * 24;
-      const g = c.getContext('2d'); g.strokeStyle = AP.STATUS.plan.color; g.setLineDash([3, 2]); g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
-      g.fillStyle = AP.STATUS.plan.color; g.font = 'bold 8px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('未实装', c.width / 2, c.height / 2);
+  const isGun = (id) => !!SA.MODULES[id] && C.isGun(id);   // 计划中的新模块在 SA.MODULES 里还没有
+  const angles = (id) => { const m = SA.MODULES[id]; return isGun(id) ? [...new Set([m.elev[0], m.rest || 0, m.elev[1]])] : [null]; };
+
+  // ---------- 三种来源的「一张图」：游戏里的精灵 / 夜间候选 / 样机脚本里的候选 ----------
+  // item.img(o) 返回裁好边的画布（o = { mt, t, k, a }）；同一个 item 的裁切框固定，动画、开火、换材料时大小不跳
+  function gameItem(id) {
+    const f = SA.fp(id), W = f.w * 24 + 160, H = f.h * 24 + 110, ox = 80, oy = 70;
+    const raw = (o) => {
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+      if (SA.MODULES[id].layer === 'body') { g.fillStyle = P.iron[1]; g.fillRect(ox, oy, f.w * 24, f.h * 24); }
+      SA.SPR.drawModule(g, id, ox, oy, { mt: o.mt || 1, t: (o.t || 0) / 8, heat: 0.5, water: 0.7, a: o.a, k: o.k });
       return c;
+    };
+    let box = null;
+    for (const a of angles(id)) { const b = bbox(raw({ a })); box = box ? union(box, b) : b; }
+    const rect = toRect(box, 2, W, H);
+    return { key: 'game', name: '游戏里', id, img: (o = {}) => cropped(raw(o), rect) };
+  }
+  function nightItem(id, cd) {
+    const rects = new Map(), rest = SA.MODULES[id].rest || 0;
+    const rectOf = (a) => { if (!rects.has(a)) { const s = withHull(id, C.sprite(id, cd, { a })); rects.set(a, toRect(bbox(s), 3, s.width, s.height)); } return rects.get(a); };
+    return { key: cd.key, name: cd.name, idea: cd.idea, id,
+      img: (o = {}) => { const a = o.a == null ? rest : o.a; return cropped(withHull(id, C.sprite(id, cd, { ...o, a, mt: o.mt || 1 })), rectOf(o.a == null ? rest : a)); } };
+  }
+  function labItem(id, lab, cd) {
+    const OX = 4, OY = 8;
+    return { key: cd.key, name: cd.name.replace(/^[A-Z] /, ''), idea: cd.idea, id,
+      img: (o = {}) => {
+        const mt = o.mt || 1, T = lab.TIERS[mt - 1], c = document.createElement('canvas'); c.width = OX + 28; c.height = OY + 50;
+        const lay = document.createElement('canvas'); lay.width = c.width; lay.height = c.height;
+        cd.base(lay.getContext('2d'), OX, OY, T, { lv: 2, fr: Math.floor((o.t || 0) / 2) % 4 });
+        SA.SPR.decorate(lay, SA.MATS[mt], OX, OY);
+        cd.over(lay.getContext('2d'), OX, OY, T);
+        const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 24, 48); g.drawImage(lay, 0, 0);
+        return c;
+      } };
+  }
+  function itemsOf(id) {
+    const ap = AP.MODS[id];
+    if (ap.lab && SA[ap.lab]) return SA[ap.lab].CANDS.map(cd => labItem(id, SA[ap.lab], cd));
+    if (ap.status === 'cand' && NIGHT.has(id)) return NIGHT.get(id).cands.map(cd => nightItem(id, cd));
+    if (SA.MODULES[id] && !SA.MODULES[id].placeholder) return [gameItem(id)];
+    return [];
+  }
+
+  // ---------- 一个模块 = 一行 ----------
+  const live = [];   // [画布, item, 种类, 参数]
+  function itemCol(item, ap, passed) {
+    const big = document.createElement('canvas'); live.push([big, item, 'big']);
+    const chosen = ap.pick && ap.pick === item.key;
+    const lab = el('div', { className: 'lab' }, item.key === 'game' ? (passed ? '定稿' : '游戏里现在') : `${item.key} · ${item.name}`, chosen ? el('span', { className: 'ok' }, '✔ 已选') : null);
+    const six = el('div', { className: 'tiers6' });
+    for (let mt = 1; mt <= SA.MAT_MAX; mt++) { const c = document.createElement('canvas'); c.title = SA.MATS[mt].name; live.push([c, item, 'mt', mt]); six.append(c); }
+    return el('div', { className: 'item' + (chosen ? ' chosen' : ap.pick ? ' dim' : ''), title: item.idea || '' }, lab, big, six);
+  }
+  function detailOf(id, items) {
+    const oldCands = AP.MODS[id].status !== 'cand' && NIGHT.has(id);
+    const d = el('details', { className: 'more' }, el('summary', {}, '细节：' + ['想法说明', '1×', '剪影', isGun(id) ? '仰角' : '', oldCands ? `历史候选 ${NIGHT.get(id).cands.length} 个` : ''].filter(Boolean).join(' · ')));
+    d.addEventListener('toggle', () => {   // 点开才画，页面不卡
+      if (!d.open || d.dataset.built) return; d.dataset.built = 1;
+      const list = [...items, ...(oldCands ? NIGHT.get(id).cands.map(cd => nightItem(id, cd)) : [])];
+      d.append(el('div', { className: 'detail' }, ...list.map(it => {
+        const s = el('div', { className: 'strip' });
+        const add = (src, z, label, mode) => s.append(el('div', { className: 's' }, paint(document.createElement('canvas'), src, z, mode), label));
+        add(it.img({}), 1, '1×'); add(it.img({}), 1, '剪影', 'sil');
+        if (isGun(id)) for (const a of angles(id)) add(it.img({ a }), 1, `${a}°`);
+        return el('div', { className: 'panel' }, el('h4', {}, it.key === 'game' ? '游戏里' : `${it.key} · ${it.name}`), it.idea ? el('p', {}, it.idea) : null, s);
+      })));
+    });
+    return d;
+  }
+  function histLine(h) {
+    if (!h || !h.length) return null;
+    const [date, what, url, s] = h[h.length - 1], t = el('span', { className: 'tag' }, LAB_NAME[s] || s);
+    t.style.background = AP.STATUS[LAB_ST[s] || 'todo'].color;
+    return el('span', {}, '　最新：', t, ' ', el('a', { href: url }, what), ` ${date.slice(5)}`, h.length > 1 ? `（共 ${h.length} 次）` : '');
+  }
+  function row(id) {
+    const ap = AP.MODS[id], m = modOf(id), passed = ap.status === 'done', color = AP.STATUS[ap.status].color;
+    const f = SA.MODULES[id] ? SA.fp(id) : null, size = f ? `${f.w}×${f.h}` : ap.size;
+    const items = itemsOf(id);
+    const sec = el('section', { className: 'mod' + (passed ? ' passed' : '') + (items.length ? '' : ' slim'), id, dataset: { cat: catOf(id), st: ap.status } });
+    sec.style.setProperty('--st', color);
+    sec.append(el('div', { className: 'mh' }, ap.pri ? el('span', { className: 'pri' }, `#${ap.pri}`) : null, el('h2', {}, ap.rename ? `${m.name} → ${ap.rename}` : m.name), stTag(ap.status), catChip(id),
+      el('span', { className: 'meta' }, `${size} · ${LAYER[m.layer] || m.layer} · ${AP.CH[ap.ch] || '章节待定'} · ${id}`)));
+    if (passed) sec.append(el('div', { className: 'stamp' }, '✔ 已通过', el('small', {}, '定稿 · 已进游戏')));
+    else if (ap.pick) sec.append(el('div', { className: 'stamp pick' }, `已选 ${ap.pick}`, el('small', {}, '细化中')));
+    if (!items.length) {   // 缺的东西只占一窄行
+      sec.append(el('div', { className: 'missing' }, el('div', { className: 'box' }, SA.MODULES[id] ? '字' : '—'),
+        el('span', { title: ap.note }, SA.MODULES[id] ? '游戏里是文字占位 · 还没有候选' : '游戏里还没有（等 astra 加数据）· 还没有候选', '　', el('span', { style: 'color:var(--iron4)' }, ap.note))));
+      return sec;
     }
-    const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 140; c.height = f.h * 24 + 90;
-    SA.SPR.drawModule(c.getContext('2d'), id, 64, 56, { mt: 1 });
-    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
-    for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++) if (d[(yy * c.width + xx) * 4 + 3] > 8) { x0 = Math.min(x0, xx); x1 = Math.max(x1, xx); y0 = Math.min(y0, yy); y1 = Math.max(y1, yy); }
-    return x1 < x0 ? c : cropped(c, [x0, y0, x1 - x0 + 1, y1 - y0 + 1]);
+    sec.append(el('div', { className: 'line1', title: ap.note }, ap.note, histLine(ap.hist)));
+    sec.append(el('div', { className: 'items' }, ...items.map(it => itemCol(it, ap, passed))));
+    sec.append(detailOf(id, items));
+    return sec;
   }
-  const hasCand = new Set(mods.map(md => md.id));
-  function tile(id) {
-    const m = modOf(id), ap = AP.MODS[id], last = (ap.hist || [])[ap.hist.length - 1];
-    const pic = gamePic(id), sc = Math.max(1, Math.min(2, Math.floor(Math.min(72 / pic.width, 60 / pic.height))));
-    pic.style.width = pic.width * sc + 'px'; pic.style.height = pic.height * sc + 'px';
-    return el('div', { className: 'panel tile', dataset: { cat: catOf(id), st: ap.status } },
-      el('div', { className: 'pic' }, pic),
-      el('div', {},
-        el('div', { className: 'row1' }, ap.pri ? el('span', { className: 'pri' }, `#${ap.pri}`) : null, el('b', {}, ap.rename ? `${m.name} → ${ap.rename}` : m.name), stTag(ap.status), catChip(m)),
-        el('div', { className: 'tn' }, `${ap.size ? ap.size + ' · ' : ''}${AP.CH[ap.ch] || '章节待定'} · ${ap.note}`),
-        el('div', { className: 'hl' }, last ? ['最新：', el('a', { href: last[2] }, last[1]), ` ${last[0].slice(5)}`] : '还没有探索记录',
-          hasCand.has(id) ? ['　', el('a', { href: '#' + id }, '看候选 ↓')] : null)));
-  }
-  function buildOverview() {
-    const ids = Object.keys(AP.MODS);
-    const done = ids.filter(id => !AP.MODS[id].pri);
-    const todo = ids.filter(id => AP.MODS[id].pri).sort((a, b) => AP.MODS[a].pri - AP.MODS[b].pri);
-    const groups = [{ name: `已完成（${done.length}）`, desc: '按 docs/visual-rules.md 定稿并进游戏', ids: done }];
-    let from = 0;
-    for (const t of AP.TIERS) { groups.push({ name: t.name, desc: t.desc, ids: todo.filter(id => AP.MODS[id].pri > from && AP.MODS[id].pri <= t.to) }); from = t.to; }
+
+  // ---------- 分档（和计划表一致：已完成在最前，其余按优先级）----------
+  const ids = Object.keys(AP.MODS);
+  const done = ids.filter(id => !AP.MODS[id].pri);
+  const todo = ids.filter(id => AP.MODS[id].pri).sort((a, b) => AP.MODS[a].pri - AP.MODS[b].pri);
+  const groups = [{ name: `已完成 · 已通过（${done.length}）`, short: '已通过', desc: '按 docs/visual-rules.md 定稿并进游戏', ids: done }];
+  { let from = 0; for (const t of AP.TIERS) { groups.push({ name: t.name, short: t.name.replace(/ · .*/, ''), desc: t.desc, ids: todo.filter(id => AP.MODS[id].pri > from && AP.MODS[id].pri <= t.to) }); from = t.to; } }
+  function build() {
+    $('mods').replaceChildren(...groups.filter(g => g.ids.length).map(g => el('div', { className: 'mgrp' }, el('h3', {}, g.name), el('div', { className: 'tdesc' }, g.desc), ...g.ids.map(row))));
+    $('nav').replaceChildren(...groups.filter(g => g.ids.length).flatMap(g => [el('span', { className: 'btl' }, g.short),
+      ...g.ids.map(id => { const a = el('a', { href: '#' + id, title: AP.STATUS[AP.MODS[id].status].name }, modOf(id).name); a.style.setProperty('--st', AP.STATUS[AP.MODS[id].status].color); return a; })]));
     const n = (s) => ids.filter(id => AP.MODS[id].status === s).length;
+    const order = ['done', 'wip', 'cand', 'plan', 'todo', 'legacy'].filter(s => n(s));
     $('ovbody').replaceChildren(
-      el('p', { className: 'note' }, `共 ${ids.length} 个模块（游戏里已有 ${ids.length - n('plan')} 个 + 计划新增 ${n('plan')} 个）：已进游戏 ${n('done')}、探索中 ${n('wip')}、候选待选 ${n('cand')}、计划中 ${n('plan')}、旧画待复核 ${n('legacy')}。还没画完的：${n('wip') + n('cand') + n('plan') + n('todo')} 项。`),
-      ...groups.map(g => el('div', { className: 'tier' }, el('h3', {}, g.name), el('div', { className: 'tdesc' }, g.desc), el('div', { className: 'tiles' }, ...g.ids.map(tile)))));
+      el('div', { className: 'pbar' }, ...order.map(s => el('span', { title: `${AP.STATUS[s].name} ${n(s)}`, style: `width:${n(s) / ids.length * 100}%;background:${AP.STATUS[s].color}` }))),
+      el('div', { className: 'plegend' }, `共 ${ids.length} 个模块`, ...order.map(s => el('span', {}, el('i', { style: `background:${AP.STATUS[s].color}` }), `${AP.STATUS[s].name} ${n(s)}`))));
   }
   const flt = { cat: '', st: '' };
   function filterBar() {
-    const ids = Object.keys(AP.MODS);
     const btn = (key, v, label, color, count) => {
       const b = el('button', { className: 'fbtn' + (flt[key] === v ? ' on' : '') }, label, el('i', {}, count));
       if (flt[key] === v) b.style.background = color || 'var(--brass2)';
@@ -252,63 +277,36 @@
   }
   function applyFilter() {
     const ok = (e) => (!flt.cat || e.dataset.cat === flt.cat) && (!flt.st || e.dataset.st === flt.st);
-    document.querySelectorAll('.tile, section.mod').forEach(e => e.classList.toggle('hidden', !ok(e)));
-    document.querySelectorAll('.tier').forEach(t => t.classList.toggle('hidden', !t.querySelector('.tile:not(.hidden)')));
+    document.querySelectorAll('section.mod').forEach(e => e.classList.toggle('hidden', !ok(e)));
+    document.querySelectorAll('.mgrp').forEach(t => t.classList.toggle('hidden', !t.querySelector('section.mod:not(.hidden)')));
     document.querySelectorAll('#nav a').forEach(a => { const s = document.getElementById(a.getAttribute('href').slice(1)); a.classList.toggle('hidden', !!s && s.classList.contains('hidden')); });
   }
-  function card(md, cd) {
-    const id = md.id, m = SA.MODULES[id];
-    const big = document.createElement('canvas'), one = document.createElement('canvas'), sil = document.createElement('canvas');
-    live.push([big, id, cd, 'big'], [one, id, cd, 'one'], [sil, id, cd, 'sil']);
-    const strip = el('div', { className: 'strip bg' });
-    for (let mt = 1; mt <= SA.MAT_MAX; mt++) {
-      const c = document.createElement('canvas'); live.push([c, id, cd, 'mt', mt]);
-      const lab = el('span', {}, SA.MATS[mt].name); lab.style.color = SA.MATS[mt].chip;
-      strip.append(el('div', { className: 's' }, c, lab));
-    }
-    const extra = el('div', { className: 'strip bg' });
-    if (C.isGun(id)) for (const a of [m.elev[0], m.rest || 0, m.elev[1]].filter((v, i, arr) => arr.indexOf(v) === i)) {
-      const c = document.createElement('canvas'); live.push([c, id, cd, 'ang', a]); extra.append(el('div', { className: 's' }, c, `${a}°`));
-    }
-    const ctx = document.createElement('canvas'); live.push([ctx, id, cd, 'ctx']);
-    extra.append(el('div', { className: 's' }, ctx, '车体里'));
-    return el('div', { className: 'panel cand' },
-      el('h3', {}, `${cd.key} · ${cd.name}`), el('p', { className: 'idea' }, cd.idea),
-      el('div', { className: 'main bg' }, big, el('div', { className: 'mini' }, one, '1×', sil, '剪影')),
-      el('div', { className: 'cap' }, '材料换色（游戏的装饰层）'), strip,
-      el('div', { className: 'cap' }, C.isGun(id) ? '仰角范围 · 车体里（1×）' : '车体里（1×）'), extra);
+
+  // ---------- 重画 ----------
+  function draw1(cv, item, kind, v) {
+    const o = { t: st.t, k: st.k };
+    if (kind === 'big') paint(cv, item.img(o), st.zoom);
+    else if (kind === 'mt') { cv.style.display = st.six ? '' : 'none'; if (st.six) paint(cv, item.img({ ...o, mt: v }), st.zoom >= 3 ? 2 : 1); }
   }
-  function draw1(cv, id, cd, kind, v) {
-    const o = { t: st.t, k: st.k }, rest = SA.MODULES[id].rest || 0, base = cropOf(`${id}|${cd.key}|${rest}`, id, cd, rest);
-    if (kind === 'big') paint(cv, cropped(withHull(id, C.sprite(id, cd, o)), base), st.zoom);
-    else if (kind === 'one') paint(cv, cropped(withHull(id, C.sprite(id, cd, o)), base), 1);
-    else if (kind === 'sil') paint(cv, cropped(C.sprite(id, cd, o), base), 1, 'sil');
-    else if (kind === 'mt') paint(cv, cropped(withHull(id, C.sprite(id, cd, { ...o, mt: v })), base), st.zoom >= 3 ? 2 : 1);
-    else if (kind === 'ang') paint(cv, cropped(withHull(id, C.sprite(id, cd, { ...o, a: v })), cropOf(`${id}|${cd.key}|${v}`, id, cd, v)), 1);
-    else if (kind === 'ctx') paint(cv, chunk(id, cd), 1);
-  }
-  function render() { for (const [cv, id, cd, kind, v] of live) draw1(cv, id, cd, kind, v); }
+  const visible = (cv) => { const r = cv.getBoundingClientRect(); return r.bottom > -100 && r.top < innerHeight + 100; };
+  function render() { for (const [cv, item, kind, v] of live) draw1(cv, item, kind, v); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); render(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
+  seg($('six'), v => st.six = v === '1');
   $('anim').onclick = () => { st.anim = !st.anim; $('anim').textContent = '动画：' + (st.anim ? '开' : '关'); $('anim').classList.toggle('on', st.anim); };
   let fireT = 0;
   $('fire').onclick = () => { fireT = 6; };
-  // 只重画屏幕里看得见的候选，页面很长也不卡
+  // 只重画屏幕里看得见的大图，页面很长也不卡
   setInterval(() => {
     let dirty = false;
     if (fireT > 0) { fireT--; st.k = fireT >= 5 ? 1 : fireT / 5; dirty = true; } else if (st.k) { st.k = 0; dirty = true; }
     if (st.anim) { st.t++; dirty = true; }
     if (!dirty) return;
-    for (const [cv, id, cd, kind] of live) {
-      if (kind !== 'big') continue;
-      const r = cv.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > innerHeight) continue;
-      draw1(cv, id, cd, kind);
-    }
+    for (const [cv, item, kind] of live) if (kind === 'big' && visible(cv)) draw1(cv, item, kind);
   }, 125);
-  build(); buildOverview(); filterBar(); render();
-  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }   // 从总览 / 计划表跳过来时定位到模块
+  build(); filterBar(); render();
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }   // 从计划表 / 样机馆跳过来时定位到模块
   window.__candReady = true;
 })();
 </script></body></html>
