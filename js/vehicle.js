@@ -6,7 +6,9 @@ window.SA = window.SA || {};
 SA.V = (() => {
   const K = SA.K, M = SA.MODULES;
   const grid = () => Array.from({ length: K.ROWS }, () => Array(K.COLS).fill(null));
-  const create = (name = '原型机') => ({ name, body: grid(), side: grid() });
+  // av：铁装甲的数据版本。2026-09-28 铁装甲从 2×2 改成竖着的 1×2；没有 av 的旧数据读进来时由 widenArmor 拆成并排两块
+  const ARMOR_VER = 2;
+  const create = (name = '原型机') => ({ name, body: grid(), side: grid(), av: ARMOR_VER });
   const layerOf = (id) => (M[id].layer === 'side' ? 'side' : 'body');
   // 满耐久：改装（炮盾 / 附加装甲）每级按比例加；参战副本直接带 max
   const maxHp = (cell) => cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
@@ -120,6 +122,7 @@ SA.V = (() => {
       for (let c = 0; c < row.length; c++) {
         const id0 = ASCII[row[c]];
         if (!id0) continue;
+        if (id0 === 'armor') { v.body[r * 2][c * 2] = SA.newCell(id0, mt); v.body[r * 2][c * 2 + 1] = SA.newCell(id0, mt); continue; }   // 字母 A = 一个大格 = 并排两块 1×2
         if (mt >= SA.minMt(id0) || !M[id0].lowAlt) { v.body[r * 2][c * 2] = SA.newCell(id0, mt); continue; }
         const id = M[id0].lowAlt, f = fp(id), rr = r * 2 + 2 - f.h, cc = c * 2 + 2 - f.w;
         v.body[rr][cc] = SA.newCell(id, mt);
@@ -129,20 +132,36 @@ SA.V = (() => {
     });
     for (const [r, c, id] of subs) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     sides.forEach(([r, c]) => { v.side[r * 2][c * 2] = SA.newCell('side_cannon', mt); });
-    for (const [r, c, t, layer] of elite) { const L = v[layer || 'body'], cell = L[r * 2][c * 2]; if (cell) L[r * 2][c * 2] = SA.newCell(cell.id, t); }
+    for (const [r, c, t, layer] of elite) {
+      const L = v[layer || 'body'], cell = L[r * 2][c * 2];
+      if (!cell) continue;
+      L[r * 2][c * 2] = SA.newCell(cell.id, t);
+      if (cell.id === 'armor' && L[r * 2][c * 2 + 1] && L[r * 2][c * 2 + 1].id === 'armor') L[r * 2][c * 2 + 1] = SA.newCell('armor', t);
+    }
     return normalizeChassis(v);
+  }
+  // 旧数据里的一块 2×2 铁装甲 → 并排两块 1×2（右边那块复制材料、改装和耐久），占满原来的格子
+  function widenArmor(v) {
+    const O = occ(v, 'body'), add = [];
+    for (let r = 0; r < K.ROWS - 1; r++) for (let c = 0; c < K.COLS - 1; c++) {
+      const cell = v.body[r][c];
+      if (cell && cell.id === 'armor' && !O[r][c + 1] && !O[r + 1][c + 1]) add.push([r, c, cell]);
+    }
+    for (const [r, c, cell] of add) v.body[r][c + 1] = JSON.parse(JSON.stringify(cell));
+    v.av = ARMOR_VER;
+    return v;
   }
   // 大格网格（6 × 8，每格一个模块对象）→ 子格载具
   function fromBig(name, body, side) {
     const v = create(name);
     for (const [layer, g] of [['body', body], ['side', side || []]])
       g.forEach((row, r) => row.forEach((cell, c) => { if (cell) v[layer][r * 2][c * 2] = SA.fixCell(cell); }));
-    return v;
+    return widenArmor(v);
   }
   // 旧存档（6 × 8 大格）→ 子格
   function migrate(v) {
     if (!v || !v.body) return v;
-    if (v.body.length === K.ROWS) return normalizeChassis(v);
+    if (v.body.length === K.ROWS) return normalizeChassis(v.av ? v : widenArmor(v));
     const out = fromBig(v.name, v.body, v.side);
     if (v.lim) out.lim = v.lim;
     return normalizeChassis(out);
@@ -557,14 +576,14 @@ SA.V = (() => {
   function layout(v) {
     const b = [], s = [];
     each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push([r, c, cell.id]));
-    return { b, s, g: 2 };
+    return { b, s, g: 2, a: ARMOR_VER };
   }
   function fromLayout(name, L) {
     const v = create(name), k = L.g === 2 ? 1 : 2;
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
       for (const [r, c, id] of list)
         if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) v[layer][r * k][c * k] = SA.newCell(id);
-    return normalizeChassis(v);
+    return normalizeChassis(L.a === ARMOR_VER ? v : widenArmor(v));
   }
   // 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级] → 载具（进化报告用；分享码不记材料和改装）
   function fromCells(name, cells) {
@@ -589,7 +608,7 @@ SA.V = (() => {
   function encode(v) {
     const b = [], s = [];
     each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push([r, c, SA.MODULE_ORDER.indexOf(cell.id)]));
-    const json = JSON.stringify({ n: v.name, b, s });
+    const json = JSON.stringify({ n: v.name, b, s, a: ARMOR_VER });
     return 'SA2.' + btoa(unescape(encodeURIComponent(json)));
   }
 
@@ -603,6 +622,9 @@ SA.V = (() => {
       const v = create(String(d.n || '无名载具').slice(0, 20));
       // 自下而上摆放，保证规则合法；侧炮最后挂
       let list = [...(d.b || []), ...(d.s || [])].map(([r, c, i]) => [r * k, c * k, i]);
+      // 旧分享码（没有 a）里的铁装甲是 2×2：右边补一块，拼回原来的大小
+      const ai = SA.MODULE_ORDER.indexOf('armor');
+      if (d.a !== ARMOR_VER) list = list.concat(list.filter(x => x[2] === ai && x[1] + 1 < K.COLS).map(([r, c, i]) => [r, c + 1, i]));
       // 旧分享码里的双足锚在第 CH 行（逐格或 1×2）：和 liftForBiped 一样整车上移一层，只留中间那一格作 2×4 双足的胯
       const bi = SA.MODULE_ORDER.indexOf('biped'), feet = list.filter(x => x[2] === bi);
       if (feet.length && feet.some(x => x[0] !== chassisRow('biped'))) {
@@ -666,5 +688,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

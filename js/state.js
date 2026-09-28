@@ -9,7 +9,7 @@ SA.S = (() => {
   function fresh() {
     return {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
-      inv: { armor: 2, mg: 1 }, ingots: {},
+      inv: { armor: 4, mg: 1 }, ingots: {},   // 铁装甲 1×2：四块 = 原来两块 2×2
       vehicle: SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs),
       // 唯一件领取账本：键是模块 id；只记录已从战利品领取过的件，不删除旧存档已有库存。
       uniqueClaims: {},
@@ -27,7 +27,9 @@ SA.S = (() => {
     if (!d || !d.vehicle || !d.camp) d = fresh();
     d.ingots = d.ingots || {};
     d.uniqueClaims = d.uniqueClaims || {};
+    const oldArmor = !d.vehicle.av;         // 铁装甲 2×2 → 1×2 之前的存档：车上的由 migrate 拆成两块，库存里的数量翻倍
     d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
+    if (oldArmor) for (const k in d.inv || {}) if (SA.parseKey(k).id === 'armor') d.inv[k] *= 2;
     fixModules(d);
     return d;
   }
