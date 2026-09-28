@@ -149,7 +149,7 @@ SA.MODULES = {
   plate: {
     name: '甲片', cat: 'structure', layer: 'body', w: 1, h: 1,
     price: 12, hp: 45, power: 0, armor: 3, kg: 90, q: 1,
-    desc: '四分之一块铁装甲，护甲同样是 3。用来补缝、垫在炮口下面、护住驾驶舱的一角。',
+    desc: '半块铁装甲，护甲同样是 3。用来补缝、垫在炮口下面、护住驾驶舱的一角。',
   },
   tank_s: {
     name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1,
@@ -167,10 +167,12 @@ SA.MODULES = {
     price: 140, hp: 150, power: 1, kg: 150, q: 2,
     desc: '已取消，并入联合驾驶舱。',
   },
+  // 2026-09-28 用户定：铁装甲从 2×2 改成竖着的 1×2；单件数值按面积减半（两块并排 = 原来一块）。
+  // 旧存档 / 分享码 / 蓝图 / 关卡字母 A 里的一块 2×2 读进来时拆成并排两块（SA.V.widenArmor）
   armor: {
-    name: '铁装甲', cat: 'structure', layer: 'body',
-    price: 40, hp: 160, power: 0, armor: 3, kg: 350, q: 1,
-    desc: '廉价的挡箭牌，不耗动力但有分量。护甲 3：每发炮弹先减掉 3 点伤害，机炮打上去只冒火星。直射炮弹会先打中弹道上的第一个模块。',
+    name: '铁装甲', cat: 'structure', layer: 'body', w: 1, h: 2,
+    price: 20, hp: 80, power: 0, armor: 3, kg: 175, q: 1,
+    desc: '竖着的一条铁板，占 1×2 小格；廉价的挡箭牌，不耗动力但有分量。护甲 3：每发炮弹先减掉 3 点伤害，机炮打上去只冒火星。直射炮弹会先打中弹道上的第一个模块。',
   },
   armor_heavy: {
     name: '重装甲', cat: 'structure', layer: 'body',

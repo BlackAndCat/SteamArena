@@ -101,7 +101,7 @@ SA.CAMPAIGN = [
         blurb: '铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。',
         rows: ['........', '........', '........', '...K....', '...OM...', '...TT...'],
         spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
-        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一门机炮和两块铁装甲，再给你一只小水罐练习冷却。' },
+        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一门机炮和四块铁装甲，再给你一只小水罐练习冷却。' },
       },
       {
         name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 120, aim: 0.6,

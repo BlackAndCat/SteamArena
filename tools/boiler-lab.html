@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>竖式锅炉 · 造型探索</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  table.mx { border-collapse: collapse; }
+  table.mx th { font-size: 12px; padding: 4px 6px; }
+  table.mx th.rh { text-align: right; vertical-align: middle; min-width: 150px; max-width: 230px; line-height: 1.45; }
+  table.mx th.rh small { display: block; font-weight: 400; color: var(--muted); }
+  table.mx td { padding: 3px; text-align: center; vertical-align: bottom; }
+  table.mx canvas { background: var(--bg2); display: inline-block; }
+  .scroll { overflow-x: auto; }
+  .cards { display: flex; gap: 18px; flex-wrap: wrap; }
+  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; max-width: 330px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--brass2); }
+  .card p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .card .row { display: flex; gap: 10px; align-items: flex-end; }
+  .legend div { font-size: 12.5px; line-height: 1.9; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>竖式锅炉 · 造型探索 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v1 · 2026-09-28 · 已选 C 高烟囱，细化中</small></h1>
+    <p>计划表第 11 项 <code>boiler_s</code>（暂定 id，数据等 astra）：<b>锅炉最小一档，1×2（24 × 48）竖放</b>。要求：竖立炉身 + 烟囱 + 炉门火光；和水罐、蓄压罐分开——<b>只有锅炉发光</b>。三个候选都按 <code>docs/visual-rules.md</code> 做了六档：形体在 T3、T5 跃迁（原形 → 方包壳平顶 → 斜肩板），散热口 3 竖缝 → 4 密排 → 两行 → 两行斜百叶，接缝铆钉 2 → 3 → 4（T1～3 黄铜、镀镍起钢质淡青），钢起包角铁，镀镍起直径 7 的小压力表。表在左、烟囱在右，和现有 2×2 锅炉一致。</p>
+    <p><b>用户已选 C 高烟囱（2026-09-28）</b>，下一步细化 C 的六档；A、B 留作记录。</p>
+    <p>原来的问题：<b>请挑一个方向</b>（也可以说「A 的炉身 + C 的烟囱」这种组合）：A 立式锅炉（老实、家族感最强）· B 炉灶式（火光最大）· C 高烟囱（剪影最强）。定了以后再细化六档、做进游戏；2×2 燃煤锅炉和 3×3 大型锅炉之后按同一套语言统一。</p>
+  </header>
+  <div class="cbar">
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
+    <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button><button class="btn small" data-v="4">4×</button></span>
+    <span class="lbl">火力</span><span class="seg" id="lv"><button class="btn small" data-v="1">小火</button><button class="btn small on" data-v="2">中火</button><button class="btn small" data-v="3">大火</button></span>
+  </div>
+
+  <section>
+    <h2 class="sec">三个候选 <small>T1 黄铜 · 6× 分区图（原画，未套材质）· 右边是 1× 和动起来的样子</small></h2>
+    <div class="cards" id="cands"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">六档对比 <small>每格下面是 1× · 最后一行是游戏里现在的 2×2 燃煤锅炉（旧画，待按锅炉家族复核）</small></h2>
+    <div class="scroll"><table class="mx" id="tiers"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">火力动画 <small>小火 / 中火 / 大火 × 4 帧 · 只有炉火发光，别的都不亮</small></h2>
+    <div class="scroll"><table class="mx" id="anim"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">和别的 1×2 分不分得开 <small>1× 和 3× · 候选 / 水罐 / 蓄压罐（还是文字占位）/ 新的 1×2 铁装甲 / 冷凝器（占位）</small></h2>
+    <p class="lead">三个候选都有暖色火光 + 黑烟囱；水罐是蓝水 + 竖玻璃窗、没有烟囱。切到「灰度」看剪影：C 的高烟囱最好认，B 的大炉窗在灰度下也是最暗的一块。</p>
+    <div class="scroll"><table class="mx" id="versus"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">放进车体 <small>2× · 铁装甲（新 1×2）+ 竖式锅炉 + 水罐 + 小炮 / 驾驶舱，同一材料</small></h2>
+    <div class="scroll"><table class="mx" id="ctx"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">附：铁装甲改成 1×2 <small>已进游戏 · 单块 / 并排两块（= 原来一块 2×2 的大小）· 每格下面是 1×</small></h2>
+    <p class="lead">铁装甲 <code>armor</code> 从 2×2 改成竖着的 1×2：一条厚铁板，中间一道横接缝，两列铆钉；并排两块拼回原来的样子。单件数值按面积减半（耐久 80、价格 20、自重 175，护甲仍是 3），旧存档 / 分享码 / 蓝图 / 关卡车里的一块 2×2 读进来时自动拆成并排两块。</p>
+    <div class="scroll"><table class="mx" id="armor"></table></div>
+  </section>
+</div>
+
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="cand-kit.js"></script>
+<script src="material-lab.js"></script>
+<script src="boiler-lab.js"></script>
+<script src="labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, B = SA.BLLAB, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mode: 'color', zoom: 3, lv: 2, fr: 0 };
+  const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
+  const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  const OX = 4, OY = 8, W = 24, H = 48;
+  // 候选：透明图层上画底图 → 材质 → 叠加件，再贴到带底色的格子上
+  function cand(C, mt, o = {}, raw = false, bg = true) {
+    const T = B.TIERS[mt - 1], c = document.createElement('canvas'); c.width = OX + W + 4; c.height = OY + H + 2;
+    const lay = document.createElement('canvas'); lay.width = c.width; lay.height = c.height;
+    C.base(lay.getContext('2d'), OX, OY, T, { lv: st.lv, fr: st.fr, ...o });
+    if (!raw) applyMat(lay, mt, OX, OY);
+    C.over(lay.getContext('2d'), OX, OY, T);
+    const g = c.getContext('2d');
+    if (bg) { g.fillStyle = P.iron[1]; g.fillRect(OX, OY, W, H); }
+    g.drawImage(lay, 0, 0);
+    return c;
+  }
+  function gameMod(id, mt, w, h, o = {}) {
+    const c = document.createElement('canvas'); c.width = OX + w + 4; c.height = OY + h + 2;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, w, h);
+    SA.SPR.drawModule(g, id, OX, OY, { mt, heat: 0.5, water: 0.7, t: 0, ...o });
+    return c;
+  }
+  const head = () => el('tr', {}, el('th'), ...[1, 2, 3, 4, 5, 6].map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }));
+  const cell = (cv) => el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1));
+  function zoneCanvas(C) {
+    const z = 6, src = cand(C, 1, {}, true);
+    const cv = document.createElement('canvas'); cv.width = src.width * z; cv.height = src.height * z;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(gray(src), 0, 0, cv.width, cv.height);
+    for (const [, col, ...rects] of C.zones) {
+      g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([6, 3]);
+      for (const f of rects) { const [x, y, w, h] = f(OX, OY); g.strokeRect(x * z + 1, y * z + 1, w * z - 2, h * z - 2); }
+    }
+    return cv;
+  }
+  const animCv = [];
+  function renderCands() {
+    const box = $('cands'); box.replaceChildren(); animCv.length = 0;
+    for (const C of B.CANDS) {
+      const live = el('div'); animCv.push([live, C]);
+      const leg = el('div', { className: 'legend' }, ...C.zones.map(([name, col]) => el('div', {}, el('span', { style: `display:inline-block;width:14px;height:10px;border:2px dashed ${col};margin-right:8px;vertical-align:middle` }), name)));
+      box.append(el('div', { className: 'card' }, el('h3', {}, C.name), el('div', { className: 'row' }, zoneCanvas(C), el('div', {}, show(cand(C, 1), 1), el('div', { style: 'height:8px' }), live)), el('p', {}, C.idea), leg));
+    }
+  }
+  function renderTiers() {
+    const T = $('tiers'); T.replaceChildren(head());
+    for (const C of B.CANDS) T.append(el('tr', {}, el('th', { className: 'rh' }, C.name), ...[1, 2, 3, 4, 5, 6].map(mt => cell(cand(C, mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '燃煤锅炉 2×2', el('small', {}, '游戏现状（旧画）')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('boiler', mt, 48, 48)))));
+  }
+  function renderAnim() {
+    const T = $('anim'); T.replaceChildren(el('tr', {}, el('th'), ...[1, 2, 3].flatMap(lv => [0, 1, 2, 3].map(fr => el('th', {}, fr ? `${fr}` : ['小火', '中火', '大火'][lv - 1])))));
+    for (const C of B.CANDS) for (const mt of [1, 4]) T.append(el('tr', {}, el('th', { className: 'rh' }, `${C.name} · T${mt}`), ...[1, 2, 3].flatMap(lv => [0, 1, 2, 3].map(fr => el('td', {}, show(cand(C, mt, { lv, fr }), 2))))));
+  }
+  function renderVersus() {
+    const T = $('versus'); T.replaceChildren();
+    const items = [...B.CANDS.map(C => [C.name, (mt) => cand(C, mt)]),
+      ['水罐 tank_tall', (mt) => gameMod('tank_tall', mt, 24, 48)], ['蓄压罐（占位）', (mt) => gameMod('pressure_tank', mt, 24, 48)],
+      ['铁装甲 1×2', (mt) => gameMod('armor', mt, 24, 48)], ['冷凝器（占位）', (mt) => gameMod('condenser', mt, 24, 48)]];
+    T.append(el('tr', {}, el('th'), ...items.map(([n]) => el('th', {}, n))));
+    for (const mt of [1, 3, 6]) {
+      T.append(el('tr', {}, el('th', { className: 'rh' }, `T${mt} ${SA.MATS[mt].name} · 1×`), ...items.map(([, f]) => el('td', {}, show(f(mt), 1)))));
+      T.append(el('tr', {}, el('th', { className: 'rh' }, `3×`), ...items.map(([, f]) => el('td', {}, show(f(mt), 3)))));
+    }
+  }
+  // 车体片段：底下一排 = 铁装甲 | 竖式锅炉 | 水罐 | 铁装甲；上面一排 = 驾驶舱 + 小炮
+  function chunk(C, mt) {
+    const w = 96, h = 72, ox = 4, oy = 10, c = document.createElement('canvas'); c.width = w + ox + 24; c.height = h + oy + 4;
+    const g = c.getContext('2d');
+    g.fillStyle = P.iron[0]; g.fillRect(ox - 1, oy + 23, w + 2, 50); g.fillStyle = P.iron[1]; g.fillRect(ox, oy + 24, w, 48);
+    g.fillStyle = P.iron[0]; g.fillRect(ox + 23, oy - 1, 50, 26); g.fillStyle = P.iron[1]; g.fillRect(ox + 24, oy, 48, 24);
+    const put = (cv, x, y) => g.drawImage(cv, ox + x - OX, oy + y - OY);
+    put(gameMod('armor', mt, 24, 48), 0, 24);
+    put(cand(C, mt, {}, false, false), 24, 24);
+    put(gameMod('tank_tall', mt, 24, 48), 48, 24);
+    put(gameMod('armor', mt, 24, 48), 72, 24);
+    put(gameMod('helmet', mt, 24, 24), 24, 0);
+    put(gameMod('cannon_s', mt, 24, 24), 48, 0);
+    return c;
+  }
+  function renderCtx() {
+    const T = $('ctx'); T.replaceChildren(head());
+    for (const C of B.CANDS) T.append(el('tr', {}, el('th', { className: 'rh' }, C.name), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(C, mt), 2)))));
+  }
+  function renderArmor() {
+    const pair = (mt) => { const c = document.createElement('canvas'); c.width = OX + 48 + 4; c.height = OY + 48 + 2; const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 48, 48); SA.SPR.drawModule(g, 'armor', OX, OY, { mt }); SA.SPR.drawModule(g, 'armor', OX + 24, OY, { mt }); return c; };
+    const T = $('armor'); T.replaceChildren(head());
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '单块 1×2'), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('armor', mt, 24, 48)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '并排两块'), ...[1, 2, 3, 4, 5, 6].map(mt => cell(pair(mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '重装甲 2×2', el('small', {}, '对照（不变）')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('armor_heavy', mt, 48, 48)))));
+  }
+  function tick() {
+    st.fr = (st.fr + 1) % 4;
+    for (const [box, C] of animCv) box.replaceChildren(show(cand(C, 1), 3));
+  }
+  function renderAll() { renderCands(); renderTiers(); renderAnim(); renderVersus(); renderCtx(); renderArmor(); tick(); }
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
+  seg($('mode'), v => st.mode = v);
+  seg($('zoom'), v => st.zoom = +v);
+  seg($('lv'), v => st.lv = +v);
+  renderAll();
+  setInterval(tick, 180);
+  window.__blReady = true;
+})();
+</script></body></html>

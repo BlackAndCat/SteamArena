@@ -6,6 +6,7 @@
 // pri：优先级序号（1 最先做）；已完成的没有 pri。ch：玩家第一次拿到它的章节（0 = 开局 / 序章；null = 未定）
 // plan 模块在 SA.MODULES 里还没有，所以自带 name / size / cat；id 是暂定的，以 astra 落地的为准
 // hist：探索历史（从旧到新）：[日期, 版本 / 内容, 样机页, 样机状态]
+// lab：候选画在哪个样机脚本里（SA[lab].CANDS，候选页直接读来显示）；pick：用户已选的候选 key
 window.SA = window.SA || {};
 
 SA.ARTPLAN = {
@@ -66,8 +67,9 @@ SA.ARTPLAN = {
     mg_heavy: { status: 'plan', pri: 10, ch: null, name: '重机枪', size: '1×2', cat: 'firepower',
       note: '机枪系列中档（竖 1×2）。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [] },
     // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
-    boiler_s: { status: 'plan', pri: 11, ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
-      note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）', hist: [] },
+    boiler_s: { status: 'wip', pri: 11, pick: 'C', lab: 'BLLAB', ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
+      note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）。v1 三个方向（A 立式锅炉 / B 炉灶式 / C 高烟囱）× 六档，用户选 C 高烟囱，下一步细化 C 的六档；数据仍等 astra',
+      hist: [['2026-09-28', 'v1 三个方向 × 六档 → 用户选 C 高烟囱', 'boiler-lab.html', 'explore']] },
     boiler_l: { status: 'plan', pri: 12, ch: null, name: '大型锅炉', size: '3×3', cat: 'energy',
       note: '3×3 大空间，按 visual-rules 大空间原则（一个主体、大平面安静）；双烟囱 / 大炉门', hist: [] },
     water_l: { status: 'plan', pri: 13, ch: null, name: '大水箱', size: '3×3', cat: 'cooling',
@@ -91,7 +93,7 @@ SA.ARTPLAN = {
     mg: { status: 'legacy', pri: 26, ch: 0, rename: '机炮',
       note: '改名「机炮」（id 不变，等 astra 改显示名）；已标记：画面材质需要后期修改——等车载机枪、重机枪定下机枪系列的语言后，按同一语言和六档材质重画', hist: [] },
     boiler: { status: 'legacy', pri: 27, ch: 0, note: '两阶段已画；竖式 / 大型锅炉定稿后按锅炉家族统一复核', hist: [] },
-    armor: { status: 'legacy', pri: 28, ch: 0, note: '靠材料装饰层区分；复核铆钉档位', hist: [] },
+    armor: { status: 'legacy', pri: 28, ch: 0, note: '2026-09-28 用户定：从 2×2 改成竖着的 1×2（中间横接缝 + 两列铆钉，并排两块 = 原来一块），已进游戏；六档造型仍待按新规范复核', hist: [['2026-09-28', '改成 1×2', 'boiler-lab.html', 'explore']] },
     armor_heavy: { status: 'legacy', pri: 29, ch: 1, note: '同铁装甲', hist: [] },
     helmet: { status: 'legacy', pri: 30, ch: 0, note: '驾驶舱 1×1，T5 换装已画', hist: [] },
     plate: { status: 'legacy', pri: 31, ch: 0, note: '24px 甲片', hist: [] },

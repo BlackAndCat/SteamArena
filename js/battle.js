@@ -272,7 +272,7 @@ SA.Battle = (() => {
     return { x0: cx - f.w * C / 2, x1: cx + f.w * C / 2, y0: cy - f.h * C / 2, y1: cy + f.h * C / 2 };
   }
   function modCenter(s, layer, r, c) {
-    const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor');
+    const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor_heavy');
     return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
   }
   // 真双足的腿区从胯锚点下两行开始；按载具实际锚点取值，避免把普通底盘的 CH 当成固定分界。

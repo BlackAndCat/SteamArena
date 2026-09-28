@@ -206,7 +206,7 @@
     const c = document.createElement('canvas'); c.width = 4 + 48 + 48 + 40; c.height = 12 + 72 + 4;
     const g = c.getContext('2d'); g.fillStyle = P.iron[0]; g.fillRect(3, 11, 98, 74); g.fillStyle = P.iron[1]; g.fillRect(4, 12, 96, 72);
     const arm = document.createElement('canvas'); arm.width = 60; arm.height = 64; const ag = arm.getContext('2d');
-    SA.SPR.drawModule(ag, 'armor', 4, 12, { mt }); SA.SPR.drawModule(ag, 'plate', 4, 60, { mt }); SA.SPR.drawModule(ag, 'plate', 28, 60, { mt });
+    SA.SPR.drawModule(ag, 'armor', 4, 12, { mt }); SA.SPR.drawModule(ag, 'armor', 28, 12, { mt }); SA.SPR.drawModule(ag, 'plate', 4, 60, { mt }); SA.SPR.drawModule(ag, 'plate', 28, 60, { mt });
     g.drawImage(arm, 0, 12);
     g.drawImage(mNew(mt), 48, 12 - OY + 12 - 12);   // 中炮在上层（第一行子格）
     g.drawImage(gameMod('cannon', mt, 48, 48), 48, 36 - OY);
@@ -267,7 +267,7 @@
   }
   function armorUnder(mt) {
     const c = document.createElement('canvas'); c.width = DOX + 48 + 26; c.height = DOY + 48 + 4;
-    SA.SPR.drawModule(c.getContext('2d'), 'armor', DOX, DOY, { mt }); return c;
+    SA.SPR.drawModule(c.getContext('2d'), 'armor', DOX, DOY, { mt }); SA.SPR.drawModule(c.getContext('2d'), 'armor', DOX + 24, DOY, { mt }); return c;
   }
   function renderSide() {
     const z = 6, src = sdNew(6, {}, true), cv = $('sdzones');

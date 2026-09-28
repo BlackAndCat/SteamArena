@@ -873,12 +873,13 @@ SA.SPR = (() => {
 
   const DRAW = {
     cannon_giant(x, y, q) { giantBase(x, y, giantO(q)); },   // 巨炮：攻城臼炮阵地（见上面的巨炮一节）
+    // 铁装甲 1×2（2026-09-28 从 2×2 改成竖条）：一条厚铁板，中间一道横接缝，两列铆钉；并排两块拼回原来的样子
     armor(x, y) {
-      box(x + 3, y + 3, 42, 42, IRONL);
-      R(x + 4, y + 23, 40, 1, P.iron[1]);
-      R(x + 4, y + 24, 40, 1, P.iron[4]);
-      for (const ry of [7, 19, 28, 39]) for (const rx of [8, 18, 28, 38]) rivet(x + rx, y + ry);
-      R(x + 30, y + 13, 5, 1, P.iron[2]); R(x + 12, y + 32, 3, 1, P.iron[2]); R(x + 33, y + 34, 4, 1, P.iron[2]);
+      box(x + 2, y + 2, 20, 44, IRONL);
+      R(x + 3, y + 23, 18, 1, P.iron[1]);
+      R(x + 3, y + 24, 18, 1, P.iron[4]);
+      for (const ry of [6, 18, 28, 40]) for (const rx of [5, 16]) rivet(x + rx, y + ry);
+      R(x + 10, y + 12, 4, 1, P.iron[2]); R(x + 8, y + 33, 3, 1, P.iron[2]);
     },
     armor_heavy(x, y) {
       box(x + 3, y + 3, 42, 42, IRON);

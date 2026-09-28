@@ -117,7 +117,7 @@ const V = document.getElementById('vehs');
 function veh(name, cells) {
   const v = SA.V.create(name);
   for (const [id, r, c, mt = 1, extra = {}] of cells) { const cell = SA.newCell(id, mt); Object.assign(cell, extra); v[SA.V.layerOf(id)][r][c] = cell; }
-  return v;
+  return SA.V.widenArmor(v);   // 这里的 'armor' 按 2×2 摆：铁装甲改成 1×2 后右边补一块
 }
 function showVeh(title, v, opts = {}, note = '') {
   const src = SA.SPR.renderVehicle(v, { key: 'audit', t: 0.4, heat: 0.4, water: 0.7, ...opts });
