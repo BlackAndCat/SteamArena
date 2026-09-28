@@ -1,8 +1,10 @@
 // 模块美术进度表（Opus 维护）：新模块造型候选页（tools/module-candidates.html）的「进度总览」和标签按这里画；
 // 同一份内容的文字版是 docs/art-plan.md（给之后的代理看的计划表）——改一边就同步改另一边。
 // status：done = 已进游戏（按 docs/visual-rules.md 的新规范）；wip = 基础造型已进游戏、还有分支没做完；
-//         cand = 候选已出、等用户选；todo = 还没开始；legacy = 已有美术（新规范之前画的，待按新规范复核）
-// pri：优先级序号（1 最先做）；已完成的没有 pri。ch：玩家第一次拿到它的章节（0 = 开局 / 序章）
+//         cand = 候选已出、等用户选；todo = 还没开始；legacy = 已有美术（新规范之前画的，待按新规范复核）；
+//         plan = 计划中的新模块（游戏里还没有，等 astra 加数据和功能）
+// pri：优先级序号（1 最先做）；已完成的没有 pri。ch：玩家第一次拿到它的章节（0 = 开局 / 序章；null = 未定）
+// plan 模块在 SA.MODULES 里还没有，所以自带 name / size / cat；id 是暂定的，以 astra 落地的为准
 // hist：探索历史（从旧到新）：[日期, 版本 / 内容, 样机页, 样机状态]
 window.SA = window.SA || {};
 
@@ -11,6 +13,7 @@ SA.ARTPLAN = {
     done: { name: '已进游戏', color: '#46c2c9' },
     wip: { name: '探索中', color: '#ef7a21' },
     cand: { name: '候选待选', color: '#d9a441' },
+    plan: { name: '计划中（等后台）', color: '#b18be0' },
     todo: { name: '未开始', color: '#c9564b' },
     legacy: { name: '旧画待复核', color: '#a8a39a' },
   },
@@ -19,10 +22,11 @@ SA.ARTPLAN = {
   TIERS: [
     { name: '第 1 档 · 底盘细分支', to: 2, desc: '每台车都有底盘，出镜最多：材质六档 + T3 / T5 形态分支' },
     { name: '第 2 档 · 前两章的文字占位', to: 8, desc: '玩家前两章就会看到的文字方块' },
-    { name: '第 3 档 · 第三章特殊武器', to: 11, desc: '还要配特效（绳索、火焰、白汽）' },
-    { name: '第 4 档 · 第四章及以后', to: 17, desc: '中后期模块' },
-    { name: '第 5 档 · 唯一件', to: 20, desc: '每个存档只拿到一次' },
-    { name: '第 6 档 · 旧画按新规范复核', to: 99, desc: '已经能看，只是早于 docs/visual-rules.md，没和火炮家族统一；最不急' },
+    { name: '第 3 档 · 新增尺寸：机枪系列、锅炉、水箱', to: 13, desc: '2026-09-28 用户新增。游戏里还没有：先等 astra 加数据和功能，落地后先显示文字占位，再按这里的顺序画' },
+    { name: '第 4 档 · 第三章特殊武器', to: 16, desc: '还要配特效（绳索、火焰、白汽）' },
+    { name: '第 5 档 · 第四章及以后', to: 22, desc: '中后期模块' },
+    { name: '第 6 档 · 唯一件', to: 25, desc: '每个存档只拿到一次' },
+    { name: '第 7 档 · 旧画按新规范复核', to: 99, desc: '已经能看，只是早于 docs/visual-rules.md，没和火炮家族统一；最不急' },
   ],
   MODS: {
     // ---------- 已完成：火炮家族（按 visual-rules 六档 / 分级重做）----------
@@ -53,36 +57,50 @@ SA.ARTPLAN = {
     autoloader: { status: 'cand', pri: 4, ch: 1, note: '1×1，看得到炮弹和机械', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore']] },
     mortar_s: { status: 'cand', pri: 5, ch: 2, note: '1×1 小臼炮，和已定稿的臼炮同一套语言（可直接缩臼炮）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore']] },
     cockpit_pair: { status: 'cand', pri: 6, ch: 2, note: '1×2 双人舱，第二章 Boss 奖励；驾驶员保持 1×1 大小', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore']] },
-    pressure_chamber: { status: 'cand', pri: 7, ch: 2, note: '1×1，压力表 + 安全阀，不发光', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_chamber', 'explore']] },
+    pressure_chamber: { status: 'cand', pri: 7, ch: 2, note: '1×1，压力表 + 安全阀，不发光（不是锅炉：锅炉最小 1×2）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_chamber', 'explore']] },
     condenser: { status: 'cand', pri: 8, ch: 2, note: '1×2 实心冷却件，不能像水箱也不能像散热片', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore']] },
-    // ---------- 第 3 档：第三章的特殊武器（还要配特效）----------
-    harpoon: { status: 'cand', pri: 9, ch: 3, note: '2×1，叉头 + 绳索；另需收绳特效', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#harpoon', 'explore']] },
-    flamer: { status: 'cand', pri: 10, ch: 3, note: '2×1，燃料罐 + 喷口火苗；另需火焰特效', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#flamer', 'explore']] },
-    steamjet: { status: 'cand', pri: 11, ch: 3, note: '2×1，和喷火器同一模块两种换皮：阀门 + 白汽', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#steamjet', 'explore']] },
-    // ---------- 第 4 档：第四章及以后 ----------
-    rocket_rack: { status: 'cand', pri: 12, ch: 4, note: '2×2，数得出 4 发；另需尾焰', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rocket_rack', 'explore']] },
-    pressure_tank: { status: 'cand', pri: 13, ch: 4, note: '1×2 储能，存量看得见、没有青色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_tank', 'explore']] },
-    rangefinder: { status: 'cand', pri: 14, ch: 4, note: '1×1，合像测距仪长横管', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rangefinder', 'explore']] },
-    mg2: { status: 'cand', pri: 15, ch: 4, note: '2×2，两门并在一起、两条弹链', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore']] },
-    radiator: { status: 'cand', pri: 16, ch: 4, note: '1×2 侧挂，真镂空格栅', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#radiator', 'explore']] },
-    gyroscope: { status: 'cand', pri: 17, ch: 4, note: '1×1，和双足胯里的陀螺仪同一语言', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#gyroscope', 'explore']] },
-    // ---------- 第 5 档：唯一件（每个存档只拿到一次）----------
-    boss_core: { status: 'cand', pri: 18, ch: 4, note: '圣堂压力核心，哥特尖拱 + 玫瑰窗', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_core', 'explore']] },
-    boss_ram: { status: 'cand', pri: 19, ch: 5, note: '寡妇液压撞头，红色沙漏标记', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_ram', 'explore']] },
-    boss_lens: { status: 'cand', pri: 20, ch: 5, note: '公爵测距棱镜；战役里还没有掉落来源，最后做', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_lens', 'explore']] },
-    // ---------- 第 6 档：已有美术，按新规范复核（最不急：已经能看，只是没和火炮家族统一）----------
-    mg: { status: 'legacy', pri: 21, ch: 0, note: '开局武器；按火炮家族规则补六档零件 / 散热口', hist: [] },
-    boiler: { status: 'legacy', pri: 22, ch: 0, note: '两阶段已画；按新零件库复核', hist: [] },
-    armor: { status: 'legacy', pri: 23, ch: 0, note: '靠材料装饰层区分；复核铆钉档位', hist: [] },
-    armor_heavy: { status: 'legacy', pri: 24, ch: 1, note: '同铁装甲', hist: [] },
-    helmet: { status: 'legacy', pri: 25, ch: 0, note: '驾驶舱 1×1，T5 换装已画', hist: [] },
-    plate: { status: 'legacy', pri: 26, ch: 0, note: '24px 甲片', hist: [] },
-    water: { status: 'legacy', pri: 27, ch: 0, note: '水箱 2×2', hist: [] },
-    tank_s: { status: 'legacy', pri: 28, ch: 0, note: '小水罐 1×1', hist: [] },
-    tank_tall: { status: 'legacy', pri: 29, ch: 0, note: '水罐 1×2', hist: [] },
-    bucket: { status: 'legacy', pri: 30, ch: 0, note: '铲斗两阶段已画', hist: [] },
-    spike: { status: 'legacy', pri: 31, ch: 3, note: '撞角两阶段已画', hist: [] },
-    piston: { status: 'legacy', pri: 32, ch: 3, note: '蒸汽撞锤两阶段已画', hist: [] },
-    cockpit: { status: 'legacy', pri: 33, ch: 4, note: '四人联合驾驶舱', hist: [] },
+    // ---------- 第 3 档：新增尺寸（2026-09-28 用户新增，等 astra）----------
+    // 机枪系列：1×1 车载机枪 → 1×2 重机枪 → 2×2 机炮（现有 mg 改名），最大到 2×2 为止；先画两个新件，定下语言后回头重画机炮
+    mg_s: { status: 'plan', pri: 9, ch: null, name: '车载机枪', size: '1×1', cat: 'firepower',
+      note: '机枪系列最小一档。先等 astra 加数据；画法：一根短枪管 + 小弹箱，1×1 只靠剪影分档（参照小炮做法）', hist: [] },
+    mg_heavy: { status: 'plan', pri: 10, ch: null, name: '重机枪', size: '1×2', cat: 'firepower',
+      note: '机枪系列中档（竖 1×2）。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [] },
+    // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
+    boiler_s: { status: 'plan', pri: 11, ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
+      note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）', hist: [] },
+    boiler_l: { status: 'plan', pri: 12, ch: null, name: '大型锅炉', size: '3×3', cat: 'energy',
+      note: '3×3 大空间，按 visual-rules 大空间原则（一个主体、大平面安静）；双烟囱 / 大炉门', hist: [] },
+    water_l: { status: 'plan', pri: 13, ch: null, name: '大水箱', size: '3×3', cat: 'cooling',
+      note: '用户：先计划占位。游戏里先用文字占位，造型最后做', hist: [] },
+    // ---------- 第 4 档：第三章的特殊武器（还要配特效）----------
+    harpoon: { status: 'cand', pri: 14, ch: 3, note: '2×1，叉头 + 绳索；另需收绳特效', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#harpoon', 'explore']] },
+    flamer: { status: 'cand', pri: 15, ch: 3, note: '2×1，燃料罐 + 喷口火苗；另需火焰特效', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#flamer', 'explore']] },
+    steamjet: { status: 'cand', pri: 16, ch: 3, note: '2×1，和喷火器同一模块两种换皮：阀门 + 白汽', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#steamjet', 'explore']] },
+    // ---------- 第 5 档：第四章及以后 ----------
+    rocket_rack: { status: 'cand', pri: 17, ch: 4, note: '2×2，数得出 4 发；另需尾焰', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rocket_rack', 'explore']] },
+    pressure_tank: { status: 'cand', pri: 18, ch: 4, note: '1×2 储能，存量看得见、没有青色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_tank', 'explore']] },
+    rangefinder: { status: 'cand', pri: 19, ch: 4, note: '1×1，合像测距仪长横管', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rangefinder', 'explore']] },
+    mg2: { status: 'cand', pri: 20, ch: 4, note: '2×2，两门并在一起、两条弹链。机枪系列最大 2×2：它和机炮同尺寸，是否保留 / 改名待用户定', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore']] },
+    radiator: { status: 'cand', pri: 21, ch: 4, note: '1×2 侧挂，真镂空格栅', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#radiator', 'explore']] },
+    gyroscope: { status: 'cand', pri: 22, ch: 4, note: '1×1，和双足胯里的陀螺仪同一语言', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#gyroscope', 'explore']] },
+    // ---------- 第 6 档：唯一件（每个存档只拿到一次）----------
+    boss_core: { status: 'cand', pri: 23, ch: 4, note: '圣堂压力核心，哥特尖拱 + 玫瑰窗', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_core', 'explore']] },
+    boss_ram: { status: 'cand', pri: 24, ch: 5, note: '寡妇液压撞头，红色沙漏标记', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_ram', 'explore']] },
+    boss_lens: { status: 'cand', pri: 25, ch: 5, note: '公爵测距棱镜；战役里还没有掉落来源，最后做', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_lens', 'explore']] },
+    // ---------- 第 7 档：已有美术，按新规范复核（最不急：已经能看，只是没和火炮家族统一）----------
+    mg: { status: 'legacy', pri: 26, ch: 0, rename: '机炮',
+      note: '改名「机炮」（id 不变，等 astra 改显示名）；已标记：画面材质需要后期修改——等车载机枪、重机枪定下机枪系列的语言后，按同一语言和六档材质重画', hist: [] },
+    boiler: { status: 'legacy', pri: 27, ch: 0, note: '两阶段已画；竖式 / 大型锅炉定稿后按锅炉家族统一复核', hist: [] },
+    armor: { status: 'legacy', pri: 28, ch: 0, note: '靠材料装饰层区分；复核铆钉档位', hist: [] },
+    armor_heavy: { status: 'legacy', pri: 29, ch: 1, note: '同铁装甲', hist: [] },
+    helmet: { status: 'legacy', pri: 30, ch: 0, note: '驾驶舱 1×1，T5 换装已画', hist: [] },
+    plate: { status: 'legacy', pri: 31, ch: 0, note: '24px 甲片', hist: [] },
+    water: { status: 'legacy', pri: 32, ch: 0, note: '水箱 2×2；大水箱定稿后按水箱家族统一复核', hist: [] },
+    tank_s: { status: 'legacy', pri: 33, ch: 0, note: '小水罐 1×1', hist: [] },
+    tank_tall: { status: 'legacy', pri: 34, ch: 0, note: '水罐 1×2', hist: [] },
+    bucket: { status: 'legacy', pri: 35, ch: 0, note: '铲斗两阶段已画', hist: [] },
+    spike: { status: 'legacy', pri: 36, ch: 3, note: '撞角两阶段已画', hist: [] },
+    piston: { status: 'legacy', pri: 37, ch: 3, note: '蒸汽撞锤两阶段已画', hist: [] },
+    cockpit: { status: 'legacy', pri: 38, ch: 4, note: '四人联合驾驶舱', hist: [] },
   },
 };

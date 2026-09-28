@@ -65,7 +65,7 @@
 <div class="wrap">
   <header class="hero">
     <h1>新模块造型候选 · 进度总览 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v2 · 2026-09-28</small></h1>
-    <p><b>进度总览</b>列出全部 41 个模块的美术状态（已进游戏 / 探索中 / 候选待选 / 旧画待复核），按优先级分档，每个模块附最新一次探索和历史探索的链接；上面的按钮可以按<b>类别</b>和<b>状态</b>筛选。计划表的文字版见 <code>docs/art-plan.md</code>，数据在 <code>tools/art-progress.js</code>。</p>
+    <p><b>进度总览</b>列出全部模块（含计划新增、游戏里还没有的）的美术状态（已进游戏 / 探索中 / 候选待选 / 计划中 / 旧画待复核），按优先级分档，每个模块附最新一次探索和历史探索的链接；上面的按钮可以按<b>类别</b>和<b>状态</b>筛选。计划表的文字版见 <code>docs/art-plan.md</code>，数据在 <code>tools/art-progress.js</code>。</p>
     <p><b>候选</b>（2026-09-27 夜间探索 v1）：当时借形占位的 20 个模块，每个出 2～3 个候选（只做候选，游戏里的占位不动）。每个候选画 T1 原画，并直接套游戏的材料装饰层看六阶换色；武器的耳轴和炮口长度读游戏数据，炮口位置和游戏一致。顺序：玩家最早见到的在前，巨炮和 Boss 件在最后。规范见 <code>docs/art-direction.md</code>、<code>docs/art-style.md</code>。每个候选都附：1× 实机大小、纯黑剪影、仰角范围（武器）、六阶材料、放进车体的样子。</p>
   </header>
   <div class="cbar">
@@ -184,7 +184,9 @@
   }
   // ---------- v2：进度总览（读 tools/art-progress.js）+ 类别 / 状态筛选 ----------
   const AP = SA.ARTPLAN;
-  const catOf = (id) => SA.MODULES[id].layer === 'ram' ? 'ram' : SA.MODULES[id].cat;
+  // 计划中的新模块（status plan）在 SA.MODULES 里还没有：名字、尺寸、类别读 art-progress.js 自带的字段
+  const modOf = (id) => SA.MODULES[id] || { name: AP.MODS[id].name, cat: AP.MODS[id].cat, layer: 'body' };
+  const catOf = (id) => modOf(id).layer === 'ram' ? 'ram' : modOf(id).cat;
   const stTag = (s) => { const d = AP.STATUS[s || 'todo'], t = el('span', { className: 'tag' }, d.name); t.style.background = d.color; return t; };
   const LAB_ST = { shipped: 'done', archived: 'legacy', explore: 'wip', live: 'done' };   // 样机状态 → 标签配色
   const LAB_NAME = { shipped: '定稿', archived: '历史', explore: '探索中', live: '现行' };
@@ -197,6 +199,12 @@
   }
   // 当前游戏里的样子（占位模块画成文字方块）：画在大画布上再按内容裁边
   function gamePic(id) {
+    if (!SA.MODULES[id]) {   // 还没实装：按计划尺寸画一个虚线框
+      const [w, h] = AP.MODS[id].size.split('×').map(Number), c = document.createElement('canvas'); c.width = w * 24; c.height = h * 24;
+      const g = c.getContext('2d'); g.strokeStyle = AP.STATUS.plan.color; g.setLineDash([3, 2]); g.strokeRect(0.5, 0.5, c.width - 1, c.height - 1);
+      g.fillStyle = AP.STATUS.plan.color; g.font = 'bold 8px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('未实装', c.width / 2, c.height / 2);
+      return c;
+    }
     const f = SA.fp(id), c = document.createElement('canvas'); c.width = f.w * 24 + 140; c.height = f.h * 24 + 90;
     SA.SPR.drawModule(c.getContext('2d'), id, 64, 56, { mt: 1 });
     const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
@@ -206,19 +214,19 @@
   }
   const hasCand = new Set(mods.map(md => md.id));
   function tile(id) {
-    const m = SA.MODULES[id], ap = AP.MODS[id], last = (ap.hist || [])[ap.hist.length - 1];
+    const m = modOf(id), ap = AP.MODS[id], last = (ap.hist || [])[ap.hist.length - 1];
     const pic = gamePic(id), sc = Math.max(1, Math.min(2, Math.floor(Math.min(72 / pic.width, 60 / pic.height))));
     pic.style.width = pic.width * sc + 'px'; pic.style.height = pic.height * sc + 'px';
     return el('div', { className: 'panel tile', dataset: { cat: catOf(id), st: ap.status } },
       el('div', { className: 'pic' }, pic),
       el('div', {},
-        el('div', { className: 'row1' }, ap.pri ? el('span', { className: 'pri' }, `#${ap.pri}`) : null, el('b', {}, m.name), stTag(ap.status), catChip(m)),
-        el('div', { className: 'tn' }, `${AP.CH[ap.ch] || ''} · ${ap.note}`),
+        el('div', { className: 'row1' }, ap.pri ? el('span', { className: 'pri' }, `#${ap.pri}`) : null, el('b', {}, ap.rename ? `${m.name} → ${ap.rename}` : m.name), stTag(ap.status), catChip(m)),
+        el('div', { className: 'tn' }, `${ap.size ? ap.size + ' · ' : ''}${AP.CH[ap.ch] || '章节待定'} · ${ap.note}`),
         el('div', { className: 'hl' }, last ? ['最新：', el('a', { href: last[2] }, last[1]), ` ${last[0].slice(5)}`] : '还没有探索记录',
           hasCand.has(id) ? ['　', el('a', { href: '#' + id }, '看候选 ↓')] : null)));
   }
   function buildOverview() {
-    const ids = Object.keys(AP.MODS).filter(id => SA.MODULES[id]);
+    const ids = Object.keys(AP.MODS);
     const done = ids.filter(id => !AP.MODS[id].pri);
     const todo = ids.filter(id => AP.MODS[id].pri).sort((a, b) => AP.MODS[a].pri - AP.MODS[b].pri);
     const groups = [{ name: `已完成（${done.length}）`, desc: '按 docs/visual-rules.md 定稿并进游戏', ids: done }];
@@ -226,12 +234,12 @@
     for (const t of AP.TIERS) { groups.push({ name: t.name, desc: t.desc, ids: todo.filter(id => AP.MODS[id].pri > from && AP.MODS[id].pri <= t.to) }); from = t.to; }
     const n = (s) => ids.filter(id => AP.MODS[id].status === s).length;
     $('ovbody').replaceChildren(
-      el('p', { className: 'note' }, `共 ${ids.length} 个模块：已进游戏 ${n('done')}、探索中 ${n('wip')}、候选待选 ${n('cand')}、旧画待复核 ${n('legacy')}。还没画完的：${n('wip') + n('cand') + n('todo')} 项。`),
+      el('p', { className: 'note' }, `共 ${ids.length} 个模块（游戏里已有 ${ids.length - n('plan')} 个 + 计划新增 ${n('plan')} 个）：已进游戏 ${n('done')}、探索中 ${n('wip')}、候选待选 ${n('cand')}、计划中 ${n('plan')}、旧画待复核 ${n('legacy')}。还没画完的：${n('wip') + n('cand') + n('plan') + n('todo')} 项。`),
       ...groups.map(g => el('div', { className: 'tier' }, el('h3', {}, g.name), el('div', { className: 'tdesc' }, g.desc), el('div', { className: 'tiles' }, ...g.ids.map(tile)))));
   }
   const flt = { cat: '', st: '' };
   function filterBar() {
-    const ids = Object.keys(AP.MODS).filter(id => SA.MODULES[id]);
+    const ids = Object.keys(AP.MODS);
     const btn = (key, v, label, color, count) => {
       const b = el('button', { className: 'fbtn' + (flt[key] === v ? ' on' : '') }, label, el('i', {}, count));
       if (flt[key] === v) b.style.background = color || 'var(--brass2)';
