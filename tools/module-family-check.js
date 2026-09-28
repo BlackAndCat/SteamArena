@@ -1,5 +1,5 @@
 /*
- * 新模块族回归：使用真实规则层检查旧分享码、摆放、属性、解锁和武器组。
+ * 新模块族回归：使用真实模块接口检查图标 / 属性提示、旧分享码、摆放、属性、解锁和武器组。
  * 机枪仰角由视觉侧配置；字段未交付时验收明确失败，不以跳过实射冒充通过。
  */
 'use strict';
@@ -16,6 +16,19 @@ const OLD_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
 // 此码由新增模块前的索引 0/4/10/16 独立生成，不能用当前编码器自证兼容。
 const OLD_MG_CODE = 'SA2.eyJuIjoi5pen5py654KuIiwiYiI6W1sxMCw2LDBdLFs4LDYsNF0sWzgsOCwxMF0sWzcsOCwxNl1dLCJzIjpbXX0=';
 const NEW_IDS = ['mg_s', 'mg_heavy', 'boiler_s', 'boiler_l', 'water_l'];
+
+/** 工作台会先生成全部库存图标和属性提示，两者都成功后才启动车辆绘制循环。 */
+function checkDisplay(SA) {
+  let count = 0;
+  for (const id of NEW_IDS) for (let mt = 1; mt <= SA.MAT_MAX; mt++) {
+    assert.doesNotThrow(() => {
+      SA.SPR.moduleCanvas(id, 1, mt);
+      SA.UI.statLine(id, mt);
+    }, `${id} 的 T${mt} 图标或属性提示阻断工作台初始化`);
+    count++;
+  }
+  return { modules: NEW_IDS.length, materialCases: count };
+}
 
 function put(SA, v, id, r, c) {
   const result = SA.V.place(v, id, r, c);
@@ -128,7 +141,7 @@ function checkWeapons(SA) {
 
 function run() {
   const { SA } = loadGame();
-  return { compatibility: checkOrderAndOldCode(SA), layout: checkLayoutAndStats(SA), shop: checkProgressAndShop(SA), weapons: checkWeapons(SA) };
+  return { display: checkDisplay(SA), compatibility: checkOrderAndOldCode(SA), layout: checkLayoutAndStats(SA), shop: checkProgressAndShop(SA), weapons: checkWeapons(SA) };
 }
 
 module.exports = { run };

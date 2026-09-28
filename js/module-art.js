@@ -41,6 +41,12 @@ SA.MODULE_ART = {
   autoloader: { art: 'plate', placeholder: '装弹机' },
   rangefinder: { art: 'plate', placeholder: '测距仪' },
   gyroscope: { art: 'plate', placeholder: '陀螺仪' },
+  // 新尺寸模块的专用造型尚未定稿，先按实际占格显示文字，保证库存和候选画廊能完整打开。
+  mg_s: { art: 'mg', placeholder: '机枪' },
+  mg_heavy: { art: 'mg', placeholder: '重机枪' },
+  boiler_s: { art: 'boiler', placeholder: '竖炉' },
+  boiler_l: { art: 'boiler', placeholder: '大锅炉' },
+  water_l: { art: 'water', placeholder: '大水箱' },
 };
 
 SA.applyModuleArt = function applyModuleArt(art) {

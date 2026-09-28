@@ -306,6 +306,11 @@
     for (const [cv, item, kind] of live) if (kind === 'big' && visible(cv)) draw1(cv, item, kind);
   }, 125);
   build(); filterBar(); render();
+  // 顶部工具栏会随窗口宽度和筛选项换行；锚点跳转时给它留出实际高度，避免遮住模块标题和造型。
+  const toolbar = document.querySelector('.cbar');
+  const syncScrollPadding = () => { document.documentElement.style.scrollPaddingTop = `${toolbar.offsetHeight + 8}px`; };
+  new ResizeObserver(syncScrollPadding).observe(toolbar);
+  syncScrollPadding();
   if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }   // 从计划表 / 样机馆跳过来时定位到模块
   window.__candReady = true;
 })();

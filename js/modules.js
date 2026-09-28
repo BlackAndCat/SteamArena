@@ -221,7 +221,7 @@ SA.MODULES = {
     name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', unique: { mt: 6, once: true, source: 'salvage' },
     price: 760, hp: 420, power: 10, kg: 1800, q: 5,
     dmg: 104, reload: 6.8, heat: 18, proj: 'shell', v: 820, g: 1, spread: 0, arc: 'high', indirect: true, kick: 180,
-    elev: [-5, 36], slew: 11, windup: 0.8, wild: 0, rest: 0, aimT: 2.4,
+    elev: [55, 85], slew: 11, windup: 0.8, wild: 0, rest: 75, aimT: 2.4,   // 与攻城臼炮 v6 的炮口朝天造型一致
 
     desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，近处有射击盲区；热量和动力压力都最高。',
   },
@@ -379,14 +379,14 @@ SA.MODULES = {
     name: '车载机枪', cat: 'firepower', layer: 'body', w: 1, h: 1,
     price: 48, hp: 48, power: 1, kg: 55, q: 1,
     dmg: 2, reload: 0.3, heat: 0.65, proj: 'bullet', v: 1150, g: 0.27, spread: 13, arc: 'low', kick: 2,
-    slew: 60, windup: 0.1, wild: 0.1, aimT: 0.3,
+    elev: [-8, 32], slew: 60, windup: 0.1, wild: 0.1, rest: 0, aimT: 0.3,   // 文字占位阶段沿用机炮射界
     desc: '占一个小格的车载机枪，耗能和重量都低；适合补空位，但单发伤害和穿深有限。',
   },
   mg_heavy: {
     name: '重机枪', cat: 'firepower', layer: 'body', w: 1, h: 2,
     price: 78, hp: 82, power: 1.5, kg: 105, q: 1,
     dmg: 3.5, reload: 0.35, heat: 0.9, proj: 'bullet', v: 1200, g: 0.27, spread: 11, arc: 'low', kick: 3.5,
-    slew: 55, windup: 0.12, wild: 0.1, aimT: 0.35,
+    elev: [-8, 32], slew: 55, windup: 0.12, wild: 0.1, rest: 0, aimT: 0.35,   // 文字占位阶段沿用机炮射界
     desc: '竖立的重机枪，占 1×2 小格；伤害和穿深高于车载机枪，但需要更多动力。',
   },
   boiler_s: {
