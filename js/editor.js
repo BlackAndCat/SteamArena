@@ -1,5 +1,5 @@
 // 车间：改装台 + 商店 + 修理 + 蓝图库/分享码示例，全在这一页（主体层 / 侧挂层，像素 / 图纸视图）
-// 操作集中在底部操作栏：选模块 → 点格子放置；点已有模块直接替换，再点一次同款模块就拆下。
+// 操作集中在底部操作栏：选模块 → 连续点格子放置；右键优先取消选择，空手时才拆下指针下的模块。
 // 操作栏可切到「蓝图库」：保存 / 应用 / 导入 / 导出分享码，内置示例也能直接套用。
 // 车上的模块可以拖动（空格 = 移动，有模块 = 对调），拖出车外放回库存。
 // 改装台上允许悬空、乱放；只有出战时才要求所有模块都连到底盘（SA.V.issues）。
@@ -10,7 +10,7 @@ SA.Editor = (() => {
   const PADX = SA.SPR.PADX, C = K.CELL;
   const W = K.COLS * C + PADX * 2, H = K.ROWS * C + 12;
   const DRAG_PX = 6;
-  // sel：从库存选中、准备放置的库存键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
+  // sel：准备连续放置的库存 / 商店键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
     dock: 'mods', bp: null, bpFilter: 'all', shop: false, fold: loadFold() };
@@ -57,10 +57,11 @@ SA.Editor = (() => {
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
-    cv.addEventListener('pointerup', onUp);
     cv.addEventListener('pointercancel', cancelPress);
     cv.addEventListener('pointerleave', () => { if (!st.press) st.hover = null; });
-    cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    // 取消拖动会释放指针捕获；松手可能落在画布外，统一接收才能拦住随后合成的点击。
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('keydown', onKey);
     if (ro) ro.disconnect();
     ro = new ResizeObserver(fit);
@@ -79,7 +80,7 @@ SA.Editor = (() => {
   function onKey(e) {
     if (SA.current !== 'garage' || !document.querySelector('#modal').hidden) return;
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
-    if (e.key === 'Escape') { st.sel = null; st.pick = null; st.bp = null; cancelPress(); renderDock(); }
+    if (e.key === 'Escape') cancelSelection();
     else if ((e.key === 'Delete' || e.key === 'Backspace') && st.pick) { e.preventDefault(); removeAt(st.pick); }
   }
 
@@ -106,17 +107,38 @@ SA.Editor = (() => {
   function say(text, err) { st.msg = { text, err: !!err, at: performance.now() }; }
 
   // ---------- 指针：点击 / 拖动 ----------
+  // 库存、商店、车上点选和拖动共用取消逻辑；模块尚未落下时不扣库存，也不拆走原件。
+  function cancelSelection() {
+    if (st.press) st.noClick = true;
+    st.sel = null; st.pick = null; st.bp = null;
+    cancelPress();
+    renderDock();
+  }
+
+  function onContextMenu(e) {
+    if (SA.current !== 'garage' || !document.querySelector('#modal').hidden) return;
+    if (st.sel || st.pick || st.press || st.drag) {
+      e.preventDefault();
+      cancelSelection();
+      return;
+    }
+    if (e.target !== cv) return;
+    e.preventDefault();
+    const cell = cellAtXY(e.clientX, e.clientY);
+    if (!cell) return;
+    st.hover = cell;
+    const v = veh();
+    const layer = SA.V.at(v, st.layer, cell.r, cell.c) ? st.layer : SA.V.at(v, 'body', cell.r, cell.c) ? 'body' : null;
+    if (layer) { const o = SA.V.at(v, layer, cell.r, cell.c); removeAt({ layer, r: o.r, c: o.c }); }
+  }
+
   function onCanvasDown(e) {
+    if (e.button !== 0) return;   // 右键统一在 contextmenu 处理，避免取消选择的同一次点击又拆掉模块。
     e.preventDefault();
     const cell = cellAtXY(e.clientX, e.clientY);
     st.hover = cell;
     if (!cell) { if (st.pick) { st.pick = null; renderDock(); } return; }
     const v = veh();
-    if (e.button === 2) {
-      const layer = SA.V.at(v, st.layer, cell.r, cell.c) ? st.layer : SA.V.at(v, 'body', cell.r, cell.c) ? 'body' : null;
-      if (layer) { const o = SA.V.at(v, layer, cell.r, cell.c); removeAt({ layer, r: o.r, c: o.c }); }
-      return;
-    }
     if (st.sel) { placeAt(st.sel, cell); return; }
     const here = SA.V.at(v, st.layer, cell.r, cell.c);
     if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: here.r, c: here.c, id: here.cell.id, key: SA.invKey(here.cell.id, here.cell.mt) }); return; }
@@ -148,6 +170,9 @@ SA.Editor = (() => {
   }
 
   function onUp(e) {
+    if (SA.current !== 'garage' || e.button !== 0) return;
+    // 拖动中右键 / Esc 取消后，仍需抑制这次左键松手产生的 click，随后恢复正常点选。
+    if (st.noClick) setTimeout(() => { st.noClick = false; }, 0);
     const p = st.press;
     if (!p || p.pid !== e.pointerId) return;
     const src = p.src, drag = st.drag;
@@ -231,7 +256,7 @@ SA.Editor = (() => {
       } });
   }
 
-  // 库存不够就问要不要买（钱不够再问要不要贷款）；商店只卖已解锁的黄铜模块
+  // 库存不够就自动购买，只有钱不够才提示贷款；仍按商店解锁和可售材料检查。
   function withStock(key, then) {
     if (d().inv[key] > 0) { then(); return; }
     const id = kid(key), m = M[id];
@@ -268,8 +293,8 @@ SA.Editor = (() => {
     withStock(key, () => {
       const old = cur && cur.cell;
       const scrap = SA.S.installStock(v, id, r, c, mt, layer, cur, clash);
-      // 库存还有就保持选中，可以接着放；用完了才取消选中
-      if (!(d().inv[key] > 0)) st.sel = null;
+      // 点选和拖入都保留同一放置模板；库存用尽后，下一次放置继续走购买 / 借贷流程。
+      st.sel = key;
       st.pick = null;
       const iss = SA.V.issues(v).find(x => x.layer === layer && x.r === r && x.c === c);
       const tail = iss ? `（${iss.reason}，出战前要接好）` : '';
@@ -371,16 +396,16 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     ctxEl.innerHTML = '';
     const v = veh(), inv = d().inv;
     if (st.sel) {
-      const key = st.sel, id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
+      const key = st.sel, id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0, canBuy = mt === SA.buyMt(id) && buyable(id);
       ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
-            n ? h('span', { class: 'chip' }, `库存 ${n}`) : SA.isUnique(id) ? h('span', { class: 'chip no' }, '只能缴获') : h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`)),
-          h('div', { class: 'sub' }, n ? (SA.isUnique(id) ? '唯一件：不能再买到，卖掉或报废就没有了' : '点格子放置，库存没用完就一直保持选中；点已有模块直接替换，点同款模块拆下') : '点格子即可直接购买并安装')),
+            n ? h('span', { class: 'chip' }, `库存 ${n}`) : canBuy ? h('span', { class: 'chip buy' }, `无库存 · 放置时购买 ${money(SA.buyPrice(id))}`) : h('span', { class: 'chip no' }, SA.isUnique(id) ? '只能缴获' : '当前材料无库存')),
+          h('div', { class: 'sub' }, SA.isUnique(id) ? '唯一件：不能再买到，卖掉或报废就没有了；右键取消' : canBuy ? '点格子连续放置，库存用尽后自动购买；点已有模块直接替换，点同款模块拆下；右键取消' : n ? '点格子放置库存里的当前材料，放置后保持选中；右键取消' : '当前没有可用库存，右键取消或选择其他模块')),
         h('div', { class: 'acts' },
-          mt === SA.buyMt(id) && buyable(id) ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(SA.buyPrice(id))}`) : null,
+          canBuy ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, `买 ${money(SA.buyPrice(id))}`) : null,
           n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, `卖 ${money(SA.cellValue({ id, mt }) * 0.5)}`) : null,
-          h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.sel = null; renderAll(); } }, '取消')));
+          h('button', { class: 'btn small', title: '右键 / Esc', onclick: cancelSelection }, '取消')));
       return;
     }
     const pk = st.pick && v[st.pick.layer][st.pick.r][st.pick.c];
@@ -410,7 +435,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           h('button', { class: 'btn small', title: 'Delete', onclick: () => (pk.hp <= 0 && SA.isUnique(pk.id)
             ? uniqueConfirm(`报废唯一件「${m.name}」？`, '报废以后就再也拿不到了。修好它只要付修理费。', '仍然报废', () => removeAt(st.pick))
             : removeAt(st.pick)) }, pk.hp <= 0 ? `报废 +${money(SA.cellValue({ id: pk.id, mt: pk.mt }) * 0.1)}` : '拆下'),
-          h('button', { class: 'btn small', title: 'Esc', onclick: () => { st.pick = null; renderDock(); } }, '取消')));
+          h('button', { class: 'btn small', title: '右键 / Esc', onclick: cancelSelection }, '取消')));
       return;
     }
     st.pick = null;
@@ -506,7 +531,6 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
         row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id, key }); });
         row.addEventListener('pointermove', onMove);
-        row.addEventListener('pointerup', onUp);
         row.addEventListener('pointercancel', cancelPress);
         invEl.append(row);
         // 选中的那一行展开：穿深 / 装甲厚度对照、新属性说明和装上后的变化（V4）
@@ -674,7 +698,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       H('车间里的颜色'),
       h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
       H('操作'),
-      h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块，放置时自动购买，钱不够会问要不要贷款。右键 拆下 · Esc 取消 · Delete 拆下选中。'),
+      h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；安装后保持选中，可连续放置，库存用尽后自动购买，钱不够会问要不要贷款。点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块。右键先取消选中或拖动，空手时才拆下指针下的模块 · Esc 取消 · Delete 拆下选中。'),
       H('摆放规则'),
       h('p', {}, '驾驶员：驾驶舱里坐 1 人，1×2 联合驾驶舱 2 人，2×2 联合驾驶舱 4 人。全车驾驶员每比 1 多一个，就替你操作一组你当前没在用的武器（你切换武器组，他们跟着接手剩下的），自己挑目标，但没你准。'),
       h('p', {}, '速度：最高速度 = 底盘速度 × 动力比（锅炉富余最多超速 25%），单位 km/h。底盘手感：双足起步和刹车最快但走起来最晃，四足刹车最慢但移动时最平稳，履带居中。重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
