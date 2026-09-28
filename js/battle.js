@@ -1209,7 +1209,8 @@ SA.Battle = (() => {
       pDealt: B.p.dealt, pTaken: B.p.taken,
     });
     if (view) view.presentResult({
-      mode: B.opts.mode, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
+      // 结算规则和结果弹窗都读取顶层 replay；漏传会把重打胜利误当成当前关卡首次通关。
+      mode: B.opts.mode, replay: !!B.opts.replay, opts: B.opts, win, draw, prize: B.opts.prize || 0, enemyName: B.e.name,
       reason: draw ? B.draw : win ? `「${B.e.name}」${B.e.reason}` : `你的「${B.p.name}」${B.p.reason}`, surrendered: win && B.surrender === 'accepted',
       playerVehicle: shiftVeh(B.p.v, -B.pShift), survivors, dealt: B.p.dealt, taken: B.p.taken, time: B.t, flawless: win && flawless,
       humanId,   // 真人记录的 id：结算弹窗的一键评价按钮用它调 SA.HUMAN_BATTLES.feedback
