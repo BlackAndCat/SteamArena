@@ -67,8 +67,8 @@ SA.ARTPLAN = {
       note: '机枪系列中档（竖 1×2）。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [] },
     // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
     boiler_s: { status: 'wip', pri: 11, ch: null, name: '竖式锅炉', size: '1×2', cat: 'energy',
-      note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）。v1 三个方向（A 立式锅炉 / B 炉灶式 / C 高烟囱）× 六档，等用户挑；数据仍等 astra',
-      hist: [['2026-09-28', 'v1 三个方向 × 六档', 'boiler-lab.html', 'explore']] },
+      note: '锅炉最小就是 1×2。竖立炉身 + 烟囱 + 炉门火光；和 1×2 水罐、蓄压罐分开（只有锅炉发光）。v1 三个方向（A 立式锅炉 / B 炉灶式 / C 高烟囱）× 六档，用户选 C 高烟囱，下一步细化 C 的六档；数据仍等 astra',
+      hist: [['2026-09-28', 'v1 三个方向 × 六档 → 用户选 C 高烟囱', 'boiler-lab.html', 'explore']] },
     boiler_l: { status: 'plan', pri: 12, ch: null, name: '大型锅炉', size: '3×3', cat: 'energy',
       note: '3×3 大空间，按 visual-rules 大空间原则（一个主体、大平面安静）；双烟囱 / 大炉门', hist: [] },
     water_l: { status: 'plan', pri: 13, ch: null, name: '大水箱', size: '3×3', cat: 'cooling',
