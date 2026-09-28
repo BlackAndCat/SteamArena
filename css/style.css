@@ -241,6 +241,20 @@ body[data-screen=garage] #screen { min-height: 0; }
   padding: 8px 14px; z-index: 60; pointer-events: none; opacity: 0; transition: opacity .2s; max-width: calc(100vw - 32px); }
 #toast.show { opacity: 1; }
 
+/* 扣款浮字：独立于面板刷新，不拦截连续购买 / 放置的鼠标操作。 */
+.money-spend { position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none; user-select: none;
+  color: var(--fire3); font-size: 20px; font-weight: 900; line-height: 1.2; white-space: nowrap;
+  text-shadow: -1px -1px 0 var(--dark0), 1px -1px 0 var(--dark0), -1px 1px 0 var(--dark0), 1px 1px 0 var(--dark0), 0 2px 3px var(--dark0);
+  animation: money-spend-rise 1.2s ease-out forwards; }
+@keyframes money-spend-rise {
+  0% { opacity: 1; transform: translateY(0); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-32px); }
+}
+/* 减少动态效果时保留扣款反馈，只淡出，不移动。 */
+@media (prefers-reduced-motion: reduce) { .money-spend { animation-name: money-spend-fade; } }
+@keyframes money-spend-fade { 0%, 25% { opacity: 1; } 100% { opacity: 0; } }
+
 @media (max-width: 900px) {
   .ar-grid { grid-template-columns: 1fr; }
   .brass-plate { width: min(300px, calc(100% - 16px)); }

@@ -24,6 +24,23 @@ SA.UI = (() => {
   const S = () => SA.S.d;
   const money = (n) => `£${Math.round(n).toLocaleString()}`;
 
+  // 捕获阶段记录指针，保证编辑器拦截冒泡、拖入安装和弹窗确认都能把扣款提示放在鼠标旁。
+  const payPointer = { x: innerWidth / 2, y: innerHeight / 2 };
+  const rememberPayPointer = e => { payPointer.x = e.clientX; payPointer.y = e.clientY; };
+  document.addEventListener('pointermove', rememberPayPointer, { capture: true, passive: true });
+  document.addEventListener('pointerdown', rememberPayPointer, { capture: true, passive: true });
+
+  // 每笔实际支出各自上浮淡出；显示付款金额，避免借贷补款或回收收入影响本次花费的提示。
+  function spendFloat(amount) {
+    if (amount <= 0) return;
+    const el = h('div', { class: 'money-spend', 'aria-hidden': 'true' }, `−${money(amount)}`);
+    document.body.append(el);
+    // 给上浮留出 32px，靠近窗口边缘时也让金额完整留在画面内。
+    el.style.left = `${Math.max(8, Math.min(payPointer.x + 16, innerWidth - el.offsetWidth - 8))}px`;
+    el.style.top = `${Math.max(40, Math.min(payPointer.y - 18, innerHeight - el.offsetHeight - 8))}px`;
+    setTimeout(() => el.remove(), 1200);
+  }
+
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg;
@@ -70,7 +87,7 @@ SA.UI = (() => {
   // 付钱：钱够就（按需确认后）直接扣款；不够就问要不要向银行贷款补齐差额
   function pay({ title, amount, lines = [], okLabel = '确认', confirm = true, onPaid }) {
     const d = S();
-    const done = () => { SA.S.payAmount(amount); topbar(); onPaid(); };
+    const done = () => { SA.S.payAmount(amount); spendFloat(amount); topbar(); onPaid(); };
     if (d.money >= amount) {
       if (!confirm) { done(); return; }
       dialog(title, [lines, h('p', {}, `花费 `, h('b', { class: 'gold' }, money(amount)), `，剩余 ${money(d.money - amount)}`)],
