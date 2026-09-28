@@ -122,7 +122,7 @@
   // 上层车体：直接把模块放进一台空车（不带底盘），用游戏里的整车渲染画出来
   for (const b of BUILDS) {
     b.v = SA.V.create(b.name);
-    for (const [id, r, c] of b.mods) b.v.body[r][c] = SA.newCell(id);
+    for (const [id, r, c] of b.mods) b.v.body[r][c] = SA.newCell(id); SA.V.widenArmor(b.v);
     const O = SA.V.occ(b.v, 'body');
     if (b.type === 'quad') b.top = [0, 1, 2, 3].some(k => O[b.r - 1][b.c + k]);
     else { b.wL = !!(O[b.r][b.c - 1] || O[b.r + 1][b.c - 1]); b.wR = !!(O[b.r][b.c + 2] || O[b.r + 1][b.c + 2]); }

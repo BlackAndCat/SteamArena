@@ -722,7 +722,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
   }
   // 模块（锚点）在画布上的位置和像素大小
   const cellXY = (r, c) => [PADX + c * C, r * C];
-  const boxOf = (v, layer, r, c) => { const cell = v[layer][r][c], f = SA.fp(cell ? cell.id : 'armor'); return [PADX + c * C, r * C, f.w * C, f.h * C]; };
+  const boxOf = (v, layer, r, c) => { const cell = v[layer][r][c], f = SA.fp(cell ? cell.id : 'armor_heavy'); return [PADX + c * C, r * C, f.w * C, f.h * C]; };
 
   // 拖动到某处后，搬过去的模块会不会悬空 / 放不下（按目标锚点缓存，避免每帧克隆）
   let dropMemo = { key: '', bad: false };

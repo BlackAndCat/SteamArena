@@ -36,6 +36,8 @@ SA.LABS = {
       desc: '方案 A v3：立面分区排布；散热口逐档变；T1～4 方正、T5～6 斜板；包角铁钢起；铆钉黄铜 → 镀镍起钢质淡青；珐琅铭牌 + 大压力表镀镍起；钢 / 镀镍炮口重做', docs: ['docs/visual-rules.md'] },
     { id: 'gun-family', group: 'module', url: 'gun-family-lab.html', name: '火炮家族 · 六档再设计', ver: 'v15', date: '2026-09-28', status: 'shipped',
       desc: '火炮家族全部定稿进游戏（2026-09-28 巨炮 v6 进游戏后归档）。按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v6（4×4 攻城臼炮阵地：椭圆弧象牙白炮口箍、分格弹簧底座 + 回转支承、黄铜炮弹、钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）也已进游戏。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
+    { id: 'boiler-s', group: 'module', url: 'boiler-lab.html', name: '竖式锅炉 · 造型探索', ver: 'v1', date: '2026-09-28', status: 'explore',
+      desc: '锅炉最小一档 1×2（boiler_s 暂定）：A 立式锅炉 / B 炉灶式 / C 高烟囱，各六档（原形 → 方包壳平顶 → 斜肩板）、火力动画、和水罐 / 蓄压罐 / 1×2 铁装甲对比、放进车体；附铁装甲改 1×2', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
     { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '新模块造型候选 · 进度总览', ver: 'v2', date: '2026-09-28', status: 'explore',
       desc: '全部模块的美术进度：按类别 / 状态筛选，每个模块的最新探索和历史探索；未画模块的 2～3 个候选（T1 原画、1× / 剪影、仰角、六阶材料、放进车体）。计划表见 docs/art-plan.md', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',

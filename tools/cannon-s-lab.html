@@ -247,7 +247,7 @@
     const g = cv.getContext('2d');
     g.fillStyle = P.iron[0]; g.fillRect(x0 - 1, y0 - 1, 74, 50);
     g.fillStyle = P.iron[1]; g.fillRect(x0, y0, 72, 48);
-    SA.SPR.drawModule(g, 'armor', x0, y0, { mt: M.mt });
+    SA.SPR.drawModule(g, 'armor', x0, y0, { mt: M.mt }); SA.SPR.drawModule(g, 'armor', x0 + 24, y0, { mt: M.mt });
     const cs = useNew ? L.sprite(L.DIRS[st.sel], M, o()) : L.sprite(L.DIRS[st.sel], ORIG, o({ decorate: M.mt }));
     g.drawImage(cs, x0 + 48 - L.PAD.l, y0 - L.PAD.t);
     g.drawImage(useNew ? L.plateSprite(M, o()) : L.plateSprite(ORIG, { decorate: M.mt }), x0 + 48, y0 + 24);

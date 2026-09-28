@@ -189,7 +189,7 @@
     // 每个游戏模块单独拿原画（不套材质），再和炮用同一套材质处理，描线和四角钉按模块各算各的
     for (const [id, dx, o] of [['armor', 0, {}], ['boiler', 48, { heat: 0.6, t: 0.3 }]]) {
       const m = document.createElement('canvas'); m.width = 56; m.height = 64; const mg = m.getContext('2d');
-      SA.SPR.setMatPass(() => {}); SA.SPR.drawModule(mg, id, 4, 10, o); SA.SPR.setMatPass(null);
+      SA.SPR.setMatPass(() => {}); SA.SPR.drawModule(mg, id, 4, 10, o); if (id === 'armor') SA.SPR.drawModule(mg, id, 28, 10, o); SA.SPR.setMatPass(null);
       applyMat(m, mt, 4, 10); g.drawImage(m, dx, 0);
     }
     const gunC = a2 ? a2Cv(tier, mt, st.line) : cannonCv(tier, mt, st.line); g.drawImage(gunC, 96, 0);
