@@ -88,11 +88,12 @@ SA.SPR = (() => {
     if (!lv || SA.isWeapon(id)) return;
     if (m.layer === 'chassis') {
       if (id === 'track') {   // 裙板盖住上段履带和侧框上沿，三级分段
-        const x0 = x + (q.connL ? 0 : 6), x1 = x + (q.connR ? C : 44), hh = [0, 7, 11, 16][lv];
-        box(x0, y + 6, x1 - x0, hh, IRONL);
-        R(x0 + 1, y + 4 + hh, x1 - x0 - 2, 1, P.iron[1]);
-        for (let k = x0 + 4; k < x1 - 2; k += 8) rivet(k, y + 8);
-        if (lv >= 3) for (let k = x0 + 12; k < x1 - 2; k += 12) R(k, y + 7, 1, hh - 2, P.iron[0]);
+        // 2026-09-29 履带改六档后：裙板从上段链带（y+18）往下盖，一级只盖住上段，三级盖到负重轮上沿（T6 自带全包裙板，加固板叠在它外面一层）
+        const x0 = x + (q.connL ? 0 : 6), x1 = x + (q.connR ? C : 44), hh = [0, 7, 11, 16][lv], y0 = y + 18;
+        box(x0, y0, x1 - x0, hh, IRONL);
+        R(x0 + 1, y0 - 2 + hh, x1 - x0 - 2, 1, P.iron[1]);
+        for (let k = x0 + 4; k < x1 - 2; k += 8) rivet(k, y0 + 2);
+        if (lv >= 3) for (let k = x0 + 12; k < x1 - 2; k += 12) R(k, y0 + 1, 1, hh - 2, P.iron[0]);
       } else { box(x + 4, y + 1, 40, 3 + lv * 2, IRONL); for (let k = 8; k < 42; k += 10) rivet(x + k, y + 2); }
       return;
     }
@@ -1272,6 +1273,194 @@ SA.SPR = (() => {
   const UNDER = {};   // 齿轮改用 GEAR_RAMP 后直接画在 DRAW 里，这里暂时不用（管线保留）
 
 
+  // ---------- 履带六档的零件（DRAW.track 用；样机 tools/archive/track-tiers.html）----------
+  const TAUT = Math.PI * 2, rdT = Math.round;
+  const WOODT = [P.leather[0], P.leather[1], P.leather[2], P.leather[3]];
+  function tSeg(cx, cy, a, len, w, col) {
+    const dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2;
+    line(rdT(cx - dx), rdT(cy - dy), rdT(cx + dx), rdT(cy + dy), w, col);
+  }
+  const tBolt = (x, y) => { px(x, y, P.iron[4]); px(x + 1, y + 1, P.iron[0]); };
+  const tPlate = (x, y, w, h, r) => { R(x, y, w, h, r[0]); R(x + 1, y + 1, w - 2, h - 2, r[2]); R(x + 1, y + 1, w - 2, 1, r[3]); if (h > 3) R(x + 1, y + h - 2, w - 2, 1, r[1]); };
+  // 铁链节（弧形段用）：黑描边 + 交替明暗 + 外侧高光 + 黄铜链销 + 抓地齿 / 导向齿
+  function tLink(T, X, Y, a, i, pin) {
+    const nx = -Math.sin(a), ny = Math.cos(a);
+    if (T === 2) {   // 木板条：垂直于行进方向摆，每三块钉一条铁抓地条
+      tSeg(X, Y, a + Math.PI / 2, 4.2, 3, WOODT[0]); tSeg(X, Y, a + Math.PI / 2, 3.2, 2, i % 2 ? WOODT[1] : WOODT[2]);
+      if (i % 3 === 0) tSeg(X - nx * 2.4, Y - ny * 2.4, a + Math.PI / 2, 3, 1, P.iron[2]);
+      return;
+    }
+    tSeg(X, Y, a, 5.8, 3, P.iron[0]); tSeg(X, Y, a, 4.6, 2, i % 2 ? P.iron[3] : P.iron[2]);
+    px(rdT(X - nx * 1.2 - 0.5), rdT(Y - ny * 1.2 - 0.5), P.iron[4]);
+    px(rdT(X - Math.cos(a) * 2.6 - 0.5), rdT(Y - Math.sin(a) * 2.6 - 0.5), pin);
+    if (i % 2 === 0) { tSeg(X - nx * 2.6, Y - ny * 2.6, a + Math.PI / 2, 2, 1, P.iron[0]); px(rdT(X - nx * 3.6 - 0.5), rdT(Y - ny * 3.6 - 0.5), P.iron[4]); }
+    if (T >= 4 && i % 2 === 1) R(rdT(X + nx * 2.6 - 1), rdT(Y + ny * 2.6 - 1), 2, 2, P.iron[4]);
+  }
+  // 直段链带（逐列画）：t = 带顶 y；dir = 1 下段（向左滚，+ph）/ -1 上段（向右滚，-ph）；节距 6（木板 4），格宽 48 是节距的整数倍，跨格不错位
+  function trackCol(T, cx, t, ph, dir) {
+    const slat = T === 2, pitch = slat ? 4 : 6, u = cx + ph * dir, p = ((u % pitch) + pitch) % pitch, idx = Math.floor(u / pitch);
+    const out = dir > 0 ? 1 : -1;   // 外侧（抓地）朝下 / 朝上
+    if (slat) {
+      R(cx, t, 1, 4, WOODT[0]);
+      if (p !== 3) { R(cx, t + 1, 1, 2, idx % 2 ? WOODT[1] : WOODT[2]); if (p === 0) px(cx, t + 1, WOODT[3]); }
+      if (idx % 3 === 0 && p >= 1 && p <= 2) R(cx, out > 0 ? t + 4 : t - 2, 1, 2, P.iron[2]);
+      return;
+    }
+    R(cx, t, 1, 4, P.iron[0]);
+    if (p === 5) R(cx, t + 1, 1, 2, T >= 4 ? P.brass[3] : P.brass[2]);
+    else { R(cx, t + 1, 1, 2, idx % 2 ? P.iron[3] : P.iron[2]); if (p === 0) px(cx, out > 0 ? t + 1 : t + 2, P.iron[4]); }
+    if (idx % 2 === 0 && p >= 2 && p <= 3) { px(cx, out > 0 ? t + 4 : t - 1, P.iron[4]); if (T >= 4) px(cx, out > 0 ? t + 5 : t - 2, P.iron[0]); }
+    else if (T >= 4 && idx % 2 === 1 && p >= 2 && p <= 3) px(cx, out > 0 ? t - 1 : t + 4, P.iron[4]);   // 内侧导向齿
+  }
+  // 端头圆弧：side = -1 左端（驱动轮，从下段绕过左边到上段）/ 1 右端（诱导轮，从上段绕过右边到下段）；半径 12，链节沿弧长等距、随 ph 转
+  function trackArc(T, cx, cy, side, ph) {
+    const r = 12, pitch = T === 2 ? 4 : 6, n = Math.round(Math.PI * r / pitch), step = Math.PI * r / n, pin = T >= 4 ? P.brass[3] : P.brass[2];
+    for (let k = 0; k < n; k++) {
+      const s = (((k + ph / pitch) % n) + 0.5) * step, ang = side < 0 ? Math.PI / 2 + s / r : -Math.PI / 2 + s / r;
+      tLink(T, cx + r * Math.cos(ang), cy + r * Math.sin(ang), ang + Math.PI / 2, k, pin);
+    }
+  }
+  // 辐条轮 / 链轮齿
+  function tSpoked(cx, cy, r, ang, n, o = {}) {
+    const rim = o.rim || P.iron, sp = o.spoke || P.iron[3], hub = o.hub || P.iron[3];
+    disc(cx, cy, r, P.dark[0]); disc(cx, cy, r - 1, rim[2]); disc(cx - 0.5, cy - 0.5, r - 1.6, rim[3] || rim[2]); disc(cx, cy, r - 2.2, o.hole || P.dark[1]);
+    for (let i = 0; i < n; i++) { const a = ang + i * TAUT / n; line(rdT(cx), rdT(cy), rdT(cx + Math.cos(a) * (r - 2)), rdT(cy + Math.sin(a) * (r - 2)), 1, sp); }
+    disc(cx, cy, Math.max(1.4, r * 0.28), hub); px(rdT(cx - 1), rdT(cy - 1), P.iron[4]);
+  }
+  function tTeeth(cx, cy, r, ang, n, col) { for (let i = 0; i < n; i++) { const a = ang + i * TAUT / n; R(rdT(cx + Math.cos(a) * r) - 1, rdT(cy + Math.sin(a) * r) - 1, 2, 2, col); } }
+  // 驱动轮（左）/ 诱导轮（右）：圆心 (x+14, y+33) / (x+34, y+33)，半径 8.5；每档一套辐条数、轮毂、齿
+  const TR_WHEEL = [null,
+    null,
+    { rn: 6, fn: 5, hubR: () => P.brass[2], hubF: () => P.iron[3], sp: P.iron[2], teeth: [8, P.iron[4]] },
+    { rn: 6, fn: 6, hubR: () => P.iron[3], hubF: () => P.iron[3], sp: P.iron[3], teeth: [10, P.iron[4]] },
+    { rn: 7, fn: 8, hubR: () => P.brass[2], hubF: () => P.iron[3], sp: P.iron[4], teeth: [12, P.iron[4]] },
+    { rn: 8, fn: 8, hubR: () => P.brass[2], hubF: () => P.brass[2], sp: P.iron[4], hole: P.dark[2], teeth: [12, P.brass[3]], boss: true },
+    { rn: 8, fn: 8, hubR: () => P.brass[2], hubF: () => P.brass[2], sp: P.brass[2], hole: P.dark[2], teeth: [12, P.brass[3]] }];
+  function trackSprockets(T, x, y, L, Rr, ph) {
+    const W = TR_WHEEL[T];
+    if (!L) {
+      const a = ph / 24 * TAUT / W.rn;
+      tSpoked(x + 14, y + 33, 8.5, a, W.rn, { spoke: W.sp, hub: W.hubR(), hole: W.hole });
+      tTeeth(x + 14, y + 33, 9.4, a, W.teeth[0], W.teeth[1]);
+      if (W.boss) { disc(x + 14, y + 33, 2.2, P.brass[1]); px(x + 13, y + 32, P.brass[3]); }
+    }
+    if (!Rr) tSpoked(x + 34, y + 33, 8.5, ph / 24 * TAUT / W.fn, W.fn, { spoke: W.sp, hub: W.hubF(), hole: W.hole });
+  }
+  // 掉链子：链条摊在地上（两截 / 整条），断头翘起；驱动轮和诱导轮上垂下来的链
+  function trackGround(T, x, y, L, Rr, sn) {
+    const cable = (x0, y0, x1, y1) => { line(x0, y0, x1, y1, 5, P.dark[0]); line(x0, y0, x1, y1, 3, P.dark[2]); };
+    const xa = L ? x : x + 2, xb = Rr ? x + C : x + 44;
+    if (sn) {
+      links(xa, x + 17, y + 42, 5, 3, false); links(x + 31, xb, y + 42, 5, 3, false);
+      cable(x + 15, y + 44, x + 20, y + 37); cable(x + 33, y + 44, x + 29, y + 38);
+      R(x + 19, y + 36, 2, 2, P.dark[3]); R(x + 28, y + 37, 2, 2, P.dark[3]);
+    } else links(xa, xb, y + 42, 5, 3, false);
+    if (!L) cable(x + 6, y + 36, x + 3, y + 43);
+    if (!Rr) cable(x + 42, y + 36, x + 44, y + 43);
+  }
+  // 负重轮（钢盘 / 暗铁盘）：圆心 (wx, wy)，r 半径，a 转角（螺栓跟着转）
+  function tRoad(wx, wy, r, a, style) {
+    disc(wx, wy, r + 0.3, P.dark[0]);
+    if (style === 'dark') { disc(wx, wy, r - 0.8, P.dark[3]); disc(wx, wy, r - 2.6, P.dark[2]); }
+    else if (style === 'brass') { disc(wx, wy, r - 0.8, P.iron[2]); disc(wx - 0.5, wy - 0.5, r - 2, P.iron[3]); disc(wx, wy, 1.4, P.brass[2]); }
+    else { disc(wx, wy, r - 0.8, P.iron[2]); disc(wx - 0.5, wy - 0.5, r - 2, P.iron[3]); disc(wx, wy, 1.4, style === 'steel' ? P.iron[1] : P.brass[2]); }
+    for (const k of (style === 'steel' ? [0, TAUT / 3, 2 * TAUT / 3] : [0])) px(rdT(wx + Math.cos(a + k) * (r - 1.6) - 0.5), rdT(wy + Math.sin(a + k) * (r - 1.6) - 0.5), P.iron[4]);
+  }
+  // T1 博伊德尔铰接脚板轮：每格两只大木辐轮（圆心 x+12 / x+36，跟悬挂 g0 / g1 上下），轮缘挂 9 块铰接铁脚板，转到最下面放平压地；轴梁 + 木车台串起来
+  function trackT1(x, y, L, Rr, ph, th, g0, g1) {
+    const xa = x + (L ? 0 : 2), xb = x + (Rr ? C : C - 2);
+    tPlate(xa, y + 12, xb - xa, 4, WOODT); R(xa, y + 16, xb - xa, 2, P.iron[0]); R(xa, y + 16, xb - xa, 1, P.iron[3]);
+    for (let k = xa + 2; k < xb - 2; k++) if (((k - x) % 8 + 8) % 8 === 4) tBolt(k, y + 13);
+    [12, 36].forEach((lx, i) => {
+      const cx = x + lx, r = 12, cy = y + 33 + (i ? g1 : g0), wa = ph / 24 * TAUT / 9 + lx * 0.04;
+      R(cx - 1, y + 18, 3, cy - y - 18, P.iron[0]); R(cx, y + 18, 1, cy - y - 18, P.iron[3]);   // 吊杆（悬挂伸缩时跟着变长）
+      if (!th) for (let k = 0; k < 9; k++) {
+        const a = wa + k * TAUT / 9 + Math.PI / 2, rr = r + 1;
+        tSeg(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, a + Math.PI / 2, 7.4, 3, P.iron[0]);
+        tSeg(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, a + Math.PI / 2, 6.2, 2, k % 2 ? P.iron[2] : P.iron[3]);
+        px(rdT(cx + Math.cos(a + 0.36) * (rr + 0.3)), rdT(cy + Math.sin(a + 0.36) * (rr + 0.3)), P.brass[3]);
+      }
+      disc(cx, cy, r - 1.2, WOODT[0]); disc(cx, cy, r - 2.2, WOODT[2]); disc(cx - 0.5, cy - 0.5, r - 3, WOODT[3]); disc(cx, cy, r - 4, WOODT[1]);
+      for (let k = 0; k < 8; k++) { const a = wa * 3 + k * TAUT / 8; line(rdT(cx), rdT(cy), rdT(cx + Math.cos(a) * (r - 4)), rdT(cy + Math.sin(a) * (r - 4)), 1, WOODT[3]); }
+      disc(cx, cy, 2.4, P.iron[0]); disc(cx, cy, 1.6, P.brass[2]); px(rdT(cx - 1), rdT(cy - 1), P.brass[3]);
+    });
+    if (th) {   // 脚板掉在地上摊成一排
+      for (let k = x + 3; k < x + C - 5; k += 8) { R(k, y + 44, 7, 3, P.iron[0]); R(k + 1, y + 45, 5, 1, k % 16 ? P.iron[2] : P.iron[3]); px(k + 3, y + 45, P.brass[3]); }
+    }
+  }
+  // 侧框 + 负重轮（T2～T6），fx0 / fx1 = 本格里侧框的左右端；图案按格内绝对 x 排，跨格不错位
+  function trackFrame(T, x, y, L, Rr, fx0, fx1, ph, g0, g1, gof) {
+    const each = (step, off, lo, hi, fn) => { for (let k = x; k < x + C; k++) if (((k - x) % step) === off && k >= lo && k <= hi) fn(k); };
+    const spin = (i) => ph / 24 * TAUT + i;
+    if (T === 2) {   // 上梁 + 吊杆 + 铸铁小托轮
+      const a = L ? x : x + 14, b = Rr ? x + C : x + 34;
+      R(a, y + 11, b - a, 4, P.iron[0]); R(a, y + 12, b - a, 2, P.iron[3]); R(a, y + 12, b - a, 1, P.iron[4]);
+      each(8, 3, a + 2, b - 4, (k) => tBolt(k, y + 12));
+      for (const lx of [8, 24, 40]) if (x + lx >= a + 3 && x + lx <= b - 3) { R(x + lx - 1, y + 15, 3, 12, P.iron[0]); R(x + lx, y + 15, 1, 12, P.iron[3]); }
+      for (const lx of [8, 24, 40]) if (x + lx >= a + 4 && x + lx <= b - 4) { const wy = y + 40 + gof(lx), cx = x + lx; disc(cx, wy, 3.4, P.dark[0]); disc(cx, wy, 2.6, P.iron[2]); px(cx - 1, wy - 1, P.iron[4]); }
+      return;
+    }
+    if (T === 3) {   // 铆接铁板侧框（竖肋）+ 成对负重轮
+      tPlate(fx0, y + 22, fx1 - fx0, 12, [P.iron[0], P.iron[1], P.iron[2], P.iron[3]]);
+      each(8, 5, fx0 + 2, fx1 - 3, (k) => { R(k, y + 24, 1, 8, P.iron[1]); R(k + 1, y + 24, 1, 8, P.iron[4]); });
+      each(8, 2, fx0 + 2, fx1 - 2, (k) => { tBolt(k, y + 23); tBolt(k, y + 31); });
+      [13, 37].forEach((gc, i) => {
+        if (x + gc - 6 < fx0 || x + gc + 6 > fx1) return;
+        const d = i ? g1 : g0;
+        R(x + gc - 6, y + 34 + d, 12, 2, P.dark[0]);
+        for (const dx of [-4, 4]) tRoad(x + gc + dx, y + 39.5 + d, 4.3, spin(dx), 'dark');
+      });
+      return;
+    }
+    if (T === 4) {   // 冲孔减重钢框 + 单排钢盘负重轮
+      tPlate(fx0, y + 21, fx1 - fx0, 14, [P.iron[0], P.iron[1], P.iron[2], P.iron[3]]);
+      each(8, 2, fx0 + 3, fx1 - 5, (k) => { disc(k + 1.5, y + 28, 3.2, P.iron[1]); disc(k + 1.5, y + 28, 2.6, P.dark[1]); px(k - 1, y + 26, P.iron[0]); px(k + 1, y + 30, P.iron[3]); });
+      R(fx0 + 1, y + 22, fx1 - fx0 - 2, 1, P.iron[4]);
+      each(8, 2, fx0 + 2, fx1 - 2, (k) => tBolt(k, y + 33));
+      for (const lx of [5, 13, 21, 29, 37, 45]) if (x + lx - 4.6 >= fx0 && x + lx + 4.6 <= fx1) tRoad(x + lx, y + 39.5 + gof(lx), 3.8, spin(lx), 'steel');
+      return;
+    }
+    if (T === 5) {   // X 形桁架 + 板簧转向架
+      R(fx0, y + 20, fx1 - fx0, 3, P.iron[0]); R(fx0, y + 21, fx1 - fx0, 1, P.iron[3]); R(fx0, y + 20, fx1 - fx0, 1, P.brass[2]);
+      R(fx0, y + 31, fx1 - fx0, 3, P.iron[0]); R(fx0, y + 32, fx1 - fx0, 1, P.iron[3]);
+      for (let lx = 0; lx < C; lx += 12) {
+        const k = x + lx;
+        if (k < fx0 - 1 || k + 12 > fx1 + 1) continue;
+        line(k + 1, y + 22, k + 11, y + 32, 2, P.iron[1]); line(k + 1, y + 21, k + 11, y + 31, 1, P.iron[3]);
+        line(k + 11, y + 22, k + 1, y + 32, 2, P.iron[1]); line(k + 11, y + 21, k + 1, y + 31, 1, P.iron[3]);
+        R(k, y + 20, 2, 14, P.iron[0]); R(k, y + 21, 1, 12, P.iron[4]); tBolt(k, y + 24); tBolt(k, y + 29);
+      }
+      [13, 37].forEach((gc, i) => {
+        if (x + gc - 9 < fx0 || x + gc + 9 > fx1) return;
+        const d = i ? g1 : g0, bx = x + gc, rock = Math.round(Math.sin(ph / 24 * TAUT + i * 2));
+        R(bx - 1, y + 34, 3, 3 + d, P.dark[0]);
+        for (let k = -4; k <= 4; k++) px(bx + k, y + 35 - (Math.abs(k) < 3 ? 1 : 0), P.iron[k % 2 ? 2 : 3]);
+        line(bx - 5, y + 39 + d + rock, bx + 5, y + 39 + d - rock, 2, P.dark[0]);
+        for (const dx of [-5, 5]) tRoad(bx + dx, y + 39.5 + d + (dx > 0 ? -rock : rock) * 0.5, 4.4, spin(dx), 'brass');
+      });
+      return;
+    }
+    // T6 全包裙板：整块铆接裙板盖住上段和侧框，只露出下面一排负重轮；前后两端斜切露出大轮
+    const sx0 = x + (L ? 0 : 3), sx1 = x + (Rr ? C : C - 3), top = y + 10, hh = 25;
+    const ins = (xx, yy) => {
+      if (yy < top || yy >= top + hh) return false;
+      if (xx < x) return L && yy >= top; if (xx >= x + C) return Rr;
+      if (xx < sx0 || xx >= sx1) return false;
+      if (yy - top > 12 && !L && xx < sx0 + (yy - top - 12) * 1.1) return false;
+      if (yy - top > 12 && !Rr && xx >= sx1 - (yy - top - 12) * 1.1) return false;
+      return true;
+    };
+    for (const lx of [8, 24, 40]) if (x + lx >= fx0 + 6 && x + lx <= fx1 - 4 || (L && Rr)) tRoad(x + lx, y + 40 + gof(lx), 4.4, spin(lx), 'brass');
+    for (let yy = top; yy < top + hh; yy++) for (let xx = x; xx < x + C; xx++) {
+      if (!ins(xx, yy)) continue;
+      const edge = !ins(xx - 1, yy) || !ins(xx + 1, yy) || !ins(xx, yy - 1) || !ins(xx, yy + 1);
+      px(xx, yy, edge ? P.iron[0] : !ins(xx, yy - 2) ? P.iron[4] : !ins(xx, yy + 2) ? P.iron[1] : P.iron[3]);
+    }
+    R(Math.max(sx0 + 1, x), top + 1, Math.min(sx1 - 1, x + C) - Math.max(sx0 + 1, x), 1, P.brass[3]); R(Math.max(sx0 + 1, x), top + 2, Math.min(sx1 - 1, x + C) - Math.max(sx0 + 1, x), 1, P.brass[2]);
+    R(Math.max(sx0 + 1, x), top + 13, Math.min(sx1 - 1, x + C) - Math.max(sx0 + 1, x), 1, P.iron[1]); R(Math.max(sx0 + 1, x), top + 14, Math.min(sx1 - 1, x + C) - Math.max(sx0 + 1, x), 1, P.iron[4]);
+    for (const lx of [4, 16, 28, 40]) if (x + lx >= sx0 + 2 && x + lx + 8 <= sx1 - 2) for (let s = 0; s < 4; s++) { R(x + lx, top + 4 + s * 2, 8, 1, P.iron[0]); R(x + lx, top + 5 + s * 2, 8, 1, P.iron[4]); }
+    each(8, 3, sx0 + 2, sx1 - 3, (k) => tBolt(k, top + 15));
+  }
   const DRAW = {
     cannon_giant(x, y, q) { giantBase(x, y, giantO(q)); },   // 巨炮：攻城臼炮阵地（见上面的巨炮一节）
     // 铁装甲 1×2（2026-09-28 从 2×2 改成竖条）：一条厚铁板，中间一道横接缝，两列铆钉；并排两块拼回原来的样子
@@ -1716,92 +1905,33 @@ SA.SPR = (() => {
       for (const ry of [11, 19, 27, 35]) R(x + 34 + e, y + ry, 2, 3, P.iron[3]);
     },
     track(x, y, o) {
-      // 一战铆接履带：底板 → 上段履带 → 铆接侧框（A7V 式竖肋）→ 成对负重轮 → 下段履带
-      // th = 掉链子（任意一段被毁，整条履带脱落）：链条摊在地上，sn = 被打断的那一段
-      // 外观阶段只换侧框、负重轮、诱导轮（骨架、轮位、链轮都不动）：① 竖肋侧框 + 素轮；② 减重孔侧框 + 钢制盘轮；③ 桁架斜撑侧框 + 黄铜轮毂辐条轮
-      const L = o.connL, Rr = o.connR, th = o.th, ph = th ? 0 : o.ph || 0, st = o.st || 1;
-      // 尾部链轮：履带绕它包一圈；单格履带空间不够，链轮缩小
-      const rc = Rr ? 22 : 14;
-      const fx0 = x + (L ? 0 : rc), fx1 = x + (Rr ? C : 30);
-      floor(x + (L ? 0 : 4), y, o, 5);
-      if (!L) R(x + 4, y, 1, 5, P.iron[0]);
-      if (!th) links(fx0, Rr ? x + C : x + 40, y + 5, 6, ph, false);
-      if (!L && !th) wrapBand(x + rc, y + 26, rc - 2, 20.5, ph);
-      R(fx0, y + 11, fx1 - fx0, 21, P.iron[2]);
-      R(fx0, y + 11, fx1 - fx0, 1, P.iron[3]);
-      R(fx0, y + 31, fx1 - fx0, 1, P.iron[0]);
-      if (st === 1) for (let k = fx0 + 6; k < fx1; k += 12) { R(k, y + 13, 1, 17, P.iron[1]); R(k + 1, y + 13, 1, 17, P.iron[3]); }
-      else if (st === 2) {
-        R(fx0, y + 13, fx1 - fx0, 1, P.iron[1]); R(fx0, y + 29, fx1 - fx0, 1, P.iron[1]);
-        for (let k = fx0 + 6; k + 4 < fx1; k += 12) { disc(k + 1, y + 21, 4.4, P.iron[1]); disc(k + 1, y + 21, 3.6, P.dark[1]); R(k - 2, y + 18, 2, 1, P.iron[0]); R(k + 1, y + 24, 3, 1, P.iron[3]); }
-      } else {
-        R(fx0, y + 11, fx1 - fx0, 1, P.brass[2]);
-        for (let k = fx0; k + 12 <= fx1; k += 12) {
-          const up = ((k - x) / 12) % 2 === 0;
-          line(k + 1, up ? y + 28 : y + 15, k + 11, up ? y + 15 : y + 28, 2, P.iron[1]); line(k + 1, up ? y + 27 : y + 14, k + 11, up ? y + 14 : y + 27, 1, P.iron[3]);
-        }
-        R(fx0, y + 14, fx1 - fx0, 1, P.iron[3]); R(fx0, y + 28, fx1 - fx0, 1, P.iron[1]);
-      }
-      for (let k = fx0 + 3; k < fx1 - 1; k += 6) { R(k, y + 14, 1, 1, P.iron[4]); R(k, y + 28, 1, 1, P.iron[4]); }
-      // 成对负重轮（Holt 式转向架）：悬挂时每组各自上下（g0 = 前一组 bx 6、g1 = 后一组 bx 30），转向架和侧框之间露出减震柱
-      const gd = [th ? 0 : o.g0 || 0, th ? 0 : o.g1 || 0];
-      [6, 30].forEach((bx, i) => {
-        if (x + bx < fx0 || x + bx + 12 > (Rr ? x + C + 2 : x + 30)) return;
-        const d = gd[i];
-        if (d > 0) { R(x + bx + 4, y + 32, 6, d, P.dark[0]); for (let k = 0; k < d; k++) R(x + bx + 5, y + 32 + k, 4, 1, k % 2 ? P.dark[2] : P.iron[2]); }   // 伸出来的螺旋弹簧
-        R(x + bx, y + 32 + d, 14, 2, P.dark[0]);
-        for (const wx of [bx + 3, bx + 11]) {
-          const wy = y + 37 + d, wa = ph / 24 * Math.PI * 2 + wx;   // 轮毂上的螺栓 / 辐条跟着行驶相位转
-          disc(x + wx, wy, 4.4, P.dark[0]);
-          if (st === 1) {
-            disc(x + wx, wy, 3.5, P.dark[3]); disc(x + wx, wy, 1.6, P.dark[2]);
-            for (const k of [0, Math.PI]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2), 1, 1, P.iron[3]);
-          } else if (st === 2) {
-            disc(x + wx, wy, 3.5, P.iron[2]); disc(x + wx - 0.5, wy - 0.5, 2.4, P.iron[3]); disc(x + wx, wy, 1.4, P.iron[1]);
-            for (const k of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) R(Math.round(x + wx - 0.5 + Math.cos(wa + k) * 2.4), Math.round(y + 36.5 + d + Math.sin(wa + k) * 2.4), 1, 1, P.iron[4]);
-          } else {
-            disc(x + wx, wy, 3.5, P.dark[2]);
-            for (const k of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) line(x + wx, wy, Math.round(x + wx + Math.cos(wa + k) * 3), Math.round(wy + Math.sin(wa + k) * 3), 1, P.iron[3]);
-            disc(x + wx, wy, 1.6, P.brass[2]); R(x + wx - 1, wy - 1, 1, 1, P.brass[3]);
-          }
-        }
-      });
-      // 下段履带：一条穿过各组负重轮底部的折线。轮组底下是平的；相邻格的轮组偏移由 gL / gR 传进来，跨格也连成一条；
-      // 车尾从链轮包带的底部（固定在车身上）斜下来，车头接上翘段
-      if (!th) {
-        const xe = Rr ? x + C : x + 26, gL = o.gL || 0, gR = o.gR || 0;
-        const pts = [];
-        if (L) pts.push([0, gL + (gd[0] - gL) * 0.4]);
-        else pts.push([rc, 0]);
-        if (L) pts.push([6, gd[0]], [20, gd[0]]);
-        if (Rr) pts.push([30, gd[1]], [44, gd[1]], [48, gd[1] + (gR - gd[1]) * 0.4]);
-        else pts.push([24, gd[1]], [26, gd[1]]);
-        belt(x, fx0, xe, y + 40, polyAt(pts), ph);
-      }
+      // 履带六档（2026-09-29 用户定：全部采用；样机 tools/archive/track-tiers.html）。档位 = 材料 1～6（module-art 的 vis），每档一个真实的历史节点：
+      // ① 博伊德尔铰接脚板轮（1846，无履带）② 木板链带（隆巴德 / 霍恩斯比）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
+      // ⑤ 维克斯桁架 + 板簧转向架 ⑥ 全包裙板。一格 48 宽；两端各一只半径 12 的圆弧（驱动轮在左、诱导轮在右），中间格是直段。
+      // 悬挂：module-art 的 susp.pts = [13, 37]，g0 / g1 是这两个接地点的伸缩，负重轮和下段链带一起上下；gL / gR 是相邻格的偏移，跨格接成一条。
+      // th = 掉链子（任意一段被毁，整条履带脱落）：链条摊在地上，sn = 被打断的那一段；T1 的脚板一起掉下来
+      const L = o.connL, Rr = o.connR, th = o.th, T = Math.max(1, Math.min(6, o.st || 1));
+      const ph = th ? 0 : o.ph || 0, g0 = th ? 0 : o.g0 || 0, g1 = th ? 0 : o.g1 || 0, gL = o.gL || 0, gR = o.gR || 0;
+      const xa = L ? x : x + 14, xb = Rr ? x + C : x + 34, fx0 = L ? x : x + 20, fx1 = Rr ? x + C : x + 28;
+      const gof = (lx) => (lx < 24 ? g0 : g1);
+      floor(x, y, o, 5);
+      // 车体底板下面到履带顶之间补一层铁板，和上方模块的框架相接
+      const deckTo = [0, 12, 11, 19, 19, 19, 10][T];
+      R(x, y + 5, C, deckTo - 5, P.iron[1]); R(x, y + deckTo - 1, C, 1, P.iron[0]);
+      if (T === 1) trackT1(x, y, L, Rr, ph, th, g0, g1);
       else {
-        const cable = (x0, y0, x1, y1) => { line(x0, y0, x1, y1, 5, P.dark[0]); line(x0, y0, x1, y1, 3, P.dark[2]); };
-        const xa = L ? x : x + 2, xb = Rr ? x + C : x + 44;
-        if (o.sn) {
-          // 断口：两截链条，断头翘起
-          links(xa, x + 17, y + 42, 5, 3, false); links(x + 31, xb, y + 42, 5, 3, false);
-          cable(x + 15, y + 44, x + 20, y + 37); cable(x + 33, y + 44, x + 29, y + 38);
-          R(x + 19, y + 36, 2, 2, P.dark[3]); R(x + 28, y + 37, 2, 2, P.dark[3]);
-        } else links(xa, xb, y + 42, 5, 3, false);
-        if (!L) cable(x + rc - 12, y + 30, x + 3, y + 43);
-        if (!Rr) cable(x + 45, y + 22, x + 44, y + 43);
-      }
-      const hub = st === 3 ? P.brass[2] : P.iron[3];
-      if (!L) spokedWheel(x + rc, y + 26, Rr ? 13 : 8, -ph / 24 * Math.PI * 2 / 6, st === 3 ? 8 : 6, hub);
-      if (!Rr) {
-        // 前端上翘（Mark IV）+ 大辐条诱导轮（雷诺 FT）；掉链后只剩诱导轮
         if (!th) {
-          const d1 = o.g1 || 0;   // 上翘段的起点跟着后一组负重轮
-          line(x + 24, y + 43 + d1, x + 40, y + 27, 8, P.dark[0]);
-          line(x + 24, y + 43 + d1, x + 40, y + 27, 6, P.dark[1]);
-          for (let i = 0; i <= 16; i += 4) R(x + 24 + i + 1, y + 43 + Math.round(d1 * (1 - i / 16)) - i - 3, 2, 2, P.dark[3]);
-        }
-        spokedWheel(x + 36, y + 19, 11, ph / 24 * Math.PI * 2 / 7, [7, 5, 9][st - 1], hub);
-        if (st === 2) { disc(x + 36, y + 19, 5, P.iron[1]); disc(x + 36, y + 19, 4, P.iron[3]); disc(x + 36, y + 19, 2, P.iron[1]); }   // 钢制盘轮的轮心
+          const pts = [];
+          if (L) pts.push([0, gL + (g0 - gL) * 0.4], [6, g0], [20, g0]); else pts.push([14, 0]);
+          if (Rr) pts.push([30, g1], [44, g1], [48, g1 + (gR - g1) * 0.4]);
+          else if (L) pts.push([26, g0 * 0.5], [34, 0]); else pts.push([34, 0]);
+          const hAt = polyAt(pts);
+          for (let cx = xa; cx < xb; cx++) { trackCol(T, cx, y + 43 + Math.round(hAt(cx - x)), ph, 1); trackCol(T, cx, y + 19, ph, -1); }
+          if (!L) trackArc(T, x + 14, y + 33, -1, ph);
+          if (!Rr) trackArc(T, x + 34, y + 33, 1, ph);
+        } else trackGround(T, x, y, L, Rr, o.sn);
+        trackSprockets(T, x, y, L, Rr, ph);
+        trackFrame(T, x, y, L, Rr, fx0, fx1, ph, g0, g1, gof);
       }
     },
     // 腿式底盘分两层：近侧腿画在车体前；远侧腿压暗、向右上错位，画在整个车体后面 → 伪立体纵深。
