@@ -43,6 +43,7 @@ function catalog() {
 }
 
 async function generate(request, emit = () => {}) {
+  const startedAt = Date.now();
   config.population.size = integer(request.population, 24, 4, 96, '种群数量');
   config.population.generations = integer(request.generations, 4, 1, 20, '进化代数');
   const games = integer(request.games, 6, 1, 40, '每对局数');
@@ -61,11 +62,14 @@ async function generate(request, emit = () => {}) {
     base = evolve.loadGame().SA.Camp.migrateEvolutionReport(JSON.parse(fs.readFileSync(filename, 'utf8')));
   }
   const references = (base?.chapters || []).flatMap(ch => ch.stages.map(stage => stage.selected).filter(Boolean));
-  const fresh = await evolve.runAsync({ scope, games, workers, seed, seeds, references, onProgress: event => emit({ type: 'progress', ...event }) });
+  // 总步骤保留最后的报告落盘，评估和筛选结束时不会提前显示 100%。
+  const fresh = await evolve.runAsync({ scope, games, workers, seed, seeds, references,
+    onProgress: event => emit({ type: 'progress', ...event, totalSteps: event.totalSteps + 1 }) });
   const report = mergeReports(base, fresh);
   const saved = storage.writeReport(report);
   return { file: `out/${path.basename(saved.file)}`, stages: fresh.telemetry.completedStages, candidates: fresh.candidates.length,
-    seedWarnings: fresh.seedWarnings, elapsedMs: fresh.telemetry.elapsedMs };
+    seedWarnings: fresh.seedWarnings, elapsedMs: Date.now() - startedAt,
+    completedSteps: fresh.telemetry.completedSteps + 1, totalSteps: fresh.telemetry.totalSteps + 1 };
 }
 
 async function main() {

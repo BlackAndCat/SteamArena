@@ -535,24 +535,38 @@
     $('#run-stage').replaceChildren(h('option', { value: 'all' }, '整章'), ...chapter.stages.map(s => h('option', { value: s.stage }, `${s.stage + 1} · ${s.name}`)));
     scopeInfo();
   }
+  // 剩余时间是实测速度估计，向上取整避免尚未结束时显示“0 秒”。
+  function duration(ms) {
+    const seconds = Math.ceil(Math.max(0, ms) / 1000);
+    if (seconds < 60) return `${seconds} 秒`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+    const minutes = Math.ceil(seconds / 60);
+    return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分`;
+  }
+  function overallProgress(p) {
+    if (!(p.totalSteps > 0)) return '正在统计总步数';
+    return `总进度 ${p.completedSteps || 0} / ${p.totalSteps} 步（${Math.floor((p.completedSteps || 0) / p.totalSteps * 100)}%）`;
+  }
   async function pollJob() {
     clearTimeout(pollTimer);
     try {
       const job = await service('job'), busy = job.status === 'running';
       $('#generate').disabled = busy || !runCatalog; $('#stop-generation').disabled = !busy;
       if (busy) {
-        const p = job.progress || {}, label = p.chapter == null ? '准备中' : `${chapterShort(p.chapter)} · 第 ${(p.stage ?? 0) + 1} 关`;
-        const phase = { start: '准备', 'generation-start': '评估', candidate: '评估', 'generation-end': '完成本代', 'stage-end': '完成本关', 'chapter-end': '选关完成', complete: '正在保存报告' }[p.phase] || '准备';
-        $('#generation-status').textContent = `${label} · ${phase}${p.generation != null ? `第 ${p.generation + 1} 代` : ''} ${p.completed ?? 0}/${p.total ?? '—'} · ${Math.round((p.elapsedMs || 0) / 1000)} 秒`;
+        const p = job.progress || {}, label = p.chapter == null ? '本次生成' : `${chapterShort(p.chapter)}${p.stage == null ? '' : ` · 第 ${p.stage + 1} 关`}`;
+        const phase = { start: '准备', 'stage-start': '准备本关', 'generation-start': '评估', candidate: '评估', 'generation-end': '完成本代', 'stage-end': '完成本关整理', 'boss-start': '筛选 Boss 标尺', 'boss-end': '完成 Boss 标尺', 'selection-start': '筛选关卡车', 'selection-end': '完成本关筛选', 'chapter-end': '选关完成', complete: '正在保存报告' }[p.phase] || '准备';
+        const generation = p.generation == null ? '' : `第 ${p.generation + 1} 代 · 本代 ${p.completed ?? 0}/${p.total ?? '—'} 台`;
+        const remaining = Number.isFinite(job.remainingMs) ? `预计剩余约 ${duration(job.remainingMs)}` : '剩余时间估算中';
+        $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}`;
         pollTimer = setTimeout(pollJob, 1500);
       } else if (job.status === 'complete' && finishedJob !== job.id) {
         finishedJob = job.id;
         const result = job.result;
-        $('#generation-status').textContent = `生成完成：${result.stages} 关、${result.candidates} 台候选，${(result.elapsedMs / 1000).toFixed(1)} 秒。` +
+        $('#generation-status').textContent = `生成完成：${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。` +
           (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
         await refreshList(result.file);
-      } else if (job.status === 'failed') $('#generation-status').textContent = `生成失败：${job.error}`;
-      else if (job.status === 'cancelled') $('#generation-status').textContent = '已停止生成，之前的报告和保留车型仍可查看。';
+      } else if (job.status === 'failed') $('#generation-status').textContent = `生成失败：${job.error} · ${overallProgress(job.progress || {})}`;
+      else if (job.status === 'cancelled') $('#generation-status').textContent = `已停止生成：${overallProgress(job.progress || {})}，之前的报告和保留车型仍可查看。`;
     } catch (error) {
       $('#generation-status').textContent = error.message;
       $('#generate').disabled = !runCatalog;

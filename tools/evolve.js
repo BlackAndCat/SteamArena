@@ -1075,9 +1075,37 @@ async function runAsync(options = {}) {
   const chapterIndexes = scope ? [scope.chapter] : Array.from({ length: chapters }, (_, i) => i);
   const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
   const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
-  const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0 };
+  const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0, completedSteps: 0, totalSteps: 0 };
   let previous = [], previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) }, status = 'complete';
   const seedWarnings = [];
+  // 开跑前确定实际范围和合法种子数，避免跨代归零，或种子扩容后才改变总步数。
+  // 一次候选评估算一步，每关整理与筛选各一步，Boss 标尺选择另计一步；锁定关仅整理一步。
+  const stagePlans = chapterIndexes.map(chapter => {
+    const indexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
+    const stages = indexes.map(stage => {
+      const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
+      const locked = actual?.source === 'manual' && actual.locked && !scope;
+      const seeds = [], seedKeys = new Set();
+      if (!locked) for (const rec of options.seeds || []) {
+        if (rec.spec?.chapter !== chapter || rec.spec?.stage !== stage) continue;
+        let vehicle;
+        try { vehicle = SA.V.fromCells(rec.name || '擂台种子车', rec.cells); }
+        catch (_) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '模块清单已不兼容当前规则，保留原车但跳过进化' }); continue; }
+        const ordered = cells => JSON.stringify(cells.map(row => [...row]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+        if (ordered(rec.cells) !== ordered(cellsOf(SA, vehicle))) {
+          seedWarnings.push({ chapter, stage, name: rec.name, reason: '原构筑需要迁移或含无效模块，保留原车但跳过进化' }); continue;
+        }
+        if (!legalVehicle(SA, vehicle, spec)) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '不符合当前构筑、模块表或预算，保留原车但跳过进化' }); continue; }
+        if (['wander', 'rush', 'kite', 'turtle'].includes(rec.style)) vehicle.arenaStyle = rec.style;
+        const key = JSON.stringify(cellsOf(SA, vehicle));
+        if (!seedKeys.has(key)) { seeds.push(vehicle); seedKeys.add(key); }
+      }
+      telemetry.totalSteps += locked ? 1 : Math.max(4, config.population.size, seeds.length) * config.population.generations + 2;
+      return { stage, spec, actual, locked, seeds };
+    });
+    if (stages.some(entry => !entry.locked && entry.spec.boss)) telemetry.totalSteps++;
+    return { chapter, stages };
+  });
   // 局部重跑优先沿用工作报告中的 Boss；没有可用记录时使用该档合法标尺。
   const reference = (chapter, stage) => {
     const spec = stageSpec(SA, chapter, stage);
@@ -1092,11 +1120,15 @@ async function runAsync(options = {}) {
     if (!previousBoss.vehicle) throw new Error('上一章缺少可用标尺，请先生成上一章');
   }
   const pool = createEvaluationPool(workerCount);
-  const progress = event => options.onProgress?.({ ...event, elapsedMs: Date.now() - telemetry.startedAt });
+  const progress = event => {
+    if (['candidate', 'stage-end', 'selection-end', 'boss-end'].includes(event.phase)) telemetry.completedSteps++;
+    options.onProgress?.({ ...event, completedSteps: telemetry.completedSteps, totalSteps: telemetry.totalSteps, elapsedMs: Date.now() - telemetry.startedAt });
+  };
   const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ campaignLayout: SA.CAMPAIGN_LAYOUT, status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
   progress({ phase: 'start', total: chapterIndexes.length });
   try {
-    chapterLoop: for (const chapter of chapterIndexes) {
+    chapterLoop: for (const plan of stagePlans) {
+      const chapter = plan.chapter;
       if (options.shouldStop?.()) { status = 'interrupted'; break; }
       const pendingStages = [], priorBoss = previousBoss;
       const manualBossIndex = SA.CAMPAIGN[chapter].stages.findIndex((_, index) => { const item = stageFor(SA, chapter, index); return item?.source === 'manual' && item.locked && item.boss && item.vehicle; });
@@ -1106,32 +1138,16 @@ async function runAsync(options = {}) {
         const bossIndex = SA.CAMPAIGN[chapter].stages.findIndex(row => row.boss);
         if (bossIndex >= 0 && bossIndex !== scope.stage) chapterBoss = reference(chapter, bossIndex);
       }
-      const stageIndexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
-      for (const stage of stageIndexes) {
+      for (const { stage, spec, actual, locked, seeds } of plan.stages) {
         if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
-        const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
-        if (actual?.source === 'manual' && actual.locked && !scope) {
+        progress({ phase: 'stage-start', chapter, stage, locked });
+        if (locked) {
           const manual = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
           all.push(manual); pendingStages.push({ spec, locked: true, records: [manual], count: 0, archive: { buckets: 0, coveredRatio: 0, toxic: 0, odd: 0, toxicCodes: [], oddCodes: [], toxicCells: [], oddCells: [] } });
           if (actual.boss) chapterBoss = { vehicle: actual.vehicle, ...manual };
           previous = [actual.vehicle, ...previous].slice(0, config.population.size); telemetry.completedStages++;
           progress({ phase: 'stage-end', chapter, stage, completed: 1, total: 1, locked: true }); checkpoint(checkpointChapter(chapter, pendingStages, SA));
           continue;
-        }
-        const seeds = [], seedKeys = new Set();
-        for (const rec of options.seeds || []) {
-          if (rec.spec?.chapter !== chapter || rec.spec?.stage !== stage) continue;
-          let vehicle;
-          try { vehicle = SA.V.fromCells(rec.name || '擂台种子车', rec.cells); }
-          catch (_) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '模块清单已不兼容当前规则，保留原车但跳过进化' }); continue; }
-          const ordered = cells => JSON.stringify(cells.map(row => [...row]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
-          if (ordered(rec.cells) !== ordered(cellsOf(SA, vehicle))) {
-            seedWarnings.push({ chapter, stage, name: rec.name, reason: '原构筑需要迁移或含无效模块，保留原车但跳过进化' }); continue;
-          }
-          if (!legalVehicle(SA, vehicle, spec)) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '不符合当前构筑、模块表或预算，保留原车但跳过进化' }); continue; }
-          if (['wander', 'rush', 'kite', 'turtle'].includes(rec.style)) vehicle.arenaStyle = rec.style;
-          const key = JSON.stringify(cellsOf(SA, vehicle));
-          if (!seedKeys.has(key)) { seeds.push(vehicle); seedKeys.add(key); }
         }
         const result = await generateChapterAsync(SA, spec, previous, campaignOpponents(SA, chapter, stage), rng, quickGames, pool, progress, options.shouldStop, telemetry, seeds);
         if (result.interrupted) { status = 'interrupted'; break chapterLoop; }
@@ -1143,17 +1159,23 @@ async function runAsync(options = {}) {
       }
       if (status === 'interrupted') break;
       const bossEntry = pendingStages.find(entry => entry.spec.boss && entry.scored?.length);
-      if (bossEntry) chapterBoss = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, seed + chapter * 10000 + bossEntry.spec.stage * 101, new Set(), duelCache).selected || bossEntry.scored[0];
+      if (bossEntry) {
+        progress({ phase: 'boss-start', chapter, stage: bossEntry.spec.stage });
+        chapterBoss = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, seed + chapter * 10000 + bossEntry.spec.stage * 101, new Set(), duelCache).selected || bossEntry.scored[0];
+        progress({ phase: 'boss-end', chapter, stage: bossEntry.spec.stage });
+      }
       previousBoss = chapterBoss || previousBoss;
       const usedStyles = new Set();
       const stages = pendingStages.map(entry => {
         const { spec, scored, records } = entry;
         const stage = spec.stage;
         if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
+        progress({ phase: 'selection-start', chapter, stage });
         const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
         const selectedIndex = scored.indexOf(selection.selected); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
         const hardConditions = { construction: selection.evidence?.construction === true, modulePool: selection.evidence?.modulePool === true, budget: selection.evidence?.budget === true, reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
         const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key); if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });
+        progress({ phase: 'selection-end', chapter, stage });
         return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
       });
       chapterReports.push({ chapter, name: SA.CAMPAIGN[chapter].name, stages }); telemetry.completedChapters++;
