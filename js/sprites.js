@@ -1275,7 +1275,8 @@ SA.SPR = (() => {
 
   // ---------- 履带六档的零件（DRAW.track 用；样机 tools/archive/track-tiers.html）----------
   const TAUT = Math.PI * 2, rdT = Math.round;
-  const WOODT = [P.leather[0], P.leather[1], P.leather[2], P.leather[3]];
+  const BRASST = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]];   // T1 黄铜：轮辋、车台
+  const WROUGHT = [P.iron[0], P.iron[1], P.iron[2], P.iron[3]];      // T2 熟铁：锻铁板条
   function tSeg(cx, cy, a, len, w, col) {
     const dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2;
     line(rdT(cx - dx), rdT(cy - dy), rdT(cx + dx), rdT(cy + dy), w, col);
@@ -1285,9 +1286,10 @@ SA.SPR = (() => {
   // 铁链节（弧形段用）：黑描边 + 交替明暗 + 外侧高光 + 黄铜链销 + 抓地齿 / 导向齿
   function tLink(T, X, Y, a, i, pin) {
     const nx = -Math.sin(a), ny = Math.cos(a);
-    if (T === 2) {   // 木板条：垂直于行进方向摆，每三块钉一条铁抓地条
-      tSeg(X, Y, a + Math.PI / 2, 4.2, 3, WOODT[0]); tSeg(X, Y, a + Math.PI / 2, 3.2, 2, i % 2 ? WOODT[1] : WOODT[2]);
-      if (i % 3 === 0) tSeg(X - nx * 2.4, Y - ny * 2.4, a + Math.PI / 2, 3, 1, P.iron[2]);
+    if (T === 2) {   // 锻铁板条：垂直于行进方向摆，一块块铆在链上，每三块加一条抓地条
+      tSeg(X, Y, a + Math.PI / 2, 4.2, 3, P.iron[0]); tSeg(X, Y, a + Math.PI / 2, 3.2, 2, i % 2 ? P.iron[2] : P.iron[3]);
+      px(rdT(X - nx * 1.2 - 0.5), rdT(Y - ny * 1.2 - 0.5), P.iron[4]);
+      if (i % 3 === 0) tSeg(X - nx * 2.6, Y - ny * 2.6, a + Math.PI / 2, 3, 1, P.iron[4]);
       return;
     }
     tSeg(X, Y, a, 5.8, 3, P.iron[0]); tSeg(X, Y, a, 4.6, 2, i % 2 ? P.iron[3] : P.iron[2]);
@@ -1301,9 +1303,9 @@ SA.SPR = (() => {
     const slat = T === 2, pitch = slat ? 4 : 6, u = cx + ph * dir, p = ((u % pitch) + pitch) % pitch, idx = Math.floor(u / pitch);
     const out = dir > 0 ? 1 : -1;   // 外侧（抓地）朝下 / 朝上
     if (slat) {
-      R(cx, t, 1, 4, WOODT[0]);
-      if (p !== 3) { R(cx, t + 1, 1, 2, idx % 2 ? WOODT[1] : WOODT[2]); if (p === 0) px(cx, t + 1, WOODT[3]); }
-      if (idx % 3 === 0 && p >= 1 && p <= 2) R(cx, out > 0 ? t + 4 : t - 2, 1, 2, P.iron[2]);
+      R(cx, t, 1, 4, P.iron[0]);
+      if (p !== 3) { R(cx, t + 1, 1, 2, idx % 2 ? P.iron[2] : P.iron[3]); if (p === 0) px(cx, t + 1, P.iron[4]); if (p === 2 && idx % 2 === 0) px(cx, t + 1, P.iron[4]); }   // 板面 + 一颗铆钉
+      if (idx % 3 === 0 && p >= 1 && p <= 2) R(cx, out > 0 ? t + 4 : t - 2, 1, 2, P.iron[4]);
       return;
     }
     R(cx, t, 1, 4, P.iron[0]);
@@ -1366,10 +1368,10 @@ SA.SPR = (() => {
     else { disc(wx, wy, r - 0.8, P.iron[2]); disc(wx - 0.5, wy - 0.5, r - 2, P.iron[3]); disc(wx, wy, 1.4, style === 'steel' ? P.iron[1] : P.brass[2]); }
     for (const k of (style === 'steel' ? [0, TAUT / 3, 2 * TAUT / 3] : [0])) px(rdT(wx + Math.cos(a + k) * (r - 1.6) - 0.5), rdT(wy + Math.sin(a + k) * (r - 1.6) - 0.5), P.iron[4]);
   }
-  // T1 博伊德尔铰接脚板轮：每格两只大木辐轮（圆心 x+12 / x+36，跟悬挂 g0 / g1 上下），轮缘挂 9 块铰接铁脚板，转到最下面放平压地；轴梁 + 木车台串起来
+  // T1 博伊德尔铰接脚板轮：每格两只大黄铜辐轮（圆心 x+12 / x+36，跟悬挂 g0 / g1 上下），轮缘挂 9 块铰接铁脚板，转到最下面放平压地；轴梁 + 黄铜车台串起来
   function trackT1(x, y, L, Rr, ph, th, g0, g1) {
     const xa = x + (L ? 0 : 2), xb = x + (Rr ? C : C - 2);
-    tPlate(xa, y + 12, xb - xa, 4, WOODT); R(xa, y + 16, xb - xa, 2, P.iron[0]); R(xa, y + 16, xb - xa, 1, P.iron[3]);
+    tPlate(xa, y + 12, xb - xa, 4, BRASST); R(xa, y + 16, xb - xa, 2, P.iron[0]); R(xa, y + 16, xb - xa, 1, P.iron[3]);
     for (let k = xa + 2; k < xb - 2; k++) if (((k - x) % 8 + 8) % 8 === 4) tBolt(k, y + 13);
     [12, 36].forEach((lx, i) => {
       const cx = x + lx, r = 12, cy = y + 33 + (i ? g1 : g0), wa = ph / 24 * TAUT / 9 + lx * 0.04;
@@ -1380,8 +1382,8 @@ SA.SPR = (() => {
         tSeg(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, a + Math.PI / 2, 6.2, 2, k % 2 ? P.iron[2] : P.iron[3]);
         px(rdT(cx + Math.cos(a + 0.36) * (rr + 0.3)), rdT(cy + Math.sin(a + 0.36) * (rr + 0.3)), P.brass[3]);
       }
-      disc(cx, cy, r - 1.2, WOODT[0]); disc(cx, cy, r - 2.2, WOODT[2]); disc(cx - 0.5, cy - 0.5, r - 3, WOODT[3]); disc(cx, cy, r - 4, WOODT[1]);
-      for (let k = 0; k < 8; k++) { const a = wa * 3 + k * TAUT / 8; line(rdT(cx), rdT(cy), rdT(cx + Math.cos(a) * (r - 4)), rdT(cy + Math.sin(a) * (r - 4)), 1, WOODT[3]); }
+      disc(cx, cy, r - 1.2, BRASST[0]); disc(cx, cy, r - 2.2, BRASST[2]); disc(cx - 0.5, cy - 0.5, r - 3, BRASST[3]); disc(cx, cy, r - 4, BRASST[1]);
+      for (let k = 0; k < 8; k++) { const a = wa * 3 + k * TAUT / 8; line(rdT(cx), rdT(cy), rdT(cx + Math.cos(a) * (r - 4)), rdT(cy + Math.sin(a) * (r - 4)), 1, BRASST[3]); }
       disc(cx, cy, 2.4, P.iron[0]); disc(cx, cy, 1.6, P.brass[2]); px(rdT(cx - 1), rdT(cy - 1), P.brass[3]);
     });
     if (th) {   // 脚板掉在地上摊成一排
@@ -1906,7 +1908,7 @@ SA.SPR = (() => {
     },
     track(x, y, o) {
       // 履带六档（2026-09-29 用户定：全部采用；样机 tools/archive/track-tiers.html）。档位 = 材料 1～6（module-art 的 vis），每档一个真实的历史节点：
-      // ① 博伊德尔铰接脚板轮（1846，无履带）② 木板链带（隆巴德 / 霍恩斯比）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
+      // ① 博伊德尔铰接脚板轮（1846，无履带）② 熟铁板条链带（隆巴德 / 霍恩斯比）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
       // ⑤ 维克斯桁架 + 板簧转向架 ⑥ 全包裙板。一格 48 宽；两端各一只半径 12 的圆弧（驱动轮在左、诱导轮在右），中间格是直段。
       // 悬挂：module-art 的 susp.pts = [13, 37]，g0 / g1 是这两个接地点的伸缩，负重轮和下段链带一起上下；gL / gR 是相邻格的偏移，跨格接成一条。
       // th = 掉链子（任意一段被毁，整条履带脱落）：链条摊在地上，sn = 被打断的那一段；T1 的脚板一起掉下来
