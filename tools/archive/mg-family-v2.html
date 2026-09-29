@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机枪家族 v2</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  table.mx { border-collapse: collapse; }
+  table.mx th { font-size: 12px; padding: 4px 6px; }
+  table.mx th.rh { text-align: right; vertical-align: middle; min-width: 150px; max-width: 230px; line-height: 1.45; }
+  table.mx th.rh small { display: block; font-weight: 400; color: var(--muted); }
+  table.mx td { padding: 3px; text-align: center; vertical-align: bottom; }
+  table.mx canvas { background: var(--bg2); display: inline-block; }
+  .scroll { overflow-x: auto; }
+  .cards { display: flex; gap: 18px; flex-wrap: wrap; }
+  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; max-width: 360px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--brass2); }
+  .card p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .card .row { display: flex; gap: 10px; align-items: flex-end; }
+  .legend div { font-size: 12.5px; line-height: 1.9; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>机枪家族 v2 · 车载枪座 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-28 · 用户选 车载机枪 C（去掉供弹槽）+ 重机枪 B，已进游戏</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>（样机馆里标「历史存档」），这一页换成下一项。全部模块的进度、已定稿的样子看 <a href="../module-candidates.html">模块造型 · 全部进度</a>。</p>
+    <p><b>本期：车载机枪 <code>mg_s</code>（1×1）+ 重机枪 <code>mg_heavy</code>（1×2）</b>。你的意见：机枪都是装在车上的，步兵式的三脚架、立柱支架、握把不合适（v1 已归档：<a href="mg-family-v1.html">机枪家族 v1</a>）。v2 全部改成<b>车体上的枪座</b>：固定部分是装甲壳（形体 T3、T5 跃迁：铸造圆角 → 方壳平顶 → 斜面装甲），转动部分是防盾 / 球座 + 枪；机匣尽量藏进车里，供弹走紫铜槽 / 弹匣 / 传动轴，不露人手操作的东西。枪口 ① 直口箍 → ② 助退喇叭 / 加箍 → ③ 方制退器；1×1 只靠剪影；1×2 在固定壳上放铆钉、散热口、包角铁、压力表。</p>
+    <p><b>请挑</b>：车载机枪 A 球形枪座 / B 小枪塔 / C 侧舷枪座；重机枪 A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪（可以组合）。定了以后细化、进游戏、归档本页，再按同一语言重画 2×2 机炮。</p>
+  </header>
+  <div class="cbar">
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
+    <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button><button class="btn small" data-v="4">4×</button></span>
+    <span class="lbl">仰角</span><span class="seg" id="ang"><button class="btn small" data-v="-8">−8°</button><button class="btn small on" data-v="0">0°</button><button class="btn small" data-v="16">16°</button><button class="btn small" data-v="32">32°</button></span>
+  </div>
+  <div id="mods"></div>
+  <section>
+    <h2 class="sec">家族对照 <small>1× 和 3× · T1 / T4 · 车载机枪 / 重机枪候选 和 现有 2×2 机炮、小炮、中炮</small></h2>
+    <div class="scroll"><table class="mx" id="family"></table></div>
+  </section>
+  <section>
+    <h2 class="sec">放进车体 <small>2× · 同一材料：铁装甲 + 重机枪 + 竖式锅炉 + 水罐；上排 车载机枪 + 驾驶舱 + 小水罐</small></h2>
+    <div class="scroll"><table class="mx" id="ctx"></table></div>
+  </section>
+</div>
+
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script>
+<script src="../cand-kit.js"></script>
+<script src="../material-lab.js"></script>
+<script src="mg-family-v2.js"></script>
+<script src="../labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, CUR = SA.MGV2, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mode: 'color', zoom: 3, a: 0, t: 0 };
+  const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
+  const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  const OX = 6, OY = 14;
+  // 候选：透明图层画底图 → 材质 → 叠加件，再贴到带底色的格子上
+  function cand(M, C, mt, o = {}, raw = false, bg = true) {
+    const T = CUR.TIERS[mt - 1], W = M.size[0] * 24, H = M.size[1] * 24;
+    const c = document.createElement('canvas'); c.width = OX + W + 20; c.height = OY + H + 2;
+    const lay = document.createElement('canvas'); lay.width = c.width; lay.height = c.height;
+    C.base(lay.getContext('2d'), OX, OY, T, { a: st.a, k: 0, f: 0, ...o });
+    if (!raw) applyMat(lay, mt, OX, OY);
+    C.over(lay.getContext('2d'), OX, OY, T);
+    const g = c.getContext('2d');
+    if (bg) { g.fillStyle = P.iron[1]; g.fillRect(OX, OY, W, H); }
+    g.drawImage(lay, 0, 0);
+    return c;
+  }
+  function gameMod(id, mt, o = {}) {
+    const f = SA.fp(id), w = f.w * 24, h = f.h * 24;
+    const c = document.createElement('canvas'); c.width = OX + w + 28; c.height = OY + h + 2;
+    const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, w, h);
+    SA.SPR.drawModule(g, id, OX, OY, { mt, heat: 0.5, water: 0.7, t: 0, a: st.a, ...o });
+    return c;
+  }
+  const head = () => el('tr', {}, el('th'), ...[1, 2, 3, 4, 5, 6].map(mt => { const th = el('th', {}, `T${mt} ${SA.MATS[mt].name}`); th.style.color = SA.MATS[mt].chip; return th; }));
+  const cell = (cv) => el('td', {}, show(cv, st.zoom), el('div', { style: 'height:4px' }), show(cv, 1));
+  function zoneCanvas(M, C) {
+    const z = 5, src = cand(M, C, 1, { a: 0 }, true);
+    const cv = document.createElement('canvas'); cv.width = src.width * z; cv.height = src.height * z;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(gray(src), 0, 0, cv.width, cv.height);
+    for (const [, col, ...rects] of (C.zones || [])) {
+      g.strokeStyle = col; g.lineWidth = 2; g.setLineDash([6, 3]);
+      for (const f of rects) { const [x, y, w, h] = f(OX, OY); g.strokeRect(x * z + 1, y * z + 1, w * z - 2, h * z - 2); }
+    }
+    return cv;
+  }
+  // 开火循环：12 帧里前 4 帧连射（后坐 + 枪口焰 + 供弹前进）
+  const fire = (t) => { const p = t % 12; return p < 6 ? { k: p % 2 ? 7 : 3, f: t } : { k: 0, f: 0 }; };
+  const MODS = [{ id: 'mg_s', name: '车载机枪', size: [1, 1], cands: CUR.MG_S }, { id: 'mg_heavy', name: '重机枪', size: [1, 2], cands: CUR.MG_H }];
+  const live = [];
+  function renderMods() {
+    const box = $('mods'); box.replaceChildren(); live.length = 0;
+    for (const M of MODS) {
+      const sec = el('section');
+      sec.append(el('h2', { className: 'sec' }, `${M.name} ${M.id}`, el('small', {}, `${M.size[0]}×${M.size[1]} · T1 原画 5×（未套材质）· 1× · 开火动画`)));
+      const cards = el('div', { className: 'cards' });
+      for (const C of M.cands) {
+        const lv = el('div'); live.push([lv, (t) => cand(M, C, 1, fire(t)), 3]);
+        const leg = el('div', { className: 'legend' }, ...(C.zones || []).map(([name, col]) => el('div', {}, el('span', { style: `display:inline-block;width:14px;height:10px;border:2px dashed ${col};margin-right:8px;vertical-align:middle` }), name)));
+        cards.append(el('div', { className: 'card' }, el('h3', {}, C.name), el('div', { className: 'row' }, zoneCanvas(M, C), el('div', {}, show(cand(M, C, 1), 1), el('div', { style: 'height:8px' }), lv)), el('p', {}, C.idea), leg));
+      }
+      sec.append(cards);
+      const tt = el('table', { className: 'mx' }); tt.append(head());
+      for (const C of M.cands) tt.append(el('tr', {}, el('th', { className: 'rh' }, C.name), ...[1, 2, 3, 4, 5, 6].map(mt => cell(cand(M, C, mt)))));
+      sec.append(el('h2', { className: 'sec', style: 'font-size:15px;margin-top:14px' }, '六档', el('small', {}, '每格下面是 1× · 仰角看上面的切换')), el('div', { className: 'scroll' }, tt));
+      const at = el('table', { className: 'mx' });
+      const angs = [-8, 0, 16, 32];
+      at.append(el('tr', {}, el('th'), ...[1, 5].flatMap(mt => angs.map(a => el('th', {}, `T${mt} · ${a}°`)))));
+      for (const C of M.cands) at.append(el('tr', {}, el('th', { className: 'rh' }, C.name), ...[1, 5].flatMap(mt => angs.map(a => el('td', {}, show(cand(M, C, mt, { a }), 2))))));
+      sec.append(el('h2', { className: 'sec', style: 'font-size:15px;margin-top:14px' }, '仰角检查', el('small', {}, '−8° / 0° / 16° / 32°（射界 −8°～32°）· T1 和 T5')), el('div', { className: 'scroll' }, at));
+      box.append(sec);
+    }
+  }
+  function renderFamily() {
+    const T = $('family'); T.replaceChildren();
+    const items = [...MODS.flatMap(M => M.cands.map(C => [`${M.name} ${C.key}`, (mt) => cand(M, C, mt)])),
+      ['机炮 mg 2×2（旧画）', (mt) => gameMod('mg', mt)], ['小炮', (mt) => gameMod('cannon_s', mt)], ['中炮', (mt) => gameMod('cannon_m', mt)]];
+    T.append(el('tr', {}, el('th'), ...items.map(([n]) => el('th', {}, n))));
+    for (const mt of [1, 4]) {
+      T.append(el('tr', {}, el('th', { className: 'rh' }, `T${mt} · 1×`), ...items.map(([, f]) => el('td', {}, show(f(mt), 1)))));
+      T.append(el('tr', {}, el('th', { className: 'rh' }, '3×'), ...items.map(([, f]) => el('td', {}, show(f(mt), 3)))));
+    }
+  }
+  function chunk(S, H, mt) {
+    const w = 96, h = 72, ox = 6, oy = 14, c = document.createElement('canvas'); c.width = w + ox + 26; c.height = h + oy + 4;
+    const g = c.getContext('2d');
+    g.fillStyle = P.iron[0]; g.fillRect(ox - 1, oy + 23, w + 2, 50); g.fillStyle = P.iron[1]; g.fillRect(ox, oy + 24, w, 48);
+    g.fillStyle = P.iron[0]; g.fillRect(ox - 1, oy - 1, 74, 26); g.fillStyle = P.iron[1]; g.fillRect(ox, oy, 72, 24);
+    const put = (cv, x, y) => g.drawImage(cv, ox + x - OX, oy + y - OY);
+    put(gameMod('armor', mt), 0, 24);
+    put(gameMod('boiler_s', mt), 48, 24);
+    put(gameMod('tank_tall', mt), 72, 24);
+    put(gameMod('helmet', mt), 24, 0);
+    put(gameMod('tank_s', mt), 0, 0);
+    put(cand(MODS[1], H, mt, {}, false, false), 24, 24);
+    put(cand(MODS[0], S, mt, {}, false, false), 48, 0);
+    return c;
+  }
+  function renderCtx() {
+    const T = $('ctx'); T.replaceChildren(head());
+    const [S, H] = MODS;
+    for (let i = 0; i < 3; i++) T.append(el('tr', {}, el('th', { className: 'rh' }, `车载 ${S.cands[i].key} + 重机枪 ${H.cands[i].key}`), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(S.cands[i], H.cands[i], mt), 2)))));
+  }
+  function tick() { st.t++; for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
+  function renderAll() { renderMods(); renderFamily(); renderCtx(); tick(); }
+  const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
+  seg($('mode'), v => st.mode = v);
+  seg($('zoom'), v => st.zoom = +v);
+  seg($('ang'), v => st.a = +v);
+  renderAll();
+  setInterval(tick, 90);
+  window.__mgReady = true;
+})();
+</script></body></html>

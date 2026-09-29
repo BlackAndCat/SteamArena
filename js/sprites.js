@@ -462,7 +462,7 @@ SA.SPR = (() => {
   // 铁罐身 + 几乎占满罐身的玻璃水窗（圆柱明暗的水、水面波纹、上升气泡，水位跟着剩余水量）+ 左侧滴水的黄铜龙头 + 两道紫铜加强箍。
   // 形体在 T3、T5 跃迁：圆角罐 → 方罐 + 平顶盖板 → 四角斜切的八角罐。1×2 另有：顶部铆钉 2 → 3 → 4、钢起底部包角铁、镀镍起左上小压力表、
   // 窗边刻度；1×1 只靠剪影（不放铆钉 / 包角铁 / 压力表），两道箍夹住水窗。紫铜是饱和色，材质处理不动，六档都是紫铜
-  const COPPER = ['#4a2418', '#8c4228', '#c46a3c', '#eaa070'];
+  const COPPER = ['#3b2820', '#6b4632', '#8f6044', '#b3825c'];   // 2026-09-28 用户：原来的紫铜太突兀 → 压暗、降饱和（仍 ≥ 0.28，材质处理不动）
   const TANK_TIERS = [
     { f: 'raw', riv: [2, 'brass'], parts: [] },
     { f: 'raw', riv: [2, 'brass'], parts: [] },
@@ -500,8 +500,10 @@ SA.SPR = (() => {
     R(x + 1, y + 1, 1, Math.max(1, Math.round(h * 0.45)), P.glass[3]);
     if (h > 12) px(x + 1, y + Math.round(h * 0.45) + 2, P.glass[2]);
   }
-  // 紫铜加强箍：比罐身两边各宽 1px，上亮下暗、两端描边
-  function copperHoop(x, y, w) { R(x, y, w, 2, COPPER[1]); R(x, y, w, 1, COPPER[3]); R(x + 1, y + 1, w - 2, 1, COPPER[2]); px(x, y, COPPER[0]); px(x, y + 1, COPPER[0]); px(x + w - 1, y, COPPER[0]); px(x + w - 1, y + 1, COPPER[0]); }
+  // 紫铜加强箍：收在罐身宽度里（不外伸），按圆柱明暗上色（左 1/3 亮、右 1/5 暗，和水、罐身同一光向），下沿一道暗线，两端压进罐身描边
+  function copperHoop(x, y, w) {
+    for (let i = 0; i < w; i++) { const t = i / (w - 1), end = i === 0 || i === w - 1; R(x + i, y, 1, 1, end ? COPPER[0] : t < 0.3 ? COPPER[3] : t > 0.8 ? COPPER[1] : COPPER[2]); R(x + i, y + 1, 1, 1, end ? COPPER[0] : COPPER[1]); }
+  }
   function tankTap(x, y, fr, dropTo) {
     R(x, y, 3, 2, P.brass[1]); R(x, y, 3, 1, P.brass[3]);
     R(x, y + 2, 2, 2, P.brass[1]); px(x, y + 2, P.brass[2]); R(x + 1, y - 2, 1, 2, P.brass[2]);
@@ -518,7 +520,7 @@ SA.SPR = (() => {
     R(x + 4, y + 11, 16, 27, P.iron[0]);
     waterWin(x + 5, y + 12, 14, 25, tankLv(q), fr);
     for (let yy = y + 14; yy <= y + 35; yy += 5) R(x + 20, yy, 1, 1, P.iron[4]);                                    // 窗边刻度
-    copperHoop(x + 1, y + 19, 22); copperHoop(x + 1, y + 29, 22);
+    copperHoop(x + 2, y + 19, 20); copperHoop(x + 2, y + 29, 20);
     tankTap(x, y + 33, fr, y + 44);
     tankSkid(x + 3, y + 44, 18);
     if (T.parts.includes('corners')) { PART.corner(x + 2, y + 39, 1, -1); PART.corner(x + 17, y + 39, -1, -1); }
@@ -535,9 +537,113 @@ SA.SPR = (() => {
     if (T.f === 'box') box(x + 1, y + 2, 22, 3, IRON);
     R(x + 4, y + 7, 16, 12, P.iron[0]);
     waterWin(x + 5, y + 8, 14, 10, tankLv(q), fr);
-    copperHoop(x + 1, y + 5, 22); copperHoop(x + 1, y + 19, 22);
+    copperHoop(x + 2, y + 5, 20); copperHoop(x + 2, y + 19, 20);
     tankTap(x, y + 13, fr % 2, y + 21);
     tankSkid(x + 3, y + 21, 18, 2);
+  }
+
+  // ---------- 机枪家族（2026-09-28 定稿，样机 tools/archive/mg-family-v2.html）：车载枪座，没有三脚架 / 立柱 / 握把 ----------
+  // 固定部分 = 装甲壳（跟材料换色，T1～2 铸造圆角 → T3～4 方壳平顶 → T5～6 斜面装甲）；转动部分 = 防盾 + 枪（绕耳轴转到仰角）。
+  // 枪口 ① 直口箍 → ② 助退喇叭 / 加箍 → ③ 方制退器；1×1 只靠剪影；1×2 固定壳上放铆钉 2 → 3 → 4、散热口、钢起包角铁、镀镍起小压力表
+  const MG_TIERS = [
+    { f: 'raw', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { f: 'raw', b: 1, vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { f: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { f: 'box', b: 2, vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', b: 3, vent: ['grid2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', b: 3, vent: ['louver2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  // 按形状判定逐像素上色（外沿描边、左上亮、右下暗）
+  function shadeIn(x, y, w, h, inside) {
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
+      if (!inside(xx, yy)) continue;
+      if (!inside(xx - 1, yy) || !inside(xx + 1, yy) || !inside(xx, yy - 1) || !inside(xx, yy + 1)) { px(xx, yy, P.iron[0]); continue; }
+      px(xx, yy, !inside(xx - 2, yy) || !inside(xx, yy - 2) ? P.iron[4] : !inside(xx + 2, yy) || !inside(xx, yy + 2) ? P.iron[2] : P.iron[3]);
+    }
+  }
+  // 装甲壳形体：raw = 四角圆 r / box = 直角 / slant = 顶上两角 45° 切（右上切得更多：迎弹面）
+  function armorIn(x, y, w, h, f, r) {
+    return (xx, yy) => {
+      if (xx < x || yy < y || xx >= x + w || yy >= y + h) return false;
+      if (f === 'box') return true;
+      const ex = xx < x + r ? x + r - xx : xx >= x + w - r ? xx - (x + w - r - 1) : 0, ey = yy < y + r ? y + r - yy : yy >= y + h - r ? yy - (y + h - r - 1) : 0;
+      if (f === 'raw') return ex * ex + ey * ey <= r * r + r * 0.6;
+      const tx = xx - x, ty = yy - y, d = r + 2;
+      return !(ty + tx < d - 2 || ty + (w - 1 - tx) < d + 1);
+    };
+  }
+  const armorShell = (x, y, w, h, f, r) => { shadeIn(x, y, w, h, armorIn(x, y, w, h, f, r)); if (f === 'box') { R(x - 1, y - 1, w + 2, 2, P.iron[0]); R(x, y - 1, w, 1, P.iron[3]); } };
+  // 枪的零件（水平画，C / M = 耳轴）
+  function gTube(x0, x1, M, hh) {
+    for (let xx = x0; xx < x1; xx++) {
+      R(xx, M - hh, 1, hh * 2 + 1, P.iron[0]);
+      if (hh > 0) { R(xx, M - hh + 1, 1, hh * 2 - 1, P.iron[3]); px(xx, M - hh + 1, P.iron[4]); if (hh > 1) px(xx, M + hh - 1, P.iron[2]); }
+    }
+  }
+  const gRing = (x0, w, M, hh) => { const ix = w > 2 ? x0 + 1 : x0, iw = w > 2 ? w - 2 : w; R(x0, M - hh, w, hh * 2 + 1, P.iron[0]); R(ix, M - hh + 1, iw, hh * 2 - 1, P.iron[3]); R(ix, M - hh + 1, iw, 1, P.iron[4]); };
+  const gBrass = (x0, w, M, hh) => { R(x0, M - hh, w, hh * 2 + 1, P.brass[0]); R(x0, M - hh + 1, w, hh * 2 - 1, P.brass[1]); R(x0, M - hh + 1, 1, hh * 2 - 1, P.brass[3]); };
+  function gMuzzle(end, M, b, hh = 1) {
+    if (b === 1) { gRing(end - 2, 2, M, hh + 1); px(end - 1, M, P.black); return end; }
+    if (b === 2) { for (let i = 0; i < 4; i++) gRing(end - 4 + i, 1, M, hh + 1 + (i >> 1)); px(end - 1, M, P.black); return end; }
+    gRing(end - 5, 5, M, hh + 2); R(end - 4, M - hh - 1, 3, 1, P.dark[0]); R(end - 4, M + hh + 1, 3, 1, P.dark[0]); px(end - 1, M, P.black); return end;
+  }
+  const gFlash = (end, M, k) => { if (k >= 6) { R(end, M - 1, 3, 3, P.fire[3]); px(end + 3, M, P.fire[2]); px(end + 1, M - 2, P.fire[2]); px(end + 1, M + 2, P.fire[2]); } };
+  // 车载机枪 mg_s（1×1）· 侧舷枪座：贴车体的法兰 + 鼓出的半圆枪座 + 竖枪缝；转动的小圆防盾 + 带两道散热圈的枪管（用户定：不要供弹槽）。
+  // 耳轴 (15,11)，枪口末端 x 34（blen 19）
+  function mgS(x, y, q) {
+    const T = MG_TIERS[(q.mt || 1) - 1];
+    box(x + 2, y + 2, 6, 21, IRON);
+    shadeIn(x + 6, y + 3, 17, 18, (xx, yy) => {
+      if (xx < x + 6 || yy < y + 3 || yy > y + 20) return false;
+      const dy = yy + 0.5 - (y + 12), dx = xx + 0.5 - (x + 8);
+      if (T.f === 'box') return xx <= x + 20;
+      if (T.f === 'slant') return xx <= x + 21 - Math.max(0, Math.abs(dy) - 4);
+      return dx * dx / 196 + dy * dy / 90 <= 1;
+    });
+    R(x + 13, y + 5, 4, 14, P.dark[0]);
+    const d = rcPx('mg_s', q.k);
+    turn(x + 15, y + 11, q.a, (X, Y) => {
+      const C = X + x + 15 - d, M = Y + y + 11;
+      gTube(C + 2, C + 19, M, 1);
+      for (const rx of [C + 5, C + 8]) gRing(rx, 2, M, 3);
+      if (T.b >= 2) gBrass(C + 11, 2, M, 2);
+      gFlash(gMuzzle(C + 19 + (T.b === 3 ? 2 : 0), M, T.b), M, q.k || 0);
+      disc(C + 0.5, M + 0.5, 4, P.iron[0]); disc(C + 0.5, M + 0.5, 3, P.iron[3]); px(C - 1, M - 1, P.iron[4]);
+    });
+  }
+  // 重机枪 mg_heavy（1×2）· 蒸汽加特林：下半蒸汽机壳（飞轮 + 活塞缸，开火时转）+ 传动轴 + 座圈；上面六管加特林 + 顶上高竖弹匣。
+  // 耳轴 (12,12)，枪口末端 x 34（T5～6 方制退器 x 37；blen 22）
+  function mgH(x, y, q) {
+    const T = MG_TIERS[(q.mt || 1) - 1], f = q.f || 0;
+    box(x + 10, y + 15, 4, 8, IRONL); R(x + 9, y + 17, 6, 2, P.brass[1]); R(x + 9, y + 17, 6, 1, P.brass[3]);
+    armorShell(x + 2, y + 22, 20, 22, T.f, 3);
+    const wx = x + 9, wy = y + 33, an = (f % 6) * Math.PI / 9;   // 三根辐条（四根像准星），6 帧转一格
+    disc(wx + 0.5, wy + 0.5, 6, P.iron[0]); disc(wx + 0.5, wy + 0.5, 5, P.brass[1]); disc(wx + 0.5, wy + 0.5, 4, P.dark[1]);
+    for (let k = 0; k < 3; k++) { const aa = an + k * Math.PI * 2 / 3; line(wx, wy, Math.round(wx + Math.cos(aa) * 4), Math.round(wy + Math.sin(aa) * 4), 2, P.brass[2]); }
+    disc(wx + 0.5, wy + 0.5, 1.5, P.brass[3]);
+    box(x + 16, y + 28, 5, 10, IRON); R(x + 17, y + 29, 1, 8, P.iron[4]); R(x + 17, y + 25 + [0, 2, 3, 2][f % 4], 3, 3, P.iron[3]);
+    const [vs, vn] = T.vent, two = vs === 'grid2' || vs === 'louver2';
+    slimVents(x, y, 12 - (slimW(vs, vn) >> 1), 39 - (two ? 1 : 0), 2, vs, vn);
+    box(x + 1, y + 44, 22, 4, IRON); R(x + 2, y + 45, 20, 1, P.iron[3]);
+    if (T.parts.includes('corners')) { PART.corner(x + 2, y + 39, 1, -1); PART.corner(x + 17, y + 39, -1, -1); }
+    box(x + 4, y + 19, 16, 4, IRON);
+    const d = rcPx('mg_heavy', q.k);
+    turn(x + 12, y + 12, q.a, (X, Y) => {
+      const C = X + x + 12 - d, M = Y + y + 12;
+      R(C + 3, M - 4, 19, 9, P.iron[0]);
+      [-3, 0, 3].forEach((dy, i) => { const lit = (i + f) % 3 === 0; R(C + 3, M + dy - 1, 19, 2, lit ? P.iron[4] : P.iron[3]); R(C + 3, M + dy, 19, 1, lit ? P.iron[3] : P.iron[2]); });
+      gBrass(C + 3, 2, M, 5); gBrass(C + 12, 2, M, 5); gBrass(C + 20, 2, M, 5);
+      if (T.b === 3) { gRing(C + 22, 3, M, 5); R(C + 23, M - 4, 2, 1, P.dark[0]); R(C + 23, M + 4, 2, 1, P.dark[0]); }
+      gFlash(C + (T.b === 3 ? 25 : 22), M, q.k || 0);
+      shadeIn(C - 7, M - 4, 11, 9, armorIn(C - 7, M - 4, 11, 9, T.f, 2));
+      R(C - 5, M - 13, 6, 10, P.brass[0]); R(C - 4, M - 12, 4, 9, P.brass[2]); R(C - 4, M - 12, 1, 9, P.brass[3]);
+      for (let i = 0; i < 4; i++) R(C - 3, M - 11 + i * 2, 2, 1, P.brass[1]);
+    });
+  }
+  function mgHOver(x, y, q) {
+    const T = MG_TIERS[(q.mt || 1) - 1];
+    for (const rx of riveXs(T.riv[0], 4, 14)) PART.rivet(x + rx, y + 23, RIVET_TIER[T.riv[1]]);
+    if (T.parts.includes('gauge')) gaugeS(x + 17.5, y + 25.5);
   }
   // 中炮 2×1 的立面分区：T1～2 敞开炮架（散热口在炮组下方、铆钉在前挡板脚）；T3～6 炮廓（表位左上、散热区在表位下、铆钉压炮廓和底座的接缝）
   const CANNON_M_ZONE = {
@@ -1022,6 +1128,7 @@ SA.SPR = (() => {
   const OVER = {
     boiler_s(x, y, q) { boilerSOver(x, y, q); },
     tank_tall(x, y, q) { tankTallOver(x, y, q); },
+    mg_heavy(x, y, q) { mgHOver(x, y, q); },
     cannon_giant(x, y, q) { giantOver(x, y, giantO(q)); },   // 象牙白炮口箍 + 端面、上弦铆钉、地脚螺栓、墙板铭牌
     cannon(x, y, q) {
       const T = CANNON_TIERS[(q.mt || 1) - 1], Z = CANNON_ZONE;
@@ -1335,6 +1442,8 @@ SA.SPR = (() => {
     tank_s(x, y, q) { tankSmall(x, y, q); },
     tank_tall(x, y, q) { tankTall(x, y, q); },
     boiler_s(x, y, q) { boilerS(x, y, q); },
+    mg_s(x, y, q) { mgS(x, y, q); },
+    mg_heavy(x, y, q) { mgH(x, y, q); },
     // 臼炮 2×2（高抛火炮，2026-09-27 定稿，样机 tools/gun-family-lab.html 臼炮 v1）：参考 19 世纪攻城 / 岸防臼炮——
     // 炮管短粗、越往炮口越粗、炮口厚箍 + 大口径黑洞；炮耳在炮尾，夹在炮耳座里（炮耳座画在炮管前面）；低矮厚重的炮床；
     // 两侧活动大齿轮在 UNDER.mortar（随仰角转）。T1～2 方炮床 + 方炮耳座 → T3～4 台阶炮床 + 加厚炮耳座、一道铁箍 → T5～6 炮床前沿斜切 + 梯形炮耳座、两道铁箍。
@@ -1662,7 +1771,7 @@ SA.SPR = (() => {
       case 'cannon': case 'cannon_m': case 'cannon_s': case 'cannon_heavy': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'cannon_giant': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 75); break;   // 没有仰角（车间、图标）时按静止 75° 画
-      case 'mg': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
+      case 'mg': case 'mg_s': case 'mg_heavy': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
       case 'quad': {   // 整件四足：步态角 12 档、步幅 4px 一档、四只脚的悬挂 2px 一档
         const A = o.gait || 0;

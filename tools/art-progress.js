@@ -62,10 +62,10 @@ SA.ARTPLAN = {
     condenser: { status: 'cand', pri: 8, ch: 2, note: '1×2 实心冷却件，不能像水箱也不能像散热片', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore']] },
     // ---------- 第 3 档：新增尺寸（数据和文字占位已接入，专用造型待做）----------
     // 机枪系列：1×1 车载机枪 → 1×2 重机枪 → 2×2 机炮（现有 mg 改名），最大到 2×2 为止；先画两个新件，定下语言后回头重画机炮
-    mg_s: { status: 'cand', pri: 9, lab: 'CUR_MG_S', ch: 0, name: '车载机枪', size: '1×1', cat: 'firepower',
-      note: '序章通关开放，游戏里使用文字占位。画法：一根短枪管 + 小弹箱，1×1 只靠剪影分档（参照小炮做法）', hist: [['2026-09-28', 'v1 候选：A 刘易斯式 / B 哈乞开斯式 / C 小转管', 'archive/mg-family-v1.html', 'archived'], ['2026-09-28', 'v2 车载枪座：A 球形枪座 / B 小枪塔 / C 侧舷枪座', 'current.html', 'explore']] },
-    mg_heavy: { status: 'cand', pri: 10, lab: 'CUR_MG_H', ch: 1, name: '重机枪', size: '1×2', cat: 'firepower',
-      note: '第一章通关开放，游戏里使用文字占位。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [['2026-09-28', 'v1 候选：A 马克沁式 / B 加特林式 / C 诺登菲尔特排枪', 'archive/mg-family-v1.html', 'archived'], ['2026-09-28', 'v2 车载枪座：A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪', 'current.html', 'explore']] },
+    mg_s: { status: 'done', pick: 'C', ch: 0, name: '车载机枪', size: '1×1', cat: 'firepower',
+      note: '侧舷枪座：贴车体法兰 + 鼓出的半圆枪座 + 竖枪缝，转动小圆防盾 + 两道散热圈；只靠剪影分档', hist: [['2026-09-28', 'v1 候选：A 刘易斯式 / B 哈乞开斯式 / C 小转管', 'archive/mg-family-v1.html', 'archived'], ['2026-09-28', 'v2 车载枪座：A 球形枪座 / B 小枪塔 / C 侧舷枪座', 'archive/mg-family-v2.html', 'shipped'], ['2026-09-28', '定稿 C 侧舷枪座（去掉供弹槽），进游戏', 'archive/mg-family-v2.html', 'shipped']] },
+    mg_heavy: { status: 'done', pick: 'B', ch: 1, name: '重机枪', size: '1×2', cat: 'firepower',
+      note: '蒸汽加特林：下半蒸汽机壳（三辐飞轮 + 活塞，开火时转）+ 传动轴 + 座圈，上面六管 + 高竖弹匣；六档 + 铆钉 / 散热口 / 包角铁 / 压力表', hist: [['2026-09-28', 'v1 候选：A 马克沁式 / B 加特林式 / C 诺登菲尔特排枪', 'archive/mg-family-v1.html', 'archived'], ['2026-09-28', 'v2 车载枪座：A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪', 'archive/mg-family-v2.html', 'shipped'], ['2026-09-28', '定稿 B 蒸汽加特林，进游戏', 'archive/mg-family-v2.html', 'shipped']] },
     // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
     boiler_s: { status: 'done', pick: 'A3', lab: 'BLLAB', ch: 0, name: '竖式锅炉', size: '1×2', cat: 'energy',
       note: '立式锅炉 + 拱形大炉口（火 14 × 20）+ 黄铜拱心石；六档 圆筒 → 方包壳 → 斜肩',
@@ -98,8 +98,8 @@ SA.ARTPLAN = {
     helmet: { status: 'legacy', pri: 30, ch: 0, note: '驾驶舱 1×1，T5 换装已画', hist: [] },
     plate: { status: 'legacy', pri: 31, ch: 0, note: '24px 甲片', hist: [] },
     water: { status: 'legacy', pri: 32, ch: 0, note: '水箱 2×2；大水箱定稿后按水箱家族统一复核', hist: [] },
-    tank_s: { status: 'done', ch: 0, note: '小水罐 1×1：W1 大水窗罐 + 两道紫铜加强箍；六档 圆角罐 → 方罐平顶 → 八角罐', hist: [['2026-09-28', 'v1 重画：W1 大水窗罐 / W2 玻璃水筒', 'boiler-lab.html', 'explore'], ['2026-09-28', '定稿 W1 + 紫铜箍，进游戏', 'boiler-lab.html', 'shipped']] },
-    tank_tall: { status: 'done', ch: 0, note: '水罐 1×2：W1 大水窗罐 + 两道紫铜加强箍；六档 圆角罐 → 方罐平顶 → 八角罐，顶部铆钉 / 包角铁 / 小压力表', hist: [['2026-09-28', 'v1 重画：W1 大水窗罐 / W2 玻璃水筒', 'boiler-lab.html', 'explore'], ['2026-09-28', '定稿 W1 + 紫铜箍，进游戏', 'boiler-lab.html', 'shipped']] },
+    tank_s: { status: 'done', ch: 0, note: '小水罐 1×1：W1 大水窗罐 + 两道暗紫铜加强箍（收在罐身里、圆柱明暗）；六档 圆角罐 → 方罐平顶 → 八角罐', hist: [['2026-09-28', 'v1 重画：W1 大水窗罐 / W2 玻璃水筒', 'boiler-lab.html', 'explore'], ['2026-09-28', '定稿 W1 + 紫铜箍，进游戏', 'boiler-lab.html', 'shipped']] },
+    tank_tall: { status: 'done', ch: 0, note: '水罐 1×2：W1 大水窗罐 + 两道暗紫铜加强箍（收在罐身里、圆柱明暗）；六档 圆角罐 → 方罐平顶 → 八角罐，顶部铆钉 / 包角铁 / 小压力表', hist: [['2026-09-28', 'v1 重画：W1 大水窗罐 / W2 玻璃水筒', 'boiler-lab.html', 'explore'], ['2026-09-28', '定稿 W1 + 紫铜箍，进游戏', 'boiler-lab.html', 'shipped']] },
     bucket: { status: 'legacy', pri: 35, ch: 0, note: '铲斗两阶段已画', hist: [] },
     spike: { status: 'legacy', pri: 36, ch: 3, note: '撞角两阶段已画', hist: [] },
     piston: { status: 'legacy', pri: 37, ch: 3, note: '蒸汽撞锤两阶段已画', hist: [] },

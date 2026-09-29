@@ -42,8 +42,8 @@ SA.MODULE_ART = {
   rangefinder: { art: 'plate', placeholder: '测距仪' },
   gyroscope: { art: 'plate', placeholder: '陀螺仪' },
   // 新尺寸模块的专用造型尚未定稿，先按实际占格显示文字，保证库存和候选画廊能完整打开。
-  mg_s: { art: 'mg', placeholder: '机枪' },
-  mg_heavy: { art: 'mg', placeholder: '重机枪' },
+  mg_s: { piv: [15, 11], blen: 19, barrel: 10, rcPx: 2, back: 0, ret: 14 },       // 2026-09-28 专用造型：侧舷枪座
+  mg_heavy: { piv: [12, 12], blen: 22, barrel: 12, rcPx: 3, back: 0, ret: 14 },   // 2026-09-28 专用造型：蒸汽加特林
   boiler_l: { art: 'boiler', placeholder: '大锅炉' },
   water_l: { art: 'water', placeholder: '大水箱' },
 };
