@@ -51,10 +51,10 @@ SA.ARTPLAN = {
     // ---------- 第 1 档：底盘细分支 ----------
     quad: { status: 'done', ch: 1, note: '六档（2026-09-29 进游戏）：T1 工装 Mk.II → T2 桁架爬机 → T3 板簧拖车 → T4 曲柄步行机（温室 + 常春藤高膝）→ T5 汽锤步行机 → T6 哥特教堂（燕尾旗）；9 种唯一变体已注册、等获得方式；步幅随车速加大、机身按步态起伏',
       hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '四足六档 + 变体 v1～v9（定稿进游戏）', 'archive/quad-tiers.html', 'shipped']] },
-    biped: { status: 'wip', pri: 2, ch: 2, note: '基础造型已进游戏（真双足 2×4：陀螺胯 + 一对长腿）；还没做：材质六档细分、T3 / T5 形态分支（从六档腿型里挑）',
-      hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped']] },
+    biped: { status: 'done', ch: 2, note: '六档（2026-09-29 进游戏）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑，每档配一种腰胯；9 种唯一变体已注册、等获得方式',
+      hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足六档 + 腰胯 v1～v5（定稿进游戏）', 'archive/biped-tiers.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
-    periscope: { status: 'cand', pri: 3, ch: 1, note: '1×1，控制类，镜头收在格子里；第一章敌车和支线奖励都有', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'explore']] },
+    periscope: { status: 'cand', pri: 3, ch: 1, note: '1×1，控制类，镜头收在格子里；第一章敌车和支线奖励都有', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'explore'], ['2026-09-29', '造型 7 种（只换色，挑一个）', 'current.html', 'explore']] },
     autoloader: { status: 'cand', pri: 4, ch: 1, note: '1×1，看得到炮弹和机械', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore']] },
     mortar_s: { status: 'cand', pri: 5, ch: 2, note: '1×1 小臼炮，和已定稿的臼炮同一套语言（可直接缩臼炮）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore']] },
     cockpit_pair: { status: 'cand', pri: 6, ch: 2, note: '1×2 双人舱，第二章 Boss 奖励；驾驶员保持 1×1 大小', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore']] },
