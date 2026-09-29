@@ -3,7 +3,7 @@
 // 关卡车进化生成器的算法参数。这里的参数只控制搜索策略和报告权重，
 // 不直接修改战斗规则；战斗数值和用户已经拍板的门槛仍以 docs/evolve-plan.md 为准。
 module.exports = {
-  rulesVersion: 'evolve-efficiency-60-reward-required-2026-09-29',
+  rulesVersion: 'evolve-reward-layout-preflight-2026-09-29',
   population: {
     size: 24,
     generations: 4,

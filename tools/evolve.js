@@ -356,7 +356,12 @@ function minimalVehicle(SA, spec, forcedModule = null) {
     for (const r of rows)
       for (let c = bounds.c0; c <= bounds.c1 - f.w + 1; c++) {
         const check = SA.V.canPut(v, id, r, c);
-        if (check.ok && check.fit) { v[layer][r][c] = SA.newCell(id, spec.mat); return true; }
+        if (check.ok && check.fit) {
+          v[layer][r][c] = SA.newCell(id, spec.mat);
+          // 保底布局也要预留直射通道；后装的驾驶舱 / 锅炉不能堵住已装武器。
+          if (!SA.V.blockedList(v).length) return true;
+          v[layer][r][c] = null;
+        }
       }
     return false;
   };
@@ -366,11 +371,13 @@ function minimalVehicle(SA, spec, forcedModule = null) {
   putFirst(chassis);
   // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱和锅炉，
   // 否则大尺寸火力件会因没有支撑或撞击件没有挂点而永远生成失败。
-  const forcedWeapon = forcedModule && SA.MODULES[forcedModule]?.dmg ? forcedModule : null;
+  // 侧炮需要完整主体作挂点，必须等锅炉等主体装好后再挂，不能当主体武器抢先摆放。
+  const forcedSide = forcedModule && SA.MODULES[forcedModule]?.layer === 'side' ? forcedModule : null;
+  const forcedWeapon = forcedModule && !forcedSide && SA.MODULES[forcedModule]?.dmg ? forcedModule : null;
   const forcedRam = forcedModule && SA.MODULES[forcedModule]?.layer === 'ram' ? forcedModule : null;
   if (forcedWeapon) putFirst(forcedWeapon);
   if (forcedRam) putFirst(forcedRam);
-  const forcedUtility = forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule]?.layer !== 'chassis' ? putFirst(forcedModule) : false;
+  const forcedUtility = forcedModule && !forcedWeapon && !forcedRam && !forcedSide && SA.MODULES[forcedModule]?.layer !== 'chassis' ? putFirst(forcedModule) : false;
   // 巨炮占四行时，驾驶舱和锅炉从炮身上方开始找位置，
   // 放到炮口旁会被判作遮挡，形成“可部署但不能开火”的假候选。
   const highRows = forcedWeapon && SA.fp(forcedWeapon).w >= 4 ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.r0 + i) : null;
@@ -378,14 +385,17 @@ function minimalVehicle(SA, spec, forcedModule = null) {
   // 明确要求展示某奖励件时可额外加入，但同功能必需件不重复购买。
   for (const predicate of [(m, id) => SA.isCockpit(id), m => m.supply]) {
     if (Object.keys(counts(SA, v)).some(id => predicate(SA.MODULES[id], id))) continue;
-    const id = moduleIds(SA, spec, predicate)[0];
+    // 用本关已开放、足以承载侧炮的锅炉兼任挂点，避免为支撑额外堆装甲或重复武器。
+    const id = moduleIds(SA, spec, predicate).find(id => !forcedSide || !SA.MODULES[id].supply ||
+      (SA.fp(id).w >= SA.fp(forcedSide).w && SA.fp(id).h >= SA.fp(forcedSide).h));
     if (!id || !putFirst(id, highRows)) return null;
   }
+  if (forcedSide && !putFirst(forcedSide)) return null;
   const weapon = moduleIds(SA, spec, m => m.dmg || m.ram)[0];
   if (!hasWeapon(SA, v) && (!weapon || !putFirst(weapon))) return null;
   // 奖励件可能是冷却、控制或装甲件；保底车也要优先尝试放入，
   // 否则“必须包含奖励件”的章节选择会被保底路径悄悄破坏。
-  if (forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule].layer !== 'chassis' && !forcedUtility) putFirst(forcedModule);
+  if (forcedModule && !forcedWeapon && !forcedRam && !forcedSide && SA.MODULES[forcedModule].layer !== 'chassis' && !forcedUtility) putFirst(forcedModule);
   return legalVehicle(SA, v, spec) && (!forcedModule || counts(SA, v)[forcedModule]) ? v : null;
 }
 
@@ -925,7 +935,7 @@ function campaignOpponents(SA, chapter, stage) {
   return Array.from({ length: config.evaluation.anchorCount }, (_, i) => {
     const v = i < 2 ? minimalVehicle(SA, spec, i === 1 ? spec.rewardModule : null) :
       randomVehicle(SA, spec, new RNG(731001 + chapter * 1009 + stage * 101 + i)) || minimalVehicle(SA, spec);
-    if (!v) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关无法生成合法标尺车`);
+    if (!v) throw new Error(`${SA.CAMPAIGN[chapter].name} · 第 ${stage + 1} 关「${spec.name}」无法生成${i === 1 && spec.rewardModule ? `含奖励件「${SA.MODULES[spec.rewardModule].name}」的` : ''}合法标尺车（预算 £${spec.budget}）`);
     v.name = `同档标尺·${chapter + 1}-${stage + 1}-${i + 1}`;
     return v;
   });
@@ -1089,6 +1099,8 @@ async function runAsync(options = {}) {
     const stages = indexes.map(stage => {
       const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
       const locked = actual?.source === 'manual' && actual.locked && !scope;
+      // 先预检所选范围的全部标尺，构筑条件不成立时立即指出具体关卡，避免跑到中途才失败。
+      const opponents = locked ? null : campaignOpponents(SA, chapter, stage);
       const seeds = [], seedKeys = new Set();
       if (!locked) for (const rec of options.seeds || []) {
         if (rec.spec?.chapter !== chapter || rec.spec?.stage !== stage) continue;
@@ -1106,7 +1118,7 @@ async function runAsync(options = {}) {
         if (!seedKeys.has(key)) { seeds.push(vehicle); seedKeys.add(key); }
       }
       telemetry.totalSteps += locked ? 1 : Math.max(4, config.population.size, seeds.length) * config.population.generations + 2;
-      return { stage, spec, actual, locked, seeds };
+      return { stage, spec, actual, locked, seeds, opponents };
     });
     if (stages.some(entry => !entry.locked && entry.spec.boss)) telemetry.totalSteps++;
     return { chapter, stages };
@@ -1143,7 +1155,7 @@ async function runAsync(options = {}) {
         const bossIndex = SA.CAMPAIGN[chapter].stages.findIndex(row => row.boss);
         if (bossIndex >= 0 && bossIndex !== scope.stage) chapterBoss = reference(chapter, bossIndex);
       }
-      for (const { stage, spec, actual, locked, seeds } of plan.stages) {
+      for (const { stage, spec, actual, locked, seeds, opponents } of plan.stages) {
         if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
         progress({ phase: 'stage-start', chapter, stage, locked });
         if (locked) {
@@ -1154,7 +1166,7 @@ async function runAsync(options = {}) {
           progress({ phase: 'stage-end', chapter, stage, completed: 1, total: 1, locked: true }); checkpoint(checkpointChapter(chapter, pendingStages, SA));
           continue;
         }
-        const result = await generateChapterAsync(SA, spec, previous, campaignOpponents(SA, chapter, stage), rng, quickGames, pool, progress, options.shouldStop, telemetry, seeds);
+        const result = await generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, progress, options.shouldStop, telemetry, seeds);
         if (result.interrupted) { status = 'interrupted'; break chapterLoop; }
         const top = result.scored.filter((item, index) => index < 8 || seeds.includes(item.vehicle)), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
         const bucketCount = Object.keys(result.archive.buckets).length;
