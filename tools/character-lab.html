@@ -62,17 +62,16 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>人物形象 · 碳球 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v2.1 · 2026-09-28</small></h1>
+    <h1>人物形象 · 碳球 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v3 · 2026-09-28</small></h1>
     <p>这个世界里的人都是<b>圆形小碳球</b>：小短手、看不到腿，眼睛 1～3 只，<b>不画嘴</b>。长相都差不多，靠<b>肤色、眼球颜色、假发和饰品</b>认人。起点是现在驾驶舱里的蓝灰碳球（第 0 节）。</p>
     <p>同一份角色数据按三种尺寸画：<b>驾驶舱里</b>（半径 3.3，和游戏一样）、<b>场景小人</b>（半径 8）、<b>对话头像</b>（半径 19）。全部是程序化像素画，定稿后直接搬进游戏。</p>
-    <p><b>v2 按你的意见改了</b>：</p>
+    <p><b>v3：眼睛回到原驾驶舱的简笔画形式</b>（为什么原来的更可爱，见第 1 节上面的对比）：</p>
     <ul>
-      <li>眼睛再放大：所有眼睛加起来占身体面积 60% 以上（一只 64%、两只 61%、三只 61%），虹膜占眼睛短边的 72%；胡子、围巾、肩章挪到眼睛下面。驾驶舱尺寸两只眼各 3×3、一只眼 5×4。</li>
-      <li>一只眼的改成圆圆的大眼 + 大虹膜 + 三点高光 + 三根小睫毛，不再吓人。</li>
-      <li>去掉所有嘴巴；表情全靠眼睛（原来的「说话」换成「犯困」）。</li>
-      <li>皮肤不必全黑：四级色阶从近黑往体色过渡，顶栏「肤色」调浓淡；角色还可以设第二种颜色，身体下半往它过渡。</li>
-      <li>眼球颜色开放：十种，顶栏可以统一换，也可以在试装台里单独换。</li>
-      <li>新增假发：八种样式 × 八种发色，戴帽子时从帽檐下露出来（呆毛翘在帽子外面）。</li>
+      <li>眼睛横向宽、挨得近（两只加起来约占身体宽 75%），但面积只占身体约 20%：身体大部分还是黑的，一眼就是「长了眼睛的煤球」。</li>
+      <li>眼睛是圆角方块，只有白底 + 一颗单色瞳孔；没有虹膜渐变、没有高光、没有睫毛。</li>
+      <li>两只瞳孔都偏向同一个角（默认右下），像在好奇地看东西。</li>
+      <li>「眼球颜色」现在就是瞳孔颜色，默认墨黑；只有玛莎、沃德豪斯（紫）、伊莎贝拉（绿）、比尔（青）、圣殿骑士团（红）保留彩色瞳孔当特征。</li>
+      <li>v2 的其他改动保留：不画嘴、肤色可往体色过渡、假发、试装台。</li>
     </ul>
     <p class="q"><b>请你确认</b>：① 身体 A / B / C；② 肤色默认浓度；③ 手套；④ 阵容里每个人的造型——可以在第 5 节点「试装」进试装台调，调好把下面那行数据发给我；⑤ 驾驶舱里要不要换成各自的样子。</p>
   </header>
@@ -87,13 +86,20 @@
 
   <section>
     <h2 class="sec">0 · 现在的碳球 <small>游戏里 js/sprites.js 的 pilot()：驾驶舱、联合驾驶舱、史诗起换飞行帽</small></h2>
-    <p class="lead">舷窗里只有 7 像素宽：一个深色圆 + 左上一点反光 + 两只白眼睛。驾驶员是蓝灰色调、副驾驶是暖紫色调。本页重画的驾驶舱尺寸：两只眼各 2×2，右下一格换成虹膜色；一只眼 3×3。</p>
+    <p class="lead">舷窗里只有 7 像素宽：一个深色圆 + 左上一点反光 + 两只白眼睛。驾驶员是蓝灰色调、副驾驶是暖紫色调。本页重画的驾驶舱尺寸和原来一样：两只眼各 2×2、中间隔 1 像素、右下角 1 像素瞳孔（可以换颜色）；一只眼 3×2。</p>
     <div class="grid" id="now"></div>
   </section>
 
   <section>
     <h2 class="sec">1 · 身体 × 眼睛 <small>三种身体 × 1 / 2 / 3 只眼，头像和小人两种尺寸</small></h2>
-    <p class="lead">眼睛数量是天生的区分：一只眼居中、最大、带睫毛；三只眼是两只 + 额头一只小的。没有嘴。</p>
+    <div class="rules" style="margin-bottom:12px"><b>为什么原驾驶舱里的碳球更可爱</b>（逐像素量的，身体 7 像素宽）<ol>
+      <li><b>眼睛宽、面积小</b>：两只眼横向占身体宽 75%，面积只占 20%，身体大部分还是黑的。v2.1 眼睛面积占到 60% 以上（看上去接近 80%），身体只剩一圈边，像昆虫或面具，也不像煤球了。</li>
+      <li><b>简笔画眼睛</b>：白底 + 1 像素瞳孔，只有两种颜色。v2 加的虹膜渐变、高光、睫毛是写实的动漫眼，和极简的身体不搭。</li>
+      <li><b>视线</b>：两只瞳孔都在右下角，像在看东西；大虹膜居中则像在瞪人。</li>
+      <li><b>挨得近</b>：两眼之间只隔 1 像素，显得稚气；眼睛推到身体两边会显得呆板。</li>
+      <li><b>反差和形状</b>：黑身体配纯白眼、黑瞳孔，对比最强；原来是 2×2 方块，放大后应该是圆角方块，而不是平滑的椭圆。</li>
+    </ol></div>
+    <p class="lead">眼睛数量是天生的区分：一只眼居中、宽一些；三只眼是两只 + 额头一只小的。没有嘴。</p>
     <div class="scroll"><table class="mx" id="bodyeyes"></table></div>
   </section>
 
@@ -144,10 +150,10 @@
     <div class="rules"><ol>
       <li><b>身体</b>是圆碳球：皮肤分四级，从近黑往体色过渡（浓度可调），左上一圈反光 + 一点高光；可以再设第二种颜色，身体下半往它过渡。个别角色可以大一号，不改形状。</li>
       <li><b>没有腿</b>，一对圆头小短手，和皮肤同色。移动 = 弹跳或滚成一团。</li>
-      <li><b>眼睛 1～3 只，加起来至少占身体面积 60%</b>，大眼白 + 彩色大虹膜 + 黑瞳孔 + 两点高光；一只眼居中最大，多一点高光和三根睫毛（可爱，不吓人）；三只眼是两只 + 额头一只。眼睛数、眼球颜色是角色的固定特征。</li>
+      <li><b>眼睛 1～3 只，照原驾驶舱的简笔画</b>：圆角方块白眼 + 一颗单色瞳孔，没有高光和渐变；两眼挨近，横向约占身体宽 75%，面积约 20%；瞳孔偏向同一个角。眼睛数和瞳孔颜色（默认墨黑）是角色的固定特征。</li>
       <li><b>不画嘴</b>。表情全靠眼睛：眼形变化，用皮肤颜色盖掉眼白一角当眉毛 / 眼皮。</li>
       <li><b>区分靠「帽子剪影 + 肤色 + 眼球颜色 + 假发 + 一两件饰品」</b>：有名字的角色帽子（或假发）剪影不重复；饰品最多 3～4 件。</li>
-      <li><b>三种尺寸同一份数据</b>：驾驶舱（半径 3.3）只画身体、眼睛（带一个虹膜色像素）、帽子（2 行）、假发两侧和胡子 / 围巾的一个颜色点；场景小人和头像全画。</li>
+      <li><b>三种尺寸同一份数据</b>：驾驶舱（半径 3.3）只画身体、眼睛（2×2 白眼 + 1 像素瞳孔）、帽子（2 行）、假发两侧和胡子 / 围巾的一个颜色点；场景小人和头像全画。</li>
       <li><b>颜色</b>：饰品用调色板里的色；炉火色只用在头灯、马灯、余烬这类真的会发光的东西上。</li>
     </ol></div>
   </section>
@@ -192,7 +198,7 @@
     g.fillStyle = P.glass[3]; g.fillRect(10, 8, 1, 1);
     return c;
   }
-  const BASE = { tint: 'slate', eyes: 2, acc: [], pose: 'idle', iris: 'brown' };
+  const BASE = { tint: 'slate', eyes: 2, acc: [], pose: 'idle', iris: 'ink' };
 
   function seg(box, cur, opts, set) {
     box.innerHTML = '';
@@ -265,7 +271,7 @@
     // 5 阵容
     const ca = $('#cast'); ca.innerHTML = '';
     for (const ch0 of L.CAST) {
-      const ch = withMods(ch0), t = L.TINT[ch.tint], iris = L.IRIS[ch.iris || 'brown'];
+      const ch = withMods(ch0), t = L.TINT[ch.tint], iris = L.IRIS[ch.iris || 'ink'];
       ca.append(el('div', { class: 'who' },
         el('div', { class: 'pics' }, show(portrait(ch), pz()), show(sprite(ch)), show(cockpit(ch), 5)),
         el('h3', {}, ch.name, st.mods[ch.id] ? ' ✎' : '', el('small', {}, ch.role)),
@@ -302,7 +308,7 @@
     const hatNow = (ch.acc.find(([id]) => L.ACC[id] && L.ACC[id].layer === 'hat') || [null])[0];
     const setHat = (id) => set({ acc: [...ch.acc.filter(([k]) => !L.ACC[k] || L.ACC[k].layer !== 'hat'), ...(id ? [[id]] : [])] });
     const wig = ch.wig || ['none', 'black'];
-    const data = { tint: ch.tint, skin: ch.skin ?? 1, grad: ch.grad || null, eyes: ch.eyes, iris: ch.iris || 'brown', wig: wig[0] === 'none' ? null : wig, acc: ch.acc.map(([id]) => id), item: ch.item || null, pose: ch.pose };
+    const data = { tint: ch.tint, skin: ch.skin ?? 1, grad: ch.grad || null, eyes: ch.eyes, iris: ch.iris || 'ink', wig: wig[0] === 'none' ? null : wig, acc: ch.acc.map(([id]) => id), item: ch.item || null, pose: ch.pose };
     box.append(
       el('div', { class: 'stage' },
         el('div', { class: 'row' }, show(portrait(ch, { expr, skin: ch.skin ?? (st.skin ?? undefined), iris: ch.iris }), 3)),
@@ -313,7 +319,7 @@
         el('span', {}, '肤色浓度'), seg(el('span', { class: 'seg' }), ch.skin ?? 1, L.SKIN, v => set({ skin: v })),
         el('span', {}, '过渡色'), seg(el('span', { class: 'seg' }), ch.grad || null, [[null, '无'], ['#b8391b', '炉火红', '#b8391b'], ['#5a3a7a', '深紫', '#5a3a7a'], ['#d9a441', '金', '#d9a441'], ['#98804a', '赭黄', '#98804a'], ['#e88aa0', '粉', '#e88aa0'], ['#46c2c9', '水青', '#46c2c9'], ['#6fcf6a', '绿', '#6fcf6a']], v => set({ grad: v })),
         el('span', {}, '眼睛'), seg(el('span', { class: 'seg' }), ch.eyes, [[1, '1 只'], [2, '2 只'], [3, '3 只']], v => set({ eyes: v })),
-        el('span', {}, '眼球颜色'), seg(el('span', { class: 'seg' }), ch.iris || 'brown', irisOpts(), v => set({ iris: v })),
+        el('span', {}, '眼球颜色'), seg(el('span', { class: 'seg' }), ch.iris || 'ink', irisOpts(), v => set({ iris: v })),
         el('span', {}, '假发'), seg(el('span', { class: 'seg' }), wig[0], Object.entries(L.WIGS).map(([k, w]) => [k, w.name]), v => set({ wig: v === 'none' ? null : [v, wig[1]] })),
         el('span', {}, '发色'), seg(el('span', { class: 'seg' }), wig[1], Object.entries(L.WIGC).map(([k, w]) => [k, w.name, w.c]), v => set({ wig: [wig[0] === 'none' ? 'bob' : wig[0], v] })),
         el('span', {}, '帽子'), seg(el('span', { class: 'seg' }), hatNow, [[null, '不戴'], ...hats.map(([k, a]) => [k, a.name.replace(/（.*）/, '')])], v => setHat(v)),

@@ -132,14 +132,18 @@ SA.CoalLab = (() => {
   }
 
   // ---------- 眼睛：1～3 只 ----------
-  // 眼睛是脸的全部：所有眼睛加起来至少占身体面积的 60%（每组后面注的是占比）。
-  // 每只：[u, v, rx, ry]（身体半径 = 1）。眼白 → 彩色大虹膜（上深下浅）→ 黑瞳孔 → 高光；一只眼再多一点高光和三根睫毛
+  // 照原驾驶舱里的碳球（7 像素宽，两只 2×2 白眼 + 1 像素瞳孔）放大：像儿童简笔画。
+  // 眼睛横向宽、挨得近（两只加起来约占身体宽 75%），但面积只占身体约 20%，身体大部分还是黑的；
+  // 眼睛是圆角方块，只有白底 + 一颗单色瞳孔，没有高光、没有渐变；瞳孔都偏向同一个角，像在看东西。
+  // 每只：[u, v, rx, ry]（身体半径 = 1），后面注面积占比
   const EYESETS = {
-    1: [[0, 0.02, 0.8, 0.8]],                                                   // 64%
-    2: [[-0.46, -0.04, 0.45, 0.68], [0.46, -0.04, 0.45, 0.68]],                 // 61%
-    3: [[-0.46, 0.24, 0.46, 0.58], [0.46, 0.24, 0.46, 0.58], [0, -0.62, 0.27, 0.27]],   // 61%
+    1: [[0.02, -0.06, 0.4, 0.38]],                                              // 15%
+    2: [[-0.4, -0.06, 0.3, 0.32], [0.4, -0.06, 0.3, 0.32]],                     // 19%
+    3: [[-0.4, 0.08, 0.28, 0.28], [0.4, 0.08, 0.28, 0.28], [0, -0.5, 0.2, 0.2]],   // 20%
   };
+  // 瞳孔颜色：只用一色（取第 2 色）。黑 = 原驾驶舱的样子
   const IRIS = {
+    ink: { name: '墨黑', c: ['#07080c', '#07080c', '#07080c'] },
     brown: { name: '棕', c: ['#3a2414', '#7a4a24', '#b8834a'] },
     amber: { name: '琥珀', c: ['#5a3408', '#b87414', '#f0c050'] },
     blue: { name: '蓝', c: ['#16305a', '#2e64b0', '#7ab4ec'] },
@@ -153,47 +157,40 @@ SA.CoalLab = (() => {
   };
   const EXPR = { normal: '平常', blink: '眨眼', happy: '高兴', surprise: '吃惊', angry: '生气', sad: '难过', sleepy: '犯困' };
   function eyes(c, n, expr, look, iris, skinAt) {
-    const ic = (IRIS[iris] || IRIS.brown).c;
+    const pc = (IRIS[iris] || IRIS.ink).c[1];
     if (c.mini) {
-      // 驾驶舱尺寸（身体约 7 像素宽）：两只 = 各 3×3（右下 2×2 是虹膜）；一只 = 5×4；三只 = 两只 3×2 + 额头一个
+      // 驾驶舱尺寸：和原来一样，两只 2×2 白眼、中间隔 1 像素、右下角 1 像素瞳孔；一只 = 3×2 + 瞳孔 1×2；三只 = 两只 + 额头 1 像素
       const cx = Math.round(c.cx), cy = Math.round(c.cy);
       const eye = (x, y, w2, h2) => {
         for (let yy = 0; yy < h2; yy++) for (let xx = 0; xx < w2; xx++) c.put(x + xx, y + yy, expr === 'blink' ? (yy === h2 - 1 ? C.eyeS : null) : C.white);
-        if (expr === 'blink') return;
-        const ix = x + w2 - 2, iy = y + h2 - 2;
-        c.put(ix, iy, ic[0]); c.put(ix + 1, iy, ic[1]); c.put(ix, iy + 1, ic[1]); c.put(ix + 1, iy + 1, ic[2]);
-        if (w2 > 3) { c.put(ix - 1, iy, ic[1]); c.put(ix - 1, iy + 1, ic[1]); }
+        if (expr !== 'blink') for (let yy = h2 - (w2 > 2 ? 2 : 1); yy < h2; yy++) c.put(x + w2 - 1, y + yy, pc);
       };
-      if (n === 1) eye(cx - 2, cy - 2, 5, 4);
-      if (n === 2) { eye(cx - 3, cy - 2, 3, 3); eye(cx + 1, cy - 2, 3, 3); }
-      if (n === 3) { eye(cx - 3, cy - 1, 3, 2); eye(cx + 1, cy - 1, 3, 2); c.put(cx, cy - 3, C.white); }
+      if (n === 1) eye(cx - 1, cy - 1, 3, 2);
+      if (n >= 2) { eye(cx - 2, cy - 1, 2, 2); eye(cx + 1, cy - 1, 2, 2); }
+      if (n === 3) c.put(cx, cy - 3, C.white);
       return;
     }
-    const tiny = c.R < 12;
-    const inBody = (x, y) => Math.hypot(x + 0.5 - c.cx, y + 0.5 - c.cy) <= c.R * 0.97;
+    // 圆角方块：|x|^4 + |y|^4 ≤ 1
+    const sq = (nx, ny) => nx ** 4 + ny ** 4 <= 1;
+    const box = (u, v, rx, ry, col, test) => c.E(u, v, rx * 1.2, ry * 1.2, col, (nx, ny, x, y) => sq(nx * 1.2, ny * 1.2) && (!test || test(nx * 1.2, ny * 1.2, x, y)));
+    const t = Math.max(1.2, c.R * 0.1) / c.R;   // 线条粗细（眨眼、笑眼）
     for (const [u, v, rx0, ry0] of EYESETS[n]) {
-      const big = expr === 'surprise' ? 1.04 : 1, rx = rx0 * big, ry = ry0 * big, m = Math.min(rx, ry), lx = look * rx * 0.16;
-      const inside = (nx, ny, x, y) => inBody(x, y);
-      if (expr === 'blink') { c.E(u, v + ry * 0.25, rx * 0.9, Math.max(ry * 0.14, 1 / c.R), INK, (nx, ny, x, y) => ny > -0.2 && inBody(x, y)); continue; }
-      if (expr === 'happy') { c.E(u, v + ry * 0.2, rx * 0.9, ry * 0.6, INK, (nx, ny, x, y) => ny < 0.1 && Math.hypot(nx, ny + 0.8) > 0.95 && inBody(x, y)); continue; }
-      c.E(u, v, rx, ry, (nx, ny) => (ny > 0.66 ? C.eyeS : C.white), inside);
-      // 虹膜：占眼睛短边的 72%，吃惊时缩到 45%
-      const ir = m * (expr === 'surprise' ? 0.45 : 0.72), iy = v + ry * 0.08;
-      c.E(u + lx, iy, ir, ir * 1.1, (nx, ny) => (ny < -0.35 ? ic[0] : ny > 0.4 ? ic[2] : ic[1]), inside);
-      c.E(u + lx, iy + ir * 0.06, ir * 0.48, ir * 0.55, INK);
-      if (tiny) { c.put(c.X(u + lx - ir * 0.45), c.Y(iy - ir * 0.45), C.white); c.put(c.X(u + lx - ir * 0.2), c.Y(iy - ir * 0.45), C.white); }
-      else {
-        c.E(u + lx - ir * 0.4, iy - ir * 0.4, ir * 0.3, ir * 0.3, C.white);
-        c.E(u + lx + ir * 0.42, iy + ir * 0.45, ir * 0.14, ir * 0.14, C.white);
-        if (n === 1) c.E(u + lx + ir * 0.5, iy - ir * 0.55, ir * 0.12, ir * 0.12, C.white);
+      const rx = rx0 * (expr === 'surprise' ? 1.12 : 1), ry = ry0 * (expr === 'surprise' ? 1.12 : 1);
+      if (expr === 'blink') { c.Rt(u - rx, v + ry * 0.2, u + rx, v + ry * 0.2 + t, INK); continue; }
+      if (expr === 'happy') {   // 倒 U：白色粗线
+        c.E(u, v + ry * 0.5, rx, ry * 0.9, C.white, (nx, ny) => ny < 0 && nx * nx + ny * ny > (1 - t / Math.min(rx, ry) * 2.2) ** 2);
+        continue;
       }
-      // 眉 / 眼皮：用这块皮肤的颜色盖掉眼白一角
-      const lid = (test) => c.E(u, v, rx * 1.12, ry * 1.12, (nx, ny, x, y) => skinAt(x, y), (nx, ny, x, y) => test(nx, ny) && inBody(x, y));
-      if (expr === 'angry') lid((nx, ny) => ny < -0.35 + (n === 1 ? 0 : (u < 0 ? nx : -nx) * 0.6));
-      if (expr === 'sad') lid((nx, ny) => ny < -0.45 - (n === 1 ? Math.abs(nx) * 0.4 : (u < 0 ? nx : -nx) * 0.5));
-      if (expr === 'sleepy') lid((nx, ny) => ny < 0.05);
-      // 一只眼：上沿三根小睫毛
-      if (n === 1 && !tiny && expr !== 'sleepy' && expr !== 'angry') for (const a of [-0.5, 0, 0.5]) c.L(u + Math.sin(a) * rx * 0.85, v - ry * 0.97, u + Math.sin(a) * rx * 1.02, v - ry * 1.12, INK);
+      box(u, v, rx, ry, C.white);
+      // 瞳孔：一个颜色，约为眼睛的一半大，偏向视线方向（默认往右下）
+      const pr = expr === 'surprise' ? 0.32 : 0.52, px = u + rx * (1 - pr) * look, py = v + ry * (1 - pr) * 0.55;
+      if (expr === 'surprise') c.E(u, v + ry * 0.1, rx * pr, ry * pr, pc);
+      else box(px, py, rx * pr, ry * pr, pc);
+      // 眉 / 眼皮：用这块皮肤的颜色盖掉白眼一角
+      const lid = (test) => box(u, v, rx * 1.1, ry * 1.1, (nx, ny, x, y) => skinAt(x, y), test);
+      if (expr === 'angry') lid((nx, ny) => ny < -0.25 + (n === 1 ? 0 : (u < 0 ? nx : -nx) * 0.6));
+      if (expr === 'sad') lid((nx, ny) => ny < -0.4 - (n === 1 ? Math.abs(nx) * 0.4 : (u < 0 ? nx : -nx) * 0.5));
+      if (expr === 'sleepy') lid((nx, ny) => ny < 0.1);
     }
   }
 
@@ -341,7 +338,7 @@ SA.CoalLab = (() => {
     monocle: { name: '单片眼镜', layer: 'face', draw(c, a, eyeset) {
       const [u, v, rx, ry] = eyeset[eyeset.length > 1 ? 1 : 0];
       c.E(u, v, rx * 1.1, ry * 1.08, C.brassH, (nx, ny) => nx * nx + ny * ny > 0.8);
-      c.L(u + rx * 0.7, v + ry * 0.8, u + 0.2, 1.0, C.brassS);
+      c.L(u + rx * 0.8, v + ry * 0.9, u + 0.3, 0.9, C.brassS);
     } },
     loupe: { name: '钟表匠放大镜', layer: 'face', draw(c, a, eyeset) {
       const [u, v, rx, ry] = eyeset[0];
@@ -353,36 +350,36 @@ SA.CoalLab = (() => {
       c.Rt(-0.06, -0.06, 0.06, -0.01, C.brassH);
     } },
     walrus: { name: '海象胡', layer: 'face', color: C.must, draw(c, a) {
-      c.E(-0.24, 0.78, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color)); c.E(0.24, 0.78, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color));
-      c.E(-0.5, 0.88, 0.07, 0.11, a.color); c.E(0.5, 0.88, 0.07, 0.11, a.color);
+      c.E(-0.24, 0.5, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color)); c.E(0.24, 0.5, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color));
+      c.E(-0.5, 0.6, 0.07, 0.11, a.color); c.E(0.5, 0.6, 0.07, 0.11, a.color);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); for (let dx = -2; dx <= 2; dx++) c.put(x + dx, y, a.color); } },
     handlebar: { name: '八字胡', layer: 'face', color: C.black, draw(c, a) {
-      c.L(-0.04, 0.8, -0.42, 0.78, a.color, 0.05); c.L(0.04, 0.8, 0.42, 0.78, a.color, 0.05);
-      c.L(-0.42, 0.78, -0.54, 0.68, a.color); c.L(0.42, 0.78, 0.54, 0.68, a.color);
+      c.L(-0.04, 0.5, -0.42, 0.48, a.color, 0.05); c.L(0.04, 0.5, 0.42, 0.48, a.color, 0.05);
+      c.L(-0.42, 0.48, -0.54, 0.38, a.color); c.L(0.42, 0.48, 0.54, 0.38, a.color);
     } },
     beard: { name: '大胡子', layer: 'face', color: C.grey, draw(c, a) {
-      c.E(0, 0.88, 0.64, 0.34, (nx, ny) => (Math.floor((nx + 2) * 5) % 2 && ny > 0 ? a.shade || C.greyS : a.color), (nx, ny) => ny > -0.4);
+      c.E(0, 0.72, 0.66, 0.42, (nx, ny) => (Math.floor((nx + 2) * 5) % 2 && ny > 0 ? a.shade || C.greyS : a.color), (nx, ny) => ny > -0.4);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); for (let dx = -2; dx <= 2; dx++) { c.put(x + dx, y + 1, a.color); if (Math.abs(dx) < 2) c.put(x + dx, y + 2, a.color); } } },
     blush: { name: '腮红', layer: 'face', color: C.pinkH, draw(c, a, eyeset) { for (const [u, v, rx, ry] of eyeset.slice(0, 2)) c.E(u * 1.5, v + ry * 0.9, 0.12, 0.06, a.color); } },
-    pipe: { name: '烟斗', layer: 'face', draw(c) { c.L(0.05, 0.82, 0.6, 0.9, C.leatherD, 0.03); c.Rt(0.56, 0.68, 0.76, 0.94, C.leatherH); c.Rt(0.56, 0.68, 0.76, 0.74, INK); } },
+    pipe: { name: '烟斗', layer: 'face', draw(c) { c.L(0.05, 0.5, 0.6, 0.6, C.leatherD, 0.03); c.Rt(0.56, 0.38, 0.76, 0.64, C.leatherH); c.Rt(0.56, 0.38, 0.76, 0.44, INK); } },
     // 身上
     scarf: { name: '围巾', layer: 'neck', color: C.blue, draw(c, a) {
-      c.E(0, 0.9, 0.62, 0.16, (nx) => (Math.floor((nx + 2) * 6) % 3 === 0 ? a.stripe || a.shade || C.blueS : a.color));
-      c.Rt(0.38, 0.94, 0.58, 1.3, a.color); c.Rt(0.38, 1.18, 0.58, 1.3, a.stripe || a.shade || C.blueS);
-      if (a.patch) c.Rt(-0.3, 0.84, -0.1, 0.98, a.patch);
+      c.E(0, 0.78, 0.74, 0.18, (nx) => (Math.floor((nx + 2) * 6) % 3 === 0 ? a.stripe || a.shade || C.blueS : a.color));
+      c.Rt(0.42, 0.84, 0.62, 1.25, a.color); c.Rt(0.42, 1.12, 0.62, 1.25, a.stripe || a.shade || C.blueS);
+      if (a.patch) c.Rt(-0.3, 0.72, -0.1, 0.86, a.patch);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 2); for (let dx = -2; dx <= 2; dx++) c.put(x + dx, y, a.color); } },
     bowtie: { name: '领结', layer: 'neck', color: C.red, draw(c, a) {
-      c.E(-0.17, 0.9, 0.17, 0.1, a.color); c.E(0.17, 0.9, 0.17, 0.1, a.color); c.E(0, 0.9, 0.07, 0.07, a.shade || C.redS);
+      c.E(-0.17, 0.76, 0.17, 0.1, a.color); c.E(0.17, 0.76, 0.17, 0.1, a.color); c.E(0, 0.76, 0.07, 0.07, a.shade || C.redS);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 2); c.put(x - 1, y, a.color); c.put(x + 1, y, a.color); } },
     cravat: { name: '领巾', layer: 'neck', color: C.cream, draw(c, a) {
-      c.E(0, 0.86, 0.24, 0.1, a.color); c.E(0, 1.0, 0.13, 0.14, a.color); c.put(c.X(0), c.Y(0.98), a.pin || C.fire);
+      c.E(0, 0.74, 0.24, 0.1, a.color); c.E(0, 0.9, 0.13, 0.16, a.color); c.put(c.X(0), c.Y(0.88), a.pin || C.fire);
     } },
     sash: { name: '绶带', layer: 'neck', color: C.red, draw(c, a) {
       c.L(-0.9, 0.5, -0.05, 1.0, a.color, 0.08); c.L(-0.88, 0.43, 0.0, 0.94, a.edge || C.brass);
       if (a.medal) { c.E(0.3, 0.86, 0.12, 0.12, C.brassH); c.E(0.3, 0.86, 0.06, 0.06, C.brass); }
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); c.put(x - 2, y, a.color); c.put(x - 1, y + 1, a.color); c.put(x, y + 2, a.color); } },
     epaulette: { name: '金肩章', layer: 'neck', draw(c) {
-      for (const u of [-0.9, 0.9]) { c.E(u, 0.5, 0.2, 0.09, C.brass); for (let k = -0.15; k <= 0.15; k += 2 / c.R) c.Rt(u + k, 0.55, u + k + 1 / c.R, 0.7, C.brassS); }
+      for (const u of [-0.84, 0.84]) { c.E(u, 0.32, 0.22, 0.09, C.brass); for (let k = -0.16; k <= 0.16; k += 2 / c.R) c.Rt(u + k, 0.37, u + k + 1 / c.R, 0.52, C.brassS); }
     } },
     apron: { name: '皮围裙', layer: 'neck', color: C.leather, draw(c, a) {
       c.E(0, 0.9, 0.56, 0.3, (nx) => (nx > 0.5 ? C.leatherD : a.color), (nx, ny) => ny > -0.3);
@@ -393,8 +390,8 @@ SA.CoalLab = (() => {
       c.Rt(-0.85, 0.72, -0.25, 1.12, a.color); c.Rt(-0.85, 0.72, -0.25, 0.82, C.leatherH); c.put(c.X(-0.55), c.Y(0.9), C.brassH);
     } },
     medal: { name: '勋章', layer: 'neck', draw(c) {
-      c.Rt(-0.62, 0.66, -0.46, 0.8, C.red); c.Rt(-0.56, 0.66, -0.52, 0.8, C.white);
-      c.E(-0.54, 0.88, 0.1, 0.1, C.brassH);
+      c.Rt(-0.62, 0.5, -0.46, 0.66, C.red); c.Rt(-0.56, 0.5, -0.52, 0.66, C.white);
+      c.E(-0.54, 0.74, 0.1, 0.1, C.brassH);
     } },
     // 身后 / 手里
     cane: { name: '手杖', layer: 'hand', draw(c, a, _, pose) { const [u, v] = pose.R; c.L(u + 0.08, v - 0.2, u + 0.25, 1.1, C.leatherD, 0.04); c.E(u + 0.05, v - 0.24, 0.1, 0.08, C.brassH); } },
@@ -437,22 +434,22 @@ SA.CoalLab = (() => {
   // tint：体色；skin：皮肤浓度（不写 = 1）；grad：身体下半过渡到的颜色；eyes：1～3；iris：眼球颜色；
   // wig：[样式, 发色]；acc：[[饰品, 参数]]；item：手里拿的；pose：默认姿势；sq：身体扁一点；big：大一号
   const CAST = [
-    { id: 'uncle', name: '远房亲戚', role: '旁白 · 大英帝国退役军官', tint: 'rust', eyes: 2, iris: 'blue', pose: 'salute',
+    { id: 'uncle', name: '远房亲戚', role: '旁白 · 大英帝国退役军官', tint: 'rust', eyes: 2, iris: 'ink', pose: 'salute',
       acc: [['epaulette'], ['medal'], ['walrus'], ['monocle'], ['pith']],
       note: '最常出现的脸：遮阳盔 + 海象胡 + 单片眼镜 + 金肩章，一眼就是「老军官」' },
-    { id: 'me', name: '你', role: '主角 · 身无分文', tint: 'slate', eyes: 2, iris: 'brown', pose: 'idle', wig: ['ahoge', 'black'],
+    { id: 'me', name: '你', role: '主角 · 身无分文', tint: 'slate', eyes: 2, iris: 'ink', pose: 'idle', wig: ['ahoge', 'black'],
       acc: [['scarf', { color: C.blue, shade: C.blueS, patch: C.leatherH }]],
       note: '就是现在驾驶舱里的蓝灰碳球；一根呆毛 + 打了补丁的蓝围巾，越朴素越像主角' },
-    { id: 'timmy', name: '学徒 小提米', role: '序章 · 陪练', tint: 'ochre', eyes: 2, iris: 'amber', pose: 'wave', item: 'wrench', wig: ['ahoge', 'chestnut'],
+    { id: 'timmy', name: '学徒 小提米', role: '序章 · 陪练', tint: 'ochre', eyes: 2, iris: 'ink', pose: 'wave', item: 'wrench', wig: ['ahoge', 'chestnut'],
       acc: [['blush'], ['goggleCap']],
       note: '皮帽上顶着一副大护目镜，帽子上翘出一根呆毛，手里一把扳手' },
-    { id: 'tom', name: '铁匠 老汤姆', role: '序章', tint: 'rust', grad: '#b8391b', eyes: 1, iris: 'amber', pose: 'hold', item: 'hammer',
+    { id: 'tom', name: '铁匠 老汤姆', role: '序章', tint: 'rust', grad: '#b8391b', eyes: 1, iris: 'ink', pose: 'hold', item: 'hammer',
       acc: [['apron'], ['beard', { color: C.grey }], ['bandana', { color: C.red }]],
       note: '独眼铁匠（大眼 + 睫毛，不凶）：身子下半被炉火烤得发红；大胡子、皮围裙、红头巾、铁锤' },
-    { id: 'harry', name: '锅炉工 胖哈利', role: '第一章', tint: 'rust', grad: '#98804a', eyes: 2, iris: 'brown', pose: 'idle', sq: 0.9, big: 1.15,
+    { id: 'harry', name: '锅炉工 胖哈利', role: '第一章', tint: 'rust', grad: '#98804a', eyes: 2, iris: 'ink', pose: 'idle', sq: 0.9, big: 1.15,
       acc: [['scarf', { color: '#8a6a3a', shade: '#5a4424' }], ['beanie', { color: C.red, shade: C.redS, pom: C.redH }]],
       note: '大一号、扁一点；毛线帽 + 脏围巾' },
-    { id: 'jack', name: '扒手 机灵杰克', role: '第一章', tint: 'moss', eyes: 3, iris: 'green', pose: 'point', item: 'watch',
+    { id: 'jack', name: '扒手 机灵杰克', role: '第一章', tint: 'moss', eyes: 3, iris: 'ink', pose: 'point', item: 'watch',
       acc: [['scarf', { color: C.green, shade: '#1e4426' }], ['flatCap', { color: C.grey }]],
       note: '三只眼（「眼观六路」）；鸭舌帽、绿围巾、手里一块偷来的怀表' },
     { id: 'martha', name: '玛莎·布莱克', role: '第一章 Boss · 煤灰寡妇', tint: 'plum', grad: '#5a3a7a', eyes: 2, iris: 'violet', pose: 'idle', wig: ['bun', 'black'],
@@ -464,31 +461,31 @@ SA.CoalLab = (() => {
     { id: 'bill', name: '码头工 大块头比尔', role: '第二章', tint: 'teal', eyes: 1, iris: 'teal', pose: 'cheer', big: 1.2,
       acc: [['rope'], ['beanie', { color: C.navy, shade: '#141c34', cuff: C.navyH, pom: C.navyH }]],
       note: '最大的一只；独眼、水手毛线帽、背一圈缆绳' },
-    { id: 'joe', name: '邮差 老乔', role: '第二章', tint: 'navy', eyes: 2, iris: 'grey', pose: 'wave',
+    { id: 'joe', name: '邮差 老乔', role: '第二章', tint: 'navy', eyes: 2, iris: 'ink', pose: 'wave',
       acc: [['strap'], ['handlebar', { color: C.grey }], ['kepi']],
       note: '藏青邮差帽 + 八字胡 + 邮包' },
-    { id: 'vic', name: '钟表匠 老维克', role: '第二章 Boss', tint: 'ash', eyes: 2, iris: 'blue', pose: 'hold', item: 'watch', wig: ['curly', 'silver'],
+    { id: 'vic', name: '钟表匠 老维克', role: '第二章 Boss', tint: 'ash', eyes: 2, iris: 'ink', pose: 'hold', item: 'watch', wig: ['curly', 'silver'],
       acc: [['bowtie', { color: C.green, shade: '#1e4426' }], ['loupe'], ['bowler', { color: C.black, band: C.green }]],
       note: '银灰卷毛从礼帽下冒出来；一只眼上夹着放大镜，绿领结' },
-    { id: 'tommy', name: '扫烟囱的汤米', role: '第三章', tint: 'slate', skin: 0.6, eyes: 2, iris: 'blue', pose: 'hold', item: 'broom',
+    { id: 'tommy', name: '扫烟囱的汤米', role: '第三章', tint: 'slate', skin: 0.6, eyes: 2, iris: 'ink', pose: 'hold', item: 'broom',
       acc: [['scarf', { color: C.red, shade: C.redS }], ['sootTop']],
       note: '压扁的歪礼帽 + 烟囱刷；满身煤灰，最黑的一只' },
     { id: 'wode', name: '车间领班 沃德豪斯', role: '第三章 Boss', tint: 'plum', eyes: 2, iris: 'violet', pose: 'point', wig: ['periwig', 'powder'],
       acc: [['cravat', { color: C.cream }], ['pince'], ['topHat', { color: C.black, band: C.purple }]],
       note: '白粉长卷假发 + 大礼帽 + 夹鼻眼镜：有钱的工厂主' },
-    { id: 'hobbs', name: '矿工头 霍布斯', role: '第四章', tint: 'ochre', skin: 0.6, eyes: 1, iris: 'amber', pose: 'hold', item: 'lantern',
+    { id: 'hobbs', name: '矿工头 霍布斯', role: '第四章', tint: 'ochre', skin: 0.6, eyes: 1, iris: 'ink', pose: 'hold', item: 'lantern',
       acc: [['beard', { color: C.black, shade: C.blackH }], ['miner']],
       note: '独眼、矿工盔带头灯、手提马灯' },
-    { id: 'grey', name: '猎场看守 格雷', role: '第四章', tint: 'moss', eyes: 2, iris: 'green', pose: 'idle',
+    { id: 'grey', name: '猎场看守 格雷', role: '第四章', tint: 'moss', eyes: 2, iris: 'ink', pose: 'idle',
       acc: [['rifle'], ['pipe'], ['deerstalker']],
       note: '猎鹿帽 + 烟斗 + 背一杆猎枪' },
     { id: 'templar', name: '圣殿骑士团', role: '第四章 Boss', tint: 'ash', eyes: 3, iris: 'red', pose: 'salute',
       acc: [['greatHelm']],
       note: '桶盔盖住上半身，只露出眼睛；红眼睛、白十字' },
-    { id: 'whit', name: '皇家工程师 惠特克', role: '第五章', tint: 'teal', eyes: 2, iris: 'teal', pose: 'point', wig: ['barrister', 'powder'],
+    { id: 'whit', name: '皇家工程师 惠特克', role: '第五章', tint: 'teal', eyes: 2, iris: 'ink', pose: 'point', wig: ['barrister', 'powder'],
       acc: [['medal'], ['peaked']],
       note: '白色大檐帽下一圈法官式卷发 + 勋章' },
-    { id: 'harr', name: '卫冕冠军 哈灵顿爵士', role: '终局 Boss', tint: 'navy', grad: '#d9a441', eyes: 2, iris: 'blue', pose: 'cheer', wig: ['pompadour', 'blonde'],
+    { id: 'harr', name: '卫冕冠军 哈灵顿爵士', role: '终局 Boss', tint: 'navy', grad: '#d9a441', eyes: 2, iris: 'ink', pose: 'cheer', wig: ['pompadour', 'blonde'],
       acc: [['sash', { color: C.blue, edge: C.brassH, medal: true }], ['epaulette'], ['handlebar', { color: C.cream }], ['topHat', { color: C.black, band: C.brass }], ['laurel'], ['feather']],
       note: '冠军：身子往金色过渡；礼帽 + 金桂冠 + 羽毛 + 蓝绶带' },
   ];
@@ -504,7 +501,7 @@ SA.CoalLab = (() => {
     const tint = TINT[pick(o, ch, 'tint', 'slate')].c, style = pick(o, ch, 'body', 'A'), n = pick(o, ch, 'eyes', 2);
     const sk = skinFn(tint, pick(o, ch, 'skin', 1), pick(o, ch, 'grad', null));
     const skinAt = (x, y) => { const nx = (x + 0.5 - c.cx) / c.R, ny = (y + 0.5 - c.cy) / (c.R * sq); return sk(ny, level(nx, ny)); };
-    const pose = POSES[pick(o, ch, 'pose', 'idle')], expr = o.expr || 'normal', look = o.look == null ? 0.4 : o.look;
+    const pose = POSES[pick(o, ch, 'pose', 'idle')], expr = o.expr || 'normal', look = o.look == null ? 1 : o.look;
     const accs = pick(o, ch, 'acc', []).map(([id, a]) => [ACC[id], { ...ACC[id], ...(a || {}) }]).filter(([x]) => x);
     const item = pick(o, ch, 'item', null);
     const wig0 = pick(o, ch, 'wig', null), wigId = o.wigStyle || (wig0 && wig0[0]) || 'none', wigCol = o.wigColor || (wig0 && wig0[1]) || 'black';
@@ -514,7 +511,7 @@ SA.CoalLab = (() => {
     layer('back');
     if (!c.mini) arm(c, pose.L, sk, o.glove);
     body(c, style, tint, sq, sk);
-    eyes(c, n, expr, look, pick(o, ch, 'iris', 'brown'), skinAt);
+    eyes(c, n, expr, look, pick(o, ch, 'iris', 'ink'), skinAt);
     layer('neck');
     layer('face');
     drawWig(false);
