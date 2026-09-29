@@ -82,7 +82,7 @@ SA.ARTPLAN = {
     rocket_rack: { status: 'cand', pri: 17, ch: 4, note: '2×2，数得出 4 发；另需尾焰', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rocket_rack', 'explore']] },
     pressure_tank: { status: 'cand', pri: 18, ch: 4, note: '1×2 储能，存量看得见、没有青色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_tank', 'explore']] },
     rangefinder: { status: 'cand', pri: 19, ch: 4, note: '1×1，合像测距仪长横管', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rangefinder', 'explore']] },
-    mg2: { status: 'cand', pri: 20, ch: 4, note: '2×2，两门并在一起、两条弹链。和机炮同为 2×2，用户定：保留（2026-09-28），剪影要和机炮分开', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore']] },
+    mg2: { status: 'cand', pri: 20, lab: 'CUR_MG_2', ch: 4, note: '2×2，两挺一组。按机枪家族语言（车载枪座）：当前开发页候选 A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙；剪影要和机炮（一根粗管）分开', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore'], ['2026-09-28', '车载枪座候选：A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙', 'current.html', 'explore']] },
     radiator: { status: 'cand', pri: 21, ch: 4, note: '1×2 侧挂，真镂空格栅', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#radiator', 'explore']] },
     gyroscope: { status: 'cand', pri: 22, ch: 4, note: '1×1，和双足胯里的陀螺仪同一语言', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#gyroscope', 'explore']] },
     // ---------- 第 6 档：唯一件（每个存档只拿到一次）----------
@@ -90,8 +90,8 @@ SA.ARTPLAN = {
     boss_ram: { status: 'cand', pri: 24, ch: 5, note: '寡妇液压撞头，红色沙漏标记', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_ram', 'explore']] },
     boss_lens: { status: 'cand', pri: 25, ch: 5, note: '公爵测距棱镜；战役里还没有掉落来源，最后做', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_lens', 'explore']] },
     // ---------- 第 7 档：已有美术，按新规范复核（最不急：已经能看，只是没和火炮家族统一）----------
-    mg: { status: 'legacy', pri: 26, ch: 0,
-      note: '已改名「机炮」（id 不变）；已标记：画面材质需要后期修改——等车载机枪、重机枪定下机枪系列的语言后，按同一语言和六档材质重画', hist: [] },
+    mg: { status: 'cand', pri: 26, lab: 'CUR_MG_L', ch: 0,
+      note: '改名「机炮」（id 不变）。按机枪家族语言重画（车载枪座）：当前开发页候选 A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮', hist: [['2026-09-28', '重画候选：A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮', 'current.html', 'explore']] },
     boiler: { status: 'legacy', pri: 27, ch: 0, note: '两阶段已画；竖式 / 大型锅炉定稿后按锅炉家族统一复核', hist: [] },
     armor: { status: 'legacy', pri: 28, ch: 0, note: '2026-09-28 用户定：从 2×2 改成竖着的 1×2（中间横接缝 + 两列铆钉，并排两块 = 原来一块），已进游戏；六档造型仍待按新规范复核', hist: [['2026-09-28', '改成 1×2', 'boiler-lab.html', 'explore']] },
     armor_heavy: { status: 'legacy', pri: 29, ch: 1, note: '同铁装甲', hist: [] },

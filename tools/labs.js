@@ -29,8 +29,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机枪 v2', date: '2026-09-28', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机枪家族 v2 · 车载枪座——车载机枪 A 球形枪座 / B 小枪塔 / C 侧舷枪座；重机枪 A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪。确认后归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机炮 + 双联', date: '2026-09-28', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机炮 A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮；双联机枪 A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙。确认后归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',

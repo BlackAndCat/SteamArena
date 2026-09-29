@@ -33,10 +33,10 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：机枪家族 v2 · 车载枪座 · 2026-09-28</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>（样机馆里标「历史存档」），这一页换成下一项。全部模块的进度、已定稿的样子看 <a href="module-candidates.html">模块造型 · 全部进度</a>。</p>
-    <p><b>本期：车载机枪 <code>mg_s</code>（1×1）+ 重机枪 <code>mg_heavy</code>（1×2）</b>。你的意见：机枪都是装在车上的，步兵式的三脚架、立柱支架、握把不合适（v1 已归档：<a href="archive/mg-family-v1.html">机枪家族 v1</a>）。v2 全部改成<b>车体上的枪座</b>：固定部分是装甲壳（形体 T3、T5 跃迁：铸造圆角 → 方壳平顶 → 斜面装甲），转动部分是防盾 / 球座 + 枪；机匣尽量藏进车里，供弹走紫铜槽 / 弹匣 / 传动轴，不露人手操作的东西。枪口 ① 直口箍 → ② 助退喇叭 / 加箍 → ③ 方制退器；1×1 只靠剪影；1×2 在固定壳上放铆钉、散热口、包角铁、压力表。</p>
-    <p><b>请挑</b>：车载机枪 A 球形枪座 / B 小枪塔 / C 侧舷枪座；重机枪 A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪（可以组合）。定了以后细化、进游戏、归档本页，再按同一语言重画 2×2 机炮。</p>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：机炮 + 双联机枪 · 2026-09-28</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>（样机馆里标「历史存档」），这一页换成下一项。全部模块的进度、已定稿的样子看 <a href="module-candidates.html">模块造型 · 全部进度</a>。上一期（机枪 v2）已归档：<a href="archive/mg-family-v2.html">机枪家族 v2</a>。</p>
+    <p><b>本期：机炮 <code>mg</code>（2×2，旧画待重画）+ 双联机枪 <code>mg2</code>（2×2，还是文字占位）</b>。机枪家族已定并进游戏：车载机枪 = 侧舷枪座，重机枪 = 蒸汽加特林（下面「家族对照」里有）。同一语言：车载枪座，不要三脚架 / 立柱 / 握把；固定部分是车体上的装甲壳（铸造圆角 → 方壳平顶 → 斜面装甲），转动部分是防盾 / 炮塔 + 枪；供弹靠弹鼓 / 弹斗 / 蒸汽机。2×2 零件照直射火炮：接缝铆钉 2 → 3 → 4、散热口 横槽 → 双列 → 斜百叶、钢起包角铁、镀镍起珐琅铭牌 + 大压力表。机炮是「一根粗管」，双联是「两根细管」，两者剪影要分开。</p>
+    <p><b>请挑</b>：机炮 A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮；双联机枪 A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙（可以组合）。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
@@ -45,11 +45,11 @@
   </div>
   <div id="mods"></div>
   <section>
-    <h2 class="sec">家族对照 <small>1× 和 3× · T1 / T4 · 车载机枪 / 重机枪候选 和 现有 2×2 机炮、小炮、中炮</small></h2>
+    <h2 class="sec">家族对照 <small>1× 和 3× · T1 / T4 · 已进游戏的车载机枪、重机枪 + 本期候选 + 机炮旧画 + 直射火炮</small></h2>
     <div class="scroll"><table class="mx" id="family"></table></div>
   </section>
   <section>
-    <h2 class="sec">放进车体 <small>2× · 同一材料：铁装甲 + 重机枪 + 竖式锅炉 + 水罐；上排 车载机枪 + 驾驶舱 + 小水罐</small></h2>
+    <h2 class="sec">放进车体 <small>2× · 同一材料：下排 铁装甲 + 候选 + 水罐；上排 小水罐 + 驾驶舱 + 车载机枪</small></h2>
     <div class="scroll"><table class="mx" id="ctx"></table></div>
   </section>
 </div>
@@ -110,7 +110,7 @@
   }
   // 开火循环：12 帧里前 4 帧连射（后坐 + 枪口焰 + 供弹前进）
   const fire = (t) => { const p = t % 12; return p < 6 ? { k: p % 2 ? 7 : 3, f: t } : { k: 0, f: 0 }; };
-  const MODS = [{ id: 'mg_s', name: '车载机枪', size: [1, 1], cands: CUR.MG_S }, { id: 'mg_heavy', name: '重机枪', size: [1, 2], cands: CUR.MG_H }];
+  const MODS = [{ id: 'mg', name: '机炮', size: [2, 2], cands: CUR.MG_L }, { id: 'mg2', name: '双联机枪', size: [2, 2], cands: CUR.MG_2 }];
   const live = [];
   function renderMods() {
     const box = $('mods'); box.replaceChildren(); live.length = 0;
@@ -137,33 +137,33 @@
   }
   function renderFamily() {
     const T = $('family'); T.replaceChildren();
-    const items = [...MODS.flatMap(M => M.cands.map(C => [`${M.name} ${C.key}`, (mt) => cand(M, C, mt)])),
-      ['机炮 mg 2×2（旧画）', (mt) => gameMod('mg', mt)], ['小炮', (mt) => gameMod('cannon_s', mt)], ['中炮', (mt) => gameMod('cannon_m', mt)]];
+    const items = [['车载机枪（游戏）', (mt) => gameMod('mg_s', mt)], ['重机枪（游戏）', (mt) => gameMod('mg_heavy', mt)],
+      ...MODS.flatMap(M => M.cands.map(C => [`${M.name} ${C.key}`, (mt) => cand(M, C, mt)])),
+      ['机炮（旧画）', (mt) => gameMod('mg', mt)], ['直射火炮', (mt) => gameMod('cannon', mt)]];
     T.append(el('tr', {}, el('th'), ...items.map(([n]) => el('th', {}, n))));
     for (const mt of [1, 4]) {
       T.append(el('tr', {}, el('th', { className: 'rh' }, `T${mt} · 1×`), ...items.map(([, f]) => el('td', {}, show(f(mt), 1)))));
       T.append(el('tr', {}, el('th', { className: 'rh' }, '3×'), ...items.map(([, f]) => el('td', {}, show(f(mt), 3)))));
     }
   }
-  function chunk(S, H, mt) {
+  // 车体片段：下排 铁装甲 | 候选 2×2 | 水罐；上排 小水罐 | 驾驶舱 | 车载机枪（游戏）
+  function chunk(M, C, mt) {
     const w = 96, h = 72, ox = 6, oy = 14, c = document.createElement('canvas'); c.width = w + ox + 26; c.height = h + oy + 4;
     const g = c.getContext('2d');
     g.fillStyle = P.iron[0]; g.fillRect(ox - 1, oy + 23, w + 2, 50); g.fillStyle = P.iron[1]; g.fillRect(ox, oy + 24, w, 48);
     g.fillStyle = P.iron[0]; g.fillRect(ox - 1, oy - 1, 74, 26); g.fillStyle = P.iron[1]; g.fillRect(ox, oy, 72, 24);
     const put = (cv, x, y) => g.drawImage(cv, ox + x - OX, oy + y - OY);
     put(gameMod('armor', mt), 0, 24);
-    put(gameMod('boiler_s', mt), 48, 24);
     put(gameMod('tank_tall', mt), 72, 24);
-    put(gameMod('helmet', mt), 24, 0);
     put(gameMod('tank_s', mt), 0, 0);
-    put(cand(MODS[1], H, mt, {}, false, false), 24, 24);
-    put(cand(MODS[0], S, mt, {}, false, false), 48, 0);
+    put(gameMod('helmet', mt), 24, 0);
+    put(gameMod('mg_s', mt), 48, 0);
+    put(cand(M, C, mt, {}, false, false), 24, 24);
     return c;
   }
   function renderCtx() {
     const T = $('ctx'); T.replaceChildren(head());
-    const [S, H] = MODS;
-    for (let i = 0; i < 3; i++) T.append(el('tr', {}, el('th', { className: 'rh' }, `车载 ${S.cands[i].key} + 重机枪 ${H.cands[i].key}`), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(S.cands[i], H.cands[i], mt), 2)))));
+    for (const M of MODS) for (const C of M.cands) T.append(el('tr', {}, el('th', { className: 'rh' }, `${M.name} ${C.name}`), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(M, C, mt), 2)))));
   }
   function tick() { st.t++; for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
   function renderAll() { renderMods(); renderFamily(); renderCtx(); tick(); }
