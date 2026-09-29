@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四足六档 重做 v1', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：四足整件底盘（4×2）六档 + 变体重做——以现役伏地蛛为基础，工业 / 蒸汽朋克 / 维多利亚 / 少量一战，不用动物造型。15 种：主线 6（工装爬机 / 桁架爬机 / 液压陆舰 / 镜筒步行机 / 汽锤步行机 / 电弧步行机）+ 变体 9（铁桥拱腿；剪式升降腿、板簧拖车腿；曲柄步行机、铁艺卷草腿；机车连杆腿、横梁机腿；差分机腿、电子管腿）。确认后接进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四足六档 重做 v2', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：四足整件底盘（4×2）六档 + 变体重做 v2——拉开剪影，加入龙、裙甲、仪表、齿轮。主线 6：工装 Mk.II / 桁架爬机 / 板簧拖车 / 曲柄步行机 / 汽锤步行机 / 熔心龙骑；变体 9：裙甲堡；掷弹兵、步行履带；蒸汽圣骑、仪表步行机；钟表巨像、锚链铁甲；圣堂骑士、晶枝。确认后接进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',

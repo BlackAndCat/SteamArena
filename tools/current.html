@@ -30,13 +30,14 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · 重做 v1 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · 重做 v2 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
-    <p><b>你的意见</b>：上一版（茶壶蟹 / 蚱蜢 / 骆驼 / 螳螂 / 象 / 章鱼……）作废——不要动物头、不要奇形怪状；要<b>工业、蒸汽朋克、维多利亚、少量一战</b>；以游戏里现有的四足为基础版本重画 T1～T6，参考双足的做法出变体和各材质的风格。<br>
-      <b>我的做法</b>：拓扑全部沿用现役伏地蛛——一块压低的车体 + 四条「髋 → 高膝 → 脚」的腿，胯、地面、步态、接地点和游戏完全一致，车体顶板以上什么都不画（不挡上面的模块）。每档换的是<b>腿的构造</b>和<b>车体的工艺</b>，每种材质一套风格语言：<br>
-      T1 黄铜 · 车间工装（现役原样）　T2 熟铁 · 维多利亚铁桥 / 桁架　T3 钢 · 一战陆地巡洋舰 + 液压　T4 镀镍 · 维多利亚马车与仪器　T5 乌兹钢 · 重工业蒸汽机　T6 以太合金 · 维多利亚电气</p>
-    <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9（熟铁 1 · 钢 2 · 镀镍 2 · 乌兹钢 2 · 以太合金 2），同档变体共用该档车体，只换腿。整件 = 4×2（96×48），材质用游戏的装饰层。<b>探索稿，还没有接进游戏</b>（游戏里四足仍是伏地蛛）。
-      <b>请确认</b>：① 六档的风格方向对不对；② 每档的主线选哪个、哪些变体留下、哪些要重画。</p>
+    <p><b>你对 v1 的意见</b>：剪影区分度不够，没有双足龙骑、圣骑、掷弹兵那种出彩的感觉。采用 T2 桁架爬机、T3 板簧拖车、T4 曲柄步行机、T5 汽锤步行机（都放主线，不改），其余重画，加入龙、裙甲、仪表、齿轮等元素，重新审视剪影。<br>
+      <b>v2 靠四样东西拉开剪影</b>：① 膝盖的位置和朝向（高膝蜘蛛 / 人形正膝在半高处 / 膝朝里 / 三段龙腿）；② 脚形（带肋平脚、尖头铁靴、履带段、船锚、三爪、岩板）；
+      ③ 车体下沿的附加层（整圈裙甲、骑士风筝盾、罩袍、半露大齿轮、垂下的锚链、晶簇、锯齿尖刺）；④ 膝部大件（压力表盘、大齿轮、扇形侧翼、羽翼、岩石宝石）。先看下面的「剪影对照」。</p>
+    <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9。主线：T1 工装 Mk.II（新）· T2 桁架爬机 · T3 板簧拖车 · T4 曲柄步行机 · T5 汽锤步行机 · T6 熔心龙骑（新）。
+      变体（全新）：T2 裙甲堡 · T3 掷弹兵、步行履带 · T4 蒸汽圣骑、仪表步行机 · T5 钟表巨像、锚链铁甲 · T6 圣堂骑士、晶枝。风格仍是工业 / 蒸汽朋克 / 维多利亚 / 少量一战，龙骑只取鳞甲、炉膛、尖刺和爪，不做龙头。
+      附加层（裙甲、盾、罩袍、齿轮、锚链、晶簇）都在车体下沿以下，顶板以上不画。<b>探索稿，还没有接进游戏</b>。<b>请确认</b>：主线 / 变体的取舍，哪些还要改。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
@@ -44,12 +45,12 @@
     <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">行走</button><button class="btn small" data-v="0">静止</button></span>
   </div>
   <section>
-    <h2 class="sec">15 种一览 <small>每行一档材质，主线在最左，右边是该档的变体（同一车体、换腿）· 行走动画</small></h2>
-    <div id="rows"></div>
-  </section>
-  <section>
     <h2 class="sec">剪影对照 <small>纯黑剪影，1× 原生像素：15 种一眼分得开吗（同一步态帧）</small></h2>
     <div class="scroll"><div id="sil" style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap"></div></div>
+  </section>
+  <section>
+    <h2 class="sec">15 种一览 <small>每行一档材质，主线在最左，右边是该档的变体（同一车体、换腿）· 行走动画</small></h2>
+    <div id="rows"></div>
   </section>
   <section>
     <h2 class="sec">六档主线并排 <small>T1 → T6，同一步态帧，1× 和 2×</small></h2>
