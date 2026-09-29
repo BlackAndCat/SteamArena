@@ -132,11 +132,12 @@ SA.CoalLab = (() => {
   }
 
   // ---------- 眼睛：1～3 只 ----------
-  // 大眼睛 + 大虹膜：眼白 → 彩色虹膜（上深下浅）→ 黑瞳孔 → 两点高光。一只眼更圆、虹膜更大、多一点高光和三根睫毛，偏可爱
+  // 眼睛是脸的全部：所有眼睛加起来至少占身体面积的 60%（每组后面注的是占比）。
+  // 每只：[u, v, rx, ry]（身体半径 = 1）。眼白 → 彩色大虹膜（上深下浅）→ 黑瞳孔 → 高光；一只眼再多一点高光和三根睫毛
   const EYESETS = {
-    1: [[0, -0.02, 1.55]],
-    2: [[-0.36, -0.04, 1], [0.36, -0.04, 1]],
-    3: [[-0.4, 0.08, 0.86], [0.4, 0.08, 0.86], [0, -0.44, 0.72]],
+    1: [[0, 0.02, 0.8, 0.8]],                                                   // 64%
+    2: [[-0.46, -0.04, 0.45, 0.68], [0.46, -0.04, 0.45, 0.68]],                 // 61%
+    3: [[-0.46, 0.24, 0.46, 0.58], [0.46, 0.24, 0.46, 0.58], [0, -0.62, 0.27, 0.27]],   // 61%
   };
   const IRIS = {
     brown: { name: '棕', c: ['#3a2414', '#7a4a24', '#b8834a'] },
@@ -154,43 +155,45 @@ SA.CoalLab = (() => {
   function eyes(c, n, expr, look, iris, skinAt) {
     const ic = (IRIS[iris] || IRIS.brown).c;
     if (c.mini) {
-      // 驾驶舱尺寸：两只 = 左右各 2×2（右下一格是虹膜色）；一只 = 3×3；三只 = 两只 + 头顶一个像素
+      // 驾驶舱尺寸（身体约 7 像素宽）：两只 = 各 3×3（右下 2×2 是虹膜）；一只 = 5×4；三只 = 两只 3×2 + 额头一个
       const cx = Math.round(c.cx), cy = Math.round(c.cy);
       const eye = (x, y, w2, h2) => {
         for (let yy = 0; yy < h2; yy++) for (let xx = 0; xx < w2; xx++) c.put(x + xx, y + yy, expr === 'blink' ? (yy === h2 - 1 ? C.eyeS : null) : C.white);
         if (expr === 'blink') return;
-        if (w2 > 2) { c.put(x + 1, y + 1, ic[1]); c.put(x + 2, y + 1, ic[0]); c.put(x + 1, y + 2, ic[2]); c.put(x + 2, y + 2, ic[1]); }
-        else c.put(x + w2 - 1, y + h2 - 1, ic[1]);
+        const ix = x + w2 - 2, iy = y + h2 - 2;
+        c.put(ix, iy, ic[0]); c.put(ix + 1, iy, ic[1]); c.put(ix, iy + 1, ic[1]); c.put(ix + 1, iy + 1, ic[2]);
+        if (w2 > 3) { c.put(ix - 1, iy, ic[1]); c.put(ix - 1, iy + 1, ic[1]); }
       };
-      if (n === 1) eye(cx - 1, cy - 2, 3, 3);
-      if (n >= 2) { eye(cx - 2, cy - 1, 2, 2); eye(cx + 1, cy - 1, 2, 2); }
-      if (n === 3) c.put(cx, cy - 2, C.white);
+      if (n === 1) eye(cx - 2, cy - 2, 5, 4);
+      if (n === 2) { eye(cx - 3, cy - 2, 3, 3); eye(cx + 1, cy - 2, 3, 3); }
+      if (n === 3) { eye(cx - 3, cy - 1, 3, 2); eye(cx + 1, cy - 1, 3, 2); c.put(cx, cy - 3, C.white); }
       return;
     }
     const tiny = c.R < 12;
-    for (const [u, v, s] of EYESETS[n]) {
-      const rx = 0.27 * s, ry = 0.31 * s, lx = look * 0.06 * s;
-      if (expr === 'blink') { c.E(u, v + ry * 0.3, rx, Math.max(ry * 0.22, 1 / c.R), INK, (nx, ny) => ny > -0.1); continue; }
-      if (expr === 'happy') { c.E(u, v + ry * 0.15, rx, ry * 0.75, INK, (nx, ny) => ny < 0.1 && Math.hypot(nx, ny + 0.85) > 0.98); continue; }
-      const big = expr === 'surprise' ? 1.12 : 1;
-      c.E(u, v, rx * big, ry * big, (nx, ny) => (ny > 0.62 ? C.eyeS : C.white));
-      // 虹膜几乎占满眼白，上深下浅；吃惊时缩小
-      const ir = (expr === 'surprise' ? 0.13 : 0.2) * s * (n === 1 ? 1.08 : 1), iy = v + 0.03 * s;
-      c.E(u + lx, iy, ir, ir * 1.12, (nx, ny) => (ny < -0.35 ? ic[0] : ny > 0.4 ? ic[2] : ic[1]));
-      c.E(u + lx, iy + ir * 0.05, ir * 0.5, ir * 0.58, INK);
-      if (tiny) c.put(c.X(u + lx - ir * 0.45), c.Y(iy - ir * 0.45), C.white);
+    const inBody = (x, y) => Math.hypot(x + 0.5 - c.cx, y + 0.5 - c.cy) <= c.R * 0.97;
+    for (const [u, v, rx0, ry0] of EYESETS[n]) {
+      const big = expr === 'surprise' ? 1.04 : 1, rx = rx0 * big, ry = ry0 * big, m = Math.min(rx, ry), lx = look * rx * 0.16;
+      const inside = (nx, ny, x, y) => inBody(x, y);
+      if (expr === 'blink') { c.E(u, v + ry * 0.25, rx * 0.9, Math.max(ry * 0.14, 1 / c.R), INK, (nx, ny, x, y) => ny > -0.2 && inBody(x, y)); continue; }
+      if (expr === 'happy') { c.E(u, v + ry * 0.2, rx * 0.9, ry * 0.6, INK, (nx, ny, x, y) => ny < 0.1 && Math.hypot(nx, ny + 0.8) > 0.95 && inBody(x, y)); continue; }
+      c.E(u, v, rx, ry, (nx, ny) => (ny > 0.66 ? C.eyeS : C.white), inside);
+      // 虹膜：占眼睛短边的 72%，吃惊时缩到 45%
+      const ir = m * (expr === 'surprise' ? 0.45 : 0.72), iy = v + ry * 0.08;
+      c.E(u + lx, iy, ir, ir * 1.1, (nx, ny) => (ny < -0.35 ? ic[0] : ny > 0.4 ? ic[2] : ic[1]), inside);
+      c.E(u + lx, iy + ir * 0.06, ir * 0.48, ir * 0.55, INK);
+      if (tiny) { c.put(c.X(u + lx - ir * 0.45), c.Y(iy - ir * 0.45), C.white); c.put(c.X(u + lx - ir * 0.2), c.Y(iy - ir * 0.45), C.white); }
       else {
-        c.E(u + lx - ir * 0.42, iy - ir * 0.42, ir * 0.3, ir * 0.3, C.white);
+        c.E(u + lx - ir * 0.4, iy - ir * 0.4, ir * 0.3, ir * 0.3, C.white);
         c.E(u + lx + ir * 0.42, iy + ir * 0.45, ir * 0.14, ir * 0.14, C.white);
         if (n === 1) c.E(u + lx + ir * 0.5, iy - ir * 0.55, ir * 0.12, ir * 0.12, C.white);
       }
       // 眉 / 眼皮：用这块皮肤的颜色盖掉眼白一角
-      const lid = (test) => c.E(u, v, rx * 1.25, ry * 1.25, (nx, ny, x, y) => skinAt(x, y), test);
-      if (expr === 'angry') lid((nx, ny) => ny < -0.3 + (n === 1 ? 0 : (u < 0 ? nx : -nx) * 0.7));
-      if (expr === 'sad') lid((nx, ny) => ny < -0.4 - (n === 1 ? Math.abs(nx) * 0.5 : (u < 0 ? nx : -nx) * 0.6));
+      const lid = (test) => c.E(u, v, rx * 1.12, ry * 1.12, (nx, ny, x, y) => skinAt(x, y), (nx, ny, x, y) => test(nx, ny) && inBody(x, y));
+      if (expr === 'angry') lid((nx, ny) => ny < -0.35 + (n === 1 ? 0 : (u < 0 ? nx : -nx) * 0.6));
+      if (expr === 'sad') lid((nx, ny) => ny < -0.45 - (n === 1 ? Math.abs(nx) * 0.4 : (u < 0 ? nx : -nx) * 0.5));
       if (expr === 'sleepy') lid((nx, ny) => ny < 0.05);
       // 一只眼：上沿三根小睫毛
-      if (n === 1 && !tiny && expr !== 'sleepy' && expr !== 'angry') for (const a of [-0.55, 0, 0.55]) c.L(u + Math.sin(a) * rx * 0.9, v - ry * 0.95, u + Math.sin(a) * rx * 1.25, v - ry * 1.28, INK);
+      if (n === 1 && !tiny && expr !== 'sleepy' && expr !== 'angry') for (const a of [-0.5, 0, 0.5]) c.L(u + Math.sin(a) * rx * 0.85, v - ry * 0.97, u + Math.sin(a) * rx * 1.02, v - ry * 1.12, INK);
     }
   }
 
@@ -336,62 +339,62 @@ SA.CoalLab = (() => {
     feather: { name: '帽上的羽毛（冠军）', layer: 'hat', draw(c) { c.L(0.3, -1.6, 0.85, -2.1, C.white, 0.06); c.L(0.4, -1.65, 0.8, -2.05, C.eyeS); } },
     // 脸上（没有嘴：胡子、烟斗都挂在眼睛下面那块）
     monocle: { name: '单片眼镜', layer: 'face', draw(c, a, eyeset) {
-      const [u, v, s] = eyeset[eyeset.length > 1 ? 1 : 0];
-      c.E(u, v, 0.36 * s, 0.4 * s, C.brassH, (nx, ny) => nx * nx + ny * ny > 0.7);
-      c.L(u + 0.28 * s, v + 0.3 * s, u + 0.55, 0.85, C.brassS);
+      const [u, v, rx, ry] = eyeset[eyeset.length > 1 ? 1 : 0];
+      c.E(u, v, rx * 1.1, ry * 1.08, C.brassH, (nx, ny) => nx * nx + ny * ny > 0.8);
+      c.L(u + rx * 0.7, v + ry * 0.8, u + 0.2, 1.0, C.brassS);
     } },
     loupe: { name: '钟表匠放大镜', layer: 'face', draw(c, a, eyeset) {
-      const [u, v, s] = eyeset[0];
-      c.E(u, v, 0.36 * s, 0.4 * s, INK, (nx, ny) => nx * nx + ny * ny > 0.62); c.E(u, v, 0.33 * s, 0.37 * s, C.brass, (nx, ny) => nx * nx + ny * ny > 0.7);
-      c.Rt(u - 0.9, v - 0.03, u - 0.32 * s, v + 0.04, C.brassS);
+      const [u, v, rx, ry] = eyeset[0];
+      c.E(u, v, rx * 1.14, ry * 1.12, INK, (nx, ny) => nx * nx + ny * ny > 0.72); c.E(u, v, rx * 1.08, ry * 1.06, C.brass, (nx, ny) => nx * nx + ny * ny > 0.8);
+      c.Rt(u - rx * 1.1 - 0.35, v - 0.03, u - rx * 1.05, v + 0.05, C.brassS);
     } },
     pince: { name: '夹鼻眼镜', layer: 'face', draw(c, a, eyeset) {
-      for (const [u, v, s] of eyeset.slice(0, 2)) c.E(u, v + 0.02, 0.3 * s, 0.32 * s, C.brassH, (nx, ny) => nx * nx + ny * ny > 0.72);
-      c.Rt(-0.1, -0.02, 0.1, 0.02, C.brassH);
+      for (const [u, v, rx, ry] of eyeset.slice(0, 2)) c.E(u, v, rx * 1.06, ry * 1.04, C.brassH, (nx, ny) => nx * nx + ny * ny > 0.82);
+      c.Rt(-0.06, -0.06, 0.06, -0.01, C.brassH);
     } },
     walrus: { name: '海象胡', layer: 'face', color: C.must, draw(c, a) {
-      c.E(-0.24, 0.4, 0.32, 0.13, (nx, ny) => (ny > 0.3 ? C.mustS : a.color)); c.E(0.24, 0.4, 0.32, 0.13, (nx, ny) => (ny > 0.3 ? C.mustS : a.color));
-      c.E(-0.52, 0.52, 0.08, 0.14, a.color); c.E(0.52, 0.52, 0.08, 0.14, a.color);
+      c.E(-0.24, 0.78, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color)); c.E(0.24, 0.78, 0.3, 0.12, (nx, ny) => (ny > 0.3 ? C.mustS : a.color));
+      c.E(-0.5, 0.88, 0.07, 0.11, a.color); c.E(0.5, 0.88, 0.07, 0.11, a.color);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); for (let dx = -2; dx <= 2; dx++) c.put(x + dx, y, a.color); } },
     handlebar: { name: '八字胡', layer: 'face', color: C.black, draw(c, a) {
-      c.L(-0.05, 0.38, -0.5, 0.36, a.color, 0.05); c.L(0.05, 0.38, 0.5, 0.36, a.color, 0.05);
-      c.L(-0.5, 0.36, -0.62, 0.22, a.color); c.L(0.5, 0.36, 0.62, 0.22, a.color);
+      c.L(-0.04, 0.8, -0.42, 0.78, a.color, 0.05); c.L(0.04, 0.8, 0.42, 0.78, a.color, 0.05);
+      c.L(-0.42, 0.78, -0.54, 0.68, a.color); c.L(0.42, 0.78, 0.54, 0.68, a.color);
     } },
     beard: { name: '大胡子', layer: 'face', color: C.grey, draw(c, a) {
-      c.E(0, 0.68, 0.72, 0.48, (nx, ny) => (Math.floor((nx + 2) * 5) % 2 && ny > 0 ? a.shade || C.greyS : a.color), (nx, ny) => ny > -0.3);
+      c.E(0, 0.88, 0.64, 0.34, (nx, ny) => (Math.floor((nx + 2) * 5) % 2 && ny > 0 ? a.shade || C.greyS : a.color), (nx, ny) => ny > -0.4);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); for (let dx = -2; dx <= 2; dx++) { c.put(x + dx, y + 1, a.color); if (Math.abs(dx) < 2) c.put(x + dx, y + 2, a.color); } } },
-    blush: { name: '腮红', layer: 'face', color: C.pinkH, draw(c, a, eyeset) { for (const [u, v, s] of eyeset.slice(0, 2)) c.E(u * 1.25, v + 0.42 * s, 0.13, 0.06, a.color); } },
-    pipe: { name: '烟斗', layer: 'face', draw(c) { c.L(0.12, 0.46, 0.55, 0.56, C.leatherD, 0.03); c.Rt(0.5, 0.34, 0.68, 0.6, C.leatherH); c.Rt(0.5, 0.34, 0.68, 0.4, INK); } },
+    blush: { name: '腮红', layer: 'face', color: C.pinkH, draw(c, a, eyeset) { for (const [u, v, rx, ry] of eyeset.slice(0, 2)) c.E(u * 1.5, v + ry * 0.9, 0.12, 0.06, a.color); } },
+    pipe: { name: '烟斗', layer: 'face', draw(c) { c.L(0.05, 0.82, 0.6, 0.9, C.leatherD, 0.03); c.Rt(0.56, 0.68, 0.76, 0.94, C.leatherH); c.Rt(0.56, 0.68, 0.76, 0.74, INK); } },
     // 身上
     scarf: { name: '围巾', layer: 'neck', color: C.blue, draw(c, a) {
-      c.E(0, 0.74, 0.8, 0.2, (nx) => (Math.floor((nx + 2) * 6) % 3 === 0 ? a.stripe || a.shade || C.blueS : a.color));
-      c.Rt(0.45, 0.8, 0.66, 1.25, a.color); c.Rt(0.45, 1.12, 0.66, 1.25, a.stripe || a.shade || C.blueS);
-      if (a.patch) c.Rt(-0.3, 0.66, -0.1, 0.82, a.patch);
+      c.E(0, 0.9, 0.62, 0.16, (nx) => (Math.floor((nx + 2) * 6) % 3 === 0 ? a.stripe || a.shade || C.blueS : a.color));
+      c.Rt(0.38, 0.94, 0.58, 1.3, a.color); c.Rt(0.38, 1.18, 0.58, 1.3, a.stripe || a.shade || C.blueS);
+      if (a.patch) c.Rt(-0.3, 0.84, -0.1, 0.98, a.patch);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 2); for (let dx = -2; dx <= 2; dx++) c.put(x + dx, y, a.color); } },
     bowtie: { name: '领结', layer: 'neck', color: C.red, draw(c, a) {
-      c.E(-0.17, 0.74, 0.17, 0.11, a.color); c.E(0.17, 0.74, 0.17, 0.11, a.color); c.E(0, 0.74, 0.07, 0.07, a.shade || C.redS);
+      c.E(-0.17, 0.9, 0.17, 0.1, a.color); c.E(0.17, 0.9, 0.17, 0.1, a.color); c.E(0, 0.9, 0.07, 0.07, a.shade || C.redS);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 2); c.put(x - 1, y, a.color); c.put(x + 1, y, a.color); } },
     cravat: { name: '领巾', layer: 'neck', color: C.cream, draw(c, a) {
-      c.E(0, 0.72, 0.26, 0.12, a.color); c.E(0, 0.92, 0.14, 0.2, a.color); c.put(c.X(0), c.Y(0.87), a.pin || C.fire);
+      c.E(0, 0.86, 0.24, 0.1, a.color); c.E(0, 1.0, 0.13, 0.14, a.color); c.put(c.X(0), c.Y(0.98), a.pin || C.fire);
     } },
     sash: { name: '绶带', layer: 'neck', color: C.red, draw(c, a) {
-      c.L(-0.82, 0.25, 0.3, 0.97, a.color, 0.09); c.L(-0.78, 0.18, 0.36, 0.9, a.edge || C.brass);
-      if (a.medal) { c.E(0.42, 0.64, 0.13, 0.13, C.brassH); c.E(0.42, 0.64, 0.07, 0.07, C.brass); }
+      c.L(-0.9, 0.5, -0.05, 1.0, a.color, 0.08); c.L(-0.88, 0.43, 0.0, 0.94, a.edge || C.brass);
+      if (a.medal) { c.E(0.3, 0.86, 0.12, 0.12, C.brassH); c.E(0.3, 0.86, 0.06, 0.06, C.brass); }
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 1); c.put(x - 2, y, a.color); c.put(x - 1, y + 1, a.color); c.put(x, y + 2, a.color); } },
     epaulette: { name: '金肩章', layer: 'neck', draw(c) {
-      for (const u of [-0.78, 0.78]) { c.E(u, 0.12, 0.24, 0.1, C.brass); for (let k = -0.18; k <= 0.18; k += 2 / c.R) c.Rt(u + k, 0.18, u + k + 1 / c.R, 0.34, C.brassS); }
+      for (const u of [-0.9, 0.9]) { c.E(u, 0.5, 0.2, 0.09, C.brass); for (let k = -0.15; k <= 0.15; k += 2 / c.R) c.Rt(u + k, 0.55, u + k + 1 / c.R, 0.7, C.brassS); }
     } },
     apron: { name: '皮围裙', layer: 'neck', color: C.leather, draw(c, a) {
-      c.E(0, 0.6, 0.62, 0.5, (nx) => (nx > 0.5 ? C.leatherD : a.color), (nx, ny) => ny > -0.1);
-      c.L(-0.5, 0.36, -0.72, -0.05, a.color); c.L(0.5, 0.36, 0.72, -0.05, a.color);
+      c.E(0, 0.9, 0.56, 0.3, (nx) => (nx > 0.5 ? C.leatherD : a.color), (nx, ny) => ny > -0.3);
+      c.L(-0.46, 0.85, -0.92, 0.4, a.color); c.L(0.46, 0.85, 0.92, 0.4, a.color);
     }, mini(c, a) { const x = Math.round(c.cx), y = Math.round(c.cy + 2); for (let dx = -1; dx <= 1; dx++) c.put(x + dx, y, a.color); } },
     strap: { name: '邮包斜挎带', layer: 'neck', color: C.leather, draw(c, a) {
-      c.L(0.7, -0.3, -0.5, 0.95, a.color, 0.05);
+      c.L(0.95, 0.3, -0.4, 1.0, a.color, 0.05);
       c.Rt(-0.85, 0.72, -0.25, 1.12, a.color); c.Rt(-0.85, 0.72, -0.25, 0.82, C.leatherH); c.put(c.X(-0.55), c.Y(0.9), C.brassH);
     } },
     medal: { name: '勋章', layer: 'neck', draw(c) {
-      c.Rt(-0.6, 0.28, -0.44, 0.48, C.red); c.Rt(-0.54, 0.28, -0.5, 0.48, C.white);
-      c.E(-0.52, 0.58, 0.11, 0.11, C.brassH);
+      c.Rt(-0.62, 0.66, -0.46, 0.8, C.red); c.Rt(-0.56, 0.66, -0.52, 0.8, C.white);
+      c.E(-0.54, 0.88, 0.1, 0.1, C.brassH);
     } },
     // 身后 / 手里
     cane: { name: '手杖', layer: 'hand', draw(c, a, _, pose) { const [u, v] = pose.R; c.L(u + 0.08, v - 0.2, u + 0.25, 1.1, C.leatherD, 0.04); c.E(u + 0.05, v - 0.24, 0.1, 0.08, C.brassH); } },
@@ -409,7 +412,7 @@ SA.CoalLab = (() => {
     } },
     watch: { name: '怀表', layer: 'hand', draw(c, a, _, pose) {
       const [u, v] = pose.R; c.E(u + 0.1, v - 0.2, 0.18, 0.18, C.brass); c.E(u + 0.1, v - 0.2, 0.12, 0.12, C.cream); c.L(u + 0.1, v - 0.2, u + 0.1, v - 0.29, INK); c.L(u + 0.1, v - 0.2, u + 0.16, v - 0.2, INK);
-      c.L(u + 0.1, v - 0.38, -0.2, 0.6, C.brassS);
+      c.L(u + 0.1, v - 0.38, -0.1, 0.9, C.brassS);
     } },
     lantern: { name: '马灯', layer: 'hand', draw(c, a, _, pose) {
       const [u, v] = pose.R; c.L(u, v, u + 0.05, v + 0.15, C.ironS); c.Rt(u - 0.12, v + 0.15, u + 0.22, v + 0.2, C.iron); c.Rt(u - 0.1, v + 0.2, u + 0.2, v + 0.55, C.fireH); c.Rt(u - 0.12, v + 0.55, u + 0.22, v + 0.6, C.iron);
