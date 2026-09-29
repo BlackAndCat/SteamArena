@@ -1,7 +1,7 @@
 // 人物：碳球（2026-09-28 用户定：身体 A 圆煤球、肤色适中、手套可选、阵容定稿；样机 tools/character-lab.html，规则 docs/visual-rules.md §9）。
 // 圆形小碳球、小短手、看不到腿；1～3 只简笔画眼睛；不画嘴。靠「肤色（黑往体色过渡）+ 瞳孔颜色 + 假发 + 饰品」区分。
 // 程序化像素画：同一份角色数据按三种尺寸画——驾驶舱里（半径 3.3）、场景小人（半径 8）、对话头像（半径 19）。
-// 游戏里用到的入口：SA.Coal.draw（剧情）、SA.Coal.mini / pilotOf（驾驶舱里按车手画，见 js/sprites.js 的 cockpitCrew）。
+// 游戏里用到的入口：SA.Coal.draw（剧情：js/story.js 的头像和开场小人）、SA.Coal.mini / pilotOf（驾驶舱里按车手画，见 js/sprites.js 的 cockpitCrew）。
 window.SA = window.SA || {};
 
 SA.Coal = (() => {
@@ -494,7 +494,9 @@ SA.Coal = (() => {
   // ---------- 画一个角色 ----------
   // size：'mini'（驾驶舱，半径 3.3）/ 'sprite'（场景小人，半径 8）/ 'portrait'（对话头像，半径 19）
   // o 里的 tint / skin / grad / eyes / iris / wig / wigColor / acc / item / pose / expr 会覆盖角色自己的设定
-  const SIZES = { mini: { R: 3.3, w: 11, h: 11, cx: 5, cy: 6 }, sprite: { R: 8, w: 40, h: 40, cx: 20, cy: 25 }, portrait: { R: 19, w: 96, h: 96, cx: 48, cy: 58 } };
+  const SIZES = { mini: { R: 3.3, w: 11, h: 11, cx: 5, cy: 6 }, sprite: { R: 8, w: 40, h: 40, cx: 20, cy: 25 }, portrait: { R: 19, w: 96, h: 96, cx: 48, cy: 58 },
+    // 剧情用（js/story.js）：scene = 开场分镜里的小人（×2 贴图），bust = 对话框头像（96×96 原尺寸显示，比 portrait 画得更满）
+    scene: { R: 12, w: 56, h: 56, cx: 28, cy: 34 }, bust: { R: 29, w: 96, h: 96, cx: 48, cy: 62 } };
   const pick = (o, ch, k, d) => (o[k] !== undefined && o[k] !== null ? o[k] : ch[k] !== undefined ? ch[k] : d);
   function draw(ch, o = {}) {
     const sz = SIZES[o.size || 'portrait'], big = o.size === 'mini' ? 1 : (ch.big || 1), sq = ch.sq || 1;

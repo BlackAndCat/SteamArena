@@ -97,124 +97,33 @@ SA.Story = (() => {
     x.putImageData(img, 0, 0);
     return c;
   }
-  // 字符图：每个字符查调色表，'.' 透明
-  function charMap(rows, pal) {
-    const w = Math.max(...rows.map(r => r.length));
-    return toCanvas(w, rows.length, rows.flatMap(r => [...r.padEnd(w, '.')].map(ch => pal[ch] || null)));
+  // ---------- 角色：碳球（js/coal.js，规则 docs/visual-rules.md §9）----------
+  // 远房亲戚 = 阵容里的「远房亲戚」（遮阳盔 + 海象胡 + 单片眼镜 + 金肩章），你 = 「你」（蓝灰碳球 + 呆毛 + 补丁围巾）。
+  // 碳球不画嘴：说话时整只上下弹 2 像素（见 portrait），眨眼用 blink 表情
+  const coalCache = {};
+  function coal(name, o) {
+    const k = `${name}|${JSON.stringify(o)}`;
+    return coalCache[k] || (coalCache[k] = SA.Coal.draw(SA.Coal.byName[name], o));
   }
-
-  // ---------- 角色 ----------
-  const C = {
-    coat: '#9c2a22', coatS: '#5c1a0e', coatH: '#c84a32', belt: '#e4e0d6',
-    brass: P.brass[2], brassH: P.brass[3], brassS: P.brass[1],
-    skin: '#e8b088', skinS: '#b87850', nose: '#d0806a',
-    must: '#f4f7ee', mustS: '#c8c4bc', helm: '#ece6d6', helmS: '#b8b0a0',
-    trou: '#232937', boot: '#0b0e15', cane: '#6b4128', glass: '#a9dfee', eye: '#140c0a',
-  };
-  // 远房亲戚的头像（48×48）：遮阳盔、单片眼镜、海象胡、红军服和金肩章。talk：说话时胡子一抖；blink：眨眼
-  const faceCache = {};
+  // 对话框头像（96×96）：talk 时身子往上弹 2 像素；blink 眨眼。亲戚在对话框左边，眼睛朝右看着你
   function portrait(talk, blink) {
-    const k = `${talk ? 1 : 0}${blink ? 1 : 0}`;
-    if (faceCache[k]) return faceCache[k];
-    return (faceCache[k] = raster(48, 48, ({ put, ell, rect, line }) => {
-      ell(24, 52, 23, 15, (x, y, dx) => (dx > 0.55 ? C.coatS : dx < -0.7 ? C.coatH : C.coat));
-      for (const ex of [7, 41]) {
-        ell(ex, 38, 6.5, 3, (x, y, dx, dy) => (dy < -0.3 ? C.brassH : C.brass));
-        for (let x = ex - 5; x <= ex + 5; x += 2) rect(x, 41, x, 43, C.brassS);
-      }
-      rect(18, 33, 30, 37, C.coatS);
-      rect(21, 38, 27, 38, C.coatS);
-      put(24, 41, C.brassH); put(24, 45, C.brassH);
-      rect(20, 30, 28, 34, C.skinS);
-      ell(13.5, 25, 2, 3, C.skinS); ell(34.5, 25, 2, 3, C.skinS);
-      ell(24, 24, 10.5, 11, (x, y, dx) => (dx > 0.55 ? C.skinS : C.skin));
-      rect(16, 20, 21, 20, C.must); rect(27, 20, 32, 20, C.must);
-      if (blink) { rect(19, 23, 21, 23, C.skinS); rect(27, 23, 29, 23, C.skinS); }
-      else { rect(19, 23, 20, 23, C.eye); rect(28, 23, 29, 23, C.eye); }
-      // 单片眼镜：右眼一圈黄铜，左上角一点反光，链子垂到领口
-      for (let y = 18; y <= 29; y++) for (let x = 23; x <= 35; x++) {
-        const d = Math.hypot(x + 0.5 - 28.5, y + 0.5 - 23.5);
-        if (d > 2.6 && d <= 3.6) put(x, y, y < 23 ? C.brassH : C.brass);
-      }
-      put(27, 22, C.glass);
-      for (let i = 0; i < 5; i++) put(32 + i * 0.8, 27 + i * 2.2, C.brassS);
-      ell(24, 26.5, 2.2, 2, C.nose);
-      const my = talk ? 28 : 29;
-      if (talk) rect(22, 31, 26, 32, C.eye);
-      ell(19, my, 6, 2.6, (x, y, dx, dy) => (dy > 0.3 ? C.mustS : C.must));
-      ell(29, my, 6, 2.6, (x, y, dx, dy) => (dy > 0.3 ? C.mustS : C.must));
-      rect(13, my + 1, 14, my + 3, C.must); rect(34, my + 1, 35, my + 3, C.must);
-      // 遮阳盔：圆顶 + 宽檐 + 黄铜箍和顶尖
-      ell(24, 14, 12, 9.5, (x, y, dx) => (dx > 0.5 ? C.helmS : C.helm), (x, y) => y <= 15);
-      rect(13, 12, 35, 13, C.brass);
-      rect(13, 11, 35, 11, C.brassS);
-      ell(24, 16.5, 15.5, 2.4, (x, y, dx, dy) => (dy > 0 ? C.helmS : C.helm));
-      put(24, 4, C.brassH); put(24, 3, C.brass);
-      line(24, 4, 24, 5, C.brass, 0.5);
-    }));
+    return coal('远房亲戚', { size: 'bust', expr: blink ? 'blink' : 'normal', cy: talk ? 60 : 62 });
   }
-  // 站着的亲戚（30×46，脚底在第 45 行）
-  let uncleStand = null;
-  function uncle() {
-    return uncleStand || (uncleStand = raster(30, 46, ({ put, ell, rect, line }) => {
-      line(26, 35, 28.5, 45, C.cane, 0.6);
-      rect(9, 42, 13, 45, C.boot); rect(17, 42, 21, 45, C.boot);
-      rect(10, 36, 13, 41, C.trou); rect(17, 36, 20, 41, C.trou);
-      ell(4.5, 29, 3.2, 6.5, C.coat); ell(25.5, 29, 3.2, 6.5, C.coatS);
-      ell(15, 29, 11, 10.5, (x, y, dx) => (dx > 0.5 ? C.coatS : dx < -0.65 ? C.coatH : C.coat));
-      line(8, 21, 21, 37, C.belt, 0.6);
-      put(12, 32, C.brassH); put(12, 35, C.brassH);
-      ell(7, 20.5, 3.4, 1.6, C.brass); ell(23, 20.5, 3.4, 1.6, C.brass);
-      ell(4.5, 35.5, 2, 2, C.skin); ell(25.5, 35.5, 2, 2, C.skinS);
-      put(26, 34, C.brassH);
-      ell(15, 13.5, 6, 6, (x, y, dx) => (dx > 0.5 ? C.skinS : C.skin));
-      put(13, 13, C.eye); put(17, 13, C.eye);
-      for (let y = 10; y <= 17; y++) for (let x = 14; x <= 21; x++) { const d = Math.hypot(x + 0.5 - 17.5, y + 0.5 - 13.5); if (d > 1.5 && d <= 2.3) put(x, y, C.brassH); }
-      put(15, 15, C.nose);
-      ell(12, 17, 4, 1.7, C.must); ell(18, 17, 4, 1.7, C.must);
-      put(8, 18, C.must); put(22, 18, C.must);
-      ell(15, 8, 7, 5.5, (x, y, dx) => (dx > 0.5 ? C.helmS : C.helm), (x, y) => y <= 8);
-      rect(8, 7, 22, 7, C.brass);
-      ell(15, 9.5, 9.5, 1.5, C.helm);
-      put(15, 2, C.brassH);
-    }));
-  }
-  // 滚成一团的亲戚：θ = 转角
+  // 站着的亲戚（56×56，身子底边在第 46 行）；pose：salute 敬礼 / idle 垂手 / cheer 欢呼
+  const uncle = (pose = 'salute', expr = 'normal') => coal('远房亲戚', { size: 'scene', pose, expr, look: -1 });
+  // 滚成一团的亲戚：θ = 转角，按 16 档转，最近邻，不糊
   function uncleBall(th) {
-    return raster(26, 26, ({ ell }) => {
-      ell(13, 13, 11, 11, (x, y, dx, dy) => (dx + dy > 0.8 ? C.coatS : dx + dy < -0.9 ? C.coatH : C.coat));
-      ell(13 + 7 * Math.cos(th), 13 + 7 * Math.sin(th), 4.2, 4.2, C.helm);
-      ell(13 + 6 * Math.cos(th + 1.1), 13 + 6 * Math.sin(th + 1.1), 3, 3, C.must);
-      ell(13 + 7 * Math.cos(th + 3.1), 13 + 7 * Math.sin(th + 3.1), 2, 2, C.boot);
-      ell(13 + 7 * Math.cos(th + 3.6), 13 + 7 * Math.sin(th + 3.6), 2, 2, C.boot);
-    });
+    const q = Math.round(th / (Math.PI / 8)), k = `ball|${((q % 16) + 16) % 16}`;
+    if (coalCache[k]) return coalCache[k];
+    const src = coal('远房亲戚', { size: 'scene', pose: 'idle', expr: 'surprise', look: -1 }), c = document.createElement('canvas');
+    c.width = c.height = 56;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.translate(28, 34); g.rotate(q * Math.PI / 8); g.drawImage(src, -28, -34);
+    return (coalCache[k] = c);
   }
-  // 玩家：躺着 / 坐起来
-  const ME = { k: OUT, h: '#3b2418', s: C.skin, e: C.eye, c: P.iron[3], b: P.iron[2], p: P.leather[2] };
-  const meLie = charMap([
-    '.kkkk.............',
-    'khhhhkkkkkkkkkkkk.',
-    'khhssskbbbbbbbpbbk',
-    'khsssskbbpbbbbbbbk',
-    '.kssskbbbbbbbbbbbk',
-    '..kkkkkkkkkkkkkkk.',
-  ], ME);
-  const meSit = charMap([
-    '...kkkkk....',
-    '..khhhhhk...',
-    '.khhhhhhhk..',
-    '.khhhssssk..',
-    '.khhsssesk..',
-    '..khsssssk..',
-    '...kssssk...',
-    '..kccccck...',
-    '.kcccccccck.',
-    '.kccccccsck.',
-    'kbbbbbbbbbbk',
-    'kbbpbbbbbbbk',
-    'kbbbbbbbpbbk',
-    'kkkkkkkkkkkk',
-  ], ME);
+  // 你：睡着（闭眼）/ 醒着（expr 另给）
+  const me = (expr = 'normal', pose = 'idle') => coal('你', { size: 'scene', expr, pose });
 
   // ---------- 徽记：齿轮底 + 两门交叉的卡隆炮 ----------
   // 64×64，rot = 齿轮转角；返回 { cv, muzzles: [[x, y, dx, dy]...] }（炮口位置和朝向，开火特效用）
@@ -355,12 +264,16 @@ SA.Story = (() => {
     g.fillStyle = P.brass[2]; for (let x = 38; x < 174; x += 5) g.fillRect(x, FLOOR - 6, 3, 1);
     g.fillStyle = P.brass[0]; g.fillRect(36, FLOOR, 140, 1);
     // 你
+    // 碳球 56×56 按 ×2 贴，身子底边（第 46 行）落在草垫上
     if (idx === 0) {
-      g.drawImage(meLie, 60, FLOOR - 12, meLie.width * 2, meLie.height * 2);
-      zzz(g, 62, FLOOR - 24, gt);
+      const breath = Math.floor(gt * 1.2) % 2;   // 睡着：慢慢一起一伏
+      g.drawImage(me('blink'), 56, FLOOR - 98 + breath * 2, 112, 112 - breath * 2);
+      zzz(g, 130, FLOOR - 70, gt);
     } else {
-      g.drawImage(meSit, 88, FLOOR - 30, meSit.width * 2, meSit.height * 2);
-      if (idx === 1 || (idx === 2 && t < 0.6)) bang(g, 108, FLOOR - 52 - (idx === 1 ? Math.round(ease(t / 0.3) * 6) : 6));
+      const jump = idx === 1 ? Math.round(Math.sin(Math.min(1, t / 0.35) * Math.PI) * 10) : 0;
+      const expr = idx === 1 || (idx === 2 && t < 1.35) ? 'surprise' : idx === 3 ? 'happy' : 'normal';
+      g.drawImage(me(expr, idx === 3 ? 'cheer' : 'idle'), 56, FLOOR - 98 - jump, 112, 112);
+      if (idx === 1 || (idx === 2 && t < 0.6)) bang(g, 150, FLOOR - 92 - (idx === 1 ? Math.round(ease(t / 0.3) * 6) : 6));
     }
     // 亲戚：从右边滚进来，停住，弹起来站好
     if (idx >= 2) {
@@ -369,12 +282,12 @@ SA.Story = (() => {
       if (!stand) {
         const ball = uncleBall(-t * 12);
         g.fillStyle = P.bg[4];
-        for (let i = 1; i <= 3; i++) g.fillRect(Math.round(x + 18 + i * 9), FLOOR - 16 - i * 4 + (i % 2) * 6, 7 - i, 2);
-        g.drawImage(ball, Math.round(x - 26), FLOOR - 52 - bounce, 52, 52);
+        for (let i = 1; i <= 3; i++) g.fillRect(Math.round(x + 24 + i * 9), FLOOR - 16 - i * 4 + (i % 2) * 6, 7 - i, 2);
+        g.drawImage(ball, Math.round(x - 56), FLOOR - 92 - bounce, 112, 112);
       } else {
-        const pop = idx === 2 ? Math.max(0, 1 - (t - 1.35) / 0.25) : 0, u = uncle();
+        const pop = idx === 2 ? Math.max(0, 1 - (t - 1.35) / 0.25) : 0, u = idx === 3 ? uncle('salute') : uncle('idle', t < 1.6 ? 'happy' : 'normal');
         const bob = idx === 3 ? Math.round(Math.sin(gt * 3) * 1) : 0;
-        g.drawImage(u, 262 - 30, FLOOR - 92 - Math.round(pop * 10) + bob, 60, 92);
+        g.drawImage(u, 262 - 56, FLOOR - 92 - Math.round(pop * 10) + bob, 112, 112);
         if (idx === 2 && t < 1.8) dust(g, 262, FLOOR, (t - 1.35) / 0.45);
       }
     }
@@ -436,7 +349,7 @@ SA.Story = (() => {
   const CPS = 26;
   function talk(lines, { host = document.body, scene = null, onDone = null, cls = '' } = {}) {
     const page = host === document.body;
-    const face = h('canvas', { class: 'px vn-face', width: 48, height: 48 });
+    const face = h('canvas', { class: 'px vn-face', width: 96, height: 96 });
     const name = h('div', { class: 'vn-name' });
     const txt = h('div', { class: 'vn-text' });
     const more = h('i', { class: 'vn-more', 'aria-hidden': 'true' });
@@ -474,7 +387,7 @@ SA.Story = (() => {
       if (shown < full.length) { shown = Math.min(full.length, shown + dt * CPS); render(); }
       if (root.dataset.who !== 'narr') {
         const talking = shown < full.length && Math.floor(gt * 9) % 2 === 0, blink = gt % 3.2 < 0.12;
-        fg.clearRect(0, 0, 48, 48); fg.drawImage(portrait(talking, blink), 0, 0);
+        fg.clearRect(0, 0, 96, 96); fg.drawImage(portrait(talking, blink), 0, 0);
       }
       if (scene) scene.draw(gt);
       raf = requestAnimationFrame(frame);
