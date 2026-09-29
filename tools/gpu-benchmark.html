@@ -21,7 +21,7 @@
 </head>
 <body>
   <h1>进化筛选 · WebGPU 基准</h1>
-  <p class="muted">这个页面只测可批量的候选数值预筛算式，不替换战斗物理、碰撞、遮挡或可变步数的 Node 模拟。GPU 结果必须和 CPU 结果逐项一致，才会计入收益。</p>
+  <p class="muted">实际车辆的热量预测循环。先运行 <code>node tools/gpu-heat-fixture.js</code> 采集当前规则输入；比较原 CPU 函数与 GPU 的首次过热时刻，并包含临界输入。耗时包含上传与回读，结果尚未用于正式筛选。</p>
   <div class="panel">
     <div class="buttons">
       <label>最大批量 <select id="size"><option value="4096">4,096</option><option value="16384" selected>16,384</option><option value="65536">65,536</option><option value="262144">262,144</option><option value="1048576">1,048,576</option></select></label>
@@ -31,7 +31,7 @@
     </div>
   </div>
   <div id="status" class="panel">尚未运行。</div>
-  <div class="panel"><table id="results"><thead><tr><th>候选数</th><th>CPU 总耗时</th><th>GPU 提交完成</th><th>GPU 含回读</th><th>含回读加速</th><th>最大误差</th><th>一致</th></tr></thead><tbody></tbody></table></div>
+  <div class="panel"><table id="results"><thead><tr><th>预测数</th><th>CPU 总耗时</th><th>上传与提交</th><th>GPU 含回读</th><th>含回读加速</th><th>最大时刻误差</th><th>一致</th></tr></thead><tbody></tbody></table></div>
   <div class="panel"><pre id="json">{}</pre></div>
   <script src="gpu-benchmark.js"></script>
 </body>

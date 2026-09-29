@@ -59,13 +59,19 @@ function element(tag = 'div') {
   return out;
 }
 
-function createGameContext() {
+function createGameContext(contextify = false) {
   const document = {
+    addEventListener: noop, removeEventListener: noop,
     createTextNode: value => ({ textContent: String(value) }), createElement: element,
     querySelector: () => element(), querySelectorAll: () => [], body: element('body'), documentElement: element('html'),
   };
-  const context = {
+  // 使用普通全局对象，让战斗循环中的 Math / SA 访问可被 V8 优化。
+  // 仍在独立 VM 内逐文件加载原规则；旧 Node 缺少该常量时沿用默认上下文。
+  const context = vm.createContext(contextify ? {} : vm.constants?.DONT_CONTEXTIFY);
+  Object.assign(context, {
     addEventListener: noop, removeEventListener: noop, console, document, window: null, globalThis: null,
+    // 界面初始化会读取视口尺寸；无画面生成器只提供固定尺寸，不执行界面交互。
+    innerWidth: 1000, innerHeight: 600,
     localStorage: { getItem: () => null, setItem: noop, removeItem: noop },
     sessionStorage: { getItem: () => null, setItem: noop }, requestAnimationFrame: noop, cancelAnimationFrame: noop,
     performance: { now: () => 0 }, Image: function Image() {}, navigator: {}, location: { href: 'http://localhost:5173/tools/evolve.html' },
@@ -73,16 +79,16 @@ function createGameContext() {
     RegExp, Error, parseInt, parseFloat, isFinite, Uint8Array, Float32Array, Int32Array, Math,
     btoa: value => Buffer.from(value, 'binary').toString('base64'),
     atob: value => Buffer.from(value, 'base64').toString('binary'),
-  };
+  });
   context.Node = function Node() {};
   context.window = context;
   context.globalThis = context;
-  vm.createContext(context);
   return context;
 }
 
-function loadGame() {
-  const context = createGameContext();
+// contextify 只供运行环境差分检查恢复旧路径；正式预演和 worker 默认使用普通全局对象。
+function loadGame({ contextify = false } = {}) {
+  const context = createGameContext(contextify);
   // Node 诊断只需要规则层；不加载 battle-view，避免 debug.step 的无画面检查误触发精灵绘制。
   // 浏览器页面仍按 index / tools/sim.html 的脚本顺序加载 battle-view.js。
   const files = ['js/palette.js', 'js/modules.js', 'js/module-art.js', 'js/dynamics.js', 'js/sprites.js', 'js/legs.js', 'js/vehicle.js',
@@ -698,7 +704,9 @@ function replacementFor(SA, vehicle, targetId, spec) {
 
 // P5 选关证据：每一关只从本轮已评分候选中选车，并把硬条件和目标强度写入报告。
 // 这些数值用于离线筛选，不会改动战役原有的名称、奖励或解锁字段。
-function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed, usedStyles = new Set(), duelCache = null) {
+// referenceBoss 是普通关的本章标尺；previousBoss 只用于跨章门槛和奖励证据。
+// Boss 选定前两者相同；普通关必须显式传入上一章 Boss，避免奖励车被本章标尺误筛。
+function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed, usedStyles = new Set(), duelCache = null, previousBoss = referenceBoss) {
   const nonToxic = scored.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
   const cleanPool = nonToxic.length ? nonToxic : scored;
   const reward = spec.rewardModule;
@@ -721,15 +729,15 @@ function selectStageCandidate(SA, scored, spec, previousBoss, fingerprint, seed,
       own.target = spec.target.bossWinRate;
       own.targetPass = own.bossAverageWinRate >= 0.5 && own.bossReverseWinRate <= 0.5 && own.bossGenericPass;
       if (previousBoss) {
-        own.previousBossWinRate = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 997, 2, duelCache).winRate;
+        own.previousBossWinRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 997, 2, duelCache).winRate;
         own.previousBossPass = own.previousBossWinRate < 0.3;
       } else { own.previousBossWinRate = null; own.previousBossPass = true; }
-    } else if (previousBoss && spec.chapterHasBoss) {
-      const bossRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 997, 2, duelCache).winRate;
+    } else if (referenceBoss && spec.chapterHasBoss) {
+      const bossRate = duel(SA, referenceBoss.vehicle, item.vehicle, spec, seed + 997, 2, duelCache).winRate;
       own.bossWinRate = bossRate;
       own.target = [0.6, 0.8];
       own.targetPass = bossRate >= 0.6 && bossRate <= 0.8;
-      if (reward) {
+      if (reward && previousBoss) {
         own.rewardWinRateAgainstPreviousBoss = duel(SA, item.vehicle, previousBoss.vehicle, spec, seed + 1997, 3, duelCache).winRate;
         own.rewardLowerBoundPass = own.rewardWinRateAgainstPreviousBoss >= 0.6;
         own.previousBossWinRate = duel(SA, previousBoss.vehicle, item.vehicle, spec, seed + 2997, 3, duelCache).winRate;
@@ -970,7 +978,7 @@ function run(options = {}) {
       };
       // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
       const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
-      const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache);
+      const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
       const selectedIndex = Math.max(0, scored.indexOf(selection.selected));
       if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
       const hardConditions = {
@@ -1046,7 +1054,7 @@ async function runAsync(options = {}) {
       const stages = pendingStages.map((entry, stage) => {
         const { spec, scored, records } = entry;
         if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
-        const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache);
+        const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
         const selectedIndex = Math.max(0, scored.indexOf(selection.selected)); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
         const hardConditions = { reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
         const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key); if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });

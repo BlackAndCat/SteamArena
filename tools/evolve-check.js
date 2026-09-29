@@ -14,6 +14,8 @@ const calibration = require('./ai-calibration');
 const battleConstants = require('./battle-constants-check');
 const evolveCandidates = require('./evolve-candidates-check');
 const campaignReplay = require('./campaign-replay-check');
+const evolveRuntime = require('./evolve-runtime-check');
+const evolveSelection = require('./evolve-selection-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -147,6 +149,8 @@ async function main() {
   const locked = lockedStageCheck();
   const battle = battleConstants.run();
   const selectedView = evolveCandidates.run();
+  const runtime = evolveRuntime.run();
+  const selection = evolveSelection.run();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai, selectedView };
   result.unique = unique;
   result.side = side;
@@ -155,6 +159,8 @@ async function main() {
   result.locked = locked;
   result.cache = cache;
   result.battle = battle;
+  result.runtime = runtime;
+  result.selection = selection;
   console.log(JSON.stringify(result, null, 2));
 }
 
