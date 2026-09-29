@@ -30,13 +30,13 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘探索 · 15 种 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · 重做 v1 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
-    <p><b>你的要求</b>：T1～T6 各档的四足底盘，以及 T2 一个变体、T3～T6 各两个变体；进行<b>剪影、蒸汽朋克、狂想</b>的探索。<br>
-      <b>本期 15 种</b>：主线 6（茶壶蟹 · 蚱蜢 · 骆驼 · 螳螂 · 象 · 章鱼）+ 变体 9（T2 铁龟；T3 螃蟹、高跷蛛；T4 机械马、犀角甲虫；T5 蜗牛、犰狳；T6 鹿、晶簇蛛）。</p>
-    <p style="color:var(--muted)">做法：每种 = 一个<b>车体剪影</b> + 后腿 / 前腿各一种腿型（蟹腿、蚱蜢后腿、趾行腿、立柱腿、触手、螳螂镰刀、桨脚，共 7 类）。整件 = 4×2（96×48）：胯、地面、步态和游戏里的四足整件一致（对角腿同相、踩实地）。
-      车体顶上留 3 px 顶板和上面的模块相接；头饰 / 角 / 驼峰 / 鹿角这类<b>剪影件</b>会高出顶板——这是探索稿，进游戏时要按格子摆放规则再定（只保留不挡格子的部分，或做成「没有模块压着时才画」的装饰）。
-      <b>探索稿，还没有接进游戏</b>（游戏里四足仍是伏地蛛）。<b>请确认</b>：每档选哪个做主线、哪些变体留下、哪些剪影要改。</p>
+    <p><b>你的意见</b>：上一版（茶壶蟹 / 蚱蜢 / 骆驼 / 螳螂 / 象 / 章鱼……）作废——不要动物头、不要奇形怪状；要<b>工业、蒸汽朋克、维多利亚、少量一战</b>；以游戏里现有的四足为基础版本重画 T1～T6，参考双足的做法出变体和各材质的风格。<br>
+      <b>我的做法</b>：拓扑全部沿用现役伏地蛛——一块压低的车体 + 四条「髋 → 高膝 → 脚」的腿，胯、地面、步态、接地点和游戏完全一致，车体顶板以上什么都不画（不挡上面的模块）。每档换的是<b>腿的构造</b>和<b>车体的工艺</b>，每种材质一套风格语言：<br>
+      T1 黄铜 · 车间工装（现役原样）　T2 熟铁 · 维多利亚铁桥 / 桁架　T3 钢 · 一战陆地巡洋舰 + 液压　T4 镀镍 · 维多利亚马车与仪器　T5 乌兹钢 · 重工业蒸汽机　T6 以太合金 · 维多利亚电气</p>
+    <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9（熟铁 1 · 钢 2 · 镀镍 2 · 乌兹钢 2 · 以太合金 2），同档变体共用该档车体，只换腿。整件 = 4×2（96×48），材质用游戏的装饰层。<b>探索稿，还没有接进游戏</b>（游戏里四足仍是伏地蛛）。
+      <b>请确认</b>：① 六档的风格方向对不对；② 每档的主线选哪个、哪些变体留下、哪些要重画。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
@@ -44,7 +44,7 @@
     <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">行走</button><button class="btn small" data-v="0">静止</button></span>
   </div>
   <section>
-    <h2 class="sec">15 种一览 <small>每行一档材质，主线在最左，右边是该档的变体 · 行走动画</small></h2>
+    <h2 class="sec">15 种一览 <small>每行一档材质，主线在最左，右边是该档的变体（同一车体、换腿）· 行走动画</small></h2>
     <div id="rows"></div>
   </section>
   <section>
@@ -82,7 +82,7 @@
     g.putImageData(img, 0, 0); return c;
   }
   const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
-  const OX = 60, OY = 44, W = 96 + OX + 72, H = 48 + OY + 14;
+  const OX = 12, OY = 8, W = 96 + OX * 2, H = 48 + OY + 6;
   function fig(e, a, o = {}) {
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
     Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13 });
