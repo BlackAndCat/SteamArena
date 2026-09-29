@@ -604,7 +604,7 @@ function evaluateCandidate(SA, candidate, opponents, spec, seed, games, duelCach
     const probe = opponents[0] && duel(SA, candidate, opponents[0], { ...spec, style }, seed + 700001 + i * 1009, 1, duelCache);
     return { style, performance: probe?.performance || 0, winRate: probe?.winRate || 0 };
   });
-  const boundStyle = styleTrials.slice().sort((a, b) => (b.performance + b.winRate * 10) - (a.performance + a.winRate * 10))[0]?.style || styleFor(SA, candidate);
+  const boundStyle = spec.fixedStyle ? spec.style : styleTrials.slice().sort((a, b) => (b.performance + b.winRate * 10) - (a.performance + a.winRate * 10))[0]?.style || styleFor(SA, candidate);
   let terrainStrength = strengthData.strength, terrainDelta = 0;
   if (spec.terrain && spec.terrain !== 'flat') {
     const flatRows = opponents.map((opponent, i) => duel(SA, candidate, opponent, { ...spec, terrain: 'flat' }, seed + 800001 + i * 1009, Math.max(1, Math.min(2, games)), duelCache));
@@ -615,7 +615,7 @@ function evaluateCandidate(SA, candidate, opponents, spec, seed, games, duelCach
   const sample = sampleIndex < 0 ? null : { ...rows[sampleIndex].sample,
     opponent: { name: opponents[sampleIndex].name, cells: cellsOf(SA, opponents[sampleIndex]) }, style: spec.style || 'wander' };
   const stats = SA.V.stats(candidate);
-  return { strength: strengthData.strength, strengthCi: strengthData.strengthCi, terrainStrength, terrainDelta, performance, rows, style: boundStyle, styleTrials, sample, chassis: chassisFor(SA, candidate), stats, efficiency: efficiencyScore(stats, spec) };
+  return { strength: strengthData.strength, strengthCi: strengthData.strengthCi, terrainStrength, terrainDelta, performance, rows, style: boundStyle, evaluationStyle: spec.style || 'wander', styleTrials, sample, chassis: chassisFor(SA, candidate), stats, efficiency: efficiencyScore(stats, spec) };
 }
 
 function archive(candidates, spec) {
@@ -680,11 +680,16 @@ function cellsOf(SA, v) {
 function candidateRecord(SA, item, spec, fingerprint) {
   const moduleValues = {};
   SA.V.each(item.vehicle, cell => { moduleValues[cell.id] = (moduleValues[cell.id] || 0) + SA.cellValue(cell); });
+  const games = (item.rows || []).reduce((sum, row) => sum + row.n, 0);
+  const wins = (item.rows || []).reduce((sum, row) => sum + row.wins, 0);
+  const draws = (item.rows || []).reduce((sum, row) => sum + row.draws, 0);
   return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null,
     patch: exportPatch(SA, item.vehicle, spec, item.style),
     spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, uniqueLoot: spec.uniqueLoot, budget: spec.budget, budgetStatus: spec.budgetStatus, availableMods: spec.availableMods, target: spec.target },
     style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal',
     strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta,
+    // 胜率与强度分使用同一批同档标尺对局；换边计入局数，平局计半胜。
+    winRate: games ? (wins + draws * 0.5) / games : null, games, wins, draws, opponentCount: item.rows?.length || 0, evaluationStyle: item.evaluationStyle,
     performance: item.performance, efficiency: item.efficiency, fitness: fitness(item), featureDistance: item.featureDistance,
     typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed ?? null, opponent: item.sample.opponent, style: item.sample.style } : null,
     stats: { rating: item.stats.rating, value: item.stats.value, count: item.stats.count, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool },
@@ -856,8 +861,10 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
 
 // 异步候选评估：随机种子、车辆生成和最终排序仍在主线程按原顺序执行，
 // 只有相互独立的候选评分交给常驻 worker，因此不改变固定种子结果。
-async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, onProgress, shouldStop, telemetry) {
-  const population = [], wanted = Math.max(4, config.population.size);
+async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, onProgress, shouldStop, telemetry, seeds = []) {
+  // 收藏 / 手工种子每代保留原样，同时允许以它们为父本产生变异后代。
+  // 种子比设定种群多时扩到种子数，避免默默丢掉用户已选的车型。
+  const population = [...seeds], wanted = Math.max(4, config.population.size, seeds.length);
   const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
   while (population.length < wanted) {
     const forced = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25)) ? spec.rewardModule : null;
@@ -873,7 +880,9 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
   let current = population;
   for (let generation = 0; generation < config.population.generations; generation++) {
     if (shouldStop?.()) return { interrupted: true };
-    const tasks = current.map((vehicle, index) => ({ vehicle, opponents, spec, seed: rng.int(0x7fffffff) + index, games: quickGames, performance: config.performance }));
+    const tasks = current.map((vehicle, index) => ({ vehicle, opponents,
+      spec: seeds.includes(vehicle) && vehicle.arenaStyle ? { ...spec, style: vehicle.arenaStyle, fixedStyle: true } : spec,
+      seed: rng.int(0x7fffffff) + index, games: quickGames, performance: config.performance }));
     onProgress?.({ phase: 'generation-start', chapter: spec.chapter, stage: spec.stage, generation, completed: 0, total: tasks.length });
     let completed = 0;
     const scored = (await Promise.all(tasks.map((task, index) => pool.evaluate([task]).then(([result]) => {
@@ -888,7 +897,7 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
       if (rewardSeed && !keep.some(item => rewardPresent(item.vehicle))) keep[keep.length - 1] = rewardSeed;
     }
     if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
-    current = keep.map(x => x.vehicle);
+    current = [...seeds, ...keep.map(x => x.vehicle).filter(v => !seeds.includes(v))].slice(0, wanted);
     while (current.length < wanted) {
       const source = rng.pick(keep).vehicle;
       let child = mutate(SA, source, spec, rng);
@@ -1057,26 +1066,51 @@ function checkpointChapter(chapter, pendingStages, SA) {
 async function runAsync(options = {}) {
   const { SA } = loadGame(), fingerprint = ruleFingerprint(SA);
   const chapters = options.firstStageOnly ? 1 : Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length), quickGames = options.games || config.evaluation.quickGames;
-  requireReviewedRange(chapters);
+  // 页面定向模拟属于预演：可显式选择尚待审阅的规格，但不写正式战役。
+  // 原有批量 / 正式入口继续执行审阅门槛。
+  const scope = options.scope;
+  if (scope && (!Number.isInteger(scope.chapter) || !SA.CAMPAIGN[scope.chapter] ||
+    (scope.stage != null && (!Number.isInteger(scope.stage) || !SA.CAMPAIGN[scope.chapter].stages[scope.stage])))) throw new Error('生成范围不是有效的章 / 关');
+  if (!scope) requireReviewedRange(chapters);
+  const chapterIndexes = scope ? [scope.chapter] : Array.from({ length: chapters }, (_, i) => i);
   const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
   const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
   const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0 };
-  const pool = createEvaluationPool(workerCount);
   let previous = [], previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) }, status = 'complete';
+  const seedWarnings = [];
+  // 局部重跑优先沿用工作报告中的 Boss；没有可用记录时使用该档合法标尺。
+  const reference = (chapter, stage) => {
+    const spec = stageSpec(SA, chapter, stage);
+    const record = (options.references || []).find(rec => rec.spec?.chapter === chapter && rec.spec?.stage === stage);
+    const vehicle = record?.cells && SA.V.fromCells(record.name, record.cells);
+    return { vehicle: vehicle && legalVehicle(SA, vehicle, spec) ? vehicle : minimalVehicle(SA, spec) };
+  };
+  if (scope?.chapter > 0) {
+    const ci = scope.chapter - 1, stages = SA.CAMPAIGN[ci].stages;
+    const bossIndex = stages.findIndex(row => row.boss);
+    previousBoss = reference(ci, bossIndex >= 0 ? bossIndex : stages.length - 1);
+    if (!previousBoss.vehicle) throw new Error('上一章缺少可用标尺，请先生成上一章');
+  }
+  const pool = createEvaluationPool(workerCount);
   const progress = event => options.onProgress?.({ ...event, elapsedMs: Date.now() - telemetry.startedAt });
   const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
-  progress({ phase: 'start', total: chapters });
+  progress({ phase: 'start', total: chapterIndexes.length });
   try {
-    chapterLoop: for (let chapter = 0; chapter < chapters; chapter++) {
+    chapterLoop: for (const chapter of chapterIndexes) {
       if (options.shouldStop?.()) { status = 'interrupted'; break; }
       const pendingStages = [], priorBoss = previousBoss;
       const manualBossIndex = SA.CAMPAIGN[chapter].stages.findIndex((_, index) => { const item = stageFor(SA, chapter, index); return item?.source === 'manual' && item.locked && item.boss && item.vehicle; });
       const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
       let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
-      for (let stage = 0; stage < (options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length); stage++) {
+      if (scope?.stage != null && !chapterBoss) {
+        const bossIndex = SA.CAMPAIGN[chapter].stages.findIndex(row => row.boss);
+        if (bossIndex >= 0 && bossIndex !== scope.stage) chapterBoss = reference(chapter, bossIndex);
+      }
+      const stageIndexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
+      for (const stage of stageIndexes) {
         if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
         const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
-        if (actual?.source === 'manual' && actual.locked) {
+        if (actual?.source === 'manual' && actual.locked && !scope) {
           const manual = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
           all.push(manual); pendingStages.push({ spec, locked: true, records: [manual], count: 0, archive: { buckets: 0, coveredRatio: 0, toxic: 0, odd: 0, toxicCodes: [], oddCodes: [], toxicCells: [], oddCells: [] } });
           if (actual.boss) chapterBoss = { vehicle: actual.vehicle, ...manual };
@@ -1084,9 +1118,24 @@ async function runAsync(options = {}) {
           progress({ phase: 'stage-end', chapter, stage, completed: 1, total: 1, locked: true }); checkpoint(checkpointChapter(chapter, pendingStages, SA));
           continue;
         }
-        const result = await generateChapterAsync(SA, spec, previous, campaignOpponents(SA, chapter, stage), rng, quickGames, pool, progress, options.shouldStop, telemetry);
+        const seeds = [], seedKeys = new Set();
+        for (const rec of options.seeds || []) {
+          if (rec.spec?.chapter !== chapter || rec.spec?.stage !== stage) continue;
+          let vehicle;
+          try { vehicle = SA.V.fromCells(rec.name || '擂台种子车', rec.cells); }
+          catch (_) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '模块清单已不兼容当前规则，保留原车但跳过进化' }); continue; }
+          const ordered = cells => JSON.stringify(cells.map(row => [...row]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+          if (ordered(rec.cells) !== ordered(cellsOf(SA, vehicle))) {
+            seedWarnings.push({ chapter, stage, name: rec.name, reason: '原构筑需要迁移或含无效模块，保留原车但跳过进化' }); continue;
+          }
+          if (!legalVehicle(SA, vehicle, spec)) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '不符合当前构筑、模块表或预算，保留原车但跳过进化' }); continue; }
+          if (['wander', 'rush', 'kite', 'turtle'].includes(rec.style)) vehicle.arenaStyle = rec.style;
+          const key = JSON.stringify(cellsOf(SA, vehicle));
+          if (!seedKeys.has(key)) { seeds.push(vehicle); seedKeys.add(key); }
+        }
+        const result = await generateChapterAsync(SA, spec, previous, campaignOpponents(SA, chapter, stage), rng, quickGames, pool, progress, options.shouldStop, telemetry, seeds);
         if (result.interrupted) { status = 'interrupted'; break chapterLoop; }
-        const top = result.scored.slice(0, Math.min(8, result.scored.length)), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
+        const top = result.scored.filter((item, index) => index < 8 || seeds.includes(item.vehicle)), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
         const bucketCount = Object.keys(result.archive.buckets).length;
         pendingStages.push({ spec, scored: top, records, count: result.scored.length, archive: { buckets: bucketCount, coveredRatio: bucketCount / Math.max(1, result.scored.length), toxic: result.archive.toxic.length, odd: result.archive.odd.length, toxicCodes: result.archive.toxic.map(item => SA.V.encode(item.vehicle)), oddCodes: result.archive.odd.map(item => SA.V.encode(item.vehicle)), toxicCells: result.archive.toxic.map(item => cellsOf(SA, item.vehicle)), oddCells: result.archive.odd.map(item => cellsOf(SA, item.vehicle)) } });
         all.push(...records); previous = top.map(x => x.vehicle); telemetry.completedStages++;
@@ -1097,8 +1146,9 @@ async function runAsync(options = {}) {
       if (bossEntry) chapterBoss = selectStageCandidate(SA, bossEntry.scored, bossEntry.spec, priorBoss, fingerprint, seed + chapter * 10000 + bossEntry.spec.stage * 101, new Set(), duelCache).selected || bossEntry.scored[0];
       previousBoss = chapterBoss || previousBoss;
       const usedStyles = new Set();
-      const stages = pendingStages.map((entry, stage) => {
+      const stages = pendingStages.map(entry => {
         const { spec, scored, records } = entry;
+        const stage = spec.stage;
         if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
         const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
         const selectedIndex = scored.indexOf(selection.selected); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
@@ -1107,12 +1157,12 @@ async function runAsync(options = {}) {
         return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
       });
       chapterReports.push({ chapter, name: SA.CAMPAIGN[chapter].name, stages }); telemetry.completedChapters++;
-      progress({ phase: 'chapter-end', chapter, completed: chapter + 1, total: chapters }); checkpoint(null);
+      progress({ phase: 'chapter-end', chapter, completed: telemetry.completedChapters, total: chapterIndexes.length }); checkpoint(null);
     }
     if (status === 'complete' && options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
     const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)])); telemetry.elapsedMs = Date.now() - telemetry.startedAt;
     progress({ phase: status === 'complete' ? 'complete' : 'interrupted', completed: telemetry.completedChapters, total: chapters }); checkpoint(null, status);
-    return { status, generatedAt: new Date().toISOString(), seed, rules: fingerprint, moduleValues, config, cache: duelCache.summary(), chapters: chapterReports, selectionFailures, candidates: all, telemetry };
+    return { status, generatedAt: new Date().toISOString(), seed, rules: fingerprint, moduleValues, config, cache: duelCache.summary(), chapters: chapterReports, selectionFailures, candidates: all, telemetry, scope, seedWarnings };
   } finally { await pool.close(); }
 }
 

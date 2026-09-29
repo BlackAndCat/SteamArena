@@ -19,6 +19,7 @@ const evolveSelection = require('./evolve-selection-check');
 const evolveFirstStage = require('./evolve-first-stage-check');
 const trackChain = require('./track-chain-check');
 const stageRules = require('./evolve-stage-rules-check');
+const evolveArena = require('./evolve-arena-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -169,6 +170,7 @@ async function main() {
   result.firstStage = firstStage;
   result.stageRules = constraints;
   result.trackChain = tracks;
+  result.arena = await evolveArena.run();
   console.log(JSON.stringify(result, null, 2));
 }
 

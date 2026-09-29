@@ -9,6 +9,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
+from evolve_service import EvolutionService
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,10 +17,11 @@ TEXT_ROOT = os.path.join(ROOT, 'text')
 STAGE_CARS_FILE = os.path.join(ROOT, 'js', 'stage-cars.js')
 SAFE_PART = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 MAX_BODY = 2 * 1024 * 1024
+EVOLUTION = EvolutionService(ROOT)
 
 
 class NoCache(http.server.SimpleHTTPRequestHandler):
-    """静态预览服务器，并为文本管理器提供受限的 JSON 读写接口。"""
+    """静态预览服务器，为文本、手工关卡车和进化任务提供受限 JSON 接口。"""
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, must-revalidate')
@@ -46,6 +48,12 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path in ('/__evolve/config', '/__evolve/job'):
+            try:
+                self._json(200, EVOLUTION.catalog() if parsed.path.endswith('/config') else EVOLUTION.snapshot())
+            except (OSError, ValueError, TimeoutError) as error:
+                self._json(500, {'error': str(error)})
+            return
         if parsed.path == '/__text/load':
             query = parse_qs(parsed.query)
             path = self._text_file(query.get('game', [''])[0], query.get('locale', [''])[0])
@@ -65,6 +73,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path in ('/__evolve/run', '/__evolve/stop'):
+            self._evolve_request(parsed.path)
+            return
         if parsed.path == '/__stage-cars/save':
             self._save_stage_cars()
             return
@@ -127,6 +138,23 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             self._json(500, {'error': f'写入文本文件失败：{error}'})
             return
         self._json(200, {'ok': True, 'file': os.path.relpath(path, ROOT).replace(os.sep, '/'), 'revision': document['updatedAt']})
+
+    def _evolve_request(self, endpoint):
+        """仅允许本机同源页面启动固定的模拟程序，不提供通用命令执行接口。"""
+        origin = self.headers.get('Origin')
+        if self.client_address[0] not in ('127.0.0.1', '::1') or (origin and urlparse(origin).netloc != self.headers.get('Host')):
+            self._json(403, {'error': '进化模拟只能由本机同源页面启动'})
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if length <= 0 or length > MAX_BODY:
+                self._json(413, {'error': '请求体过大或为空'})
+                return
+            request = json.loads(self.rfile.read(length).decode('utf-8'))
+            result = EVOLUTION.stop() if endpoint.endswith('/stop') else EVOLUTION.start(request)
+            self._json(202 if result else 409, result or {'error': '已有模拟正在运行，请等待或停止当前任务'})
+        except (OSError, ValueError) as error:
+            self._json(400, {'error': str(error)})
 
     def _save_stage_cars(self):
         """开发者工具的受限写接口：只接受完整记录表，并原子替换 js/stage-cars.js。"""

@@ -3,6 +3,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const state = { ci: 0, si: 0, vehicle: null, base: null, record: null, tests: {} };
+  let arenaId = null;
   const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' };
   const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || ['0:0', '0:1', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'];
   const [chapterCount] = [3];
@@ -397,6 +398,8 @@
 
   function selectStage(ci, si) {
     if (assemblyOpen) exitAssembly();
+    arenaId = null; $('arena-notice').hidden = true;
+    for (const id of ['save', 'unlock', 'relock']) $(id).disabled = !targetKeys.includes(`${ci}:${si}`);
     state.ci = ci; state.si = si;
     const st = actualStage(ci, si); state.vehicle = st.vehicle;
     fillFields(st); renderPreview(state.vehicle); renderStats(state.vehicle); renderList(); renderProgress(); renderCandidateList();
@@ -482,6 +485,19 @@
   $('module-picker-cancel').onclick = closeModulePicker;
   $('module-picker-confirm').onclick = confirmModulePicker;
   $('save').onclick = async () => { try { const result = await saveRecord(); refreshAfterSave(result); showToast(saveNotice(result, '保存并锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`保存失败：${error.message}`, 'bad'); } };
+  // 擂台保存不经过 saveStageCar，不广播正式关卡变化，也不写 stage-cars.js。
+  $('save-arena').onclick = () => {
+    try {
+      // 擂台使用拼装车间里的车名；关卡文字页的名称继续服务于正式关卡。
+      const vehicle = syncAssemblyVehicle();
+      const row = SA.EvolveArena.saveEdited(arenaId, vehicle, { chapter: state.ci, stage: state.si,
+        name: vehicle.name?.trim() || $('name').value.trim(), style: $('style').value, terrain: $('terrain').value });
+      arenaId = row.id;
+      $('arena-notice').hidden = false;
+      $('arena-notice').textContent = '已保存到进化擂台 · 手工修改 · 待重新模拟。返回报告即可查看，后续生成会使用符合该关规则的构筑作种子。';
+      showToast('已保存到进化擂台，正式关卡未改动。');
+    } catch (error) { showToast(`擂台保存失败：${error.message}`, 'bad'); }
+  };
   $('unlock').onclick = async () => { try { const result = await saveRecord(false); refreshAfterSave(result); showToast(saveNotice(result, '保存并解锁'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`解锁保存失败：${error.message}`, 'bad'); } };
   $('relock').onclick = async () => { try { const result = await saveRecord(true); refreshAfterSave(result); showToast(saveNotice(result, '保存并重新锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`重新锁定失败：${error.message}`, 'bad'); } };
   $('import').onclick = () => { $('import-box').hidden = false; $('import-value').focus(); };
@@ -515,5 +531,22 @@
   };
   renderTerrain();
   try { SA.S.load(); SA.Camp.backfill(); } catch (error) { console.warn('工具页没有正式存档，继续使用原始关卡数据', error); }
-  selectStage(0, 0);
+  const requestedArena = new URLSearchParams(location.search).get('arena');
+  try {
+    const row = requestedArena && SA.EvolveArena.get(requestedArena);
+    if (requestedArena && !row) throw new Error('找不到这台擂台候选，请从进化报告重新打开');
+    const sp = row?.record.spec;
+    selectStage(sp?.chapter ?? 0, sp?.stage ?? 0);
+    if (row) {
+      arenaId = row.id;
+      const rec = row.record;
+      setWorkingVehicle(rec.cells ? SA.V.fromCells(rec.name, rec.cells) : SA.V.decode(rec.code));
+      $('name').value = rec.name || $('name').value; $('style').value = rec.style || 'wander';
+      $('arena-notice').hidden = false;
+      $('arena-notice').textContent = `正在修改擂台候选：${rec.name || '候选车'}。使用“保存到进化擂台”保存构筑、名称和性格；关卡奖励与文字由正式关卡保存处理。`;
+      // 后续章节可在擂台编辑，但正式工作台的写入范围仍遵守原有约定。
+      const supported = targetKeys.includes(`${state.ci}:${state.si}`);
+      for (const id of ['save', 'unlock', 'relock']) $(id).disabled = !supported;
+    }
+  } catch (error) { selectStage(0, 0); showToast(error.message, 'bad'); }
 })();

@@ -92,7 +92,8 @@
 </head>
 <body>
   <h1>关卡车工作台</h1>
-  <p class="muted">点击保存会先写入本机浏览器存档并立即同步正式游戏；写入服务可用时再同步到 <code>js/stage-cars.js</code>。记录默认带锁，进化报告会读取但跳过锁定记录。打开“拼装车间”即可像正常游戏车间一样选模块、点格子、拖动和拆装，设计存档与正式存档分开。</p>
+  <p class="muted">“保存到进化擂台”保留候选构筑，自动标记手工修改并可参与后续进化。“保存为手工关卡车”才会立即同步正式游戏，并在写入服务可用时同步到 <code>js/stage-cars.js</code>。拼装过程使用独立设计存档。</p>
+  <div id="arena-notice" class="notice" hidden></div>
   <div class="layout">
     <aside class="panel">
       <h2>序章～第二章</h2>
@@ -109,6 +110,8 @@
         <button class="tab-button" data-tab="tuning" role="tab">强度调节</button>
       </div>
       <div class="buttons tool-actions">
+        <button class="btn primary" id="save-arena">保存到进化擂台</button>
+        <a class="btn" href="evolve.html#grid" id="back-arena">返回进化擂台</a>
         <button class="btn primary" id="save">保存为手工关卡车</button>
         <button class="btn" id="unlock">解锁（允许进化器改）</button>
         <button class="btn" id="relock">重新锁定</button>
@@ -208,6 +211,6 @@
   <script src="../js/terrain-art.js"></script>
   <script src="../js/battle-view.js"></script>
   <script src="../js/battle.js"></script>
-  <script src="stage-editor.js"></script>
+  <script src="../js/evolve-arena.js"></script><script src="stage-editor.js"></script>
 </body>
 </html>
