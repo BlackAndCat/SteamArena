@@ -7,8 +7,8 @@
 //   ④ 腰胯部分重新设计，至少 6 种供选；⑤ T1 工装两根撑杆是悬空的，改成符合物理的样子。
 // 本期编制（13 种）：
 //   主线 6（沿用 js/legs.js 的六档腿型）：T1 黄铜 工装 Mk.II · T2 熟铁 鹭步 · T3 钢 掷弹兵 · T4 镀镍 蒸汽圣骑 · T5 乌兹钢 钟表巨像 · T6 以太合金 熔心龙骑
-//   唯一变体 7：熟铁 1（高跷，换成熟铁色）· 钢 2（板簧跑刃、裙甲堡）· 镀镍 1（圣堂 · 对开罩袍）· 乌兹钢 1（蒸汽人）· 以太合金 2（詹森连杆腿、缩放仪平行腿）
-//   T6 两条新腿的现实参考：詹森连杆腿 = 荷兰艺术家 Theo Jansen 的「海滩兽」Strandbeest（11 根杆的「神圣数字」连杆，把曲柄转动变成近似平底的 D 形足迹）；
+//   唯一变体 7：熟铁 1（高跷，换成熟铁色）· 钢 2（板簧跑刃、裙甲堡）· 镀镍 1（圣堂 · 对开罩袍）· 乌兹钢 1（蒸汽人）· 以太合金 2（风箱腿、圣堂骑士腿）
+//   现实参考：风箱腿 = 维多利亚相机皮腔 / 铁匠风箱 / 空气弹簧（v3 的詹森连杆腿因过于混乱取消）；
 //     缩放仪平行腿 = 平行四连杆 / 缩放仪（pantograph，17 世纪绘图仪），俄亥俄州立大学 1980 年代「适应性悬挂行走车」的腿就是它——脚板永远保持水平。
 // 历史参考：蒸汽人 = 1868 德德里克「草原蒸汽人」；高跷 = 伸缩套筒；纹章罩袍 = 十字军罩袍。
 // 腰胯 7 种新设计（现役陀螺仪对照 + 7）都是真能动的机构：万向陀螺、球窝髋、蒸汽缸曲柄、差速齿轮、飞轮 + 瓦特调速器、马车板簧悬挂、回转环滚珠座圈。
@@ -48,46 +48,38 @@ SA.BIP = (() => {
     },
   };
 
-  // ---------- 新画 2 · 詹森连杆腿（Theo Jansen 的海滩兽）----------
-  // 真实的詹森「神圣数字」连杆：a 38.0 · b 41.5 · c 39.3 · d 40.1 · e 55.8 · f 39.4 · g 36.7 · h 65.7 · i 49.0 · j 50.0 · k 61.9 · l 7.8 · m 15.0。
-  // 曲柄绕 O 转一圈，脚 F 走出一条底部近似平直的 D 形轨迹：着地半程脚匀速往后蹬，抬脚半程高高收起再落下。11 根杆全是刚性连杆（每个节点都是两圆求交，杆长恒定，没有悬空的东西）。
-  // 整条连杆按 0.27 缩小，挂在一根带弹簧的立柱下面：立柱上端铰在胯上、下端是安装曲柄和固定铰点 A 的托板；悬挂伸缩时立柱跟着变长，连杆的落脚点始终对齐地面。
-  const JN = { a: 38.0, b: 41.5, c: 39.3, d: 40.1, e: 55.8, f: 39.4, g: 36.7, h: 65.7, i: 49.0, j: 50.0, k: 61.9, l: 7.8, m: 15.0 };
-  const cinter = (p, r1, q, r2, sg) => {
-    const dx = q[0] - p[0], dy = q[1] - p[1], d = Math.hypot(dx, dy) || 1;
-    const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, r1 * r1 - a * a));
-    const mx = p[0] + dx * a / d, my = p[1] + dy * a / d;
-    return [mx + sg * h * dy / d, my - sg * h * dx / d];
-  };
-  function jansen(th) {
-    const A = [-JN.a, -JN.l], B = [JN.m * Math.cos(th), JN.m * Math.sin(th)];
-    const n3 = cinter(A, JN.b, B, JN.j, 1), n4 = cinter(A, JN.c, B, JN.k, -1);
-    const n5 = cinter(n3, JN.d, n4, JN.e, 1), n6 = cinter(n4, JN.f, n5, JN.g, -1), F = cinter(n6, JN.i, n5, JN.h, -1);
-    return { A, B, n3, n4, n5, n6, F };
-  }
-  const JANSEN = {
-    hipY: 14, bob: 2,
+  // ---------- 新画 2 · 风箱腿（T6 以太合金）：只有四个大件——铸造锥形大腿、皱褶风箱膝、锥形小腿、圆盘大脚 ----------
+  // 现实参考：维多利亚时代的相机皮腔、风琴 / 铁匠风箱、卡车的空气弹簧——皮质褶皱天然能弯能伸缩，所以膝盖直接用一段风箱，
+  // 内侧褶子被压紧、外侧被拉开（这里按弯折角把褶子画成一边窄一边宽）。腿部造型故意做简：大块面 + 几道黄铜箍，不堆零件。
+  const BELLOWS = {
+    hipY: 14, bob: 3,
     leg(pn, L, ph, o) {
-      const M = L.M, sc = 0.27;
-      const th = o.mv ? (o.a || 0) + ph - 165 / 180 * Math.PI : 105 / 180 * Math.PI;
-      const J = jansen(th), Oy = L.gy - 67 * sc - 1.6, Ox = L.hx - 0.5;
-      const Q = (n) => [Ox + n[0] * sc, Oy + n[1] * sc];
-      const A = Q(J.A), B = Q(J.B), n3 = Q(J.n3), n4 = Q(J.n4), n5 = Q(J.n5), n6 = Q(J.n6), F = Q(J.F);
-      const bar = (p, q, r = 0.6) => pn.cap(p[0], p[1], q[0], q[1], r);
-      // 立柱：细一点的方梁从胯直落到齿轮箱；箱子是一块小板，固定铰点 A 和曲柄轴 O 都长在它上面
-      pn.cap(L.hx, L.hy, Ox + 0.6, Oy - 2, 1.9).paint(M.iron, { bevel: 'l' });
-      pn.poly([[A[0] - 1.6, Oy - 2.4], [Ox + 2.4, Oy - 2.4], [Ox + 2.4, Oy + 1], [A[0] - 1.6, Oy + 1]]).paint(M.iron);
-      // 脚三角板（n5–n6–F 三个铰点连成一块刚性的板，三边就是 g、i、h）：先画，杆压在它上面
-      pn.poly([n5, n6, F]).cap(...n5, ...n6, 0.8).cap(...n6, ...F, 0.8).cap(...n5, ...F, 0.8).paint(M.iron);
-      pn.poly([[F[0] - 3.2, F[1] + 0.2], [F[0] + 3.6, F[1] + 0.2], [F[0] + 3.2, F[1] + 1.6], [F[0] - 3.4, F[1] + 1.6]]).paint(M.dark);
-      // 背后一层杆 A–n4、B–n4、n4–n6，前一层杆 A–n3、B–n3、n3–n5、n4–n5（前层更亮）
-      bar(A, n4); bar(B, n4); bar(n4, n6); pn.paint(M.iron, { bevel: 'l' });
-      bar(A, n3, 0.7); bar(B, n3, 0.7); bar(n3, n5, 0.7); bar(n4, n5, 0.7); pn.paint(M.steel, { bevel: 'l' });
-      // 曲柄：轴 O + 曲柄臂 + 曲柄销 B；各铰点小黄铜销
-      pn.cap(Ox, Oy, B[0], B[1], 0.8).paint(M.brass, { bevel: 'l' });
-      pn.disc(Ox, Oy, 1.5).paint(M.brass);
-      for (const n of [A, B, n3, n4, n5, n6, F]) pn.disc(n[0], n[1], 0.8).paint(M.brass, { outline: false });
-      pn.disc(L.hx, L.hy, 3.2).paint(M.iron); pn.disc(L.hx, L.hy, 1.2).paint(M.brass, { outline: false });
+      const M = L.M, g = gait(o, ph, 7, 5.5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + 1 + g.x, L.gy - 4.6 - g.lift, 14, 15, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt);
+      // 圆盘大脚：宽而低，黄铜镶边，底下一层深色胶垫
+      pn.poly(F.pts([[-7.4, 3.2], [-4.6, 1.2], [5, 1.2], [8.6, 3.2], [8.6, 4.6], [-7.4, 4.6]])).paint(M.leg);
+      pn.poly(F.pts([[-7.4, 3.6], [8.6, 3.6], [8.6, 4.6], [-7.4, 4.6]])).paint(M.dark, { outline: false, bevel: '' });
+      pn.ln(...F.p(-6.4, 2.6), ...F.p(7.4, 2.6), M.brass[2], pn.hi ? 2 : 1);
+      // 小腿：上粗下细的铸造锥
+      pn.poly(S.pts([[5, -3.4], [5, 3.4], [S.len - 0.5, 2.2], [S.len - 0.5, -2.2]])).paint(M.iron);
+      for (const t of [0.42, 0.86]) { const a = S.len * t, w = 3.4 - 1.2 * (a - 5) / (S.len - 5.5); pn.poly(S.pts([[a - 0.8, -w - 0.4], [a + 0.8, -w - 0.4], [a + 0.8, w + 0.4], [a - 0.8, w + 0.4]])).paint(M.brass, { outline: false, bevel: 'l' }); }
+      if (pn.hi) pn.ln(...S.p(4, 2.2), ...S.p(S.len - 2, 1.2), M.iron[3]);
+      pn.disc(ex, ey, 2.4).paint(M.brass); pn.dot(ex - 0.8, ey - 0.8, M.brass[3]);
+      // 大腿：更粗的铸造锥，两端黄铜箍
+      pn.poly(T.pts([[-1, -4.2], [-1, 4.2], [T.len - 4.6, 3.6], [T.len - 4.6, -3.6]])).paint(M.iron);
+      for (const a of [1.2, T.len - 5.4]) pn.poly(T.pts([[a - 0.8, -4.6], [a + 0.8, -4.6], [a + 0.8, 4.6], [a - 0.8, 4.6]])).paint(M.brass, { outline: false, bevel: 'l' });
+      if (pn.hi) pn.ln(...T.p(2, 2.4), ...T.p(T.len - 5, 1.8), M.iron[3]);
+      // 膝：风箱。从大腿下端到小腿上端；褶子垂直于两端连线，内侧（后面）窄外侧（前面）宽，交替深浅
+      const A = T.p(T.len - 4.6, 0), B = S.p(5, 0), dx = B[0] - A[0], dy = B[1] - A[1], dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl;
+      pn.cap(...A, ...B, 3.1).paint(M.leather);
+      const N = 5;
+      for (let i = 0; i < N; i++) {
+        const t = (i + 0.5) / N, cx = A[0] + dx * t, cy = A[1] + dy * t, wide = i % 2 === 0 ? 3.9 : 3.2;
+        pn.cap(cx - nx * wide * 0.85, cy - ny * wide * 0.85, cx + nx * wide * 1.15, cy + ny * wide * 1.15, 0.5);
+      }
+      pn.paint(M.brass, { bevel: 'l' });
+      pn.disc(L.hx, L.hy, 3.8).paint(M.iron); pn.disc(L.hx, L.hy, 1.4).paint(M.brass, { outline: false });
     },
   };
 
@@ -204,7 +196,7 @@ SA.BIP = (() => {
 
   LL.DESIGNS.push(
     { id: 'steamman', q: -1, name: '蒸汽人', sub: '汽缸腿 · 圆头靴', d: STEAMMAN, note: '' },
-    { id: 'jansen', q: -1, name: '詹森连杆腿', sub: '海滩兽连杆 · 立柱弹簧', d: JANSEN, note: '' },
+    { id: 'bellows', q: -1, name: '风箱腿', sub: '风箱膝 · 铸造锥腿 · 圆盘脚', d: BELLOWS, note: '' },
     { id: 'panto', q: -1, name: '缩放仪平行腿', sub: '平行四连杆 · 脚板水平', d: PANTO, note: '' },
     { id: 'templar', q: -1, name: '圣堂骑士腿', sub: '羽翼护膝 · 能量脉 · 罩袍', d: TEMPLAR, note: '' },
     { id: 'mail', q: -1, name: '锁甲骑士腿', sub: '锁甲 · 圆护膝 · 鸭嘴靴', d: MAIL, note: '' });
@@ -225,7 +217,7 @@ SA.BIP = (() => {
     { mt: 5, leg: 'steamman', name: '蒸汽人', ref: '1868 德德里克「草原蒸汽人」', idea: '人形正膝，粗大的铆接汽缸大腿 + 直筒小腿 + 圆头铁靴；腿后一根蒸汽管，迈步时膝后喷白汽。' },
     { mt: 6, leg: 'dragon', main: true, name: '熔心龙骑', ref: '主线', idea: '三段龙腿：鳞甲大腿里嵌一座小炉膛、膝前尖刺、跗关节后刺、三爪 + 后爪。' },
     { mt: 6, leg: 'templar', name: '圣堂骑士腿', ref: '哥特板甲 + 十字军罩袍 + 以太合金的发光能量脉', idea: '蒸汽圣骑的升级版：护膝侧面三片向后掠的黄铜羽翼、护胫后缘一片刀锋尾鳍、又长又尖的铁靴（脚跟一根后刺）；大腿甲正中一条发光的能量脉；每腿一片白布红十字罩袍。腰胯用球窝髋。' },
-    { mt: 6, leg: 'jansen', name: '詹森连杆腿', ref: 'Theo Jansen 的海滩兽（Strandbeest）', idea: '真实的詹森连杆：11 根杆的「神圣数字」，曲柄一转，脚走出底部近似平直的 D 形轨迹——着地匀速往后蹬、抬脚高高收起。整套连杆挂在一根立柱下面，曲柄和固定铰点都长在立柱下端的齿轮箱上；这一版清掉了多余的弹簧和铜箍，只留 11 根杆 + 脚三角板。' },
+    { mt: 6, leg: 'bellows', name: '风箱腿', ref: '维多利亚相机皮腔 / 铁匠风箱 / 卡车空气弹簧', idea: '只有四个大件：铸造锥形大腿、皱褶风箱膝、锥形小腿、圆盘大脚。膝盖是一段黄铜箍的皮质风箱，弯腿时内侧褶子被压紧、外侧被拉开；造型故意做简，不堆零件。' },
   ];
 
   // ---------- 腰胯（真双足上两行的躯干）7 种新设计 + 现役对照 ----------
@@ -383,8 +375,8 @@ SA.BIP = (() => {
     } },
   ];
 
-  // 每种腿配哪种腰胯（用户 2026-09-29 定）：T1 蒸汽缸 · T2 差速齿轮 · T3 飞轮调速器 · T4 板簧悬挂 · T5 现役陀螺仪 · T6 万向陀螺；球窝髋给圣堂系列，滚珠座圈给裙甲堡
-  const HIP_OF = { mk2: 'cyl', heron: 'diff', stilt: 'diff', gren: 'governor', blade: 'governor', skirt: 'race', knight: 'spring', mail: 'spring', panto: 'spring', clock: 'gyro', steamman: 'gyro', dragon: 'gimbal', jansen: 'gimbal', templar: 'ball' };
+  // 每种腿配哪种腰胯（用户 2026-09-29 定）：T1 差速齿轮 · T2 蒸汽缸 · T3 飞轮调速器 · T4 板簧悬挂 · T5 现役陀螺仪 · T6 万向陀螺；球窝髋给圣堂系列，滚珠座圈给裙甲堡
+  const HIP_OF = { mk2: 'diff', heron: 'cyl', stilt: 'cyl', gren: 'governor', blade: 'governor', skirt: 'race', knight: 'spring', mail: 'spring', panto: 'spring', clock: 'gyro', steamman: 'gyro', dragon: 'gimbal', bellows: 'gimbal', templar: 'ball' };
   SET.forEach(e => { e.hip = HIP_OF[e.leg]; });
 
   // 画一只整件双足（2×4：48×96）到透明画布，坐标 (ox, oy) = 模块左上角。o = { a 步态角, mv, t 秒, stride, hip: HIPS 的 id }
