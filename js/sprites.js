@@ -1454,6 +1454,238 @@ SA.SPR = (() => {
   const giantO = (q) => ({ a: q.a, k: (q.k || 0) / 8 });
 
   // 材质处理之后才画的「身份件」：DRAW 画铁件，OVER 画颜色固定的零件
+  // ---------- 大型锅炉 boiler_l / 大水箱 water_l（3×3，2026-09-29 定稿 v4：巨大炉口 + 火光剪影 + 煤山 + 司炉站台；拼装水柜 + 大舷窗）----------
+  // 样机 tools/archive/big-boiler-tank.html。自带一套小工具（从样机原样搬来，g 是当前画布）；司炉小工在材质处理之后逐帧画（bigStoker）
+  const BIG = (() => {
+  const P = SA.PAL, TAU = Math.PI * 2;
+  let g = null;
+  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  const px = (x, y, c) => R(x, y, 1, 1, c);
+  const disc = (cx, cy, r, c) => {
+    g.fillStyle = c;
+    for (let yy = Math.floor(cy - r); yy <= Math.ceil(cy + r); yy++) for (let xx = Math.floor(cx - r); xx <= Math.ceil(cx + r); xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy; if (dx * dx + dy * dy <= r * r) g.fillRect(xx, yy, 1, 1);
+    }
+  };
+  const line = (x0, y0, x1, y1, w, c) => {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1, o = Math.floor(w / 2); g.fillStyle = c;
+    for (let i = 0; i <= n; i++) g.fillRect(Math.round(x0 + (x1 - x0) * i / n) - o, Math.round(y0 + (y1 - y0) * i / n) - o, w, w);
+  };
+  const ring = (cx, cy, r, c) => { const n = Math.ceil(r * 7); for (let i = 0; i < n; i++) { const a = i / n * TAU; px(Math.floor(cx + Math.cos(a) * r), Math.floor(cy + Math.sin(a) * r), c); } };
+  const IRON = [P.iron[0], P.iron[1], P.iron[2], P.iron[3]], IRONL = [P.iron[0], P.iron[2], P.iron[3], P.iron[4]], BRASS = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]], DARK = [P.dark[0], P.dark[1], P.dark[2], P.dark[3]];
+  const LEATHER = [P.black, P.leather[0], P.leather[1], P.leather[2]], WATER = [P.water[0], P.water[1], P.water[2], P.water[3]];
+  const box = (x, y, w, h, r) => { R(x, y, w, h, r[0]); R(x + 1, y + 1, w - 2, h - 2, r[2]); R(x + 1, y + h - 2, w - 2, 1, r[1]); R(x + w - 2, y + 1, 1, h - 2, r[1]); R(x + 1, y + 1, w - 2, 1, r[3]); R(x + 1, y + 1, 1, h - 2, r[3]); };
+  const rivet = (x, y) => { R(x, y, 2, 2, P.iron[4]); px(x + 1, y + 1, P.iron[2]); };
+  // 任意形状按像素判定上色：外沿描边、左上两像素亮、右下两像素暗
+  function shape(test, x0, y0, x1, y1, r = IRONL) {
+    const inn = (xx, yy) => test(xx + 0.5, yy + 0.5);
+    for (let yy = Math.floor(y0); yy <= Math.ceil(y1); yy++) for (let xx = Math.floor(x0); xx <= Math.ceil(x1); xx++) {
+      if (!inn(xx, yy)) continue;
+      if (!inn(xx - 1, yy) || !inn(xx + 1, yy) || !inn(xx, yy - 1) || !inn(xx, yy + 1)) { px(xx, yy, r[0]); continue; }
+      px(xx, yy, !inn(xx - 2, yy) || !inn(xx, yy - 2) ? r[3] : !inn(xx + 2, yy) || !inn(xx, yy + 2) ? r[1] : r[2]);
+    }
+  }
+  const inPoly = (pts) => (x, y) => { let s = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) s = !s; } return s; };
+  const poly = (pts, r) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); shape(inPoly(pts), Math.min(...xs) - 1, Math.min(...ys) - 1, Math.max(...xs) + 1, Math.max(...ys) + 1, r); };
+  const ball = (cx, cy, rr, r) => shape((x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= rr * rr, cx - rr - 1, cy - rr - 1, cx + rr + 1, cy + rr + 1, r);
+  const vtube = (x, y, w, h, r = IRONL) => { R(x, y, w, h, r[0]); R(x + 1, y, w - 2, h, r[2]); R(x + 1, y, 1, h, r[3]); if (w > 3) R(x + w - 2, y, 1, h, r[1]); };
+  const htube = (x, y, w, h, r = IRONL) => { R(x, y, w, h, r[0]); R(x, y + 1, w, h - 2, r[2]); R(x, y + 1, w, 1, r[3]); if (h > 3) R(x, y + h - 2, w, 1, r[1]); };
+  const lens = (x, y, w, h, glint) => { R(x, y, w, h, P.glass[0]); if (w > 2 && h > 2) R(x + 1, y + 1, w - 2, h - 2, P.glass[2]); px(x + (w > 2 ? 1 : 0), y + (h > 2 ? 1 : 0), glint ? P.white : P.glass[3]); };
+  const puff = (x, y, t, n = 3, rise = 8) => { for (let k = 0; k < n; k++) { const p = ((t * 0.04 + k / n) % 1); disc(x + Math.sin(p * 6 + k) * 1.5, y - p * rise, 0.8 + p * 1.6, p < 0.5 ? P.steam[2] : P.steam[1]); } };
+  // 黄铜炮弹：横放（弹壳 + 铁弹头 + 底火）/ 竖放
+  const shellH = (x, y, l = 9) => { R(x, y, l - 3, 3, P.brass[1]); R(x, y, l - 3, 1, P.brass[3]); R(x, y + 2, l - 3, 1, P.brass[0]); R(x + l - 3, y, 2, 3, P.iron[3]); px(x + l - 1, y + 1, P.iron[3]); px(x + l - 3, y, P.iron[4]); px(x, y + 1, P.brass[0]); };
+  const shellV = (x, y, l = 9) => { R(x, y + 3, 3, l - 3, P.brass[1]); R(x, y + 3, 1, l - 3, P.brass[3]); R(x + 2, y + 3, 1, l - 3, P.brass[0]); R(x, y + 1, 3, 2, P.iron[3]); px(x + 1, y, P.iron[3]); px(x, y + 1, P.iron[4]); px(x + 1, y + l - 1, P.brass[0]); };
+  const gear = (cx, cy, r, n, rot, ramp = BRASS) => { shape((x, y) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx) - rot; return d <= r - 1 || (d <= r + 0.6 && Math.cos(a * n) > 0.2); }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2, ramp); disc(cx, cy, Math.max(0.8, r * 0.3), P.iron[0]); };
+  function gauge(cx, cy, r, v = 0.6) {
+    disc(cx, cy, r, P.brass[0]); disc(cx, cy, r - 1, P.steam[2]);
+    const a = Math.PI * (0.75 + 1.5 * v), L = Math.max(1.5, r - 1.5);
+    line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 0.5 + Math.cos(a) * L), Math.round(cy - 0.5 + Math.sin(a) * L), 1, P.dark[0]);
+  }
+  const plinth = (x, y, x0, x1, top, bot = 24) => { box(x + x0, y + top, x1 - x0, bot - top, IRON); if (x1 - x0 > 8) { rivet(x + x0 + 2, y + top + 2); rivet(x + x1 - 4, y + top + 2); } };
+  const saw = (t, per) => ((t % per) + per) % per / per;   // 0～1 锯齿
+
+  // 水：玻璃背景 + 水位（lv 0～1）+ 水面波纹 + 往上冒的气泡
+  function water(x0, y0, w, h, lv, t, o = {}) {
+    R(x0, y0, w, h, P.glass[0]);
+    const top = y0 + h * (1 - lv);
+    R(x0, top, w, y0 + h - top, P.water[1]); R(x0, top + 2, w, Math.max(0, y0 + h - top - 2), P.water[1]);
+    for (let u = 0; u < w; u++) px(x0 + u, top + (Math.sin(u * 0.8 + t * 0.2) > 0.3 ? 0 : 1), P.water[2]);
+    R(x0, top, 1, y0 + h - top, P.water[2]);
+    if (o.bubbles !== false) for (let k = 0; k < Math.max(2, w / 6); k++) { const p = saw(t + k * 23, 70), by = y0 + h - 2 - p * (y0 + h - top - 3); if (by > top + 1) px(x0 + 2 + ((k * 7) % Math.max(1, w - 4)), by, P.water[3]); }
+  }  // ================= v4（2026-09-29 用户：背景钢板照抄巨炮、炉膛占 60% 以上的红色中心、其他都是被红光衬托的剪影、煤堆变成大山）=================
+  // 巨炮的背景钢板墙（sprites.js gPlateWall 原样照抄）：24px 大板 + X 加强肋 + 板边细铆钉，全用暗色，安静
+  function plateWall(x0, y0, x1, y1) {
+    R(x0, y0, x1 - x0, y1 - y0, P.dark[1]);
+    for (let py0 = y0; py0 < y1; py0 += 24) for (let px0 = x0; px0 < x1; px0 += 24) {
+      const w = Math.min(24, x1 - px0), h = Math.min(24, y1 - py0), n = Math.min(w, h);
+      for (let t = 1; t < n - 1; t++) { px(px0 + t, py0 + t, P.dark[2]); px(px0 + n - 1 - t, py0 + t, P.dark[2]); }
+      R(px0, py0, w, 1, P.dark[0]); R(px0, py0, 1, h, P.dark[0]);
+      for (let t = 3; t < w; t += 3) px(px0 + t, py0 + 1, P.dark[3]);
+      for (let t = 3; t < h; t += 3) px(px0 + 1, py0 + t, P.dark[3]);
+    }
+  }
+  // 剪影：实心黑，朝上的边被身后的火光勾一道红边，两侧一道暗红
+  function sil(test, x0, y0, x1, y1, rim = true) {
+    const inn = (xx, yy) => test(xx + 0.5, yy + 0.5);
+    for (let yy = Math.floor(y0); yy <= Math.ceil(y1); yy++) for (let xx = Math.floor(x0); xx <= Math.ceil(x1); xx++) {
+      if (!inn(xx, yy)) continue;
+      const edge = !inn(xx, yy - 1) || !inn(xx + 1, yy) || !inn(xx - 1, yy);
+      px(xx, yy, rim && edge ? (!inn(xx, yy - 1) ? P.fire[1] : P.fire[0]) : P.black);
+    }
+  }
+  const silBar = (ax, ay, bx, by, w) => { const L = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / L, uy = (by - ay) / L; sil((x, y) => { const s = (x - ax) * ux + (y - ay) * uy, d = Math.abs((x - ax) * -uy + (y - ay) * ux); return s >= 0 && s <= L && d <= w / 2; }, Math.min(ax, bx) - w, Math.min(ay, by) - w, Math.max(ax, bx) + w, Math.max(ay, by) + w); };
+  // 剪影链条：一串黑链节，销子被火光照出一粒红，随 off 走
+  function chainSil(ax, ay, bx, by, off, horiz = true) {
+    const n = Math.round(Math.hypot(bx - ax, by - ay)), dx = (bx - ax) / n, dy = (by - ay) / n;
+    for (let i = 0; i <= n; i++) {
+      const k = ((Math.floor(i + off)) % 4 + 4) % 4, x0 = ax + dx * i, y0 = ay + dy * i;
+      if (horiz) { px(x0, y0 - 1, k < 2 ? P.black : P.fire[0]); px(x0, y0, P.black); px(x0, y0 + 1, k === 3 ? P.fire[1] : P.black); }
+      else { px(x0 - 1, y0, k < 2 ? P.black : P.fire[0]); px(x0, y0, P.black); px(x0 + 1, y0, k === 3 ? P.fire[1] : P.black); }
+    }
+  }
+  const sprocketSil = (cx, cy, r, n, rot) => sil((x, y) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx) - rot; return (d <= r - 1 || (d <= r + 0.7 && Math.cos(a * n) > 0.2)) && !(d < r * 0.35); }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2);
+  // 煤山：不规则的大山（折线外形），几块大煤面 + 每块一粒亮反光；火在右边，右坡被勾红
+  const HILL = [[0, 63], [0, 30], [2, 27], [5, 28], [7, 24], [10, 22], [13, 23], [15, 20], [18, 22], [20, 26], [22, 27], [24, 32], [26, 35], [27, 40], [30, 44], [30, 48], [33, 52], [34, 57], [37, 61], [38, 63]];
+  const FACETS = [[6, 31, 7, 1], [15, 27, 7, 0], [11, 40, 8, 0], [21, 38, 6, 2], [4, 50, 7, 0], [17, 50, 8, 1], [27, 51, 6, 2], [9, 58, 6, 0], [24, 59, 7, 0]];
+  function coalHill(x, y) {
+    // 一座由大煤块垒起来的山：先铺一层阴影底，再从上往下一排排压上大块（越往下越靠前），每排最右一块被火勾红边
+    const edgeX = (yy) => { for (let i = 1; i < HILL.length; i++) { const [a0, b0] = HILL[i - 1], [a1, b1] = HILL[i]; if (b1 >= yy && b0 <= yy && b1 > b0) return a0 + (a1 - a0) * (yy - b0) / (b1 - b0); } return 0; };
+    const ins = inPoly(HILL.map(([a, b]) => [x + a - 1, y + b + 2]));
+    for (let yy = y + 20; yy < y + 64; yy++) for (let xx = x; xx < x + 40; xx++) if (ins(xx + 0.5, yy + 0.5)) px(xx, yy, P.black);
+    const hash = (i) => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5; return v - Math.floor(v); };
+    let n = 0;
+    for (let r = 0; r < 6; r++) {
+      const cy = 27 + r * 7, right = edgeX(cy) - 3;
+      for (let cx = right; cx > -4; cx -= 8.5 + hash(n) * 1.5, n++) {
+        const s = 8 + hash(n + 50) * 3, h = s / 2, rim = cx === right, j = (k) => (hash(n * 7 + k) - 0.5) * 2;
+        const pts = [[cx - h + j(1), cy + j(2)], [cx - h * 0.4 + j(3), cy - h + j(4)], [cx + h * 0.5 + j(5), cy - h * 0.8], [cx + h + j(6), cy + j(7)], [cx + h * 0.4, cy + h * 0.8 + j(8)], [cx - h * 0.6, cy + h * 0.8]].map(([a, b]) => [x + a, y + b]);
+        const inn = inPoly(pts), ok = (xx, yy) => inn(xx + 0.5, yy + 0.5);
+        for (let yy = Math.floor(y + cy - h - 2); yy <= y + cy + h + 2; yy++) for (let xx = Math.floor(x + cx - h - 2); xx <= x + cx + h + 2; xx++) {
+          if (!ok(xx, yy) || xx < x || yy >= y + 64) continue;
+          const out = !ok(xx - 1, yy) || !ok(xx + 1, yy) || !ok(xx, yy - 1) || !ok(xx, yy + 1);
+          const tl = !ok(xx - 2, yy) || !ok(xx, yy - 2), br = !ok(xx + 2, yy) || !ok(xx, yy + 2);
+          px(xx, yy, out ? (rim && !ok(xx + 1, yy) ? P.fire[1] : P.black) : tl ? P.dark[3] : br ? (rim ? P.fire[0] : P.black) : P.dark[1]);
+        }
+        if (hash(n + 90) > 0.62 && x + cx - h > x) { const gx = x + cx - h * 0.4, gy = y + cy - h + 2; px(gx, gy, P.white); px(gx + 1, gy, P.iron[4]); px(gx - 1, gy + 1, P.iron[4]); }   // 少数几块沿上沿一道亮反光
+      }
+    }
+  }
+  // 铲煤（v5，更自然）：铲子长度固定，双手带着它走——插进煤山、端起来、举过身侧、往前一送把煤抛上链条，然后转身（铲子缩成一小截表示转过来）回到煤山
+  const SHOVEL_KF = [[0, 35, 57, 165, 9, 0], [0.16, 34, 58, 170, 9, 1], [0.3, 36, 56, 200, 9, 0], [0.46, 39, 53, 262, 9, -1], [0.58, 42, 51, 318, 9, -1], [0.68, 42, 52, 338, 9, 0], [0.8, 39, 55, 358, 8, 0], [0.86, 37, 56, 358, 2, 0], [0.87, 37, 56, 178, 2, 0], [0.94, 36, 56, 172, 9, 0], [1, 35, 57, 165, 9, 0]];
+  function shovelPose4(t) {
+    const p = saw(t, 60), ease = (k) => k * k * (3 - 2 * k);
+    let i = 1; while (i < SHOVEL_KF.length - 1 && SHOVEL_KF[i][0] < p) i++;
+    const A = SHOVEL_KF[i - 1], B = SHOVEL_KF[i], k = ease(Math.min(1, Math.max(0, (p - A[0]) / (B[0] - A[0] || 1)))), m = (j) => A[j] + (B[j] - A[j]) * k;
+    const hx = m(1), hy = m(2), ang = m(3) * Math.PI / 180, L = m(4), dx = Math.cos(ang), dy = Math.sin(ang);
+    return { p, hand: [hx, hy], dir: [dx, dy], L, tip: [hx + dx * L, hy + dy * L], dy: m(5), loaded: p > 0.16 && p < 0.56 };
+  }
+  const TOSS_TO = [54, 43];
+  const MOUTH = { cx: 40, cy: 34, r: 29, bot: 62 };   // 拱形炉口：x 11～69，y 5～62，约占画面 57%，加上踏板下漏出来的红光超过 60%
+  const BOILER4 = [
+    { key: 'E4',
+      draw(x, y, o) {
+        const t = o.t || 0, heat = o.heat, run = t * 0.5, M = MOUTH;
+        plateWall(x, y, x + 72, y + 72);
+        // 炉口外框：一圈黑铁框 + 黄铜口沿
+        sil((xx, yy) => { const dx = xx - (x + M.cx), dy = yy - (y + M.cy), R2 = M.r + 3; return yy <= y + M.bot + 1 && Math.abs(dx) <= R2 && (yy >= y + M.cy || dx * dx + dy * dy <= R2 * R2); }, x + 5, y + 1, x + 72, y + 64, false);
+        for (let k = 0; k <= 60; k++) { const a = Math.PI + k / 60 * Math.PI; px(x + M.cx + Math.cos(a) * (M.r + 1.6), y + M.cy + Math.sin(a) * (M.r + 1.6), P.brass[1]); px(x + M.cx + Math.cos(a) * (M.r + 2.5), y + M.cy + Math.sin(a) * (M.r + 2.5), P.brass[0]); }
+        R(x + M.cx - M.r - 3, y + M.cy, 2, M.bot - M.cy, P.brass[0]); R(x + M.cx - M.r - 2, y + M.cy, 1, M.bot - M.cy, P.brass[1]); R(x + M.cx + M.r + 1, y + M.cy, 2, M.bot - M.cy, P.brass[1]);
+        // 炉口里：满满的火。上面暗红的炉顶，往下橙、黄，底下一床白热的炭
+        g.save(); g.beginPath(); g.moveTo(x + M.cx - M.r, y + M.bot); g.lineTo(x + M.cx - M.r, y + M.cy); g.arc(x + M.cx, y + M.cy, M.r, Math.PI, 0); g.lineTo(x + M.cx + M.r, y + M.bot); g.closePath(); g.clip();
+        R(x, y, 72, 64, P.fire[0]);
+        const W = M.r * 2, x0 = x + M.cx - M.r, bed = y + 56, H = 50;
+        for (let u = 0; u < W; u++) {
+          const hg = H * (0.55 + 0.35 * heat) * (0.6 + 0.4 * Math.sin(u * 0.9 + t * 0.3) * Math.sin(u * 0.33 - t * 0.17));
+          R(x0 + u, bed - hg, 1, hg, P.fire[1]); R(x0 + u, bed - hg * 0.62, 1, hg * 0.62, P.fire[2]); R(x0 + u, bed - hg * 0.28, 1, hg * 0.28, P.fire[3]);
+        }
+        R(x0, bed, W, 7, P.fire[2]); for (let u = 1; u < W; u += 3) R(x0 + u, bed + 1 + (u % 4), 2, 1, (u % 2) ? P.fire[3] : P.fire[1]);
+        for (let k = 0; k < 7; k++) { const p = saw(t + k * 19, 60); px(x0 + 6 + ((k * 13) % (W - 12)) + Math.sin(p * 9 + k) * 2, bed - 8 - p * 38, p < 0.6 ? P.fire[3] : P.fire[2]); }   // 往上飘的火星
+        g.restore();
+        // 顶上：工字梁 + 黄铜齿轮组（下沿被火照亮）
+        R(x, y, 72, 5, P.iron[0]); R(x, y + 1, 72, 3, P.iron[2]); R(x, y + 1, 72, 1, P.iron[3]); R(x, y + 4, 72, 1, P.dark[0]);
+        gear(x + 46, y + 10, 6, 12, t * 0.05); gear(x + 35.5, y + 7, 3.8, 8, -t * 0.05 * 6 / 3.8); gear(x + 56.5, y + 8, 4.2, 9, -t * 0.05 * 6 / 4.2);
+        for (const [cx, cy, r] of [[46, 10, 6], [35.5, 7, 3.8], [56.5, 8, 4.2]]) for (let k = 0; k < 7; k++) { const a = 0.2 + k * 0.4; px(x + cx + Math.cos(a) * r, y + cy + Math.sin(a) * r, P.fire[2]); }
+        // 传动链：从大齿轮一直垂到输送链头部的链轮（剪影）
+        chainSil(x + 41, y + 12, x + 41, y + 51, run, false); chainSil(x + 51, y + 12, x + 51, y + 51, -run, false);
+        // 长拉环：梁上垂下的长杆 + 拉环（剪影）
+        silBar(x + 63, y + 4, x + 63, y + 30, 1.6); sil((xx, yy) => { const d = Math.hypot(xx - (x + 63.5), yy - (y + 33.5)); return d <= 3.3 && d >= 1.7; }, x + 59, y + 29, x + 68, y + 38);
+        // 输送链：链轮 + 上行链（载煤进火）+ 下行链 + 托架（剪影）
+        sprocketSil(x + 46, y + 52, 5.5, 10, run * 0.2);
+        chainSil(x + 46, y + 46.5, x + 69, y + 46.5, -run); chainSil(x + 46, y + 57.5, x + 69, y + 57.5, run);
+        for (let k = 0; k < 5; k++) {
+          const lx = x + 46 + ((k * 5.2 + run) % 26); if (lx > x + 67) continue;
+          const hot = (lx - x - 50) / 14 * (0.6 + heat);
+          sil((xx, yy) => xx >= lx && xx < lx + 3.5 && yy >= y + 42.5 && yy < y + 45.5 - (xx - lx > 2.5 ? 1 : 0), lx - 1, y + 41, lx + 5, y + 47, hot < 0.3);
+          if (hot > 0.3) { R(lx, y + 43, 3, 2, hot > 0.8 ? P.fire[2] : P.fire[1]); if (hot > 0.8) px(lx + 1, y + 43, P.fire[3]); }
+        }
+        // 踏板：镂空格栅，孔里透出下面灰坑的红光
+        R(x, y + 62, 72, 3, P.black); for (let u = 1; u < 71; u += 3) R(x + u, y + 63, 2, 1, u > 12 && u < 66 ? P.fire[1] : P.fire[0]);
+        R(x, y + 62, 72, 1, P.dark[2]);
+        // 踏板下：灰坑的红光 + 左下镂空楼梯（剪影）
+        R(x, y + 65, 72, 7, P.dark[0]); R(x + 10, y + 66, 58, 5, P.fire[0]); for (let u = 12; u < 66; u += 5) R(x + u, y + 67 + (u % 2), 3, 2, heat > 0.4 ? P.fire[1] : P.fire[0]);
+        for (let k = 0; k < 3; k++) { const sx = x + 18 - k * 7, sy = y + 65 + k * 2.5; R(sx, sy, 7, 2, P.black); for (let u = 1; u < 7; u += 2) px(sx + u, sy + 1, P.fire[0]); }
+        line(x + 24, y + 64, x + 4, y + 72, 1, P.black);
+        // 煤山（最前景）
+        coalHill(x, y);
+        // 司炉站台：花纹钢板踏面 + 黄铜包边 + 铆接立面 + 两条腿和一道斜撑（颜色、结构都清楚，不是剪影）
+        R(x + 31, y + 61, 20, 3, P.iron[0]); R(x + 32, y + 61, 18, 2, P.iron[3]); for (let u = 33; u < 50; u += 3) px(x + u, y + 62, P.iron[4]);
+        R(x + 31, y + 60, 20, 1, P.brass[2]); R(x + 31, y + 61, 20, 1, P.brass[1]);
+        R(x + 32, y + 64, 18, 3, P.iron[2]); R(x + 32, y + 66, 18, 1, P.iron[0]); for (let u = 34; u < 50; u += 4) px(x + u, y + 65, P.iron[4]);
+        for (const u of [33, 47]) { R(x + u, y + 67, 3, 5, P.iron[0]); R(x + u + 1, y + 67, 1, 5, P.iron[3]); }
+        line(x + 36, y + 67, x + 46, y + 71, 1, P.iron[1]);
+      },
+      over(x, y, o, mini) {
+        const t = o.t || 0, S = shovelPose4(t), [hx, hy] = S.hand, [dx, dy] = S.dir;
+        const cx = x + 38 + (hx - 38) * 0.35, cy = y + 56 + S.dy;
+        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6));
+        const H = [x + hx, y + hy], tip = [H[0] + dx * S.L, H[1] + dy * S.L], base = [H[0] + dx * (S.L - 2), H[1] + dy * (S.L - 2)];
+        line(H[0] - dx * 3, H[1] - dy * 3, base[0], base[1], 1, P.leather[2]);                 // 木柄
+        px(H[0] - dx * 3, H[1] - dy * 3, P.black); px(H[0], H[1], P.black);                   // 两只手
+        if (S.L > 4) {                                                                        // 铲头：一片亮钢，横在柄的末端
+          const nx = -dy, ny = dx;
+          for (const s2 of [-1, 0, 1]) { px(base[0] + nx * s2, base[1] + ny * s2, P.iron[3]); px(tip[0] + nx * s2 * 0.8, tip[1] + ny * s2 * 0.8, P.iron[4]); }
+          px(tip[0], tip[1], Math.sin(t * 0.45) > 0.2 ? P.white : P.iron[4]);
+          if (S.loaded) { R(tip[0] - 1 - dy, tip[1] - 2, 2, 2, P.black); px(tip[0] - dy, tip[1] - 2, P.white); }
+        }
+        if (S.p >= 0.56 && S.p < 0.72) {                                                      // 抛出去的一铲煤：沿弧线落到链条上
+          const k = (S.p - 0.56) / 0.16, R0 = shovelPose4(0.56 * 60).tip, lx = x + R0[0] + (TOSS_TO[0] - R0[0]) * k, ly = y + R0[1] + (TOSS_TO[1] - R0[1]) * k - Math.sin(k * Math.PI) * 5;
+          R(lx, ly, 2, 2, P.black); px(lx + 2, ly + 1, P.black); px(lx, ly, P.white);
+        }
+      } },
+  ];
+  const TANKS4 = [
+    { key: 'AF4',
+      draw(x, y, o) {
+        const t = o.t || 0, lv = o.water;
+        R(x + 3, y + 3, 66, 60, P.iron[2]);
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+          const bx = x + 3 + i * 22, by = y + 3 + j * 20;
+          R(bx, by, 22, 1, P.iron[1]); R(bx, by, 1, 20, P.iron[1]);
+          line(bx + 11, by + 4, bx + 17, by + 10, 1, P.iron[3]); line(bx + 17, by + 10, bx + 11, by + 16, 1, P.iron[1]); line(bx + 11, by + 16, bx + 5, by + 10, 1, P.iron[1]); line(bx + 5, by + 10, bx + 11, by + 4, 1, P.iron[3]);
+        }
+        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[2]); };
+        edge(x + 1, y + 1, 70, 4); edge(x + 1, y + 59, 70, 4); edge(x + 1, y + 1, 4, 62); edge(x + 67, y + 1, 4, 62);
+        for (let u = 8; u < 66; u += 6) { px(x + u, y + 3, P.iron[3]); px(x + u, y + 61, P.iron[3]); }
+        for (let u = 8; u < 58; u += 6) { px(x + 3, y + u, P.iron[3]); px(x + 69, y + u, P.iron[3]); }
+        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [67, 5, -1, 1], [5, 59, 1, -1], [67, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 8, y + cy], [x + cx, y + cy + sy * 8]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[3]); }
+        // 大舷窗：半径 25（v3 是 16），一圈 20 颗螺栓
+        ball(x + 36, y + 32, 25, BRASS); for (let k = 0; k < 20; k++) { const a = k / 20 * TAU; px(x + 36 + Math.cos(a) * 23, y + 32 + Math.sin(a) * 23, P.brass[0]); }
+        disc(x + 36, y + 32, 21.2, P.brass[0]);
+        g.save(); g.beginPath(); g.arc(x + 36, y + 32, 20.4, 0, TAU); g.clip(); water(x + 15, y + 11, 42, 42, lv, t); g.restore();
+        for (const [a, b] of [[24, 19], [25, 18], [26, 17], [23, 21], [29, 16]]) px(x + a, y + b, P.glass[3]);
+        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
+        const s = Math.sin(t * 0.2) * 3;
+        box(x + 50, y + 62, 12, 9, IRONL); R(x + 62, y + 65, 3 + s, 2, P.iron[4]); R(x + 64 + s, y + 63, 2, 6, P.brass[1]);
+        gauge(x + 54, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 44, y + 66, 6, 3, IRONL);
+      } },
+  ];
+  return {
+    boiler(c, x, y, o) { g = c; BOILER4[0].draw(x, y, o); },
+    stoker(c, x, y, o, mini) { g = c; BOILER4[0].over(x, y, o, mini); },
+    tank(c, x, y, o) { g = c; TANKS4[0].draw(x, y, o); },
+  };
+  })();
+
   const OVER = {
     boiler_s(x, y, q) { boilerSOver(x, y, q); },
     tank_tall(x, y, q) { tankTallOver(x, y, q); },
@@ -1934,6 +2166,8 @@ SA.SPR = (() => {
     condenser(x, y, q) { condenserArt(x, y, q.fr || 0); },
     tank_tall(x, y, q) { tankTall(x, y, q); },
     boiler_s(x, y, q) { boilerS(x, y, q); },
+    boiler_l(x, y, q) { BIG.boiler(ctx, x, y, { t: q.fr * 8, heat: q.ht / 2 }); },   // 炉火 3 档 × 13 帧（链节、煤块刚好循环）
+    water_l(x, y, q) { BIG.tank(ctx, x, y, { t: q.fr * 9, water: q.lv / 29 }); },
     mg_s(x, y, q) { mgS(x, y, q); },
     mg_heavy(x, y, q) { mgH(x, y, q); },
     // 臼炮 2×2（高抛火炮，2026-09-27 定稿，样机 tools/gun-family-lab.html 臼炮 v1）：参考 19 世纪攻城 / 岸防臼炮——
@@ -2172,6 +2406,8 @@ SA.SPR = (() => {
     const q = {};
     switch (id) {
       case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
+      case 'boiler_l': q.fr = Math.floor((o.t || 0) * 6) % 13; q.ht = Math.max(0, Math.min(2, Math.round((o.heat || 0) * 2))); break;
+      case 'water_l': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 8; break;
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
       case 'copilot': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
       case 'cockpit': case 'cockpit_pair': case 'helmet': if (o.layer) { q.layer = o.layer; q.fr = Math.floor((o.t || 0) * 10) % 60; } break;   // 舱体静止；中层 / 前层的操纵件 6 秒一轮
@@ -2566,6 +2802,7 @@ SA.SPR = (() => {
           g.save(); g.globalAlpha = 0.35; drawModule(g, cell.id, x, y, { ...mo, part: 'legs' }); g.restore(); ctx = g;
         } else drawModule(g, cell.id, x, y, mo);
         if (SA.isCockpit(cell.id)) cockpitCrew(g, cell.id, x, y, mo, veh, o);
+        if (cell.id === 'boiler_l') bigStoker(g, x, y, mo);
         if (cell.id !== 'quad' && cell.id !== 'biped') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
@@ -2614,6 +2851,13 @@ SA.SPR = (() => {
     A.rows.forEach((seats, k) => { row(seats); if (k === 0 && A.mid) drawModule(g, id, x, y, { ...mo, layer: 'mid' }); });
     drawModule(g, id, x, y, { ...mo, layer: 'front' });
     ctx = g;
+  }
+
+  // 大锅炉的司炉小工：画在材质处理之后，颜色不被换掉；一铲 60 拍（约 3.6 秒）
+  function bigStoker(g, x, y, mo) {
+    if (!SA.Coal) return;
+    const mini = SA.Coal.mini(SA.Coal.crew('司炉小工'), { st: SA.stageOf('boiler_l', mo.mt || 1) });
+    BIG.stoker(g, x, y, { t: (mo.t || 0) * 16.7 + (mo.seed || 0) * 7 }, mini); ctx = g;
   }
 
   function eachCell(grid, fn) {
@@ -2702,6 +2946,7 @@ SA.SPR = (() => {
     if (SA.MODULES[id].layer === 'body') { R(ox, oy, fw, fh, P.iron[1]); R(ox, oy, fw, 1, P.iron[0]); R(ox, oy, 1, fh, P.iron[0]); R(ox + fw - 1, oy, 1, fh, P.iron[0]); R(ox, oy + fh - 1, fw, 1, P.iron[0]); }
     drawModule(g, id, ox, oy, { heat: 0.5, water: 0.7, t: 0, mt });
     if (SA.isCockpit(id)) cockpitCrew(g, id, ox, oy, { mt, seed: 0 }, null, { pilot: '你' });
+    if (id === 'boiler_l') bigStoker(g, ox, oy, { mt, t: 0 });
     cv.style.width = `${W * scale}px`; cv.style.height = `${H * scale}px`;
     cv.className = 'px';
     return cv;
@@ -2729,7 +2974,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, cockpitCrew, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    PADX, drawModule, cockpitCrew, bigStoker, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
     setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };
