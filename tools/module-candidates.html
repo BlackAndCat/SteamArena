@@ -175,7 +175,7 @@
   }
   function labItem(id, lab, cd) {
     const OX = 4, OY = 8;
-    return { key: cd.key, name: cd.name.replace(/^[A-Z] /, ''), idea: cd.idea, id,
+    return { key: cd.key, name: cd.name.replace(/^[A-Z]\d? /, ''), idea: cd.idea, id,
       img: (o = {}) => {
         const mt = o.mt || 1, T = lab.TIERS[mt - 1], c = document.createElement('canvas'); c.width = OX + 28; c.height = OY + 50;
         const lay = document.createElement('canvas'); lay.width = c.width; lay.height = c.height;
