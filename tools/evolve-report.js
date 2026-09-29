@@ -15,6 +15,7 @@
   const STYLE = { rush: '冲锋', kite: '风筝', turtle: '龟缩', wander: '游走' };
   const CHASSIS = { track: '履带', quad: '四足', biped: '双足' };
   const COND = {
+    construction: '构筑合法', modulePool: '本关模块', budget: '财富上限',
     reward: '带奖励件', nonToxic: '不是毒瘤车', target: '目标强度', terrain: '地形条件', bossGeneric: 'Boss 通用型',
     previousBoss: '上一档 Boss 打它 < 30%', rewardLowerBound: '奖励车打上一档 Boss ≥ 60%', rewardCrushGuard: '防碾压：上一档 Boss 打它 ≥ 15%',
     rewardEffect: '奖励件生效', rewardContrast: '对照测试（换成甲片后胜率下降）',
@@ -36,7 +37,7 @@
   const stable = (v) => (Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
     ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v);
   async function currentFingerprint() {
-    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js'];
+    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js'];
     const texts = await Promise.all([...files.map(f => `../${f}`), 'evolve-config.js'].map(u => fetch(u, { cache: 'no-store' }).then(r => r.text())));
     const module = { exports: {} };
     new Function('module', 'exports', 'require', texts[files.length])(module, module.exports, () => ({}));
@@ -360,6 +361,8 @@
 
   // ---------- 详情 ----------
   function stageOpponent(rec) {
+    // 新报告保存真实的同档标尺，旧报告继续使用原关卡车。
+    if (rec.typical?.opponent?.cells) return { o: { style: rec.typical.style }, v: SA.V.fromCells(rec.typical.opponent.name, rec.typical.opponent.cells) };
     const sp = rec.spec || {};
     if (sp.chapter == null || sp.stage == null) return null;
     const raw = SA.CAMPAIGN[sp.chapter] && SA.CAMPAIGN[sp.chapter].stages[sp.stage];
@@ -367,13 +370,13 @@
     if (!o) return null;
     return { o, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []) };
   }
-  // 按报告里的种子重跑典型对局：和 tools/evolve.js 的 duel 同样的参数（候选车在左、这一关的战役对手在右）
+  // 按报告里的种子和标尺重跑典型对局，与 tools/evolve.js 的 duel 参数一致。
   function replay(rec) {
     const v = vehicleOf(rec), opp = stageOpponent(rec), t = rec.typical;
     if (!v || !opp || !t || t.seed == null) return null;
     return SA.Battle.simulate({ p: v, e: opp.v, pAim: 0.8, eAim: 0.8, pStyle: opp.o.style || 'wander', eStyle: 'wander', terrain: (rec.spec && rec.spec.terrain) || 'flat', seed: t.seed });
   }
-  const winnerName = (w) => (w === 'p' ? '候选车胜' : w === 'e' ? '关卡原车胜' : '平手');
+  const winnerName = (w) => (w === 'p' ? '候选车胜' : w === 'e' ? '对手胜' : '平手');
   function testDrive(rec) {
     let list = [];
     try { list = JSON.parse(localStorage.getItem(PICKS_KEY)) || []; } catch (e) { list = []; }
@@ -403,13 +406,13 @@
             kv('来源', sp.chapter != null ? `${chapterShort(sp.chapter)} · ${stageName(sp.chapter, sp.stage)} · ${terrainName(sp.terrain)}` : '—'),
             kv('分类', `${c.name} · ${STYLE[rec.style] || rec.style || '—'} · ${CHASSIS[rec.chassis] || rec.chassis || '—'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
-            kv('表现分', rec.codeOnly ? '—' : fix(rec.performance, 1)),
+            kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约加分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
           rec.styleTrials && rec.styleTrials.length ? h('div', {}, h('h3', {}, '四种性格试跑'),
             h('table', {}, h('tr', {}, ['性格', '表现分', '胜率'].map(t => h('th', {}, t))),
               rec.styleTrials.map(x => h('tr', {}, h('td', {}, STYLE[x.style] || x.style, x.style === rec.style ? h('span', { class: 'chip' }, '绑定') : null), h('td', { class: 'num' }, fix(x.performance, 1)), h('td', { class: 'num' }, pct(x.winRate)))))) : null,
           h('h3', {}, '典型对局'),
-          rec.typical ? h('p', { class: 'small' }, `对手：这一关的原车 · ${winnerName(rec.typical.winner)} · ${fix(rec.typical.t, 1)} 秒 · ${rec.typical.reason || '—'} · 种子 ${rec.typical.seed ?? '—'}`) : h('p', { class: 'muted small' }, '报告里没有记录典型对局。'),
+          rec.typical ? h('p', { class: 'small' }, `对手：${rec.typical.opponent?.name || '这一关的原车'} · ${winnerName(rec.typical.winner)} · ${fix(rec.typical.t, 1)} 秒 · ${rec.typical.reason || '—'} · 种子 ${rec.typical.seed ?? '—'}`) : h('p', { class: 'muted small' }, '报告里没有记录典型对局。'),
           h('div', { class: 'row-btns' },
             h('button', { class: 'btn', disabled: !(rec.typical && rec.typical.seed != null && stageOpponent(rec)), onclick: () => {
               const res = replay(rec);

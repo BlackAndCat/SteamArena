@@ -3,7 +3,7 @@
 // 关卡车进化生成器的算法参数。这里的参数只控制搜索策略和报告权重，
 // 不直接修改战斗规则；战斗数值和用户已经拍板的门槛仍以 docs/evolve-plan.md 为准。
 module.exports = {
-  rulesVersion: 'evolve-p0-2026-09-25',
+  rulesVersion: 'evolve-stage-limits-pooled-score-2026-09-29',
   population: {
     size: 24,
     generations: 4,
@@ -45,12 +45,11 @@ module.exports = {
     distantInefficient: -20,
     noEngage: -10,
   },
-  budget: {
-    startingMoney: 300,
-    prizeKeepRate: 0.8,
-    repairReserve: 0.2,
-    bossMultiplier: 1.3,
-    epicMultiplier: 2.2,
+  // 实战分相近时奖励节省；预算和合法性另外作为硬门槛，绝不能用加分抵消。
+  efficiency: {
+    moneyBonus: 10,
+    moduleBonus: 10,
+    baselineModules: 4,
   },
   reward: {
     effectMin: 1,

@@ -10,6 +10,7 @@
  *   node tools/evolve.js --sample      小规模试跑，结果写入 tools/out/
  *   node tools/evolve.js --sample 2 3  2 个章节、每档 3 个候选的快速试跑
  *   node tools/evolve.js --first-stage [种子]  只预演第一关，不替换战役或候选车库
+ *   node tools/evolve.js --first-two-stages [种子]  按已确认预算预演前两关
  */
 'use strict';
 
@@ -20,13 +21,14 @@ const vm = require('vm');
 const os = require('os');
 const { Worker } = require('worker_threads');
 const config = require('./evolve-config');
+const stageRules = require('./evolve-stage-rules.json');
 const storage = require('./evolve-storage');
 const { createEvaluationPool } = require('./evolve-pool');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
 // 指纹只纳入后台规则文件；视觉拆分文件不会让候选车报告失效。
-const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js'];
+const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js'];
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // ---------- Node VM：只补游戏脚本启动所需的最小浏览器接口 ----------
@@ -151,7 +153,6 @@ class RNG {
 
 function addUnlock(progress, unlock) {
   if (!unlock) return;
-  for (const id of unlock.mods || []) progress.mods.add(id);
   for (const feat of unlock.feat || []) progress.feat.add(feat);
   if (unlock.mat) progress.mat = Math.max(progress.mat, unlock.mat);
   if (unlock.grid) progress.grid = { cols: unlock.grid.cols, rows: unlock.grid.rows };
@@ -159,23 +160,18 @@ function addUnlock(progress, unlock) {
 
 // 读取某一关开始前的解锁状态：本关自己的 unlock 属于打赢后获得，不能提前使用。
 function progressAt(SA, chapter, stage) {
-  const progress = { mods: new Set(SA.CAMP_START.mods || []), feat: new Set(SA.CAMP_START.feat || []), mat: SA.CAMP_START.mat, grid: { ...SA.CAMP_START.grid }, prizes: 0 };
+  const progress = { feat: new Set(SA.CAMP_START.feat || []), mat: SA.CAMP_START.mat, grid: { ...SA.CAMP_START.grid } };
   for (let ci = 0; ci <= chapter; ci++) {
     const ch = SA.CAMPAIGN[ci];
     const stop = ci === chapter ? stage : ch.stages.length;
     for (let si = 0; si < stop; si++) {
       const actual = stageFor(SA, ci, si) || ch.stages[si];
-      progress.prizes += actual.prize || 0;
       addUnlock(progress, actual.unlock);
     }
     if (ci < chapter) {
       addUnlock(progress, ch.unlock);
     }
   }
-  // 开局已有模块不计入现金支出；预算表示“初始库存价值 + 可用于新增/升级的现金”。
-  // 这样生成器不会因为必需的底盘、锅炉、水箱和驾驶舱本身就超过 £300 而拒绝所有合法车。
-  const starterValue = [...new Set(SA.CAMP_START.mods || [])].reduce((sum, id) => sum + cellValue(SA, id, SA.CAMP_START.mat), 0);
-  progress.budget = Math.round((starterValue + config.budget.startingMoney + progress.prizes * config.budget.prizeKeepRate) * 100) / 100;
   return progress;
 }
 
@@ -183,27 +179,18 @@ function stageSpec(SA, chapter, stage) {
   const ch = SA.CAMPAIGN[chapter], current = ch.stages[stage], progress = progressAt(SA, chapter, stage);
   const actual = stageFor(SA, chapter, stage) || current;
   const design = current.spec || {};
-  // 只有真正的新解锁才算奖励件；开局库存或此前已获得的模块不能重复作为奖励，
-  // 否则序章会把 plate 当作奖励并错误触发“奖励效果”门槛。
-  // 一关可能同时解锁多个模块：奖励车只绑定其中一个，但这些新模块都要进入本关
-  // 的敌车候选约束，避免第二个解锁模块被错误地推迟到下一关。
-  const unlockExtras = [...(actual.unlock?.mods || []), ...(stage === ch.stages.length - 1 ? (ch.unlock?.mods || []) : [])];
-  const rawReward = design.reward || unlockExtras.find(id => !progress.mods.has(id)) || null;
-  const reward = rawReward && !progress.mods.has(rawReward) ? rawReward : null;
-  // Boss 专属件和本关解锁件必须进入候选约束，否则奖励车永远只能携带普通件。
-  // 这些额外模块只在对应关卡可用，不改变玩家在上一关的实际库存。
-  const stageExtras = [...(actual.subs || []).map(row => row[2]), ...unlockExtras].filter(id => SA.MODULES[id]);
-  if (reward && SA.MODULES[reward]) stageExtras.push(reward);
-  const available = [...new Set([...progress.mods, ...stageExtras])].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired && (stageExtras.includes(id) || (SA.MODULES[id].minMt || 1) <= progress.mat));
-  const budget = progress.budget * ((actual.boss || reward) ? config.budget.bossMultiplier : 1);
-  const hasEpic = stageExtras.some(id => SA.MODULES[id]?.special || id === 'cannon_giant');
-  const epicBudget = hasEpic ? progress.budget * config.budget.epicMultiplier : budget;
+  // 构筑预算和模块池只读逐关表：addMods 自本关起累计，stageMods 仅本关。
+  // 不再从原车的 subs 猜解锁，也不把库存目录、奖金或 Boss 倍率叠加进硬上限。
+  const index = stageRules.findIndex(row => row.chapter === chapter && row.stage === stage);
+  if (index < 0) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少构筑规则`);
+  const rule = stageRules[index], reward = design.reward || null;
+  const available = [...new Set([...stageRules.slice(0, index + 1).flatMap(row => row.addMods), ...(rule.stageMods || [])])];
   return {
     chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null,
     lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
     uniqueLoot: (actual.uniqueLoot || []).map(item => ({ ...item })),
     chapterHasBoss: ch.stages.some((row, index) => !!(stageFor(SA, chapter, index)?.boss || row.boss)),
-    boss: !!actual.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: Math.max(budget, epicBudget), baseBudget: progress.budget,
+    boss: !!actual.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: rule.budget, baseBudget: rule.budget, budgetStatus: rule.status,
     availableMods: available,
     target: { bossWinRate: design.targetStrength || (actual.boss ? [0.6, 0.7] : [0.65, 0.8]) },
   };
@@ -289,14 +276,34 @@ function counts(SA, v) {
 }
 
 function hasWeapon(SA, v) {
-  return Object.keys(counts(SA, v)).some(id => SA.MODULES[id]?.dmg);
+  return Object.keys(counts(SA, v)).some(id => isWeapon(SA.MODULES[id]));
+}
+
+// 近战撞击件也是武器；底盘自带踢击不能替代独立武器模块。
+function isWeapon(m) { return !!(m?.dmg || m?.ram); }
+
+// 所有候选入口及最终选关共用真实整车检查，防止旧缓存、升级和保底路径漏检。
+function constructionConditions(SA, v, spec) {
+  const stats = SA.V.stats(v);
+  return {
+    construction: mandatoryOk(SA, v) && stats.canDeploy && !stats.blocked?.length,
+    modulePool: Object.keys(counts(SA, v)).every(id => spec.availableMods.includes(id) && !SA.MODULES[id]?.retired),
+    budget: Number.isFinite(stats.value) && stats.value <= spec.budget,
+  };
 }
 
 function legalVehicle(SA, v, spec) {
-  const stats = SA.V.stats(v);
-  const unavailable = Object.keys(counts(SA, v)).filter(id => !spec.availableMods.includes(id) && !SA.MODULES[id]?.retired);
-  return mandatoryOk(SA, v) && !unavailable.length && stats.canDeploy && !stats.blocked?.length && stats.value <= spec.budget;
+  return Object.values(constructionConditions(SA, v, spec)).every(Boolean);
 }
+
+// 节约分单列，不伪装成胜率强度；模块按实体件计数，价格含材料和改装。
+function efficiencyScore(stats, spec) {
+  const money = config.efficiency.moneyBonus * clamp(1 - stats.value / spec.budget, 0, 1);
+  const modules = config.efficiency.moduleBonus * Math.min(1, config.efficiency.baselineModules / Math.max(1, stats.count));
+  return { money, modules, total: money + modules, value: stats.value, count: stats.count, budget: spec.budget };
+}
+
+function fitness(item) { return item.strength + item.performance + (item.efficiency?.total || 0); }
 
 function pickWeapon(SA, spec, rng, style) {
   const ids = moduleIds(SA, spec, m => m.cat === 'firepower');
@@ -313,6 +320,7 @@ function pickWeapon(SA, spec, rng, style) {
 // 随机尝试全部失败时的保底车。保底车只保证必需件和一个武器，
 // 这样某一档的预算 / 尺寸变化也不会让种群初始化陷入无限循环。
 function minimalVehicle(SA, spec, forcedModule = null) {
+  if (forcedModule && !spec.availableMods.includes(forcedModule)) return null;
   const v = SA.V.create(`保底候选·${spec.chapter + 1}-${spec.stage + 1}`);
   v.lim = { ...spec.grid };
   const bounds = regionBounds(SA, v), putFirst = (id, preferredRows = null) => {
@@ -329,50 +337,61 @@ function minimalVehicle(SA, spec, forcedModule = null) {
   const chassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule :
     (spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track'));
   putFirst(chassis);
-  // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱、锅炉和水箱，
+  // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱和锅炉，
   // 否则大尺寸火力件会因没有支撑或撞击件没有挂点而永远生成失败。
   const forcedWeapon = forcedModule && SA.MODULES[forcedModule]?.dmg ? forcedModule : null;
   const forcedRam = forcedModule && SA.MODULES[forcedModule]?.layer === 'ram' ? forcedModule : null;
   if (forcedWeapon) putFirst(forcedWeapon);
   if (forcedRam) putFirst(forcedRam);
   const forcedUtility = forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule]?.layer !== 'chassis' ? putFirst(forcedModule) : false;
-  // 巨炮占四行时，驾驶舱、锅炉和水箱必须从炮身上方开始找位置，
+  // 巨炮占四行时，驾驶舱和锅炉从炮身上方开始找位置，
   // 放到炮口旁会被判作遮挡，形成“可部署但不能开火”的假候选。
   const highRows = forcedWeapon && SA.fp(forcedWeapon).w >= 4 ? Array.from({ length: bounds.bottom - bounds.r0 + 1 }, (_, i) => bounds.r0 + i) : null;
-  putFirst(moduleIds(SA, spec, (m, id) => SA.isCockpit(id))[0] || 'helmet', highRows);
-  putFirst(moduleIds(SA, spec, m => m.supply)[0] || 'boiler', highRows);
-  putFirst(moduleIds(SA, spec, m => m.water || m.cool)[0] || 'water', highRows);
-  const weapon = forcedWeapon || moduleIds(SA, spec, m => m.cat === 'firepower')[0];
-  if (weapon && !forcedWeapon) putFirst(weapon);
+  // 基础构筑只补底盘、驾驶舱、锅炉、武器；冷却和装甲不属于硬要求。
+  // 明确要求展示某奖励件时可额外加入，但同功能必需件不重复购买。
+  for (const predicate of [(m, id) => SA.isCockpit(id), m => m.supply]) {
+    if (Object.keys(counts(SA, v)).some(id => predicate(SA.MODULES[id], id))) continue;
+    const id = moduleIds(SA, spec, predicate)[0];
+    if (!id || !putFirst(id, highRows)) return null;
+  }
+  const weapon = moduleIds(SA, spec, m => m.dmg || m.ram)[0];
+  if (!hasWeapon(SA, v) && (!weapon || !putFirst(weapon))) return null;
   // 奖励件可能是冷却、控制或装甲件；保底车也要优先尝试放入，
   // 否则“必须包含奖励件”的章节选择会被保底路径悄悄破坏。
   if (forcedModule && !forcedWeapon && !forcedRam && SA.MODULES[forcedModule].layer !== 'chassis' && !forcedUtility) putFirst(forcedModule);
-  return legalVehicle(SA, v, spec) ? v : null;
+  return legalVehicle(SA, v, spec) && (!forcedModule || counts(SA, v)[forcedModule]) ? v : null;
 }
 
 function randomVehicle(SA, spec, rng, forcedModule = null) {
+  if (forcedModule && !spec.availableMods.includes(forcedModule)) return null;
   const v = SA.V.create(`进化候选·${spec.chapter + 1}-${spec.stage + 1}-${rng.int(100000)}`);
   v.lim = { ...spec.grid };
   const chassisIds = moduleIds(SA, spec, m => m.layer === 'chassis');
   const style = rng.pick(['rush', 'kite', 'turtle', 'wander']);
   const forcedChassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule : null;
   const chassis = forcedChassis || rng.pick(chassisIds) || 'track';
-  const chassisCount = chassis === 'track' ? clamp(Math.floor(spec.grid.cols / 2), 1, 3) : 1;
+  // 窄预算先留足必需件的钱；额外履带也按整车价值支付，不能固定放两段。
+  const minimum = minimalVehicle(SA, spec, forcedModule || chassis);
+  const spare = minimum ? Math.max(0, spec.budget - SA.V.stats(minimum).value) : 0;
+  const maxTracks = Math.min(3, Math.floor(spec.grid.cols / 2), 1 + Math.floor(spare / cellValue(SA, chassis, spec.mat)));
+  const chassisCount = chassis === 'track' ? 1 + rng.int(maxTracks) : 1;
   for (let i = 0; i < chassisCount; i++) tryPlace(SA, v, chassis, spec.mat, rng, 100, 'chassis');
 
   const body = [
     moduleIds(SA, spec, (m, id) => SA.isCockpit(id))[0] || 'helmet',
     moduleIds(SA, spec, m => m.supply)[0] || 'boiler',
-    moduleIds(SA, spec, m => m.water || m.cool)[0] || 'water',
   ];
-  for (const id of body) tryPlace(SA, v, id, spec.mat, rng);
+  for (const id of body) {
+    const forced = forcedModule && SA.MODULES[forcedModule];
+    const sameRole = forced && ((SA.isCockpit(id) && SA.isCockpit(forcedModule)) || (SA.MODULES[id].supply && forced.supply));
+    tryPlace(SA, v, sameRole ? forcedModule : id, spec.mat, rng);
+  }
 
-  // 只有火力件才能占用武器槽。章节奖励经常是水箱、冷却或控制件，
-  // 因此先正常放置武器，再把奖励件作为可选模块尝试放入。
-  const forcedIsWeapon = !!(forcedModule && SA.MODULES[forcedModule]?.dmg);
+  // 撞击件可独立作战；非武器奖励只补一次，避免占用有限预算。
+  const forcedIsWeapon = !!(forcedModule && isWeapon(SA.MODULES[forcedModule]));
   const weapon = forcedIsWeapon ? forcedModule : pickWeapon(SA, spec, rng, style);
-  if (weapon) tryWeapon(SA, v, weapon, spec.mat, rng);
-  if (forcedModule && !forcedIsWeapon && SA.MODULES[forcedModule].layer !== 'chassis') tryPlace(SA, v, forcedModule, spec.mat, rng, 160);
+  if (weapon && !counts(SA, v)[weapon]) tryWeapon(SA, v, weapon, spec.mat, rng);
+  if (forcedModule && !counts(SA, v)[forcedModule]) tryPlace(SA, v, forcedModule, spec.mat, rng, 160);
   if (rng.chance(0.55)) {
     const second = pickWeapon(SA, spec, rng, style);
     if (second && second !== weapon) tryWeapon(SA, v, second, spec.mat, rng);
@@ -394,8 +413,7 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
     const ram = rng.pick(ramIds);
     if (ram) tryPlace(SA, v, ram, spec.mat, rng);
   }
-  const stats = SA.V.stats(v);
-  if (legalVehicle(SA, v, spec)) return v;
+  if (legalVehicle(SA, v, spec) && (!forcedModule || counts(SA, v)[forcedModule])) return v;
   return minimalVehicle(SA, spec, forcedModule);
 }
 
@@ -403,14 +421,15 @@ function mandatoryOk(SA, v) {
   const c = counts(SA, v);
   return Object.keys(c).some(id => SA.MODULES[id]?.layer === 'chassis') &&
     Object.keys(c).some(id => SA.isCockpit(id)) && Object.keys(c).some(id => SA.MODULES[id]?.supply) &&
-    Object.keys(c).some(id => SA.MODULES[id]?.water || SA.MODULES[id]?.cool) && hasWeapon(SA, v);
+    hasWeapon(SA, v);
 }
 
 function optionalCells(SA, v) {
   const out = [];
   SA.V.each(v, (cell, r, c, layer) => {
     const m = SA.MODULES[cell.id];
-    if (m.layer !== 'chassis' && !SA.isCockpit(cell.id) && !m.supply && !(m.water || m.cool) && !m.ram) out.push({ cell, r, c, layer });
+    // 冷却、装甲和重复的必需件都允许删除；删掉最后一个必需件会被最终合法性校验拒绝。
+    if (m.layer !== 'chassis') out.push({ cell, r, c, layer });
   });
   return out;
 }
@@ -447,7 +466,6 @@ function mutate(SA, source, spec, rng, trace = null) {
     const target = rng.pick(cells);
     if (target) target.cell.lv = clamp((target.cell.lv || 0) + 1, 0, SA.K.UP_MAX);
   }
-  const stats = SA.V.stats(out);
   return legalVehicle(SA, out, spec) ? out : null;
 }
 
@@ -482,23 +500,20 @@ function performanceScore(result, side, configWeights) {
   return clamp(score, 0, 100);
 }
 
-// 把多组对局的胜率换算为以 1000 为中心的 Elo 类强度，并保留二项分布置信区间。
+// 先汇总真实局数与胜分，再换算以 1000 为中心的 Elo 类强度及二项置信区间。
+// 不能先对每个标尺取 logit 再平均：某一组全胜的极值会淹没其他组的败局。
 // 这里不把 stats().rating 当强度；它只描述静态构造，最终分数来自实战。
 function strengthFromRows(rows) {
   if (!rows.length) return { strength: 1000, strengthCi: 0 };
-  const scores = rows.map(row => clamp(row.winRate, 0.001, 0.999));
-  const logits = scores.map(p => Math.log(p / (1 - p)) * 400 / Math.LN10);
-  const strength = clamp(1000 + logits.reduce((sum, value) => sum + value, 0) / logits.length, 300, 1700);
+  const n = rows.reduce((sum, row) => sum + Math.max(1, row.n), 0);
+  const p = rows.reduce((sum, row) => sum + clamp(row.winRate, 0, 1) * Math.max(1, row.n), 0) / n;
+  const elo = rate => Math.log(clamp(rate, 0.001, 0.999) / (1 - clamp(rate, 0.001, 0.999))) * 400 / Math.LN10;
+  const strength = clamp(1000 + elo(p), 300, 1700);
   // Wilson 区间避免全胜 / 全负样本被错误地报告成“零不确定性”。
   const z = 1.96;
-  const ci = rows.map(row => {
-    const n = Math.max(1, row.n), p = clamp(row.winRate, 0, 1), z2 = z * z;
-    const den = 1 + z2 / n, mid = (p + z2 / (2 * n)) / den;
-    const half = z * Math.sqrt((p * (1 - p) / n) + z2 / (4 * n * n)) / den;
-    const lo = clamp(mid - half, 0.001, 0.999), hi = clamp(mid + half, 0.001, 0.999);
-    return (Math.log(hi / (1 - hi)) - Math.log(lo / (1 - lo))) * 400 / Math.LN10 / 2;
-  });
-  return { strength, strengthCi: ci.reduce((sum, value) => sum + value, 0) / ci.length };
+  const z2 = z * z, den = 1 + z2 / n, mid = (p + z2 / (2 * n)) / den;
+  const half = z * Math.sqrt((p * (1 - p) / n) + z2 / (4 * n * n)) / den;
+  return { strength, strengthCi: (elo(mid + half) - elo(mid - half)) / 2 };
 }
 
 // 单次进化运行内的确定性对局缓存。
@@ -596,8 +611,11 @@ function evaluateCandidate(SA, candidate, opponents, spec, seed, games, duelCach
     terrainStrength = strengthFromRows(flatRows).strength;
     terrainDelta = strengthData.strength - terrainStrength;
   }
-  const sample = rows.find(row => row.sample)?.sample || null;
-  return { strength: strengthData.strength, strengthCi: strengthData.strengthCi, terrainStrength, terrainDelta, performance, rows, style: boundStyle, styleTrials, sample, chassis: chassisFor(SA, candidate), stats: SA.V.stats(candidate) };
+  const sampleIndex = rows.findIndex(row => row.sample);
+  const sample = sampleIndex < 0 ? null : { ...rows[sampleIndex].sample,
+    opponent: { name: opponents[sampleIndex].name, cells: cellsOf(SA, opponents[sampleIndex]) }, style: spec.style || 'wander' };
+  const stats = SA.V.stats(candidate);
+  return { strength: strengthData.strength, strengthCi: strengthData.strengthCi, terrainStrength, terrainDelta, performance, rows, style: boundStyle, styleTrials, sample, chassis: chassisFor(SA, candidate), stats, efficiency: efficiencyScore(stats, spec) };
 }
 
 function archive(candidates, spec) {
@@ -611,7 +629,7 @@ function archive(candidates, spec) {
   }));
   const center = Object.fromEntries(featureKeys.map(key => [key, candidates.reduce((sum, item) => sum + (Number(item.stats[key]) || 0), 0) / Math.max(1, candidates.length)]));
   for (const item of candidates) {
-    item.composite = norm(item.strength, sRange) * 100 * (1 - config.archive.performanceWeight) + norm(item.performance, pRange) * 100 * config.archive.performanceWeight;
+    item.composite = norm(item.strength, sRange) * 100 * (1 - config.archive.performanceWeight) + norm(item.performance, pRange) * 100 * config.archive.performanceWeight + (item.efficiency?.total || 0);
     item.featureDistance = Math.sqrt(featureKeys.reduce((sum, key) => {
       const range = featureRange[key], width = Math.max(1, range.max - range.min);
       return sum + Math.pow(((Number(item.stats[key]) || 0) - center[key]) / width, 2);
@@ -661,8 +679,16 @@ function cellsOf(SA, v) {
 
 function candidateRecord(SA, item, spec, fingerprint) {
   const moduleValues = {};
-  for (const [id, count] of Object.entries(counts(SA, item.vehicle))) moduleValues[id] = count * cellValue(SA, id, spec.mat);
-  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null, patch: exportPatch(SA, item.vehicle, spec, item.style), spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, uniqueLoot: spec.uniqueLoot, budget: spec.budget, target: spec.target }, style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal', strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta, performance: item.performance, featureDistance: item.featureDistance, typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed || null } : null, stats: { rating: item.stats.rating, value: item.stats.value, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool }, moduleValues, rules: fingerprint };
+  SA.V.each(item.vehicle, cell => { moduleValues[cell.id] = (moduleValues[cell.id] || 0) + SA.cellValue(cell); });
+  return { name: item.vehicle.name, code: SA.V.encode(item.vehicle), cells: cellsOf(SA, item.vehicle), evaluationSeed: item.evaluationSeed ?? null,
+    patch: exportPatch(SA, item.vehicle, spec, item.style),
+    spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain, rewardModule: spec.rewardModule, uniqueLoot: spec.uniqueLoot, budget: spec.budget, budgetStatus: spec.budgetStatus, availableMods: spec.availableMods, target: spec.target },
+    style: item.style, styleTrials: item.styleTrials, chassis: item.chassis, archiveClass: item.archiveClass || 'normal',
+    strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta,
+    performance: item.performance, efficiency: item.efficiency, fitness: fitness(item), featureDistance: item.featureDistance,
+    typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed ?? null, opponent: item.sample.opponent, style: item.sample.style } : null,
+    stats: { rating: item.stats.rating, value: item.stats.value, count: item.stats.count, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool },
+    moduleValues, rules: fingerprint };
 }
 
 // 奖励件生效门槛使用同一批种子做两种朝向，避免只记录“候选当玩家”造成偏差。
@@ -708,6 +734,8 @@ function replacementFor(SA, vehicle, targetId, spec) {
 // referenceBoss 是普通关的本章标尺；previousBoss 只用于跨章门槛和奖励证据。
 // Boss 选定前两者相同；普通关必须显式传入上一章 Boss，避免奖励车被本章标尺误筛。
 function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed, usedStyles = new Set(), duelCache = null, previousBoss = referenceBoss) {
+  // 分数再高也不能选中越级、超支或断履带的车；空池必须明确返回 null。
+  scored = scored.filter(item => legalVehicle(SA, item.vehicle, spec));
   const nonToxic = scored.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
   const cleanPool = nonToxic.length ? nonToxic : scored;
   const reward = spec.rewardModule;
@@ -718,7 +746,7 @@ function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed
   const candidates = validReward.length ? validReward : pool;
   const evidence = item => {
     const terrainPass = spec.terrain === 'flat' || (spec.boss ? Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin : (item.terrainDelta || 0) >= config.archive.terrainDeltaMin && item.performance >= config.archive.terrainPerformanceMin);
-    const own = { rewardPresent: hasReward(item), performance: item.performance, strength: item.strength, style: item.style, terrainDelta: item.terrainDelta, terrainPass, bossGenericPass: !spec.boss || Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin };
+    const own = { ...constructionConditions(SA, item.vehicle, spec), efficiency: efficiencyScore(SA.V.stats(item.vehicle), spec), rewardPresent: hasReward(item), performance: item.performance, strength: item.strength, style: item.style, terrainDelta: item.terrainDelta, terrainPass, bossGenericPass: !spec.boss || Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin };
     if (spec.boss) {
       // Boss 的平均胜率排除携带本关新奖励件的候选，避免把下一档装备当作本档标尺。
       const peers = scored.filter(peer => peer !== item && (!reward || !hasReward(peer))).slice(0, config.evaluation.anchorCount);
@@ -761,7 +789,7 @@ function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed
       + (usedStyles.has(e.style) ? -120 : 0) + (e.previousBossPass === false ? -1000 : 0)
       + (e.rewardLowerBoundPass === false ? -1000 : 0) + (e.rewardCrushGuardPass === false ? -1000 : 0)
       + (e.rewardEffectPass === false ? -700 : 0) + (e.rewardContrastPass === false ? -700 : 0);
-    return pass - Math.abs(rate - target) * 100 + e.performance + e.strength / 100;
+    return pass - Math.abs(rate - target) * 100 + e.performance + e.strength / 100 + e.efficiency.total;
   };
   scoredEvidence.sort((a, b) => rank(b) - rank(a));
   const selected = scoredEvidence[0] || null;
@@ -802,7 +830,7 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
       const evalSeed = rng.int(0x7fffffff) + index;
       const result = evaluateCandidate(SA, vehicle, opponents, spec, evalSeed, quickGames, duelCache);
       return { vehicle, evaluationSeed: evalSeed, ...result };
-    }).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
+    }).sort((a, b) => fitness(b) - fitness(a));
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
     // 奖励件是关卡规格的硬条件，不能因强度排序把最后一台奖励候选截掉。
     if (spec.rewardModule) {
@@ -852,7 +880,7 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
       completed++; telemetry.completedCandidates++;
       onProgress?.({ phase: 'candidate', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length, index });
       return { vehicle: task.vehicle, evaluationSeed: task.seed, ...result };
-    })))).sort((a, b) => (b.strength + b.performance) - (a.strength + a.performance));
+    })))).sort((a, b) => fitness(b) - fitness(a));
     onProgress?.({ phase: 'generation-end', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length });
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
     if (spec.rewardModule) {
@@ -875,9 +903,21 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
 }
 
 function campaignOpponents(SA, chapter, stage) {
-  const stages = SA.CAMPAIGN[chapter].stages;
-  const chosen = [stageFor(SA, chapter, stage), ...stages.map((_, i) => i === stage ? null : stageFor(SA, chapter, i)), stageFor(SA, Math.max(0, chapter - 1), SA.CAMPAIGN[Math.max(0, chapter - 1)]?.stages.length - 1)].filter(Boolean).slice(0, config.evaluation.anchorCount);
-  return chosen.map(item => item.vehicle || SA.V.fromAscii(item.name, item.rows, item.sides || [], item.mt || 1, item.elite || [], item.subs || []));
+  // 评分标尺也按本关预算和模块表构筑，不能继续拿旧的越级关卡车评估新手区段。
+  const spec = stageSpec(SA, chapter, stage);
+  return Array.from({ length: config.evaluation.anchorCount }, (_, i) => {
+    const v = i < 2 ? minimalVehicle(SA, spec, i === 1 ? spec.rewardModule : null) :
+      randomVehicle(SA, spec, new RNG(731001 + chapter * 1009 + stage * 101 + i)) || minimalVehicle(SA, spec);
+    if (!v) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关无法生成合法标尺车`);
+    v.name = `同档标尺·${chapter + 1}-${stage + 1}-${i + 1}`;
+    return v;
+  });
+}
+
+// 后续十五关仍是审阅稿；机械覆盖检查可读规格，生成入口不能擅自整批重生成。
+function requireReviewedRange(chapters) {
+  const draft = stageRules.find(row => row.chapter < chapters && row.status === 'draft');
+  if (draft) throw new Error(`第 ${draft.chapter + 1} 章起的预算与模块表仍待审阅，目前只允许生成序章前两关`);
 }
 
 // 补丁只允许在内存里应用到未锁定的原始关卡；锁定记录绝不触碰 stage-cars.js。
@@ -911,13 +951,14 @@ function run(options = {}) {
   const { SA } = loadGame();
   const fingerprint = ruleFingerprint(SA);
   const chapters = options.firstStageOnly ? 1 : Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length);
+  requireReviewedRange(chapters);
   const quickGames = options.games || config.evaluation.quickGames;
   const rng = new RNG(options.seed || 20260925);
   const all = [], chapterReports = [], selectionFailures = [];
   const duelCache = options.cache === false ? null : createDuelCache(SA);
   let previous = [];
-  // 序章没有上一档 Boss，用开局车作为第一组标尺。
-  let previousBoss = { vehicle: SA.V.fromAscii('序章开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) };
+  // 序章标尺同样受首关预算约束，不使用旧的高价开局车。
+  let previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) };
   for (let chapter = 0; chapter < chapters; chapter++) {
     const pendingStages = [];
     const priorBoss = previousBoss;
@@ -980,9 +1021,12 @@ function run(options = {}) {
       // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
       const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
       const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
-      const selectedIndex = Math.max(0, scored.indexOf(selection.selected));
+      const selectedIndex = scored.indexOf(selection.selected);
       if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
       const hardConditions = {
+        construction: selection.evidence?.construction === true,
+        modulePool: selection.evidence?.modulePool === true,
+        budget: selection.evidence?.budget === true,
         reward: !spec.rewardModule || !!selection.evidence?.rewardPresent,
         nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow,
         target: selection.evidence?.targetPass !== false,
@@ -1013,11 +1057,12 @@ function checkpointChapter(chapter, pendingStages, SA) {
 async function runAsync(options = {}) {
   const { SA } = loadGame(), fingerprint = ruleFingerprint(SA);
   const chapters = options.firstStageOnly ? 1 : Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length), quickGames = options.games || config.evaluation.quickGames;
+  requireReviewedRange(chapters);
   const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
   const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
   const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0 };
   const pool = createEvaluationPool(workerCount);
-  let previous = [], previousBoss = { vehicle: SA.V.fromAscii('序章开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) }, status = 'complete';
+  let previous = [], previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) }, status = 'complete';
   const progress = event => options.onProgress?.({ ...event, elapsedMs: Date.now() - telemetry.startedAt });
   const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
   progress({ phase: 'start', total: chapters });
@@ -1056,8 +1101,8 @@ async function runAsync(options = {}) {
         const { spec, scored, records } = entry;
         if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
         const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
-        const selectedIndex = Math.max(0, scored.indexOf(selection.selected)); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
-        const hardConditions = { reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
+        const selectedIndex = scored.indexOf(selection.selected); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
+        const hardConditions = { construction: selection.evidence?.construction === true, modulePool: selection.evidence?.modulePool === true, budget: selection.evidence?.budget === true, reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
         const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key); if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });
         return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
       });
@@ -1314,7 +1359,8 @@ function impact(file, games = 4, perturb = null) {
 // P7 固定夹具：故意把战斗时限缩到 1/10，验证影响报告能识别规则指纹变化并标出候选偏移（缩到一半时多数对局 50 秒内就结束，结果不变，测不出来）。
 function impactCheck() {
   const { SA } = loadGame();
-  const spec = stageSpec(SA, 0, 0), vehicle = minimalVehicle(SA, spec);
+  // 无水箱基础车可能在十秒内烧干；时限扰动夹具显式带水，保证实际触及时限差异。
+  const spec = stageSpec(SA, 0, 0), vehicle = minimalVehicle(SA, spec, 'tank_s');
   if (!vehicle) throw new Error('P7 夹具无法生成合法车辆');
   const seed = 62026, result = evaluateCandidate(SA, vehicle, campaignOpponents(SA, 0, 0), spec, seed, 2);
   const item = { vehicle, evaluationSeed: seed, ...result };
@@ -1338,10 +1384,10 @@ async function main(argv) {
   if (mode === '--impact-check') { console.log(JSON.stringify(impactCheck(), null, 2)); return; }
   if (mode === '--cache-check') { console.log(JSON.stringify(cacheCheck(), null, 2)); return; }
   if (mode === '--health') { console.log(JSON.stringify(healthCheck(Number(argv[1]) || 4), null, 2)); return; }
-  if (mode === '--first-stage') {
+  if (mode === '--first-stage' || mode === '--first-two-stages') {
     // 保留既有的种群、代数、真实战斗评分和手工锁定规则；仅限制预演范围。
     // 输出到报告页读取的有界目录，不写战役数据、手工车或全战役候选车库。
-    const report = await runAsync({ firstStageOnly: true, seed: Number(argv[1]) || 20260929,
+    const report = await runAsync({ chapters: 1, firstStageOnly: mode === '--first-stage', seed: Number(argv[1]) || 20260929,
       onProgress: event => { if (event.phase !== 'candidate') console.log(JSON.stringify(event)); } });
     const saved = storage.writeReport(report, OUT_DIR);
     console.log(JSON.stringify({ file: saved.file, rules: report.rules, selectionFailures: report.selectionFailures, telemetry: report.telemetry }, null, 2));
@@ -1368,4 +1414,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, fitness, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

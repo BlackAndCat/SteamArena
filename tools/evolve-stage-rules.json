@@ -1,0 +1,19 @@
+[
+  { "chapter": 0, "stage": 0, "name": "破铜烂铁号", "budget": 360, "status": "preview", "addMods": ["track", "helmet", "plate", "boiler_s", "tank_s", "mg_s"] },
+  { "chapter": 0, "stage": 1, "name": "锈钉子号", "budget": 450, "status": "preview", "addMods": ["bucket"] },
+  { "chapter": 1, "stage": 0, "name": "铁皮罐头", "budget": 540, "status": "draft", "addMods": ["tank_tall", "cannon_s", "armor", "boiler", "water", "mg", "cannon_m"] },
+  { "chapter": 1, "stage": 1, "name": "双管哨兵", "budget": 650, "status": "draft", "addMods": ["periscope", "autoloader"] },
+  { "chapter": 1, "stage": 2, "name": "煤灰寡妇", "budget": 830, "status": "draft", "addMods": ["side_cannon", "armor_heavy"], "stageMods": ["boss_lens"] },
+  { "chapter": 2, "stage": 0, "name": "推土机", "budget": 1000, "status": "draft", "addMods": ["quad", "cannon", "mg_heavy", "mortar_s", "condenser"] },
+  { "chapter": 2, "stage": 1, "name": "独角兽", "budget": 1200, "status": "draft", "addMods": ["biped", "pressure_chamber"] },
+  { "chapter": 2, "stage": 2, "name": "码头齐射", "budget": 1500, "status": "draft", "addMods": ["mortar", "cockpit_pair"] },
+  { "chapter": 3, "stage": 0, "name": "烟囱", "budget": 1800, "status": "draft", "addMods": ["spike", "steamjet"] },
+  { "chapter": 3, "stage": 1, "name": "齐射", "budget": 2160, "status": "draft", "addMods": ["harpoon", "flamer"] },
+  { "chapter": 3, "stage": 2, "name": "工厂缠斗王", "budget": 2700, "status": "draft", "addMods": ["piston"] },
+  { "chapter": 4, "stage": 0, "name": "矿车", "budget": 3240, "status": "draft", "addMods": ["pressure_tank", "cannon_heavy"] },
+  { "chapter": 4, "stage": 1, "name": "夜枭", "budget": 3890, "status": "draft", "addMods": ["rocket_rack", "rangefinder"] },
+  { "chapter": 4, "stage": 2, "name": "铁甲圣堂", "budget": 5000, "status": "draft", "addMods": ["cockpit", "boss_core"] },
+  { "chapter": 5, "stage": 0, "name": "差分机", "budget": 6000, "status": "draft", "addMods": ["mg2", "radiator", "gyroscope", "boiler_l", "water_l"] },
+  { "chapter": 5, "stage": 1, "name": "煤灰寡妇 · 复仇", "budget": 7500, "status": "draft", "addMods": ["boss_ram"] },
+  { "chapter": 5, "stage": 2, "name": "维多利亚女王号", "budget": 9600, "status": "draft", "addMods": ["cannon_giant"] }
+]

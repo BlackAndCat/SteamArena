@@ -8,6 +8,13 @@ function run() {
   const { SA } = evolve.loadGame(), spec = evolve.stageSpec(SA, 2, 0);
   const base = evolve.minimalVehicle(SA, spec, 'water');
   assert(base, '无法构造奖励车夹具');
+  // 对照会拆掉奖励水箱，显式保留一只小水罐维持冷却；不能依赖生成器错误地重复添加水箱。
+  let placed = false;
+  for (let r = 0; r < SA.V.CH && !placed; r++) for (let c = 0; c < SA.K.COLS && !placed; c++) {
+    const fit = SA.V.canPut(base, 'tank_s', r, c);
+    if (fit.ok && fit.fit) { base.body[r][c] = SA.newCell('tank_s', spec.mat); placed = true; }
+  }
+  assert(placed && evolve.legalVehicle(SA, base, spec), '缺少可合法替换水箱的独立冷却');
   const make = (name, power) => ({ vehicle: { ...SA.V.clone(base), name, power }, style: 'wander', performance: 60, strength: 1000, terrainDelta: 0 });
   const previous = make('上一章 Boss', 2), current = make('本章 Boss', 4), weak = make('弱候选', 1), strong = make('强候选', 3);
   const calls = [];

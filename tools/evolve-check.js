@@ -17,6 +17,8 @@ const campaignReplay = require('./campaign-replay-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
 const evolveFirstStage = require('./evolve-first-stage-check');
+const trackChain = require('./track-chain-check');
+const stageRules = require('./evolve-stage-rules-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -134,6 +136,7 @@ function lockedStageCheck() {
 }
 
 async function main() {
+  const constraints = stageRules.run(), tracks = trackChain.run();
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
   const impact = evolve.impactCheck();
@@ -164,6 +167,8 @@ async function main() {
   result.runtime = runtime;
   result.selection = selection;
   result.firstStage = firstStage;
+  result.stageRules = constraints;
+  result.trackChain = tracks;
   console.log(JSON.stringify(result, null, 2));
 }
 

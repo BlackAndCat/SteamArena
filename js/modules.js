@@ -106,10 +106,10 @@ SA.K = {
 SA.MODULES = {
   // unique：唯一件规则 { mt: 固定材料, once: 每存档一次, source: 来源 }；没有该字段的模块仍可由关卡 uniqueLoot 临时标记。
   track: {
-    name: '履带底盘', cat: 'mobility', layer: 'chassis',
+    name: '履带底盘', cat: 'mobility', layer: 'chassis', chain: true,
     price: 150, hp: 200, power: 0, armor: 2, load: 3500, speed: 48, kg: 600, q: 2, accel: 1, brake: 1, sway: 1, spool: 1,
     susp: { up: 4, down: 8, follow: 1 },
-    desc: '承重大、耐打，但又重又慢。所有模块都要站在底盘列上。',
+    desc: '承重大、耐打，但又重又慢。各段履带必须首尾相连，中间不能隔空。',
   },
   quad: {
     // 整件四足可以多件首尾相连（车体蜈蚣），中间不能隔空（2026-09-26 用户决定）；和别的底盘不能混用

@@ -351,7 +351,7 @@ SA.V = (() => {
     if (chassisIds.size > 1) for (const x of chassis) flag('body', x.r, x.c, '一辆车只能使用一种底盘');
     for (const id of chassisIds) if (M[id].chassisLimit === 1 && chassis.filter(x => x.cell.id === id).length > 1)
       for (const x of chassis.filter(x => x.cell.id === id).slice(1)) flag('body', x.r, x.c, '一辆车只能有一个底盘整件');
-    // 相连的整件底盘（四足）：只认最长的一段连续的，隔着空子的其余几件都标红
+    // 连续底盘（履带、四足）：只认最长的一段，隔着空子的其余几件都标红。
     for (const id of chassisIds) if (M[id].chain) {
       const w = fp(id).w, xs = chassis.filter(x => x.cell.id === id).sort((p, q) => p.c - q.c), runs = [];
       for (const x of xs) { const last = runs[runs.length - 1]; if (last && last[last.length - 1].c + w === x.c) last.push(x); else runs.push([x]); }
