@@ -317,31 +317,6 @@ SA.QLAB = (() => {
       });
     },
 
-    // T5 钟表巨像：大腿是开框（两根边梁，中间一只小齿轮在转），膝盖是一只大齿轮，胫后缘一排棘轮齿，宽脚板：脚跟发条盒、脚尖小齿轮
-    clock(c, H) {
-      const { pn, M, hx, hy, dir, o, t, L } = c, F = footOf(c, H), K = kneeOf(c, H);
-      const rot = (o.mv ? (o.a || 0) + c.ph : t) * dir, B = bone(K[0], K[1], F[0], F[1] - 3.6), n = B.len, T = bone(hx, hy, K[0], K[1]);
-      L(Z.TH, () => {
-        for (const s of [-2.8, 2.8]) pn.cap(...T.p(0, s), ...T.p(T.len, s * 0.7), 1.1);
-        pn.paint(M.iron, { bevel: 'l' });
-        gear(pn, ...T.p(T.len * 0.5, 0), 2.4, 6, -rot * 2, M.brass);
-      });
-      hub(c, 3.6);
-      L(Z.SH, () => {
-        for (let a = 5; a < n - 3; a += 3.2) pn.poly(B.pts([[a, dir * 2.4], [a + 2.8, dir * 2.4], [a + 2.8, dir * 4.6]]));
-        pn.paint(M.iron, { bevel: 'l' });
-        pn.poly(slab(B, 0, n, 3, 2.2)).paint(M.iron);
-        pn.ln(...B.p(2, 0), ...B.p(n - 1, 0), M.iron[3]);
-      });
-      L(Z.KN, () => gear(pn, K[0], K[1], 5.6, 11, rot, M.brass, M.iron));
-      L(Z.FT, () => {
-        const x = F[0], y = F[1];
-        pn.poly([[x - 7, y], [x - 6, y - 3.2], [x + 6, y - 3.2], [x + 7, y]]).paint(M.iron);
-        ball(pn, M.brass, x - dir * 4.6, y - 3.6, 2.4);
-        gear(pn, x + dir * 4.6, y - 3.6, 2.2, 7, rot * 2, M.brass);
-      });
-    },
-
     // T5 锚链铁甲：人形正膝，锻铁大腿 + 缠两道锚链箍的小腿，脚是一只船锚——锚冠着地、两只锚爪往上弯
     anchor(c, H) {
       const { pn, M, hx, hy, dir, L } = c, F = footOf(c, H), A = [F[0], F[1] - 8.5];
@@ -396,39 +371,7 @@ SA.QLAB = (() => {
       L(Z.FT, () => { const x = F[0], y = F[1]; pn.rect(x - 7, y - 2.4, 14, 2.4).paint(M.steel); pn.rect(x - 5, y - 4.8, 10, 2.4).paint(M.steel); });
     },
 
-    // T6 大本钟（替换天象仪）：以威斯敏斯特钟楼为灵感的厚重建筑腿——大腿是一段方形塔身（凹槽 + 镀金箍），膝盖是一座方钟亭（金框、白钟面、指针在走），
-    // 小腿是往下加粗的塔身（垂直式哥特窗格：竖棂 + 横档），脚是三级台座
-    bigben(c, H) {
-      const { pn, M, hx, hy, dir, far, t, L } = c, F = footOf(c, H), A = [F[0], F[1] - 5.8];
-      const [kx, ky, ex, ey] = ik(hx, hy, A[0], A[1], H.l1 || 15, H.l2 || 19, dir);
-      const T = bone(hx, hy, kx, ky), B = bone(kx, ky, ex, ey), n = B.len;
-      L(Z.TH, () => {
-        pn.poly(slab(T, -1.5, T.len, 4.6, 4)).paint(M.steel);
-        pn.ln(...T.p(1.5, 0), ...T.p(T.len - 2, 0), M.steel[1]);
-        band(pn, T, 1.5, 4.8, M.brass, 0.8);
-      });
-      hub(c, 4);
-      L(Z.SH, () => {
-        pn.poly(slab(B, 0, n, 4.4, 5.4)).paint(M.steel);
-        for (const f of [-2, 2]) pn.ln(...B.p(2, f), ...B.p(n - 1, f * 1.15), M.steel[1]);
-        for (let a = 4; a < n - 1; a += 4) pn.ln(...B.p(a, -4.4 - a / n), ...B.p(a, 4.4 + a / n), M.brass[1]);
-      });
-      L(Z.KN, () => {
-        pn.rect(kx - 5, ky - 5, 10, 10).paint(M.steel);
-        pn.fill(kx - 4, ky - 4, 8, 1, M.brass[2]); pn.fill(kx - 4, ky + 3, 8, 1, M.brass[1]);
-        pn.disc(kx, ky, 3.4).paint(M.brass);
-        pn.disc(kx, ky, 2.5).paint(far ? FAR.steam : NEAR.steam, { outline: false, bevel: '' });
-        const mA = t * 2 - Math.PI / 2, hA = t * 0.17 + 1;
-        pn.ln(kx, ky, kx + Math.cos(mA) * 2.2, ky + Math.sin(mA) * 2.2, P.dark[0]); pn.ln(kx, ky, kx + Math.cos(hA) * 1.4, ky + Math.sin(hA) * 1.4, P.dark[0]);
-      });
-      L(Z.FT, () => {
-        const x = F[0], y = F[1];
-        pn.rect(x - 7.5, y - 2.4, 15, 2.4).paint(M.steel); pn.rect(x - 6, y - 4.4, 12, 2).paint(M.steel); pn.rect(x - 4.5, y - 6, 9, 1.6).paint(M.steel);
-        pn.fill(x - 6, y - 4.4, 12, 1, M.brass[1]);
-      });
-    },
-
-    // T6 铁鳞龙骑（v8 重做，不再有透火）：粗壮的三段龙腿（膝朝前、跗关节朝后，脚尖统一朝车头）。
+    // T6 黑龙（v8 重做，不再有透火）：粗壮的三段龙腿（膝朝前、跗关节朝后，脚尖统一朝车头）。
     // 大腿是三片带中脊的厚甲板上压下（每片在下一片上投一道阴影），膝上一块厚膝甲 + 一根粗角刺，小腿两片甲 + 跗关节后刺，
     // 跖骨粗短，脚是三根粗弯爪 + 一根后爪、爪根有指节垫
     dragon(c, H) {
@@ -472,6 +415,139 @@ SA.QLAB = (() => {
         ball(pn, M.iron, x, y - 3.4, 2.4);
       });
       L(Z.AN, () => { ball(pn, M.iron, ex, ey, 3); pn.dot(ex - 1, ey - 1, M.iron[3]); });
+    },
+    // ---- v9 新腿：每种一个带参数的腿函数，LEG_VARIANTS 里是 4 个方案（不同的长度、姿态、脚形、附件）----
+
+    // T5 齿轮巨像 · 双胫腿：一根齿条大腿（胯上一只小齿轮咬着它，大腿伸缩时齿轮转），膝盖一只大齿轮，膝下分出两根小腿、各有一只脚。
+    // 两只脚的步态相差半圈：总有一只着地，膝盖永远在两只脚的「两个圆的交点」上——走起来膝、前脚、后脚组成一个不断变形的三角（不是固定三角）。
+    // H：Ls 小腿长、sp 两脚前后分开的距离、foot（plate 平脚 / point 尖脚 / cog 齿轮脚 / ratchet 棘齿脚）、link（none / tie 横拉杆 / mesh 膝下两只啮合齿轮 / spring 弹簧）、kr 膝齿轮半径
+    twin(c, H) {
+      const { pn, M, hx, hy, dir, o, t, L } = c, base = hx + dir * (H.reach == null ? 3 : H.reach), sp = H.sp || 6, Ls = H.Ls || 20;
+      const so = { ...o, a: (o.a || 0) * 2, plantS: (o.plantS || 14) / 2, plantH: (o.plantH || 8) * 0.8 };   // 两只小脚：半步幅、双倍步频（一整步仍 = 车走 4 × 步幅，不打滑）
+      const ga = gait(so, c.ph, 5, 4), gb = gait(so, c.ph + Math.PI, 5, 4);
+      const Fa = [base - sp + ga.x, c.gy - ga.lift], Fb = [base + sp + gb.x, c.gy - gb.lift], fh = H.foot === 'cog' ? 3.4 : 3;
+      const Aa = [Fa[0], Fa[1] - fh], Ab = [Fb[0], Fb[1] - fh];
+      const dx = Ab[0] - Aa[0], dy = Ab[1] - Aa[1], d = Math.max(0.5, Math.hypot(dx, dy)), h = Math.sqrt(Math.max(4, Ls * Ls - d * d / 4));
+      let K = [(Aa[0] + Ab[0]) / 2 - dy / d * h, (Aa[1] + Ab[1]) / 2 + dx / d * h];
+      if (K[1] > (Aa[1] + Ab[1]) / 2) K = [(Aa[0] + Ab[0]) / 2 + dy / d * h, (Aa[1] + Ab[1]) / 2 - dx / d * h];
+      const T = bone(hx, hy, K[0], K[1]), rot = T.len * 0.35 + (c.far ? 0 : 0);
+      const dist = (o.a || 0) / TAU * 4 * (o.plantS || 14);
+      L(Z.TH, () => {   // 齿条大腿
+        pn.poly(slab(T, -2, T.len + 1, 2.8, 2.6)).paint(M.iron);
+        for (let a = 1; a < T.len - 1; a += 2.4) pn.poly(T.pts([[a, 2.6], [a + 1.2, 2.6], [a + 0.6, 4.2]]));
+        pn.paint(M.iron, { bevel: 'l' });
+        pn.ln(...T.p(0, -1), ...T.p(T.len, -1), M.iron[3]);
+      });
+      L(Z.HIP, () => { gear(pn, hx, hy, 4.4, 9, rot * dir, M.brass, M.iron); });
+      const shin = (A, F, back) => {
+        const B = bone(K[0], K[1], A[0], A[1]), n = B.len;
+        pn.poly(slab(B, 0, n, 2.8, 2)).paint(back ? M.iron : M.steel);
+        pn.ln(...B.p(1, -1), ...B.p(n - 1, -0.6), (back ? M.iron : M.steel)[3]);
+        band(pn, B, n * 0.55, 2.7, M.brass, 0.7);
+        const x = F[0], y = F[1];
+        if (H.foot === 'point') { pn.poly([[A[0] - 2.2, A[1] - 0.5], [A[0] + 2.2, A[1] - 0.5], [x, y]]).paint(M.steel); band(pn, B, n - 0.5, 2.3, M.brass, 0.6); }
+        else if (H.foot === 'cog') gear(pn, x, y - 3.2, 3, 8, dist / 3, M.brass, M.iron);
+        else if (H.foot === 'ratchet') { pn.poly([[x - 5, y - 1.2], [x - 4, y - 3.4], [x + 4, y - 3.4], [x + 5, y - 1.2]]).paint(M.iron); for (let u = -4.5; u < 4.5; u += 2.2) pn.poly([[x + u, y - 1.3], [x + u + 2, y - 1.3], [x + u + 2, y]]).paint(M.iron, { outline: false }); }
+        else pn.poly([[x - 4.5, y], [x - 3.5, y - 3], [x + 3.5, y - 3], [x + 4.5, y]]).paint(M.iron);
+        ball(pn, M.iron, A[0], A[1], 1.5);
+      };
+      L(Z.SH, () => { shin(Aa, Fa, true); shin(Ab, Fb, false); });
+      L(Z.KN, () => {
+        const Ba = bone(K[0], K[1], Aa[0], Aa[1]), Bb = bone(K[0], K[1], Ab[0], Ab[1]);
+        if (H.link === 'tie') { const p = Ba.p(Ba.len * 0.55, 0), q = Bb.p(Bb.len * 0.55, 0); pn.cap(...p, ...q, 0.9).paint(M.brass, { bevel: 'l' }); ball(pn, M.iron, ...p, 1.2); ball(pn, M.iron, ...q, 1.2); }
+        if (H.link === 'spring') { const p = Ba.p(Ba.len * 0.5, 0), q = Bb.p(Bb.len * 0.5, 0), Sb = bone(...p, ...q); let q0 = p; for (let k = 1; k <= 7; k++) { const r = Sb.p(Sb.len * k / 8, k % 2 ? 1.8 : -1.8); pn.cap(q0[0], q0[1], r[0], r[1], 0.5); q0 = r; } pn.cap(q0[0], q0[1], q[0], q[1], 0.5); pn.paint(M.steel, { bevel: 'l' }); }
+        if (H.link === 'mesh') { const ang = Math.atan2(Ab[1] - Aa[1], Ab[0] - Aa[0]) * 3; for (const [B2, s] of [[Ba, 1], [Bb, -1]]) gear(pn, ...B2.p(4.5, 0), 2.8, 7, ang * s, M.brass); }
+        gear(pn, K[0], K[1], H.kr || 5, 11, -dist / 4 * dir, M.brass, M.iron);
+      });
+    },
+
+    // T6 大本钟 · 时钟指针腿：胯下一根可伸缩的塔身，下端一只钟面（毂），毂上三根（或六根）表针像无辐圈的车轮一样转着走——总是朝下最近的那根针尖撑地。
+    // 转角按走过的距离算（滚一段 ≈ 针长），毂的高度 = 撑地那根针的竖直投影，所以会一顿一顿地起伏（塔身伸缩吃掉一部分）
+    // H：len 针长、kind（equal 三根等长 / hms 时分秒三根不等长 / six 前后两层共六根 / pend 塔身是一根摆锤，毂前后摆）、face 钟面半径
+    hands(c, H) {
+      const { pn, M, hx, hy, dir, o, far, L } = c, S = o.plantS || 14, dist = (o.a || 0) / TAU * 4 * S + c.ph * 3;
+      const len = H.len || 11, lens = H.kind === 'hms' ? [len * 0.72, len, len * 1.18] : [len, len, len];
+      const th = dist / (len * 0.95), set = (k0, n) => Array.from({ length: n }, (_, i) => th + k0 + i * TAU / n);
+      const front = set(0, 3), back = H.kind === 'six' ? set(Math.PI / 3, 3) : [];
+      let reachDown = 0;
+      front.concat(back).forEach((a, i) => { reachDown = Math.max(reachDown, lens[i % 3] * Math.cos(a)); });
+      const hubX = hx + dir * (H.reach == null ? 2 : H.reach) + (H.kind === 'pend' ? Math.sin((o.a || 0) + c.ph) * 4 : 0);
+      const hb = [hubX, c.gy - Math.max(len * 0.5, reachDown)], face = H.face || 4.6;
+      const tip = (a, l) => [hb[0] - Math.sin(a) * l, hb[1] + Math.cos(a) * l];
+      const hand = (a, l, R, w) => {   // 宝玑式表针：细针杆 + 矛形针尖 + 尾端一小颗配重（v9：去掉月环，免得三根针糊成一团）
+        const e = tip(a, l), tl = tip(a + Math.PI, l * 0.22), s0 = tip(a, l - 2.6), nx = Math.cos(a), ny = Math.sin(a);
+        pn.cap(...tl, ...s0, w).paint(R, { bevel: 'l' });
+        pn.poly([[s0[0] + nx * 1.7, s0[1] + ny * 1.7], [e[0], e[1]], [s0[0] - nx * 1.7, s0[1] - ny * 1.7]]).paint(R);
+        pn.disc(tl[0], tl[1], w + 0.7).paint(R);
+      };
+      L(Z.TH, () => {
+        if (H.kind === 'pend') { pn.cap(hx, hy, ...hb, 1.6).paint(M.steel, { bevel: 'l' }); const m = [(hx + hb[0]) / 2, (hy + hb[1]) / 2]; pn.disc(m[0], m[1], 3.2).paint(M.brass); pn.dot(m[0], m[1], M.brass[0]); }
+        else {
+          const B = bone(hx, hy, hb[0], hb[1]), n = B.len;
+          pn.poly(slab(B, n * 0.45, n, 2.8, 2.8)).paint(M.iron);
+          pn.poly(slab(B, -1, n * 0.55, 4, 3.6)).paint(M.steel);
+          pn.ln(...B.p(1, -1.5), ...B.p(n * 0.5, -1.4), M.steel[1]); pn.ln(...B.p(1, 1.5), ...B.p(n * 0.5, 1.4), M.steel[1]);
+          band(pn, B, n * 0.55, 4.2, M.brass, 0.8);
+        }
+      });
+      hub(c, 3.8);
+      L(Z.SH, () => { back.forEach((a) => hand(a, len, M.iron, 0.7)); });
+      L(Z.KN, () => {
+        pn.disc(hb[0], hb[1], face + 1.1).paint(M.brass);
+        pn.disc(hb[0], hb[1], face).paint(far ? FAR.steam : NEAR.steam, { outline: false, bevel: '' });
+        for (let k = 0; k < 12; k += 3) pn.dot(hb[0] + Math.cos(k / 12 * TAU) * (face - 1), hb[1] + Math.sin(k / 12 * TAU) * (face - 1), P.dark[1]);
+      });
+      L(Z.FT, () => { front.forEach((a, i) => hand(a, lens[i], M.brass, H.kind === 'hms' ? [1, 0.75, 0.5][i] : 0.7)); ball(pn, M.brass, hb[0], hb[1], 1.4); });
+    },
+
+    // T3 半人马 · 马腿（钢制）：后腿 = 髋 → 膝（朝前）→ 跗关节（朝后，最高的那个尖）→ 管骨 → 球节 → 系骨 → 蹄；前腿 = 肩 → 肘（朝后）→ 腕（前膝）→ 管骨 → 球节 → 蹄。
+    // 抬腿时管骨往后折、蹄底翻向后方（马的收蹄），落地时蹄底放平。走得更快、颠得更厉害（见 SET 的 fast / bob）
+    // H：style（war 战马：甲板 + 蹄毛 / race 赛马：修长 + 液压肌腱 / draft 挽马：汽缸肌肉 + 弹簧球节 / cav 一战骑兵：铆接甲 + 板簧刀片脚）、l1 l2 l3 三段长、fold 收蹄幅度、w 粗细倍数
+    horse(c, H) {
+      const { pn, M, hx, hy, dir, g, far, L } = c, F = footOf(c, H), hind = dir < 0, st = H.style || 'war', w = H.w || 1;
+      const fold = Math.min(1, g.lift / 5) * (H.fold || 1);
+      const Fl = [F[0] - 1.2 - fold * 1.5, F[1] - 4.8 + fold * 1.4];   // 球节
+      const tau = (hind ? 0.12 : -0.04) + fold * (hind ? 0.55 : 0.95), l3 = H.l3 || 11;
+      const C = [Fl[0] + Math.sin(tau) * l3, Fl[1] - Math.cos(tau) * l3];   // 跗关节 / 腕
+      const [kx, ky] = ik(hx, hy, C[0], C[1], H.l1 || 15, H.l2 || 13, hind ? 1 : -1);
+      const T = bone(hx, hy, kx, ky), B = bone(kx, ky, C[0], C[1]), Cn = bone(C[0], C[1], Fl[0], Fl[1]);
+      const R = st === 'war' ? M.steel : st === 'cav' ? M.iron : M.steel;
+      L(Z.TH, () => {
+        pn.poly(slab(T, -3, T.len + 1, 6.4 * w, 4.4 * w)).paint(R);
+        pn.ln(...T.p(0, 5 * w), ...T.p(T.len, 3.4 * w), R[3]);
+        if (st === 'war') for (const a of [T.len * 0.35, T.len * 0.7]) { pn.ln(...T.p(a, -6 * w), ...T.p(a, 6 * w), R[0]); pn.dot(...T.p(a + 1.5, 4 * w), M.brass[3]); }
+        if (st === 'cav') for (let a = 1; a < T.len; a += 3) pn.dot(...T.p(a, -4 * w), R[3]);
+        if (st === 'draft') { const p = T.p(1, -7), q = T.p(T.len * 0.8, -5.5); pn.cap(...p, ...T.p(T.len * 0.45, -6.4), 2).paint(M.brass, { bevel: 'l' }); pn.cap(...T.p(T.len * 0.4, -6.2), ...q, 1).paint(M.steel, { bevel: 'l' }); }
+      });
+      hub(c, 4.2 * w);
+      L(Z.SH, () => {
+        pn.poly(slab(B, -1, B.len, 4.4 * w, 3 * w)).paint(R);
+        pn.ln(...B.p(0, 3.4 * w), ...B.p(B.len - 1, 2.2 * w), R[3]);
+        if (st === 'war') pn.poly(slab(B, 1, B.len * 0.6, 5 * w, 4.4 * w)).paint(M.steel);
+        if (st === 'draft') pn.cap(...B.p(1, 5), ...B.p(B.len - 2, 4), 1).paint(M.steel, { bevel: 'l' });
+      });
+      L(Z.KN, () => {
+        ball(pn, R, kx, ky, 3.6 * w);
+        if (hind) pn.poly([[C[0] - 2.4, C[1] - 1.5], [C[0] - 5.4 * w, C[1] - 3.4], [C[0] - 2, C[1] + 2]]).paint(R);   // 跗关节后尖
+        ball(pn, R, C[0], C[1], 2.9 * w);
+      });
+      L(Z.FT, () => {
+        pn.poly(slab(Cn, 0, Cn.len, 2.4 * w, 2.1 * w)).paint(R);
+        if (st === 'race') pn.ln(...Cn.p(0, -2.6 * w), ...Cn.p(Cn.len, -2.3 * w), P.glass[2]);   // 液压肌腱
+        const x = F[0], y = F[1], tilt = fold * 1.3, rot = (u, v) => [Fl[0] + u * Math.cos(tilt) - v * Math.sin(tilt), Fl[1] + u * Math.sin(tilt) + v * Math.cos(tilt)];
+        if (st === 'cav') {   // 板簧刀片脚：一片 C 形弹簧钢代替系骨和蹄
+          let q0 = Fl; for (let k = 1; k <= 6; k++) { const u = k / 6, q = rot(3.5 * Math.sin(Math.PI * u * 0.9), 4.6 * u); pn.cap(q0[0], q0[1], q[0], q[1], 1.2 - u * 0.4); q0 = q; }
+          pn.paint(M.steel, { bevel: 'l' }); pn.poly([rot(-1, 4.4), rot(4.5, 4.4), rot(4.5, 5), rot(-1, 5)]).paint(M.leg);
+        } else {
+          const hw = (st === 'draft' ? 3.6 : st === 'race' ? 2.4 : 3.2) * w;
+          pn.poly([rot(-1.4, 0), rot(1.6, 0), rot(hw + 1.2, 4.8), rot(-hw + 0.6, 4.8)]).paint(M.leg);   // 系骨 + 蹄
+          pn.poly([rot(-hw + 0.6, 4.2), rot(hw + 1.2, 4.2), rot(hw + 1.2, 4.9), rot(-hw + 0.6, 4.9)]).paint(M.iron, { outline: false });   // 蹄铁
+          if (!far) for (const u of [-hw + 1.6, 0.6, hw]) pn.dot(...rot(u, 4.5), M.steel[3]);
+          if (st === 'war') for (let k = -2; k <= 2; k++) pn.poly([rot(k * 1.3 - 0.8, 0.5), rot(k * 1.3 + 0.8, 0.5), rot(k * 1.3 - 0.4, 3.4)]).paint(M.steel, { outline: false });   // 蹄毛（钢穗）
+          if (st === 'draft') { const Sb = bone(C[0], C[1], Fl[0], Fl[1]); let q0 = Sb.p(Sb.len * 0.55, 0); for (let k = 1; k <= 5; k++) { const r = Sb.p(Sb.len * (0.55 + 0.45 * k / 6), k % 2 ? 2.4 : -2.4); pn.cap(q0[0], q0[1], r[0], r[1], 0.55); q0 = r; } pn.paint(M.brass, { bevel: 'l' }); }
+        }
+        ball(pn, R, Fl[0], Fl[1], 2.4 * w);
+      });
     },
   };
 
@@ -578,6 +654,24 @@ SA.QLAB = (() => {
       pn.disc(x + 89, y + 11, 5.2).paint(NEAR.iron); pn.fill(x + 85, y + 9, 8, 1, P.iron[1]); pn.fill(x + 85, y + 13, 8, 1, P.iron[1]); pn.dot(x + 89, y + 11, P.brass[3]);
       pn.fill(x + 1, y + 19, 94, 2, P.iron[1]); pn.fill(x + 1, y + 19, 94, 1, P.iron[3]);
     },
+    // 齿轮巨像：机车锅炉 + 锅炉侧面一列外露的传动齿轮（大小交替、相邻反转，随步伐转），火箱门上加一只小齿轮
+    gearboiler(pn, x, y, o) {
+      HULL.boiler(pn, x, y, o);
+      const r = (o.mv ? o.a || 0 : (o.t || 0)) * 0.8;
+      const G = [[30, 11, 6.2, 12], [41.6, 7.4, 4, 8], [52, 11.5, 5.4, 11], [62.4, 7.6, 3.6, 7], [71.5, 11, 4.8, 10]];
+      G.forEach(([u, v, R, n], i) => gear(pn, x + u, y + v, R, n, (i % 2 ? -1 : 1) * r * 6 / R, NEAR.brass, NEAR.iron));
+      gear(pn, x + 8, y + 7, 3, 7, -r * 2, NEAR.brass);
+    },
+    // 半人马（钢）：流线的铆接钢车体——两头倒圆、腰线两排铆钉、正中黄铜号牌「III」、车头四道百叶散热口、车尾一根往下弯的排气管
+    cavalry(pn, x, y, o) {
+      deck(pn, x, y, o);
+      pn.poly([[x + 1, y + 3], [x + 95, y + 3], [x + 95, y + 9], [x + 90, y + 16], [x + 7, y + 16], [x + 1, y + 10]]).paint(NEAR.iron);
+      pn.fill(x + 3, y + 9, 90, 1, P.iron[0]); pn.fill(x + 3, y + 10, 90, 1, P.iron[3]);
+      if (pn.hi) { rivRow(pn, x, y + 5, 6, 90, 3.5); rivRow(pn, x, y + 12, 10, 86, 3.5); } else { for (let u = 6; u < 91; u += 4) pn.dot(x + u, y + 5.5, P.iron[4]); for (let u = 10; u < 87; u += 4) pn.dot(x + u, y + 12.5, P.iron[4]); }
+      pn.rect(x + 42, y + 5, 12, 6).paint(NEAR.brass); for (const u of [45, 47.5, 50]) pn.fill(x + u, y + 6.5, 1, 3, P.brass[0]);
+      for (const u of [80, 83, 86, 89]) pn.ln(x + u, y + 5, x + u - 1.5, y + 8.5, P.black);
+      pn.cap(x + 3, y + 12, x - 1, y + 17, 1.2).paint(NEAR.steel, { bevel: 'l' });
+    },
     // C 鹦鹉螺潜艇：雪茄形铆接艇身，艇首大圆观察窗，底下一排锯齿龙骨，艇尾一只转动的螺旋桨
     nautilus(pn, x, y, o) {
       deck(pn, x, y, o);
@@ -641,7 +735,7 @@ SA.QLAB = (() => {
       clock(x + 48, y + 11.5, 7);
       for (let u = 4; u <= 92; u += 6) pn.rect(x + u - 1.6, y + 20, 3.2, 2.8).paint(NEAR.steel, { bevel: 'l' });
     },
-    // C 铁鳞龙骑车体（v8）：没有火光——车体本身只露出顶板下一条厚边和两头的角板，其余被裙板（龙鳞裙板三方案之一）盖住
+    // C 黑龙车体（v8）：没有火光——车体本身只露出顶板下一条厚边和两头的角板，其余被裙板（龙鳞裙板三方案之一）盖住
     drake(pn, x, y, o) {
       deck(pn, x, y, o);
       pn.poly([[x + 1, y + 3], [x + 95, y + 3], [x + 93, y + 18], [x + 3, y + 18]]).paint(NEAR.iron);
@@ -660,7 +754,7 @@ SA.QLAB = (() => {
       ['nautilus', 'C 鹦鹉螺潜艇', '雪茄形铆接艇身、艇首大圆观察窗、锯齿龙骨、艇尾螺旋桨（凡尔纳，1870）']],
     6: [['gothic', 'A 哥特教堂', '石砌立面 + 扶壁柱顶金十字，尖拱彩窗（以太光流过），正中门楼：玫瑰窗 + 尖拱木门，下沿倒挂尖拱花边（主线另配两面胯位燕尾旗）'],
       ['bigben', 'B 大本钟', '威斯敏斯特钟楼式厚重石砌车体：垂直式哥特窗格、镀金檐带，正中大钟面（指针在走），下沿一排粗挑檐托石'],
-      ['drake', 'C 铁鳞龙骑', '厚边车体 + 龙脊甲裙板（三种裙板见「铁鳞龙骑 · 车体裙板」），没有透火，全是有厚度的甲片', 'spine']],
+      ['drake', 'C 黑龙', '厚边车体 + 龙脊甲裙板（三种裙板见「黑龙 · 车体裙板」），没有透火，全是有厚度的甲片', 'spine']],
   };
 
   // 车体的附加层：BACK 画在车体后面（露出车体下沿的部分），FRONT 画在近侧腿前面
@@ -737,7 +831,7 @@ SA.QLAB = (() => {
     },
   };
 
-  // ---------- 铁鳞龙骑：车体裙板 3 方案（v8：不要透火，专注物理甲片和龙的质感）----------
+  // ---------- 黑龙：车体裙板 3 方案（v8：不要透火，专注物理甲片和龙的质感）----------
   // 每片甲都有厚度：先在下一片上投一道 1.5px 的阴影，再画甲面（亮边 / 暗边）、中脊和几颗粗糙斑点；上排压下排，所以从最下一排开始画
   const DSH = [P.black, P.black, P.dark[0], P.dark[0]];
   const PLATE = [P.dark[0], P.iron[1], P.iron[2], P.iron[3]];
@@ -793,6 +887,28 @@ SA.QLAB = (() => {
     ['horns', 'C 棘背甲', '两个胯位各一副三层圆肩甲，每层两颗粗锥形骨刺朝外下方；中间一块带脊的胸甲，下沿两根粗角'],
   ];
 
+  // ---------- v9 新腿的 4 个方案（页面「新腿方案」区块逐个展示；SET 里用第一个） ----------
+  const LEG_VARIANTS = {
+    twin: [
+      ['A 剪刀步', '两根等长直小腿 + 平脚，两脚前后各分开 6px，膝齿轮大；最朴素的双胫步', { Ls: 24, sp: 6, foot: 'plate', link: 'none', kr: 5.4 }],
+      ['B 拉杆三角', '两根小腿中段一根黄铜横拉杆，尖脚、分得更开（9px），膝更低——三角感最强', { Ls: 22, sp: 9, foot: 'point', link: 'tie', kr: 4.8 }],
+      ['C 齿轮脚', '小腿根部两只啮合的小齿轮（小腿一张一合时对转），每只脚是一只随距离滚动的齿轮', { Ls: 22, sp: 5, foot: 'cog', link: 'mesh', kr: 5 }],
+      ['D 弹簧棘齿', '两根小腿之间一根螺旋弹簧，脚底是棘齿板，小腿更长、膝更高', { Ls: 27, sp: 7, foot: 'ratchet', link: 'spring', kr: 5.8 }],
+    ],
+    hands: [
+      ['A 三针轮', '三根等长的宝玑针（细针杆 + 矛形针尖 + 配重），像无辐圈车轮一样转着撑地；塔身伸缩吃掉一部分起伏', { kind: 'equal', len: 12, face: 5.4 }],
+      ['B 时分秒', '时针短粗、分针中、秒针细长，三根不等长——撑地的针长短交替，走起来一瘸一拐', { kind: 'hms', len: 12, face: 5.2 }],
+      ['C 双层六针', '前后两层各三根、错开 60°，六个撑点更平稳；后层暗色', { kind: 'six', len: 11, face: 5 }],
+      ['D 摆锤', '塔身换成一根带摆锤盘的摆杆，毂随步态前后摆 ±4px，三根等长针', { kind: 'pend', len: 13, face: 5.4 }],
+    ],
+    horse: [
+      ['A 战马', '厚甲板大腿 + 分节铆甲，护胫甲片，蹄毛是一圈钢穗，大蹄 + 蹄铁钉', { style: 'war', l1: 15, l2: 13, l3: 11, w: 1.1, fold: 1 }],
+      ['B 赛马', '更修长（管骨更长、站得更高），管骨后一条液压肌腱，小蹄，收蹄幅度最大', { style: 'race', l1: 16, l2: 15, l3: 13, w: 0.95, fold: 1.3 }],
+      ['C 挽马', '短粗柱腿，大腿外侧一只汽缸当肌肉，球节上一只黄铜弹簧，最大的蹄', { style: 'draft', l1: 13, l2: 12, l3: 9, w: 1.25, fold: 0.8 }],
+      ['D 一战骑兵', '铆接铁甲腿，系骨和蹄换成一片 C 形板簧刀片脚（像跑步假肢）', { style: 'cav', l1: 15, l2: 14, l3: 10, w: 1.05, fold: 1.1 }],
+    ],
+  };
+
   // ---------- 编制（15 种 = 主线 6 + 变体 9） ----------
   // mt 材质档；hull 车体；back / front 车体附加层；leg 腿型；main 主线；kept = 之前采用的
   const SET = [
@@ -808,6 +924,8 @@ SA.QLAB = (() => {
       idea: '人形正膝，膝盖朝外、落在半高处：铆接圆筒大腿 + 黄铜箍，膝盖是一只压力表，喇叭口护胫、平头重靴，膝后一根蒸汽活塞。' },
     { mt: 3, name: '步行履带', hull: 'landship', front: 'sideskirt', leg: 'pedrail', ref: '迪普洛克 Pedrail（1900 年代，一战坦克的前身之一）',
       idea: '膝盖朝里的两段粗支腿，每只脚是一段履带：三只负重轮、履带板随步子走；车体下挂一圈一战坦克式侧裙板（六块铆接钢板 + 排泥孔），罩住胯和大腿上部。' },
+    { mt: 3, name: '半人马', hull: 'cavalry', leg: 'horse', H: LEG_VARIANTS.horse[0][2], fast: 1.7, bob: 4.5, ref: '马的腿骨结构（膝朝前的后腿、肘朝后的前腿、跗关节、球节、蹄）；四个方案见「新腿方案」',
+      idea: '钢制的马腿四足：后腿髋 → 膝（朝前）→ 跗关节（朝后的尖）→ 管骨 → 球节 → 蹄，前腿肩 → 肘（朝后）→ 腕 → 管骨 → 蹄；抬腿时管骨往后折、蹄底翻向后方。走得明显更快（同一车速下 1.7 倍）、颠得更厉害（机身起伏约 4～5px）。车体是流线铆接钢壳 + 黄铜号牌。' },
     { mt: 4, main: true, kept: true, name: '曲柄步行机', hull: 'conserv', leg: 'crank', ref: '切比雪夫步行机 / 维多利亚机械玩具',
       idea: '水晶宫温室车体（窗里摆着盆栽、檐下垂着常春藤）。夸张的高膝：膝盖最高点超出车体顶板约 24px（半个底盘高）。飞轮在大腿后面转、推杆带大腿；大腿小腿都缠着常春藤（叶子 + 几朵小花），膝上垂下几缕藤蔓随风摆。' },
     { mt: 4, name: '蒸汽圣骑', hull: 'conserv', front: 'shields', leg: 'knight', ref: '龟足 / 象足 + 骑士的护膝与风筝盾',
@@ -816,29 +934,29 @@ SA.QLAB = (() => {
       idea: '高膝，大腿是一片带棱线的三角甲板、下缘一排倒刺；小腿是一把越往下越细的长刀形胫甲，末端就是脚——一根钢尖（黄铜箍 + 一根后刺），只用尖点着地。四只尖脚是剪影的重点。车体用铁路沙龙车厢。' },
     { mt: 5, main: true, kept: true, name: '汽锤步行机', hull: 'ironclad', leg: 'hammer', ref: '内史密斯蒸汽锤',
       idea: '每条腿是一台吊在耳轴上的更粗的竖直汽缸，缸底伸出两根并排的活塞杆（中间镂空）、十字头连砧形铁脚。着地的半个周期里锤头连续砸地三下，每砸一下缸底喷汽、脚边扬尘。' },
-    { mt: 5, name: '钟表巨像', hull: 'ironclad', back: 'bellygear', leg: 'clock', ref: '双足钟表巨像 · 塔钟机芯',
-      idea: '膝盖是一只十一齿大齿轮，开框大腿里转着小齿轮，胫后缘一排棘轮齿，宽脚板带发条盒和小齿轮；车腹底下半露一组啮合齿轮。' },
-    { mt: 5, name: '锚链铁甲', hull: 'ironclad', back: 'drag', leg: 'anchor', ref: '维多利亚铁甲舰的锚与锚链',
+    { mt: 5, name: '齿轮巨像', hull: 'gearboiler', back: 'bellygear', leg: 'twin', H: LEG_VARIANTS.twin[0][2], bob: 1, ref: '塔钟机芯 + 机车锅炉；双胫腿（四个方案见「新腿方案」）',
+      idea: '车体是机车锅炉，侧面一列外露的传动齿轮随步伐转，车腹下半露一组啮合齿轮。腿是齿条大腿（胯上小齿轮咬着）+ 膝齿轮 + 两根小腿：两只脚步态差半圈（各走半步幅、双倍步频）、总有一只着地，膝盖永远在两脚的两个圆的交点上，走起来是一个不断变形的三角。' },
+    { mt: 5, name: '锚链铁甲', hull: 'nautilus', back: 'drag', leg: 'anchor', ref: '维多利亚铁甲舰的锚与锚链',
       idea: '人形正膝，锻铁大腿、缠两道锚链箍的小腿，每只脚是一只船锚；车腹下两根锚链：前面一根短的吊着晃（走路时往后甩），正中一根长的垂到地面、只拖一小截；拖地那截跟着前进 / 后退换到车后（页面顶上可以切方向）。' },
     { mt: 6, main: true, name: '哥特教堂', hull: 'gothic', front: 'banners', leg: 'gothic', ref: '哥特复兴教堂：飞扶壁、尖塔、彩窗、玫瑰窗、燕尾旗',
       idea: '车体是教堂立面：石缝、扶壁柱顶金十字、尖拱彩窗（以太光流过），正中门楼（玫瑰窗 + 尖拱木门）。两个胯位各垂一面深红燕尾旗（金边、金十字），遮住胯和大腿根。腿：飞扶壁大腿、石砌方柱小腿（发光尖拱龛），膝上小尖塔，两级台座。' },
-    { mt: 6, name: '大本钟', hull: 'bigben', leg: 'bigben', ref: '威斯敏斯特宫钟楼（大本钟，1859）',
-      idea: '厚重建筑感：车体是垂直式哥特窗格 + 正中大钟面（指针在走）+ 下沿粗挑檐托石。腿是方形塔身，膝盖是一座方钟亭（小钟面也在走），小腿往下加粗、刻竖棂横档，脚是三级台座。' },
-    { mt: 6, name: '铁鳞龙骑', hull: 'drake', front: 'spine', leg: 'dragon', ref: '龙的鳞甲 / 骨刺 / 爪 + 中世纪板甲的叠片做法（v8 重做，去掉透火）',
-      idea: '车体和裙板全是有厚度的物理甲片：每片带中脊、亮边暗边、粗糙斑点，上片在下片上投一道阴影；三种裙板见「铁鳞龙骑 · 车体裙板」，这里用 A 龙脊甲。腿大幅加粗：大腿三片厚甲（最宽 15px）、膝上厚膝甲 + 粗角刺、小腿两片甲 + 跗关节粗后刺、粗短跖骨，脚是三根粗弯爪 + 后爪。' },
+    { mt: 6, name: '大本钟', hull: 'bigben', leg: 'hands', H: LEG_VARIANTS.hands[0][2], ref: '威斯敏斯特钟楼 + 宝玑表针；时钟指针腿（四个方案见「新腿方案」）',
+      idea: '厚重钟楼车体（大钟面指针在走）。腿：胯下一根可伸缩的塔身，下端一只钟面，钟面上三根宝玑针像无辐圈车轮一样转着撑地前进，撑地的针一换，车就一顿。' },
+    { mt: 6, name: '黑龙', hull: 'drake', front: 'belly', leg: 'dragon', ref: '龙腹横鳞 + 中世纪板甲的叠片做法',
+      idea: '车体下挂龙腹横甲：三条横向宽腹甲一条压一条（分节缝、投影），两头弯角护板，下挂五根粗尖角。腿是粗壮的三段龙腿：大腿三片厚甲、厚膝甲 + 角刺、跗关节粗后刺、三根粗弯爪 + 后爪。' },
   ];
-  const LEG_H = { crank: { reach: 4, up: 34, kx: 7 }, skirt: { reach: 3 }, gren: { reach: 3 }, pedrail: { reach: 2 }, knight: { reach: 2 }, mantis: { up: 2, kx: 12, reach: 3 }, clock: { up: -1, kx: 11 }, anchor: { reach: 3 }, dragon: { reach: 0 }, gothic: { reach: 3 }, bigben: { reach: 3 } };
+  const LEG_H = { crank: { reach: 4, up: 34, kx: 7 }, skirt: { reach: 3 }, gren: { reach: 3 }, pedrail: { reach: 2 }, knight: { reach: 2 }, mantis: { up: 2, kx: 12, reach: 3 }, anchor: { reach: 3 }, dragon: { reach: 0 }, gothic: { reach: 3 }, twin: { reach: 3 }, hands: { reach: 2 }, horse: { reach: 3 } };
 
   // 机身起伏：对角两腿交替着地（plantGait：一对腿在 u=0.75、另一对在 u=0.25 撑在胯正下方 = 最高；u=0、0.5 双支撑 = 最低），每步两次
   // 步幅（v7）：跟车速变——慢走 14px、快跑 24px（原来最多 13）；步态角按走过的距离推进：Δa = 2π·距离 / (4·步幅)，所以同样的车速步频更低，脚不打滑
   const strideOf = (v) => Math.max(14, Math.min(24, 14 + v * 0.12));
-  const bobOf = (o) => (o.mv ? Math.round((2 + ((o.stride || 14) - 14) / 10) * (1 - Math.abs(Math.sin(o.a || 0)))) : 0);
+  const bobOf = (o) => (o.mv ? Math.round((o.amp != null ? o.amp : 2 + ((o.stride || 14) - 14) / 10) * (1 - Math.abs(Math.sin(o.a || 0)))) : 0);
 
   // 画一只整件四足到透明画布，坐标 (ox, oy) = 模块左上角。o = { mv, a 步态角, t 秒, stride, top, hull（换车体对照用） }
   function figure(g, ox, oy, e, o = {}) {
     const pn = LL.Pen(g.canvas.width, g.canvas.height).at(1, 0, 0);
     const S = o.stride || 14, lo = { mv: !!o.mv, a: o.a || 0, plant: true, plantS: S, plantH: 4 + 0.3 * S };
-    const y = oy + bobOf(o), H = { ...(LEG_H[e.leg] || {}), ...(e.H || {}) };
+    const y = oy + bobOf({ ...o, amp: e.bob }), H = { ...(LEG_H[e.leg] || {}), ...(e.H || {}), ...(o.legH || {}) };
     const ho = { t: o.t || 0, top: !!o.top, mv: !!o.mv, a: o.a || 0, gy: oy + 48, trail: o.trail };
     const leg = (M, far, [hx, hy], gy, dir, ph) => {
       const q = [], c = { pn, M, far, hx: ox + hx, hy: y + hy, gy, dir, ph, o: lo, t: o.t || 0, L: (z, fn) => q.push([z, q.length, fn]) };
@@ -855,5 +973,5 @@ SA.QLAB = (() => {
     if (front) (FRONT[front] || SKIRTS[front])(pn, ox, y, ho);
     pn.flush(g);
   }
-  return { SET, figure, LEGS, HULL, HULL_CANDS, SKIRT_LIST, bobOf, strideOf };
+  return { SET, figure, LEGS, HULL, HULL_CANDS, SKIRT_LIST, LEG_VARIANTS, bobOf, strideOf };
 })();
