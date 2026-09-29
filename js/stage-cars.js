@@ -2,9 +2,11 @@
 window.SA = window.SA || {};
 SA.STAGE_CARS = {
   "version": 1,
+  "campaignLayout": 2,
   "targets": [
     "0:0",
     "0:1",
+    "0:2",
     "1:0",
     "1:1",
     "1:2",
@@ -12,7 +14,268 @@ SA.STAGE_CARS = {
     "2:1",
     "2:2"
   ],
-  "records": {}
+  "records": {
+    "0:0": {
+      "version": 1,
+      "id": "0:0",
+      "cells": [
+        [
+          0,
+          7,
+          10,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          10,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi6L+b5YyW5YCZ6YCJwrcxLTEtODQwNDLCt+WPmOW8gjQ3MTYxIiwiYiI6W1s3LDEwLDQyXSxbOCw5LDE4XSxbOCwxMCw0NF0sWzksOSwxNl0sWzEwLDksMF1dLCJzIjpbXSwiYSI6Mn0=",
+      "style": "rush",
+      "aim": 0.35,
+      "terrain": "flat",
+      "boss": false,
+      "prize": 60,
+      "unlock": {
+        "feat": [
+          "garage"
+        ],
+        "mods": [
+          "tank_s"
+        ],
+        "note": "车间开放：库存里有一门机炮和四块铁装甲，再给你一只小水罐练习冷却。"
+      },
+      "uniqueLoot": [],
+      "name": "进化候选·1-1-84042·变异47161",
+      "pilot": "学徒 小提米",
+      "blurb": "铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。",
+      "weakness": "",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-09-29T08:41:40.692Z",
+      "rules": "2026-09-28-giant-indirect-module-family",
+      "analysis": {
+        "rating": 82,
+        "value": 360,
+        "weight": 1572.5,
+        "drive": 0.5,
+        "water": 36,
+        "overheat": 68.5,
+        "dps": 3.733333333333333,
+        "hp": 436
+      }
+    },
+    "0:1": {
+      "version": 1,
+      "id": "0:1",
+      "cells": [
+        [
+          0,
+          7,
+          8,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          8,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi6L+b5YyW5YCZ6YCJwrcxLTItOTYzMjQiLCJiIjpbWzcsOCw0NF0sWzcsOSwxOF0sWzgsOSwxN10sWzksOCwxNl0sWzksOSw0Ml0sWzEwLDgsMF1dLCJzIjpbXSwiYSI6Mn0=",
+      "style": "rush",
+      "aim": 0.45,
+      "terrain": "flat",
+      "boss": false,
+      "prize": 0,
+      "unlock": {
+        "mods": [
+          "plate"
+        ],
+        "note": "获得一块甲片：回到车间，把它装在要害受到攻击的一侧。",
+        "feat": []
+      },
+      "uniqueLoot": [],
+      "name": "进化候选·1-2-96324",
+      "pilot": "铆工 小艾达",
+      "blurb": "驾驶舱上方焊着一块甲片。观察它护住了哪里，再试着从薄弱处打进去。",
+      "weakness": "",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-09-29T08:47:16.961Z",
+      "rules": "2026-09-28-giant-indirect-module-family",
+      "analysis": {
+        "rating": 86,
+        "value": 372,
+        "weight": 1725,
+        "drive": 0.5,
+        "water": 36,
+        "overheat": 68.5,
+        "dps": 3.733333333333333,
+        "hp": 481
+      }
+    },
+    "0:2": {
+      "version": 1,
+      "id": "0:2",
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          10,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          10,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "bucket",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi6L+b5YyW5YCZ6YCJwrcxLTMtMTA2NMK35Y+Y5byCNDgzNjnCt+WPmOW8gjc0NTM2IiwiYiI6W1s4LDgsNDRdLFs4LDksMThdLFs4LDEwLDE3XSxbOSw5LDE2XSxbOSwxMCw0Ml0sWzEwLDgsMF0sWzEwLDEwLDEyXV0sInMiOltdLCJhIjoyfQ==",
+      "style": "turtle",
+      "aim": 0.6,
+      "terrain": "flat",
+      "boss": false,
+      "prize": 120,
+      "unlock": {
+        "mods": [
+          "bucket"
+        ],
+        "note": "缴获铲斗：前期瞄准困难时，先用动力和铲斗贴近解决战斗。",
+        "feat": []
+      },
+      "uniqueLoot": [],
+      "name": "进化候选·1-3-1064·变异48369·变异74536",
+      "pilot": "铁匠 老汤姆",
+      "blurb": "老汤姆的机炮从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。",
+      "weakness": "",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-09-29T08:46:44.184Z",
+      "rules": "2026-09-28-giant-indirect-module-family",
+      "analysis": {
+        "rating": 122,
+        "value": 482,
+        "weight": 2425,
+        "drive": 0.7,
+        "water": 36,
+        "overheat": 67,
+        "dps": 3.733333333333333,
+        "hp": 741
+      }
+    }
+  }
 };
 SA.StageCars = (() => {
   const data = SA.STAGE_CARS;
