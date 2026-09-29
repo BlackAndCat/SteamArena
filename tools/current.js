@@ -1,8 +1,8 @@
 // 「当前开发」页的绘制代码（tools/current.html 专用）。这一页不复用：只放正在开发、等开发者确认的东西；
 // 确认后把 current.html / current.js 复制到 tools/archive/<名字>.*，在 labs.js 登记成历史存档，再把这里换成下一项。
 //
-// 本期（2026-09-29）：大型锅炉 boiler_l、大水箱 water_l（都是 3×3 = 72×72）。用户：都是方形，剪影上很难做出大创意，要在内部造型上做出想法。
-// 每种各 6 个，每个换一种内部构造（剖面、炉膛、管束、水窗、液位机构……）；热度 / 水量做成动画。T1 原画 + 游戏的材质层换色。
+// 本期（2026-09-29）：鱼叉 harpoon、蒸汽喷射器 steamjet（只做 T1～T3）、喷火器 flamer（只做 T4～T6）、火箭架 rocket_rack。
+// 每种 6 个：A～C 是 2026-09-27 夜间候选 v1（tools/cand-mid.js）按现在的画法重画，D～F 是新方向。转动部分按游戏的耳轴 / 炮口几何画；特效（汽、火、烟）画在材质层之后。
 window.SA = window.SA || {};
 
 SA.CUR = (() => {
@@ -53,382 +53,452 @@ SA.CUR = (() => {
   const plinth = (x, y, x0, x1, top, bot = 24) => { box(x + x0, y + top, x1 - x0, bot - top, IRON); if (x1 - x0 > 8) { rivet(x + x0 + 2, y + top + 2); rivet(x + x1 - 4, y + top + 2); } };
   const saw = (t, per) => ((t % per) + per) % per / per;   // 0～1 锯齿
 
-  // ================= 共用：火、水、砖 =================
-  // 炉火：暗炉膛里一排跳动的火舌，高度跟热度走（heat 0～1）；底下一层红炭
-  function flames(x0, y0, w, h, t, heat) {
-    R(x0, y0, w, h, P.dark[0]);
-    for (let u = 0; u < w; u++) {
-      const hg = h * (0.3 + 0.5 * heat) * (0.55 + 0.45 * Math.sin(u * 1.3 + t * 0.35) * Math.sin(u * 0.4 - t * 0.2));
-      if (hg <= 0) continue;
-      R(x0 + u, y0 + h - hg, 1, hg, P.fire[1]); R(x0 + u, y0 + h - hg * 0.6, 1, hg * 0.6, P.fire[2]); R(x0 + u, y0 + h - hg * 0.25, 1, hg * 0.25, P.fire[3]);
-    }
-    R(x0, y0 + h - 2, w, 2, P.fire[0]); for (let u = 1; u < w; u += 3) px(x0 + u, y0 + h - 2, P.fire[1]);
-  }
-  // 砖砌炉座：一层层错缝的红砖
-  function bricks(x0, y0, w, h) {
-    R(x0, y0, w, h, P.rust[0]);
-    for (let r = 0; r * 4 < h; r++) for (let u = (r % 2) * 4 - 4; u < w; u += 8) { const bx = Math.max(x0, x0 + u + 1), bw = Math.min(x0 + w, x0 + u + 8) - bx; if (bw > 0) { R(bx, y0 + r * 4 + 1, bw, 3, P.rust[1]); R(bx, y0 + r * 4 + 1, bw, 1, P.rust[2]); } }
-  }
-  // 水：玻璃背景 + 水位（lv 0～1）+ 水面波纹 + 往上冒的气泡
-  function water(x0, y0, w, h, lv, t, o = {}) {
-    R(x0, y0, w, h, P.glass[0]);
-    const top = y0 + h * (1 - lv);
-    R(x0, top, w, y0 + h - top, P.water[1]); R(x0, top + 2, w, Math.max(0, y0 + h - top - 2), P.water[1]);
-    for (let u = 0; u < w; u++) px(x0 + u, top + (Math.sin(u * 0.8 + t * 0.2) > 0.3 ? 0 : 1), P.water[2]);
-    R(x0, top, 1, y0 + h - top, P.water[2]);
-    if (o.bubbles !== false) for (let k = 0; k < Math.max(2, w / 6); k++) { const p = saw(t + k * 23, 70), by = y0 + h - 2 - p * (y0 + h - top - 3); if (by > top + 1) px(x0 + 2 + ((k * 7) % Math.max(1, w - 4)), by, P.water[3]); }
-  }
-  const valve = (x, y, t, per = 140, off = 0) => { R(x - 1, y, 3, 4, P.brass[1]); R(x - 2, y, 5, 1, P.brass[3]); if (saw(t + off, per) < 0.18) puff(x, y - 1, t * 2, 3, 7); };
-  const doorG = (cx, cy, r, t, heat) => { disc(cx, cy, r + 1, P.iron[0]); disc(cx, cy, r, P.iron[2]); disc(cx - 1, cy - 1, r - 1.5, P.iron[3]); for (let k = -1; k <= 1; k++) R(cx - r * 0.55, cy + k * 2.4 - 0.5, r * 1.1, 1, heat > 0.2 ? P.fire[heat > 0.6 && Math.sin(t * 0.4 + k) > 0 ? 3 : 2] : P.dark[0]); px(cx + r - 2, cy, P.brass[3]); };
 
-
-  // ================= v2（用户选定方向后细化）=================
-  // 煤球小工的铲煤动作：一个循环 60 格——铲（刃在煤堆里）→ 抬 → 扬（刃到入煤口，一块煤飞进去）→ 回
-  const SHOVEL = { pile: [6, 63], mouth: [17, 34] };
-  function shovelPose(t) {
-    const p = saw(t, 60), P0 = SHOVEL.pile, P1 = SHOVEL.mouth, lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-    const ease = (k) => k * k * (3 - 2 * k);
-    const blade = p < 0.3 ? P0 : p < 0.55 ? lerp(P0, P1, ease((p - 0.3) / 0.25)) : p < 0.68 ? P1 : lerp(P1, P0, ease((p - 0.68) / 0.32));
-    return { p, blade, loaded: p > 0.18 && p < 0.6, lump: p >= 0.58 && p < 0.72 ? (p - 0.58) / 0.14 : -1, lean: p < 0.3 ? -1 : p < 0.68 ? 1 : 0 };
+  // ================= 转动炮组 + 特效小工具 =================
+  // 转动：先在离屏按「水平」画好（支点落在 (60,50)），再绕支点转到仰角 a（度，向上为正）贴回来；最近邻，保持像素风（和游戏 sprites.js turn 一样）
+  const layer = document.createElement('canvas'); layer.width = 140; layer.height = 100;
+  function turn(px0, py0, a, fn) {
+    const main = g, lg = layer.getContext('2d'); lg.clearRect(0, 0, 140, 100); g = lg; fn(60, 50); g = main;
+    main.save(); main.imageSmoothingEnabled = false; main.translate(Math.round(px0), Math.round(py0)); main.rotate(-(a || 0) * Math.PI / 180); main.drawImage(layer, -60, -50); main.restore();
   }
-  const BOILER2 = [
-    { key: 'E2', name: '链条炉排 · 入煤口 + 小工', ref: '维多利亚工厂锅炉的机械加煤机 + 司炉工',
-      idea: '（v2）左下一堆煤，一个煤球小工拿着亮闪闪的铲子一直在铲：铲一锹、抬起来、扬进左边的入煤口（一块煤飞进去），再回去铲。入煤口下面就是一直往右走的链条炉排：煤块从入煤口落下，被带进炉膛烧红，烧成灰掉进右下的灰坑。压力表和水位管挪到右侧立柱上，炉膛全部露出来；上面是锅炉筒和安全阀。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        box(x, y + 2, 72, 68, IRON);
-        htube(x + 11, y + 6, 48, 18, IRONL); disc(x + 11, y + 15, 9, P.iron[2]); disc(x + 59, y + 15, 9, P.iron[1]); for (let u = 17; u < 56; u += 8) R(x + u, y + 6, 1, 18, P.iron[2]);
-        valve(x + 24, y + 2, t); valve(x + 46, y + 2, t, 140, 70);
-        // 右侧立柱：压力表 + 水位玻璃管
-        box(x + 62, y + 26, 9, 34, IRONL); gauge(x + 66.5, y + 32, 3.6, 0.3 + 0.5 * heat);
-        R(x + 65, y + 38, 3, 14, P.glass[0]); R(x + 65, y + 44 - heat * 3, 3, 8 + heat * 3, P.water[1]); R(x + 64, y + 37, 5, 1, P.brass[2]); R(x + 64, y + 52, 5, 1, P.brass[2]);
-        // 炉膛（入煤口右边一直到立柱）
-        R(x + 22, y + 28, 39, 26, P.dark[0]); flames(x + 26, y + 32, 34, 18, t, heat);
-        R(x + 21, y + 27, 41, 1, P.iron[0]); R(x + 21, y + 28, 1, 22, P.iron[3]);
-        // 入煤口：一只斜口煤斗 + 上沿黄铜口唇，斗里堆着煤
-        poly([[x + 9, y + 30], [x + 25, y + 30], [x + 22, y + 46], [x + 13, y + 46]], IRON);
-        R(x + 9, y + 29, 16, 2, P.brass[1]); R(x + 9, y + 29, 16, 1, P.brass[3]);
-        for (const [a, b] of [[14, 34], [17, 33], [20, 34], [15, 37], [18, 38], [16, 41], [19, 42]]) { R(x + a, y + b, 2, 2, P.dark[1]); px(x + a, y + b, P.dark[3]); }
-        // 链条炉排：从煤斗下面一直走到灰坑，煤块从黑 → 红 → 灰
-        R(x + 10, y + 50, 52, 6, P.dark[1]);
-        const sh = (t * 0.5) % 4;
-        for (let u = 0; u < 52; u += 4) { const xx = x + 10 + ((u + sh) % 52), k = (xx - x - 10) / 52; R(xx, y + 54, 3, 2, P.iron[3]); const c = k < 0.22 ? P.dark[2] : k < 0.8 ? P.fire[heat > 0.5 && Math.sin(t * 0.3 + u) > 0 ? 3 : 2] : P.steam[0]; R(xx, y + 51, 3, 3, c); }
-        gear(x + 11, y + 56, 3, 7, t * 0.12, IRONL); gear(x + 60, y + 56, 3, 7, t * 0.12, IRONL);
-        R(x + 54, y + 60, 16, 8, P.dark[1]); R(x + 56, y + 63, 11, 4, P.steam[0]); if (saw(t, 30) < 0.5) px(x + 60, y + 58 + saw(t, 30) * 8, P.steam[1]);   // 灰坑
-        // 地上的煤堆
-        for (const [a, b, r] of [[5, 66, 4], [9, 67, 3.4], [2.5, 68, 2.6], [7, 63, 2.4]]) disc(x + a, y + b, r, P.dark[1]);
-        for (const [a, b] of [[4, 64], [7, 65], [3, 67], [10, 66], [6, 62]]) px(x + a, y + b, P.dark[3]);
-        R(x + 1, y + 68, 22, 2, P.iron[1]);
-      },
-      // 小工画在材质层之后（煤球的颜色不被材料换掉）：游戏同款煤球小人 + 两只小手 + 木柄 + 闪亮的铲刃
-      over(x, y, o, mini) {
-        const t = o.t || 0, S = shovelPose(t), bx = x + S.blade[0], by = y + S.blade[1], cx = x + 12 + S.lean * 0.6, cy = y + 58;
-        const hand = [cx + (S.lean >= 0 ? 3 : -2), cy + 1];
-        line(hand[0], hand[1], bx, by, 1, P.leather[1]); px(Math.round((hand[0] + bx) / 2), Math.round((hand[1] + by) / 2), P.leather[2]);
-        R(bx - 1.5, by - 1, 4, 2, P.iron[4]); px(bx - 1, by - 1, P.white); if (Math.sin(t * 0.5) > 0.3) px(bx + 1, by - 1, P.white);   // 闪亮的铲刃
-        if (S.loaded) R(bx - 1, by - 2, 2, 1, P.dark[1]);
-        if (S.lump >= 0) { const k = S.lump, lx = x + SHOVEL.mouth[0] + k * 1, ly = y + SHOVEL.mouth[1] - Math.sin(k * Math.PI) * 5 + k * 3; R(lx, ly, 2, 2, P.dark[1]); }
-        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6 + (S.p > 0.3 && S.p < 0.6 ? -1 : 0)));
-        px(hand[0], hand[1], P.black); px(hand[0] - (S.lean >= 0 ? 4 : -4), hand[1] + 1, P.black);   // 两只小手
-      } },
-  ];
-  const TANKS2 = [
-    { key: 'AEF', name: '拼装水柜 · 舷窗 + 浮球 + 蒸汽泵 + 角铁', ref: '布雷斯韦特分片钢水柜 + 舷窗 + 浮球液位机构 + 给水泵 + 包角铁',
-      idea: '（v2：A + E + F 合一）九块带菱形压筋的钢板拼成水柜，四边一圈角铁、四个角各一块三角包角板（铆钉加固）；正中一扇大舷窗看得见水位和气泡；右侧浮球室的观察缝里浮球随水位升降，一根竖杆 + 横杆把它连到舷窗上方的半圆刻度盘，指针同步摆；右下角一台小蒸汽给水泵的活塞来回推。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        // 分片钢板
-        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-          const bx = x + 3 + i * 20, by = y + 3 + j * 20; box(bx, by, 20, 20, IRONL);
-          line(bx + 10, by + 3, bx + 17, by + 10, 1, P.iron[4]); line(bx + 17, by + 10, bx + 10, by + 17, 1, P.iron[2]); line(bx + 10, by + 17, bx + 3, by + 10, 1, P.iron[2]); line(bx + 3, by + 10, bx + 10, by + 3, 1, P.iron[4]);
-        }
-        // 角铁：四边一圈 + 四角三角包角板
-        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[3]); };
-        edge(x + 1, y + 1, 62, 4); edge(x + 1, y + 59, 62, 4); edge(x + 1, y + 1, 4, 62); edge(x + 59, y + 1, 4, 62);
-        for (let u = 8; u < 58; u += 6) { px(x + u, y + 3, P.iron[4]); px(x + u, y + 61, P.iron[4]); px(x + 3, y + u, P.iron[4]); px(x + 61, y + u, P.iron[4]); }
-        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [59, 5, -1, 1], [5, 59, 1, -1], [59, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 9, y + cy], [x + cx, y + cy + sy * 9]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 5, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 2, y + cy + sy * 5, P.iron[4]); }
-        // 大舷窗
-        ball(x + 32, y + 34, 14, BRASS); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(x + 32 + Math.cos(a) * 12.4, y + 34 + Math.sin(a) * 12.4, P.brass[0]); }
-        g.save(); g.beginPath(); g.arc(x + 32, y + 34, 10.5, 0, TAU); g.clip(); water(x + 21, y + 23, 22, 22, lv, t); g.restore();
-        px(x + 26, y + 28, P.glass[3]); px(x + 27, y + 27, P.glass[3]);
-        // 右侧浮球室 + 连杆 + 刻度盘
-        R(x + 63, y + 6, 8, 52, P.iron[0]); R(x + 64, y + 7, 6, 50, P.iron[2]); water(x + 65, y + 9, 4, 46, lv, t, { bubbles: false });
-        const fy = y + 9 + 46 * (1 - lv) - 1.5; disc(x + 67, fy, 2.4, P.brass[1]); px(x + 66, fy - 1, P.brass[3]);
-        line(x + 67, y + 13, x + 67, fy - 2, 1, P.brass[2]); line(x + 32, y + 13, x + 67, y + 13, 1, P.brass[0]); line(x + 32, y + 12, x + 67, y + 12, 1, P.brass[2]);
-        g.save(); g.beginPath(); g.rect(x + 20, y + 3, 24, 11); g.clip(); disc(x + 32, y + 14, 9, P.brass[0]); disc(x + 32, y + 14, 7.5, P.steam[2]); g.restore();
-        for (let k = 0; k <= 6; k++) { const a = Math.PI + k / 6 * Math.PI; px(x + 32 + Math.cos(a) * 6, y + 14 + Math.sin(a) * 6, k < 1 ? P.fire[1] : P.dark[1]); }
-        const na = Math.PI + lv * Math.PI; line(x + 32, y + 14, x + 32 + Math.cos(na) * 5.5, y + 14 + Math.sin(na) * 5.5, 1, P.dark[0]); disc(x + 32, y + 14, 1.3, P.brass[2]);
-        // 右下蒸汽给水泵 + 底座
-        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
-        const s = Math.sin(t * 0.2) * 3;
-        box(x + 46, y + 62, 12, 9, IRONL); R(x + 58, y + 65, 5 + s, 2, P.iron[4]); R(x + 62 + s, y + 63, 2, 6, P.brass[1]);
-        gauge(x + 50, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 40, y + 66, 6, 3, IRONL);
-      } },
-  ];
-
-
-  // ================= v3（2026-09-29 用户：v2 锅炉太敷衍，重做）=================
-  // 煤块：暗色块 + 描边 + 左上一粒反光（一眼看出是亮晶晶的煤）
-  const lump = (x, y, s = 3, hot = 0) => {
-    const c = hot > 0.6 ? [P.fire[1], P.fire[2], P.fire[3]] : hot > 0.2 ? [P.dark[0], P.fire[1], P.fire[2]] : [P.black, P.dark[1], P.dark[3]];
-    R(x, y, s, s, c[0]); R(x, y, s - 1, s - 1, c[1]); if (s > 2) px(x + 1, y, hot > 0.2 ? c[2] : P.iron[4]); else px(x, y, c[2]);
-  };
-  // 滚子链：一串链节（亮的链板 + 暗的销）沿 a → b 排开，off = 走了多远
-  function chainRun(ax, ay, bx, by, off, horiz = true) {
-    const n = Math.round(Math.hypot(bx - ax, by - ay)), dx = (bx - ax) / n, dy = (by - ay) / n;
-    for (let i = 0; i < n; i++) {
-      const k = ((i + off) % 4 + 4) % 4, x0 = ax + dx * i, y0 = ay + dy * i;
-      px(x0, y0, k < 2 ? P.iron[3] : P.iron[1]);
-      if (horiz) px(x0, y0 + 1, k === 1 ? P.iron[0] : P.iron[2]); else px(x0 + 1, y0, k === 1 ? P.iron[0] : P.iron[2]);
-    }
+  // 炮组上 (u, v) 点（沿炮管 u、垂直 v，向下为正）在世界里的位置
+  const at = (px0, py0, a, u, v = 0) => { const r = (a || 0) * Math.PI / 180; return [px0 + Math.cos(r) * u + Math.sin(r) * v, py0 - Math.sin(r) * u + Math.cos(r) * v]; };
+  const ROPE = [P.leather[0], P.leather[1], P.leather[2]];
+  // 下垂的绳子：两点之间一条抛物线，每隔 2 像素一个亮点（麻绳的捻纹）
+  function rope(x0, y0, x1, y1, sag = 4) {
+    const n = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+    for (let i = 0; i <= n; i++) { const k = i / n, xx = x0 + (x1 - x0) * k, yy = y0 + (y1 - y0) * k + Math.sin(k * Math.PI) * sag; px(xx, yy, i % 3 ? ROPE[1] : ROPE[2]); }
   }
-  function shovelPose3(t) {
-    const p = saw(t, 56), P0 = [6, 52], P1 = [31, 45], lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], ease = (k) => k * k * (3 - 2 * k);
-    const blade = p < 0.28 ? P0 : p < 0.52 ? lerp(P0, P1, ease((p - 0.28) / 0.24)) : p < 0.66 ? P1 : lerp(P1, P0, ease((p - 0.66) / 0.34));
-    return { p, blade, loaded: p > 0.15 && p < 0.58, lean: p < 0.28 ? -1 : p < 0.66 ? 1 : 0 };
+  // 鱼叉头：叉尖在 X0 + 8，两道倒钩往后翻
+  function barbHead(X0, Y) {
+    R(X0 - 2, Y - 1, 4, 2, P.iron[3]); R(X0 - 2, Y - 1, 4, 1, P.iron[4]);
+    poly([[X0 + 1, Y - 3.5], [X0 + 8.5, Y], [X0 + 1, Y + 3.5]], IRONL);
+    line(X0 + 1, Y - 3, X0 - 2, Y - 5, 1, P.iron[3]); line(X0 + 1, Y + 3, X0 - 2, Y + 5, 1, P.iron[2]);
   }
-  const BOILER3 = [
-    { key: 'E3', name: '链条炉排 · 司炉台', ref: '维多利亚工厂锅炉房：链条炉排 + 顶上的天轴齿轮传动 + 司炉工',
-      idea: '（v3）背景是一整面小块铆接钢板，右边一只拱形大炉膛烧着火。司炉小工站在镂空的格栅踏板上（左下一道镂空楼梯），左边一堆带反光的煤，他一锹一锹地把煤铲到输送链上；输送链由链节和链轮组成，把煤一路送进炉膛烧红。顶上一根工字梁挂着黄铜齿轮组，一条传动链从顶上的大齿轮一直垂下来带动输送链的链轮；梁上还垂着一根长拉环。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat, run = t * 0.5;
-        // 背景：小块钢板（8px 一块，交错明暗、角上铆钉）
-        for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { const bx = x + i * 8, by = y + j * 8; R(bx, by, 8, 8, P.iron[0]); R(bx + 1, by + 1, 7, 7, (i + j) % 2 ? P.iron[2] : P.iron[1]); R(bx + 1, by + 1, 7, 1, P.iron[3]); px(bx + 2, by + 2, P.iron[4]); px(bx + 6, by + 6, P.iron[0]); }
-        // 炉膛：拱形炉口 + 火焰 + 厚铆接炉框 + 黄铜口沿
-        R(x + 38, y + 26, 34, 32, P.iron[0]); R(x + 40, y + 28, 30, 28, P.iron[2]);
-        g.save(); g.beginPath(); g.moveTo(x + 43, y + 55); g.lineTo(x + 43, y + 38); g.arc(x + 55, y + 38, 12, Math.PI, 0); g.lineTo(x + 67, y + 55); g.closePath(); g.clip(); flames(x + 43, y + 26, 24, 29, t, heat); g.restore();
-        for (let k = 0; k <= 12; k++) { const a = Math.PI + k / 12 * Math.PI; px(x + 55 + Math.cos(a) * 12.6, y + 38 + Math.sin(a) * 12.6, P.brass[2]); px(x + 55 + Math.cos(a) * 13.4, y + 38 + Math.sin(a) * 13.4, P.brass[0]); }
-        for (const [a, b] of [[40, 29], [68, 29], [40, 53], [68, 53]]) px(x + a, y + b, P.iron[4]);
-        // 顶上：工字梁 + 黄铜齿轮组 + 垂下来的传动链 + 长拉环
-        R(x, y + 2, 72, 5, P.iron[0]); R(x, y + 3, 72, 3, P.iron[3]); R(x, y + 4, 72, 1, P.iron[2]); for (let u = 4; u < 72; u += 8) px(x + u, y + 4, P.iron[4]);
-        gear(x + 27, y + 14, 6.5, 12, t * 0.05); gear(x + 38.5, y + 10, 4, 8, -t * 0.05 * 6.5 / 4); gear(x + 47, y + 14.5, 4.5, 9, t * 0.05 * 6.5 / 4.5);
-        R(x + 26, y + 6, 3, 3, P.iron[1]); R(x + 37, y + 6, 3, 2, P.iron[1]);
-        for (const [cx, d] of [[22, -1], [31, 1]]) { R(x + cx - 0.5, y + 14, 3, 38, P.iron[0]); chainRun(x + cx, y + 14, x + cx, y + 52, d * run, false); }
-        R(x + 8, y + 7, 1, 20, P.brass[1]); for (let yy = 9; yy < 27; yy += 3) px(x + 8, y + yy, P.brass[3]); ring(x + 8.5, y + 29.5, 2, P.brass[2]); ring(x + 8.5, y + 29.5, 1.2, P.brass[0]);
-        // 输送链：头部链轮（被传动链带着）→ 上行链带着煤 → 进炉膛；下行链回来
-        gear(x + 27, y + 52, 4, 9, run * 0.25, IRONL);
-        R(x + 27, y + 46.5, 36, 4, P.iron[0]); R(x + 27, y + 55, 36, 4, P.iron[0]);
-        chainRun(x + 27, y + 47.5, x + 62, y + 47.5, -run); chainRun(x + 27, y + 56, x + 62, y + 56, run);
-        R(x + 29, y + 49.5, 14, 6, P.iron[1]); R(x + 29, y + 49.5, 14, 1, P.iron[0]);
-        for (let k = 0; k < 6; k++) { const lx = x + 32 + ((k * 6 + run) % 34); if (lx > x + 66) continue; lump(lx, y + 44.5, 3, Math.max(0, (lx - x - 43) / 14) * (0.5 + heat)); }
-        // 地上：镂空格栅踏板 + 左下镂空楼梯
-        R(x, y + 58, 40, 4, P.iron[0]); for (let u = 1; u < 39; u += 3) { R(x + u, y + 58, 2, 1, P.iron[3]); R(x + u, y + 59, 2, 2, P.dark[0]); }
-        R(x, y + 58, 40, 1, P.iron[4]);
-        for (let k = 0; k < 3; k++) { const sx = x + 2 + k * 6, sy = y + 62 + k * 3.4; R(sx, sy, 7, 2, P.iron[3]); for (let u = 1; u < 7; u += 2) px(sx + u, sy + 1, P.dark[0]); }
-        line(x + 1, y + 58, x + 21, y + 71, 1, P.iron[4]);
-        R(x + 40, y + 58, 32, 14, P.iron[1]); R(x + 40, y + 58, 32, 1, P.iron[3]);
-        box(x + 46, y + 60, 20, 10, IRON); R(x + 49, y + 63, 14, 5, P.dark[0]); R(x + 50, y + 66, 12, 2, P.steam[0]); for (let u = 51; u < 62; u += 3) px(x + u, y + 65, heat > 0.4 ? P.fire[1] : P.fire[0]); px(x + 63, y + 64, P.brass[3]);   // 灰坑门
-        // 煤堆：一块块带反光的煤垒成一座小山
-        for (const [a, b, s] of [[1, 55, 3], [4, 55, 3], [7, 55, 3], [10, 55, 2], [2, 52, 3], [5, 52, 3], [8, 52, 3], [3, 49, 3], [6, 49, 3], [4.5, 46.5, 2]]) lump(x + a, y + b, s);
-      },
-      over(x, y, o, mini) {
-        const t = o.t || 0, S = shovelPose3(t), bx = x + S.blade[0], by = y + S.blade[1], cx = x + 16 + S.lean * 0.6, cy = y + 52;
-        const hand = [cx + (S.lean >= 0 ? 3 : -2), cy + 1];
-        line(hand[0], hand[1], bx, by, 1, P.leather[1]); px(Math.round((hand[0] + bx) / 2), Math.round((hand[1] + by) / 2), P.leather[2]);
-        R(bx - 1.5, by - 1, 4, 2, P.iron[4]); px(bx - 1, by - 1, P.white); if (Math.sin(t * 0.5) > 0.3) px(bx + 1, by - 1, P.white);
-        if (S.loaded) { R(bx - 1, by - 3, 3, 2, P.dark[1]); px(bx - 1, by - 3, P.white); }
-        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6 + (S.p > 0.28 && S.p < 0.6 ? -1 : 0)));
-        px(hand[0], hand[1], P.black); px(hand[0] - (S.lean >= 0 ? 4 : -4), hand[1] + 1, P.black);
-      } },
-  ];
-  const TANKS3 = [
-    { key: 'AF', name: '拼装水柜 · 中央舷窗 + 蒸汽泵 + 角铁', ref: '布雷斯韦特分片钢水柜 + 舷窗 + 给水泵 + 包角铁',
-      idea: '（v3：去掉刻度盘、浮球和侧面的浮球室）九块带菱形压筋的钢板拼成水柜，四边一圈角铁、四角三角包角板；正中一扇大舷窗看得见水位和气泡；右下一台小蒸汽给水泵的活塞来回推。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-          const bx = x + 3 + i * 22, by = y + 3 + j * 20; box(bx, by, 22, 20, IRONL);
-          line(bx + 11, by + 3, bx + 18, by + 10, 1, P.iron[4]); line(bx + 18, by + 10, bx + 11, by + 17, 1, P.iron[2]); line(bx + 11, by + 17, bx + 4, by + 10, 1, P.iron[2]); line(bx + 4, by + 10, bx + 11, by + 3, 1, P.iron[4]);
-        }
-        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[3]); };
-        edge(x + 1, y + 1, 70, 4); edge(x + 1, y + 59, 70, 4); edge(x + 1, y + 1, 4, 62); edge(x + 67, y + 1, 4, 62);
-        for (let u = 8; u < 66; u += 6) { px(x + u, y + 3, P.iron[4]); px(x + u, y + 61, P.iron[4]); }
-        for (let u = 8; u < 58; u += 6) { px(x + 3, y + u, P.iron[4]); px(x + 69, y + u, P.iron[4]); }
-        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [67, 5, -1, 1], [5, 59, 1, -1], [67, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 9, y + cy], [x + cx, y + cy + sy * 9]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 5, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 2, y + cy + sy * 5, P.iron[4]); }
-        ball(x + 36, y + 32, 16, BRASS); for (let k = 0; k < 14; k++) { const a = k / 14 * TAU; px(x + 36 + Math.cos(a) * 14.2, y + 32 + Math.sin(a) * 14.2, P.brass[0]); }
-        g.save(); g.beginPath(); g.arc(x + 36, y + 32, 12.2, 0, TAU); g.clip(); water(x + 23, y + 19, 26, 26, lv, t); g.restore();
-        px(x + 29, y + 25, P.glass[3]); px(x + 30, y + 24, P.glass[3]); px(x + 28, y + 26, P.glass[3]);
-        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
-        const s = Math.sin(t * 0.2) * 3;
-        box(x + 46, y + 62, 12, 9, IRONL); R(x + 58, y + 65, 5 + s, 2, P.iron[4]); R(x + 62 + s, y + 63, 2, 6, P.brass[1]);
-        gauge(x + 50, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 40, y + 66, 6, 3, IRONL);
-      } },
-  ];
-
-  // ================= v4（2026-09-29 用户：背景钢板照抄巨炮、炉膛占 60% 以上的红色中心、其他都是被红光衬托的剪影、煤堆变成大山）=================
-  // 巨炮的背景钢板墙（sprites.js gPlateWall 原样照抄）：24px 大板 + X 加强肋 + 板边细铆钉，全用暗色，安静
-  function plateWall(x0, y0, x1, y1) {
-    R(x0, y0, x1 - x0, y1 - y0, P.dark[1]);
-    for (let py0 = y0; py0 < y1; py0 += 24) for (let px0 = x0; px0 < x1; px0 += 24) {
-      const w = Math.min(24, x1 - px0), h = Math.min(24, y1 - py0), n = Math.min(w, h);
-      for (let t = 1; t < n - 1; t++) { px(px0 + t, py0 + t, P.dark[2]); px(px0 + n - 1 - t, py0 + t, P.dark[2]); }
-      R(px0, py0, w, 1, P.dark[0]); R(px0, py0, 1, h, P.dark[0]);
-      for (let t = 3; t < w; t += 3) px(px0 + t, py0 + 1, P.dark[3]);
-      for (let t = 3; t < h; t += 3) px(px0 + 1, py0 + t, P.dark[3]);
-    }
-  }
-  // 剪影：实心黑，朝上的边被身后的火光勾一道红边，两侧一道暗红
-  function sil(test, x0, y0, x1, y1, rim = true) {
-    const inn = (xx, yy) => test(xx + 0.5, yy + 0.5);
-    for (let yy = Math.floor(y0); yy <= Math.ceil(y1); yy++) for (let xx = Math.floor(x0); xx <= Math.ceil(x1); xx++) {
-      if (!inn(xx, yy)) continue;
-      const edge = !inn(xx, yy - 1) || !inn(xx + 1, yy) || !inn(xx - 1, yy);
-      px(xx, yy, rim && edge ? (!inn(xx, yy - 1) ? P.fire[1] : P.fire[0]) : P.black);
-    }
-  }
-  const silBar = (ax, ay, bx, by, w) => { const L = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / L, uy = (by - ay) / L; sil((x, y) => { const s = (x - ax) * ux + (y - ay) * uy, d = Math.abs((x - ax) * -uy + (y - ay) * ux); return s >= 0 && s <= L && d <= w / 2; }, Math.min(ax, bx) - w, Math.min(ay, by) - w, Math.max(ax, bx) + w, Math.max(ay, by) + w); };
-  // 剪影链条：一串黑链节，销子被火光照出一粒红，随 off 走
-  function chainSil(ax, ay, bx, by, off, horiz = true) {
-    const n = Math.round(Math.hypot(bx - ax, by - ay)), dx = (bx - ax) / n, dy = (by - ay) / n;
-    for (let i = 0; i <= n; i++) {
-      const k = ((Math.floor(i + off)) % 4 + 4) % 4, x0 = ax + dx * i, y0 = ay + dy * i;
-      if (horiz) { px(x0, y0 - 1, k < 2 ? P.black : P.fire[0]); px(x0, y0, P.black); px(x0, y0 + 1, k === 3 ? P.fire[1] : P.black); }
-      else { px(x0 - 1, y0, k < 2 ? P.black : P.fire[0]); px(x0, y0, P.black); px(x0 + 1, y0, k === 3 ? P.fire[1] : P.black); }
-    }
-  }
-  const sprocketSil = (cx, cy, r, n, rot) => sil((x, y) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx) - rot; return (d <= r - 1 || (d <= r + 0.7 && Math.cos(a * n) > 0.2)) && !(d < r * 0.35); }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2);
-  // 煤山：不规则的大山（折线外形），几块大煤面 + 每块一粒亮反光；火在右边，右坡被勾红
-  const HILL = [[0, 63], [0, 30], [2, 27], [5, 28], [7, 24], [10, 22], [13, 23], [15, 20], [18, 22], [20, 26], [22, 27], [24, 32], [26, 35], [27, 40], [30, 44], [30, 48], [33, 52], [34, 57], [37, 61], [38, 63]];
-  const FACETS = [[6, 31, 7, 1], [15, 27, 7, 0], [11, 40, 8, 0], [21, 38, 6, 2], [4, 50, 7, 0], [17, 50, 8, 1], [27, 51, 6, 2], [9, 58, 6, 0], [24, 59, 7, 0]];
-  function coalHill(x, y) {
-    // 一座由大煤块垒起来的山：先铺一层阴影底，再从上往下一排排压上大块（越往下越靠前），每排最右一块被火勾红边
-    const edgeX = (yy) => { for (let i = 1; i < HILL.length; i++) { const [a0, b0] = HILL[i - 1], [a1, b1] = HILL[i]; if (b1 >= yy && b0 <= yy && b1 > b0) return a0 + (a1 - a0) * (yy - b0) / (b1 - b0); } return 0; };
-    const ins = inPoly(HILL.map(([a, b]) => [x + a - 1, y + b + 2]));
-    for (let yy = y + 20; yy < y + 64; yy++) for (let xx = x; xx < x + 40; xx++) if (ins(xx + 0.5, yy + 0.5)) px(xx, yy, P.black);
-    const hash = (i) => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5; return v - Math.floor(v); };
-    let n = 0;
-    for (let r = 0; r < 6; r++) {
-      const cy = 27 + r * 7, right = edgeX(cy) - 3;
-      for (let cx = right; cx > -4; cx -= 8.5 + hash(n) * 1.5, n++) {
-        const s = 8 + hash(n + 50) * 3, h = s / 2, rim = cx === right, j = (k) => (hash(n * 7 + k) - 0.5) * 2;
-        const pts = [[cx - h + j(1), cy + j(2)], [cx - h * 0.4 + j(3), cy - h + j(4)], [cx + h * 0.5 + j(5), cy - h * 0.8], [cx + h + j(6), cy + j(7)], [cx + h * 0.4, cy + h * 0.8 + j(8)], [cx - h * 0.6, cy + h * 0.8]].map(([a, b]) => [x + a, y + b]);
-        const inn = inPoly(pts), ok = (xx, yy) => inn(xx + 0.5, yy + 0.5);
-        for (let yy = Math.floor(y + cy - h - 2); yy <= y + cy + h + 2; yy++) for (let xx = Math.floor(x + cx - h - 2); xx <= x + cx + h + 2; xx++) {
-          if (!ok(xx, yy) || xx < x || yy >= y + 64) continue;
-          const out = !ok(xx - 1, yy) || !ok(xx + 1, yy) || !ok(xx, yy - 1) || !ok(xx, yy + 1);
-          const tl = !ok(xx - 2, yy) || !ok(xx, yy - 2), br = !ok(xx + 2, yy) || !ok(xx, yy + 2);
-          px(xx, yy, out ? (rim && !ok(xx + 1, yy) ? P.fire[1] : P.black) : tl ? P.dark[3] : br ? (rim ? P.fire[0] : P.black) : P.dark[1]);
-        }
-        if (hash(n + 90) > 0.62 && x + cx - h > x) { const gx = x + cx - h * 0.4, gy = y + cy - h + 2; px(gx, gy, P.white); px(gx + 1, gy, P.iron[4]); px(gx - 1, gy + 1, P.iron[4]); }   // 少数几块沿上沿一道亮反光
+  // 红色警示带（饱和色，材质层不换）
+  const warn = (x, y, w, h) => { R(x, y, w, h, P.fire[0]); for (let u = 0; u < w; u += 3) R(x + u, y, 1, h, P.fire[1]); R(x, y, w, 1, P.fire[1]); };
+  // 喷口火焰：从 (x,y) 沿角度 a 喷出的锥形火（材质层之后画）
+  function flameJet(x, y, a, len, t) {
+    const r = a * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r);
+    for (let i = 0; i < len; i++) {
+      const w = 1 + i * 0.28, k = i / len, jit = Math.sin(i * 0.9 + t * 0.7) * (0.6 + k * 1.6);
+      for (let s = -w; s <= w; s += 1) {
+        const e = Math.abs(s) / w, col = k > 0.85 ? (e < 0.5 ? P.fire[1] : P.fire[0]) : e < 0.35 ? (k < 0.35 ? P.white : P.fire[3]) : e < 0.7 ? P.fire[2] : P.fire[1];
+        if (k > 0.7 && ((i * 7 + Math.round(s) * 3 + t) % 5 === 0)) continue;
+        px(x + cx * i - cy * (s + jit), y + cy * i + cx * (s + jit), col);
       }
     }
   }
-  // 铲煤（v5，更自然）：铲子长度固定，双手带着它走——插进煤山、端起来、举过身侧、往前一送把煤抛上链条，然后转身（铲子缩成一小截表示转过来）回到煤山
-  const SHOVEL_KF = [[0, 35, 57, 165, 9, 0], [0.16, 34, 58, 170, 9, 1], [0.3, 36, 56, 200, 9, 0], [0.46, 39, 53, 262, 9, -1], [0.58, 42, 51, 318, 9, -1], [0.68, 42, 52, 338, 9, 0], [0.8, 39, 55, 358, 8, 0], [0.86, 37, 56, 358, 2, 0], [0.87, 37, 56, 178, 2, 0], [0.94, 36, 56, 172, 9, 0], [1, 35, 57, 165, 9, 0]];
-  function shovelPose4(t) {
-    const p = saw(t, 60), ease = (k) => k * k * (3 - 2 * k);
-    let i = 1; while (i < SHOVEL_KF.length - 1 && SHOVEL_KF[i][0] < p) i++;
-    const A = SHOVEL_KF[i - 1], B = SHOVEL_KF[i], k = ease(Math.min(1, Math.max(0, (p - A[0]) / (B[0] - A[0] || 1)))), m = (j) => A[j] + (B[j] - A[j]) * k;
-    const hx = m(1), hy = m(2), ang = m(3) * Math.PI / 180, L = m(4), dx = Math.cos(ang), dy = Math.sin(ang);
-    return { p, hand: [hx, hy], dir: [dx, dy], L, tip: [hx + dx * L, hy + dy * L], dy: m(5), loaded: p > 0.16 && p < 0.56 };
+  // 引燃小火苗：2～3 像素，一直在跳
+  const pilot = (x, y, t) => { px(x, y, P.fire[t % 3 === 0 ? 3 : 2]); px(x + 1, y - (t % 2), P.fire[2]); if (t % 4 < 2) px(x, y - 1, P.fire[1]); };
+  // 喷汽：一串往外扩的白汽团（材质层之后画）；strong = 正在喷
+  function steamJet(x, y, a, len, t, strong) {
+    const r = a * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r), n = strong ? 9 : 2;
+    for (let k = 0; k < n; k++) {
+      const p = saw(t * (strong ? 2.2 : 0.8) + k * (100 / n), 100), d = p * (strong ? len : 8), rr = 0.8 + p * (strong ? 4.2 : 1.6), wob = Math.sin(k * 2.1 + t * 0.2) * p * 3;
+      disc(x + cx * d - cy * wob, y + cy * d + cx * wob - (strong ? 0 : p * 3), rr, p < 0.35 ? P.white : p < 0.75 ? P.steam[2] : P.steam[1]);
+    }
   }
-  const TOSS_TO = [54, 43];
-  const MOUTH = { cx: 40, cy: 34, r: 29, bot: 62 };   // 拱形炉口：x 11～69，y 5～62，约占画面 57%，加上踏板下漏出来的红光超过 60%
-  const BOILER4 = [
-    { key: 'E4', name: '链条炉排 · 炉口剪影', ref: '维多利亚锅炉房：巨大炉口的火光里，司炉工、输送链和传动链都成了剪影',
-      idea: '（v4）画面正中一只巨大的拱形炉口（约占 60%），整个是红色和橙色的火；司炉小工、输送链、从顶上齿轮垂下来的传动链、长拉环都成了火光里的黑剪影，边上被火勾一道红边。左边一座不规则的煤山（和炉口对分画面），几块大煤面各带一粒反光。工人站在镂空踏板上，把煤从山上铲到输送链上，链条把煤滚进火里烧红。背景钢板照抄巨炮（大板 + X 肋，全暗色）。',
+  // 车载炮座（2×1）：贴车体的矮底座 + 两片耳轴板（没有三脚架 / 立柱）
+  const cradle = (x, y, x0 = 10, w = 18) => { box(x + x0, y + 18, w, 6, IRON); R(x + x0 + 1, y + 18, w - 2, 1, P.iron[3]); for (const u of [3, w - 5]) R(x + x0 + u, y + 10, 3, 8, P.iron[1]); };
+  const pin = (x, y) => { disc(x, y, 2.4, P.brass[0]); disc(x, y, 1.5, P.brass[2]); px(x - 1, y - 1, P.brass[3]); };
+  const flange = (X, Y, h) => { R(X, Y - h / 2 - 1, 2, h + 2, P.iron[0]); R(X, Y - h / 2 - 1, 1, h + 2, P.iron[4]); };
+
+  // ================= 鱼叉 harpoon（2×1 = 48×24；耳轴 (18,13)，叉尖离耳轴 34）=================
+  // o：t、a（仰角）、k（后坐 0～1）、out（已射出：叉不在炮口，绳子绷直伸出去）
+  const HARPOON = [
+    { key: 'A', name: '捕鲸炮', ref: '（v1 候选 A 重画）斯文·福因的捕鲸炮：短粗炮管 + 露在炮口外的倒钩叉 + 后面一只盘绳桶',
+      idea: '短粗的铸铁炮管，炮口插着一支带倒钩的鱼叉（叉杆上一只滑环拴绳）；炮座后面一只木桶，桶里盘着一圈圈麻绳，绳子从桶口垂下来再挂到叉杆上。射出去后绳子从桶里一路被拽走。',
       draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat, run = t * 0.5, M = MOUTH;
-        plateWall(x, y, x + 72, y + 72);
-        // 炉口外框：一圈黑铁框 + 黄铜口沿
-        sil((xx, yy) => { const dx = xx - (x + M.cx), dy = yy - (y + M.cy), R2 = M.r + 3; return yy <= y + M.bot + 1 && Math.abs(dx) <= R2 && (yy >= y + M.cy || dx * dx + dy * dy <= R2 * R2); }, x + 5, y + 1, x + 72, y + 64, false);
-        for (let k = 0; k <= 60; k++) { const a = Math.PI + k / 60 * Math.PI; px(x + M.cx + Math.cos(a) * (M.r + 1.6), y + M.cy + Math.sin(a) * (M.r + 1.6), P.brass[1]); px(x + M.cx + Math.cos(a) * (M.r + 2.5), y + M.cy + Math.sin(a) * (M.r + 2.5), P.brass[0]); }
-        R(x + M.cx - M.r - 3, y + M.cy, 2, M.bot - M.cy, P.brass[0]); R(x + M.cx - M.r - 2, y + M.cy, 1, M.bot - M.cy, P.brass[1]); R(x + M.cx + M.r + 1, y + M.cy, 2, M.bot - M.cy, P.brass[1]);
-        // 炉口里：满满的火。上面暗红的炉顶，往下橙、黄，底下一床白热的炭
-        g.save(); g.beginPath(); g.moveTo(x + M.cx - M.r, y + M.bot); g.lineTo(x + M.cx - M.r, y + M.cy); g.arc(x + M.cx, y + M.cy, M.r, Math.PI, 0); g.lineTo(x + M.cx + M.r, y + M.bot); g.closePath(); g.clip();
-        R(x, y, 72, 64, P.fire[0]);
-        const W = M.r * 2, x0 = x + M.cx - M.r, bed = y + 56, H = 50;
-        for (let u = 0; u < W; u++) {
-          const hg = H * (0.55 + 0.35 * heat) * (0.6 + 0.4 * Math.sin(u * 0.9 + t * 0.3) * Math.sin(u * 0.33 - t * 0.17));
-          R(x0 + u, bed - hg, 1, hg, P.fire[1]); R(x0 + u, bed - hg * 0.62, 1, hg * 0.62, P.fire[2]); R(x0 + u, bed - hg * 0.28, 1, hg * 0.28, P.fire[3]);
-        }
-        R(x0, bed, W, 7, P.fire[2]); for (let u = 1; u < W; u += 3) R(x0 + u, bed + 1 + (u % 4), 2, 1, (u % 2) ? P.fire[3] : P.fire[1]);
-        for (let k = 0; k < 7; k++) { const p = saw(t + k * 19, 60); px(x0 + 6 + ((k * 13) % (W - 12)) + Math.sin(p * 9 + k) * 2, bed - 8 - p * 38, p < 0.6 ? P.fire[3] : P.fire[2]); }   // 往上飘的火星
-        g.restore();
-        // 顶上：工字梁 + 黄铜齿轮组（下沿被火照亮）
-        R(x, y, 72, 5, P.iron[0]); R(x, y + 1, 72, 3, P.iron[2]); R(x, y + 1, 72, 1, P.iron[3]); R(x, y + 4, 72, 1, P.dark[0]);
-        gear(x + 46, y + 10, 6, 12, t * 0.05); gear(x + 35.5, y + 7, 3.8, 8, -t * 0.05 * 6 / 3.8); gear(x + 56.5, y + 8, 4.2, 9, -t * 0.05 * 6 / 4.2);
-        for (const [cx, cy, r] of [[46, 10, 6], [35.5, 7, 3.8], [56.5, 8, 4.2]]) for (let k = 0; k < 7; k++) { const a = 0.2 + k * 0.4; px(x + cx + Math.cos(a) * r, y + cy + Math.sin(a) * r, P.fire[2]); }
-        // 传动链：从大齿轮一直垂到输送链头部的链轮（剪影）
-        chainSil(x + 41, y + 12, x + 41, y + 51, run, false); chainSil(x + 51, y + 12, x + 51, y + 51, -run, false);
-        // 长拉环：梁上垂下的长杆 + 拉环（剪影）
-        silBar(x + 63, y + 4, x + 63, y + 30, 1.6); sil((xx, yy) => { const d = Math.hypot(xx - (x + 63.5), yy - (y + 33.5)); return d <= 3.3 && d >= 1.7; }, x + 59, y + 29, x + 68, y + 38);
-        // 输送链：链轮 + 上行链（载煤进火）+ 下行链 + 托架（剪影）
-        sprocketSil(x + 46, y + 52, 5.5, 10, run * 0.2);
-        chainSil(x + 46, y + 46.5, x + 69, y + 46.5, -run); chainSil(x + 46, y + 57.5, x + 69, y + 57.5, run);
-        for (let k = 0; k < 5; k++) {
-          const lx = x + 46 + ((k * 5.2 + run) % 26); if (lx > x + 67) continue;
-          const hot = (lx - x - 50) / 14 * (0.6 + heat);
-          sil((xx, yy) => xx >= lx && xx < lx + 3.5 && yy >= y + 42.5 && yy < y + 45.5 - (xx - lx > 2.5 ? 1 : 0), lx - 1, y + 41, lx + 5, y + 47, hot < 0.3);
-          if (hot > 0.3) { R(lx, y + 43, 3, 2, hot > 0.8 ? P.fire[2] : P.fire[1]); if (hot > 0.8) px(lx + 1, y + 43, P.fire[3]); }
-        }
-        // 踏板：镂空格栅，孔里透出下面灰坑的红光
-        R(x, y + 62, 72, 3, P.black); for (let u = 1; u < 71; u += 3) R(x + u, y + 63, 2, 1, u > 12 && u < 66 ? P.fire[1] : P.fire[0]);
-        R(x, y + 62, 72, 1, P.dark[2]);
-        // 踏板下：灰坑的红光 + 左下镂空楼梯（剪影）
-        R(x, y + 65, 72, 7, P.dark[0]); R(x + 10, y + 66, 58, 5, P.fire[0]); for (let u = 12; u < 66; u += 5) R(x + u, y + 67 + (u % 2), 3, 2, heat > 0.4 ? P.fire[1] : P.fire[0]);
-        for (let k = 0; k < 3; k++) { const sx = x + 18 - k * 7, sy = y + 65 + k * 2.5; R(sx, sy, 7, 2, P.black); for (let u = 1; u < 7; u += 2) px(sx + u, sy + 1, P.fire[0]); }
-        line(x + 24, y + 64, x + 4, y + 72, 1, P.black);
-        // 煤山（最前景）
-        coalHill(x, y);
-        // 司炉站台：花纹钢板踏面 + 黄铜包边 + 铆接立面 + 两条腿和一道斜撑（颜色、结构都清楚，不是剪影）
-        R(x + 31, y + 61, 20, 3, P.iron[0]); R(x + 32, y + 61, 18, 2, P.iron[3]); for (let u = 33; u < 50; u += 3) px(x + u, y + 62, P.iron[4]);
-        R(x + 31, y + 60, 20, 1, P.brass[2]); R(x + 31, y + 61, 20, 1, P.brass[1]);
-        R(x + 32, y + 64, 18, 3, P.iron[2]); R(x + 32, y + 66, 18, 1, P.iron[0]); for (let u = 34; u < 50; u += 4) px(x + u, y + 65, P.iron[4]);
-        for (const u of [33, 47]) { R(x + u, y + 67, 3, 5, P.iron[0]); R(x + u + 1, y + 67, 1, 5, P.iron[3]); }
-        line(x + 36, y + 67, x + 46, y + 71, 1, P.iron[1]);
+        const d = o.k * 5;
+        box(x + 1, y + 11, 10, 13, [P.leather[0], P.leather[1], P.leather[2], P.leather[2]]); for (const v of [13, 21]) R(x + 1, y + v, 10, 2, P.iron[3]);
+        R(x + 2, y + 11, 8, 2, P.leather[0]); for (let u = 2; u < 10; u += 2) px(x + u, y + 11, ROPE[2]);
+        cradle(x, y, 12, 14);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          R(X - 9 - d, Y - 4, 25, 8, P.iron[0]); R(X - 9 - d, Y - 3, 25, 6, P.iron[2]); R(X - 9 - d, Y - 3, 25, 1, P.iron[3]); R(X - 9 - d, Y + 2, 25, 1, P.iron[1]);
+          R(X + 12 - d, Y - 5, 4, 10, P.iron[0]); R(X + 13 - d, Y - 4, 2, 8, P.iron[3]); disc(X - 9 - d, Y, 3, P.iron[1]);
+          if (!o.out) { R(X + 16 - d, Y - 1, 12, 2, P.iron[4]); R(X + 16 - d, Y, 12, 1, P.iron[2]); R(X + 19 - d, Y - 2, 2, 4, P.brass[2]); barbHead(X + 26 - d, Y); }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 16 : 20, 1);
+        o.out ? line(x + 6, y + 11, rx, ry, 1, ROPE[1]) : rope(x + 6, y + 11, rx, ry, 5);
+        if (o.out) { const [ex, ey] = at(x + 18, y + 13, o.a, 60, 0); line(rx, ry, ex, ey, 1, ROPE[2]); }
+      } },
+    { key: 'B', name: '板簧弩炮', ref: '（v1 候选 B 重画）大弩 → 弓臂换成马车的叠层板簧，工业味压过中世纪味',
+      idea: '一副竖着的叠层钢板簧当弓臂（三片钢板用箍扎在一起），弓弦拉到叉尾；鱼叉躺在导轨上；炮座后面一只黄铜绞盘收绳。射出后弓臂弹直、弦拉到最前。',
+      draw(x, y, o) {
+        box(x + 1, y + 12, 9, 12, IRON); disc(x + 5.5, y + 12, 4.5, P.brass[0]); disc(x + 5.5, y + 12, 3.6, P.brass[1]); for (let k = -2; k <= 2; k += 2) R(x + 2, y + 12 + k, 7, 1, ROPE[1]); disc(x + 5.5, y + 12, 1.2, P.brass[3]);
+        cradle(x, y, 11, 16);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          R(X - 12, Y + 1, 34, 3, P.iron[0]); R(X - 12, Y + 1, 34, 1, P.iron[3]); R(X - 12, Y + 2, 34, 1, P.iron[1]);
+          const bend = o.out ? 1 : 4;
+          for (let lf = 0; lf < 3; lf++) for (let i = -11 + lf; i <= 11 - lf; i++) { const bx = X + 16 + lf - Math.round(i * i / 121 * bend * 2); px(bx, Y + i, lf === 0 ? P.iron[4] : P.iron[2]); px(bx + 1, Y + i, P.iron[0]); }
+          for (const v of [-5, 5]) R(X + 15, Y + v - 1, 4, 2, P.brass[1]);
+          const nock = o.out ? X + 15 : X - 2;
+          line(X + 16 - bend * 2, Y - 11, nock, Y, 1, P.steam[1]); line(X + 16 - bend * 2, Y + 11, nock, Y, 1, P.steam[1]);
+          if (!o.out) { R(X - 2, Y - 1, 28, 2, P.iron[4]); R(X - 2, Y, 28, 1, P.iron[2]); barbHead(X + 26, Y); }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 20 : 0, 0);
+        o.out ? (line(x + 6, y + 8, rx, ry, 1, ROPE[1]), line(rx, ry, ...at(x + 18, y + 13, o.a, 60, 0), 1, ROPE[2])) : rope(x + 6, y + 8, rx, ry, 2);
+      } },
+    { key: 'C', name: '绞盘鱼叉', ref: '（v1 候选 C 重画）占半个模块的黄铜绞盘 + 短炮管',
+      idea: '左半边是一只大黄铜绞盘（两片轮缘 + 缠满的麻绳 + 一只小齿轮带着），右边一根短炮管射出带钩爪的鱼叉。收绳时绞盘转，绳圈的亮纹往上走。「收绳」这件事最显眼。',
+      draw(x, y, o) {
+        box(x + 1, y + 5, 20, 19, IRON);
+        R(x + 3, y + 7, 16, 15, P.leather[0]); for (let v = 8; v < 21; v += 2) R(x + 4, y + v, 14, 1, (v / 2 + Math.floor(o.t / 3)) % 3 ? ROPE[1] : ROPE[2]);
+        for (const u of [2, 17]) { R(x + u, y + 5, 3, 18, P.brass[0]); R(x + u, y + 6, 2, 16, P.brass[2]); R(x + u, y + 6, 1, 16, P.brass[3]); }
+        gear(x + 10, y + 3.5, 3, 8, o.t * 0.15);
+        cradle(x, y, 16, 12);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          const d = o.k * 5; htube(X - 3 - d, Y - 3, 22, 6, IRONL); R(X + 6 - d, Y - 4, 2, 8, P.brass[1]); R(X + 17 - d, Y - 4, 3, 8, P.iron[0]); R(X + 18 - d, Y - 3, 1, 6, P.iron[3]);
+          if (!o.out) { R(X + 20 - d, Y - 1, 6, 2, P.iron[4]); for (const s of [-1, 1]) { line(X + 26 - d, Y, X + 33 - d, Y + s * 4, 1, P.iron[3]); line(X + 33 - d, Y + s * 4, X + 31 - d, Y + s * 5, 1, P.iron[4]); } R(X + 26 - d, Y - 1, 8, 2, P.iron[4]); }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 20 : 22, 0);
+        o.out ? (line(x + 12, y + 8, rx, ry, 1, ROPE[1]), line(rx, ry, ...at(x + 18, y + 13, o.a, 60, 0), 1, ROPE[2])) : rope(x + 12, y + 8, rx, ry, 1);
+      } },
+    { key: 'D', name: '蒸汽鱼叉枪', ref: '新：气动 / 蒸汽鱼叉枪（维多利亚的捕鲸枪 + 蒸汽储气缸）',
+      idea: '一根细长的炮管，下面并着一根更粗的蒸汽缸（黄铜阀 + 小压力表）；炮座底下横着一只绳轴，绳子顺着炮管下沿一路拴到叉尾。发射时炮尾喷一口白汽，平时阀门口丝丝冒汽。',
+      draw(x, y, o) {
+        box(x + 2, y + 16, 12, 8, IRON); disc(x + 8, y + 17, 5, P.iron[0]); disc(x + 8, y + 17, 4, P.leather[0]); for (let k = -3; k <= 3; k += 2) R(x + 5, y + 17 + k, 7, 1, ROPE[k % 4 ? 1 : 2]); disc(x + 8, y + 17, 1.3, P.brass[2]);
+        cradle(x, y, 13, 14);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          const d = o.k * 4;
+          htube(X - 12 - d, Y + 1, 22, 6, IRONL); R(X - 13 - d, Y, 2, 8, P.iron[0]); R(X + 9 - d, Y, 2, 8, P.iron[0]);
+          htube(X - 10 - d, Y - 4, 34, 4, IRONL); R(X + 22 - d, Y - 5, 2, 6, P.iron[0]);
+          R(X - 4 - d, Y - 7, 3, 3, P.brass[1]); R(X - 5 - d, Y - 8, 5, 1, P.brass[2]); gauge(X + 3 - d, Y - 6, 2.4, 0.3 + 0.4 * (o.out ? 0.2 : 0.8));
+          if (!o.out) { R(X + 24 - d, Y - 3, 3, 2, P.iron[4]); barbHead(X + 26 - d, Y - 2); }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 22 : 24, 0);
+        o.out ? (line(x + 8, y + 12, rx, ry, 1, ROPE[1]), line(rx, ry, ...at(x + 18, y + 13, o.a, 60, -2), 1, ROPE[2])) : rope(x + 8, y + 12, rx, ry, 1);
       },
-      over(x, y, o, mini) {
-        const t = o.t || 0, S = shovelPose4(t), [hx, hy] = S.hand, [dx, dy] = S.dir;
-        const cx = x + 38 + (hx - 38) * 0.35, cy = y + 56 + S.dy;
-        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6));
-        const H = [x + hx, y + hy], tip = [H[0] + dx * S.L, H[1] + dy * S.L], base = [H[0] + dx * (S.L - 2), H[1] + dy * (S.L - 2)];
-        line(H[0] - dx * 3, H[1] - dy * 3, base[0], base[1], 1, P.leather[2]);                 // 木柄
-        px(H[0] - dx * 3, H[1] - dy * 3, P.black); px(H[0], H[1], P.black);                   // 两只手
-        if (S.L > 4) {                                                                        // 铲头：一片亮钢，横在柄的末端
-          const nx = -dy, ny = dx;
-          for (const s2 of [-1, 0, 1]) { px(base[0] + nx * s2, base[1] + ny * s2, P.iron[3]); px(tip[0] + nx * s2 * 0.8, tip[1] + ny * s2 * 0.8, P.iron[4]); }
-          px(tip[0], tip[1], Math.sin(t * 0.45) > 0.2 ? P.white : P.iron[4]);
-          if (S.loaded) { R(tip[0] - 1 - dy, tip[1] - 2, 2, 2, P.black); px(tip[0] - dy, tip[1] - 2, P.white); }
-        }
-        if (S.p >= 0.56 && S.p < 0.72) {                                                      // 抛出去的一铲煤：沿弧线落到链条上
-          const k = (S.p - 0.56) / 0.16, R0 = shovelPose4(0.56 * 60).tip, lx = x + R0[0] + (TOSS_TO[0] - R0[0]) * k, ly = y + R0[1] + (TOSS_TO[1] - R0[1]) * k - Math.sin(k * Math.PI) * 5;
-          R(lx, ly, 2, 2, P.black); px(lx + 2, ly + 1, P.black); px(lx, ly, P.white);
-        }
-      } },
-  ];
-  const TANKS4 = [
-    { key: 'AF4', name: '拼装水柜 · 大舷窗', ref: '布雷斯韦特分片钢水柜 + 大舷窗 + 给水泵 + 包角铁',
-      idea: '（v4：舷窗放大到几乎占满正面；钢板上的压筋和板缝调暗，不抢舷窗）九块分片钢板拼成水柜，四边角铁、四角包角板；正中一扇大舷窗看水位和气泡；右下给水泵的活塞来回推。',
+      fx(x, y, o) { const [vx, vy] = at(x + 18, y + 13, o.a, -3, -9); steamJet(vx, vy, o.a + 90, 6, o.t, false); if (o.k > 0.3) { const [bx, by] = at(x + 18, y + 13, o.a, -12, -2); steamJet(bx, by, o.a + 180, 12, o.t, true); } } },
+    { key: 'E', name: '链锚抓钩', ref: '新：船锚 + 抓钩（链条代替麻绳）',
+      idea: '粗口径的短炮管里塞着一只四爪抓钩（像小船锚），拴的不是麻绳而是铁链；炮座左边一只锚链箱，链条从箱口的导链管里一节节拽出去。剪影在炮口是一朵张开的爪子。',
       draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        R(x + 3, y + 3, 66, 60, P.iron[2]);
-        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-          const bx = x + 3 + i * 22, by = y + 3 + j * 20;
-          R(bx, by, 22, 1, P.iron[1]); R(bx, by, 1, 20, P.iron[1]);
-          line(bx + 11, by + 4, bx + 17, by + 10, 1, P.iron[3]); line(bx + 17, by + 10, bx + 11, by + 16, 1, P.iron[1]); line(bx + 11, by + 16, bx + 5, by + 10, 1, P.iron[1]); line(bx + 5, by + 10, bx + 11, by + 4, 1, P.iron[3]);
-        }
-        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[2]); };
-        edge(x + 1, y + 1, 70, 4); edge(x + 1, y + 59, 70, 4); edge(x + 1, y + 1, 4, 62); edge(x + 67, y + 1, 4, 62);
-        for (let u = 8; u < 66; u += 6) { px(x + u, y + 3, P.iron[3]); px(x + u, y + 61, P.iron[3]); }
-        for (let u = 8; u < 58; u += 6) { px(x + 3, y + u, P.iron[3]); px(x + 69, y + u, P.iron[3]); }
-        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [67, 5, -1, 1], [5, 59, 1, -1], [67, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 8, y + cy], [x + cx, y + cy + sy * 8]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[3]); }
-        // 大舷窗：半径 25（v3 是 16），一圈 20 颗螺栓
-        ball(x + 36, y + 32, 25, BRASS); for (let k = 0; k < 20; k++) { const a = k / 20 * TAU; px(x + 36 + Math.cos(a) * 23, y + 32 + Math.sin(a) * 23, P.brass[0]); }
-        disc(x + 36, y + 32, 21.2, P.brass[0]);
-        g.save(); g.beginPath(); g.arc(x + 36, y + 32, 20.4, 0, TAU); g.clip(); water(x + 15, y + 11, 42, 42, lv, t); g.restore();
-        for (const [a, b] of [[24, 19], [25, 18], [26, 17], [23, 21], [29, 16]]) px(x + a, y + b, P.glass[3]);
-        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
-        const s = Math.sin(t * 0.2) * 3;
-        box(x + 50, y + 62, 12, 9, IRONL); R(x + 62, y + 65, 3 + s, 2, P.iron[4]); R(x + 64 + s, y + 63, 2, 6, P.brass[1]);
-        gauge(x + 54, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 44, y + 66, 6, 3, IRONL);
+        box(x + 1, y + 9, 11, 15, IRON); R(x + 3, y + 11, 7, 3, P.dark[0]); R(x + 8, y + 7, 5, 4, P.iron[1]); R(x + 8, y + 7, 5, 1, P.iron[3]);
+        cradle(x, y, 12, 16);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          const d = o.k * 5; htube(X - 7 - d, Y - 4, 28, 8, IRONL); R(X + 18 - d, Y - 5, 3, 10, P.iron[0]); R(X + 19 - d, Y - 4, 1, 8, P.iron[4]); R(X - 3 - d, Y - 4, 2, 8, P.brass[1]);
+          if (!o.out) { R(X + 21 - d, Y - 1, 6, 2, P.iron[3]); disc(X + 27 - d, Y, 1.5, P.iron[4]); for (const s of [-1, -0.35, 0.35, 1]) { line(X + 27 - d, Y, X + 32 - d, Y + s * 5, 1, P.iron[3]); line(X + 32 - d, Y + s * 5, X + 30 - d, Y + s * 6.5, 1, P.iron[4]); } }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 21 : 22, 0), ex = o.out ? at(x + 18, y + 13, o.a, 60, 0) : [rx, ry];
+        const cx0 = x + 10, cy0 = y + 8, n = Math.round(Math.hypot(ex[0] - cx0, ex[1] - cy0) / 2);
+        for (let i = 0; i <= n; i++) { const k = i / n, xx = cx0 + (ex[0] - cx0) * k, yy = cy0 + (ex[1] - cy0) * k + (o.out ? 0 : Math.sin(k * Math.PI) * 3); px(xx, yy, (i + Math.floor(o.t / 2)) % 2 ? P.iron[4] : P.iron[1]); px(xx, yy + 1, P.iron[0]); }
+      } },
+    { key: 'F', name: '绞缆盘 + 滑轨', ref: '新：帆船甲板的绞缆盘（竖着的腰鼓 + 插杆）+ 弹簧滑轨发射',
+      idea: '炮座左边立着一只绞缆盘（腰鼓形的立轴，顶上插着几根推杆），缆绳一圈圈绕在鼓腰上；右边是一副开放的双轨滑道，鱼叉坐在弹簧滑块上，旁边一根上膛杠杆。整件最「船」。',
+      draw(x, y, o) {
+        for (let v = 0; v < 16; v++) { const w = 10 - Math.round(Math.sin(v / 15 * Math.PI) * 3); R(x + 6 - w / 2, y + 7 + v, w, 1, v < 2 || v > 13 ? P.brass[1] : v % 2 ? ROPE[1] : ROPE[2]); px(x + 6 - w / 2, y + 7 + v, P.brass[0]); }
+        R(x + 1, y + 5, 10, 2, P.brass[2]); R(x + 1, y + 5, 10, 1, P.brass[3]); const sp = Math.floor(o.t / 4) % 2; for (const u of sp ? [0, 5, 10] : [2, 8]) R(x + u, y + 3, 2, 2, P.iron[3]);
+        R(x + 1, y + 22, 11, 2, P.iron[0]);
+        cradle(x, y, 13, 14);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          for (const v of [-3, 2]) { R(X - 10, Y + v, 34, 2, P.iron[0]); R(X - 10, Y + v, 34, 1, P.iron[3]); }
+          for (let u = -8; u < 24; u += 6) R(X + u, Y - 3, 1, 7, P.iron[1]);
+          const sled = o.out ? 16 : 0; R(X - 6 + sled, Y - 2, 5, 4, P.brass[1]); R(X - 6 + sled, Y - 2, 5, 1, P.brass[3]);
+          for (let u = -9; u < -6 + sled; u += 2) px(X + u, Y - (u % 4 ? 1 : 0), P.iron[4]);
+          line(X - 3, Y + 4, X - 8 + (o.out ? 8 : 0), Y + 9, 1, P.iron[3]); disc(X - 8 + (o.out ? 8 : 0), Y + 9, 1, P.brass[2]);
+          if (!o.out) { R(X - 1, Y - 1, 27, 2, P.iron[4]); barbHead(X + 26, Y); }
+        });
+        pin(x + 18, y + 13);
+        const [rx, ry] = at(x + 18, y + 13, o.a, o.out ? 24 : 1, 0);
+        o.out ? (line(x + 9, y + 12, rx, ry, 1, ROPE[1]), line(rx, ry, ...at(x + 18, y + 13, o.a, 60, 0), 1, ROPE[2])) : rope(x + 9, y + 12, rx, ry, 1);
       } },
   ];
+
+  // ================= 蒸汽喷射器 steamjet（2×1；喷口离耳轴 30）：只做 T1 黄铜～T3 钢的早期蒸汽武器 =================
+  // 语义：蒸汽白 + 压力表 + 阀门；绝不出现火和红色。o.on = 正在喷
+  const STEAM = [
+    { key: 'A', name: '扇形喷汽阀', ref: '（v1 候选 A 重画）截止阀 + 手轮 + 压扁的扇形喷嘴',
+      idea: '炮座上一只球形截止阀，阀顶一只黄铜手轮（喷的时候转）；直管两道法兰，末端是压扁的扇形喷嘴，喷出一片扇形白汽。',
+      draw(x, y, o) {
+        cradle(x, y, 8, 20); ball(x + 12, y + 17, 4.5, IRONL); R(x + 7, y + 16, 10, 3, P.iron[1]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 2, 32, 4, BRASS); flange(X + 2, Y, 4); flange(X + 14, Y, 4);
+          poly([[X + 23, Y - 2], [X + 30, Y - 5], [X + 31, Y - 5], [X + 31, Y + 5], [X + 30, Y + 5], [X + 23, Y + 2]], BRASS); R(X + 30, Y - 5, 1, 10, P.dark[0]);
+          R(X - 3, Y - 7, 1, 5, P.iron[2]); gear(X - 2.5, Y - 8, 3.5, 6, o.on ? o.t * 0.3 : 0.2);
+        });
+        pin(x + 18, y + 13); gauge(x + 5, y + 19, 2.6, o.on ? 0.3 : 0.75);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); steamJet(mx, my, o.a, 30, o.t, o.on); if (o.on) { const [m2, n2] = at(x + 18, y + 13, o.a, 31, -3); steamJet(m2, n2, o.a + 10, 24, o.t + 30, true); const [m3, n3] = at(x + 18, y + 13, o.a, 31, 3); steamJet(m3, n3, o.a - 10, 24, o.t + 60, true); } } },
+    { key: 'B', name: '汽笛喇叭', ref: '（v1 候选 B 重画）轮船汽笛：直管 + 大喇叭口 + 管根的汽笛筒',
+      idea: '一根直管接一只大黄铜喇叭口，管根上立着一只带排气槽的汽笛筒和一根拉绳；喷的时候汽笛顶冒白汽、喇叭口喷出一大团。像船上的汽笛，「嘟——」。',
+      draw(x, y, o) {
+        cradle(x, y, 10, 16);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 2, 26, 4, IRONL); flange(X + 4, Y, 4);
+          for (let u = 0; u < 12; u++) { const h = 2 + Math.round(u * u / 26); R(X + 18 + u, Y - h, 1, h * 2, u === 11 ? P.brass[3] : P.brass[u % 3 ? 1 : 2]); px(X + 18 + u, Y - h, P.brass[0]); px(X + 18 + u, Y + h - 1, P.brass[0]); }
+          R(X + 28, Y - 6, 2, 12, P.dark[0]); R(X + 29, Y - 6, 1, 12, P.brass[3]);
+          vtube(X - 4, Y - 10, 5, 8, BRASS); R(X - 5, Y - 11, 7, 2, P.brass[2]); R(X - 3, Y - 7, 3, 1, P.dark[0]);
+          line(X - 1, Y - 6, X + 4, Y + 1 + (o.on ? 2 : 0), 1, P.iron[3]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); steamJet(mx, my, o.a, 32, o.t, o.on); if (o.on) { const [wx, wy] = at(x + 18, y + 13, o.a, -2, -12); steamJet(wx, wy, o.a + 90, 8, o.t, true); } } },
+    { key: 'C', name: '多孔喷头', ref: '（v1 候选 C 重画）淋浴莲蓬一样的圆喷头 + 大压力表',
+      idea: '管子末端一只打满小孔的圆喷头（莲蓬头），喷的时候一整片白汽往前铺开；炮座正面一只大压力表，指针跟着喷 / 不喷摆。剪影在喷口是一只圆盘。',
+      draw(x, y, o) {
+        cradle(x, y, 10, 18); gauge(x + 7, y + 17, 5, o.on ? 0.25 : 0.8); disc(x + 7, y + 17, 1, P.brass[2]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 6, Y - 2, 28, 4, IRONL); flange(X + 8, Y, 4);
+          poly([[X + 22, Y - 2], [X + 26, Y - 7], [X + 27, Y - 7], [X + 27, Y + 7], [X + 26, Y + 7], [X + 22, Y + 2]], BRASS);
+          R(X + 27, Y - 7, 3, 14, P.brass[0]); R(X + 28, Y - 6, 1, 12, P.brass[2]); for (let v = -5; v <= 5; v += 2) px(X + 29, Y + v, P.dark[0]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { for (const v of [-5, -1.5, 1.5, 5]) { const [mx, my] = at(x + 18, y + 13, o.a, 30, v); steamJet(mx, my, o.a + v * 1.4, 26, o.t + v * 17, o.on && true); if (!o.on) break; } } },
+    { key: 'D', name: '消防泵喷枪', ref: '新：维多利亚蒸汽消防车（黄铜子弹形空气室 + 皮水带 + 长锥形枪头）',
+      idea: '炮座后面立着一只高高的黄铜子弹形空气室（维多利亚消防车最标志的零件），一根皮水带绕个弯接到转动的枪身；枪身是一根又长又细的锥形黄铜枪头。最黄铜、最有 T1 味道。',
+      draw(x, y, o) {
+        vtube(x + 2, y + 8, 9, 16, BRASS); ball(x + 6.5, y + 8, 4.5, BRASS); R(x + 2, y + 13, 9, 1, P.brass[0]); R(x + 2, y + 19, 9, 1, P.brass[0]); px(x + 5, y + 5, P.brass[3]);
+        cradle(x, y, 12, 14);
+        const [hx, hy] = at(x + 18, y + 13, o.a, -7, 2);
+        for (let k = 0; k <= 12; k++) { const u = k / 12, xx = x + 11 + (hx - x - 11) * u, yy = y + 16 + (hy - y - 16) * u + Math.sin(u * Math.PI) * 4; R(xx, yy, 2, 2, P.leather[k % 3 ? 0 : 1]); }
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 2, 12, 5, IRONL); R(X + 1, Y - 3, 2, 6, P.brass[1]);
+          for (let u = 0; u < 27; u++) { const h = 2 - Math.floor(u / 14); R(X + 3 + u, Y - h, 1, h * 2 + 1, u % 9 === 0 ? P.brass[0] : P.brass[2]); px(X + 3 + u, Y - h, P.brass[3]); }
+          R(X + 29, Y - 1, 2, 3, P.brass[0]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); steamJet(mx, my, o.a, 34, o.t, o.on); } },
+    { key: 'E', name: '机车汽缸', ref: '新：蒸汽机车的汽缸（大缸体 + 缸盖螺栓 + 排水阀喷汽）',
+      idea: '转动的是一整只机车汽缸：粗大的缸体、两端一圈缸盖螺栓、后面伸出活塞杆，底下三只排水阀；前端一根短喷管。喷的时候喷管和排水阀一起往外喷白汽（机车起步时那一下）。剪影最胖。',
+      draw(x, y, o) {
+        cradle(x, y, 10, 18);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          const d = o.on ? Math.round(Math.sin(o.t * 0.8) * 2) : 0;
+          R(X - 18 + d, Y - 1, 8, 2, P.iron[4]); R(X - 19 + d, Y - 2, 2, 4, P.iron[2]);
+          box(X - 11, Y - 6, 22, 12, IRONL); for (const u of [-11, 9]) { R(X + u, Y - 7, 2, 14, P.iron[0]); for (let v = -5; v <= 5; v += 3) px(X + u + 1, Y + v, P.iron[4]); }
+          R(X - 7, Y - 6, 14, 1, P.iron[4]); for (const u of [-6, 0, 6]) { R(X + u, Y + 6, 2, 2, P.brass[1]); }
+          htube(X + 11, Y - 2, 16, 4, IRONL); R(X + 26, Y - 3, 3, 6, P.iron[0]); R(X + 27, Y - 2, 1, 4, P.iron[4]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); steamJet(mx, my, o.a, 30, o.t, o.on); if (o.on) for (const u of [-5, 1, 7]) { const [cx, cy] = at(x + 18, y + 13, o.a, u, 8); steamJet(cx, cy, o.a - 90 + u * 3, 8, o.t + u * 11, true); } } },
+    { key: 'F', name: '吉法尔注射器', ref: '新：吉法尔蒸汽注射器（一串套在一起的锥管 + 溢流窗 + 进汽管）',
+      idea: '转动的是一只吉法尔注射器：一节收口锥、中间一道看得见的溢流窗、再一节扩口锥，上面一根进汽弯管带小阀、下面一根溢流管；喷的时候溢流窗里一闪一闪地冒汽。像科学仪器，最「维多利亚工程」。',
+      draw(x, y, o) {
+        cradle(x, y, 10, 18);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          for (let u = 0; u < 14; u++) { const h = 5 - Math.floor(u / 4); R(X - 8 + u, Y - h, 1, h * 2, u % 2 ? P.brass[1] : P.brass[2]); px(X - 8 + u, Y - h, P.brass[3]); px(X - 8 + u, Y + h - 1, P.brass[0]); }
+          R(X + 6, Y - 3, 5, 6, P.dark[0]); R(X + 7, Y - 1, 3, 2, o.on && o.t % 4 < 2 ? P.white : P.steam[1]); R(X + 6, Y - 4, 5, 1, P.brass[0]); R(X + 6, Y + 3, 5, 1, P.brass[0]);
+          for (let u = 0; u < 16; u++) { const h = 1 + Math.floor(u / 5); R(X + 11 + u, Y - h, 1, h * 2, u % 2 ? P.brass[1] : P.brass[2]); px(X + 11 + u, Y - h, P.brass[3]); }
+          R(X + 27, Y - 5, 3, 10, P.brass[0]); R(X + 28, Y - 4, 1, 8, P.brass[3]);
+          R(X - 5, Y - 10, 2, 6, P.iron[3]); R(X - 5, Y - 10, 8, 2, P.iron[3]); R(X + 1, Y - 12, 3, 3, P.brass[1]);
+          R(X + 8, Y + 4, 2, 5, P.iron[2]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); steamJet(mx, my, o.a, 32, o.t, o.on); if (o.on) { const [ox2, oy2] = at(x + 18, y + 13, o.a, 9, 9); steamJet(ox2, oy2, o.a - 90, 5, o.t, false); } } },
+  ];
+
+  // ================= 喷火器 flamer（2×1；喷口离耳轴 30）：只做 T4 镀镍～T6 以太合金的后期装置 =================
+  // 语义：燃料罐（红警示带）+ 引燃小火苗；o.on = 正在喷
+  const FLAME = [
+    { key: 'A', name: '双罐喷枪', ref: '（v1 候选 A 重画）一战的背负式喷火器搬到车上：两只燃料罐 + 软管 + 喷枪',
+      idea: '炮座左边立着两只圆顶燃料罐（腰上红色警示带），一根软管绕到喷枪；喷枪细长，枪口一簇引燃火苗一直在跳，喷的时候喷出一道火舌。',
+      draw(x, y, o) {
+        for (const u of [1, 7]) { vtube(x + u, y + 7, 6, 17, IRONL); ball(x + u + 3, y + 7, 3, IRONL); warn(x + u, y + 14, 6, 3); }
+        cradle(x, y, 12, 16);
+        const [hx, hy] = at(x + 18, y + 13, o.a, -6, 2);
+        for (let k = 0; k <= 10; k++) { const u = k / 10; R(x + 12 + (hx - x - 12) * u, y + 20 + (hy - y - 20) * u + Math.sin(u * Math.PI) * 3, 2, 2, P.dark[k % 2 ? 1 : 2]); }
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 7, Y - 3, 12, 6, IRONL); htube(X + 5, Y - 2, 22, 5, IRONL); for (const u of [10, 16, 22]) R(X + u, Y - 3, 1, 6, P.iron[0]);
+          R(X + 27, Y - 3, 3, 6, P.iron[0]); R(X + 28, Y - 2, 1, 4, P.iron[4]); R(X - 3, Y + 3, 2, 4, P.iron[1]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); o.on ? flameJet(mx, my, o.a, 40, o.t) : pilot(Math.round(mx), Math.round(my) - 1, o.t); } },
+    { key: 'B', name: '喷火塔', ref: '（v1 候选 B 重画）一座小炮塔，顶上压一只燃料球，粗喷管套散热环',
+      idea: '矮炮塔上压着一只带红带的燃料球，塔前伸出一根粗喷管，管上一圈圈散热环；读起来像一门「火炮」，更重、更有威胁。',
+      draw(x, y, o) {
+        R(x + 6, y + 18, 26, 6, P.iron[0]); R(x + 7, y + 18, 24, 1, P.iron[3]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          shape((xx, yy) => (xx - X) ** 2 / 110 + (yy - Y - 2) ** 2 / 50 <= 1 && yy <= Y + 5, X - 11, Y - 6, X + 11, Y + 6, IRONL);
+          ball(X - 2, Y - 8, 5, IRONL); warn(X - 7, Y - 9, 10, 2);
+          htube(X + 9, Y - 3, 18, 6, IRONL); for (let u = 11; u < 25; u += 3) { R(X + u, Y - 4, 2, 8, P.iron[1]); R(X + u, Y - 4, 1, 8, P.iron[4]); }
+          R(X + 27, Y - 2, 3, 4, P.iron[0]);
+        });
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); o.on ? flameJet(mx, my, o.a, 42, o.t) : pilot(Math.round(mx), Math.round(my) - 1, o.t); } },
+    { key: 'C', name: '龙首喷口', ref: '（v1 候选 C 重画）喷管末端一只张嘴的龙首',
+      idea: '喷管末端是一只张着嘴的龙首（上颚、下颚、一只眼、两根后掠的角），火从龙嘴里喷出；炮座下面卧着一只横放的燃料罐。维多利亚装饰味，适合最高档。',
+      draw(x, y, o) {
+        htube(x + 1, y + 16, 18, 7, IRONL); warn(x + 8, y + 16, 3, 7); R(x + 1, y + 16, 1, 7, P.iron[0]);
+        cradle(x, y, 16, 12);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 6, Y - 2.5, 20, 5, IRONL); for (const u of [0, 6, 12]) R(X + u, Y - 3, 2, 6, P.iron[1]);
+          poly([[X + 13, Y - 4], [X + 19, Y - 6], [X + 26, Y - 4], [X + 30, Y - 3], [X + 24, Y - 1], [X + 17, Y - 1]], IRONL);
+          poly([[X + 14, Y + 1], [X + 20, Y + 1], [X + 28, Y + 3], [X + 21, Y + 5], [X + 14, Y + 4]], IRONL);
+          px(X + 21, Y - 4, P.fire[2]); line(X + 17, Y - 5, X + 12, Y - 9, 1, P.iron[4]); line(X + 19, Y - 6, X + 15, Y - 10, 1, P.iron[3]);
+          for (let u = 23; u < 29; u += 2) { px(X + u, Y - 2, P.white); px(X + u - 1, Y + 2, P.white); }
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 28, 0); o.on ? flameJet(mx, my, o.a, 40, o.t) : pilot(Math.round(mx), Math.round(my), o.t); } },
+    { key: 'D', name: '立文斯重型喷火器', ref: '新：一战英军的立文斯大型喷火器（横放大燃料缸 + 压缩气瓶 + 长喷管）',
+      idea: '炮座后半卧着一只又粗又长的铆接燃料缸（红色警示带），缸尾立着两只细高的压缩气瓶；转动的是一根长喷管，末端一只球形喷头和一圈点火环。最工业、最重。',
+      draw(x, y, o) {
+        for (const u of [1, 5]) { vtube(x + u, y + 4, 4, 14, IRONL); R(x + u + 1, y + 2, 2, 2, P.brass[2]); }
+        box(x + 1, y + 16, 30, 8, IRONL); warn(x + 12, y + 16, 5, 8); for (let u = 4; u < 30; u += 4) px(x + u, y + 17, P.iron[4]);
+        R(x + 13, y + 10, 10, 6, P.iron[1]); R(x + 13, y + 10, 10, 1, P.iron[3]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 6, Y - 2.5, 32, 5, IRONL); for (const u of [4, 14]) R(X + u, Y - 3.5, 2, 7, P.iron[0]);
+          ball(X + 27, Y, 3.2, IRONL); R(X + 29, Y - 1, 2, 2, P.iron[0]);
+          R(X + 22, Y - 4, 1, 8, P.brass[2]); R(X + 23, Y - 4, 1, 8, P.brass[0]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); o.on ? flameJet(mx, my, o.a, 46, o.t) : pilot(Math.round(mx), Math.round(my) - 1, o.t); } },
+    { key: 'E', name: '玻璃燃烧室', ref: '新：以太时代的「看得见火」——黄铜笼里的玻璃燃烧室',
+      idea: '转动的炮身中段是一只玻璃燃烧室，外面一道道黄铜笼条；里面一直有一团火在打转（不喷时小、喷时满），前端一根短喷口。底下一只燃料罐 + 小泵。最高档的「未来装置」感。',
+      draw(x, y, o) {
+        box(x + 2, y + 15, 14, 9, IRONL); warn(x + 2, y + 18, 14, 2); R(x + 16, y + 17, 3, 3, P.iron[1]);
+        cradle(x, y, 14, 14);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 3, 12, 6, IRONL);
+          R(X + 4, Y - 5, 16, 10, P.glass[0]); R(X + 5, Y - 4, 14, 8, P.glass[1]);
+          R(X + 3, Y - 6, 18, 2, P.brass[1]); R(X + 3, Y + 4, 18, 2, P.brass[0]); for (const u of [3, 8, 13, 19]) R(X + u, Y - 6, 2, 12, P.brass[u === 3 ? 2 : 1]);
+          htube(X + 21, Y - 2, 8, 4, IRONL); R(X + 28, Y - 3, 2, 6, P.iron[0]);
+        });
+        pin(x + 18, y + 13);
+      },
+      fx(x, y, o) {
+        const n = o.on ? 10 : 4; for (let k = 0; k < n; k++) { const p = saw(o.t * 3 + k * 10, 40); const [fx0, fy0] = at(x + 18, y + 13, o.a, 6 + p * 12, Math.sin(p * 9 + k) * (o.on ? 3 : 1.5)); px(fx0, fy0, k % 3 ? P.fire[2] : P.fire[3]); }
+        const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); o.on ? flameJet(mx, my, o.a, 40, o.t) : pilot(Math.round(mx), Math.round(my) - 1, o.t);
+      } },
+    { key: 'F', name: '翅片喷焰炮', ref: '新：粗短的喷焰炮（一圈大散热翅片 + 电火花点火极）',
+      idea: '转动的是一段粗短的炮身，套着一圈高高的散热翅片（剪影像一只齿轮夹在管子上），前端两根点火电极之间一直噼啪地跳电火花；底座是一只贴车体的装甲燃料箱，前沿刷着红黑警示斜纹。',
+      draw(x, y, o) {
+        box(x + 4, y + 16, 26, 8, IRONL); for (let u = 0; u < 24; u += 4) { line(x + 5 + u, y + 23, x + 8 + u, y + 17, 2, P.fire[0]); }
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 4, 34, 8, IRONL);
+          for (let u = 2; u < 18; u += 2) { R(X + u, Y - 9, 1, 18, P.iron[u % 4 ? 1 : 3]); px(X + u, Y - 9, P.iron[4]); }
+          R(X + 26, Y - 3, 4, 6, P.iron[0]); R(X + 27, Y - 2, 2, 4, P.dark[0]);
+          line(X + 26, Y - 4, X + 31, Y - 6, 1, P.brass[2]); line(X + 26, Y + 4, X + 31, Y + 6, 1, P.brass[2]);
+        });
+      },
+      fx(x, y, o) {
+        const [mx, my] = at(x + 18, y + 13, o.a, 30, 0);
+        if (o.t % 5 < 2) { const [ax, ay] = at(x + 18, y + 13, o.a, 31, -5), [bx, by] = at(x + 18, y + 13, o.a, 31, 5); line(ax, ay, (ax + bx) / 2 + 1, (ay + by) / 2, 1, P.white); line((ax + bx) / 2 + 1, (ay + by) / 2, bx, by, 1, P.glass[3]); }
+        o.on ? flameJet(mx, my, o.a, 44, o.t) : pilot(Math.round(mx), Math.round(my), o.t);
+      } },
+  ];
+
+  // ================= 火箭架 rocket_rack（2×2 = 48×48；耳轴 (24,28)，弹头离耳轴 34）：要数得出「4」=================
+  // o.n = 架上还剩几发（0～4）；o.fire = 刚射出一发（尾焰 / 烟）
+  const rkt = (X0, Y, len = 14, fin = true) => {   // 横放的一发火箭：铁壳弹体 + 红色弹头 + 尾翼
+    R(X0, Y - 1.5, len, 3, P.iron[2]); R(X0, Y - 1.5, len, 1, P.iron[4]); R(X0, Y + 1, len, 1, P.iron[0]);
+    R(X0 + len, Y - 1.5, 2, 3, P.fire[0]); px(X0 + len + 2, Y - 0.5, P.fire[1]); px(X0 + len, Y - 1.5, P.fire[1]);
+    if (fin) { px(X0 - 1, Y - 2.5, P.iron[3]); px(X0 - 1, Y + 1.5, P.iron[3]); }
+  };
+  const bed2 = (x, y) => { box(x + 10, y + 38, 28, 10, IRON); R(x + 11, y + 38, 26, 1, P.iron[3]); for (const u of [15, 29]) R(x + u, y + 24, 4, 14, P.iron[1]); };
+  const ROCKET = [
+    { key: 'A', name: '管束发射架', ref: '（v1 候选 A 重画）四根粗发射管竖着叠成一排，黄铜箍扎紧',
+      idea: '四根粗发射管上下叠成一束（侧面一眼数得出 4 根），两道黄铜箍扎紧，管口露出红色弹头；装在一只矮炮床的耳轴上。发一发，少一个弹头。',
+      draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          for (let i = 0; i < 4; i++) { const v = -10.5 + i * 5.5; htube(X - 16, Y + v - 2.5, 42, 5, IRONL); R(X + 25, Y + v - 3, 2, 6, P.iron[0]); R(X + 25, Y + v - 1.5, 2, 3, P.dark[0]); if (i < o.n) { R(X + 27, Y + v - 1.5, 3, 3, P.fire[0]); R(X + 30, Y + v - 0.5, 2, 1, P.fire[1]); px(X + 27, Y + v - 1.5, P.fire[1]); } }
+          for (const u of [-8, 12]) { R(X + u, Y - 14, 3, 24, P.brass[0]); R(X + u, Y - 14, 1, 24, P.brass[3]); R(X + u + 1, Y - 14, 1, 24, P.brass[2]); }
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'B', name: '康格里夫导轨', ref: '（v1 候选 B 重画）拿破仑时代的康格里夫火箭：梯形导轨 + 带长尾杆的火箭',
+      idea: '一副梯子一样的发射导轨，四根横档上各架一支火箭：圆筒弹体 + 红黄相间的锥形弹头 + 一根长长的导向尾杆拖到导轨后面。最「蒸汽朋克」，一眼知道是火箭不是炮。',
+      draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          for (const v of [-12, 10]) { R(X - 20, Y + v, 50, 2, P.iron[0]); R(X - 20, Y + v, 50, 1, P.iron[3]); }
+          for (let u = -18; u < 30; u += 8) R(X + u, Y - 12, 1, 24, P.iron[1]);
+          for (let i = 0; i < 4; i++) { const v = -8 + i * 5.3; if (i < o.n) { R(X - 20, Y + v, 34, 1, P.leather[2]); R(X + 14, Y + v - 1.5, 12, 3, P.iron[3]); R(X + 14, Y + v - 1.5, 12, 1, P.iron[4]); for (let u = 0; u < 7; u++) { const h = 1.5 - u / 5; R(X + 26 + u, Y + v - h, 1, Math.max(1, h * 2), u % 2 ? P.fire[1] : P.fire[3]); } } else R(X - 20, Y + v, 50, 1, P.iron[1]); }
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'C', name: '蜂巢箱', ref: '（v1 候选 C 重画）方形发射箱，正面 2×2 四个孔露出红弹头',
+      idea: '一只铆接方箱，前端斜着露出一块正面板，板上 2×2 四个圆孔里是红色弹头（发一发空一个黑孔）；箱盖往上掀开一道缝。最规整，放在车体里像一只箱子。',
+      draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          box(X - 18, Y - 12, 38, 24, IRONL); for (let u = -15; u < 20; u += 6) { px(X + u, Y - 10, P.iron[4]); px(X + u, Y + 10, P.iron[4]); }
+          line(X - 16, Y - 13, X + 16, Y - 16, 2, P.iron[3]); R(X + 15, Y - 17, 3, 3, P.iron[1]);
+          poly([[X + 20, Y - 12], [X + 30, Y - 9], [X + 30, Y + 11], [X + 20, Y + 12]], IRONL);
+          for (let i = 0; i < 4; i++) { const cx = X + 23 + (i % 2) * 5, cy = Y - 5 + Math.floor(i / 2) * 11; disc(cx, cy, 2.6, P.dark[0]); if (i < o.n) { disc(cx, cy, 1.8, P.fire[0]); px(cx - 1, cy - 1, P.fire[1]); } }
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'D', name: '转轮弹巢', ref: '新：左轮手枪的转轮搬大（四个弹巢轮流对准一根发射管）',
+      idea: '一只大转轮，侧面看得见四道弹巢槽（每道一发，装着的露出红弹头尾），每发一次转轮转一格；上面一根长发射管。像一把放大的左轮，「数得出 4」靠转轮上的四道槽。',
+      draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          box(X - 14, Y - 11, 22, 22, IRONL); R(X - 15, Y - 12, 24, 2, P.brass[1]); R(X - 15, Y + 10, 24, 2, P.brass[0]);
+          for (let i = 0; i < 4; i++) { const v = -8 + i * 5.3; R(X - 13, Y + v - 1, 20, 3, P.iron[0]); if (i < o.n) { R(X - 13, Y + v - 1, 3, 3, P.brass[2]); R(X + 5, Y + v - 1, 2, 3, P.fire[0]); } }
+          htube(X + 8, Y - 12, 24, 6, IRONL); R(X + 30, Y - 13, 3, 8, P.iron[0]); R(X + 31, Y - 12, 1, 6, P.iron[4]);
+          gear(X - 3, Y + 14, 3, 8, (4 - o.n) * 0.8);
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'E', name: '黑尔槽式 + 顶升缸', ref: '新：黑尔旋转火箭（没有尾杆，靠尾喷口旋转）+ 蒸汽顶升缸抬架子',
+      idea: '四条敞口的 U 形发射槽像风琴一样一层层错开叠着，槽里躺着黑尔火箭（短粗、尾部三个斜喷口）；架子底下一根蒸汽顶升缸把整个架子往上顶（仰角越大顶得越长）。',
+      draw(x, y, o) {
+        bed2(x, y);
+        const [jx, jy] = at(x + 24, y + 28, o.a, 12, 12);
+        line(x + 32, y + 40, jx, jy, 5, P.iron[0]); line(x + 32, y + 40, jx, jy, 3, P.iron[3]); line(x + 32, y + 40, x + 32 + (jx - x - 32) * 0.5, y + 40 + (jy - y - 40) * 0.5, 5, P.brass[1]);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          for (let i = 0; i < 4; i++) {
+            const v = -11 + i * 6, s = -i * 3;
+            R(X - 16 + s, Y + v + 2, 40, 2, P.iron[0]); R(X - 16 + s, Y + v + 2, 40, 1, P.iron[3]); R(X - 16 + s, Y + v - 2, 1, 4, P.iron[1]); R(X + 23 + s, Y + v - 2, 1, 4, P.iron[1]);
+            if (i < o.n) { R(X + 4 + s, Y + v - 1.5, 18, 3, P.iron[3]); R(X + 4 + s, Y + v - 1.5, 18, 1, P.iron[4]); R(X + 22 + s, Y + v - 1.5, 3, 3, P.fire[0]); px(X + 25 + s, Y + v - 0.5, P.fire[1]); for (const w of [0, 2]) px(X + 3 + s, Y + v - 1 + w, P.dark[0]); }
+          }
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'F', name: '双臂挂架', ref: '新：圆炮塔两侧伸出挂架（上两发、下两发），像飞机翼下挂弹',
+      idea: '中间一只圆炮塔，上下各伸出一对挂架臂，每条臂上挂一发带尾翼的火箭（上两发、下两发），挂钩一松火箭就滑出去。剪影是一只圆球夹在四支箭中间，和别的发射架都不一样。',
+      draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          for (const v of [-13, -7, 7, 13]) { R(X - 6, Y + v - (v < 0 ? 0 : 1), 26, 2, P.iron[0]); R(X - 6, Y + v - (v < 0 ? 0 : 1), 26, 1, P.iron[3]); }
+          const slots = [-15.5, -9.5, 10.5, 16.5];
+          slots.forEach((v, i) => { if (i < o.n) rkt(X + 2, Y + v, 18); for (const u of [4, 14]) px(X + u, Y + v + (v < 0 ? 1.5 : -2.5), P.brass[2]); });
+          ball(X, Y, 8, IRONL); R(X - 8, Y - 1, 16, 2, P.brass[1]); lens(X + 3, Y - 4, 3, 2, false); htube(X + 6, Y - 1.5, 10, 3, IRONL);
+        });
+        pin(x + 24, y + 28);
+      } },
+  ];
+
+  // 火箭：发射那一下，管尾喷一团烟、带一点火
+  function rocketFx(x, y, o) {
+    if (!o.fire) return;
+    const [bx, by] = at(x + 24, y + 28, o.a, -20, -8 + (4 - o.n - 1) * 5.3);
+    steamJet(bx, by, o.a + 180, 16, o.t, true); flameJet(bx, by, o.a + 180, 6, o.t);
+  }
+  const lerp = (lo, hi, t) => lo + (hi - lo) * (0.5 + 0.5 * Math.sin(t * 0.025));
   const MODS = [
-    { id: 'boiler_l', name: '大型锅炉 · 炉口剪影 v4', w: 3, h: 3, rule: '3×3 能源 · 巨大拱形炉口占画面约 60% 的红色中心 · 工人、输送链、传动链、拉环都是火光里的剪影 · 左边不规则煤山和炉口对分画面 · 背景钢板照抄巨炮', SET: BOILER4 },
-    { id: 'water_l', name: '大水箱 · 大舷窗 v4', w: 3, h: 3, rule: '3×3 冷却 · 舷窗放大到几乎占满正面 · 钢板压筋调暗不抢眼 · 角铁 / 包角板 + 给水泵 · 青色只用在水上', SET: TANKS4 },
+    { id: 'harpoon', name: '鱼叉', w: 2, h: 1, piv: [18, 13], elev: [-10, 28], tiers: [1, 2, 3, 4, 5, 6], SET: HARPOON,
+      rule: '2×1 · 第三章 · 耳轴 (18,13)、叉尖离耳轴 34 · 叉头（倒钩）露在炮口外 + 绳 / 链是它和火炮的根本区别 · 页面循环：瞄准 → 射出（叉飞走、绳子绷直伸出去）→ 收回',
+      state: (t) => { const c = t % 120; return { t, a: lerp(-10, 28, t), out: c >= 60 && c < 110, k: c >= 60 && c < 66 ? 1 - (c - 60) / 6 : 0 }; },
+      poses: [{ a: -10 }, { a: 0 }, { a: 28 }, { a: 10, out: true }] },
+    { id: 'steamjet', name: '蒸汽喷射器 · T1～T3', w: 2, h: 1, piv: [18, 13], elev: [-12, 25], tiers: [1, 2, 3], SET: STEAM,
+      rule: '2×1 · 第三章 · 只做黄铜 → 熟铁 → 钢（早期蒸汽武器，T4 以后换成喷火器）· 喷口离耳轴 30 · 蒸汽白 + 压力表 + 阀门，没有火、没有红色 · 页面循环：待机（喷口丝丝冒汽）→ 喷射',
+      state: (t) => { const c = t % 100; return { t, a: lerp(-12, 25, t), on: c >= 40 && c < 90 }; },
+      poses: [{ a: -12 }, { a: 0 }, { a: 25 }, { a: 8, on: true }] },
+    { id: 'flamer', name: '喷火器 · T4～T6', w: 2, h: 1, piv: [18, 13], elev: [-12, 25], tiers: [4, 5, 6], SET: FLAME,
+      rule: '2×1 · 第三章 · 只做镀镍 → 乌兹钢 → 以太合金（后期装置，接在蒸汽喷射器之后）· 喷口离耳轴 30 · 燃料罐红色警示带 + 引燃小火苗 · 页面循环：待机（小火苗）→ 喷火',
+      state: (t) => { const c = t % 100; return { t, a: lerp(-12, 25, t), on: c >= 40 && c < 90 }; },
+      poses: [{ a: -12 }, { a: 0 }, { a: 25 }, { a: 8, on: true }] },
+    { id: 'rocket_rack', name: '火箭架', w: 2, h: 2, piv: [24, 28], elev: [-8, 38], tiers: [1, 2, 3, 4, 5, 6], SET: ROCKET, fx: rocketFx,
+      rule: '2×2 · 第四章 · 耳轴 (24,28)、弹头离耳轴 34 · 四发齐射，要数得出「4」· 弹头一点红（不发光）· 页面循环：满 4 发 → 一发一发打空（管尾喷烟）→ 一发一发装回',
+      state: (t) => { const c = t % 150, a = lerp(-8, 38, t); if (c < 40) return { t, a, n: 4 }; if (c < 64) { const i = Math.floor((c - 40) / 6); return { t, a, n: 3 - i, fire: (c - 40) % 6 < 3 }; } if (c < 100) return { t, a, n: 0 }; return { t, a, n: Math.min(4, 1 + Math.floor((c - 100) / 12)) }; },
+      poses: [{ a: -8, n: 4 }, { a: 15, n: 4 }, { a: 38, n: 4 }, { a: 15, n: 2, fire: true }] },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
-  function over(ctx, x, y, e, o = {}, mini) { g = ctx; if (e.over) e.over(x, y, o, mini); }
+  function over(ctx, x, y, e, o = {}, m) { g = ctx; if (e.fx) e.fx(x, y, o); else if (m && m.fx) m.fx(x, y, o); }
   return { MODS, figure, over };
 })();
