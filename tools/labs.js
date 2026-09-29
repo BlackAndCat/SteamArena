@@ -24,14 +24,16 @@ SA.LABS = {
   ],
   // 同一条演进线上的版本（从旧到新）
   LINES: [
-    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'chassis'] },
+    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'chassis', 'quad-tiers'] },
     { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四足六档 v9', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：四足整件底盘（4×2）六档 + 变体 v9（黑龙、齿轮巨像双胫腿、大本钟指针腿、新增半人马马腿，三种新腿各 4 方案）；v8：（熔炉龙骑重做为铁鳞龙骑：物理甲片裙板 3 种 + 粗龙腿，去掉透火）；v7：（步幅随车速加大、步频降低；熔炉龙骑鳞甲裙板 7 种大块方案）；v6：（藤蔓降饱和、锚链一短一长随方向换边、履带裙板盖住腿根、熔炉龙骑鱼鳞裙板透火）；v5：（温室藤蔓高膝、双杆汽锤连砸、盔甲龟足圣骑、履带侧裙、拖行锚链、螳臂配沙龙车厢）；v4：螳臂步行机（尖脚）替换仪表步行机、熔炉龙骑改分开的弯爪、蒸汽圣骑换龟足腿、大本钟替换天象仪、板簧拖车弹簧挤压、哥特教堂 + 胯位燕尾旗；T4～T6 各三种车体候选。确认后接进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '空', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：空——上一期四足六档 + 变体已进游戏（archive/quad-tiers.html），下一项等用户指定', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'quad-tiers', group: 'chassis', url: 'archive/quad-tiers.html', name: '四足六档 + 变体', ver: 'v9 定稿', date: '2026-09-29', status: 'shipped',
+      desc: '四足整件（4×2）六档主线（工装 Mk.II / 桁架爬机 / 板簧拖车 / 曲柄步行机 / 汽锤步行机 / 哥特教堂）+ 9 种唯一变体（裙甲堡、掷弹兵、步行履带、蒸汽圣骑、螳臂、半人马、锚链铁甲、大本钟、黑龙）；已进游戏（legs.js 的 Q6），变体等获得方式', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',

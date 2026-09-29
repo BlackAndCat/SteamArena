@@ -181,11 +181,13 @@ SA.SPR = (() => {
       }
   }
   // 腿式底盘：腿用 js/legs.js 的光栅器画（形状先写进遮罩，再按描边 / 暗面 / 固有色 / 亮面四阶上色，光源左上）。
-  // 外观阶段 → 腿型：双足取 legs.js 的 DESIGNS（真双足 bipedArt），四足取 QUADS（T3 / T5 用哪一档待定，先都用 T1）
+  // 外观阶段 → 腿型：双足取 legs.js 的 DESIGNS（真双足 bipedArt），四足取 legs.js 的 Q6（六档主线 MAIN）
   // 双足六档（外观阶段 = 材料 1~6）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑；每档配的腰胯见 legs.js 的 HIP_OF。
   // 唯一变体（高跷 / 板簧跑刃 / 裙甲堡 / 锁甲骑士 / 缩放仪 / 蒸汽人 / 风箱腿 / 圣堂骑士腿 / 晶枝腿）已在 legs.js 的 DESIGNS 里，等 astra 定获得方式再接
   const BIPED_LOOK = ['mk2', 'heron', 'gren', 'knight', 'clock', 'dragon'];
-  const QUAD_LOOK = ['crawl', 'crawl', 'crawl'];   // legs.js 的 QUADS：伏地蛛；高脚蛛给 T3 / T5 还是留给别的用途，待定
+  // 四足六档（外观阶段 = 材料 1~6）：工装 Mk.II → 桁架爬机 → 板簧拖车 → 曲柄步行机（温室）→ 汽锤步行机 → 哥特教堂；
+  // 9 种唯一变体（裙甲堡、掷弹兵、步行履带、蒸汽圣骑、螳臂、半人马、锚链铁甲、大本钟、黑龙）已在 Q6.SET 里，等 astra 定获得方式后由 cell.look 覆盖
+  const QUAD_LOOK = () => SA.LEGLAB.Q6.MAIN;
   const pens = new Map();
   function penFor(cv) {
     const k = `${cv.width}x${cv.height}`;
@@ -1952,10 +1954,10 @@ SA.SPR = (() => {
     // 四足整件 4×2（96×48，tools/chassis-lab.html 的画法）：一整块蜘蛛甲壳 + 四条腿，后腿往后张、前腿往前张，对角两条同相大步交替。
     // ga = 步态角档（12 档一圈），sd = 步幅（世界像素），g4 = 四只脚的悬挂伸缩 [近后, 近前, 远后, 远前]（战斗 settle() 按 contactPts 算）
     quad(x, y, o) {
-      const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
-      // 首尾相连的多件四足：相邻两件步态差半圈（像蜈蚣一样一节一节往前传），甲壳连成一片
-      const lo = { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2 + (o.odd ? Math.PI : 0), stride: o.sd || 12 };
-      LL.quadArt(pn, x, y, { ...lo, bd: o.bd || 0, g: o.g4 || [0, 0, 0, 0], top: !!o.top, connL: o.connL, connR: o.connR, look: QUAD_LOOK[(o.st || 1) - 1] }, o.part || undefined);
+      const Q6 = SA.LEGLAB.Q6, pn = penFor(ctx.canvas), e = Q6.BY_KEY[o.lk] || Q6.BY_KEY[QUAD_LOOK()[(o.st || 1) - 1]];
+      // 首尾相连的多件四足：相邻两件步态差半圈（像蜈蚣一样一节一节往前传）
+      Q6.draw(pn, x, y, e, { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2 + (o.odd ? Math.PI : 0), stride: o.sd || 14, bd: o.bd || 0,
+        g: o.g4 || [0, 0, 0, 0], top: !!o.top, connL: o.connL, connR: o.connR, t: (o.tt || 0) / 2 }, o.part || undefined);
       pn.flush(ctx);
     },
   };
@@ -1966,7 +1968,7 @@ SA.SPR = (() => {
   const BOT = 14;   // 精灵底下留的空：悬挂伸长时轮子 / 脚落到格子下面也画得下
   const LEFT = 16;  // 精灵左边留的空：蜘蛛腿往后张的脚伸到格子外面也画得下
   // 四足整件的腿张得很开（脚离机身 ±步幅 + 伸出量），膝盖也高过机身：画布四周多留边
-  const PAD = { quad: { l: 56, t: 40, r: 64 }, biped: { l: 48, t: 24, r: 56 } };
+  const PAD = { quad: { l: 56, t: 44, r: 64 }, biped: { l: 48, t: 24, r: 56 } };   // 四足：温室的高膝会冒出顶板约 30px
   const padOf = (id) => PAD[id] || { l: LEFT, t: TOP, r: 32 };
   const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
   // 悬挂偏移按整像素缓存；没有偏移就不写进键里（和原来的缓存一致）
@@ -1992,8 +1994,10 @@ SA.SPR = (() => {
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
       case 'quad': {   // 整件四足：步态角 12 档、步幅 4px 一档、四只脚的悬挂 2px 一档
         const A = o.gait || 0;
-        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 12) / 2) * 2;
+        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 14) / 2) * 2;
         q.bd = o.bd || 0; q.part = o.part || null; q.top = !!o.top;
+        if (o.look) q.lk = o.look;   // 唯一变体（Q6.SET 的 key），不给就按材料取六档主线
+        if (SA.stageOf('quad', o.mt || 1) >= 6 || o.look) q.tt = Math.floor((o.t || 0) * 2) % 8;   // T6 的彩窗 / 旗帜要随时间动，8 档一轮；其余档不按时间缓存
         if (o.connL) q.connL = true; if (o.connR) q.connR = true; if ((o.ri || 0) % 2) q.odd = true;
         if (o.g4 && o.g4.some(v => v)) q.g4 = o.g4.map(v => Math.round((v || 0) / 2) * 2);
         break;
@@ -2298,7 +2302,7 @@ SA.SPR = (() => {
       let above = null;
       if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
       return {
-        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt, up: cell.lv || 0,
+        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt, up: cell.lv || 0, look: cell.id === 'quad' ? cell.look : undefined,
         gnd: o.gnd && m.layer === 'chassis' ? o.gnd[`${r},${c}`] || [0, 0] : null,   // 悬挂：每格两个接地点各自上下（像素，正 = 往下伸）
         gL: o.gnd && same(c - w) && o.gnd[`${r},${c - w}`] ? o.gnd[`${r},${c - w}`][1] : 0,   // 左右相邻同类底盘靠近本格的那个接地点（履带连成一条）
         gR: o.gnd && same(c + w) && o.gnd[`${r},${c + w}`] ? o.gnd[`${r},${c + w}`][0] : 0,

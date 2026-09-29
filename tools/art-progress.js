@@ -49,8 +49,8 @@ SA.ARTPLAN = {
       hist: [['2026-09-26', '履带三阶段', 'spritesheet.html', 'live']] },
 
     // ---------- 第 1 档：底盘细分支 ----------
-    quad: { status: 'wip', pri: 1, ch: 1, note: '基础造型已进游戏（4×2 整件蜘蛛 + 距离步态、多件首尾相连）；六档 v9 在「当前开发」等确认（T4～T6 车体各三候选待选）',
-      hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足 14 种 + 腰胯 7 种 v2', 'current.html', 'explore'], ['2026-09-29', '四足六档 v9（双胫腿 / 指针腿 / 马腿各 4 方案，16 种）', 'current.html', 'explore']] },
+    quad: { status: 'done', ch: 1, note: '六档（2026-09-29 进游戏）：T1 工装 Mk.II → T2 桁架爬机 → T3 板簧拖车 → T4 曲柄步行机（温室 + 常春藤高膝）→ T5 汽锤步行机 → T6 哥特教堂（燕尾旗）；9 种唯一变体已注册、等获得方式；步幅随车速加大、机身按步态起伏',
+      hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '四足六档 + 变体 v1～v9（定稿进游戏）', 'archive/quad-tiers.html', 'shipped']] },
     biped: { status: 'wip', pri: 2, ch: 2, note: '基础造型已进游戏（真双足 2×4：陀螺胯 + 一对长腿）；还没做：材质六档细分、T3 / T5 形态分支（从六档腿型里挑）',
       hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
