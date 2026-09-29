@@ -38,6 +38,8 @@ SA.LABS = {
       desc: '火炮家族全部定稿进游戏（2026-09-28 巨炮 v6 进游戏后归档）。按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v6（4×4 攻城臼炮阵地：椭圆弧象牙白炮口箍、分格弹簧底座 + 回转支承、黄铜炮弹、钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）也已进游戏。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
     { id: 'boiler-s', group: 'module', url: 'boiler-lab.html', name: '竖式锅炉 + 小水罐', ver: 'v3', date: '2026-09-28', status: 'shipped',
       desc: '已定稿进游戏：竖式锅炉 A3 立式 · 拱形大炉口（火 14 × 20）；小水罐 / 水罐 W1 大水窗罐 + 两道紫铜加强箍；各六档。页面保留 v1 A / B / C、v2 A2 / A3、W1 / W2 探索记录和「游戏」行对照；附铁装甲改 1×2', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
+    { id: 'mg-family', group: 'module', url: 'mg-lab.html', name: '机枪家族 · 造型探索', ver: 'v1', date: '2026-09-28', status: 'explore',
+      desc: '车载机枪 mg_s（1×1）：A 刘易斯式 / B 哈乞开斯式 / C 小转管；重机枪 mg_heavy（1×2，上枪下弹药箱）：A 马克沁式 / B 加特林式 / C 诺登菲尔特排枪。各六档、仰角 −8°～32° 检查、开火动画（后坐 + 供弹 + 枪口焰）、和机炮 / 小炮 / 中炮家族对照、放进车体。定了以后回头重画 2×2 机炮', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
     { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v3', date: '2026-09-28', status: 'explore',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',

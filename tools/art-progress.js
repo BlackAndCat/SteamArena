@@ -62,10 +62,10 @@ SA.ARTPLAN = {
     condenser: { status: 'cand', pri: 8, ch: 2, note: '1×2 实心冷却件，不能像水箱也不能像散热片', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore']] },
     // ---------- 第 3 档：新增尺寸（数据和文字占位已接入，专用造型待做）----------
     // 机枪系列：1×1 车载机枪 → 1×2 重机枪 → 2×2 机炮（现有 mg 改名），最大到 2×2 为止；先画两个新件，定下语言后回头重画机炮
-    mg_s: { status: 'todo', pri: 9, ch: 0, name: '车载机枪', size: '1×1', cat: 'firepower',
-      note: '序章通关开放，游戏里使用文字占位。画法：一根短枪管 + 小弹箱，1×1 只靠剪影分档（参照小炮做法）', hist: [] },
-    mg_heavy: { status: 'todo', pri: 10, ch: 1, name: '重机枪', size: '1×2', cat: 'firepower',
-      note: '第一章通关开放，游戏里使用文字占位。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [] },
+    mg_s: { status: 'cand', pri: 9, lab: 'MGLAB_S', ch: 0, name: '车载机枪', size: '1×1', cat: 'firepower',
+      note: '序章通关开放，游戏里使用文字占位。画法：一根短枪管 + 小弹箱，1×1 只靠剪影分档（参照小炮做法）', hist: [['2026-09-28', 'v1 候选：A 刘易斯式 / B 哈乞开斯式 / C 小转管', 'mg-lab.html', 'explore']] },
+    mg_heavy: { status: 'cand', pri: 10, lab: 'MGLAB_H', ch: 1, name: '重机枪', size: '1×2', cat: 'firepower',
+      note: '第一章通关开放，游戏里使用文字占位。水冷枪管套 + 弹链；和 2×2 机炮、双联机枪的剪影分开', hist: [['2026-09-28', 'v1 候选：A 马克沁式 / B 加特林式 / C 诺登菲尔特排枪', 'mg-lab.html', 'explore']] },
     // 锅炉家族：1×2 竖版（最小）→ 2×2（现有）→ 3×3 大型；水箱 3×3 先计划占位
     boiler_s: { status: 'done', pick: 'A3', lab: 'BLLAB', ch: 0, name: '竖式锅炉', size: '1×2', cat: 'energy',
       note: '立式锅炉 + 拱形大炉口（火 14 × 20）+ 黄铜拱心石；六档 圆筒 → 方包壳 → 斜肩',
