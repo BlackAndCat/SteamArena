@@ -11,7 +11,8 @@ function run() {
   rules.forEach((row, i) => {
     const key = `${row.chapter}:${row.stage}`;
     assert(!keys.has(key), `规则重复：${key}`); keys.add(key);
-    assert.strictEqual(row.name, SA.CAMPAIGN[row.chapter].stages[row.stage].name);
+    // 手工关卡可以另起车名，不能让用户保存的名称使规则表检查误报。
+    if (!SA.StageCars.get(row.chapter, row.stage)) assert.strictEqual(row.name, SA.CAMPAIGN[row.chapter].stages[row.stage].name);
     assert(row.budget > 0 && Number.isFinite(row.budget));
     if (i) {
       const growth = row.budget / rules[i - 1].budget - 1;
@@ -83,6 +84,18 @@ function run() {
   assert.strictEqual(evolve.selectStageCandidate(SA, [costlyItem, cheapItem], noReward, null, 'check', 1).selected, cheapItem);
   evolve.archive([costlyItem, cheapItem], noReward);
   assert(cheapItem.composite > costlyItem.composite);
+  // 两项先统一尺度：同为满分时分别贡献 60 / 40，不能把千分强度直接压在节约分上。
+  assert.strictEqual(evolve.fitness({ strength: 300, efficiency: { total: 20 } }), 60);
+  assert.strictEqual(evolve.fitness({ strength: 1700, efficiency: { total: 0 } }), 40);
+  const weakerCheap = item(bare, 950), strongerCostly = item(costly, 1050);
+  assert(evolve.fitness(weakerCheap) > evolve.fitness(strongerCostly), '节约权重不足以抵消小幅强度差');
+  assert.strictEqual(evolve.selectStageCandidate(SA, [strongerCostly, weakerCheap], noReward, null, 'check', 1).selected, weakerCheap);
+  evolve.archive([strongerCostly, weakerCheap], noReward);
+  assert(weakerCheap.composite > strongerCostly.composite, '分类存档没有沿用 6:4 权重');
+  // 铲斗是必需奖励，哪怕带铲斗的候选胜率和表现更低，也不能回退到枪车。
+  const weakBucket = { ...item(ram, 300), performance: 10 }, strongGun = item(bare, 1700);
+  assert.strictEqual(evolve.selectStageCandidate(SA, [strongGun, weakBucket], third, null, 'check', 1).selected, weakBucket);
+  assert.strictEqual(evolve.selectStageCandidate(SA, [strongGun], third, null, 'check', 1).selected, null, '奖励候选为空仍选择无铲斗车');
   // 把同一批结果拆成不同标尺分组不应改变强度；小样本全胜不能压过大样本打平。
   const split = evolve.strengthFromRows([{ n: 40, winRate: 1 }, { n: 40, winRate: 0.5 }]);
   const pooled = evolve.strengthFromRows([{ n: 80, winRate: 0.75 }]);
@@ -90,7 +103,7 @@ function run() {
   assert(split.strength > 1100 && split.strength < 1300, '75% 胜率错误地撞到 1700 上限');
   const uneven = evolve.strengthFromRows([{ n: 2, winRate: 1 }, { n: 200, winRate: 0.5 }]);
   assert(uneven.strength < 1010, '没有按真实样本量计算强度');
-  return { stages: rules.length, generatedScope: 3, first: { value: bs.value, count: bs.count }, firstWithReward: { value: gs.value, count: gs.count }, bucket: { value: rs.value, count: rs.count }, checked, constraints: true, savingsRank: true, draftGuard: true };
+  return { stages: rules.length, generatedScope: 3, first: { value: bs.value, count: bs.count }, firstWithReward: { value: gs.value, count: gs.count }, bucket: { value: rs.value, count: rs.count }, checked, constraints: true, savingsRank: '6:4', rewardRequired: true, draftGuard: true };
 }
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
 module.exports = { run };

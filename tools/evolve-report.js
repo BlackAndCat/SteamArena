@@ -112,9 +112,9 @@
     } catch (error) { banner(error.message, 'stale'); }
   }
   function candidateCard(rec) {
-    const row = arenaRow(rec);
+    const row = arenaRow(rec), missing = SA.EvolveArena.missingReward(rec);
     return h('div', { class: 'candidate-card' }, thumb(rec),
-      h('div', { class: 'small' }, `胜率 ${winText(rec)}`, row?.manual ? h('span', { class: 'chip' }, '手工修改') : null),
+      h('div', { class: 'small' }, `胜率 ${winText(rec)}${missing ? ` · 缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关` : ''}`, row?.manual ? h('span', { class: 'chip' }, '手工修改') : null),
       h('div', { class: 'row-btns' },
         h('button', { class: 'btn', 'aria-pressed': String(!!row?.favorite), onclick: () => toggleFavorite(rec) }, row?.favorite ? '★ 已收藏' : '☆ 收藏保留'),
         h('button', { class: 'btn', onclick: () => editCandidate(rec) }, '去工作台修改')));
@@ -439,7 +439,8 @@
             kv('胜率（同档标尺）', `${winText(rec)}${rec.opponentCount ? ` · ${rec.opponentCount} 台标尺 · 平局计半胜` : ''}${rec.evaluationStyle ? ` · 实测性格：${STYLE[rec.evaluationStyle] || rec.evaluationStyle}` : ''}`),
             kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
-            kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约加分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
+            kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约原分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
+            kv('选车综合分', rec.ranking ? `${fix(rec.ranking.total, 2)} = 节约 ${fix(rec.ranking.efficiency, 1)} × 60% + 强度 ${fix(rec.ranking.strength, 1)} × 40%（均按 0～100 计）` : '待按新权重模拟'),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
           rec.styleTrials && rec.styleTrials.length ? h('div', {}, h('h3', {}, '四种性格试跑'),
             h('table', {}, h('tr', {}, ['性格', '表现分', '胜率'].map(t => h('th', {}, t))),

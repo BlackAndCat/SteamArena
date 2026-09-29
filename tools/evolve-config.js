@@ -3,7 +3,7 @@
 // 关卡车进化生成器的算法参数。这里的参数只控制搜索策略和报告权重，
 // 不直接修改战斗规则；战斗数值和用户已经拍板的门槛仍以 docs/evolve-plan.md 为准。
 module.exports = {
-  rulesVersion: 'evolve-stage-limits-pooled-score-2026-09-29',
+  rulesVersion: 'evolve-efficiency-60-reward-required-2026-09-29',
   population: {
     size: 24,
     generations: 4,
@@ -20,7 +20,6 @@ module.exports = {
   },
   archive: {
     cellsPerBucket: 3,
-    performanceWeight: 0.35,
     terrainDeltaMin: 20,
     terrainPerformanceMin: 45,
     oddFraction: 0.05,
@@ -45,7 +44,9 @@ module.exports = {
     distantInefficient: -20,
     noEngage: -10,
   },
-  // 实战分相近时奖励节省；预算和合法性另外作为硬门槛，绝不能用加分抵消。
+  // 节约与强度各归一到 0～100 后按 6:4 排序；表现分负责毒瘤筛除及同分择优。
+  ranking: { efficiencyWeight: 0.6, strengthWeight: 0.4 },
+  // 节约分同时奖励少花钱、少用实体模块；预算、合法性和奖励件仍是硬门槛。
   efficiency: {
     moneyBonus: 10,
     moduleBonus: 10,

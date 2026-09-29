@@ -128,6 +128,17 @@ function stable(value) {
   return value;
 }
 
+// 锁定的手工构筑保留原样；缺奖励时只标记不合格，不把它当作合规入选车。
+function lockedStageReport(entry, selectionFailures) {
+  const { spec, records } = entry;
+  const reward = !spec.rewardModule || records[0].cells.some(cell => cell[3] === spec.rewardModule);
+  const failed = reward ? [] : ['reward'];
+  if (failed.length) selectionFailures.push({ chapter: spec.chapter, stage: spec.stage, name: spec.name, failed });
+  return { spec, count: 0, selected: reward ? records[0] : null, source: 'manual', locked: true,
+    selection: { locked: true, status: reward ? '手工锁定，未改动' : '手工锁定车缺少奖励件，保留原车待修改', candidateCount: 0, hardConditions: { reward }, failed },
+    top: records, archive: entry.archive };
+}
+
 function ruleFingerprint(SA) {
   const source = RULE_FILES.map(file => [file, fs.readFileSync(path.join(ROOT, file), 'utf8')]);
   const payload = stable({
@@ -296,6 +307,11 @@ function legalVehicle(SA, v, spec) {
   return Object.values(constructionConditions(SA, v, spec)).every(Boolean);
 }
 
+// 关卡候选必须展示本关奖励；标尺和拆奖励对照仍可使用普通合法车。
+function rewardPresent(SA, vehicle, spec) {
+  return !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
+}
+
 // 节约分单列，不伪装成胜率强度；模块按实体件计数，价格含材料和改装。
 function efficiencyScore(stats, spec) {
   const money = config.efficiency.moneyBonus * clamp(1 - stats.value / spec.budget, 0, 1);
@@ -303,7 +319,18 @@ function efficiencyScore(stats, spec) {
   return { money, modules, total: money + modules, value: stats.value, count: stats.count, budget: spec.budget };
 }
 
-function fitness(item) { return item.strength + item.performance + (item.efficiency?.total || 0); }
+// 固定尺度不随当前种群改变，避免同一台车因加入其他候选而改分。
+// 节约原分上限为两项加分之和；强度沿用实战映射的 300～1700 区间。
+function rankingScore(item) {
+  const efficiency = clamp((item.efficiency?.total || 0) / (config.efficiency.moneyBonus + config.efficiency.moduleBonus), 0, 1) * 100;
+  const strength = clamp((item.strength - 300) / 1400, 0, 1) * 100;
+  const efficiencyContribution = efficiency * config.ranking.efficiencyWeight;
+  const strengthContribution = strength * config.ranking.strengthWeight;
+  return { efficiency, strength, efficiencyContribution, strengthContribution, total: efficiencyContribution + strengthContribution };
+}
+
+function fitness(item) { return rankingScore(item).total; }
+function compareFitness(a, b) { return fitness(b) - fitness(a) || b.performance - a.performance; }
 
 function pickWeapon(SA, spec, rng, style) {
   const ids = moduleIds(SA, spec, m => m.cat === 'firepower');
@@ -619,17 +646,14 @@ function evaluateCandidate(SA, candidate, opponents, spec, seed, games, duelCach
 }
 
 function archive(candidates, spec) {
-  const strengths = candidates.map(item => item.strength), performances = candidates.map(item => item.performance);
   const minMax = values => ({ min: Math.min(...values), max: Math.max(...values) });
-  const norm = (value, range) => range.max === range.min ? 0.5 : (value - range.min) / (range.max - range.min);
-  const sRange = minMax(strengths), pRange = minMax(performances);
   const featureKeys = ['speed', 'dps', 'hp', 'heatDps', 'water', 'cool', 'rams', 'tether'];
   const featureRange = Object.fromEntries(featureKeys.map(key => {
     const values = candidates.map(item => Number(item.stats[key]) || 0); return [key, minMax(values)];
   }));
   const center = Object.fromEntries(featureKeys.map(key => [key, candidates.reduce((sum, item) => sum + (Number(item.stats[key]) || 0), 0) / Math.max(1, candidates.length)]));
   for (const item of candidates) {
-    item.composite = norm(item.strength, sRange) * 100 * (1 - config.archive.performanceWeight) + norm(item.performance, pRange) * 100 * config.archive.performanceWeight + (item.efficiency?.total || 0);
+    item.composite = fitness(item);
     item.featureDistance = Math.sqrt(featureKeys.reduce((sum, key) => {
       const range = featureRange[key], width = Math.max(1, range.max - range.min);
       return sum + Math.pow(((Number(item.stats[key]) || 0) - center[key]) / width, 2);
@@ -639,7 +663,7 @@ function archive(candidates, spec) {
   for (const item of candidates) {
     const key = `${item.style}|${item.chassis}|${spec.terrain}`;
     const list = buckets.get(key) || [];
-    list.push(item); list.sort((a, b) => b.composite - a.composite);
+    list.push(item); list.sort(compareFitness);
     buckets.set(key, list.slice(0, config.archive.cellsPerBucket));
   }
   const all = candidates.slice().sort((a, b) => b.strength - a.strength);
@@ -690,7 +714,7 @@ function candidateRecord(SA, item, spec, fingerprint) {
     strength: item.strength, strengthCi: item.strengthCi, terrainStrength: item.terrainStrength, terrainDelta: item.terrainDelta,
     // 胜率与强度分使用同一批同档标尺对局；换边计入局数，平局计半胜。
     winRate: games ? (wins + draws * 0.5) / games : null, games, wins, draws, opponentCount: item.rows?.length || 0, evaluationStyle: item.evaluationStyle,
-    performance: item.performance, efficiency: item.efficiency, fitness: fitness(item), featureDistance: item.featureDistance,
+    performance: item.performance, efficiency: item.efficiency, ranking: rankingScore(item), fitness: fitness(item), featureDistance: item.featureDistance,
     typical: item.sample ? { winner: item.sample.winner, t: item.sample.t, reason: item.sample.reason, seed: item.sample.seed ?? null, opponent: item.sample.opponent, style: item.sample.style } : null,
     stats: { rating: item.stats.rating, value: item.stats.value, count: item.stats.count, hp: item.stats.hp, dps: item.stats.dps, heatDps: item.stats.heatDps, water: item.stats.water, cool: item.stats.cool },
     moduleValues, rules: fingerprint };
@@ -741,14 +765,14 @@ function replacementFor(SA, vehicle, targetId, spec) {
 function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed, usedStyles = new Set(), duelCache = null, previousBoss = referenceBoss) {
   // 分数再高也不能选中越级、超支或断履带的车；空池必须明确返回 null。
   scored = scored.filter(item => legalVehicle(SA, item.vehicle, spec));
-  const nonToxic = scored.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
-  const cleanPool = nonToxic.length ? nonToxic : scored;
   const reward = spec.rewardModule;
-  const hasReward = item => !reward || !!counts(SA, item.vehicle)[reward];
+  const hasReward = item => rewardPresent(SA, item.vehicle, spec);
+  // 先保证奖励件，再比较胜率与表现。即使唯一带奖励的车表现较低，也不能改选无奖励车。
+  const rewardPool = scored.filter(hasReward);
+  const nonToxic = rewardPool.filter(item => item.performance >= config.archive.toxicPerformanceBelow);
+  const cleanPool = nonToxic.length ? nonToxic : rewardPool;
   const genericPool = spec.boss ? cleanPool.filter(item => Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin) : cleanPool;
-  const pool = spec.boss && genericPool.length ? genericPool : cleanPool;
-  const validReward = pool.filter(hasReward);
-  const candidates = validReward.length ? validReward : pool;
+  const candidates = spec.boss && genericPool.length ? genericPool : cleanPool;
   const evidence = item => {
     const terrainPass = spec.terrain === 'flat' || (spec.boss ? Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin : (item.terrainDelta || 0) >= config.archive.terrainDeltaMin && item.performance >= config.archive.terrainPerformanceMin);
     const own = { ...constructionConditions(SA, item.vehicle, spec), efficiency: efficiencyScore(SA.V.stats(item.vehicle), spec), rewardPresent: hasReward(item), performance: item.performance, strength: item.strength, style: item.style, terrainDelta: item.terrainDelta, terrainPass, bossGenericPass: !spec.boss || Math.abs(item.terrainDelta || 0) < config.archive.terrainDeltaMin };
@@ -788,15 +812,13 @@ function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed
   const scoredEvidence = candidates.map(item => ({ item, evidence: evidence(item) }));
   const rank = x => {
     const e = x.evidence;
-    const target = spec.boss ? 0.55 : 0.7;
-    const rate = spec.boss ? (e.bossAverageWinRate ?? 0.5) : (e.bossWinRate ?? 0.7);
     const pass = (e.targetPass ? 1000 : 0) + (e.targetPass === false ? -800 : 0) + (e.terrainPass === false ? -900 : 0)
       + (usedStyles.has(e.style) ? -120 : 0) + (e.previousBossPass === false ? -1000 : 0)
       + (e.rewardLowerBoundPass === false ? -1000 : 0) + (e.rewardCrushGuardPass === false ? -1000 : 0)
       + (e.rewardEffectPass === false ? -700 : 0) + (e.rewardContrastPass === false ? -700 : 0);
-    return pass - Math.abs(rate - target) * 100 + e.performance + e.strength / 100 + e.efficiency.total;
+    return pass + fitness(e);
   };
-  scoredEvidence.sort((a, b) => rank(b) - rank(a));
+  scoredEvidence.sort((a, b) => rank(b) - rank(a) || b.evidence.performance - a.evidence.performance);
   const selected = scoredEvidence[0] || null;
   return { selected: selected?.item || null, evidence: selected?.evidence || null, candidateCount: candidates.length, fingerprint };
 }
@@ -804,14 +826,12 @@ function selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed
 function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickGames, duelCache = null) {
   const population = [];
   const wanted = Math.max(4, config.population.size);
-  const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
   while (population.length < wanted) {
-    // 奖励关至少半数初始种群强制携带奖励件，避免进化淘汰后报告只能挑一台“不带奖励”的普通车。
-    const rewardSeed = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25));
-    const forced = rewardSeed ? spec.rewardModule : null;
+    // 所有初始候选都携带奖励件，不能让更强的无奖励构筑挤占搜索空间。
+    const forced = spec.rewardModule;
     let v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
     // 继承 / 变异路径不能绕过奖励件约束；缺奖励时改用强制奖励种子重试。
-    if (forced && (!v || !rewardPresent(v))) v = randomVehicle(SA, spec, rng, forced);
+    if (forced && (!v || !rewardPresent(SA, v, spec))) v = randomVehicle(SA, spec, rng, forced);
     if (v) population.push(v);
     else {
       // 某些奖励件（例如 2×2 重型装甲）在狭小地图上并非每个随机种子都能直接摆下。
@@ -826,7 +846,7 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
         }
       }
       if (fallback) population.push(fallback);
-      else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有可用的最小合法车辆`);
+      else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关无法在当前预算与模块表下构筑含奖励件 ${forced || '（无）'} 的合法车辆`);
     }
   }
   let current = population;
@@ -835,24 +855,17 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
       const evalSeed = rng.int(0x7fffffff) + index;
       const result = evaluateCandidate(SA, vehicle, opponents, spec, evalSeed, quickGames, duelCache);
       return { vehicle, evaluationSeed: evalSeed, ...result };
-    }).sort((a, b) => fitness(b) - fitness(a));
+    }).sort(compareFitness);
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
-    // 奖励件是关卡规格的硬条件，不能因强度排序把最后一台奖励候选截掉。
-    if (spec.rewardModule) {
-      const rewardSeed = scored.find(item => rewardPresent(item.vehicle));
-      if (rewardSeed && !keep.some(item => rewardPresent(item.vehicle))) keep[keep.length - 1] = rewardSeed;
-    }
     if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
     current = [...keep.map(x => x.vehicle)];
     while (current.length < wanted) {
       const source = rng.pick(keep).vehicle;
       let child = mutate(SA, source, spec, rng);
-      if (spec.rewardModule && (!child || !rewardPresent(child))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
+      if (spec.rewardModule && (!child || !rewardPresent(SA, child, spec))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
       if (!child) child = randomVehicle(SA, spec, rng, spec.rewardModule) || minimalVehicle(SA, spec, spec.rewardModule);
-      // 奖励件在当前尺寸 / 预算下可能确实摆不下；保留普通合法候选，
-      // 让报告记录 reward 失败，而不是让整档预演中断。
-      if (!child) child = randomVehicle(SA, spec, rng) || minimalVehicle(SA, spec);
-      if (!child) throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有任何合法候选`);
+      // 变异摆放失败时保留已通过检查的父本，绝不退回无奖励车。
+      if (!child) child = SA.V.clone(source);
       current.push(child);
     }
   }
@@ -865,16 +878,16 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
   // 收藏 / 手工种子每代保留原样，同时允许以它们为父本产生变异后代。
   // 种子比设定种群多时扩到种子数，避免默默丢掉用户已选的车型。
   const population = [...seeds], wanted = Math.max(4, config.population.size, seeds.length);
-  const rewardPresent = vehicle => !spec.rewardModule || !!counts(SA, vehicle)[spec.rewardModule];
+  if (seeds.some(vehicle => !rewardPresent(SA, vehicle, spec))) throw new Error('进化种子缺少本关奖励件');
   while (population.length < wanted) {
-    const forced = spec.rewardModule && (population.length < Math.ceil(wanted * 0.5) || rng.chance(0.25)) ? spec.rewardModule : null;
+    const forced = spec.rewardModule;
     let v = previous.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(previous), spec, rng) : randomVehicle(SA, spec, rng, forced);
-    if (forced && (!v || !rewardPresent(v))) v = randomVehicle(SA, spec, rng, forced);
+    if (forced && (!v || !rewardPresent(SA, v, spec))) v = randomVehicle(SA, spec, rng, forced);
     if (v) population.push(v);
     else {
       let fallback = minimalVehicle(SA, spec, forced);
       if (!fallback && forced) for (let retry = 0; retry < 128 && !fallback; retry++) fallback = randomVehicle(SA, spec, new RNG(rng.int(0x7fffffff) + retry + 1), forced);
-      if (fallback) population.push(fallback); else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有可用的最小合法车辆`);
+      if (fallback) population.push(fallback); else throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关无法在当前预算与模块表下构筑含奖励件 ${forced || '（无）'} 的合法车辆`);
     }
   }
   let current = population;
@@ -889,22 +902,17 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
       completed++; telemetry.completedCandidates++;
       onProgress?.({ phase: 'candidate', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length, index });
       return { vehicle: task.vehicle, evaluationSeed: task.seed, ...result };
-    })))).sort((a, b) => fitness(b) - fitness(a));
+    })))).sort(compareFitness);
     onProgress?.({ phase: 'generation-end', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length });
     const keep = scored.slice(0, Math.max(2, Math.ceil(scored.length * config.population.survivors)));
-    if (spec.rewardModule) {
-      const rewardSeed = scored.find(item => rewardPresent(item.vehicle));
-      if (rewardSeed && !keep.some(item => rewardPresent(item.vehicle))) keep[keep.length - 1] = rewardSeed;
-    }
     if (generation + 1 >= config.population.generations) return { scored, archive: archive(scored, spec) };
     current = [...seeds, ...keep.map(x => x.vehicle).filter(v => !seeds.includes(v))].slice(0, wanted);
     while (current.length < wanted) {
       const source = rng.pick(keep).vehicle;
       let child = mutate(SA, source, spec, rng);
-      if (spec.rewardModule && (!child || !rewardPresent(child))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
+      if (spec.rewardModule && (!child || !rewardPresent(SA, child, spec))) child = randomVehicle(SA, spec, rng, spec.rewardModule);
       if (!child) child = randomVehicle(SA, spec, rng, spec.rewardModule) || minimalVehicle(SA, spec, spec.rewardModule);
-      if (!child) child = randomVehicle(SA, spec, rng) || minimalVehicle(SA, spec);
-      if (!child) throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关没有任何合法候选`);
+      if (!child) child = SA.V.clone(source);
       current.push(child);
     }
   }
@@ -1022,11 +1030,7 @@ function run(options = {}) {
     const usedStyles = new Set();
     const stages = pendingStages.map((entry, stage) => {
       const { spec, scored, records } = entry;
-      if (entry.locked) return {
-        spec, count: 0, selected: records[0], source: 'manual', locked: true,
-        selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] },
-        top: records, archive: entry.archive,
-      };
+      if (entry.locked) return lockedStageReport(entry, selectionFailures);
       // Boss 作为同章普通关标尺；上一章 Boss 用于 Boss 的门槛及奖励车防碾压检验。
       const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss);
       const selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, (options.seed || 20260925) + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
@@ -1096,6 +1100,7 @@ async function runAsync(options = {}) {
           seedWarnings.push({ chapter, stage, name: rec.name, reason: '原构筑需要迁移或含无效模块，保留原车但跳过进化' }); continue;
         }
         if (!legalVehicle(SA, vehicle, spec)) { seedWarnings.push({ chapter, stage, name: rec.name, reason: '不符合当前构筑、模块表或预算，保留原车但跳过进化' }); continue; }
+        if (!rewardPresent(SA, vehicle, spec)) { seedWarnings.push({ chapter, stage, name: rec.name, reason: `缺少奖励件 ${SA.MODULES[spec.rewardModule].name}，保留原车但跳过进化` }); continue; }
         if (['wander', 'rush', 'kite', 'turtle'].includes(rec.style)) vehicle.arenaStyle = rec.style;
         const key = JSON.stringify(cellsOf(SA, vehicle));
         if (!seedKeys.has(key)) { seeds.push(vehicle); seedKeys.add(key); }
@@ -1169,7 +1174,7 @@ async function runAsync(options = {}) {
       const stages = pendingStages.map(entry => {
         const { spec, scored, records } = entry;
         const stage = spec.stage;
-        if (entry.locked) return { spec, count: 0, selected: records[0], source: 'manual', locked: true, selection: { locked: true, status: '手工锁定，未改动', candidateCount: 0, hardConditions: {}, failed: [] }, top: records, archive: entry.archive };
+        if (entry.locked) return lockedStageReport(entry, selectionFailures);
         progress({ phase: 'selection-start', chapter, stage });
         const referenceBoss = spec.boss ? priorBoss : (chapterBoss || priorBoss), selection = selectStageCandidate(SA, scored, spec, referenceBoss, fingerprint, seed + chapter * 10000 + stage * 101, spec.boss ? new Set() : usedStyles, duelCache, priorBoss);
         const selectedIndex = scored.indexOf(selection.selected); if (selection.evidence?.style) usedStyles.add(selection.evidence.style);
@@ -1486,4 +1491,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, fitness, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

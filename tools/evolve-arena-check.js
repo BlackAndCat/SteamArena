@@ -35,20 +35,24 @@ async function run() {
   assert.strictEqual(base.candidates[0].name, '手工甲片夹具', '展示合并污染原报告');
   // 未知模块不得被 fromCells 静默丢弃后当成另一台合法种子。
   const bad = { ...modified.record, name: '无效模块夹具', cells: [...rec.cells, [0, 0, 0, 'missing_module', 1, 0]] };
+  const noRewardVehicle = evolve.minimalVehicle(SA, spec);
+  const noReward = { ...modified.record, name: '缺少甲片夹具', cells: SA.StageCars.cellsOf(noRewardVehicle) };
   const previousConfig = { ...config.population };
   let report, later;
   try {
     config.population.size = 4; config.population.generations = 2;
-    report = await evolve.runAsync({ scope: { chapter: 0, stage: 1 }, games: 1, workers: 2, seed: 112233, seeds: [modified.record, bad] });
+    report = await evolve.runAsync({ scope: { chapter: 0, stage: 1 }, games: 1, workers: 2, seed: 112233, seeds: [modified.record, bad, noReward] });
     assert.strictEqual(report.chapters.length, 1);
     assert.strictEqual(report.chapters[0].stages.length, 1);
     assert.strictEqual(report.chapters[0].stages[0].spec.stage, 1, '单关索引被改成第一关');
-    assert.strictEqual(report.seedWarnings.length, 1);
+    assert.strictEqual(report.seedWarnings.length, 2);
+    assert(report.seedWarnings.some(row => row.name === noReward.name && row.reason.includes('缺少奖励件')));
     const measured = report.candidates.find(item => arena.key(item) === arena.key(modified.record) && item.name === modified.record.name);
     assert(measured, '手工种子在最终报告中丢失');
     assert.strictEqual(measured.style, 'rush', '手工绑定性格被覆盖');
     assert.strictEqual(JSON.stringify(measured.cells), JSON.stringify(modified.record.cells));
     for (const item of report.candidates) {
+      assert(item.cells.some(cell => cell[3] === spec.rewardModule), '生成候选缺少本关奖励件');
       assert.strictEqual(item.games, config.evaluation.anchorCount * 2);
       assert.strictEqual(item.winRate, (item.wins + item.draws * 0.5) / item.games);
     }
@@ -67,6 +71,13 @@ async function run() {
   } finally { Object.assign(config.population, previousConfig); }
   // 即使原报告被清理，也能从空报告恢复收藏和手工车型。
   assert.strictEqual(arena.merge({ chapters: [], candidates: [] }).candidates[0].arenaId, saved.id);
+  // 原样保存缺奖励的手工车供继续修改，但展示合并不能再把它当作已选关卡车。
+  arena.saveEdited(saved.id, noRewardVehicle, { name: noReward.name, style: 'rush' });
+  const missingOverlay = arena.merge(base);
+  assert.strictEqual(missingOverlay.chapters[0].stages[0].selected, null);
+  assert.deepStrictEqual([...missingOverlay.chapters[0].stages[0].selection.failed], ['reward']);
+  assert.strictEqual(arena.missingReward(missingOverlay.candidates[0]), 'plate');
+  assert.strictEqual(JSON.stringify(arena.get(saved.id).record.cells), JSON.stringify(noReward.cells), '自动改写了缺奖励的手工车');
   assert(originalStageFile.equals(fs.readFileSync(stageFile)), '进化擂台改变了正式关卡文件');
   return { scope: '0:1 / 1:0', candidates: report.candidates.length + later.candidates.length, protectedSeed: true,
     manualRoundTrip: true, winRate: true, partialMerge: true, formalUnchanged: true, invalidSeedSkipped: true };

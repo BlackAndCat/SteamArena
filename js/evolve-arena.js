@@ -33,6 +33,12 @@
   }
   function find(rec) { const k = key(rec); return read().find(row => key(row.record) === k); }
   function get(id) { return read().find(row => row.id === id) || null; }
+  // 收藏与手工草稿可以继续保留；按当前关卡定义检查奖励，不能借旧报告规格绕过要求。
+  function missingReward(rec) {
+    const sp = rec.spec || {}, stage = SA.CAMPAIGN[sp.chapter]?.stages[sp.stage];
+    const reward = stage ? stage.spec?.reward : sp.rewardModule;
+    return reward && !rec.cells?.some(cell => cell[3] === reward) ? reward : null;
+  }
   function remember(rec, changes = {}) {
     const records = read(), existing = records.find(row => key(row.record) === key(rec));
     const row = existing || { id: crypto.randomUUID(), record: clone(rec), favorite: false, manual: false, participate: true, parentKey: key(rec) };
@@ -90,11 +96,13 @@
       stage.top = (stage.top || []).filter(rec => !matches(rec)); stage.top.push(record);
       if (stage.selected && matches(stage.selected)) {
         const edited = key(stage.selected) !== key(record);
-        stage.selected = record;
-        if (edited || record.needsEvaluation) {
-          stage.selection = { failed: ['manualReview'], status: '手工修改后待重新模拟' };
+        const missing = missingReward(record);
+        stage.selected = missing ? null : record;
+        if (missing || edited || record.needsEvaluation) {
+          const failed = missing ? ['reward'] : ['manualReview'];
+          stage.selection = { failed, status: missing ? '缺少奖励件，保留原车待修改' : '手工修改后待重新模拟' };
           result.selectionFailures = (result.selectionFailures || []).filter(item => item.chapter !== sp.chapter || item.stage !== sp.stage);
-          result.selectionFailures.push({ chapter: sp.chapter, stage: sp.stage, name: stage.spec.name, failed: ['manualReview'] });
+          result.selectionFailures.push({ chapter: sp.chapter, stage: sp.stage, name: stage.spec.name, failed });
         }
       }
       ch.stages.sort((a, b) => a.spec.stage - b.spec.stage);
@@ -102,5 +110,5 @@
     result.chapters.sort((a, b) => a.chapter - b.chapter);
     return result;
   }
-  SA.EvolveArena = { KEY, read, key, find, get, remember, update, saveEdited, merge };
+  SA.EvolveArena = { KEY, read, key, find, get, missingReward, remember, update, saveEdited, merge };
 })();
