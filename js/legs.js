@@ -258,13 +258,15 @@ SA.LEGLAB = (() => {
       // 大腿：箱形梁 + 减重孔
       pn.cap(L.hx, L.hy, kx, ky, 3.2).paint(M.leg);
       for (const t of pn.hi ? [0.36, 0.66] : [0.5]) { const [px, py] = T.p(T.len * t, 0); pn.disc(px, py, pn.hi ? 1.2 : 0.6).paint(flat(M.dark[0]), { outline: false, bevel: '' }); }
-      // 液压撑杆：缸体铰在大腿前缘的托耳上、活塞杆铰在小腿前缘的托耳上，横跨膝弯；两头都长在腿上，随膝盖伸缩（不再悬在半空）
-      const ta = T.len * 0.3, sa = S.len * 0.5, tp = T.p(ta, 6), sp = S.p(sa, 4.6);
-      const rm = [tp[0] + (sp[0] - tp[0]) * 0.55, tp[1] + (sp[1] - tp[1]) * 0.55];
-      pn.cap(...T.p(ta, 0), ...tp, 0.9).cap(...S.p(sa, 0), ...sp, 0.9).paint(M.iron);
-      pn.cap(...rm, ...sp, 0.8).paint(M.steam, { bevel: 'l' });
-      pn.cap(...tp, ...rm, 1.9).paint(M.iron);
-      pn.disc(tp[0], tp[1], 1.3).paint(M.brass, { bevel: 'l' }); pn.disc(sp[0], sp[1], 1.1).paint(M.brass, { bevel: 'l' });
+      // 液压撑杆：一根笔直的缸 + 杆，从大腿上段前缘的托耳直接撑到小腿中段前缘的托耳（托耳只有半个单位高，缸杆贴着腿）。
+      // 膝盖朝后的反关节腿，膝弯的前面是「内角」，撑杆跨在内角上：腿一弯它就被压短，撑杆一伸腿就被顶直，承重靠它
+      const ta = T.len * 0.14, sa = S.len * 0.82, tp = T.p(ta, 4.6), sp = S.p(sa, 3.4);
+      const rm = [tp[0] + (sp[0] - tp[0]) * 0.5, tp[1] + (sp[1] - tp[1]) * 0.5];
+      pn.poly([T.p(ta - 1.8, 3), T.p(ta + 1.8, 3), tp]).poly([S.p(sa - 1.6, 2.6), S.p(sa + 1.6, 2.6), sp]).paint(M.iron, { bevel: '' });
+      pn.cap(...sp, ...rm, 0.9).paint(M.steam, { bevel: 'l' });
+      pn.cap(...tp, ...rm, 2.1).paint(M.iron, { bevel: 'l' });
+      pn.cap(rm[0], rm[1], rm[0], rm[1], 2.4).paint(M.brass, { outline: false });
+      pn.disc(tp[0], tp[1], 1.2).paint(M.brass, { bevel: 'l' }); pn.disc(sp[0], sp[1], 1).paint(M.brass, { bevel: 'l' });
       pn.disc(kx, ky, 3.3).paint(M.iron); pn.dot(kx - 1, ky - 1, M.iron[3]);
       pn.disc(L.hx, L.hy, 3.3).paint(M.iron); pn.disc(L.hx, L.hy, 1.2).paint(M.brass, { outline: false });
     },
@@ -628,14 +630,14 @@ SA.LEGLAB = (() => {
       const M = L.M, lag = o.mv ? Math.sin((o.a || 0) + ph - 0.9) : 0;
       // 布主要靠重力垂着：只跟大腿转 28%，再加下摆比腰晚半拍的甩动
       const F = frame(L.hx + 0.6, L.hy - 3, (L.T.ang - Math.PI / 2) * 0.28 + lag * 0.1);
-      const len = 20, wt = 4.4, wb = 6.4, sw = lag * 1.6;
+      const k = L.tabk || 1, len = 20 * k, wt = 4.4 * k, wb = 6.4 * k, sw = lag * 1.6 * k;
       const cloth = [P.steam[0], P.steam[1], P.steam[2], '#f6f2e8'];
       const hem = [[wb + sw, len], [wb * 0.55 + sw * 0.9, len - 2.4], [wb * 0.1 + sw, len], [-wb * 0.35 + sw * 0.9, len - 2.4], [-wb + sw, len]];
       pn.poly(F.pts([[-wt, 0], [wt, 0], ...hem])).paint(cloth, { bevel: 'l' });
       pn.poly(F.pts([[-wt, 0], [wt, 0], [wt + 0.3, 1.8], [-wt - 0.3, 1.8]])).paint(M.brass, { outline: false, bevel: 'l' });
       pn.poly(F.pts([[-wb + sw, len - 1], [wb + sw, len - 1], [wb + sw, len], [-wb + sw, len]])).paint(M.brass, { outline: false, bevel: '' });
       const cs = sw * 0.6, red = [M.fire[0], M.fire[0], M.fire[1], M.fire[1]];
-      pn.poly(F.pts([[-0.9 + cs, 4.4], [0.9 + cs, 4.4], [0.9 + cs, 14.4], [-0.9 + cs, 14.4]])).poly(F.pts([[-3 + cs, 7], [3 + cs, 7], [3 + cs, 8.8], [-3 + cs, 8.8]])).paint(red, { outline: false, bevel: '' });
+      pn.poly(F.pts([[-0.9 * k + cs, 4.4 * k], [0.9 * k + cs, 4.4 * k], [0.9 * k + cs, 14.4 * k], [-0.9 * k + cs, 14.4 * k]])).poly(F.pts([[-3 * k + cs, 7 * k], [3 * k + cs, 7 * k], [3 * k + cs, 8.8 * k], [-3 * k + cs, 8.8 * k]])).paint(red, { outline: false, bevel: '' });
       if (pn.hi) { pn.ln(...F.p(-2.4, 2), ...F.p(-2.8 + sw * 0.8, len - 3), cloth[1]); pn.ln(...F.p(2.6, 2), ...F.p(3 + sw * 0.8, len - 3), cloth[1]); }
     },
   };
@@ -882,5 +884,5 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat } };
+  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
 })();
