@@ -1,9 +1,10 @@
-// 人物形象探索：碳球。圆形小碳球、小短手、看不到腿；1～3 只眼；不画嘴。
-// 长相都差不多，靠「肤色（黑往体色过渡）+ 眼球颜色 + 假发 + 饰品」区分。程序化像素画：同一份角色数据按三种尺寸画——
-// 驾驶舱里（半径 3.3，和游戏里的驾驶员一样）、场景小人（半径 8）、对话头像（半径 19）。
+// 人物：碳球（2026-09-28 用户定：身体 A 圆煤球、肤色适中、手套可选、阵容定稿；样机 tools/character-lab.html，规则 docs/visual-rules.md §9）。
+// 圆形小碳球、小短手、看不到腿；1～3 只简笔画眼睛；不画嘴。靠「肤色（黑往体色过渡）+ 瞳孔颜色 + 假发 + 饰品」区分。
+// 程序化像素画：同一份角色数据按三种尺寸画——驾驶舱里（半径 3.3）、场景小人（半径 8）、对话头像（半径 19）。
+// 游戏里用到的入口：SA.Coal.draw（剧情）、SA.Coal.mini / pilotOf（驾驶舱里按车手画，见 js/sprites.js 的 cockpitCrew）。
 window.SA = window.SA || {};
 
-SA.CoalLab = (() => {
+SA.Coal = (() => {
   const P = SA.PAL;
   const INK = '#07080c';
   // 体色：[暗部, 中间, 反光]。反光圈用第 3 色；皮肤按「浓度」从近黑往第 3 色过渡（见 skinFn）
@@ -170,9 +171,9 @@ SA.CoalLab = (() => {
       if (n === 3) c.put(cx, cy - 3, C.white);
       return;
     }
-    // 圆角方块：|x|^4 + |y|^4 ≤ 1
-    const sq = (nx, ny) => nx ** 4 + ny ** 4 <= 1;
-    const box = (u, v, rx, ry, col, test) => c.E(u, v, rx * 1.2, ry * 1.2, col, (nx, ny, x, y) => sq(nx * 1.2, ny * 1.2) && (!test || test(nx * 1.2, ny * 1.2, x, y)));
+    // 圆润的方块：|x|^2.6 + |y|^2.6 ≤ 1（介于圆和方之间，比 v3 的 4 次方更圆）
+    const K = 1.1, sq = (nx, ny) => Math.abs(nx) ** 2.6 + Math.abs(ny) ** 2.6 <= 1;
+    const box = (u, v, rx, ry, col, test) => c.E(u, v, rx * K, ry * K, col, (nx, ny, x, y) => sq(nx * K, ny * K) && (!test || test(nx * K, ny * K, x, y)));
     const t = Math.max(1.2, c.R * 0.1) / c.R;   // 线条粗细（眨眼、笑眼）
     for (const [u, v, rx0, ry0] of EYESETS[n]) {
       const rx = rx0 * (expr === 'surprise' ? 1.12 : 1), ry = ry0 * (expr === 'surprise' ? 1.12 : 1);
@@ -509,7 +510,8 @@ SA.CoalLab = (() => {
     const drawWig = (over) => { if (!wig || !wig.draw || !!wig.over !== over) return; if (c.mini) { if (wig.mini) wig.mini(c, wc); } else wig.draw(c, wc); };
     const layer = (L) => accs.filter(([x]) => x.layer === L).forEach(([x, a]) => { if (c.mini) { if (x.mini) x.mini(c, a); } else x.draw(c, a, EYESETS[n], pose); });
     layer('back');
-    if (!c.mini) arm(c, pose.L, sk, o.glove);
+    const glove = pick(o, ch, 'glove', false);
+    if (!c.mini) arm(c, pose.L, sk, glove);
     body(c, style, tint, sq, sk);
     eyes(c, n, expr, look, pick(o, ch, 'iris', 'ink'), skinAt);
     layer('neck');
@@ -519,11 +521,42 @@ SA.CoalLab = (() => {
     drawWig(true);
     if (!c.mini) {
       if (item && ACC[item]) ACC[item].draw(c, ACC[item], EYESETS[n], pose);
-      arm(c, pose.R, sk, o.glove);
+      arm(c, pose.R, sk, glove);
     }
     if (!c.mini && o.outline !== false) c.outline();
     return c.toCanvas();
   }
 
-  return { TINT, SKIN, BODY, POSES, EXPR, EYESETS, IRIS, WIGS, WIGC, ACC, CAST, draw, SIZES };
+  // ---------- 驾驶舱里的车手 ----------
+  // 玩家的车 → 「你」；战役 / 锦标赛 / 遭遇战的车 → 按车名找驾驶员，再按驾驶员名字找阵容；都找不到 → 按车名生成一个路人
+  const byName = {};
+  for (const ch of CAST) byName[ch.name] = ch;
+  const CREW_TINT = ['slate', 'plum', 'moss', 'rust', 'ochre', 'teal', 'navy', 'ash'];
+  const CREW_HAT = [null, ['flatCap', { color: C.grey }], ['bowler', { color: C.black }], ['beanie', { color: C.red, shade: C.redS }], ['beanie', { color: C.navy, shade: '#141c34' }], null];
+  const hashOf = (s) => { let hsh = 7; for (const ch of String(s)) hsh = (hsh * 31 + ch.charCodeAt(0)) >>> 0; return hsh; };
+  function crew(seed) {
+    const hsh = hashOf(seed), hat = CREW_HAT[hsh % CREW_HAT.length];
+    return { id: `crew-${seed}`, name: '路人', tint: CREW_TINT[(hsh >> 3) % CREW_TINT.length], eyes: 2, iris: 'ink', acc: hat ? [hat] : [] };
+  }
+  function pilotOf(veh) {
+    const name = veh && veh.name;
+    if (SA.S && SA.S.d && SA.S.d.vehicle && (veh === SA.S.d.vehicle || name === SA.S.d.vehicle.name)) return byName['你'];
+    const pools = [...(SA.CAMPAIGN || []).flatMap(ch => ch.stages), ...(SA.OPPONENTS || []), ...(SA.SIDE_ENCOUNTERS || [])];
+    const hit = pools.find(x => x && x.name === name);
+    return (hit && byName[hit.pilot]) || crew(name || 'x');
+  }
+  // 驾驶舱尺寸的画，按 [角色, 眨眼, 飞行帽] 缓存；st ≥ 2（史诗起）没戴帽子的车手换上飞行帽
+  const miniCache = new Map();
+  function mini(ch, o = {}) {
+    const aviator = o.st >= 2 && !(ch.acc || []).some(([id]) => ACC[id] && ACC[id].layer === 'hat');
+    const key = `${ch.id}|${o.blink ? 1 : 0}|${aviator ? 1 : 0}`;
+    if (!miniCache.has(key)) {
+      if (miniCache.size > 400) miniCache.clear();
+      miniCache.set(key, draw(ch, { size: 'mini', expr: o.blink ? 'blink' : 'normal', acc: [...(ch.acc || []), ...(aviator ? [['aviator']] : [])] }));
+    }
+    return miniCache.get(key);
+  }
+
+  return { TINT, SKIN, BODY, POSES, EXPR, EYESETS, IRIS, WIGS, WIGC, ACC, CAST, draw, SIZES, pilotOf, crew, mini, byName };
 })();
+SA.CoalLab = SA.Coal;   // 样机页的旧名

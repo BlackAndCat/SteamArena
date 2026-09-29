@@ -51,16 +51,6 @@ SA.SPR = (() => {
   const BRASS = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]];
   const RUST = [P.rust[0], P.rust[1], P.rust[2], P.rust[3]];
 
-  // 炮塔外壳（直射炮 / 机枪共用）
-  function housing(x, y, cupola) {
-    if (cupola) { box(x + 10, y + 7, 22, 10, IRON); R(x + 14, y + 10, 12, 1, P.iron[0]); }
-    box(x + 3, y + 14, 42, 31, IRON);
-    for (let i = 0; i < 3; i++) R(x + 7, y + 22 + i * 4, 12, 1, P.iron[0]);
-    R(x + 4, y + 39, 40, 1, P.brass[2]);
-    R(x + 4, y + 40, 40, 1, P.brass[1]);
-    rivet(x + 6, y + 17); rivet(x + 6, y + 34);
-  }
-
   // 可转动的炮组：先在离屏按「水平」画好，再以耳轴为支点转到仰角 a（度，向上为正）贴回来；最近邻缩放保持像素风
   const gunLayer = document.createElement('canvas');
   gunLayer.width = 112; gunLayer.height = 64;
@@ -645,6 +635,124 @@ SA.SPR = (() => {
     for (const rx of riveXs(T.riv[0], 4, 14)) PART.rivet(x + rx, y + 23, RIVET_TIER[T.riv[1]]);
     if (T.parts.includes('gauge')) gaugeS(x + 17.5, y + 25.5);
   }
+
+  // ---------- 机炮 mg · 蒸汽离心炮 / 双联机枪 mg2 · 双嘴汽转球（2×2，2026-09-28 定稿，样机 tools/archive/mg-mg2-v3.html）----------
+  // 都是绕一根垂直于画面的横轴俯仰：轴心凸台（旋转接头）、轴承臂、铜管、锅炉 / 火盆、圆形主体的明暗都固定（光是世界的）；
+  // 主体上的铆钉 / 接缝、防盾、炮管 / 喷嘴跟着俯仰。为了手感（用户定）：开火时只有「炮管 / 喷嘴」沿自身轴线后坐（弹簧缓冲，rcPx），
+  // 鼓和球套在轴上不滑；开火冒白汽（炮口一团 + 安全阀），离心炮不烧火药所以没有火光，汽转球喷嘴带几颗火星。
+  // 车体下壳和零件照 2×2 规则：接缝铆钉 2 → 3 → 4（T1～3 黄铜、镀镍起钢质淡青）、散热口 横槽 → 双列 → 斜百叶、钢起包角铁、镀镍起铭牌 + 大压力表。
+  // 所有绕轴的圆按耳轴像素角点画（disc(C, M, r)），转动时不半像素跳
+  const AC_TIERS = [
+    { f: 'raw', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { f: 'raw', b: 1, vent: ['rows', 2], riv: [2, 'brass'], parts: [] },
+    { f: 'box', b: 2, vent: ['rows', 3], riv: [3, 'brass'], parts: ['corners'] },
+    { f: 'box', b: 2, vent: ['rows', 3], riv: [3, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { f: 'slant', b: 3, vent: ['grid', 3], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+    { f: 'slant', b: 3, vent: ['louver', 3], riv: [4, 'steel'], parts: ['corners', 'plate', 'gauge'] },
+  ];
+  const AC_PIV = { mg: [29, 20], mg2: [20, 20] }, AC_TOP = { mg: 28, mg2: 30 };
+  const BRONZE4 = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]], IRONR = [P.iron[0], P.iron[2], P.iron[3], P.iron[4]];
+  // 车体下壳：壳（armorShell）+ 接缝 + 散热口 + 底座 + 底角包角铁；铆钉、铭牌、压力表在 OVER
+  function acHull(x, y, T, top) {
+    armorShell(x + 3, y + top, 42, 44 - top, T.f, 4);
+    R(x + 5, y + top + 3, 38, 1, P.iron[1]); R(x + 5, y + top + 4, 38, 1, P.iron[4]);
+    const [vs, vn] = T.vent; PART.vents(x, y, { x: 19, y: top + 7 }, vs, vs === 'louver' ? vn : Math.min(vn, 2));
+    box(x + 2, y + 44, 44, 4, IRON); R(x + 3, y + 45, 42, 1, P.iron[3]);
+    if (T.parts.includes('corners')) { PART.corner(x + 3, y + 39, 1, -1); PART.corner(x + 40, y + 39, -1, -1); }
+  }
+  function acOver(x, y, q, top) {
+    const T = AC_TIERS[(q.mt || 1) - 1], n = T.riv[0];
+    for (let i = 0; i < n; i++) PART.rivet(Math.round(x + 20 + 21 * i / (n - 1)), y + top + 4, RIVET_TIER[T.riv[1]]);
+    if (T.parts.includes('plate')) PART.plate(x + 34, y + top + 7);
+    if (T.parts.includes('gauge')) PART.gauge(x + 10.5, y + (top + 47) / 2);
+  }
+  // 铸造锥形炮身（x0 半高 h0 → x1 半高 h1）/ 加强箍 / 老式口部（b1 郁金香口 → b2 + 黄铜口箍 → b3 冠状口）
+  function acCast(x0, x1, M, h0, h1, ramp) {
+    for (let xx = x0; xx < x1; xx++) {
+      const hh = Math.round(h0 + (h1 - h0) * (xx - x0) / Math.max(1, x1 - x0 - 1));
+      R(xx, M - hh, 1, hh * 2 + 1, ramp[0]);
+      if (hh > 0) { R(xx, M - hh + 1, 1, hh * 2 - 1, ramp[2]); px(xx, M - hh + 1, ramp[3]); if (hh > 2) px(xx, M - hh + 2, ramp[3]); if (hh > 1) px(xx, M + hh - 1, ramp[1]); }
+    }
+  }
+  const acBand = (x0, w, M, hh, ramp) => { R(x0, M - hh, w, hh * 2 + 1, ramp[0]); R(x0, M - hh + 1, w, hh * 2 - 1, ramp[1]); px(x0, M - hh + 1, ramp[3]); };
+  function acMuzzle(end, M, hh, b, ramp) {
+    acBand(end - 3, 3, M, hh + 1, ramp); px(end - 1, M, P.black); if (hh > 1) { px(end - 1, M - 1, P.black); px(end - 1, M + 1, P.black); }
+    if (b >= 2) acBand(end - 6, 2, M, hh + 1, BRONZE4);
+    if (b === 3) { acBand(end, 2, M, hh + 2, ramp); for (const dy of [-hh - 2, hh + 2]) px(end + 1, M + dy, P.dark[0]); px(end + 1, M, P.black); return end + 2; }
+    return end;
+  }
+  // 炮口白汽：开火那几帧一大团往前散，后坐回来时剩一缕往上飘
+  function acSteam(end, M, k, f) {
+    if (k >= 4) {
+      const p = f % 3;
+      R(end + p, M - 2, 4, 4, P.steam[2]); R(end + 1 + p, M - 3, 2, 1, P.steam[2]); px(end + 4 + p, M - 3, P.steam[1]); px(end + 4 + p, M + 2, P.steam[1]);
+      if (k >= 6) { R(end + 4 + p, M - 1, 2, 2, P.steam[1]); px(end + 7 + p, M - 2, P.steam[0]); }
+    } else if (k >= 1) { px(end + 1, M - 2, P.steam[1]); px(end + 2, M - 4, P.steam[0]); }
+  }
+  // 安全阀 / 锅炉顶上冒的白汽（开火时）
+  function acPuff(x0, y0, f, n = 3) { for (let i = 0; i < n; i++) { const p = (f + i * 2) % 6; R(x0 + ((i * 3 + p) % 3) - 1, y0 - p, p < 3 ? 2 : 1, p < 3 ? 2 : 1, P.steam[p < 2 ? 2 : p < 4 ? 1 : 0]); } }
+  function acPipe(pts) {
+    for (let i = 1; i < pts.length; i++) { const [a, b] = pts[i - 1], [c, d] = pts[i]; line(a, b, c, d, 2, COPPER[1]); line(a, b - (a === c ? 0 : 1), c, d - (a === c ? 0 : 1), 1, COPPER[3]); }
+    for (const [a, b] of pts.slice(1, -1)) { R(a - 1, b - 1, 3, 3, COPPER[0]); px(a, b, COPPER[2]); }
+  }
+  const acValve = (vx, vy) => { R(vx, vy, 3, 4, P.brass[1]); px(vx, vy, P.brass[3]); R(vx - 1, vy - 1, 5, 1, P.brass[0]); R(vx + 1, vy - 3, 1, 2, P.brass[2]); };
+  function acArm(x0, y0, x1, y1) { line(x0, y0, x1, y1, 4, P.iron[0]); line(x0, y0 - 1, x1, y1 - 1, 2, P.iron[3]); line(x0, y0 - 1, x1, y1 - 1, 1, P.iron[4]); }
+  function acHub(cx, cy) { disc(cx, cy, 3.6, P.brass[0]); disc(cx, cy, 2.8, P.brass[2]); px(cx - 2, cy - 2, P.brass[3]); R(cx - 1, cy - 1, 2, 2, P.iron[0]); px(cx - 1, cy - 1, P.iron[4]); }
+  function acRound(cx, cy, r, ramp) { disc(cx, cy, r, ramp[0]); disc(cx, cy, r - 1, ramp[1]); disc(cx - 0.8, cy - 0.8, r - 2, ramp[2]); disc(cx - r * 0.38, cy - r * 0.38, Math.max(1.2, r * 0.22), ramp[3]); }
+
+  // 机炮 · 蒸汽离心炮（1861 温南斯蒸汽炮）：小立式锅炉 → 铜管 → 轴心旋转接头 → 离心鼓；鼓壳 + 锥形防盾跟着俯仰，炮管在防盾里后坐，
+  // 鼓里的转子开火时转。耳轴 (29,20)，炮口末端 x 51（blen 22）
+  function acGun(x, y, q) {
+    const T = AC_TIERS[(q.mt || 1) - 1], f = q.f || 0, k = q.k || 0, on = k >= 4, [pvx, pvy] = AC_PIV.mg, dx = x + pvx, dy = y + pvy;
+    acHull(x, y, T, AC_TOP.mg);
+    R(x + 7, y + 11, 10, 18, P.iron[0]); R(x + 8, y + 12, 8, 16, P.iron[3]); R(x + 8, y + 12, 2, 16, P.iron[4]); R(x + 14, y + 12, 2, 16, P.iron[2]);   // 小立式锅炉（不发光）
+    disc(x + 12, y + 12, 5, P.iron[0]); disc(x + 12, y + 12, 4, P.iron[3]); px(x + 10, y + 10, P.iron[4]);
+    R(x + 8, y + 17, 8, 1, P.brass[1]); R(x + 8, y + 24, 8, 1, P.brass[1]); R(x + 9, y + 20, 6, 2, P.dark[0]);
+    R(x + 13, y + 3, 3, 6, P.dark[0]); R(x + 13, y + 4, 1, 5, P.dark[3]); R(x + 12, y + 2, 5, 2, P.dark[0]);
+    acValve(x + 9, y + 5); if (on) acPuff(x + 10, y + 3, f);
+    acRound(dx, dy, 10, BRONZE4);
+    disc(dx, dy, 6.5, P.iron[0]); disc(dx, dy, 5.6, P.dark[1]);
+    const d = rcPx('mg', k);
+    turn(dx, dy, q.a, (X, Y) => {
+      const C = X + dx, M = Y + dy;
+      acCast(C + 9 - d, C + 22 - d, M, 4, 3, IRONR); acBand(C + 15 - d, 2, M, 4, IRONR);                           // 炮管（在防盾里后坐）
+      acSteam(acMuzzle(C + 22 - d, M, 3, T.b, IRONR), M, k, f);
+      for (let i = 0; i < 4; i++) { const hh = 5 + i; R(C + 8 + i, M - hh, 1, hh * 2 + 1, P.iron[0]); R(C + 8 + i, M - hh + 1, 1, hh * 2 - 1, i === 3 ? P.iron[2] : P.iron[3]); px(C + 8 + i, M - hh + 1, P.iron[4]); }   // 锥形防盾（不后坐）
+      for (let i = 0; i < 6; i++) { const a = (i + 0.5) * Math.PI / 3, rx = Math.round(C + Math.cos(a) * 8) - 1, ry = Math.round(M + Math.sin(a) * 8) - 1; R(rx, ry, 2, 2, P.brass[0]); px(rx, ry, P.brass[3]); }
+      const spin = on ? (f % 4) * Math.PI / 8 : 0;
+      for (let i = 0; i < 4; i++) { const a = spin + i * Math.PI / 2; line(C, M, Math.round(C + Math.cos(a) * 5), Math.round(M + Math.sin(a) * 5), 1, P.iron[3]); }
+    });
+    acArm(x + 22, y + 30, dx, dy);
+    acPipe([[x + 16, y + 14], [x + 20, y + 14], [x + 20, y + 20], [dx - 3, dy]]);
+    acHub(dx, dy);
+  }
+  // 双联机枪 · 双嘴汽转球（希罗汽转球）：铁叉 + 火盆 + 黄铜球（明暗固定），赤道接缝 + 两根弯嘴跟着俯仰，喷嘴开火时交替伸缩后坐 + 喷白汽。
+  // 耳轴 (20,20)，喷嘴末端 x 45（blen 25）
+  function acTwin(x, y, q) {
+    const T = AC_TIERS[(q.mt || 1) - 1], f = q.f || 0, k = q.k || 0, [pvx, pvy] = AC_PIV.mg2, dx = x + pvx, dy = y + pvy;
+    acHull(x, y, T, AC_TOP.mg2);
+    for (const fx of [9, 28]) { R(x + fx, y + 17, 3, 13, P.iron[0]); R(x + fx + 1, y + 18, 1, 11, P.iron[3]); }
+    R(x + 14, y + 27, 12, 3, P.iron[0]); R(x + 15, y + 28, 10, 1, P.dark[1]); px(x + 17, y + 28, P.fire[0]); px(x + 22, y + 28, P.fire[0]);   // 火盆（余烬暗红，不发光）
+    acRound(dx, dy, 9, BRONZE4);
+    const d = rcPx('mg2', k);
+    turn(dx, dy, q.a, (X, Y) => {
+      const C = X + dx, M = Y + dy;
+      R(C - 8, M - 1, 16, 2, P.brass[0]); R(C - 8, M - 1, 16, 1, P.brass[1]);
+      for (const i of [-6, -3, 3, 6]) px(C + i, M - 2, P.brass[3]);
+      for (const [i, sy] of [-1, 1].entries()) {
+        const MM = M + sy * 5, hot = (f + i) % 2 ? k : 0, dd = (f + i) % 2 ? d : 0;
+        line(C + 6, M + sy * 4, C + 10, MM, 3, P.brass[0]); line(C + 6, M + sy * 4, C + 10, MM, 1, P.brass[2]);
+        acCast(C + 10, C + 13, MM, 2, 2, BRONZE4);                                                                  // 喷嘴根套（不动）
+        acCast(C + 13 - dd, C + 25 - dd, MM, 1, 1, BRONZE4);                                                        // 伸缩喷嘴（交替后坐）
+        const end = acMuzzle(C + 25 - dd, MM, 1, T.b, BRONZE4);
+        acSteam(end, MM, hot, f);
+        if (hot >= 6) { px(end + 1, MM - 2, P.fire[3]); px(end + 4, MM + 1, P.fire[2]); }
+      }
+    });
+    acArm(x + 13, y + 30, dx, dy);
+    acPipe([[x + 5, y + 30], [x + 5, y + 25], [dx - 3, dy + 2]]);
+    acHub(dx, dy);
+  }
   // 中炮 2×1 的立面分区：T1～2 敞开炮架（散热口在炮组下方、铆钉在前挡板脚）；T3～6 炮廓（表位左上、散热区在表位下、铆钉压炮廓和底座的接缝）
   const CANNON_M_ZONE = {
     open: { vent: { x: 11, y: 18, h: 3 }, rivets: { y: 19, xs: [27, 30] } },
@@ -1129,6 +1237,8 @@ SA.SPR = (() => {
     boiler_s(x, y, q) { boilerSOver(x, y, q); },
     tank_tall(x, y, q) { tankTallOver(x, y, q); },
     mg_heavy(x, y, q) { mgHOver(x, y, q); },
+    mg(x, y, q) { acOver(x, y, q, AC_TOP.mg); },
+    mg2(x, y, q) { acOver(x, y, q, AC_TOP.mg2); },
     cannon_giant(x, y, q) { giantOver(x, y, giantO(q)); },   // 象牙白炮口箍 + 端面、上弦铆钉、地脚螺栓、墙板铭牌
     cannon(x, y, q) {
       const T = CANNON_TIERS[(q.mt || 1) - 1], Z = CANNON_ZONE;
@@ -1472,35 +1582,8 @@ SA.SPR = (() => {
         if (o.up >= 2) bolted(x + 1, y + 30, 6, 10);
       }
     },
-    mg(x, y, o) {
-      housing(x, y, false);
-      disc(x + 14, y + 30, 10, P.brass[0]);
-      disc(x + 14, y + 30, 9, P.brass[1]);
-      disc(x + 13, y + 29, 6, P.brass[2]);
-      R(x + 9, y + 22, 4, 1, P.brass[3]); R(x + 7, y + 24, 1, 3, P.brass[3]);
-      disc(x + 14, y + 30, 2, P.brass[0]);
-      gunShield(x + 43, y + 29, o.up, 11);
-      const k = rcPx('mg', o.k), f = o.f || 0;
-      // 机匣 + 三管绕 (34,29) 转到仰角；三管轮转：每打一发转一格（亮的那根换位），整组后坐 k 像素
-      turn(x + 34, y + 29, o.a, (X, Y) => {
-        X += x; Y += y;
-        box(X + 28, Y + 15, 13, 27, BRASS);
-        for (let i = 0; i < 5; i++) R(X + 31, Y + 19 + i * 4, 7, 1, P.brass[0]);
-        [19, 27, 35].forEach((yy, i) => {
-          const lit = (i + f) % 3 === 0;
-          R(X + 41 - k, Y + yy, 19, 4, P.iron[0]);
-          R(X + 41 - k, Y + yy + 1, 19, 2, lit ? P.iron[4] : P.iron[3]);
-          R(X + 41 - k, Y + yy + 1, 19, 1, P.iron[4]);
-        });
-        R(X + 57 - k, Y + 18, 3, 22, P.iron[0]); R(X + 57 - k, Y + 19, 2, 20, P.brass[1]);
-        if ((o.k || 0) >= 6) R(X + 60 - k, Y + 26, 3, 4, P.fire[3]);   // 枪口焰
-      });
-      // 弹鼓下挂的供弹链：逐发前移
-      for (let i = 0; i < 6; i++) {
-        const bx = x + 4 + ((i * 4 + f) % 24);
-        R(bx, y + 41, 3, 4, P.dark[0]); R(bx, y + 41, 2, 3, P.brass[2]); R(bx, y + 41, 2, 1, P.brass[3]);
-      }
-    },
+    mg(x, y, q) { acGun(x, y, q); },           // 机炮 · 蒸汽离心炮（见上面的机炮 / 双联一节）
+    mg2(x, y, q) { acTwin(x, y, q); },         // 双联机枪 · 双嘴汽转球
     // 重炮 3×2（72×48，横躺，镀镍起，2026-09-27 定稿，样机 tools/gun-family-lab.html v5）：参考 19 世纪套箍式攻城 / 岸防重炮——
     // 台阶式炮身（炮尾最粗、直线台阶收细、炮尾钮、炮尾黄铜箍）+ 台阶形铁炮耳架 + 带三个滚轮的铁滑轨；
     // 背景齿轮：巨型 + 大 + 中在炮身后，迷你夹在炮耳架和炮身之间；炮耳架上一根长轴。耳轴 (34,24)，炮口末端 x 76（出框 4px，blen 42）。
@@ -1771,7 +1854,7 @@ SA.SPR = (() => {
       case 'cannon': case 'cannon_m': case 'cannon_s': case 'cannon_heavy': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'cannon_giant': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 75); break;   // 没有仰角（车间、图标）时按静止 75° 画
-      case 'mg': case 'mg_s': case 'mg_heavy': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
+      case 'mg': case 'mg2': case 'mg_s': case 'mg_heavy': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
       case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
       case 'quad': {   // 整件四足：步态角 12 档、步幅 4px 一档、四只脚的悬挂 2px 一档
         const A = o.gait || 0;
@@ -2151,6 +2234,7 @@ SA.SPR = (() => {
           drawModule(g, cell.id, x, y, { ...mo, part: 'shell' });
           g.save(); g.globalAlpha = 0.35; drawModule(g, cell.id, x, y, { ...mo, part: 'legs' }); g.restore(); ctx = g;
         } else drawModule(g, cell.id, x, y, mo);
+        if (SA.isCockpit(cell.id)) cockpitCrew(g, cell.id, x, y, mo, veh, o);
         if (cell.id !== 'quad' && cell.id !== 'biped') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
@@ -2174,6 +2258,28 @@ SA.SPR = (() => {
     });
     ctx = g;
     return cv;
+  }
+
+  // 驾驶舱舷窗里的车手（碳球，js/coal.js）：模块精灵里原有的驾驶员被盖掉，换成这台车自己的车手。
+  // 1×1 驾驶舱一个舷窗；联合驾驶舱四个，第一个是车手，其余三个是船员。画在材质处理之后，颜色不被换掉
+  const CREW_HOLES = { helmet: [[13, 11]], cockpit: [[15, 17], [33, 17], [15, 35], [33, 35]] };
+  function cockpitCrew(g, id, x, y, mo, veh, o) {
+    const holes = CREW_HOLES[id];
+    if (!holes || !SA.Coal) return;
+    const main = o.pilot ? (typeof o.pilot === 'string' ? SA.Coal.byName[o.pilot] || SA.Coal.crew(o.pilot) : o.pilot) : SA.Coal.pilotOf(veh);
+    const st = SA.stageOf(id, mo.mt || 1), seed = mo.seed || 0;
+    holes.forEach(([hx, hy], i) => {
+      const ch = i === 0 ? main : SA.Coal.crew(`${veh && veh.name}-${i}`);
+      const f = ((Math.floor((o.t || 0) * 1.5 + seed + i) % 4) + 4) % 4, bob = f === 1 || f === 2 ? 1 : 0;
+      const px = x + hx, py = y + hy;
+      g.save();
+      g.beginPath(); g.arc(px + 0.5, py + 0.5, 4.8, 0, Math.PI * 2); g.clip();
+      g.fillStyle = P.glass[0]; g.fillRect(px - 5, py - 5, 11, 11);
+      g.drawImage(SA.Coal.mini(ch, { blink: f === 3 && (seed + i) % 2 === 0, st }), px - 5, py + 1 + bob - 6);
+      g.restore();
+      g.fillStyle = P.glass[3]; g.fillRect(px - 3, py - 3, 1, 1);
+    });
+    ctx = g;
   }
 
   function eachCell(grid, fn) {
@@ -2261,6 +2367,7 @@ SA.SPR = (() => {
     ctx = g;
     if (SA.MODULES[id].layer === 'body') { R(ox, oy, fw, fh, P.iron[1]); R(ox, oy, fw, 1, P.iron[0]); R(ox, oy, 1, fh, P.iron[0]); R(ox + fw - 1, oy, 1, fh, P.iron[0]); R(ox, oy + fh - 1, fw, 1, P.iron[0]); }
     drawModule(g, id, ox, oy, { heat: 0.5, water: 0.7, t: 0, mt });
+    if (SA.isCockpit(id)) cockpitCrew(g, id, ox, oy, { mt, seed: 0 }, null, { pilot: '你' });
     cv.style.width = `${W * scale}px`; cv.style.height = `${H * scale}px`;
     cv.className = 'px';
     return cv;

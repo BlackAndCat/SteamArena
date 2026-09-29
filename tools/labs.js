@@ -46,6 +46,8 @@ SA.LABS = {
       desc: '火炮家族全部定稿进游戏（2026-09-28 巨炮 v6 进游戏后归档）。按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v6（4×4 攻城臼炮阵地：椭圆弧象牙白炮口箍、分格弹簧底座 + 回转支承、黄铜炮弹、钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）也已进游戏。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
     { id: 'boiler-s', group: 'module', url: 'boiler-lab.html', name: '竖式锅炉 + 小水罐', ver: 'v3', date: '2026-09-28', status: 'shipped',
       desc: '已定稿进游戏：竖式锅炉 A3 立式 · 拱形大炉口（火 14 × 20）；小水罐 / 水罐 W1 大水窗罐 + 两道紫铜加强箍；各六档。页面保留 v1 A / B / C、v2 A2 / A3、W1 / W2 探索记录和「游戏」行对照；附铁装甲改 1×2', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
+    { id: 'mg-mg2-v3', group: 'module', url: 'archive/mg-mg2-v3.html', name: '机炮 + 双联机枪 v3 · 转轴按物理', ver: 'v3', date: '2026-09-28', status: 'shipped',
+      desc: '已进游戏：机炮 = 蒸汽离心炮，双联机枪 = 双嘴汽转球。轴心凸台 / 轴承臂 / 明暗固定，铆钉 / 接缝 / 炮管跟着俯仰；进游戏时按用户要求加了白汽和炮管 / 喷嘴后坐（鼓和球不滑）', docs: ['docs/art-plan.md'] },
     { id: 'mg-mg2-v2', group: 'module', url: 'archive/mg-mg2-v2.html', name: '机炮 + 双联机枪 v2 · 古早蒸汽朋克', ver: 'v2', date: '2026-09-28', status: 'archived',
       desc: '六个 1870 年以前的候选（没有供弹系统）。用户选 机炮 A 蒸汽离心炮 + 双联 C 双嘴汽转球，指出中间的固定螺栓不随枪身动 → v3 按物理重做转轴', docs: ['docs/art-plan.md'] },
     { id: 'mg-mg2-v1', group: 'module', url: 'archive/mg-mg2-v1.html', name: '机炮 + 双联机枪 v1', ver: 'v1', date: '2026-09-28', status: 'archived',

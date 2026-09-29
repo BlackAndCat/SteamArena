@@ -18,7 +18,7 @@ SA.MODULE_ART = {
   cannon_heavy: { vis: [4, 5], piv: [34, 24], blen: 42, barrel: 34, rcPx: 12, back: 0.08, ret: 1.8 },
   cannon_giant: { vis: [6], piv: [48, 58], blen: 34, barrel: 34, rcPx: 7, back: 0.1, ret: 1.4 },   // 2026-09-28 专用造型进游戏：耳轴 / 炮口端面按样机 v6
   mortar: { piv: [24, 30], blen: 24, barrel: 0, rcPx: 6, back: 0.06, ret: 2.5 },
-  mg: { piv: [34, 29], blen: 26, barrel: 12, rcPx: 2, back: 0, ret: 14 },
+  mg: { piv: [29, 20], blen: 22, barrel: 13, rcPx: 2, back: 0, ret: 14 },   // 2026-09-28 蒸汽离心炮：耳轴 = 离心鼓轴心，只有炮管后坐
   side_cannon: { vis: [1, 3, 5], piv: [18, 34], blen: 48, barrel: 18, rcPx: 7, back: 0.04, ret: 2.6 },
   pressure_tank: { art: 'boiler', placeholder: '蓄压' },
   pressure_chamber: { art: 'boiler', placeholder: '加压' },
@@ -36,7 +36,7 @@ SA.MODULE_ART = {
   spike: { vis: [1, 5] },
   piston: { vis: [1, 5] },
   mortar_s: { art: 'mortar', placeholder: '小臼炮', piv: [12, 13], blen: 18, barrel: 0, rcPx: 4, back: 0.03, ret: 2.7 },
-  mg2: { art: 'mg', placeholder: '双联机枪', piv: [34, 29], blen: 26, barrel: 12, rcPx: 2, back: 0, ret: 14 },
+  mg2: { piv: [20, 20], blen: 25, barrel: 15, rcPx: 2, back: 0, ret: 14 },  // 2026-09-28 双嘴汽转球：耳轴 = 球心，两根喷嘴交替后坐
   periscope: { art: 'plate', placeholder: '观察镜' },
   autoloader: { art: 'plate', placeholder: '装弹机' },
   rangefinder: { art: 'plate', placeholder: '测距仪' },
