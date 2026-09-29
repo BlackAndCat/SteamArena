@@ -13,7 +13,25 @@
       "PowerShell(git pull:*)",
       "PowerShell(git add:*)",
       "PowerShell(git commit:*)",
-      "PowerShell(git push origin main:*)"
+      "PowerShell(git push origin main:*)",
+      "Bash(git mv *)",
+      "Bash(git show *)",
+      "Bash(git ls-tree *)",
+      "Bash(git remote *)",
+      "Bash(cd *)",
+      "Bash(python *)",
+      "Bash(PYTHONIOENCODING=utf-8 python *)",
+      "Bash(node --check *)",
+      "Bash(grep *)",
+      "Bash(sed *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(echo *)",
+      "Bash(for *)",
+      "Edit(/**)",
+      "Edit(//c/Users/82414/AppData/Local/Temp/claude/**)",
+      "mcp__Claude_Browser"
     ]
   }
 }
