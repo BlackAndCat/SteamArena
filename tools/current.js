@@ -1,7 +1,8 @@
 // 「当前开发」页的绘制代码（tools/current.html 专用）。这一页不复用：只放正在开发、等开发者确认的东西；
 // 确认后把 current.html / current.js 复制到 tools/archive/<名字>.*，在 labs.js 登记成历史存档，再把这里换成下一项。
 //
-// 本期：机炮 mg + 双联机枪 mg2 v2（2×2，2026-09-28）。用户否决 v1（带弹鼓 / 弹斗 / 弹箱、太现代，已归档 archive/mg-mg2-v1）：
+// 本期：机炮 mg + 双联机枪 mg2 v3（2×2，2026-09-28）：用户选 机炮 A 蒸汽离心炮 + 双联 C 双嘴汽转球，按物理合理性重做转轴（v2 六个候选已归档 archive/mg-mg2-v2）。
+// v2 说明：用户否决 v1（带弹鼓 / 弹斗 / 弹箱、太现代，已归档 archive/mg-mg2-v1）：
 // 「考虑最古早的设计，不要带供弹系统；用更多蒸汽朋克元素，不要显得过于现代」。
 // 所以 v2 全部取 1870 年以前的速射武器：温南斯 / 珀金斯蒸汽离心炮、雷菲米特留兹青铜炮、箍炮 + 蒸汽活塞、中世纪风琴炮、
 // 诺克排枪式青铜双管（海豚提耳 + 尾钮）、希罗汽转球。看不到任何弹药和供弹，动力全是蒸汽：锅炉、铜管、安全阀、汽笛、活塞、白汽。
@@ -131,155 +132,95 @@ SA.CUR = (() => {
   }
   const firing = (o) => (o.k || 0) >= 4;
 
-  // ================= 机炮 mg（2×2）=================
-  // A 蒸汽离心炮（1861 温南斯蒸汽炮 / 1824 珀金斯蒸汽炮）：车上一只小立式锅炉，铜管把蒸汽送进一只铆接黄铜离心鼓；
-  // 转子在鼓里转（开火时看得见），短粗炮管从鼓心伸出，炮管根部套一只锥形防盾。安全阀开火时冒白汽
-  function mA(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [29, 20], f = o.f || 0;
-    hull(x, y, T, 28);
-    // 小立式锅炉：圆筒 + 半球顶 + 细烟囱 + 炉门一道暗缝（不发光：发光的只有真锅炉）
-    R(x + 7, y + 11, 10, 18, P.iron[0]); R(x + 8, y + 12, 8, 16, P.iron[3]); R(x + 8, y + 12, 2, 16, P.iron[4]); R(x + 14, y + 12, 2, 16, P.iron[2]);
-    disc(x + 12, y + 12, 5, P.iron[0]); disc(x + 12, y + 12, 4, P.iron[3]); px(x + 10, y + 10, P.iron[4]);
-    R(x + 8, y + 17, 8, 1, P.brass[1]); R(x + 8, y + 24, 8, 1, P.brass[1]);
-    R(x + 9, y + 20, 6, 2, P.dark[0]);
-    R(x + 13, y + 3, 3, 6, P.dark[0]); R(x + 13, y + 4, 1, 5, P.dark[3]); R(x + 12, y + 2, 5, 2, P.dark[0]);
-    valve(x + 9, y + 5); puff(x + 10, y + 3, f, firing(o));
-    pipe([[x + 16, y + 14], [x + 20, y + 14], [x + 20, y + 20], [x + 21, y + 20]]);
-    turnGun(G0, x, y, pv, o.a, 3, o, (C, M) => {
-      cast(C + 5, C + 20, M, 4, 3, IRONR); band(C + 12, 2, M, 4, IRONR);
-      flash(oldMuzzle(C + 20, M, 3, T.b, IRONR), M, o.k || 0);
-      for (let i = 0; i < 4; i++) { const hh = 5 + i; R(C + 7 + i, M - hh, 1, hh * 2 + 1, P.iron[0]); R(C + 7 + i, M - hh + 1, 1, hh * 2 - 1, i === 3 ? P.iron[2] : P.iron[3]); px(C + 7 + i, M - hh + 1, P.iron[4]); }   // 锥形防盾
-    });
-    // 离心鼓（固定，压在炮根上）：铆接黄铜圈 + 铁面 + 转子（开火时转）
-    const dx = x + pv[0], dy = y + pv[1];
-    disc(dx + 0.5, dy + 0.5, 9, P.brass[0]); disc(dx + 0.5, dy + 0.5, 8, P.brass[2]); disc(dx + 0.5, dy + 0.5, 6.5, P.iron[0]); disc(dx + 0.5, dy + 0.5, 5.5, P.iron[2]);
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; px(Math.round(dx + Math.cos(a) * 7.3), Math.round(dy + Math.sin(a) * 7.3), P.brass[0]); }
-    const an = ((firing(o) ? f : 0) % 4) * Math.PI / 8;
-    for (let i = 0; i < 4; i++) { const a = an + i * Math.PI / 2; line(dx, dy, Math.round(dx + Math.cos(a) * 4), Math.round(dy + Math.sin(a) * 4), 1, P.iron[4]); }
-    trunnion(dx, dy);
+  // ---------- v3 转轴规则（2026-09-28 用户：中间的固定螺栓不随枪身动，看起来很怪 → 按物理重新分「动 / 不动」）----------
+  // 两件都是「绕一根横轴俯仰」的圆形主体：轴垂直于画面，所以轴本身、轴承和进汽的旋转接头都是固定的；
+  // 圆形主体的明暗、高光由世界里的光决定（左上光），也不随俯仰转——只有主体上的「标记」（铆钉、接缝、法兰、枪管）跟着转。
+  //   固定：车体、锅炉 / 火盆、铜管、轴承臂（从车体伸到轴心，让轴心一眼是车体的一部分）、轴心凸台 + 旋转接头、圆形主体的明暗
+  //   跟着俯仰转：主体上的铆钉 / 接缝 / 法兰、枪管、防盾、喷嘴
+  //   开火时再转：离心炮鼓里的转子（相对炮身转）
+  //   不做后坐平移：蒸汽离心炮和汽转球都不烧火药、几乎没有后坐；主体套在轴上也不能沿炮管方向滑（v2 就是滑了 2～3px 才显得螺栓不跟着动）
+  //   开火效果：离心炮没有火药 → 没有炮口火光，只有炮口一团白汽 + 转子转；汽转球两嘴交替喷白汽（带几颗火星）
+  // 像素细节：转动层按耳轴「像素角」转（CAND.turn），所以所有绕轴的圆都按角点画（disc(C, M, r)），固定的圆也按同一个角点画，转起来才不会半像素乱跳。
+  function bearingArm(x0, y0, x1, y1) { line(x0, y0, x1, y1, 4, P.iron[0]); line(x0, y0 - 1, x1, y1 - 1, 2, P.iron[3]); line(x0, y0 - 1, x1, y1 - 1, 1, P.iron[4]); }
+  function hub(cx, cy) {   // 轴心凸台：黄铜压盖（旋转接头）+ 铁轴头 + 一颗六角螺母（固定）
+    disc(cx, cy, 3.6, P.brass[0]); disc(cx, cy, 2.8, P.brass[2]); px(cx - 2, cy - 2, P.brass[3]);
+    R(cx - 1, cy - 1, 2, 2, P.iron[0]); px(cx - 1, cy - 1, P.iron[4]);
   }
-  // B 米特留兹青铜炮（1859 蒙蒂尼 / 1866 雷菲）：看起来像一门青铜加农炮——锥形铸造炮身、腰箍、尾钮，
-  // 口部端面是一格格枪口（里面是一束枪管）；炮尾没有摇把，换成一只铜管喂汽的蒸汽缸（开火时活塞动）。铆接炮耳墙
-  function mB(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [22, 21], f = o.f || 0;
-    hull(x, y, T, 30);
-    box(x + 5, y + 21, 9, 9, IRON); R(x + 6, y + 22, 1, 7, P.iron[4]);                                              // 蒸汽缸
-    pipe([[x + 9, y + 21], [x + 9, y + 17], [x + 12, y + 17]]); valve(x + 5, y + 16); puff(x + 6, y + 14, f, firing(o));
-    cheek(x, y, pv[0], pv[1], T, 14, 13);
-    turnGun(G0, x, y, pv, o.a, 3, o, (C, M) => {
-      cast(C - 10, C + 22, M, 7, 5, BRONZE);
-      for (const bx of [C - 4, C + 7]) band(bx, 2, M, 7, BRONZE);
-      band(C - 10, 2, M, 7, BRONZE); knob(C - 13, M);
-      R(C - 9, M - 9, 4, 2, P.brass[0]); px(C - 8, M - 9, P.brass[3]);                                             // 炮尾上的蒸汽阀柄（活塞推它）
-      R(C - 12, M + 4, 3, 2, P.iron[0]); R(C - 16 + ((o.k || 0) >= 4 ? 2 : 0), M + 4, 4, 2, P.iron[3]);             // 活塞杆
-      const end = C + 25;
-      band(end - 3, 3, M, 6, BRONZE); R(end - 1, M - 4, 1, 9, P.dark[0]);
-      for (const gy of [-3, 0, 3]) for (const gx of [0]) px(end - 1 + gx, M + gy, P.black);                        // 端面一格格枪口
-      for (const gy of [-3, 0, 3]) px(end - 2, M + gy, P.brass[0]);
-      if (T.b >= 2) band(end - 7, 2, M, 6, BRONZE);
-      if (T.b === 3) { band(end, 2, M, 7, BRONZE); px(end + 1, M - 7, P.iron[1]); px(end + 1, M + 7, P.iron[1]); }
-      if ((o.k || 0) >= 6) for (const gy of [-3, 0, 3]) { R(end + (T.b === 3 ? 2 : 0), M + gy, 3, 1, P.fire[3]); px(end + (T.b === 3 ? 5 : 3), M + gy, P.fire[2]); }
-    });
-    trunnion(x + pv[0], y + pv[1]);
+  // 固定的圆形主体：外圈描边 + 本体 + 左上受光 + 右下暗边（光是世界的，不随俯仰转）
+  function roundBody(cx, cy, r, ramp) {
+    disc(cx, cy, r, ramp[0]); disc(cx, cy, r - 1, ramp[1]); disc(cx - 0.8, cy - 0.8, r - 2, ramp[2]);
+    disc(cx - r * 0.38, cy - r * 0.38, Math.max(1.2, r * 0.22), ramp[3]);
   }
-  // C 蒸汽活塞速射炮（阿姆斯特朗式箍炮 + 外露蒸汽缸）：铁炮身尾粗口细、尾部两道加粗箍；炮身下面平行挂一只黄铜蒸汽缸，
-  // 活塞杆随后坐伸缩；炮尾顶上安全阀 + 汽笛，开火冒白汽；铜管从汽缸尾部弯回炮耳
-  function mC(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [20, 19], f = o.f || 0;
-    hull(x, y, T, 30);
-    cheek(x, y, pv[0], pv[1], T, 13, 14);
-    turnGun(G0, x, y, pv, o.a, 4, o, (C, M) => {
-      cast(C + 8, C + 27, M, 3, 2, IRONR);
-      cast(C - 9, C + 8, M, 6, 5, IRONR); band(C - 9, 3, M, 6, IRONR); band(C - 1, 3, M, 6, IRONR); band(C + 12, 2, M, 3, IRONR);
-      knob(C - 12, M);
-      flash(oldMuzzle(C + 27, M, 2, T.b, IRONR), M, o.k || 0);
-      box(C - 4, M + 6, 18, 6, BRASS); R(C - 3, M + 8, 16, 1, P.brass[1]);                                         // 蒸汽缸
-      const ext = (o.k || 0) >= 4 ? 0 : 4; R(C + 14, M + 8, 2 + ext, 2, P.iron[0]); R(C + 14, M + 8, 2 + ext, 1, P.iron[4]); R(C + 16 + ext, M + 6, 2, 5, P.iron[0]);   // 活塞杆 + 连到炮身的吊耳
-      pipe([[C - 4, M + 9], [C - 7, M + 9], [C - 7, M + 4]]);
-      valve(C - 6, M - 10); R(C - 2, M - 9, 2, 3, P.brass[1]); R(C - 3, M - 11, 4, 2, P.brass[2]);              // 安全阀 + 汽笛
-      puff(C - 5, M - 12, f, firing(o)); puff(C - 1, M - 13, f + 3, firing(o), 2);
-    });
-    trunnion(x + pv[0], y + pv[1]);
+  // 白汽团（炮口）：开火帧往前飘散，只用蒸汽色
+  function steamShot(end, M, k, f) {
+    if (k < 4) return;
+    const p = f % 3;
+    R(end + p, M - 1, 3, 3, P.steam[2]); px(end + 3 + p, M - 2, P.steam[1]); px(end + 3 + p, M + 2, P.steam[1]); if (p) px(end + 5 + p, M, P.steam[0]);
   }
 
-  // ================= 双联机枪 mg2（2×2）=================
-  // A 双联风琴管（中世纪风琴炮 ribauldequin）：两根黄铜长管像管风琴的管子（根部有风琴管的「口」缺口，口部外翻成喇叭），
-  // 两道铁箍捆在一起，插在一只铁皮「风箱」蒸汽箱上，箱侧一只黄铜阀轮；上下交替开火
-  function dA(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [18, 20], f = o.f || 0;
-    hull(x, y, T, 30);
-    cheek(x, y, pv[0], pv[1], T, 12, 13);
-    turnGun(G0, x, y, pv, o.a, 3, o, (C, M) => {
-      for (const [i, dy] of [-4, 4].entries()) {
-        const MM = M + dy, hot = (f + i) % 2 ? o.k || 0 : 0;
-        cast(C + 2, C + 26, MM, 2, 2, BRONZE);
-        R(C + 6, MM - 1, 2, 1, P.dark[0]); px(C + 8, MM - 1, P.brass[0]);                                         // 风琴管的「口」
-        for (let k = 0; k < 3; k++) { const hh = 3 + k; R(C + 26 + k, MM - hh, 1, hh * 2 + 1, P.brass[0]); R(C + 26 + k, MM - hh + 1, 1, hh * 2 - 1, k === 2 ? P.brass[1] : P.brass[2]); }   // 喇叭口
-        px(C + 28, MM, P.black);
-        if (T.b >= 2) band(C + 22, 2, MM, 3, BRONZE);
-        if (T.b === 3) { R(C + 29, MM - 5, 1, 11, P.brass[0]); px(C + 29, MM, P.black); }
-        if (hot >= 6) { R(C + 29 + (T.b === 3 ? 1 : 0), MM - 1, 3, 3, P.fire[3]); px(C + 32 + (T.b === 3 ? 1 : 0), MM, P.fire[2]); }
-      }
-      for (const bx of [C + 12, C + 19]) { R(bx, M - 7, 2, 15, P.iron[0]); R(bx, M - 6, 1, 13, P.iron[3]); }       // 两道铁箍
-      shade(C - 10, M - 8, 13, 17, shellIn(C - 10, M - 8, 13, 17, T.f, 3));                                        // 风箱蒸汽箱
-      disc(C - 3.5, M + 0.5, 3.4, P.brass[0]); disc(C - 3.5, M + 0.5, 2.5, P.brass[2]); line(C - 6, M, C - 1, M, 1, P.brass[0]); line(C - 4, M - 2, C - 4, M + 3, 1, P.brass[0]);   // 阀轮
-      pipe([[C - 8, M - 8], [C - 8, M - 11], [C - 3, M - 11]]); puff(C - 3, M - 12, f, firing(o));
+  // ================= 机炮 mg（2×2）· 蒸汽离心炮 v3 =================
+  // 1861 温南斯蒸汽炮：车上一只小立式锅炉（固定），铜管把蒸汽经轴心的旋转接头送进离心鼓；
+  // 离心鼓外壳 + 锥形防盾 + 炮管是一整件，绕轴心俯仰；鼓里的转子开火时相对炮身转。轴承臂从车体斜伸到轴心
+  const A_PIV = [29, 20];
+  function mA(G0, x, y, T, o = {}) {
+    SA.CAND.use(G0); G = G0; const f = o.f || 0, dx = x + A_PIV[0], dy = y + A_PIV[1], on = firing(o);
+    hull(x, y, T, 28);
+    R(x + 7, y + 11, 10, 18, P.iron[0]); R(x + 8, y + 12, 8, 16, P.iron[3]); R(x + 8, y + 12, 2, 16, P.iron[4]); R(x + 14, y + 12, 2, 16, P.iron[2]);   // 小立式锅炉
+    disc(x + 12, y + 12, 5, P.iron[0]); disc(x + 12, y + 12, 4, P.iron[3]); px(x + 10, y + 10, P.iron[4]);
+    R(x + 8, y + 17, 8, 1, P.brass[1]); R(x + 8, y + 24, 8, 1, P.brass[1]); R(x + 9, y + 20, 6, 2, P.dark[0]);
+    R(x + 13, y + 3, 3, 6, P.dark[0]); R(x + 13, y + 4, 1, 5, P.dark[3]); R(x + 12, y + 2, 5, 2, P.dark[0]);
+    valve(x + 9, y + 5); puff(x + 10, y + 3, f, on);
+    roundBody(dx, dy, 10, BRONZE);                                                                                  // 离心鼓外壳（明暗固定）
+    disc(dx, dy, 6.5, P.iron[0]); disc(dx, dy, 5.6, P.dark[1]);                                                     // 鼓面开口，看得见转子
+    SA.CAND.turn(dx, dy, o.a || 0, (C, M) => {
+      G = SA.CAND.ctx();
+      cast(C + 9, C + 22, M, 4, 3, IRONR); band(C + 15, 2, M, 4, IRONR);
+      steamShot(oldMuzzle(C + 22, M, 3, T.b, IRONR), M, o.k || 0, f);
+      for (let i = 0; i < 4; i++) { const hh = 5 + i; R(C + 8 + i, M - hh, 1, hh * 2 + 1, P.iron[0]); R(C + 8 + i, M - hh + 1, 1, hh * 2 - 1, i === 3 ? P.iron[2] : P.iron[3]); px(C + 8 + i, M - hh + 1, P.iron[4]); }   // 锥形防盾（和炮管一体）
+      for (let i = 0; i < 6; i++) { const a = (i + 0.5) * Math.PI / 3; R(Math.round(C + Math.cos(a) * 8) - 1, Math.round(M + Math.sin(a) * 8) - 1, 2, 2, P.brass[0]); px(Math.round(C + Math.cos(a) * 8) - 1, Math.round(M + Math.sin(a) * 8) - 1, P.brass[3]); }   // 外壳法兰铆钉（跟着俯仰转）
+      const spin = on ? (f % 4) * Math.PI / 8 : 0;                                                                   // 转子：开火时相对炮身转
+      for (let i = 0; i < 4; i++) { const a = spin + i * Math.PI / 2; line(C, M, Math.round(C + Math.cos(a) * 5), Math.round(M + Math.sin(a) * 5), 1, P.iron[3]); }
     });
-    trunnion(x + pv[0], y + pv[1]);
+    SA.CAND.use(G0); G = G0;
+    bearingArm(x + 22, y + 30, dx, dy);                                                                             // 轴承臂（固定）
+    pipe([[x + 16, y + 14], [x + 20, y + 14], [x + 20, y + 20], [dx - 3, dy]]);                                     // 铜管进轴心
+    hub(dx, dy);
   }
-  // B 双联青铜排枪（诺克排枪 / 早期青铜炮）：一整块铸造青铜炮尾，伸出上下两根青铜管；炮尾顶上一对「海豚」提耳、后面尾钮，
-  // 口部郁金香；一根铜管从车体里给炮尾喂汽（没有摇把、没有弹药）
-  function dB(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [20, 21], f = o.f || 0;
-    hull(x, y, T, 30);
-    pipe([[x + 8, y + 30], [x + 8, y + 24], [x + 12, y + 24]]); valve(x + 5, y + 25); puff(x + 6, y + 23, f, firing(o));
-    cheek(x, y, pv[0], pv[1], T, 13, 13);
-    turnGun(G0, x, y, pv, o.a, 3, o, (C, M) => {
-      for (const [i, dy] of [-4, 4].entries()) {
-        const MM = M + dy, hot = (f + i) % 2 ? o.k || 0 : 0;
-        cast(C + 2, C + 25, MM, 3, 2, BRONZE); band(C + 11, 2, MM, 3, BRONZE);
-        flash(oldMuzzle(C + 25, MM, 2, T.b, BRONZE), MM, hot);
-      }
-      cast(C - 9, C + 3, M, 9, 8, BRONZE); band(C - 9, 2, M, 9, BRONZE); band(C + 1, 2, M, 8, BRONZE);          // 铸造炮尾
-      knob(C - 12, M, 2.5);
-      for (const hx of [C - 5, C + 0]) { R(hx, M - 12, 3, 1, P.brass[0]); R(hx - 1, M - 11, 1, 3, P.brass[0]); R(hx + 3, M - 11, 1, 3, P.brass[0]); px(hx, M - 12, P.brass[3]); }   // 一对海豚提耳
-      R(C - 7, M - 2, 8, 1, P.brass[1]); R(C - 7, M + 2, 8, 1, P.brass[1]);                                        // 铸纹
-    });
-    trunnion(x + pv[0], y + pv[1]);
-  }
-  // C 双嘴汽转球（希罗汽转球 aeolipile）：一只铆接黄铜球架在铁叉上，球前伸出上下两根弯嘴喷管；
-  // 下面一只小火盆（暗红，不发光）烧着球里的水，铜管从车体接进球轴。开火时两嘴交替喷白汽 + 火花
+
+  // ================= 双联机枪 mg2（2×2）· 双嘴汽转球 v3 =================
+  // 希罗汽转球：铆接黄铜球（明暗固定）套在一根空心横轴上，下面小火盆烧着；铜管从车体经轴心旋转接头送汽。
+  // 球上的赤道接缝 + 铆钉 + 上下两根弯嘴一起绕轴俯仰；两嘴交替喷白汽。后面铁叉（固定）托着轴，前面一条轴承臂压住轴头
+  const C_PIV = [20, 20];
   function dC(G0, x, y, T, o = {}) {
-    SA.CAND.use(G0); G = G0; const pv = [20, 20], f = o.f || 0;
+    SA.CAND.use(G0); G = G0; const f = o.f || 0, dx = x + C_PIV[0], dy = y + C_PIV[1];
     hull(x, y, T, 30);
-    R(x + 15, y + 27, 11, 3, P.iron[0]); R(x + 16, y + 28, 9, 1, P.dark[1]); px(x + 18, y + 28, P.fire[0]); px(x + 22, y + 28, P.fire[0]);   // 小火盆（余烬暗红）
-    for (const fx of [11, 27]) { R(x + fx, y + 18, 3, 12, P.iron[0]); R(x + fx + 1, y + 19, 1, 10, P.iron[3]); }   // 铁叉
-    pipe([[x + 6, y + 30], [x + 6, y + 21], [x + 11, y + 21]]);
-    turnGun(G0, x, y, pv, o.a, 2, o, (C, M) => {
-      for (const [i, dy] of [-5, 5].entries()) {
-        const MM = M + dy, hot = (f + i) % 2 ? o.k || 0 : 0;
-        line(C + 6, M + Math.sign(dy) * 3, C + 9, MM, 3, P.brass[0]); line(C + 6, M + Math.sign(dy) * 3, C + 9, MM, 1, P.brass[2]);   // 弯嘴根部
-        cast(C + 9, C + 25, MM, 2, 1, BRONZE);
+    for (const fx of [9, 28]) { R(x + fx, y + 17, 3, 13, P.iron[0]); R(x + fx + 1, y + 18, 1, 11, P.iron[3]); }   // 后面的铁叉（被球挡住一半）
+    R(x + 14, y + 27, 12, 3, P.iron[0]); R(x + 15, y + 28, 10, 1, P.dark[1]); px(x + 17, y + 28, P.fire[0]); px(x + 22, y + 28, P.fire[0]);   // 小火盆（余烬暗红，不发光）
+    roundBody(dx, dy, 9, BRONZE);                                                                                   // 黄铜球（明暗固定）
+    SA.CAND.turn(dx, dy, o.a || 0, (C, M) => {
+      G = SA.CAND.ctx();
+      R(C - 8, M - 1, 16, 2, P.brass[0]); R(C - 8, M - 1, 16, 1, P.brass[1]);                                      // 赤道接缝（看得出俯仰角）
+      for (const i of [-6, -3, 3, 6]) px(C + i, M - 2, P.brass[3]);
+      for (const [i, sy] of [-1, 1].entries()) {
+        const MM = M + sy * 5, hot = (f + i) % 2 ? o.k || 0 : 0;
+        line(C + 6, M + sy * 4, C + 10, MM, 3, P.brass[0]); line(C + 6, M + sy * 4, C + 10, MM, 1, P.brass[2]);   // 弯嘴根部（从球面伸出）
+        cast(C + 10, C + 25, MM, 2, 1, BRONZE);
         const end = oldMuzzle(C + 25, MM, 1, T.b, BRONZE);
-        if (hot >= 6) { R(end, MM - 1, 3, 3, P.fire[3]); px(end + 3, MM, P.fire[2]); }
-        if (hot >= 4) { R(end + 1, MM - 3, 2, 2, P.steam[2]); px(end + 4, MM - 4, P.steam[1]); }
+        steamShot(end, MM, hot, f);
+        if (hot >= 6) { px(end + 1, MM - 2, P.fire[3]); px(end + 4, MM + 1, P.fire[2]); }                          // 几颗火星
       }
-      disc(C + 0.5, M + 0.5, 9, P.brass[0]); disc(C + 0.5, M + 0.5, 8, P.brass[1]); disc(C - 0.5, M - 0.5, 6.5, P.brass[2]);   // 黄铜球
-      disc(C - 2.5, M - 2.5, 2, P.brass[3]);
-      R(C - 8, M, 17, 1, P.brass[0]); for (let i = -6; i <= 6; i += 3) px(C + i, M - 1, P.brass[3]);               // 赤道铆接缝
     });
-    trunnion(x + pv[0], y + pv[1]);
+    SA.CAND.use(G0); G = G0;
+    bearingArm(x + 13, y + 30, dx, dy);                                                                             // 前轴承臂（固定）
+    pipe([[x + 5, y + 30], [x + 5, y + 25], [dx - 3, dy + 2]]);                                                     // 铜管顺着轴承臂进轴心（不横穿球面）
+    hub(dx, dy);
   }
 
   const MG_L = [
-    { key: 'A', name: 'A 蒸汽离心炮', idea: '1861 温南斯蒸汽炮：车上一只小立式锅炉，铜管送汽进铆接黄铜离心鼓，转子在鼓里转，短粗炮管 + 锥形防盾从鼓心伸出；安全阀开火时冒白汽。历史上真有这种车载蒸汽机枪', base: mA, over: hullOver(28), piv: [29, 20], blen: 22 },
-    { key: 'B', name: 'B 米特留兹青铜炮', idea: '1866 雷菲米特留兹：外形是一门青铜加农炮（锥形炮身、腰箍、尾钮），口部端面一格格枪口；炮尾的摇把换成铜管喂汽的蒸汽缸。像炮不像枪，最古典', base: mB, over: hullOver(30), piv: [22, 21], blen: 25 },
-    { key: 'C', name: 'C 蒸汽活塞速射炮', idea: '阿姆斯特朗式箍炮（尾粗口细、两道加粗箍）+ 炮身下外露的黄铜蒸汽缸，活塞杆随后坐伸缩；炮尾安全阀 + 汽笛冒白汽。机械最外露', base: mC, over: hullOver(30), piv: [20, 19], blen: 27 },
+    { key: 'A', name: 'A 蒸汽离心炮 v3', idea: '1861 温南斯蒸汽炮。固定：锅炉、铜管、轴承臂、轴心凸台（旋转接头）、鼓壳明暗；跟着俯仰：鼓壳铆钉、锥形防盾、炮管；开火：鼓里转子转 + 炮口白汽（不烧火药，没有火光、没有后坐）', base: mA, over: hullOver(28), piv: A_PIV, blen: 22 },
   ];
   const MG_2 = [
-    { key: 'A', name: 'A 双联风琴管', idea: '中世纪风琴炮：两根黄铜长管像管风琴（根部有风琴管的「口」、口部外翻成喇叭），两道铁箍捆着，插在铁皮风箱蒸汽箱上，箱侧黄铜阀轮。上下交替开火', base: dA, over: hullOver(30), piv: [18, 20], blen: 28 },
-    { key: 'B', name: 'B 双联青铜排枪', idea: '诺克排枪 / 早期青铜炮：一整块铸造青铜炮尾伸出上下两根青铜管，顶上一对「海豚」提耳、后面尾钮，郁金香口；铜管从车体给炮尾喂汽', base: dB, over: hullOver(30), piv: [20, 21], blen: 25 },
-    { key: 'C', name: 'C 双嘴汽转球', idea: '希罗汽转球：铆接黄铜球架在铁叉上，球前伸出上下两根弯嘴喷管，下面小火盆烧着；开火时两嘴交替喷白汽 + 火花。最奇想、最蒸汽朋克', base: dC, over: hullOver(30), piv: [20, 20], blen: 25 },
+    { key: 'C', name: 'C 双嘴汽转球 v3', idea: '希罗汽转球。固定：铁叉、火盆、铜管、前轴承臂、轴心凸台、黄铜球明暗；跟着俯仰：赤道接缝 + 铆钉、上下两根弯嘴；开火：两嘴交替喷白汽 + 火星（没有后坐）', base: dC, over: hullOver(30), piv: C_PIV, blen: 25 },
   ];
   return { TIERS, MG_L, MG_2, L: { TIERS, CANDS: MG_L }, D: { TIERS, CANDS: MG_2 } };
 })();

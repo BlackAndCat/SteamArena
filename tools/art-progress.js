@@ -82,7 +82,7 @@ SA.ARTPLAN = {
     rocket_rack: { status: 'cand', pri: 17, ch: 4, note: '2×2，数得出 4 发；另需尾焰', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rocket_rack', 'explore']] },
     pressure_tank: { status: 'cand', pri: 18, ch: 4, note: '1×2 储能，存量看得见、没有青色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_tank', 'explore']] },
     rangefinder: { status: 'cand', pri: 19, ch: 4, note: '1×1，合像测距仪长横管', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#rangefinder', 'explore']] },
-    mg2: { status: 'cand', pri: 20, lab: 'CUR_MG_2', ch: 4, note: '2×2，两挺一组。按机枪家族语言（车载枪座）：当前开发页 v2（古早蒸汽朋克、没有供弹系统）：A 双联风琴管 / B 双联青铜排枪 / C 双嘴汽转球', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore'], ['2026-09-28', 'v1 车载枪座：A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙（否决：太现代）', 'archive/mg-mg2-v1.html', 'archived'], ['2026-09-28', 'v2 古早蒸汽朋克：A 双联风琴管 / B 双联青铜排枪 / C 双嘴汽转球', 'current.html', 'explore']] },
+    mg2: { status: 'cand', pri: 20, lab: 'CUR_MG_2', pick: 'C', ch: 4, note: '2×2，两挺一组。按机枪家族语言（车载枪座）：已选 C 双嘴汽转球（希罗汽转球），当前开发页 v3 转轴按物理重做，等确认后进游戏', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mg2', 'explore'], ['2026-09-28', 'v1 车载枪座：A 双联侧舷 / B 双联枪塔 / C 双球座装甲墙（否决：太现代）', 'archive/mg-mg2-v1.html', 'archived'], ['2026-09-28', 'v2 古早蒸汽朋克：A 双联风琴管 / B 双联青铜排枪 / C 双嘴汽转球', 'archive/mg-mg2-v2.html', 'archived'], ['2026-09-28', 'v3 选 C 双嘴汽转球，转轴按物理重做', 'current.html', 'explore']] },
     radiator: { status: 'cand', pri: 21, ch: 4, note: '1×2 侧挂，真镂空格栅', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#radiator', 'explore']] },
     gyroscope: { status: 'cand', pri: 22, ch: 4, note: '1×1，和双足胯里的陀螺仪同一语言', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#gyroscope', 'explore']] },
     // ---------- 第 6 档：唯一件（每个存档只拿到一次）----------
@@ -90,8 +90,8 @@ SA.ARTPLAN = {
     boss_ram: { status: 'cand', pri: 24, ch: 5, note: '寡妇液压撞头，红色沙漏标记', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_ram', 'explore']] },
     boss_lens: { status: 'cand', pri: 25, ch: 5, note: '公爵测距棱镜；战役里还没有掉落来源，最后做', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#boss_lens', 'explore']] },
     // ---------- 第 7 档：已有美术，按新规范复核（最不急：已经能看，只是没和火炮家族统一）----------
-    mg: { status: 'cand', pri: 26, lab: 'CUR_MG_L', ch: 0,
-      note: '改名「机炮」（id 不变）。按机枪家族语言重画（车载枪座）：当前开发页 v2（古早蒸汽朋克、没有供弹系统）：A 蒸汽离心炮 / B 米特留兹青铜炮 / C 蒸汽活塞速射炮', hist: [['2026-09-28', 'v1：A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮（否决：带供弹、太现代）', 'archive/mg-mg2-v1.html', 'archived'], ['2026-09-28', 'v2 古早蒸汽朋克：A 蒸汽离心炮 / B 米特留兹青铜炮 / C 蒸汽活塞速射炮', 'current.html', 'explore']] },
+    mg: { status: 'cand', pri: 26, lab: 'CUR_MG_L', pick: 'A', ch: 0,
+      note: '改名「机炮」（id 不变）。按机枪家族语言重画（车载枪座）：已选 A 蒸汽离心炮（1861 温南斯蒸汽炮），当前开发页 v3 转轴按物理重做，等确认后进游戏', hist: [['2026-09-28', 'v1：A 砰砰炮炮塔 / B 弹鼓机炮 / C 蒸汽转管炮（否决：带供弹、太现代）', 'archive/mg-mg2-v1.html', 'archived'], ['2026-09-28', 'v2 古早蒸汽朋克：A 蒸汽离心炮 / B 米特留兹青铜炮 / C 蒸汽活塞速射炮', 'archive/mg-mg2-v2.html', 'archived'], ['2026-09-28', 'v3 选 A 蒸汽离心炮，转轴按物理重做', 'current.html', 'explore']] },
     boiler: { status: 'legacy', pri: 27, ch: 0, note: '两阶段已画；竖式 / 大型锅炉定稿后按锅炉家族统一复核', hist: [] },
     armor: { status: 'legacy', pri: 28, ch: 0, note: '2026-09-28 用户定：从 2×2 改成竖着的 1×2（中间横接缝 + 两列铆钉，并排两块 = 原来一块），已进游戏；六档造型仍待按新规范复核', hist: [['2026-09-28', '改成 1×2', 'boiler-lab.html', 'explore']] },
     armor_heavy: { status: 'legacy', pri: 29, ch: 1, note: '同铁装甲', hist: [] },

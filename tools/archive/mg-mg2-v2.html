@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>机炮 + 双联机枪 v2 · 古早蒸汽朋克</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -33,16 +33,10 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：机炮 + 双联机枪 v3 · 转轴按物理重做 · 2026-09-28</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>（样机馆里标「历史存档」），这一页换成下一项。全部模块的进度、已定稿的样子看 <a href="module-candidates.html">模块造型 · 全部进度</a>。之前两轮已归档：<a href="archive/mg-mg2-v1.html">v1（带供弹、太现代）</a>、<a href="archive/mg-mg2-v2.html">v2（六个古早候选）</a>。</p>
-    <p><b>v3（你选了 机炮 A 蒸汽离心炮 + 双联 C 双嘴汽转球）</b>：你指出中间的固定螺栓不随枪身动、看起来很怪。原因是 v2 里螺栓钉在转轴上不动，但圆形主体开火时会沿炮管往后滑 2～3px，汽转球的高光还跟着俯仰一起转，所以螺栓像浮在一个会滑、会转的东西上。<b>按物理重新分「动 / 不动」</b>：两件都是绕一根<b>垂直于画面的横轴</b>俯仰——
-      <b>固定</b>：车体、锅炉 / 火盆、铜管、<b>轴承臂</b>（从车体伸到轴心，让轴心一眼是车体的一部分）、<b>轴心凸台 + 旋转接头</b>（铜管把蒸汽从轴心送进去，这是它必须存在的理由）、圆形主体的明暗和高光（光来自世界，不随俯仰转）；
-      <b>跟着俯仰转</b>：主体上的铆钉 / 赤道接缝、防盾、炮管、喷嘴；
-      <b>开火时再转</b>：离心鼓里的转子（相对炮身转，从鼓面开口看得见）；
-      <b>不后坐</b>：两件都不烧火药、几乎没有后坐，主体套在轴上也不能沿炮管方向滑；离心炮开火没有火光，只有炮口一团白汽，汽转球两嘴交替喷白汽带几颗火星。
-      像素上所有绕轴的圆都按同一个轴心画，转起来不会半像素乱跳。确认后写进游戏。</p>
-    <p style="color:var(--muted)"><b>v2 的说明（留作记录）</b>：你的意见：考虑最古早的设计，不要带供弹系统；用更多蒸汽朋克元素，不要显得过于现代。所以 v2 全部取 <b>1870 年以前</b>的速射武器，<b>看不到任何弹药和供弹</b>，动力全是蒸汽（小锅炉、紫铜管、安全阀、汽笛、活塞、开火冒白汽）；炮身多是青铜 / 黄铜铸造（锥形炮身、腰箍、尾钮、海豚提耳）；枪口是老式的：郁金香口 → 加黄铜口箍 → 冠状口，不用方制退器、散热片。仍是车载：固定部分是车体装甲壳 + 铆接炮耳墙（不用轮式炮架），形体 铸造圆角 → 方壳平顶 → 斜面装甲。</p>
-    <p><b>请确认</b>：下面「仰角检查」（−8° / 0° / 16° / 32°）和开火动画里，轴心、轴承臂、球 / 鼓的明暗不动，铆钉、接缝、炮管跟着转——没问题就写进游戏。</p>
+    <h1>机炮 + 双联机枪 v2 · 古早蒸汽朋克 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-28 · 用户选 机炮 A 蒸汽离心炮 + 双联 C 双嘴汽转球，按物理合理性重做转轴（v3）</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>（样机馆里标「历史存档」），这一页换成下一项。全部模块的进度、已定稿的样子看 <a href="../module-candidates.html">模块造型 · 全部进度</a>。上一轮（v1，带弹鼓 / 弹斗、太现代）已归档：<a href="mg-mg2-v1.html">机炮 + 双联机枪 v1</a>。</p>
+    <p><b>本期：机炮 <code>mg</code> + 双联机枪 <code>mg2</code>（都是 2×2）v2</b>。你的意见：考虑最古早的设计，不要带供弹系统；用更多蒸汽朋克元素，不要显得过于现代。所以 v2 全部取 <b>1870 年以前</b>的速射武器，<b>看不到任何弹药和供弹</b>，动力全是蒸汽（小锅炉、紫铜管、安全阀、汽笛、活塞、开火冒白汽）；炮身多是青铜 / 黄铜铸造（锥形炮身、腰箍、尾钮、海豚提耳）；枪口是老式的：郁金香口 → 加黄铜口箍 → 冠状口，不用方制退器、散热片。仍是车载：固定部分是车体装甲壳 + 铆接炮耳墙（不用轮式炮架），形体 铸造圆角 → 方壳平顶 → 斜面装甲。</p>
+    <p><b>请挑</b>：机炮 A 蒸汽离心炮（1861 温南斯蒸汽炮）/ B 米特留兹青铜炮 / C 蒸汽活塞速射炮；双联机枪 A 双联风琴管（中世纪风琴炮）/ B 双联青铜排枪 / C 双嘴汽转球（希罗汽转球）。可以组合。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
@@ -60,14 +54,14 @@
   </section>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
-<script src="cand-kit.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script>
+<script src="../cand-kit.js"></script>
+<script src="../material-lab.js"></script>
+<script src="mg-mg2-v2.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
-  const L = SA.MATLAB, CUR = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const L = SA.MATLAB, CUR = SA.MGL2, P = SA.PAL, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
   const st = { mode: 'color', zoom: 3, a: 0, t: 0 };
   const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
