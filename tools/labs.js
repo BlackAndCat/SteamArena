@@ -20,6 +20,7 @@ SA.LABS = {
     { id: 'module', name: '模块造型', desc: '单个模块的造型与材质探索' },
     { id: 'chassis', name: '底盘', desc: '四足、双足、子格套件的演进' },
     { id: 'world', name: '地形与物理画面', desc: '地形美术、坡上姿态和悬挂' },
+    { id: 'character', name: '人物', desc: '碳球人物：身体、眼睛、短手、表情、体色和饰品，以及旁白和车手阵容' },
   ],
   // 同一条演进线上的版本（从旧到新）
   LINES: [
@@ -57,6 +58,8 @@ SA.LABS = {
       desc: '一对腿 + 陀螺仪平衡系统、蜘蛛四足；被整件底盘 v4（2×4 定稿）取代', docs: ['docs/true-biped.md §3'] },
     { id: 'biped-lab', group: 'chassis', url: 'biped-lab.html', name: '双足设计探索 · 六档腿型', ver: 'v1', date: '2026-09-24', status: 'archived',
       desc: '六档品质腿型 + 五个探索版；腿型已搬进 js/legs.js，逐格双足玩法已被真双足取代', docs: ['docs/module-plan.md §3'] },
+    { id: 'coal', group: 'character', url: 'character-lab.html', name: '人物形象 · 碳球', ver: 'v1', date: '2026-09-28', status: 'explore',
+      desc: '黑色圆碳球、小短手、没有腿、1～3 只眼；靠体色（反光色调）+ 饰品区分。身体 A 圆煤球 / B 块煤 / C 余烬 × 眼睛数，短手姿势、表情、体色、饰品库，旁白和 17 位车手的阵容（头像 · 小人 · 驾驶舱里），剪影测试和规则草案', docs: ['docs/visual-rules.md §9'] },
     { id: 'terrain', group: 'world', url: 'terrain-lab.html', name: '地形美术', ver: 'v1', date: '2026-09-25', status: 'shipped',
       desc: '土坡、泥地、货箱各阶段、碎木，以及坡上的整车倾斜', docs: ['docs/art-direction.md §12'] },
     { id: 'suspension', group: 'world', url: 'suspension-lab.html', name: '悬挂与爬坡', ver: 'v1', date: '2026-09-25', status: 'shipped',

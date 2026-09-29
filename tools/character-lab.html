@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人物形象 · 碳球</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  .seg { display: inline-flex; gap: 2px; }
+  .seg button { padding: 4px 9px; font-size: 12px; background: var(--dark1); border: 2px solid var(--dark3); cursor: pointer; }
+  .seg button.on { background: var(--brass2); color: #2a1a05; border-color: var(--brass1); font-weight: 900; }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 12px; color: var(--muted); line-height: 1.7; max-width: 90em; font-size: 13px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .tile { background: var(--bg2); border: 2px solid var(--dark2); padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tile .cap { font-size: 12px; color: var(--muted); text-align: center; max-width: 200px; line-height: 1.5; }
+  .tile .cap b { color: var(--text); display: block; font-size: 13px; }
+  table.mx { border-collapse: collapse; }
+  table.mx th { font-size: 12px; padding: 4px 8px; color: var(--muted); font-weight: 700; }
+  table.mx th.rh { text-align: right; min-width: 130px; line-height: 1.45; }
+  table.mx th.rh b { color: var(--text); display: block; font-size: 13px; }
+  table.mx td { padding: 4px; }
+  table.mx td > canvas { background: var(--bg2); }
+  .scroll { overflow-x: auto; }
+  .cast { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .who { display: flex; flex-direction: column; gap: 6px; background: var(--bg1); border: 2px solid var(--dark2); padding: 10px; }
+  .who .pics { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+  .who .pics canvas { background: var(--bg2); }
+  .who h3 { margin: 0; font-size: 15px; color: var(--brass2); }
+  .who h3 small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .who p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .who .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 11px; padding: 1px 6px; border: 1px solid var(--dark3); background: var(--dark1); }
+  .sw { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 4px; border: 1px solid #000; }
+  .lineup { display: flex; align-items: flex-end; gap: 4px; padding: 16px 16px 0; background: linear-gradient(#3a2226, #7e3c22 70%, #3b322c 70%); border: 2px solid var(--dark2); overflow-x: auto; }
+  .lineup .one { display: flex; flex-direction: column; align-items: center; }
+  .lineup .one span { font-size: 11px; color: #e4e0d6; text-shadow: 1px 1px 0 #000; padding: 4px 0 8px; white-space: nowrap; }
+  .rules { background: var(--bg1); border: 2px solid var(--dark2); padding: 12px 18px; }
+  .rules li { line-height: 1.8; font-size: 13px; }
+  .q { border-left: 4px solid var(--fire2); background: var(--dark1); padding: 10px 14px; font-size: 13px; line-height: 1.8; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>人物形象 · 碳球 <small style="font-size:13px;color:var(--muted);letter-spacing:0">探索 v1 · 2026-09-28</small></h1>
+    <p>这个世界里的人都是<b>黑色的圆形小碳球</b>：小短手、看不到腿，眼睛 1～3 只。长相都差不多，所以<b>体色（身上反光的色调）和饰品</b>是认人的关键。起点是现在驾驶舱里的蓝灰碳球（第一节）。</p>
+    <p>同一份角色数据按三种尺寸画：<b>驾驶舱里</b>（半径 3.3，和游戏一样）、<b>场景小人</b>（半径 8，开场和战斗旁白用）、<b>对话头像</b>（半径 19）。全部是程序化像素画，定稿后直接搬进游戏。</p>
+    <p class="q"><b>请你确认</b>：① 身体用 A 圆煤球 / B 块煤 / C 余烬；② 短手要不要戴白手套；③ 阵容里每个人的造型（可以点名改）；④ 驾驶舱里要不要换成各自的样子（现在所有车的驾驶员都是同一只蓝灰碳球）。</p>
+  </header>
+
+  <div class="cbar">
+    <span class="lbl">身体</span><span class="seg" id="c-body"></span>
+    <span class="lbl">手套</span><span class="seg" id="c-glove"></span>
+    <span class="lbl">放大</span><span class="seg" id="c-zoom"></span>
+  </div>
+
+  <section>
+    <h2 class="sec">0 · 现在的碳球 <small>游戏里 js/sprites.js 的 pilot()：驾驶舱、联合驾驶舱、史诗起换飞行帽</small></h2>
+    <p class="lead">舷窗里只有 7 像素宽：一个深色圆 + 左上一点反光 + 两只白眼睛（黑眼珠朝前）。驾驶员是蓝灰色调、副驾驶是暖紫色调——<b>「黑身体 + 有色反光」</b>这条已经在用了，下面沿着它往下做。</p>
+    <div class="grid" id="now"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">1 · 身体 × 眼睛 <small>三种身体 × 1 / 2 / 3 只眼，头像和小人两种尺寸</small></h2>
+    <p class="lead">眼睛数量是天生的区分：一只眼的居中放大，三只眼是两只 + 额头一只。嘴平时不画，只在说话、吃惊、高兴时出现。</p>
+    <div class="scroll"><table class="mx" id="bodyeyes"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">2 · 小短手 <small>圆头短手，和身体同色；没有腿，靠弹跳和滚动移动</small></h2>
+    <div class="grid" id="poses"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">3 · 表情 <small>眼睛形状 + 用身体颜色盖掉眼白一角当眉毛；嘴只在需要时出现</small></h2>
+    <div class="scroll"><table class="mx" id="exprs"></table></div>
+  </section>
+
+  <section>
+    <h2 class="sec">4 · 区分：体色 + 饰品 <small>身体都是黑的，只换反光色调；饰品按位置分五类</small></h2>
+    <p class="lead">体色很收敛（暗处都接近黑），只在反光圈和高光上体现，远看是「黑球带一点色」。真正一眼认人的是帽子——<b>帽子是驾驶舱里唯一还能看清的饰品</b>，所以每个有名字的角色帽子剪影都不一样。</p>
+    <div class="grid" id="tints"></div>
+    <h3 style="margin:18px 0 8px;font-size:14px;color:var(--brass2)">饰品库</h3>
+    <div class="grid" id="accs"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">5 · 阵容 <small>旁白、主角、战役里的车手：头像 · 小人 · 驾驶舱里</small></h2>
+    <p class="lead">每人一套：体色 + 眼睛数 + 帽子 + 一两件身上 / 手里的东西。驾驶舱那一格是直接画进游戏的 1×1 驾驶舱模块里的样子。</p>
+    <div class="cast" id="cast"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">6 · 站成一排 <small>场景尺寸；再看一遍剪影（全涂黑），看靠帽子能不能认出每个人</small></h2>
+    <div class="lineup" id="lineup"></div>
+    <div class="lineup" id="silhouette" style="margin-top:8px;background:#6f6154"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">7 · 规则（草案） <small>确认后写进 docs/visual-rules.md §9</small></h2>
+    <div class="rules"><ol>
+      <li><b>身体</b>永远是黑的圆碳球：暗部接近纯黑，只有左上的反光圈和一点高光带颜色（体色）。同一张画里身体大小基本一致，个别角色可以大一号（胖哈利、大块头比尔），但不改形状。</li>
+      <li><b>没有腿</b>，一对圆头小短手，和身体同色、上沿一点反光。移动 = 弹跳或滚成一团。</li>
+      <li><b>眼睛 1～3 只</b>，白眼睛黑眼珠；一只眼居中放大，三只眼是两只 + 额头一只。眼睛数是角色的固定特征。</li>
+      <li><b>嘴平时不画</b>，只在说话 / 吃惊 / 高兴时出现一个小口。眉毛不单独画，用身体颜色盖掉眼白一角。</li>
+      <li><b>区分靠「帽子剪影 + 体色 + 一两件饰品」</b>：有名字的角色帽子剪影不重复；饰品最多 3～4 件，远看不糊成一团。</li>
+      <li><b>三种尺寸同一份数据</b>：驾驶舱（半径 3.3）只剩身体、眼睛、帽子（2 行像素）和胡子 / 围巾的一个颜色点；场景小人（半径 8）和头像（半径 19）全画。</li>
+      <li><b>颜色</b>：饰品用调色板里的色；炉火色只用在头灯、马灯、余烬这类真的会发光的东西上（同 docs/art-direction.md 的语义色）。</li>
+    </ol></div>
+  </section>
+</div>
+<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="character-lab.js"></script>
+<script src="labs.js"></script>
+<script>
+(() => {
+  const L = SA.CoalLab, P = SA.PAL;
+  const st = { body: 'A', glove: false, zoom: 2 };
+  try { Object.assign(st, JSON.parse(localStorage.getItem('character_lab_v1')) || {}); } catch (e) { /* ignore */ }
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, props = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') e.className = v; else if (k === 'style') e.style.cssText = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } for (const k of kids.flat()) if (k != null) e.append(k instanceof Node ? k : document.createTextNode(k)); return e; };
+  // 放大显示：canvas 按整数倍放大；小人下面垫一块地面阴影
+  const show = (cv, k = st.zoom, pad = 0) => { cv.style.width = `${cv.width * k}px`; cv.style.height = `${cv.height * k}px`; if (pad) cv.style.padding = `${pad}px`; return cv; };
+  const sprite = (ch, o = {}) => {
+    const src = L.draw(ch, { size: 'sprite', body: st.body, glove: st.glove, ...o });
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.fillStyle = 'rgba(7,8,12,0.45)';
+    const big = ch.big || 1, y = 25 + 8 * big * 0.9 + 8 * big * (ch.sq || 1) + 1;
+    g.fillRect(Math.round(20 - 7 * big), Math.round(y) - 1, Math.round(14 * big), 2); g.fillRect(Math.round(20 - 5 * big), Math.round(y), Math.round(10 * big), 1);
+    g.drawImage(src, 0, 0);
+    return c;
+  };
+  const portrait = (ch, o = {}) => L.draw(ch, { size: 'portrait', body: st.body, glove: st.glove, ...o });
+  // 驾驶舱：游戏里的 1×1 驾驶舱模块，舷窗里换成这个角色的驾驶舱尺寸画法
+  function cockpit(ch) {
+    // moduleCanvas 把 1×1 模块画在 (2, 高 − 26)，裁出那 24×24
+    const base = SA.SPR.moduleCanvas('helmet', 1);
+    const c = document.createElement('canvas'); c.width = 24; c.height = 24;
+    const g = c.getContext('2d'); g.drawImage(base, 2, base.height - 26, 24, 24, 0, 0, 24, 24);
+    if (ch) {
+      const ox = 0, oy = 0;
+      g.fillStyle = P.glass[0];
+      for (let y = -4; y <= 4; y++) { const w = Math.floor(Math.sqrt(Math.max(0, 4.3 * 4.3 - y * y))); g.fillRect(ox + 13 - w, oy + 11 + y, w * 2 + 1, 1); }
+      g.save(); g.beginPath(); g.arc(ox + 13.5, oy + 11.5, 4.8, 0, Math.PI * 2); g.clip();
+      g.drawImage(L.draw(ch, { size: 'mini' }), ox + 13 - 5, oy + 12 - 6);
+      g.restore();
+      g.fillStyle = P.glass[3]; g.fillRect(ox + 10, oy + 8, 1, 1);
+    }
+    return c;
+  }
+  const BASE = { tint: 'slate', eyes: 2, acc: [], pose: 'idle' };
+
+  function seg(id, key, opts) {
+    const box = $(id); box.innerHTML = '';
+    for (const [v, label] of opts) box.append(el('button', { class: st[key] === v ? 'on' : '', onclick: () => { st[key] = v; try { localStorage.setItem('character_lab_v1', JSON.stringify(st)); } catch (e) { /* ignore */ } render(); } }, label));
+  }
+  function render() {
+    seg('#c-body', 'body', Object.entries(L.BODY).map(([k, b]) => [k, b.name]));
+    seg('#c-glove', 'glove', [[false, '不戴'], [true, '白手套']]);
+    seg('#c-zoom', 'zoom', [[2, '2×'], [3, '3×'], [4, '4×']]);
+
+    // 0 现在
+    const now = $('#now'); now.innerHTML = '';
+    for (const [id, label, mt] of [['helmet', '1×1 驾驶舱', 1], ['cockpit', '驾驶舱', 1], ['copilot', '联合驾驶舱', 1], ['helmet', '1×1 驾驶舱 · 史诗（飞行帽）', 5]]) {
+      let cv; try { cv = SA.SPR.moduleCanvas(id, 1, mt); } catch (e) { continue; }
+      now.append(el('div', { class: 'tile' }, show(cv, 4), el('div', { class: 'cap' }, el('b', {}, label))));
+    }
+    now.append(el('div', { class: 'tile' }, show(L.draw(BASE, { size: 'mini', body: st.body }), 12), el('div', { class: 'cap' }, el('b', {}, '同样的碳球 · 本页重画'), '半径 3.3，12 倍放大')));
+
+    // 1 身体 × 眼睛
+    const be = $('#bodyeyes'); be.innerHTML = '';
+    be.append(el('tr', {}, el('th', {}), [1, 2, 3].map(n => el('th', { colspan: 2 }, `${n} 只眼`))));
+    for (const [k, b] of Object.entries(L.BODY)) {
+      be.append(el('tr', {}, el('th', { class: 'rh' }, el('b', {}, b.name), b.desc),
+        [1, 2, 3].flatMap(n => [el('td', {}, show(L.draw(BASE, { size: 'portrait', body: k, eyes: n, glove: st.glove }), Math.max(1, st.zoom - 1))), el('td', {}, show(sprite(BASE, { body: k, eyes: n })))])));
+    }
+
+    // 2 手
+    const po = $('#poses'); po.innerHTML = '';
+    for (const [k, p] of Object.entries(L.POSES)) po.append(el('div', { class: 'tile' }, show(portrait({ ...BASE, pose: k }), Math.max(1, st.zoom - 1)), show(sprite({ ...BASE, pose: k })), el('div', { class: 'cap' }, el('b', {}, p.name))));
+
+    // 3 表情
+    const ex = $('#exprs'); ex.innerHTML = '';
+    ex.append(el('tr', {}, el('th', {}), Object.values(L.EXPR).map(n => el('th', {}, n))));
+    for (const n of [1, 2, 3]) ex.append(el('tr', {}, el('th', { class: 'rh' }, el('b', {}, `${n} 只眼`)), Object.keys(L.EXPR).map(e => el('td', {}, show(portrait({ ...BASE, eyes: n }, { expr: e }), Math.max(1, st.zoom - 1))))));
+
+    // 4 体色 + 饰品
+    const ti = $('#tints'); ti.innerHTML = '';
+    for (const [k, t] of Object.entries(L.TINT)) ti.append(el('div', { class: 'tile' }, show(portrait({ ...BASE, tint: k }), Math.max(1, st.zoom - 1)),
+      el('div', { class: 'cap' }, el('b', {}, t.name), t.c.map(col => el('span', { class: 'sw', style: `background:${col}` })), t.note ? el('div', {}, t.note) : null)));
+    const ac = $('#accs'); ac.innerHTML = '';
+    const LAYER = { hat: '帽子', face: '脸上', neck: '身上', hand: '手里', back: '身后' };
+    for (const [k, a] of Object.entries(L.ACC)) {
+      const ch = a.layer === 'hand' ? { ...BASE, pose: 'hold', item: k } : { ...BASE, acc: [[k]] };
+      ac.append(el('div', { class: 'tile' }, show(sprite(ch)), show(L.draw(ch, { size: 'mini', body: st.body }), 4),
+        el('div', { class: 'cap' }, el('b', {}, a.name), `${LAYER[a.layer]}${a.mini ? ' · 驾驶舱可见' : ''}`)));
+    }
+
+    // 5 阵容
+    const ca = $('#cast'); ca.innerHTML = '';
+    for (const ch of L.CAST) {
+      const t = L.TINT[ch.tint];
+      ca.append(el('div', { class: 'who' },
+        el('div', { class: 'pics' }, show(portrait(ch, { expr: 'normal' }), Math.max(1, st.zoom - 1)), show(sprite(ch)), show(cockpit(ch), 5)),
+        el('h3', {}, ch.name, el('small', {}, ch.role)),
+        el('p', {}, ch.note),
+        el('div', { class: 'chips' }, el('span', { class: 'chip' }, el('span', { class: 'sw', style: `background:${t.c[2]}` }), t.name),
+          el('span', { class: 'chip' }, `${ch.eyes} 只眼`), ch.acc.map(([id]) => el('span', { class: 'chip' }, L.ACC[id].name)), ch.item ? el('span', { class: 'chip' }, L.ACC[ch.item].name) : null)));
+    }
+
+    // 6 一排 + 剪影
+    const li = $('#lineup'), si = $('#silhouette'); li.innerHTML = ''; si.innerHTML = '';
+    for (const ch of L.CAST) {
+      li.append(el('div', { class: 'one' }, show(sprite(ch), 2), el('span', {}, ch.name.split(' ').pop())));
+      const s = sprite(ch), g = s.getContext('2d'); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#14100e'; g.fillRect(0, 0, s.width, s.height);
+      si.append(el('div', { class: 'one' }, show(s, 2), el('span', {}, ch.name.split(' ').pop())));
+    }
+  }
+  render();
+})();
+</script>
+</body></html>
