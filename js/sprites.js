@@ -537,6 +537,24 @@ SA.SPR = (() => {
     tankSkid(x + 3, y + 21, 18, 2);
   }
 
+  // ---------- 观察镜 1×1（2026-09-29 定稿，样机 tools/archive/periscope.html 的 D 轭架望远镜）----------
+  // 转台 + U 形轭架 + 两颗黄铜耳轴夹一支斜向上的黄铜望远镜（前端物镜、后端目镜），镜筒慢慢俯仰搜索，物镜偶尔闪光。
+  // 各档只换材质颜色（装饰层），造型不变；镜头收在 24px 里。fr = 俯仰帧（24 帧一轮）
+  function periscopeArt(x, y, fr) {
+    const Rn = (a, b, w, h, c) => R(Math.round(a), Math.round(b), Math.round(w), Math.round(h), c);
+    const tilt = Math.sin(fr / 24 * Math.PI * 2) * 1.2, pv = [x + 12, y + 12], t = fr * 7;
+    box(x + 3, y + 19, 18, 5, IRON); for (let u = 5; u < 20; u += 4) R(x + u + ((t >> 3) % 4), y + 21, 1, 1, P.iron[1]);   // 转台上的刻痕
+    box(x + 5, y + 10, 3, 10, IRONL); box(x + 16, y + 10, 3, 10, IRONL);                                                  // 轭架
+    const dx = 10, dy = -3.2 + tilt, a = [pv[0] - dx, pv[1] - dy], b = [pv[0] + dx, pv[1] + dy];
+    line(a[0], a[1], b[0], b[1], 4, P.brass[0]); line(a[0], a[1] - 0.5, b[0], b[1] - 0.5, 2, P.brass[2]); line(a[0], a[1] - 1, b[0], b[1] - 1, 1, P.brass[3]);
+    for (const u of [0.3, 0.7]) { const q = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; Rn(q[0] - 0.5, q[1] - 2, 1, 4, P.brass[0]); }
+    Rn(b[0], b[1] - 2.5, 2, 5, P.brass[0]);                                                                               // 物镜箍
+    const lx = Math.round(b[0] + 1), ly = Math.round(b[1] - 2);
+    R(lx, ly, 2, 4, P.glass[0]); R(lx, ly, 2, 3, P.glass[1]); R(lx + 1, ly + 1, 1, 1, fr === 0 ? P.white : P.glass[3]);  // 物镜玻璃
+    Rn(a[0] - 1, a[1] - 1, 2, 2, P.dark[0]);                                                                              // 目镜
+    disc(x + 6.5, y + 12, 1.6, P.brass[3]); disc(x + 17.5, y + 12, 1.6, P.brass[3]);                                      // 耳轴
+  }
+
   // ---------- 机枪家族（2026-09-28 定稿，样机 tools/archive/mg-family-v2.html）：车载枪座，没有三脚架 / 立柱 / 握把 ----------
   // 固定部分 = 装甲壳（跟材料换色，T1～2 铸造圆角 → T3～4 方壳平顶 → T5～6 斜面装甲）；转动部分 = 防盾 + 枪（绕耳轴转到仰角）。
   // 枪口 ① 直口箍 → ② 助退喇叭 / 加箍 → ③ 方制退器；1×1 只靠剪影；1×2 固定壳上放铆钉 2 → 3 → 4、散热口、钢起包角铁、镀镍起小压力表
@@ -1745,6 +1763,7 @@ SA.SPR = (() => {
     },
     // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
     tank_s(x, y, q) { tankSmall(x, y, q); },
+    periscope(x, y, q) { periscopeArt(x, y, q.fr || 0); },
     tank_tall(x, y, q) { tankTall(x, y, q); },
     boiler_s(x, y, q) { boilerS(x, y, q); },
     mg_s(x, y, q) { mgS(x, y, q); },
@@ -2011,6 +2030,7 @@ SA.SPR = (() => {
         break;
       }
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
+      case 'periscope': q.fr = Math.floor((o.t || 0) * 2.2) % 24; break;   // 望远镜俯仰：24 帧一轮（约 11 秒）
     }
     if (o.up) q.up = Math.min(3, o.up);   // 改装等级 → 挂件
     if (o.mt > 1) q.mt = o.mt;

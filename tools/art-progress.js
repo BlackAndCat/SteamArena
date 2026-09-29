@@ -54,7 +54,7 @@ SA.ARTPLAN = {
     biped: { status: 'done', ch: 2, note: '六档（2026-09-29 进游戏）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑，每档配一种腰胯；9 种唯一变体已注册、等获得方式',
       hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足六档 + 腰胯 v1～v5（定稿进游戏）', 'archive/biped-tiers.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
-    periscope: { status: 'cand', pri: 3, ch: 1, note: '1×1，控制类，镜头收在格子里；第一章敌车和支线奖励都有', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'explore'], ['2026-09-29', '造型 7 种（只换色，挑一个）', 'current.html', 'explore']] },
+    periscope: { status: 'done', ch: 1, note: '轭架望远镜（2026-09-29 进游戏）：转台 + U 形轭架 + 黄铜望远镜慢慢俯仰；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'archived'], ['2026-09-29', '造型 7 种 → D 轭架望远镜', 'archive/periscope.html', 'shipped']] },
     autoloader: { status: 'cand', pri: 4, ch: 1, note: '1×1，看得到炮弹和机械', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore']] },
     mortar_s: { status: 'cand', pri: 5, ch: 2, note: '1×1 小臼炮，和已定稿的臼炮同一套语言（可直接缩臼炮）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore']] },
     cockpit_pair: { status: 'cand', pri: 6, ch: 2, note: '1×2 双人舱，第二章 Boss 奖励；驾驶员保持 1×1 大小', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore']] },

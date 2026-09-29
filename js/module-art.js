@@ -37,7 +37,7 @@ SA.MODULE_ART = {
   piston: { vis: [1, 5] },
   mortar_s: { art: 'mortar', placeholder: '小臼炮', piv: [12, 13], blen: 18, barrel: 0, rcPx: 4, back: 0.03, ret: 2.7 },
   mg2: { piv: [20, 20], blen: 25, barrel: 15, rcPx: 2, back: 0, ret: 14 },  // 2026-09-28 双嘴汽转球：耳轴 = 球心，两根喷嘴交替后坐
-  periscope: { art: 'plate', placeholder: '观察镜' },
+  periscope: {},   // 2026-09-29 专用造型（轭架望远镜），各档只换颜色
   autoloader: { art: 'plate', placeholder: '装弹机' },
   rangefinder: { art: 'plate', placeholder: '测距仪' },
   gyroscope: { art: 'plate', placeholder: '陀螺仪' },

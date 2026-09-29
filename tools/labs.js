@@ -32,6 +32,8 @@ SA.LABS = {
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '观察镜 7 种', date: '2026-09-29', status: 'explore',
       desc: '只放正在开发、等开发者确认的东西（不复用）。本期：观察镜（1×1，各档只换材质颜色，所以只挑一个造型）——A 潜望镜塔 / B 观察穹 / C 剪式双筒镜 / D 轭架望远镜 / E 装甲舷窗 / F 皮腔镜箱 / G 灯塔瞭望镜，每个带六档换色和装在车上的样子', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'periscope', group: 'module', url: 'archive/periscope.html', name: '观察镜 · 7 种造型', ver: 'v1', date: '2026-09-29', status: 'shipped',
+      desc: '1×1 观察镜，各档只换颜色：潜望镜塔 / 观察穹 / 剪式双筒镜 / 轭架望远镜 / 装甲舷窗 / 皮腔镜箱 / 灯塔瞭望镜；选定 D 轭架望远镜进游戏', docs: ['docs/art-plan.md'] },
     { id: 'quad-tiers', group: 'chassis', url: 'archive/quad-tiers.html', name: '四足六档 + 变体', ver: 'v9 定稿', date: '2026-09-29', status: 'shipped',
       desc: '四足整件（4×2）六档主线（工装 Mk.II / 桁架爬机 / 板簧拖车 / 曲柄步行机 / 汽锤步行机 / 哥特教堂）+ 9 种唯一变体（裙甲堡、掷弹兵、步行履带、蒸汽圣骑、螳臂、半人马、锚链铁甲、大本钟、黑龙）；已进游戏（legs.js 的 Q6），变体等获得方式', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
