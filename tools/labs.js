@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足 14 种 + 腰胯 v5', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：真双足画面探索 v5，14 种——主线 6（黄铜 工装 Mk.II / 熟铁 鹭步 / 钢 掷弹兵 / 镀镍 蒸汽圣骑 / 乌兹钢 钟表巨像 / 以太合金 熔心龙骑）+ 唯一变体 8（熟铁 高跷；钢 板簧跑刃、裙甲堡；镀镍 锁甲骑士、缩放仪平行腿；乌兹钢 蒸汽人、风箱腿；以太合金 晶枝腿、圣堂骑士腿）；腰胯已按用户分配。确认后接进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四足底盘 15 种', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：四足整件底盘（4×2）六档 + 变体的剪影 / 蒸汽朋克 / 狂想探索，15 种——主线 6（茶壶蟹 / 蚱蜢 / 骆驼 / 螳螂 / 象 / 章鱼）+ 变体 9（铁龟；螃蟹、高跷蛛；机械马、犀角甲虫；蜗牛、犰狳；鹿、晶簇蛛）。7 类腿型（蟹腿、蚱蜢后腿、趾行腿、立柱腿、触手、螳螂镰刀、桨脚）。确认后接进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',

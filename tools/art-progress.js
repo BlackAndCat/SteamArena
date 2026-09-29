@@ -50,7 +50,7 @@ SA.ARTPLAN = {
 
     // ---------- 第 1 档：底盘细分支 ----------
     quad: { status: 'wip', pri: 1, ch: 1, note: '基础造型已进游戏（4×2 整件蜘蛛 + 距离步态、多件首尾相连）；还没做：材质六档细分、T3 / T5 形态分支（候选「高脚蛛」用膝高区分）',
-      hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足 14 种 + 腰胯 7 种 v2', 'current.html', 'explore']] },
+      hist: [['2026-09-29', '四足 15 种探索（六档 + 变体）', 'current.html', 'explore'], ['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足 14 种 + 腰胯 7 种 v2', 'current.html', 'explore']] },
     biped: { status: 'wip', pri: 2, ch: 2, note: '基础造型已进游戏（真双足 2×4：陀螺胯 + 一对长腿）；还没做：材质六档细分、T3 / T5 形态分支（从六档腿型里挑）',
       hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
