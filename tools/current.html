@@ -30,8 +30,15 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v4 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v5 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
+    <p><b>v5（你对 v4 的六条意见）</b><br>
+      ① 螳臂步行机换成<b>铁路沙龙车厢</b>车体。<br>
+      ② 水晶宫温室（曲柄步行机）：腿上缠满<b>常春藤</b>（叶子 + 小花），膝上垂下几缕藤蔓随风摆，窗里摆盆栽、檐下垂藤；膝盖改成<b>夸张的高膝</b>，最高点超出车体顶板约 24px（半个底盘高，可以再调）。<br>
+      ③ 汽锤步行机：汽缸更粗，缸底伸出<b>两根并排的活塞杆（中间镂空）</b>、十字头连铁脚；着地的半个周期里<b>连砸三下</b>，每下喷汽、脚边扬尘。<br>
+      ④ 蒸汽圣骑：腿再加粗，纹路改成<b>盔甲</b>：分节大腿甲、一片压一片的分节胫甲（脊线 + 黄铜铆钉）、更大的护膝。<br>
+      ⑤ 步行履带：加一圈一战坦克式<b>侧裙板</b>（六块铆接钢板 + 排泥孔），罩住胯和大腿上部。<br>
+      ⑥ 锚链铁甲：车尾锚链孔<b>拖出一段锚链</b>，垂到地面、在身后拖一截。</p>
     <p><b>v4（你对 v3 的六条意见）</b><br>
       ① 仪表步行机取消 → <b>螳臂步行机</b>：高膝、三角甲板大腿 + 一排倒刺，小腿是越往下越细的粗刀形胫甲，末端就是一根钢尖脚（黄铜箍 + 后刺），只用尖点着地。<br>
       ② 熔炉龙骑的脚像高跟鞋 → 去掉鞋底，改成<b>分开的弯爪</b>：三根前爪 + 一根后爪，只有爪尖点地，跗关节放低。<br>
@@ -91,7 +98,7 @@
     g.putImageData(img, 0, 0); return c;
   }
   const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
-  const OX = 12, OY = 8, W = 96 + OX * 2, H = 48 + OY + 6;
+  const OX = 34, OY = 32, W = 96 + OX * 2, H = 48 + OY + 6;
   function fig(e, a, o = {}) {
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
     Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13, hull: o.hull });
