@@ -1,7 +1,7 @@
-// 「当前开发」页的绘制代码（tools/current.html 专用）。这一页不复用：只放正在开发、等开发者确认的东西；
-// 确认后把 current.html / current.js 复制到 tools/archive/<名字>.*，在 labs.js 登记成历史存档，再把这里换成下一项。
+// 五模块造型样机（历史存档，tools/archive/five-modules.html 专用）。2026-09-29 用户选定：小臼炮 D、装弹机 B、加压舱 F（扩大到 1×2 = F2）、冷凝器 A，
+// 已进游戏（sprites.js 的 mortarS / autoloaderArt / pressureArt / condenserArt）；双人驾驶舱没选，继续在「当前开发」。
 //
-// 本期（2026-09-29）：联合驾驶舱（双人）等选（同一批五个模块里另外四个已选定进游戏，存档 tools/archive/five-modules.*）。原来的五个模块——
+// 本期（2026-09-29）：五个模块一起开发，每个至少 6 种剪影 / 设计模式——
 //   装弹机 autoloader（1×1 控制）· 小臼炮 mortar_s（1×1 火力，武器可以出格）· 联合驾驶舱（双人）cockpit_pair（1×2 控制，两名驾驶员保持 1×1 大小）·
 //   加压舱 pressure_chamber（1×1 能源，压力表 + 安全阀，不发光）· 冷凝器 condenser（1×2 冷却，实心，不像水箱也不像散热片）。
 // 通用规则：车载（没有三脚架 / 立柱 / 手柄）；T1 原画（冷铁 + 黄铜 + 语义色），材质由游戏的装饰层换；非武器不出格；每个造型带一点动画。
@@ -463,7 +463,11 @@ SA.CUR = (() => {
   ];
 
   const MODS = [
+    { id: 'autoloader', name: '装弹机', w: 1, h: 1, rule: '1×1 控制 · 看得到炮弹和机械（黄铜炮弹只作零件，主体仍是冷铁）· 不出格', SET: AUTOLOADER },
+    { id: 'mortar_s', name: '小臼炮', w: 1, h: 1, weapon: true, rule: '1×1 火力（武器可以出格）· 耳轴 (12,13)、炮口离耳轴 18、仰角 32°～82° · 没有火药，开火喷蒸汽', SET: MORTAR },
     { id: 'cockpit_pair', name: '联合驾驶舱（双人）', w: 1, h: 2, crew: true, rule: '1×2 控制 · 两名驾驶员保持 1×1 大小（圆窗半径 4.8，和单人舱一样）· 玻璃是控制类的语义色', SET: COCKPIT },
+    { id: 'pressure_chamber', name: '加压舱', w: 1, h: 1, rule: '1×1 能源 · 压力表 + 安全阀，不发光（它不是锅炉，没有火门和炉火）', SET: PRESS },
+    { id: 'condenser', name: '冷凝器', w: 1, h: 2, rule: '1×2 冷却 · 实心，不像水箱（没有大窗和水位）也不像散热片（没有密排鳍片）· 青色只用在冷水管、水滴、管口', SET: COND },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   return { MODS, figure };

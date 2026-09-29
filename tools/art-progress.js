@@ -55,11 +55,11 @@ SA.ARTPLAN = {
       hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足六档 + 腰胯 v1～v5（定稿进游戏）', 'archive/biped-tiers.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
     periscope: { status: 'done', ch: 1, note: '轭架望远镜（2026-09-29 进游戏）：转台 + U 形轭架 + 黄铜望远镜慢慢俯仰；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'archived'], ['2026-09-29', '造型 7 种 → D 轭架望远镜', 'archive/periscope.html', 'shipped']] },
-    autoloader: { status: 'cand', pri: 4, ch: 1, note: '1×1，看得到炮弹和机械', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore'], ['2026-09-29', '造型 7 种（每个选一个）', 'current.html', 'explore']] },
-    mortar_s: { status: 'cand', pri: 5, ch: 2, note: '1×1 小臼炮，和已定稿的臼炮同一套语言（可直接缩臼炮）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore'], ['2026-09-29', '造型 7 种（每个选一个）', 'current.html', 'explore']] },
+    autoloader: { status: 'done', ch: 1, note: '链式扬弹机（2026-09-29 进游戏）：竖框 + 两只链轮，三发黄铜炮弹往上送；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore'], ['2026-09-29', '造型 7 种（选 链式扬弹机）', 'archive/five-modules.html', 'shipped']] },
+    mortar_s: { status: 'done', ch: 2, note: '炮塔臼炮（2026-09-29 进游戏）：半球装甲炮塔 + 粗短炮管 + 跟炮管转的防盾；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore'], ['2026-09-29', '造型 7 种（选 炮塔臼炮）', 'archive/five-modules.html', 'shipped']] },
     cockpit_pair: { status: 'cand', pri: 6, ch: 2, note: '1×2 双人舱，第二章 Boss 奖励；驾驶员保持 1×1 大小', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore'], ['2026-09-29', '造型 7 种（每个选一个）', 'current.html', 'explore']] },
-    pressure_chamber: { status: 'cand', pri: 7, ch: 2, note: '1×1，压力表 + 安全阀，不发光（不是锅炉：锅炉最小 1×2）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_chamber', 'explore'], ['2026-09-29', '造型 6 种（每个选一个）', 'current.html', 'explore']] },
-    condenser: { status: 'cand', pri: 8, ch: 2, note: '1×2 实心冷却件，不能像水箱也不能像散热片', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore'], ['2026-09-29', '造型 6 种（每个选一个）', 'current.html', 'explore']] },
+    pressure_chamber: { status: 'done', ch: 2, note: '风箱增压器（2026-09-29 进游戏）：皮风箱 + 储气包 + 压力表，不发光；用户定以后是 1×2（数据改动交接 astra，1×1 时画小版）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_chamber', 'explore'], ['2026-09-29', '造型 6 种（选 风箱增压器）', 'archive/five-modules.html', 'shipped']] },
+    condenser: { status: 'done', ch: 2, note: '盘管冷凝柱（2026-09-29 进游戏）：实心铁柱 + 盘管 + 青色水珠 / 滴水；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore'], ['2026-09-29', '造型 6 种（选 盘管冷凝柱）', 'archive/five-modules.html', 'shipped']] },
     // ---------- 第 3 档：新增尺寸（数据和文字占位已接入，专用造型待做）----------
     // 机枪系列：1×1 车载机枪 → 1×2 重机枪 → 2×2 机炮（现有 mg 改名），最大到 2×2 为止；先画两个新件，定下语言后回头重画机炮
     mg_s: { status: 'done', pick: 'C', ch: 0, name: '车载机枪', size: '1×1', cat: 'firepower',

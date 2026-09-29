@@ -537,6 +537,102 @@ SA.SPR = (() => {
     tankSkid(x + 3, y + 21, 18, 2);
   }
 
+  // ---------- 2026-09-29 定稿的四个模块（样机 tools/archive/five-modules.html）：小臼炮 · 装弹机 · 加压舱 · 冷凝器 ----------
+  // 各档只换材质颜色（装饰层），造型不变。这几个造型带斜线和圆形零件，画法用一套按像素判定上色的小工具（外沿描边、左上亮、右下暗），坐标一律取整。
+  const K5 = (() => {
+    const Rr = (x, y, w, h, c) => R(Math.round(x), Math.round(y), Math.round(w), Math.round(h), c);
+    const p1 = (x, y, c) => Rr(x, y, 1, 1, c);
+    function shape(test, x0, y0, x1, y1, r = IRONL) {
+      const inn = (xx, yy) => test(xx + 0.5, yy + 0.5);
+      for (let yy = Math.floor(y0); yy <= Math.ceil(y1); yy++) for (let xx = Math.floor(x0); xx <= Math.ceil(x1); xx++) {
+        if (!inn(xx, yy)) continue;
+        if (!inn(xx - 1, yy) || !inn(xx + 1, yy) || !inn(xx, yy - 1) || !inn(xx, yy + 1)) { R(xx, yy, 1, 1, r[0]); continue; }
+        R(xx, yy, 1, 1, !inn(xx - 2, yy) || !inn(xx, yy - 2) ? r[3] : !inn(xx + 2, yy) || !inn(xx, yy + 2) ? r[1] : r[2]);
+      }
+    }
+    const inPoly = (pts) => (x, y) => { let s = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) s = !s; } return s; };
+    const poly = (pts, r) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); shape(inPoly(pts), Math.min(...xs) - 1, Math.min(...ys) - 1, Math.max(...xs) + 1, Math.max(...ys) + 1, r); };
+    const ball = (cx, cy, rr, r) => shape((x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= rr * rr, cx - rr - 1, cy - rr - 1, cx + rr + 1, cy + rr + 1, r);
+    const vtube = (x, y, w, h, r = IRONL) => { Rr(x, y, w, h, r[0]); Rr(x + 1, y, w - 2, h, r[2]); Rr(x + 1, y, 1, h, r[3]); if (w > 3) Rr(x + w - 2, y, 1, h, r[1]); };
+    const htube = (x, y, w, h, r = IRONL) => { Rr(x, y, w, h, r[0]); Rr(x, y + 1, w, h - 2, r[2]); Rr(x, y + 1, w, 1, r[3]); if (h > 3) Rr(x, y + h - 2, w, 1, r[1]); };
+    const gear = (cx, cy, r, n, rot, ramp = BRASS) => { shape((x, y) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx) - rot; return d <= r - 1 || (d <= r + 0.6 && Math.cos(a * n) > 0.2); }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2, ramp); disc(cx, cy, Math.max(0.8, r * 0.3), P.iron[0]); };
+    const shellH = (x, y, l = 9) => { Rr(x, y, l - 3, 3, P.brass[1]); Rr(x, y, l - 3, 1, P.brass[3]); Rr(x, y + 2, l - 3, 1, P.brass[0]); Rr(x + l - 3, y, 2, 3, P.iron[3]); p1(x + l - 1, y + 1, P.iron[3]); p1(x + l - 3, y, P.iron[4]); p1(x, y + 1, P.brass[0]); };
+    function gauge5(cx, cy, r, v) {
+      disc(cx, cy, r, P.brass[0]); disc(cx, cy, r - 1, P.steam[2]);
+      const a = Math.PI * (0.75 + 1.5 * v), L = Math.max(1.5, r - 1.5);
+      line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 0.5 + Math.cos(a) * L), Math.round(cy - 0.5 + Math.sin(a) * L), 1, P.dark[0]);
+    }
+    const LEATHER = [P.black, P.leather[0], P.leather[1], P.leather[2]];
+    return { Rr, p1, shape, poly, ball, vtube, htube, gear, shellH, gauge5, LEATHER };
+  })();
+
+  // 小臼炮 1×1 · 炮塔臼炮：低矮的半球装甲炮塔（铆钉一圈），粗短炮管从炮塔里伸出来俯仰，炮管根部一块跟着炮管转的装甲防盾，
+  // 炮口是厚箍 + 口沿暗线（侧面看不到炮膛圆洞）。耳轴 (12,13)，炮口离耳轴 18（module-art 的 piv / blen），后坐沿炮管退 rcPx
+  function mortarS(x, y, q) {
+    const { Rr, p1, poly, ball } = K5, ar = (q.a == null ? 55 : q.a) * Math.PI / 180, c = Math.cos(ar), s = Math.sin(ar), back = rcPx('mortar_s', q.k);
+    const at = (u, v) => [x + 12 + c * (u - back) + s * v, y + 13 - s * (u - back) + c * v];
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, 24, 20); ctx.clip(); ball(x + 12, y + 20, 10.5, IRON); ctx.restore();
+    for (let i = 0; i < 7; i++) { const aa = Math.PI + i / 6 * Math.PI; p1(x + 12 + Math.cos(aa) * 8.6, y + 19 + Math.sin(aa) * 8.6, P.iron[4]); }
+    for (const pts of [[[1, -3.2], [15, -3.6], [15, 3.6], [1, 3.2]], [[14.5, -4.8], [18, -4.8], [18, 4.8], [14.5, 4.8]], [[-3.5, -5.6], [3.5, -5.6], [4.5, -3.6], [4.5, 3.6], [3.5, 5.6], [-3.5, 5.6]]]) poly(pts.map(([u, v]) => at(u, v)), IRONL);
+    const m0 = at(17.6, -4), m1 = at(17.6, 4); line(Math.round(m0[0]), Math.round(m0[1]), Math.round(m1[0]), Math.round(m1[1]), 1, P.iron[1]);
+    const h0 = at(15.2, -4.4), h1 = at(15.2, 4.4); line(Math.round(h0[0]), Math.round(h0[1]), Math.round(h1[0]), Math.round(h1[1]), 1, P.iron[4]);
+    const pc = at(0, 0); disc(pc[0], pc[1], 1.5, P.brass[2]); p1(pc[0] - 1, pc[1] - 1, P.brass[3]);
+    box(x, y + 19, 24, 5, IRON);
+    void Rr;
+  }
+  // 装弹机 1×1 · 链式扬弹机：竖框里上下两只链轮，链子前面挂着三发横放的黄铜炮弹往上送，到顶从右边出弹口推出去。fr = 18 帧一轮
+  function autoloaderArt(x, y, fr) {
+    const { Rr, gear, shellH } = K5, sh = fr / 18, rot = fr * Math.PI / 8;
+    box(x + 3, y + 1, 18, 23, IRON); Rr(x + 5, y + 3, 14, 19, P.dark[1]);
+    gear(x + 12, y + 5, 3.4, 8, rot); gear(x + 12, y + 19, 3.4, 8, rot);
+    Rr(x + 8, y + 5, 1, 14, P.iron[3]); Rr(x + 15, y + 5, 1, 14, P.iron[3]);
+    for (let i = 0; i < 3; i++) { const yy = y + 18 - ((sh + i / 3) % 1) * 13; shellH(x + 6, Math.round(yy - 1), 9); }
+    Rr(x + 19, y + 3, 3, 4, P.dark[0]);
+  }
+  // 加压舱 · 风箱增压器：皮风箱被曲柄一压一放，把气打进旁边的储气包，储气包上的压力表跟着摆；不发光（不是锅炉）。
+  // 用户定：以后加压舱是 1×2（数据改动已交接 astra）；数据还是 1×1 时画同一套造型的 1×1 版。fr = 16 帧一轮
+  function pressureArt(x, y, fr) {
+    const { Rr, p1, poly, vtube, htube, gauge5, LEATHER } = K5, ph = fr / 16 * Math.PI * 2, s = (Math.sin(ph) + 1) / 2;
+    if (SA.fp('pressure_chamber').h >= 2) {
+      const top = y + 14 + s * 9;
+      box(x + 1, y + 43, 22, 5, IRON); rivet(x + 3, y + 45); rivet(x + 19, y + 45);
+      vtube(x + 13, y + 11, 10, 32); disc(x + 18, y + 11, 5, P.iron[0]); disc(x + 18, y + 11, 4.2, P.iron[3]); disc(x + 16.5, y + 9.5, 1.5, P.iron[4]);
+      for (const yy of [19, 36]) { Rr(x + 13, y + yy, 10, 2, P.brass[1]); Rr(x + 13, y + yy, 10, 1, P.brass[3]); }
+      gauge5(x + 18, y + 27.5, 3.6, 0.25 + 0.55 * s);
+      Rr(x + 17, y + 3, 3, 3, P.brass[1]); Rr(x + 16, y + 3, 5, 1, P.brass[3]);
+      if (fr < 2) { disc(x + 18.5, y + 1.5, 1.4, P.steam[2]); disc(x + 17.5, y - 0.5, 1, P.steam[1]); }   // 安全阀泄一口汽
+      const h = y + 41 - top; for (let i = 0; i < 6; i++) { const yy = top + i * h / 6; poly([[x + 2, yy], [x + 10, yy], [x + 11.5, yy + h / 12], [x + 10, yy + h / 6], [x + 2, yy + h / 6], [x + 0.5, yy + h / 12]], LEATHER); }
+      Rr(x + 1, top - 2, 11, 2, P.brass[1]); Rr(x + 1, top - 2, 11, 1, P.brass[3]); Rr(x + 1, y + 40, 11, 3, P.brass[0]); Rr(x + 1, y + 40, 11, 1, P.brass[2]);
+      htube(x + 11, y + 38, 3, 3, IRONL);
+      const C = [x + 6, y + 6], pin = [C[0] + Math.cos(ph - Math.PI / 2) * 2.6, C[1] + Math.sin(ph - Math.PI / 2) * 2.6];
+      disc(C[0], C[1], 4, P.iron[0]); disc(C[0], C[1], 3.2, P.iron[3]); disc(C[0], C[1], 1.2, P.brass[2]);
+      line(Math.round(pin[0]), Math.round(pin[1]), x + 6, Math.round(top - 2), 2, P.iron[0]); line(Math.round(pin[0]), Math.round(pin[1]), x + 6, Math.round(top - 2), 1, P.iron[4]);
+      p1(pin[0], pin[1], P.brass[3]);
+      return;
+    }
+    const top = y + 5 + s * 5;
+    box(x + 1, y + 20, 22, 4, IRON);
+    Rr(x + 1, top - 2, 11, 2, P.brass[1]); Rr(x + 1, top - 2, 11, 1, P.brass[3]);
+    const h = y + 19 - top; for (let i = 0; i < 4; i++) { const yy = top + i * h / 4; poly([[x + 2, yy], [x + 11, yy], [x + 12, yy + h / 8], [x + 11, yy + h / 4], [x + 2, yy + h / 4], [x + 1, yy + h / 8]], LEATHER); }
+    Rr(x + 1, y + 18, 11, 2, P.brass[1]);
+    htube(x + 11, y + 15, 3, 3, IRONL);
+    vtube(x + 14, y + 7, 8, 13); disc(x + 18, y + 7, 4, P.iron[0]); disc(x + 18, y + 7, 3.2, P.iron[3]);
+    gauge5(x + 18, y + 13, 2.8, 0.3 + 0.5 * s);
+  }
+  // 冷凝器 1×2 · 盘管冷凝柱：实心铁柱外绕一条盘管（只看得到朝前的一股股斜管），管外凝着青色水珠、管的低端往下滴水，柱底一只青色出水嘴。fr = 12 帧一轮
+  function condenserArt(x, y, fr) {
+    const { Rr, p1, vtube } = K5;
+    vtube(x + 6, y + 3, 12, 40); disc(x + 12, y + 3, 6, P.iron[0]); disc(x + 12, y + 3, 5, P.iron[3]);
+    box(x + 3, y + 43, 18, 5, IRON);
+    for (let i = 0; i < 7; i++) {
+      const yy = y + 7 + i * 5;
+      line(x + 3, yy, x + 21, yy + 2, 2, P.brass[0]); line(x + 3, yy - 1, x + 21, yy + 1, 1, P.brass[2]); p1(x + 2, yy + 1, P.brass[1]); p1(x + 21, yy + 3, P.brass[0]);
+      for (const [u, ph] of [[5 + (i % 3) * 2, 0], [11 + (i % 2) * 3, 1], [17 - (i % 3), 2]]) { const bx = x + u, by = Math.round(yy + (u - 3) * 2 / 18 + 1.6); p1(bx, by, P.water[2]); p1(bx, by + 1, P.water[1]); if ((i + ph) % 2) p1(bx, by, P.water[3]); }
+      const p = ((fr + i * 5) % 12) / 12; if (p < 0.7) { const dy = Math.round(p / 0.7 * 4.5); p1(x + 21, yy + 4 + dy, P.water[2]); if (dy > 1) p1(x + 21, yy + 3 + dy, P.water[1]); }
+    }
+    Rr(x + 1, y + 40, 4, 2, P.water[1]); p1(x + 2, y + 42 + (fr % 6), P.water[2]);
+  }
+
   // ---------- 观察镜 1×1（2026-09-29 定稿，样机 tools/archive/periscope.html 的 D 轭架望远镜）----------
   // 转台 + U 形轭架 + 两颗黄铜耳轴夹一支斜向上的黄铜望远镜（前端物镜、后端目镜），镜筒慢慢俯仰搜索，物镜偶尔闪光。
   // 各档只换材质颜色（装饰层），造型不变；镜头收在 24px 里。fr = 俯仰帧（24 帧一轮）
@@ -1764,6 +1860,10 @@ SA.SPR = (() => {
     // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
     tank_s(x, y, q) { tankSmall(x, y, q); },
     periscope(x, y, q) { periscopeArt(x, y, q.fr || 0); },
+    mortar_s(x, y, q) { mortarS(x, y, q); },
+    autoloader(x, y, q) { autoloaderArt(x, y, q.fr || 0); },
+    pressure_chamber(x, y, q) { pressureArt(x, y, q.fr || 0); },
+    condenser(x, y, q) { condenserArt(x, y, q.fr || 0); },
     tank_tall(x, y, q) { tankTall(x, y, q); },
     boiler_s(x, y, q) { boilerS(x, y, q); },
     mg_s(x, y, q) { mgS(x, y, q); },
@@ -2031,6 +2131,10 @@ SA.SPR = (() => {
       }
       case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
       case 'periscope': q.fr = Math.floor((o.t || 0) * 2.2) % 24; break;   // 望远镜俯仰：24 帧一轮（约 11 秒）
+      case 'mortar_s': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
+      case 'autoloader': q.fr = Math.floor((o.t || 0) * 3.3) % 18; break;          // 扬弹链：18 帧一轮（约 5.5 秒）
+      case 'pressure_chamber': q.fr = Math.floor((o.t || 0) * 5) % 16; break;      // 风箱一压一放：16 帧一轮（约 3 秒）
+      case 'condenser': q.fr = Math.floor((o.t || 0) * 4) % 12; break;             // 盘管滴水：12 帧一轮
     }
     if (o.up) q.up = Math.min(3, o.up);   // 改装等级 → 挂件
     if (o.mt > 1) q.mt = o.mt;

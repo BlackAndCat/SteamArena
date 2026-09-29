@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>五模块造型探索（已定稿）</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -30,10 +30,11 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：联合驾驶舱（双人）· 7 种造型 · 2026-09-29</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（观察镜）已进游戏，选定轭架望远镜，归档在 <a href="archive/periscope.html">archive/periscope.html</a>。</p>
-    <p><b>同一批的另外四个已选定进游戏</b>：小臼炮 D 炮塔臼炮（炮口改成厚箍 + 口沿暗线、炮塔开口改成跟炮管转的防盾）· 装弹机 B 链式扬弹机 · 加压舱 F 风箱增压器（以后是 1×2）· 冷凝器 A 盘管冷凝柱（水珠加多）；探索过程存档在 <a href="archive/five-modules.html">archive/five-modules.html</a>。</p>
-    <p><b>还剩联合驾驶舱（双人）</b>：7 种（双层潜水钟 / 电车驾驶室 / 机车驾驶室 / 潜艇指挥塔 / 双泡吊舱 / 哥特双窗塔 / 装甲指挥舱），窗里是游戏同款驾驶员。<b>请选一个</b>。</p>
+    <h1>五模块造型探索 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29：小臼炮 D 炮塔臼炮 · 装弹机 B 链式扬弹机 · 加压舱 F 风箱增压器（1×2）· 冷凝器 A 盘管冷凝柱，已进游戏；双人驾驶舱继续在「当前开发」</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（观察镜）已进游戏，选定轭架望远镜，归档在 <a href="periscope.html">periscope.html</a>。</p>
+    <p><b>本期一起开发</b>：装弹机（7）· 小臼炮（7）· 联合驾驶舱（双人）（7）· 加压舱（6）· 冷凝器（6），共 33 种，每种都是不同的剪影 / 设计模式。
+      通用规则：车载（没有三脚架 / 立柱 / 手柄）；T1 原画 + 游戏的材质层换色；非武器不出格；每个造型带一点动画。每张卡：大图（当前材质）+ 装在车上的样子（旁边是游戏里的真精灵）+ T1～T6 六档。</p>
+    <p style="color:var(--muted)"><b>请每个模块选一个</b>（也可以说想把哪几个的元素合起来）。选定以后再决定各档是只换颜色、还是像火炮家族那样逐档加零件。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -44,10 +45,10 @@
   <div id="mods"></div>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/coal.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="five-modules.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
   const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);

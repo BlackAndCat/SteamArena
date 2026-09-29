@@ -21,9 +21,9 @@ SA.MODULE_ART = {
   mg: { piv: [29, 20], blen: 22, barrel: 13, rcPx: 2, back: 0, ret: 14 },   // 2026-09-28 蒸汽离心炮：耳轴 = 离心鼓轴心，只有炮管后坐
   side_cannon: { vis: [1, 3, 5], piv: [18, 34], blen: 48, barrel: 18, rcPx: 7, back: 0.04, ret: 2.6 },
   pressure_tank: { art: 'boiler', placeholder: '蓄压' },
-  pressure_chamber: { art: 'boiler', placeholder: '加压' },
+  pressure_chamber: {},   // 2026-09-29 专用造型：风箱增压器（用户定以后是 1×2，数据改动交接 astra；1×1 时画同一套造型的小版）
   radiator: { art: 'water', placeholder: '散热' },
-  condenser: { art: 'water', placeholder: '冷凝' },
+  condenser: {},   // 2026-09-29 专用造型：盘管冷凝柱（各档只换颜色）
   rocket_rack: { vis: [1, 5], art: 'cannon', placeholder: '火箭', piv: [24, 28], blen: 34, barrel: 22, rcPx: 7, back: 0.05, ret: 2.2 },
   harpoon: { vis: [1, 5], art: 'cannon_m', placeholder: '鱼叉', piv: [18, 13], blen: 34, barrel: 22, rcPx: 5, back: 0.04, ret: 2.8 },
   flamer: { vis: [1, 5], art: 'cannon_m', placeholder: '喷火', piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
@@ -35,10 +35,10 @@ SA.MODULE_ART = {
   bucket: { vis: [1, 5] },
   spike: { vis: [1, 5] },
   piston: { vis: [1, 5] },
-  mortar_s: { art: 'mortar', placeholder: '小臼炮', piv: [12, 13], blen: 18, barrel: 0, rcPx: 4, back: 0.03, ret: 2.7 },
+  mortar_s: { piv: [12, 13], blen: 18, barrel: 0, rcPx: 4, back: 0.03, ret: 2.7 },   // 2026-09-29 专用造型：炮塔臼炮（各档只换颜色）
   mg2: { piv: [20, 20], blen: 25, barrel: 15, rcPx: 2, back: 0, ret: 14 },  // 2026-09-28 双嘴汽转球：耳轴 = 球心，两根喷嘴交替后坐
   periscope: {},   // 2026-09-29 专用造型（轭架望远镜），各档只换颜色
-  autoloader: { art: 'plate', placeholder: '装弹机' },
+  autoloader: {},   // 2026-09-29 专用造型：链式扬弹机（各档只换颜色）
   rangefinder: { art: 'plate', placeholder: '测距仪' },
   gyroscope: { art: 'plate', placeholder: '陀螺仪' },
   // 新尺寸模块的专用造型尚未定稿，先按实际占格显示文字，保证库存和候选画廊能完整打开。
