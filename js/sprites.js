@@ -624,13 +624,15 @@ SA.SPR = (() => {
     const { Rr, p1, vtube } = K5;
     vtube(x + 6, y + 3, 12, 40); disc(x + 12, y + 3, 6, P.iron[0]); disc(x + 12, y + 3, 5, P.iron[3]);
     box(x + 3, y + 43, 18, 5, IRON);
+    // 一道连贯的水流：顺着每股盘管的低端往下流到下一股，最后流进底下的出水嘴；亮点顺着水流往下走（2026-09-29：水珠减到隔一股一颗，免得密恐）
+    Rr(x + 21, y + 10, 1, 31, P.water[1]);
+    for (let k = 0; k < 3; k++) p1(x + 21, y + 10 + ((fr * 2.5 + k * 10) % 30), P.water[3]);
     for (let i = 0; i < 7; i++) {
       const yy = y + 7 + i * 5;
       line(x + 3, yy, x + 21, yy + 2, 2, P.brass[0]); line(x + 3, yy - 1, x + 21, yy + 1, 1, P.brass[2]); p1(x + 2, yy + 1, P.brass[1]); p1(x + 21, yy + 3, P.brass[0]);
-      for (const [u, ph] of [[5 + (i % 3) * 2, 0], [11 + (i % 2) * 3, 1], [17 - (i % 3), 2]]) { const bx = x + u, by = Math.round(yy + (u - 3) * 2 / 18 + 1.6); p1(bx, by, P.water[2]); p1(bx, by + 1, P.water[1]); if ((i + ph) % 2) p1(bx, by, P.water[3]); }
-      const p = ((fr + i * 5) % 12) / 12; if (p < 0.7) { const dy = Math.round(p / 0.7 * 4.5); p1(x + 21, yy + 4 + dy, P.water[2]); if (dy > 1) p1(x + 21, yy + 3 + dy, P.water[1]); }
+      if (i % 2) { const bx = x + 8 + (i % 3) * 3, by = Math.round(yy + (bx - x - 3) * 2 / 18 + 1.6); p1(bx, by, P.water[2]); p1(bx, by + 1, P.water[1]); }   // 凝在管上的水珠（隔一股一颗）
     }
-    Rr(x + 1, y + 40, 4, 2, P.water[1]); p1(x + 2, y + 42 + (fr % 6), P.water[2]);
+    Rr(x + 19, y + 40, 4, 2, P.water[1]); Rr(x + 19, y + 40, 4, 1, P.water[2]); p1(x + 21, y + 42 + (fr % 4), P.water[2]);   // 出水嘴 + 落下的一滴
   }
 
   // ---------- 观察镜 1×1（2026-09-29 定稿，样机 tools/archive/periscope.html 的 D 轭架望远镜）----------
