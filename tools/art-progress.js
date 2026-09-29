@@ -49,8 +49,8 @@ SA.ARTPLAN = {
       hist: [['2026-09-26', '履带三阶段', 'spritesheet.html', 'live']] },
 
     // ---------- 第 1 档：底盘细分支 ----------
-    quad: { status: 'wip', pri: 1, ch: 1, note: '基础造型已进游戏（4×2 整件蜘蛛 + 距离步态、多件首尾相连）；六档重做 v3 在「当前开发」等确认（腿加粗、机身起伏、遮挡分层；T6 重做；T4～T6 车体各三候选待选）',
-      hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足 14 种 + 腰胯 7 种 v2', 'current.html', 'explore'], ['2026-09-29', '四足六档重做 v3（加粗、起伏、遮挡分层；T6 重做；T4～T6 车体候选）', 'current.html', 'explore']] },
+    quad: { status: 'wip', pri: 1, ch: 1, note: '基础造型已进游戏（4×2 整件蜘蛛 + 距离步态、多件首尾相连）；六档 v4 在「当前开发」等确认（T4～T6 车体各三候选待选）',
+      hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足 14 种 + 腰胯 7 种 v2', 'current.html', 'explore'], ['2026-09-29', '四足六档 v4（螳臂尖脚、龙爪、龟足圣骑、大本钟、弹簧挤压、教堂旗帜）', 'current.html', 'explore']] },
     biped: { status: 'wip', pri: 2, ch: 2, note: '基础造型已进游戏（真双足 2×4：陀螺胯 + 一对长腿）；还没做：材质六档细分、T3 / T5 形态分支（从六档腿型里挑）',
       hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
