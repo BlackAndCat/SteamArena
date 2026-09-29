@@ -698,3 +698,58 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
   /* 这几个在别处用了 all: unset / 更具体的选择器，要同等具体才压得住 */
   button.res, .brass-plate .plate-toggle, .brass-plate .plate-name { min-height: 44px; box-sizing: border-box; }
 }
+
+/* ---------- 剧情：开始界面 / 像素对话框（js/story.js）---------- */
+:root {
+  --px-corner: polygon(8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px), 0 8px, 4px 8px, 4px 4px, 8px 4px);
+  --px-corner-s: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
+}
+.title { position: fixed; inset: 0; z-index: 80; background: var(--bg0); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: opacity .4s; }
+.title.out { opacity: 0; pointer-events: none; }
+.title-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.title-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; text-align: center; }
+.title-emblem { width: 192px; height: 192px; filter: drop-shadow(6px 6px 0 rgba(7, 8, 12, .6)); animation: title-bob 2.4s steps(6) infinite alternate; }
+@keyframes title-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+.title-name { margin: 0; font-size: clamp(40px, 8vw, 68px); font-weight: 900; letter-spacing: .18em; padding-left: .18em; color: var(--brass3);
+  text-shadow: 0 4px 0 var(--brass1), 0 8px 0 var(--brass0), 6px 12px 0 rgba(7, 8, 12, .8); }
+.title-sub { font-size: 13px; font-weight: 900; letter-spacing: .6em; padding-left: .6em; color: var(--brass2); text-shadow: 2px 2px 0 var(--dark0); margin-bottom: 14px; white-space: pre; }
+.title-go { font-size: 20px; padding: 12px 44px; letter-spacing: .2em; clip-path: var(--px-corner-s); }
+.title-go:focus-visible { outline: none; background: var(--brass3); }
+.title-save { font-size: 12px; color: var(--muted); text-shadow: 1px 1px 0 var(--dark0); }
+
+.vn { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 16px 16px 20px; cursor: pointer; user-select: none; -webkit-user-select: none; transition: opacity .25s; }
+.vn.out { opacity: 0; pointer-events: none; }
+.vn-page { position: fixed; z-index: 70; background: rgba(7, 8, 12, .6); }
+.vn-opening { background: #000; }
+.vn-scene { position: absolute; inset: 0 0 176px; margin: auto; width: min(100%, calc((100vh - 176px) * 16 / 9)); height: auto; aspect-ratio: 16 / 9; }
+.bt-canvas-wrap { position: relative; }
+.vn-battle { justify-content: flex-start; padding-top: 34px; }
+.vn-battle .vn-dock { width: min(760px, 100%); }
+.vn-battle .vn-in { min-height: 104px; }
+.vn-battle .vn-portrait { width: 88px; height: 88px; }
+.vn-battle .vn-face { width: 80px; height: 80px; }
+.vn-battle .vn-text { font-size: 17px; }
+.vn-battle .vn-skip { top: auto; bottom: 14px; }
+.vn-dock { position: relative; width: min(860px, 100%); margin-top: 28px; }
+.vn-box { background: var(--dark0); padding: 4px; clip-path: var(--px-corner); filter: drop-shadow(6px 6px 0 rgba(7, 8, 12, .55)); }
+.vn-frame { background: var(--brass2); padding: 4px; clip-path: var(--px-corner); box-shadow: inset 2px 2px 0 var(--brass3), inset -2px -2px 0 var(--brass1); }
+.vn-in { position: relative; display: flex; gap: 16px; align-items: flex-start; min-height: 124px; padding: 14px 44px 16px 14px; clip-path: var(--px-corner);
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 4px), var(--dark1); box-shadow: inset 0 0 0 2px var(--dark3); }
+.vn-portrait { flex: none; width: 104px; height: 104px; padding: 4px; background: var(--iron1); clip-path: var(--px-corner-s); box-shadow: inset 0 0 0 4px var(--dark0), inset 4px 4px 0 4px var(--iron2); }
+.vn-face { width: 96px; height: 96px; }
+.vn-text { flex: 1; font-size: 19px; line-height: 1.75; font-weight: 700; letter-spacing: .04em; color: var(--text); text-shadow: 2px 2px 0 var(--dark0); white-space: pre-wrap; min-height: 3.5em; }
+.vn[data-who=narr] .vn-portrait, .vn[data-who=narr] .vn-name { display: none; }
+.vn[data-who=narr] .vn-text { color: var(--brass3); padding: 8px 12px; }
+.vn-name { position: absolute; top: -26px; left: 22px; z-index: 1; padding: 4px 16px 6px; font-size: 15px; font-weight: 900; letter-spacing: .12em; color: #2a1a05;
+  background: var(--brass3); clip-path: var(--px-corner-s); box-shadow: inset -3px -3px 0 var(--brass1); }
+.vn-name:empty { display: none; }
+.vn-more { position: absolute; right: 18px; bottom: 14px; width: 0; height: 0; border: 7px solid transparent; border-top: 9px solid var(--brass3); border-bottom: 0; animation: vn-more .8s steps(2) infinite; }
+@keyframes vn-more { 50% { transform: translateY(4px); } }
+.vn-skip { position: absolute; top: 12px; right: 14px; z-index: 2; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--muted); background: rgba(7, 8, 12, .6); border: 2px solid var(--dark3); cursor: pointer; }
+.vn-skip:hover { color: var(--text); border-color: var(--brass1); }
+@media (max-width: 640px) {
+  .vn-portrait { width: 72px; height: 72px; }
+  .vn-face { width: 64px; height: 64px; }
+  .vn-text { font-size: 16px; }
+  .vn-in { padding-right: 32px; gap: 10px; }
+}

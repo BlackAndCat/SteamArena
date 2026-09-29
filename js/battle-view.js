@@ -735,6 +735,11 @@ SA.BattleView.create = function createBattleView(api) {
   const KEYMAP = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'fire' };
   function onKey(e) {
     if (!B || B.done || SA.current !== 'battle') return;
+    // 开场期间不接操作；开战动画可以用空格 / 回车 / Esc 跳过（教程对话框自己处理按键）
+    if (B.intro) {
+      if (B.intro.mode === 'cine' && e.type === 'keydown' && /^(Space|Enter|NumpadEnter|Escape)$/.test(e.code)) { e.preventDefault(); endIntro(); }
+      return;
+    }
     const k = KEYMAP[e.code];
     if (k) { B.keys[k] = e.type === 'keydown'; e.preventDefault(); }
     const m = /^(Digit|Numpad)([1-9])$/.exec(e.code);
@@ -782,6 +787,244 @@ SA.BattleView.create = function createBattleView(api) {
     B.shake = Math.max(0, B.shake - dt * 14);
   }
 
+  // ---------- 开场：第一关的教程（箭头指着对手的部件讲解）+ 每场的开战动画 ----------
+  // 开场期间战斗不推进（step 不跑），镜头由这里直接摆；结束后交还给 battle.js 的镜头，它会自己平滑拉回
+  const easeIO = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+  const CINE = { pIn: 0.7, pHold: 1.1, pan: 2.1, eHold: 2.4, back: 3.0, drop: 2.8, land: 3.15, fire: 3.6, stamp: 3.8, fade: 4.7, end: 5.1 };
+  const CZ = 2.3;
+  // bottom：画面下沿对准的世界 y（战斗镜头是地面往下 60）
+  function camAt(cx, z, bottom = GROUND + 60) {
+    const cam = B.cam;
+    cam.z = z; cam.w = W / z; cam.h = H / z;
+    cam.x = cx - cam.w / 2; cam.y = bottom - cam.h;
+  }
+  const camBottom = () => B.cam.y + B.cam.h;
+  const camCx = () => B.cam.x + B.cam.w / 2;
+  function sideBox(s) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    SA.V.each(s.v, (cell, r, c) => {
+      if (!alive(cell)) return;
+      const b = modBox(s, r, c, cell.id);
+      x0 = Math.min(x0, b.x0); x1 = Math.max(x1, b.x1); y0 = Math.min(y0, b.y0); y1 = Math.max(y1, b.y1);
+    });
+    return { x0, x1, y0, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+  // 教程要指的部件：驾驶舱 / 底盘 / 锅炉 / 机枪（没有机枪就指第一件武器）
+  const PART_TEST = {
+    cockpit: (id) => SA.isCockpit(id),
+    track: (id) => id === 'track' || !!M[id].load,
+    boiler: (id) => !!M[id].supply,
+    mg: (id) => /^mg/.test(id) && !!M[id].dmg,
+    weapon: (id) => !!M[id].dmg,
+  };
+  function findPart(s, part) {
+    for (const test of [PART_TEST[part], part === 'mg' ? PART_TEST.weapon : null]) {
+      if (!test) continue;
+      let hit = null;
+      SA.V.each(s.v, (cell, r, c) => { if (!hit && alive(cell) && test(cell.id)) hit = { r, c, id: cell.id }; });
+      if (hit) return hit;
+    }
+    return null;
+  }
+  function beginIntro(opts) {
+    const I = { mode: 'cine', t: 0, clock: 0, home: { ...B.cam }, from: null, focus: null, arrows: null, puffs: [], vn: null, shook: {} };
+    B.intro = I;
+    const tut = SA.Story && SA.Story.tutorial(opts);
+    if (!tut) { I.from = { cx: camCx(), z: B.cam.z, bot: camBottom() }; return; }
+    I.mode = 'tutor';
+    const box = sideBox(B.e);
+    I.arrows = tut.parts.map(p => {
+      const at = findPart(B.e, p.part);
+      if (!at) return null;
+      const b = modBox(B.e, at.r, at.c, at.id), mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+      // 箭头从车外指向部件：方向取车中心 → 部件；底盘在最下面，改成从车头斜上方指过去
+      let dx = mx - box.cx, dy = my - box.cy;
+      if (p.part === 'track' || Math.hypot(dx, dy) < 6) { dx = -1; dy = -0.35; }
+      const n = Math.hypot(dx, dy); dx /= n; dy /= n;
+      const reach = Math.min((b.x1 - b.x0) / 2 / Math.max(0.01, Math.abs(dx)), (b.y1 - b.y0) / 2 / Math.max(0.01, Math.abs(dy)));
+      return { part: p.part, label: p.label, b, mx, my, ox: dx, oy: dy, reach };   // o = 由车内指向车外的方向
+    }).filter(Boolean);
+    const lines = [{ who: 'uncle', text: tut.intro, on: () => { I.focus = null; } }];
+    for (const p of tut.parts) {
+      if (!I.arrows.some(a => a.part === p.part)) continue;
+      for (const text of p.lines) lines.push({ who: 'uncle', text, on: () => { I.focus = p.part; } });
+    }
+    I.vn = SA.Story.talk(lines, { host: wrap, cls: 'vn-battle', onDone: () => {
+      SA.Story.mark('tutorial');
+      if (B.intro !== I) return;
+      I.vn = null; I.mode = 'cine'; I.t = 0; I.from = { cx: camCx(), z: B.cam.z, bot: camBottom() };
+    } });
+  }
+  function endIntro() {
+    const I = B.intro;
+    if (!I) return;
+    if (I.vn) { const vn = I.vn; I.vn = null; vn.close(); }
+    B.intro = null;
+    B.keys.left = B.keys.right = B.keys.fire = false;
+    B.shake = 0;
+  }
+  // 关键帧插值：[[t, 值…]...]
+  function keyCam(frames, t) {
+    let i = 0;
+    while (i < frames.length - 1 && t > frames[i + 1][0]) i++;
+    const a = frames[i], b = frames[Math.min(i + 1, frames.length - 1)];
+    const k = b[0] > a[0] ? easeIO((t - a[0]) / (b[0] - a[0])) : 1;
+    return a.slice(1).map((v, j) => v + (b[j + 1] - v) * k);
+  }
+  function introStep(dt) {
+    const I = B.intro;
+    I.clock += dt;
+    tick(dt);   // 粒子和震屏照常衰减
+    if (I.mode === 'tutor') {
+      // 讲解部件时镜头推到对手车上，旁白时回到全景
+      const eb = sideBox(B.e);
+      // 对话框压在画面上方，讲解时把车往画面下方放，给箭头和标签留出空间
+      const [tx, tz, tb] = I.focus ? [eb.cx, 2.2, GROUND + 22] : [I.home.x + I.home.w / 2, I.home.z, GROUND + 60];
+      const k = Math.min(1, dt * 4);
+      camAt(camCx() + (tx - camCx()) * k, B.cam.z + (tz - B.cam.z) * k, camBottom() + (tb - camBottom()) * k);
+      return;
+    }
+    I.t += dt;
+    const t = I.t, pb = sideBox(B.p), eb = sideBox(B.e), home = I.home.x + I.home.w / 2;
+    const G0 = GROUND + 60, G1 = GROUND + 30;
+    const [cx, z, bot] = keyCam([[0, I.from.cx, I.from.z, I.from.bot], [CINE.pIn, pb.cx, CZ, G1], [CINE.pHold, pb.cx, CZ, G1], [CINE.pan, eb.cx, CZ, G1], [CINE.eHold, eb.cx, CZ, G1], [CINE.back, home, I.home.z, G0]], t);
+    camAt(cx, z, bot);
+    const once = (k, fn) => { if (!I.shook[k]) { I.shook[k] = true; fn(); } };
+    if (t >= CINE.land) once('land', () => {
+      B.shake = Math.max(B.shake, 6);
+      for (let i = 0; i < 14; i++) I.puffs.push({ x: W / 2 + vr(-110, 110), y: H * 0.34 + 110, vx: vr(-160, 160), vy: vr(-60, 10), life: vr(0.4, 0.8), max: 0.8, r: vr(6, 12), col: P.bg[5] });
+    });
+    if (t >= CINE.fire) once('fire', () => {
+      B.shake = Math.max(B.shake, 7);
+      const em = SA.Story.emblem(0), s = EMS, x0 = W / 2 - 32 * s, y0 = H * 0.34 - 32 * s;
+      for (const [mx, my, dx, dy] of em.muzzles) {
+        const sx = x0 + mx * s, sy = y0 + my * s;
+        for (let i = 0; i < 22; i++) {
+          const sp = vr(80, 340), a = Math.atan2(dy, dx) + vr(-0.45, 0.45);
+          I.puffs.push({ x: sx, y: sy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: vr(0.6, 1.3), max: 1.3, r: vr(9, 24), col: i % 3 ? P.steam[2] : P.steam[1], drag: 2.2 });
+        }
+      }
+    });
+    for (const p of I.puffs) { p.life -= dt; const f = Math.exp(-(p.drag || 3) * dt); p.vx *= f; p.vy = p.vy * f - 20 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+    I.puffs = I.puffs.filter(p => p.life > 0);
+    if (t >= CINE.end) endIntro();
+  }
+  const EMS = 4;   // 徽记放大倍数（屏幕像素）
+  // 像素箭头：朝 +x，旋转后逐像素采样，保持方块边缘
+  const arrowCache = {};
+  function arrowSprite(ang) {
+    const key = Math.round(ang * 36 / Math.PI);
+    if (arrowCache[key]) return arrowCache[key];
+    const R = 16, c = document.createElement('canvas'); c.width = c.height = R * 2;
+    const x = c.getContext('2d'), co = Math.cos(ang), si = Math.sin(ang);
+    const inside = (u, v, grow) => (u >= -14 - grow && u <= 0 + grow && Math.abs(v) <= 2.5 + grow) || (u >= -1 - grow && u <= 10 + grow && Math.abs(v) <= (10 - u) * 0.7 + grow);
+    for (let py = 0; py < R * 2; py++) for (let px = 0; px < R * 2; px++) {
+      const dx = px + 0.5 - R, dy = py + 0.5 - R, u = dx * co + dy * si, v = -dx * si + dy * co;
+      if (inside(u, v, 0)) { x.fillStyle = v < -0.8 ? P.brass[3] : v > 1.6 ? P.brass[1] : P.brass[2]; x.fillRect(px, py, 1, 1); }
+      else if (inside(u, v, 1.2)) { x.fillStyle = P.black; x.fillRect(px, py, 1, 1); }
+    }
+    return (arrowCache[key] = c);
+  }
+  function introDraw() {
+    const I = B.intro;
+    if (!I) return;
+    const Z = B.cam.z * DPX;
+    // 电影黑边：教程和开战动画期间上下各一条
+    const barK = I.mode === 'tutor' ? 1 : 1 - easeIO((I.t - CINE.fade) / (CINE.end - CINE.fade));
+    dg.setTransform(DPX, 0, 0, DPX, 0, 0);
+    dg.fillStyle = P.black;
+    dg.fillRect(0, 0, W, Math.round(44 * barK)); dg.fillRect(0, H - Math.round(44 * barK), W, Math.round(44 * barK));
+    if (I.mode === 'tutor' && I.arrows && I.focus) {
+      dg.setTransform(Z, 0, 0, Z, -B.cam.x * Z, -B.cam.y * Z);
+      dg.imageSmoothingEnabled = false;
+      g = dg;
+      for (const a of I.arrows) {
+        const on = a.part === I.focus, bob = on ? 3 + 3 * Math.sin(I.clock * 7) : 3;
+        // 箭头尖端贴着部件边缘，身子朝车外；精灵中心在尖端后 10 像素
+        const tx = a.mx + a.ox * (a.reach + bob), ty = a.my + a.oy * (a.reach + bob);
+        const spr = arrowSprite(Math.atan2(-a.oy, -a.ox)), ax = tx + a.ox * 10, ay = ty + a.oy * 10;
+        dg.globalAlpha = on ? 1 : 0.35;
+        dg.drawImage(spr, Math.round(ax - spr.width / 2), Math.round(ay - spr.height / 2));
+        if (on) {
+          cornerMark(a.b.x0 - 2, a.b.y0 - 2, a.b.x1 - a.b.x0 + 4, a.b.y1 - a.b.y0 + 4);
+          const lx = tx + a.ox * 36, ly = ty + a.oy * 36;
+          dg.font = '900 9px "Microsoft YaHei", "PingFang SC", sans-serif';
+          const w = dg.measureText(a.label).width + 8;
+          dg.fillStyle = P.black; dg.fillRect(Math.round(lx - w / 2) - 1, Math.round(ly - 7) - 1, Math.round(w) + 2, 15);
+          dg.fillStyle = P.brass[2]; dg.fillRect(Math.round(lx - w / 2), Math.round(ly - 7), Math.round(w), 13);
+          dg.fillStyle = '#2a1a05'; dg.textAlign = 'center'; dg.textBaseline = 'middle';
+          dg.fillText(a.label, lx, ly);
+        }
+        dg.globalAlpha = 1;
+      }
+      dg.textAlign = 'start'; dg.textBaseline = 'alphabetic';
+      return;
+    }
+    if (I.mode !== 'cine') return;
+    const t = I.t;
+    dg.setTransform(DPX, 0, 0, DPX, 0, 0);
+    dg.imageSmoothingEnabled = false;
+    const sh = B.shake ? [rnd(-B.shake, B.shake), rnd(-B.shake, B.shake)] : [0, 0];
+    const fadeK = 1 - easeIO((t - CINE.fade) / (CINE.end - CINE.fade - 0.1));
+    // 徽记：从天上掉下来，落地压扁一下再弹回；开火时往下一挫
+    if (t >= CINE.drop) {
+      const cy = H * 0.34, s = EMS, size = 64 * s;
+      let y = cy, sx = 1, sy = 1;
+      if (t < CINE.land) { const k = (t - CINE.drop) / (CINE.land - CINE.drop); y = -size + (cy + size) * k * k; sy = 1.12; sx = 0.92; }
+      else if (t < CINE.land + 0.25) { const k = (t - CINE.land) / 0.25; sy = 1 - 0.18 * Math.sin(k * Math.PI); sx = 1 + 0.12 * Math.sin(k * Math.PI); }
+      if (t >= CINE.fire && t < CINE.fire + 0.12) y += 6 * (1 - (t - CINE.fire) / 0.12);
+      if (t > CINE.fade) y -= 40 * easeIO((t - CINE.fade) / (CINE.end - CINE.fade));
+      dg.globalAlpha = Math.max(0, fadeK);
+      // 投影 + 徽记
+      dg.fillStyle = 'rgba(7,8,12,0.45)';
+      dg.fillRect(Math.round(W / 2 - size * 0.34 * sx), Math.round(cy + size * 0.46), Math.round(size * 0.68 * sx), 8);
+      const em = SA.Story.emblem(0);
+      const w = size * sx, hh = size * sy;
+      dg.drawImage(em.cv, Math.round(W / 2 - w / 2 + sh[0]), Math.round(y + size / 2 - hh + sh[1]), Math.round(w), Math.round(hh));
+      // 炮口火光：两团像素十字
+      if (t >= CINE.fire && t < CINE.fire + 0.18) {
+        const k = (t - CINE.fire) / 0.18, x0 = W / 2 - 32 * s, y0 = cy - 32 * s;
+        for (const [mx, my, dx, dy] of em.muzzles) {
+          const fx = x0 + mx * s + dx * 14, fy = y0 + my * s + dy * 14, L = Math.round(26 * (1 - k) + 8);
+          for (const [col, gr] of [[P.fire[2], 8], [P.fire[3], 4], [P.white, 1]]) {
+            dg.fillStyle = col;
+            dg.fillRect(Math.round(fx - L / 2 - gr / 2), Math.round(fy - gr), Math.round(L + gr), gr * 2);
+            dg.fillRect(Math.round(fx - gr), Math.round(fy - L / 2 - gr / 2), gr * 2, Math.round(L + gr));
+          }
+        }
+      }
+      dg.globalAlpha = 1;
+    }
+    for (const p of I.puffs) {
+      const k = p.life / p.max, r = Math.round(p.r * (1.6 - k * 0.6) / 3) * 3;
+      dg.globalAlpha = Math.min(1, k * 1.6) * 0.85;
+      dg.fillStyle = p.col;
+      dg.fillRect(Math.round((p.x - r / 2) / 3) * 3, Math.round((p.y - r / 2) / 3) * 3, r, r);
+    }
+    dg.globalAlpha = 1;
+    // 「开战！」：盖章一样砸下来
+    if (t >= CINE.stamp) {
+      const k = Math.min(1, (t - CINE.stamp) / 0.14), sc = 1 + (1 - k) * 1.4;
+      dg.globalAlpha = Math.max(0, fadeK) * k;
+      dg.save();
+      dg.translate(W / 2 + sh[0], H * 0.34 + 64 * EMS / 2 + 40 + sh[1]);
+      dg.scale(sc, sc);
+      dg.font = '900 64px "Microsoft YaHei", "PingFang SC", sans-serif';
+      dg.textAlign = 'center'; dg.textBaseline = 'middle';
+      dg.lineJoin = 'miter'; dg.lineWidth = 12; dg.strokeStyle = P.black; dg.strokeText('开 战 ！', 0, 0);
+      dg.fillStyle = P.brass[0]; dg.fillText('开 战 ！', 4, 4);
+      dg.fillStyle = P.brass[3]; dg.fillText('开 战 ！', 0, 0);
+      dg.restore();
+      dg.globalAlpha = 1;
+    }
+    // 右下角提示：可以跳过
+    if (t < CINE.fade) {
+      dg.font = '12px "Microsoft YaHei", sans-serif'; dg.textAlign = 'right'; dg.textBaseline = 'alphabetic';
+      dg.fillStyle = P.steam[1]; dg.fillText('点击或按空格跳过', W - 16, H - 16);
+      dg.textAlign = 'start';
+    }
+  }
+
   function start(opts) {
     api.startState(opts);
     B = api.getState();
@@ -809,7 +1052,7 @@ SA.BattleView.create = function createBattleView(api) {
       h('div', { class: 'bt-bottom' },
         h('div', { class: 'bt-ctrl' }, holdBtn('◀ 后退', 'left'), holdBtn('前进 ▶', 'right'), holdBtn('开火', 'fire')),
         hud.slots, hud.info, speedSlider(), hud.vent,
-        h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => api.retreat() }], '继续比赛'); } }, '撤退'))));
+        h('button', { class: 'btn', onclick: () => { if (!B.p.dead) SA.UI.dialog('撤出比赛', h('p', {}, '确定撤出？这会判负。'), [{ label: '撤退', primary: true, onClick: () => { endIntro(); api.retreat(); } }], '继续比赛'); } }, '撤退'))));
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();
@@ -819,6 +1062,7 @@ SA.BattleView.create = function createBattleView(api) {
     cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') B.aimScreen = null; B.keys.fire = false; });
     cv.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (B.intro) { if (B.intro.mode === 'cine') endIntro(); return; }
       B.aimScreen = toNative(e);
       if (e.button !== 0) return;
       B.keys.fire = true;
@@ -831,13 +1075,16 @@ SA.BattleView.create = function createBattleView(api) {
     window.addEventListener('resize', fit);
     fit();
     camera(1);
+    beginIntro(opts);
     let last = performance.now();
     const mine = B;   // 每场战斗一个循环：换了新的一场，旧循环自己退出
     const loop = (now) => {
       if (SA.current !== 'battle' || B !== mine || B.done) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (!B.frozen) step(dt * B.speed);   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
+      if (B.intro) introStep(dt);
+      else if (!B.frozen) step(dt * B.speed);   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
       draw();
+      introDraw();
       hudTick(dt);
       requestAnimationFrame(loop);
     };
@@ -878,6 +1125,7 @@ SA.BattleView.create = function createBattleView(api) {
     aimWorld: (x, y) => { sync(); const cam = B.cam; B.aimScreen = [(x - cam.x) * cam.z, (y - cam.y) * cam.z]; camera(0); },
     emit,
     presentResult: (data) => SA.UI.afterBattle(data),
+    skipIntro: () => { sync(); if (B && B.intro) endIntro(); },
     teardown: () => { if (typeof window !== 'undefined') { window.removeEventListener('resize', fit); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); } },
   };
 };

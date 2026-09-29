@@ -97,7 +97,7 @@ SA.CAMPAIGN = [
     blurb: '老汤姆答应教你开蒸汽战车。先在后院的煤渣地上试试手：A/D 开车，按住左键瞄准开火。',
     stages: [
       {
-        name: '破铜烂铁号', pilot: '学徒 小皮普', prize: 60, aim: 0.35, style: 'turtle',
+        name: '破铜烂铁号', pilot: '学徒 小提米', prize: 60, aim: 0.35, style: 'turtle',
         blurb: '铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。',
         rows: ['........', '........', '........', '...K....', '...OM...', '...TT...'],
         spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },

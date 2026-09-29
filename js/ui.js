@@ -277,6 +277,10 @@ SA.UI = (() => {
   // ---------- 战后结算 ----------
   function afterBattle(res) {
     const d = S();
+    // 过关提示（SA.Story）：记下打的是哪一场、结算前开放了哪些功能，结算弹窗之后由亲戚补一句
+    const at = res.mode === 'campaign' && !res.replay ? SA.Camp.current() : null;
+    const feat0 = d.camp.feat.slice();
+    const story = (next) => (SA.Story ? SA.Story.afterBattle({ key: at && `${at.ci},${at.si}`, win: res.win, newFeat: d.camp.feat.filter(f => !feat0.includes(f)) }, next) : next());
     const { lines, pre: pending, money0 } = SA.S.settleBattle(res);
     const pre = pending.map(p => p.kind === 'salvage'
       ? (next) => SA.Camp.salvageDialog(p.survivors, next)
@@ -299,7 +303,7 @@ SA.UI = (() => {
       SA.V.each(d.vehicle, (cell) => { if (cell.hp < SA.V.maxHp(cell)) hurt.push(cell); });
       const cost = hurt.reduce((a, c) => a + SA.S.repairCost(c), 0);
       const fixAll = () => { SA.S.repairCells(hurt); toast(`修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
-      const after = () => { refresh(); SA.Camp.introIfNew(); };
+      const after = () => { refresh(); story(() => SA.Camp.introIfNew()); };
       const gain = d.money - money0, net = gain - cost;
       dialog(res.draw ? '平手' : res.win ? '胜利！' : '战败', [
         h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
@@ -313,7 +317,7 @@ SA.UI = (() => {
         feedbackRow(res.humanId),
       ], [
         hurt.length ? { label: `全部修理 ${money(cost)}`, primary: true, onClick: () => pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { fixAll(); after(); } }) } : null,
-        hurt.length && SA.Camp.has('garage') ? { label: '去车间', onClick: () => SA.nav('garage') } : null,
+        hurt.length && SA.Camp.has('garage') ? { label: '去车间', onClick: () => { SA.nav('garage'); story(() => {}); } } : null,
       ].filter(Boolean), hurt.length ? '稍后再说' : '继续', after);
     };
     const run = (i) => (i < pre.length ? pre[i](() => run(i + 1)) : summary());
