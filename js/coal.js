@@ -156,8 +156,8 @@ SA.Coal = (() => {
     grey: { name: '灰', c: ['#26282c', '#5a5e66', '#a8aeb8'] },
     black: { name: '黑', c: ['#07080c', '#1b1d24', '#3a3e4a'] },
   };
-  const EXPR = { normal: '平常', blink: '眨眼', happy: '高兴', surprise: '吃惊', angry: '生气', sad: '难过', sleepy: '犯困' };
-  function eyes(c, n, expr, look, iris, skinAt) {
+  const EXPR = { normal: '平常', blink: '眨眼', happy: '高兴', surprise: '吃惊', shock: '震惊（眼白放大 + 小瞳孔，视线用 pupil 指定）', angry: '生气', sad: '难过', sleepy: '犯困' };
+  function eyes(c, n, expr, look, iris, skinAt, pv) {
     const pc = (IRIS[iris] || IRIS.ink).c[1];
     if (c.mini) {
       // 驾驶舱尺寸：和原来一样，两只 2×2 白眼、中间隔 1 像素、右下角 1 像素瞳孔；一只 = 3×2 + 瞳孔 1×2；三只 = 两只 + 额头 1 像素
@@ -171,18 +171,23 @@ SA.Coal = (() => {
       if (n === 3) c.put(cx, cy - 3, C.white);
       return;
     }
-    // 圆润的方块：|x|^2.6 + |y|^2.6 ≤ 1（介于圆和方之间，比 v3 的 4 次方更圆）
-    const K = 1.1, sq = (nx, ny) => Math.abs(nx) ** 2.6 + Math.abs(ny) ** 2.6 <= 1;
+    // 圆润的方块：|x|^2.1 + |y|^2.1 ≤ 1（2026-09-28 用户：眼睛再圆润些；2 = 正圆，比上一版的 2.6 更接近圆，只留一点方意）
+    const K = 1.1, sq = (nx, ny) => Math.abs(nx) ** 2.1 + Math.abs(ny) ** 2.1 <= 1;
     const box = (u, v, rx, ry, col, test) => c.E(u, v, rx * K, ry * K, col, (nx, ny, x, y) => sq(nx * K, ny * K) && (!test || test(nx * K, ny * K, x, y)));
     const t = Math.max(1.2, c.R * 0.1) / c.R;   // 线条粗细（眨眼、笑眼）
     for (const [u, v, rx0, ry0] of EYESETS[n]) {
-      const rx = rx0 * (expr === 'surprise' ? 1.12 : 1), ry = ry0 * (expr === 'surprise' ? 1.12 : 1);
+      const big = expr === 'shock' ? 1.1 : expr === 'surprise' ? 1.12 : 1, rx = rx0 * big, ry = ry0 * big;
       if (expr === 'blink') { c.Rt(u - rx, v + ry * 0.2, u + rx, v + ry * 0.2 + t, INK); continue; }
       if (expr === 'happy') {   // 倒 U：白色粗线
         c.E(u, v + ry * 0.5, rx, ry * 0.9, C.white, (nx, ny) => ny < 0 && nx * nx + ny * ny > (1 - t / Math.min(rx, ry) * 2.2) ** 2);
         continue;
       }
       box(u, v, rx, ry, C.white);
+      if (expr === 'shock') {   // 瞪大眼睛：小瞳孔，位置由 pv = [-1..1, -1..1] 决定（看向哪里 / 发抖）
+        const pr = 0.4, pw = pv || [look, 0.2];
+        c.E(u + rx * (1 - pr) * pw[0], v + ry * (1 - pr) * pw[1], rx * pr, ry * pr, pc);
+        continue;
+      }
       // 瞳孔：一个颜色，约为眼睛的一半大，偏向视线方向（默认往右下）
       const pr = expr === 'surprise' ? 0.32 : 0.52, px = u + rx * (1 - pr) * look, py = v + ry * (1 - pr) * 0.55;
       if (expr === 'surprise') c.E(u, v + ry * 0.1, rx * pr, ry * pr, pc);
@@ -515,7 +520,7 @@ SA.Coal = (() => {
     const glove = pick(o, ch, 'glove', false);
     if (!c.mini) arm(c, pose.L, sk, glove);
     body(c, style, tint, sq, sk);
-    eyes(c, n, expr, look, pick(o, ch, 'iris', 'ink'), skinAt);
+    eyes(c, n, expr, look, pick(o, ch, 'iris', 'ink'), skinAt, o.pupil);
     layer('neck');
     layer('face');
     drawWig(false);

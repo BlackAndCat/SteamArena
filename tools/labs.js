@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机炮 + 双联 v3', date: '2026-09-28', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机炮 A 蒸汽离心炮 + 双联 C 双嘴汽转球 v3，转轴按物理重做（轴心 / 轴承臂 / 明暗固定，铆钉 / 接缝 / 炮管跟着俯仰，不后坐）。确认后写进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '履带六档 v1', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：履带底盘六档视觉探索，每档一个真实历史节点——T1 博伊德尔铰接脚板轮（无履带）/ T2 木板链带 / T3 霍尔特铁链节 / T4 Mark IV 减重孔钢框 / T5 桁架转向架 / T6 全包裙板。确认后写进游戏、归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',

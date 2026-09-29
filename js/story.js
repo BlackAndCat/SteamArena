@@ -123,7 +123,15 @@ SA.Story = (() => {
     return (coalCache[k] = c);
   }
   // 你：睡着（闭眼）/ 醒着（expr 另给）
-  const me = (expr = 'normal', pose = 'idle') => coal('你', { size: 'scene', expr, pose });
+  const me = (expr = 'normal', pose = 'idle', pupil) => coal('你', { size: 'scene', expr, pose, pupil });
+  // 看到战车：瞪大眼睛，视线在亲戚（右边近处）和战车（右上远处）之间来回跳，瞳孔一直在抖（不可置信）。
+  // 视线每 0.28 秒换一个目标，抖动每 1/24 秒换一格（3 种偏移轮流），一共 2×3 张图，缓存住
+  const LOOK = [[0.95, 0.3], [0.85, -0.85]];
+  const JIT = [[0, 0], [0.22, -0.14], [-0.2, 0.16]];
+  function meShock(t, gt) {
+    const at = t < 0.5 ? 0 : Math.floor((t - 0.5) / 0.28 + 1) % 2, j = JIT[Math.floor(gt * 24) % 3], L = LOOK[at];
+    return me('shock', 'idle', [Math.max(-1, Math.min(1, L[0] + j[0])), Math.max(-1, Math.min(1, L[1] + j[1]))].map(v => Math.round(v * 20) / 20));
+  }
 
   // ---------- 徽记：齿轮底 + 两门交叉的卡隆炮 ----------
   // 64×64，rot = 齿轮转角；返回 { cv, muzzles: [[x, y, dx, dy]...] }（炮口位置和朝向，开火特效用）
@@ -271,8 +279,9 @@ SA.Story = (() => {
       zzz(g, 130, FLOOR - 70, gt);
     } else {
       const jump = idx === 1 ? Math.round(Math.sin(Math.min(1, t / 0.35) * Math.PI) * 10) : 0;
-      const expr = idx === 1 || (idx === 2 && t < 1.35) ? 'surprise' : idx === 3 ? 'happy' : 'normal';
-      g.drawImage(me(expr, idx === 3 ? 'cheer' : 'idle'), 56, FLOOR - 98 - jump, 112, 112);
+      const expr = idx === 1 || (idx === 2 && t < 1.35) ? 'surprise' : 'normal';
+      const shake = idx === 3 ? (Math.floor(gt * 24) % 2 ? 1 : 0) : 0;   // 瞳孔地震：身子也跟着轻抖 1 像素
+      g.drawImage(idx === 3 ? meShock(t, gt) : me(expr), 56 + shake, FLOOR - 98 - jump, 112, 112);
       if (idx === 1 || (idx === 2 && t < 0.6)) bang(g, 150, FLOOR - 92 - (idx === 1 ? Math.round(ease(t / 0.3) * 6) : 6));
     }
     // 亲戚：从右边滚进来，停住，弹起来站好

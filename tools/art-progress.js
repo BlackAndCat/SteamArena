@@ -45,7 +45,7 @@ SA.ARTPLAN = {
       hist: [['2026-09-27', '臼炮 v1 + 齿轮 v6', 'gun-family-lab.html', 'shipped']] },
     cannon_giant: { status: 'done', ch: 5, note: '攻城臼炮阵地：象牙白炮口箍、弹簧底座、龙门吊、燃煤仓、操作员。高抛机制已接入，射界 55°～85°、静止 75°',
       hist: [['2026-09-27', '夜间候选 v1', 'module-candidates.html#cannon_giant', 'archived'], ['2026-09-27', '巨炮 v1～v5', 'gun-family-lab.html', 'archived'], ['2026-09-28', '巨炮 v6 进游戏', 'gun-family-lab.html', 'shipped']] },
-    track: { status: 'done', ch: 0, note: '三个阶段：竖肋侧框 → 减重孔 → 桁架斜撑',
+    track: { status: 'done', ch: 0, note: '三个阶段：竖肋侧框 → 减重孔 → 桁架斜撑（2026-09-29 六档历史探索稿在当前开发页：铰接脚板轮 / 木板链带 / 铁链节 / 减重孔钢框 / 桁架转向架 / 全包裙板，待确认）',
       hist: [['2026-09-26', '履带三阶段', 'spritesheet.html', 'live']] },
 
     // ---------- 第 1 档：底盘细分支 ----------
