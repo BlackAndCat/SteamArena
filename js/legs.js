@@ -680,6 +680,234 @@ SA.LEGLAB = (() => {
       note: '探索 v2：在蒸汽圣骑的基础上，每条腿各挂一片白布罩袍（十字军罩袍的做法：腰带上垂下、前后对开、锯齿下摆、红十字、黄铜镶边）。布挂在腰带上，跟着大腿转一部分，下摆比腰晚半拍甩动。' },
   ];
 
+  // ---------- 新画 1 · 蒸汽人（1868 德德里克）：人形正膝，粗大的铆接汽缸大腿 + 直筒小腿 + 圆头铁靴；腿后一根蒸汽管，膝盖处随迈步喷白汽 ----------
+  const STEAMMAN = {
+    hipY: 14, bob: 2,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7, 4.5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + g.x, L.gy - 6.4 - g.lift, 14.5, 15, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt * 0.6);
+      // 蒸汽管：从胯后沿着腿后缘垂到膝后，膝后阀口在抬腿时喷汽
+      const p0 = T.p(1, -4.6), p1 = T.p(T.len - 1, -4.6), p2 = S.p(S.len * 0.4, -4.2);
+      pn.cap(...p0, ...p1, 0.9).cap(...p1, ...p2, 0.9).paint(M.steam, { bevel: 'l' });
+      pn.disc(p1[0], p1[1], 1.5).paint(M.brass, { bevel: 'l' });
+      if (g.lift > 1.2 && o.mv) { pn.disc(p1[0] - 2.4, p1[1] - 1, 0.9 + g.lift * 0.12).paint(NEAR.steam, { outline: false, bevel: '' }); pn.dot(p1[0] - 3.4, p1[1] - 2.6, P.steam[2]); }
+      // 圆头铁靴（无尖，像一只倒扣的锅）
+      pn.poly(F.pts([[-5, -1], [2, -1.6], [7, 0.2], [10.4, 3.4], [10.8, 6.2], [-5.4, 6.6], [-5.4, 0]])).paint(M.leg);
+      pn.poly(F.pts([[-5.4, 5], [10.7, 5], [10.8, 6.6], [-5.4, 6.6]])).paint(M.dark, { outline: false, bevel: '' });
+      pn.poly(F.pts([[-1.5, 0.6], [2.5, 0.6], [2.5, 2.6], [-1.5, 2.6]])).paint(M.brass, { bevel: 'l' });
+      // 小腿：直筒 + 三道箍
+      pn.poly(S.pts([[-1, -3], [-1, 3.2], [S.len + 0.5, 3.6], [S.len + 0.5, -3.4]])).paint(M.iron);
+      for (const a of [S.len * 0.25, S.len * 0.62, S.len * 0.95]) pn.poly(S.pts([[a - 0.8, -3.4], [a + 0.8, -3.4], [a + 0.8, 3.8], [a - 0.8, 3.8]])).paint(M.brass, { outline: false });
+      if (pn.hi) for (let a = 2; a < S.len; a += 3) pn.dot(...S.p(a, 2.2), P.iron[4]);
+      // 大腿：更粗的汽缸，纵向两条接缝
+      pn.cap(L.hx, L.hy, kx, ky, 4.9).paint(M.iron);
+      for (const t of [0.22, 0.5, 0.78]) { const a = T.len * t; pn.poly(T.pts([[a - 0.8, -5], [a + 0.8, -5], [a + 0.8, 5], [a - 0.8, 5]])).paint(M.brass, { outline: false }); }
+      pn.ln(...T.p(1, 1.2), ...T.p(T.len - 1, 1.2), M.iron[1]);
+      // 膝：黄铜球关节；胯：大铁毂
+      pn.disc(kx, ky, 4.3).paint(M.brass); pn.dot(kx - 1.2, ky - 1.2, M.brass[3]);
+      pn.disc(L.hx, L.hy, 4.9).paint(M.iron); pn.disc(L.hx, L.hy, 1.8).paint(M.brass, { outline: false });
+    },
+  };
+
+  // ---------- 新画 2 · 风箱腿（T6 以太合金）：只有四个大件——铸造锥形大腿、皱褶风箱膝、锥形小腿、圆盘大脚 ----------
+  // 现实参考：维多利亚时代的相机皮腔、风琴 / 铁匠风箱、卡车的空气弹簧——皮质褶皱天然能弯能伸缩，所以膝盖直接用一段风箱，
+  // 内侧褶子被压紧、外侧被拉开（这里按弯折角把褶子画成一边窄一边宽）。腿部造型故意做简：大块面 + 几道黄铜箍，不堆零件。
+  const BELLOWS = {
+    hipY: 14, bob: 3,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7, 5.5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + 1 + g.x, L.gy - 4.6 - g.lift, 14, 15, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt);
+      // 圆盘大脚：宽而低，黄铜镶边，底下一层深色胶垫
+      pn.poly(F.pts([[-7.4, 3.2], [-4.6, 1.2], [5, 1.2], [8.6, 3.2], [8.6, 4.6], [-7.4, 4.6]])).paint(M.leg);
+      pn.poly(F.pts([[-7.4, 3.6], [8.6, 3.6], [8.6, 4.6], [-7.4, 4.6]])).paint(M.dark, { outline: false, bevel: '' });
+      pn.ln(...F.p(-6.4, 2.6), ...F.p(7.4, 2.6), M.brass[2], pn.hi ? 2 : 1);
+      // 小腿：上粗下细的铸造锥
+      pn.poly(S.pts([[5, -3.4], [5, 3.4], [S.len - 0.5, 2.2], [S.len - 0.5, -2.2]])).paint(M.iron);
+      for (const t of [0.42, 0.86]) { const a = S.len * t, w = 3.4 - 1.2 * (a - 5) / (S.len - 5.5); pn.poly(S.pts([[a - 0.8, -w - 0.4], [a + 0.8, -w - 0.4], [a + 0.8, w + 0.4], [a - 0.8, w + 0.4]])).paint(M.brass, { outline: false, bevel: 'l' }); }
+      if (pn.hi) pn.ln(...S.p(4, 2.2), ...S.p(S.len - 2, 1.2), M.iron[3]);
+      pn.disc(ex, ey, 2.4).paint(M.brass); pn.dot(ex - 0.8, ey - 0.8, M.brass[3]);
+      // 大腿：更粗的铸造锥，两端黄铜箍
+      pn.poly(T.pts([[-1, -4.2], [-1, 4.2], [T.len - 4.6, 3.6], [T.len - 4.6, -3.6]])).paint(M.iron);
+      for (const a of [1.2, T.len - 5.4]) pn.poly(T.pts([[a - 0.8, -4.6], [a + 0.8, -4.6], [a + 0.8, 4.6], [a - 0.8, 4.6]])).paint(M.brass, { outline: false, bevel: 'l' });
+      if (pn.hi) pn.ln(...T.p(2, 2.4), ...T.p(T.len - 5, 1.8), M.iron[3]);
+      // 膝：风箱。从大腿下端到小腿上端；褶子垂直于两端连线，内侧（后面）窄外侧（前面）宽，交替深浅
+      const A = T.p(T.len - 4.6, 0), B = S.p(5, 0), dx = B[0] - A[0], dy = B[1] - A[1], dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl;
+      pn.cap(...A, ...B, 3.1).paint(M.leather);
+      const N = 5;
+      for (let i = 0; i < N; i++) {
+        const t = (i + 0.5) / N, cx = A[0] + dx * t, cy = A[1] + dy * t, wide = i % 2 === 0 ? 3.9 : 3.2;
+        pn.cap(cx - nx * wide * 0.85, cy - ny * wide * 0.85, cx + nx * wide * 1.15, cy + ny * wide * 1.15, 0.5);
+      }
+      pn.paint(M.brass, { bevel: 'l' });
+      pn.disc(L.hx, L.hy, 3.8).paint(M.iron); pn.disc(L.hx, L.hy, 1.4).paint(M.brass, { outline: false });
+    },
+  };
+
+  // ---------- 新画 3 · 缩放仪平行腿：平行四连杆，脚板永远水平 ----------
+  // 大腿、小腿各是一对等长平行杆，两端是竖直的铰板：胯板（固定）、膝板、踝板永远和胯板平行，
+  // 所以脚板不管腿怎么弯都保持水平（俄亥俄州立「适应性悬挂行走车」的思路）。每段平行四边形的对角线是一根液压缸——对角线随腿弯曲而伸缩，这正是缸的用处。
+  const PANTO = {
+    hipY: 14, bob: 2,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7.5, 5.5), ws = 2.7;
+      const ax = L.hx + 1 + g.x, ay = L.gy - ws - 1.7 - g.lift;
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, ax, ay, 15, 15, 1);
+      const bars = (x0, y0, x1, y1) => { for (const s of [-1, 1]) pn.cap(x0, y0 + s * ws, x1, y1 + s * ws, 0.85); };
+      // 对角液压缸：上一个铰点到下一个铰点（缸体 + 活塞杆各占一半）
+      const ram = (x0, y0, x1, y1) => {
+        const mx = x0 + (x1 - x0) * 0.5, my = y0 + (y1 - y0) * 0.5;
+        pn.cap(mx, my, x1, y1, 0.55).paint(M.steam, { bevel: 'l' }); pn.cap(x0, y0, mx, my, 1.3).paint(M.iron);
+      };
+      // 远一层：后杆 + 液压缸；近一层：前杆
+      pn.cap(L.hx, L.hy + ws, kx, ky + ws, 0.85).cap(kx, ky + ws, ex, ey + ws, 0.85).paint(M.iron, { bevel: 'l' });
+      ram(L.hx, L.hy + ws, kx, ky - ws); ram(kx, ky + ws, ex, ey - ws);
+      pn.cap(L.hx, L.hy - ws, kx, ky - ws, 0.85).cap(kx, ky - ws, ex, ey - ws, 0.85).paint(M.steel, { bevel: 'l' });
+      // 铰板（竖直）：胯 / 膝 / 踝，铰点是黄铜销
+      for (const [px, py, w] of [[L.hx, L.hy, 1.7], [kx, ky, 1.9], [ex, ey, 1.7]]) {
+        pn.poly([[px - w, py - ws - 1.5], [px + w, py - ws - 1.5], [px + w, py + ws + 1.5], [px - w, py + ws + 1.5]]).paint(M.iron);
+        for (const s of [-1, 1]) pn.disc(px, py + s * ws, 0.9).paint(M.brass, { outline: false, bevel: 'l' });
+      }
+      // 脚板：挂在踝板底下，永远水平；前掌长、后跟短，底下一排防滑齿
+      const fy = ey + ws + 0.2;
+      pn.poly([[ex - 6.4, fy], [ex + 8.2, fy], [ex + 11.2, fy + 1.2], [ex + 11.2, fy + 1.9], [ex - 6.8, fy + 1.9], [ex - 6.8, fy + 0.6]]).paint(M.leg);
+      pn.poly([[ex - 6.8, fy + 1.1], [ex + 11.2, fy + 1.1], [ex + 11.2, fy + 1.9], [ex - 6.8, fy + 1.9]]).paint(M.dark, { outline: false, bevel: '' });
+      pn.poly([[ex - 1.6, fy - 0.2], [ex + 1.6, fy - 0.2], [ex + 3.4, fy + 1.1], [ex - 3.4, fy + 1.1]]).paint(M.iron, { bevel: 'l' });
+      if (pn.hi) for (let u = -5; u < 10; u += 2) pn.dot(ex + u, fy + 1.5, M.leg[3]);
+      pn.disc(L.hx, L.hy, 2.6).paint(M.iron); pn.disc(L.hx, L.hy, 1).paint(M.brass, { outline: false });
+    },
+  };
+
+  // ---------- 新画 4 · 圣堂骑士腿（T6 以太合金）：哥特板甲 + 十字军罩袍，再加上以太合金的「能量」语义 ----------
+  // 剪影上比蒸汽圣骑多三样：① 护膝侧面三片向后掠的黄铜羽翼（膝盖像一顶带翼的头盔）；② 护胫后缘一片刀锋状的尾鳍；③ 铁靴又长又尖，脚跟一根后刺。
+  // 大腿甲正中一条发光的能量脉（以太合金发光 = 能源语义，和熔心龙骑的炉膛同一语言）。罩袍沿用「对开罩袍」：白布红十字，腰带上垂下、比腰晚半拍甩动。
+  const TEMPLAR = {
+    hipY: 13, bob: 2,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7.5, 5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + 1 + g.x, L.gy - 4.5 - g.lift, 15.5, 15.5, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt);
+      L.T = T; L.tabk = 0.72;
+      // 铁靴：细长尖头、分节，脚跟一根后刺，靴尖一枚黄铜点
+      const top = [[-4.5, -1.5], [-1, -3], [3, -2.2], [9, 0.4], [18, 3.8]];
+      pn.poly(F.pts([...top, [17.4, 4.7], [-4.5, 4.7]])).paint(M.steel);
+      for (const u of pn.hi ? [0.5, 3, 5.5, 8.5, 12] : [2, 6, 11]) pn.ln(...F.p(u, yAt(top, u) + 0.6), ...F.p(u - 0.8, 4.2), M.steel[0]);
+      pn.poly(F.pts([[-4.5, 0.4], [-9, 3.4], [-4.5, 4]])).paint(M.brass, { bevel: 'l' });
+      pn.poly(F.pts([[15, 3], [18.4, 3.9], [17.4, 4.7], [14.6, 4.6]])).paint(M.brass, { outline: false, bevel: '' });
+      // 护胫：钢板 + 前脊；后缘一片刀锋尾鳍
+      pn.poly(S.pts([[S.len * 0.14, -3], [S.len * 0.5, -9], [S.len * 0.9, -3.4]])).paint(M.brass, { bevel: 'l' });
+      pn.poly(S.pts([[-1, -3.2], [-1, 3.4], [S.len + 0.5, 2.6], [S.len + 0.5, -2.4], [S.len * 0.62, -3.4], [S.len * 0.32, -4.6]])).paint(M.steel);
+      pn.ln(...S.p(1, 1.8), ...S.p(S.len - 1, 1.2), M.steel[3]);
+      if (pn.hi) { pn.ln(...S.p(1, 1.1), ...S.p(S.len - 1, 0.6), M.steel[1]); pn.ln(...S.p(2, -1.4), ...S.p(S.len - 2, -1), M.steel[1]); }
+      // 大腿甲：正中一条发光的能量脉
+      pn.poly(T.pts([[-2, -4], [-2, 5.2], [T.len - 3, 4.4], [T.len - 0.5, 1], [T.len - 2.5, -3.2]])).paint(M.steel);
+      pn.ln(...T.p(0, 2.4), ...T.p(T.len - 3, 2), M.steel[3]);
+      const vein = pn.hi ? 2 : 1;
+      pn.ln(...T.p(1, 0), ...T.p(T.len - 4.5, 0), M.fire[1], vein + 1); pn.ln(...T.p(1, 0), ...T.p(T.len - 4.5, 0), M.fire[3], vein);
+      // 护膝：圆盔 + 三片向后掠的黄铜羽翼 + 前尖
+      for (let i = 0; i < 3; i++) pn.poly([[kx - 1, ky - 1.6 + i * 1.8], [kx - 7.4 - i * 1.6, ky - 3.6 + i * 2.6], [kx - 1, ky + 0.2 + i * 1.8]]).paint(M.brass, { bevel: 'l' });
+      pn.disc(kx + 0.4, ky, 3.4).poly([[kx + 2.4, ky - 1.6], [kx + 6.4, ky + 0.2], [kx + 2.4, ky + 1.8]]).paint(M.steel);
+      pn.dot(kx - 0.6, ky - 1.2, M.steel[3]); pn.disc(kx + 0.4, ky, 1).paint(M.fire, { outline: false, bevel: '' });
+    },
+    over(pn, L, ph, o) { TABARD.over(pn, L, ph, o); },
+  };
+
+  // ---------- 新画 5 · 锁甲骑士腿（T4 镀镍）：锁子甲 + 圆护膝 + 鸭嘴铁靴 ----------
+  // 15 世纪末马克西米利安式装束的反面：不是尖靴哥特甲，而是「锁子甲底 + 局部板甲」——大腿、小腿后侧是锁环（点阵），前面只有窄窄一条板甲，膝盖一颗大圆护膝，
+  // 脚是宽头圆嘴的「鸭嘴靴」（sabaton, 1500 年前后的样式）；胯上挂一片锁甲下摆（hauberk），下沿锯齿。
+  const mailFill = (pn, B, a0, a1, f0, f1, ramp) => {   // 骨骼坐标系里的锁环点阵
+    const st = pn.hi ? 1.5 : 2.4;
+    for (let a = a0, r = 0; a < a1; a += st, r++) for (let f = f0 + (r % 2) * st / 2; f < f1; f += st) pn.dot(...B.p(a, f), ramp);
+  };
+  const MAIL = {
+    hipY: 13, bob: 2,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7, 5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + 1 + g.x, L.gy - 4.7 - g.lift, 15.5, 15.5, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt);
+      L.T = T;
+      // 鸭嘴靴：宽头圆嘴，分节
+      const top = [[-4.5, -1.5], [-1, -3], [3, -2], [8, 0], [12.4, 2.2]];
+      pn.poly(F.pts([...top, [14.6, 3.2], [14.8, 4.7], [-4.5, 4.7]])).paint(M.steel);
+      for (const u of pn.hi ? [1, 4, 7.4, 10.8] : [2.5, 7, 11]) pn.ln(...F.p(u, yAt(top, u) + 0.6), ...F.p(u - 0.5, 4.3), M.steel[0]);
+      pn.poly(F.pts([[-4.5, 3.6], [14.8, 3.6], [14.8, 4.7], [-4.5, 4.7]])).paint(M.dark, { outline: false, bevel: '' });
+      // 小腿：锁甲底 + 前面一条窄护胫板
+      pn.poly(S.pts([[-1, -3.6], [-1, 3.2], [S.len + 0.5, 2.8], [S.len + 0.5, -2.8]])).paint(M.iron);
+      mailFill(pn, S, 1, S.len - 1, -2.6, 1.2, M.iron[3]);
+      pn.poly(S.pts([[-1, 1.2], [-1, 3.4], [S.len + 0.5, 3], [S.len + 0.5, 1.4]])).paint(M.steel);
+      // 大腿：锁甲底 + 前面一条窄板 + 后缘锁甲垂片
+      pn.poly(T.pts([[-2, -4.4], [-2, 5], [T.len - 3, 4.4], [T.len - 0.5, 1], [T.len - 2.5, -3.4]])).paint(M.iron);
+      mailFill(pn, T, 0, T.len - 3, -3.4, 2.2, M.iron[3]);
+      pn.poly(T.pts([[-2, 2.2], [-2, 5.2], [T.len - 3, 4.6], [T.len - 1.6, 2.4], [T.len - 3, 2]])).paint(M.steel);
+      pn.ln(...T.p(0, 3.6), ...T.p(T.len - 4, 3.2), M.steel[3]);
+      // 圆护膝：大圆盘 + 一圈黄铜铆钉 + 中心凸起
+      pn.disc(kx + 0.4, ky, 3.9).paint(M.steel);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; pn.dot(kx + 0.4 + Math.cos(a) * 3, ky + Math.sin(a) * 3, M.brass[2]); }
+      pn.disc(kx + 0.4, ky, 1.5).paint(M.brass, { bevel: 'l' });
+    },
+    // 锁甲下摆：挂在胯上，锯齿下沿，跟着大腿转一半
+    over(pn, L, ph, o) {
+      const M = L.M, F = frame(L.hx, L.hy - 4, (L.T.ang - Math.PI / 2) * 0.5), sw = o.mv ? Math.sin((o.a || 0) + ph - 0.9) * 1.2 : 0;
+      const hem = [[8 + sw, 11], [6.5 + sw, 9.2], [4.6 + sw, 11], [2.6 + sw, 9.2], [0.6 + sw, 11], [-1.4 + sw, 9.2], [-3.4 + sw, 11], [-5.4 + sw, 9.2], [-7 + sw, 10.6]];
+      pn.poly(F.pts([[-7, 0], [7, 0], ...hem])).paint(M.iron);
+      for (let v = 1.4, r = 0; v < 9.6; v += pn.hi ? 1.5 : 2.4, r++) for (let u = -6 + (r % 2) * 0.8 + sw * v / 11; u < 6.6 + sw * v / 11; u += pn.hi ? 1.6 : 2.4) pn.dot(...F.p(u, v), M.iron[3]);
+      pn.poly(F.pts([[-7, 0], [7, 0], [7.3, 1.6], [-7.3, 1.6]])).paint(M.brass, { outline: false, bevel: 'l' });
+    },
+  };
+
+  // ---------- 新画 · 晶枝腿（T6 以太合金）：枯死的树枝、岩石、宝石 ----------
+  // 大腿是一根扭曲的枯枝（树皮纹、断茬小枝），膝盖是一块棱角分明的岩石，小腿是更细的枯枝、背面长出一簇晶体，脚是一块扁平的岩板、趾尖嵌一根晶柱；
+  // 膝盖岩里嵌着发光的宝石（以太合金的能量语义，和熔心龙骑的炉膛同一语言）。枝干是曲线（在骨骼两侧摆动，两端收回轴线，关节位置不变）。
+  const rockPoly = (cx, cy, r, n, seed, sq = 1) => Array.from({ length: n }, (_, k) => { const a = k / n * TAU, j = 0.74 + 0.34 * Math.abs(Math.sin(seed + k * 2.3)); return [cx + Math.cos(a) * r * j, cy + Math.sin(a) * r * j * sq]; });
+  const gemAt = (pn, x, y, ang, len, w, M) => {   // 拉长的晶柱：平底、尖头，中轴一条发光线
+    const c = Math.cos(ang), s = Math.sin(ang), P = (u, v) => [x + u * c - v * s, y + u * s + v * c];
+    pn.poly([P(0, -w), P(len * 0.72, -w), P(len, 0), P(len * 0.72, w), P(0, w)]).paint(M.steel);
+    pn.ln(...P(0.6, 0), ...P(len * 0.8, 0), M.fire[3], pn.hi ? 2 : 1);
+  };
+  const branch = (pn, B, r0, r1, amp, ph, ramp, twigs) => {   // 沿骨骼画一根扭曲的枝：横向摆动 amp，两端回到轴线
+    const N = 9, pt = (i) => B.p(B.len * i / N, amp * Math.sin(i * 1.25 + ph) * Math.sin(Math.PI * i / N));
+    for (let i = 1; i <= N; i++) { const a = pt(i - 1), b = pt(i), r = r0 + (r1 - r0) * i / N; pn.cap(a[0], a[1], b[0], b[1], r); }
+    pn.paint(ramp, { bevel: 'l' });
+    if (pn.hi) for (let i = 1; i < N; i++) { const a = pt(i), r = r0 + (r1 - r0) * i / N; pn.ln(a[0] - r * 0.3, a[1] - r * 0.8, a[0] + r * 0.2, a[1] + r * 0.8, ramp[1]); }
+    for (const [t, f, l] of twigs || []) { const a = pt(N * t), e = B.p(B.len * t + l * 0.5, f); pn.cap(a[0], a[1], e[0], e[1], 0.6).paint(ramp, { bevel: 'l' }); }
+  };
+  const CRYSTAL = {
+    hipY: 14, bob: 3,
+    leg(pn, L, ph, o) {
+      const M = L.M, g = gait(o, ph, 7.5, 5.5);
+      const [kx, ky, ex, ey] = ik(L.hx, L.hy, L.hx + 1 + g.x, L.gy - 4.8 - g.lift, 14.5, 15, 1);
+      const T = bone(L.hx, L.hy, kx, ky), S = bone(kx, ky, ex, ey), F = frame(ex, ey, g.tilt);
+      // 脚：扁平岩板，前掌翘起，趾尖嵌一根晶柱
+      pn.poly(F.pts([[-7, 3.6], [-5.4, 0.8], [0.6, 1.4], [5.6, 0], [10.4, 2.6], [9.8, 4.8], [-6.6, 4.8]])).paint(M.steel);
+      pn.poly(F.pts([[-6.6, 3.8], [9.8, 3.8], [9.8, 4.8], [-6.6, 4.8]])).paint(M.dark, { outline: false, bevel: '' });
+      if (pn.hi) { pn.ln(...F.p(-2, 1.6), ...F.p(-0.6, 3.6), M.iron[1]); pn.ln(...F.p(4, 0.8), ...F.p(3, 3), M.iron[1]); }
+      { const q = F.p(7, 1.6); gemAt(pn, q[0], q[1], -1.2 + g.tilt, 5, 1.3, M); }
+      // 小腿：细枯枝 + 背面一簇晶体
+      const sb = S.p(S.len * 0.34, -1.4), back = Math.atan2(Math.cos(S.ang), -Math.sin(S.ang));
+      gemAt(pn, sb[0], sb[1], back - 0.55, 6, 1.4, M); gemAt(pn, sb[0], sb[1], back + 0.35, 8, 1.7, M); gemAt(pn, sb[0], sb[1], back - 0.05, 5, 1.2, M);
+      branch(pn, S, 2.6, 1.8, 1.0, 1.7, M.iron, [[0.62, 4.6, 3]]);
+      pn.disc(ex, ey, 2.2).paint(M.iron); pn.dot(ex - 0.7, ey - 0.7, M.iron[3]);
+      // 大腿：粗枯枝，断茬小枝
+      branch(pn, T, 3.8, 2.7, 1.4, 0.4, M.iron, [[0.35, -5.6, 3.5], [0.7, 5.4, 3]]);
+      // 膝：岩石 + 发光宝石
+      pn.poly(rockPoly(kx, ky, 5, 9, 0.7)).paint(M.steel);
+      if (pn.hi) { pn.ln(kx - 3, ky - 1, kx + 0.5, ky + 1.6, M.iron[1]); pn.ln(kx + 0.5, ky + 1.6, kx + 3.4, ky - 0.4, M.iron[1]); }
+      pn.poly([[kx - 1.8, ky - 0.4], [kx + 0.4, ky - 2.4], [kx + 2.4, ky - 0.4], [kx + 0.4, ky + 2.2]]).paint([M.fire[0], M.fire[1], M.fire[2], M.fire[3]], { bevel: 'l' });
+      // 胯：小岩块
+      pn.poly(rockPoly(L.hx, L.hy, 3.9, 8, 2.1)).paint(M.steel); pn.disc(L.hx, L.hy, 1.2).paint(M.fire, { outline: false, bevel: '' });
+    },
+  };
+
+  DESIGNS.push(
+    { id: 'steamman', q: -1, name: '蒸汽人', sub: '汽缸腿 · 圆头靴', d: STEAMMAN, note: '' },
+    { id: 'bellows', q: -1, name: '风箱腿', sub: '风箱膝 · 铸造锥腿 · 圆盘脚', d: BELLOWS, note: '' },
+    { id: 'panto', q: -1, name: '缩放仪平行腿', sub: '平行四连杆 · 脚板水平', d: PANTO, note: '' },
+    { id: 'crystal', q: -1, name: '晶枝腿', sub: '枯枝 · 岩石 · 宝石', d: CRYSTAL, note: '' },
+    { id: 'templar', q: -1, name: '圣堂骑士腿', sub: '羽翼护膝 · 能量脉 · 罩袍', d: TEMPLAR, note: '' },
+    { id: 'mail', q: -1, name: '锁甲骑士腿', sub: '锁甲 · 圆护膝 · 鸭嘴靴', d: MAIL, note: '' });
+
+
   // ---------- 一格底盘 ----------
   // L = 一条腿的挂点；hx 可覆盖（整段巨腿模式下腿不在格子里的固定位置）
   const legAt = (D, far, x, y, o, hx) => ({
@@ -801,7 +1029,7 @@ SA.LEGLAB = (() => {
 
   // 胯：腰部回转环（刻痕随步伐转）+ 倒梯形胯体 + 陀螺仪窗；左右腰挂位有模块时，胯体伸出同材质的法兰板压住，一颗大铆钉固定。
   // (cx, Y) = 胯列中心、胯顶。o：{ legId（决定胯的材质）, wL, wR, phase, t（陀螺转动）, tilt（陀螺偏向，平衡系统用）, wob（晃动幅度） }
-  const PELVIS_MAT = { knight: 'steel', tabard: 'steel', skirt: 'steel', clock: 'brass', dragon: 'fire' };
+  const PELVIS_MAT = { knight: 'steel', tabard: 'steel', templar: 'steel', mail: 'steel', skirt: 'steel', clock: 'brass', dragon: 'fire' };
   function ellipse(pn, cx, cy, rx, ry, tilt, front, back) {
     const n = 36, c = Math.cos(tilt), s = Math.sin(tilt);
     for (let k = 0; k < n; k++) {
@@ -809,7 +1037,164 @@ SA.LEGLAB = (() => {
       pn.dot(cx + x * c - y * s, cy + x * s + y * c, Math.sin(a) > 0 ? front : back);
     }
   }
-  function pelvis(pn, cx, Y, o = {}) {
+  // ---------- 腰胯（真双足上两行的躯干）7 种新设计 + 现役对照 ----------
+  // 每一种都画在同一块 48 宽的区域里（cx = 胯列中心，Y = 胯顶）：顶上 34 宽的黄铜环和上面的模块接（高 6），底下 Y+31 附近是腿的挂点（近侧 cx-2、远侧 cx+6），
+  // 所以每一种胯的下沿都留出安装两只腿的位置；机构都是真的：连杆、曲柄、齿轮、滚珠按几何和步态角画，不是贴图。
+  const hipRamp = (legId) => { const m = PELVIS_MAT[legId]; return m === 'steel' ? NEAR.steel : m === 'brass' ? NEAR.brass : NEAR.iron; };
+  const ell = (pn, cx, cy, rx, ry, tilt, front, back) => {
+    const n = 36, c = Math.cos(tilt), s = Math.sin(tilt);
+    for (let k = 0; k < n; k++) { const a = k / n * TAU, x = Math.cos(a) * rx, y = Math.sin(a) * ry; pn.dot(cx + x * c - y * s, cy + x * s + y * c, Math.sin(a) > 0 ? front : back); }
+  };
+  const topRing = (pn, cx, Y, o) => {   // 和上面模块相接的黄铜环（刻痕随步伐转）
+    pn.rect(cx - 17, Y - 1, 34, 6).paint(NEAR.brass);
+    const sp = Math.floor((o.phase || 0) / 3);
+    for (let k = 0; k < 6; k++) pn.fill(cx - 16 + ((k * 6 + sp) % 32 + 32) % 32, Y + 1, 1, 3, P.brass[0]);
+  };
+  const neck = (pn, cx, Y) => pn.poly([[cx - 9, Y + 30], [cx + 9, Y + 30], [cx + 5, Y + 36], [cx - 5, Y + 36]]).paint(NEAR.dark);
+  const trap = (pn, cx, Y, R, w0 = 20, w1 = 13, y0 = 5, y1 = 31) => pn.poly([[cx - w0, Y + y0], [cx + w0, Y + y0], [cx + w1, Y + y1], [cx - w1, Y + y1]]).paint(R);
+  const drive = (o) => (o.mv ? (o.a || 0) * 1.5 : (o.t || 0) * 1.4);   // 机构的转角：走起来跟步态角，站着时慢慢空转
+
+  // 注意：腿的胯关节盘（半径约 7～10 像素）压在 Y+22 以下的中间位置，所以机构都放在上面的 Y+5 ～ Y+22 这条带子里（左右两侧也可以用）。
+  const HIPS = [
+    { id: 'gyro', name: '现役 · 陀螺仪', sub: '对照：回转环 + 倒梯形 + 陀螺窗', draw: (pn, cx, Y, o) => pelvisGyro(pn, cx, Y, o) },
+
+    // H1 万向陀螺：三层万向环（外环固定、中环绕竖轴转、内环绕横轴转），中心一颗飞轮转子——真陀螺仪的结构
+    { id: 'gimbal', name: '万向陀螺', sub: '三层万向环，中环 / 内环各绕一根轴转', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId);
+      topRing(pn, cx, Y, o); trap(pn, cx, Y, R); neck(pn, cx, Y);
+      rivet(pn, cx - 18, Y + 7); rivet(pn, cx + 15, Y + 7);
+      const gy = Y + 14, t = o.t || 0, tilt = (o.wob == null ? 0.04 : o.wob) * Math.sin(t * 9) + (o.tilt || 0);
+      pn.disc(cx, gy, 9.6).paint(NEAR.dark, { bevel: 's' });
+      ell(pn, cx, gy, 8.8, 8.8, 0, P.brass[3], P.brass[1]); ell(pn, cx, gy, 8, 8, 0, P.brass[2], P.brass[1]);   // 外环（固定，正对着我们）
+      pn.fill(cx - 0.5, gy - 9.6, 1, 2, P.brass[2]); pn.fill(cx - 0.5, gy + 7.8, 1, 2, P.brass[2]);           // 外环 / 中环的竖轴销
+      const s1 = t * 5, rx = 0.8 + 6.4 * Math.abs(Math.cos(s1));
+      ell(pn, cx, gy, rx, 6.6, tilt, P.brass[3], P.brass[1]); ell(pn, cx, gy, Math.max(0.5, rx - 1), 6.6, tilt, P.brass[2], P.brass[0]);   // 中环：绕竖轴
+      const s2 = t * 8, ry = 0.8 + 3.8 * Math.abs(Math.cos(s2));
+      ell(pn, cx, gy, 4, ry, tilt, P.brass[3], P.brass[1]);                                                     // 内环：绕横轴
+      pn.disc(cx, gy, 2).paint(NEAR.brass, { bevel: 'l' }); pn.dot(cx - 0.8, gy - 0.8, P.brass[3]);
+    } },
+
+    // H2 球窝髋：一颗大黄铜球关节嵌在带压盖螺栓的钢承窝里；球上有经线纬线，随步态转
+    { id: 'ball', name: '球窝髋', sub: '黄铜球关节 + 钢承窝 + 压盖螺栓', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId);
+      topRing(pn, cx, Y, o); trap(pn, cx, Y, R, 20, 15, 5, 31); neck(pn, cx, Y);
+      const bx = cx + 1, by = Y + 14.5, rot = drive(o) * 0.5;
+      pn.disc(bx, by, 10.4).paint(NEAR.steel, { bevel: 's' });                                                    // 承窝（钢）
+      pn.disc(bx, by, 8.6).paint(NEAR.dark, { outline: false, bevel: 's' });
+      pn.disc(bx, by, 8).paint(NEAR.brass);                                                                       // 球
+      ell(pn, bx, by, Math.max(0.6, 7.8 * Math.abs(Math.sin(rot))), 7.8, 0, P.brass[0], P.brass[1]);                // 经线
+      ell(pn, bx, by, 7.8, 2.2 + Math.sin(rot * 0.7) * 1.1, 0, P.brass[0], P.brass[1]);                             // 纬线
+      pn.dot(bx - 3, by - 3.6, P.brass[3]); pn.dot(bx - 2, by - 4.2, P.brass[3]);
+      for (let k = 0; k < 8; k++) { const a = k / 8 * TAU + 0.2; if (Math.sin(a) > 0.55) continue; rivet(pn, bx + Math.cos(a) * 9.6 - 1, by + Math.sin(a) * 9.6 - 1); }   // 压盖螺栓
+    } },
+
+    // H3 蒸汽缸曲柄：左右各一只蒸汽缸，活塞杆经十字头、连杆推曲柄盘（两缸曲柄错 90°，就是蒸汽机车的传动）
+    { id: 'cyl', name: '蒸汽缸曲柄', sub: '双缸 · 十字头 · 连杆 · 曲柄盘', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId), th = drive(o) * 1.3, cyy = Y + 13.5, rc = 2.6, Lr = 11;
+      topRing(pn, cx, Y, o);
+      trap(pn, cx, Y, R, 15, 12.5, 5, 31); neck(pn, cx, Y);
+      for (const [side, ph2] of [[-1, 0], [1, Math.PI / 2]]) {
+        const a = th + ph2, px = cx + Math.cos(a) * rc, py = cyy + Math.sin(a) * rc;
+        const xh = px + side * Math.sqrt(Lr * Lr - (py - cyy) ** 2);            // 十字头在缸轴上的位置
+        pn.rect(cx + side * 10 - (side > 0 ? 0 : 11), cyy - 5, 11, 10).paint(NEAR.iron);   // 缸体
+        pn.rect(cx + side * 21 - (side > 0 ? 0 : 3), cyy - 6, 3, 12).paint(NEAR.brass);    // 缸盖
+        pn.rect(cx + side * 10 - (side > 0 ? 0 : 2), cyy - 3, 2, 6).paint(NEAR.dark, { outline: false, bevel: '' });
+        pn.cap(cx + side * 10, cyy, xh, cyy, 0.8).paint(NEAR.steam, { bevel: 'l' });   // 活塞杆
+        pn.rect(xh - 1.4, cyy - 1.8, 2.8, 3.6).paint(NEAR.brass);                       // 十字头
+        pn.cap(xh, cyy, px, py, 0.7).paint(NEAR.steel, { bevel: 'l' });                 // 连杆
+      }
+      pn.disc(cx, cyy, 4.6).paint(NEAR.brass); pn.disc(cx, cyy, 1.4).paint(NEAR.dark, { outline: false, bevel: '' });
+      for (const ph2 of [0, Math.PI / 2]) { const a = th + ph2; pn.disc(cx + Math.cos(a) * rc, cyy + Math.sin(a) * rc, 0.9).paint(NEAR.steel, { bevel: 'l' }); }
+    } },
+
+    // H4 差速齿轮：胯体开一扇窗，露出咬合的齿轮组（转速比 = 齿数比反过来）
+    { id: 'diff', name: '差速齿轮', sub: '开窗露出咬合的齿轮组', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId), th = drive(o);
+      topRing(pn, cx, Y, o); trap(pn, cx, Y, R); neck(pn, cx, Y);
+      pn.rect(cx - 17, Y + 6, 34, 16).paint(NEAR.dark, { bevel: 's' });
+      const nA = 12, nB = 11, rA = 6.4, rB = 5.8, ay = Y + 14;
+      const ax = cx - 8, bx = ax + rA + rB + 0.2;
+      gear(pn, ax, ay, rA, nA, th, NEAR.brass, NEAR.iron);
+      gear(pn, bx, ay, rB, nB, -th * nA / nB + Math.PI / nB, NEAR.steel, NEAR.iron);
+      gear(pn, bx + 6.1, ay - 5.1, 2.2, 5, th * nB / 5 + 0.5, NEAR.brass, NEAR.iron);
+      pn.fill(cx - 17, Y + 6, 34, 1, P.brass[2]); pn.fill(cx - 17, Y + 21, 34, 1, P.brass[1]);
+    } },
+
+    // H5 飞轮 + 瓦特调速器：飞轮经皮带带动竖轴，两只飞球随转速甩开（飞球高度 = 连杆几何：套筒 y = 2·l·cosφ）
+    { id: 'governor', name: '飞轮调速器', sub: '飞轮 + 皮带 + 瓦特飞球', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId), th = drive(o), fast = o.mv ? 1 : 0;
+      topRing(pn, cx, Y, o); trap(pn, cx, Y, R, 20, 14, 5, 31); neck(pn, cx, Y);
+      const gx = cx + 13, top = Y + 7, base = Y + 21, phi = 0.5 + fast * 0.4 + Math.sin((o.t || 0) * 3) * 0.04, la = 7, lk = 4.2;
+      const fx = cx - 12, fy = Y + 14;
+      pn.ln(fx + 1, fy + 7.4, gx - 2, base + 1, P.dark[0]); pn.ln(fx + 2, fy + 8.2, gx - 1.6, base + 2, P.dark[0]);      // 皮带
+      pn.disc(fx, fy, 8).paint(NEAR.dark, { bevel: 's' });
+      pn.disc(fx, fy, 6.8).paint(NEAR.brass);
+      pn.disc(fx, fy, 4.6).paint(NEAR.dark, { outline: false, bevel: 's' });
+      for (let k = 0; k < 6; k++) { const a = th * 1.4 + k / 6 * TAU; pn.cap(fx, fy, fx + Math.cos(a) * 5.6, fy + Math.sin(a) * 5.6, 0.55); }
+      pn.paint(NEAR.brass, { outline: false, bevel: '' });
+      pn.disc(fx, fy, 1.5).paint(NEAR.steel, { bevel: 'l' });
+      pn.cap(gx, top, gx, base, 0.9).paint(NEAR.steel, { bevel: 'l' });
+      const sy = top + 2 * lk * Math.cos(phi);
+      for (const s of [-1, 1]) {
+        const bxx = gx + s * la * Math.sin(phi), byy = top + la * Math.cos(phi), ax = gx + s * lk * Math.sin(phi), ay = top + lk * Math.cos(phi);
+        pn.cap(gx, top, bxx, byy, 0.55).cap(ax, ay, gx, sy, 0.5).paint(NEAR.brass, { bevel: 'l' });
+        pn.disc(bxx, byy, 1.9).paint(NEAR.iron, { bevel: 'l' });
+      }
+      pn.disc(gx, top, 1.1).paint(NEAR.brass, { bevel: 'l' }); pn.rect(gx - 1.7, sy - 0.6, 3.4, 1.8).paint(NEAR.brass);
+      pn.disc(gx, base - 0.5, 2).paint(NEAR.iron, { bevel: 'l' });
+    } },
+
+    // H6 马车板簧悬挂：胯体是一块「车厢」，用吊环挂在一副多层叠板簧（弓形）两端，腿挂在簧中央——维多利亚马车的悬挂
+    { id: 'spring', name: '板簧悬挂', sub: '车厢挂在多层叠板簧上，腿挂在簧中央', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId), t = o.t || 0, flex = o.mv ? 1 * Math.sin((o.a || 0) * 2) : 0.5 * Math.sin(t * 3);
+      topRing(pn, cx, Y, o);
+      pn.poly([[cx - 20, Y + 5], [cx + 20, Y + 5], [cx + 18, Y + 15], [cx - 18, Y + 15]]).paint(R);      // 车厢
+      rivet(pn, cx - 17, Y + 7); rivet(pn, cx + 14, Y + 7);
+      pn.disc(cx, Y + 10, 3.8).paint(NEAR.dark, { bevel: 's' }); ell(pn, cx, Y + 10, 3, 3, 0, P.brass[2], P.brass[1]);
+      const ang = t * 7; pn.ln(cx - Math.cos(ang) * 2.6, Y + 10 - Math.sin(ang) * 2.6, cx + Math.cos(ang) * 2.6, Y + 10 + Math.sin(ang) * 2.6, P.brass[3]);
+      // 板簧：弓形（两端上翘挂在车厢下，中央最低压着腿）。最长一片在最外（最下）
+      const sag = 9 + flex, yEnd = Y + 19;
+      for (let k = 0; k < 5; k++) {
+        const w = 23 - k * 3.8, off = -k * 1.5;
+        for (let i = 0; i < 16; i++) {
+          const u0 = -w + 2 * w * i / 16, u1 = -w + 2 * w * (i + 1) / 16;
+          const yf = (u) => yEnd + off + sag * (1 - Math.min(1, (u / 23) ** 2));
+          pn.cap(cx + u0, yf(u0), cx + u1, yf(u1), 0.8);
+        }
+        pn.paint(k === 0 ? NEAR.iron : NEAR.steel, { bevel: 'l' });
+      }
+      for (const s of [-1, 1]) {   // 吊环：车厢下角 → 簧端环眼
+        pn.cap(cx + s * 17.5, Y + 15, cx + s * 22.6, yEnd - 0.4, 0.9).paint(NEAR.brass, { bevel: 'l' });
+        pn.disc(cx + s * 22.6, yEnd, 1.5).paint(NEAR.brass, { bevel: 'l' });
+      }
+      pn.rect(cx - 5, Y + 21, 10, 7).paint(NEAR.brass); rivet(pn, cx - 4, Y + 22); rivet(pn, cx + 1, Y + 22);   // 中央夹块（U 形螺栓）
+      pn.poly([[cx - 9, Y + 28], [cx + 9, Y + 28], [cx + 6, Y + 36], [cx - 6, Y + 36]]).paint(NEAR.dark);
+    } },
+
+    // H7 回转环滚珠座圈：上面一块转台，下面一圈滚珠座圈（前半圈的滚珠随步态滚过），底下是固定的下座——坦克炮塔座圈的思路
+    { id: 'race', name: '滚珠座圈', sub: '炮塔式座圈 + 一圈滚珠 + 驱动小齿轮', draw(pn, cx, Y, o) {
+      const R = hipRamp(o.legId), th = drive(o) * 0.9;
+      topRing(pn, cx, Y, o);
+      pn.poly([[cx - 20, Y + 5], [cx + 20, Y + 5], [cx + 21, Y + 11], [cx - 21, Y + 11]]).paint(R);      // 转台
+      rivet(pn, cx - 18, Y + 6); rivet(pn, cx + 15, Y + 6);
+      pn.rect(cx - 21, Y + 11, 42, 9).paint(NEAR.dark, { bevel: 's' });                                        // 座圈槽
+      pn.fill(cx - 21, Y + 11, 42, 1, P.brass[2]); pn.fill(cx - 21, Y + 19, 42, 1, P.brass[1]);
+      const nb = 9;
+      for (let k = 0; k < nb; k++) {                                                                       // 滚珠：绕座圈中心转，只画在前半圈
+        const a = th + k / nb * TAU, s = Math.sin(a);
+        if (s < -0.05) continue;
+        pn.disc(cx + Math.cos(a) * 18, Y + 15.4 + s * 1.2, 2).paint([P.iron[0], P.iron[3], P.iron[4], '#e6eaf0'], { bevel: 'l' });
+      }
+      pn.poly([[cx - 19, Y + 20], [cx + 19, Y + 20], [cx + 13, Y + 31], [cx - 13, Y + 31]]).paint(R);      // 下座
+      neck(pn, cx, Y);
+      gear(pn, cx + 19, Y + 24, 3.4, 8, -th * 2, NEAR.brass, NEAR.iron);                                    // 驱动转台的小齿轮（在下座外侧）
+    } },
+  ];
+
+  // 每种腿配哪种腰胯（用户 2026-09-29 定）：T1 差速齿轮 · T2 蒸汽缸 · T3 飞轮调速器 · T4 蒸汽圣骑球窝髋（锁甲 / 缩放仪板簧悬挂） · T5 现役陀螺仪 · T6 万向陀螺；球窝髋给圣堂系列，滚珠座圈给裙甲堡
+  const HIP_OF = { mk2: 'diff', wheel: 'cyl', heron: 'cyl', stilt: 'cyl', gren: 'governor', blade: 'governor', skirt: 'race', knight: 'ball', tabard: 'ball', templar: 'ball', mail: 'spring', panto: 'spring', clock: 'gyro', steamman: 'gyro', bellows: 'gyro', dragon: 'gimbal', crystal: 'gimbal' };
+
+  function pelvisGyro(pn, cx, Y, o = {}) {
     const mat = PELVIS_MAT[o.legId] || 'iron';
     const R = mat === 'steel' ? NEAR.steel : mat === 'brass' ? NEAR.brass : NEAR.iron;
     for (const side of [-1, 1]) if (side < 0 ? o.wL : o.wR) {
@@ -832,6 +1217,18 @@ SA.LEGLAB = (() => {
     pn.disc(cx, gy, 1.6).paint(mat === 'fire' ? NEAR.fire : NEAR.brass, { outline: false });
   }
 
+  // 胯的入口：o.hip（HIPS 的 id）优先，没有就按腿型查 HIP_OF；'gyro' 是原来的回转环 + 陀螺窗。左右腰挂位有模块时先在后面伸出法兰板
+  function pelvis(pn, cx, Y, o = {}) {
+    const id = o.hip || HIP_OF[o.legId] || 'gyro', H = HIPS.find(h => h.id === id);
+    if (!H || id === 'gyro') return pelvisGyro(pn, cx, Y, o);
+    const mat = PELVIS_MAT[o.legId], R = mat === 'steel' ? NEAR.steel : mat === 'brass' ? NEAR.brass : NEAR.iron;
+    for (const side of [-1, 1]) if (side < 0 ? o.wL : o.wR) {
+      pn.poly([[cx + side * 17, Y + 7], [cx + side * 30, Y + 9], [cx + side * 30, Y + 23], [cx + side * 15, Y + 26]]).paint(R);
+      pn.disc(cx + side * 25, Y + 16, 2.4).paint(NEAR.brass);
+    }
+    H.draw(pn, cx, Y, o);
+  }
+
   // 真双足 · 2×4（48×96）：上两行是胯，下两行是一对长腿。腿型沿用 DESIGNS 的六档，以胯为支点放大到地面（胯关节到地面 67px，约 2 倍），
   // 仍是原生像素；步幅按放大倍数折算，脚踩实地不打滑。远侧腿压暗、往右 8px 上 3px，画在躯干后面。
   // o：{ mv, a, stride（步幅，世界像素）, bd（起伏，见 bipedBob）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
@@ -852,7 +1249,7 @@ SA.LEGLAB = (() => {
     if (!part || part === 'far') leg(true);
     if (part === 'far') return;
     if (part !== 'legs') {
-      pelvis(pn, cx, y + bd, { legId: e.id, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
+      pelvis(pn, cx, y + bd, { legId: e.id, hip: o.hip, mv: o.mv, a: o.a, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
       if (D.mid) { const top = y + bd + 30, back = pn.around(k * 0.8, cx + 2, top); D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, lo); back(); }
     }
     if (part !== 'shell') leg(false);
@@ -884,5 +1281,5 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
+  return { Pen, DESIGNS, HIPS, HIP_OF, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
 })();

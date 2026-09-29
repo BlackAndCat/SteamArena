@@ -181,8 +181,10 @@ SA.SPR = (() => {
       }
   }
   // 腿式底盘：腿用 js/legs.js 的光栅器画（形状先写进遮罩，再按描边 / 暗面 / 固有色 / 亮面四阶上色，光源左上）。
-  // 外观阶段 1~3 → 腿型：双足取 legs.js 的 DESIGNS（真双足 bipedArt），四足取 QUADS（T3 / T5 用哪一档待定，先都用 T1）
-  const BIPED_LOOK = ['mk2', 'mk2', 'mk2'];
+  // 外观阶段 → 腿型：双足取 legs.js 的 DESIGNS（真双足 bipedArt），四足取 QUADS（T3 / T5 用哪一档待定，先都用 T1）
+  // 双足六档（外观阶段 = 材料 1~6）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑；每档配的腰胯见 legs.js 的 HIP_OF。
+  // 唯一变体（高跷 / 板簧跑刃 / 裙甲堡 / 锁甲骑士 / 缩放仪 / 蒸汽人 / 风箱腿 / 圣堂骑士腿 / 晶枝腿）已在 legs.js 的 DESIGNS 里，等 astra 定获得方式再接
+  const BIPED_LOOK = ['mk2', 'heron', 'gren', 'knight', 'clock', 'dragon'];
   const QUAD_LOOK = ['crawl', 'crawl', 'crawl'];   // legs.js 的 QUADS：伏地蛛；高脚蛛给 T3 / T5 还是留给别的用途，待定
   const pens = new Map();
   function penFor(cv) {
