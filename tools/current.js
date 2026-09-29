@@ -648,7 +648,7 @@ SA.QLAB = (() => {
       ['nautilus', 'C 鹦鹉螺潜艇', '雪茄形铆接艇身、艇首大圆观察窗、锯齿龙骨、艇尾螺旋桨（凡尔纳，1870）']],
     6: [['gothic', 'A 哥特教堂', '石砌立面 + 扶壁柱顶金十字，尖拱彩窗（以太光流过），正中门楼：玫瑰窗 + 尖拱木门，下沿倒挂尖拱花边（主线另配两面胯位燕尾旗）'],
       ['bigben', 'B 大本钟', '威斯敏斯特钟楼式厚重石砌车体：垂直式哥特窗格、镀金檐带，正中大钟面（指针在走），下沿一排粗挑檐托石'],
-      ['furnace', 'C 熔炉龙鳞', '三排交叠鳞甲裙板（盖住胯部），鳞缝透出炉火，最下一排鳞尖带黄铜尖；裙板后面是肋骨炉膛', 'scales']],
+      ['furnace', 'C 熔炉龙鳞', '肋骨炉膛车体 + 大块鳞甲裙板（这里用 B 巨鳞，七种见「熔炉龙骑 · 鳞甲裙板」）', 'giant']],
   };
 
   // 车体的附加层：BACK 画在车体后面（露出车体下沿的部分），FRONT 画在近侧腿前面
@@ -685,22 +685,6 @@ SA.QLAB = (() => {
     },
   };
   const FRONT = {
-    // 熔炉龙骑：三排交叠的鳞甲裙板从车体中部垂下，罩住胯（腿根）和大腿上部；鳞片之间的缝透出里面的炉火（随呼吸明灭，偶尔闪火星），
-    // 每片鳞有亮边、暗边、中脊和一颗铆钉；最下一排鳞尖朝下、带黄铜尖（保留尖刺剪影）
-    scales(pn, x, y, o) {
-      const t = o.t || 0, hot = Math.sin(t * 2.6) > 0, seam = hot ? P.fire[2] : P.fire[1], X0 = x + 2, X1 = x + 94;
-      // 最下一排尖刺先画（被鳞片压住根部）
-      for (let u = 5.5; u < 92; u += 7) { pn.poly([[x + u - 1.8, y + 21.5], [x + u + 1.8, y + 21.5], [x + u, y + 27.5]]).paint([seam, P.iron[1], P.iron[2], P.iron[3]], { clip: [X0, X1] }); pn.dot(x + u - 0.5, y + 26, P.brass[3]); }
-      // 鱼鳞：四排圆鳞，上下错开半片，下排压住上排；轮廓线是透出来的炉火
-      const rows = [[6, 0], [10.2, 3.5], [14.4, 0], [18.6, 3.5]];
-      for (const [row, off] of rows) for (let u = 2 + off; u < 97; u += 7) {
-        const cx = x + u, cy = y + row;
-        pn.disc(cx, cy, 4).paint([seam, P.iron[1], P.iron[2], P.iron[3]], { clip: [X0, X1] });
-        if (cx > X0 + 1 && cx < X1 - 1) { pn.ln(cx, cy - 2, cx, cy + 2.4, P.iron[3]); pn.dot(cx - 1.5, cy - 1.5, P.iron[4]); }
-      }
-      for (let u = 5; u < 94; u += 7) if (Math.sin(t * 5 + u * 1.7) > 0.8) pn.dot(x + u + 3, y + 12 + (u % 3) * 3, P.fire[3]);   // 鳞缝里闪的火星
-      pn.fill(X0, y + 2, 92, 1, P.iron[0]);
-    },
     sideskirt(pn, x, y, o) {   // 步行履带：一战坦克式侧裙板，六块铆接钢板从车体中部垂到 y+28，把胯（腿根）和大腿上部整个罩住，每块一个排泥孔
       for (let i = 0; i < 6; i++) {
         const a = x + 3 + i * 15, b = a + 15;
@@ -741,6 +725,116 @@ SA.QLAB = (() => {
     },
   };
 
+  // ---------- 熔炉龙骑的鳞甲裙板：7 种方案（v7：v6 的细密小鳞让人密恐，全部改成大块）----------
+  // 都盖住胯（腿根，y+10）和大腿上部，范围 x+2～x+94、y+4～y+28；甲板的描边用炉火色 = 缝里透出来的火光（随呼吸明灭）
+  const fireOf = (o) => { const t = o.t || 0, hot = Math.sin(t * 2.6) > 0; return { t, seam: hot ? P.fire[2] : P.fire[1], core: hot ? P.fire[3] : P.fire[2] }; };
+  const plate = (seam) => [seam, P.iron[1], P.iron[2], P.iron[3]];
+  const shrink = (pts, d) => { const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length; return pts.map(([px, py]) => { const l = Math.hypot(px - cx, py - cy) || 1; return [px - (px - cx) / l * d, py - (py - cy) / l * d]; }); };
+  const SKIRTS = {
+    // A 叠瓦大甲：三条横向宽甲带，上压下；每条下沿是六个大圆瓣（一瓣 15px），瓣中一道脊、瓣根一颗铆钉
+    tiles(pn, x, y, o) {
+      const { seam } = fireOf(o);
+      [[4, 12], [10, 19], [17, 27]].map((b, i) => [b, i]).reverse().forEach(([[t0, b0], bi]) => {
+        const off = bi % 2 ? 7.7 : 0, w = 15.3, pts = [[x + 2, y + t0], [x + 94, y + t0]];
+        for (let px = 94; px >= 2; px -= 1) { const f = (((px - 2 + off) / w) % 1 + 1) % 1; pts.push([x + px, y + b0 - 3.4 + 3.4 * Math.sin(Math.PI * f)]); }
+        pn.poly(pts).paint(plate(seam));
+        for (let k = -1; k < 7; k++) { const cx = x + 2 - off + w * (k + 0.5); if (cx < x + 4 || cx > x + 92) continue; pn.ln(cx, y + t0 + 2, cx, y + b0 - 1, P.iron[3]); pn.dot(cx, y + t0 + 1, P.brass[3]); }
+      });
+    },
+    // B 巨鳞：一排六片大盾形鳞（15px 宽、从 y+4 垂到 y+26 的尖），后面错开一排五片只露出鳞尖；每片一道中脊 + 两道侧槽 + 顶上一颗铆钉
+    giant(pn, x, y, o) {
+      const { seam } = fireOf(o), sc = (cx, top, tip, hw, back) => {
+        const pts = [[cx - hw, top], [cx + hw, top], [cx + hw, tip - 10], [cx + hw * 0.45, tip - 3.5], [cx, tip], [cx - hw * 0.45, tip - 3.5], [cx - hw, tip - 10]];
+        pn.poly(pts).paint(back ? [seam, P.iron[0], P.iron[1], P.iron[2]] : plate(seam), { clip: [x + 2, x + 94] });
+        if (back || cx < x + 5 || cx > x + 91) return;
+        pn.ln(cx, top + 2, cx, tip - 2, P.iron[3]); pn.ln(cx - hw * 0.5, top + 3, cx - hw * 0.3, tip - 8, P.iron[1]); pn.ln(cx + hw * 0.5, top + 3, cx + hw * 0.3, tip - 8, P.iron[1]);
+        pn.dot(cx, top + 1.5, P.brass[3]);
+      };
+      for (let k = 0; k < 5; k++) sc(x + 2 + 15.3 * (k + 1), y + 8, y + 29, 7, true);
+      for (let k = 0; k < 6; k++) sc(x + 2 + 15.3 * (k + 0.5), y + 4, y + 26, 7.4, false);
+    },
+    // C 鳄背脊板：两排竖向大甲板（11px 宽），每块一道隆起的龙骨脊（亮线 + 阴影），下排错开半块、下沿一枚短尖
+    scutes(pn, x, y, o) {
+      const { seam } = fireOf(o);
+      for (const [t0, b0, off, last] of [[13, 25, 5.75, 1], [4, 15, 0, 0]]) for (let u = 2 - off; u < 94; u += 11.5) {
+        const a = x + u, b = x + u + 11.5, cx = (a + b) / 2;
+        const pts = last ? [[a + 0.5, y + t0], [b - 0.5, y + t0], [b - 0.5, y + b0 - 2], [cx, y + b0 + 2.5], [a + 0.5, y + b0 - 2]] : [[a + 1.5, y + t0], [b - 1.5, y + t0], [b - 0.5, y + t0 + 1.5], [b - 0.5, y + b0 - 1], [a + 0.5, y + b0 - 1], [a + 0.5, y + t0 + 1.5]];
+        pn.poly(pts).paint(plate(seam), { clip: [x + 2, x + 94] });
+        if (cx < x + 4 || cx > x + 92) continue;
+        pn.ln(cx, y + t0 + 1.5, cx, y + b0 - 1.5, P.iron[4]); pn.ln(cx + 1, y + t0 + 2, cx + 1, y + b0 - 1.5, P.iron[1]);
+      }
+    },
+    // D 熔岩裂甲：七八块不规则的黑曜岩甲板，板与板之间是 1～2px 的熔岩裂缝（亮心随呼吸变亮），下沿参差
+    lava(pn, x, y, o) {
+      const { core, t } = fireOf(o);
+      const xs = [2, 15, 29, 43, 57, 71, 84, 94], r1 = [13, 16, 12, 15, 13, 16, 12, 14], r2 = [26, 28, 25, 28, 26, 27, 25, 27];
+      const top = xs.map((u) => [x + u, y + 4]), mid = xs.map((u, i) => [x + u + (i % 2 ? 2 : -2) * (i > 0 && i < 7 ? 1 : 0), y + r1[i]]), bot = xs.map((u, i) => [x + u + (i % 2 ? -1.5 : 1.5) * (i > 0 && i < 7 ? 1 : 0), y + r2[i]]);
+      pn.poly(top.concat(bot.slice().reverse())).paint([P.fire[0], P.fire[1], core, core], { bevel: '' });
+      for (const [R0, R1] of [[top, mid], [mid, bot]]) for (let i = 0; i < 7; i++) {
+        if ((i + (R0 === top ? 0 : 1)) % 3 === 2) { pn.poly(shrink([R0[i], R0[i + 1], R1[i + 1]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false }); pn.poly(shrink([R0[i], R1[i + 1], R1[i]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false }); }
+        else pn.poly(shrink([R0[i], R0[i + 1], R1[i + 1], R1[i]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false });
+      }
+      for (let k = 0; k < 6; k++) if (Math.sin(t * 4 + k * 2.1) > 0.6) pn.dot(x + 8 + k * 15, y + 14 + (k % 2) * 2, P.fire[3]);
+    },
+    // E 后掠刃鳞：七片长长的弯刃甲从上沿往后下方掠（像收拢的羽 / 镰刀），后一片压前一片，刃间透火
+    blades(pn, x, y, o) {
+      const { seam } = fireOf(o);
+      for (let k = 0; k < 7; k++) {
+        const ax = x + 12 + k * 13.2, a = [ax, y + 4.5], cc = [ax + 1, y + 17], tip = [ax - 11, y + 27], pts = [], back = [];
+        for (let i = 0; i <= 8; i++) {
+          const u = i / 8, px = (1 - u) ** 2 * a[0] + 2 * u * (1 - u) * cc[0] + u * u * tip[0], py = (1 - u) ** 2 * a[1] + 2 * u * (1 - u) * cc[1] + u * u * tip[1];
+          const dx = 2 * (1 - u) * (cc[0] - a[0]) + 2 * u * (tip[0] - cc[0]), dy = 2 * (1 - u) * (cc[1] - a[1]) + 2 * u * (tip[1] - cc[1]), l = Math.hypot(dx, dy) || 1, w = 6.2 * (1 - u) + 0.3;
+          pts.push([px + dy / l * w, py - dx / l * w]); back.push([px - dy / l * w * 0.35, py + dx / l * w * 0.35]);
+        }
+        pn.poly(pts.concat(back.reverse())).paint(plate(seam), { clip: [x + 1, x + 95] });
+        const m = pts[3]; pn.dot(m[0] - 1, m[1] + 1, P.iron[4]); pn.dot(ax, y + 5.5, P.brass[3]);
+      }
+      pn.fill(x + 2, y + 3.5, 92, 1.5, P.iron[0]);
+    },
+    // F 炉门护甲：每个胯位一扇铆接的大炉门（铰链带、门闩，门上三道透火的格栅缝），两门之间一块炉口护板（拱形火口 + 竖栅），门下沿三枚尖
+    doors(pn, x, y, o) {
+      const { seam, core } = fireOf(o);
+      const grate = (a, b, t0, b0) => { pn.rect(a, t0, b - a, b0 - t0).paint([P.black, P.fire[1], core, core], { bevel: '' }); };
+      pn.rect(x + 35, y + 5, 26, 17).paint(NEAR.iron);
+      pn.poly([[x + 40, y + 21], [x + 40, y + 13], [x + 48, y + 8], [x + 56, y + 13], [x + 56, y + 21]]).paint([P.black, P.fire[1], core, core], { bevel: '' });
+      for (let u = 42; u < 56; u += 3) pn.fill(x + u, y + 9, 1.2, 12, P.iron[1]);
+      for (const cx of [22, 74]) {
+        const a = x + cx - 13, b = x + cx + 13;
+        for (const u of [cx - 9, cx, cx + 9]) pn.poly([[x + u - 2.4, y + 23], [x + u + 2.4, y + 23], [x + u, y + 28.5]]).paint(plate(seam));
+        pn.rect(a, y + 4, 26, 20).paint(NEAR.steel);
+        pn.rect(a + 2, y + 6, 22, 16).paint(NEAR.iron, { bevel: 's' });
+        for (const r of [9, 13, 17]) grate(a + 5, b - 5, y + r, y + r + 1.6);
+        for (const r of [7, 19]) pn.rect(cx < 48 ? a - 1 : b - 9, y + r, 10, 2).paint(NEAR.brass);   // 铰链带（在外侧）
+        pn.rect(cx < 48 ? b - 3 : a + 1, y + 12, 2, 5).paint(NEAR.brass);   // 门闩
+        if (pn.hi) for (const [u, v] of [[a + 1, y + 5], [b - 3, y + 5], [a + 1, y + 21], [b - 3, y + 21]]) rivet(pn, u, v); else for (const [u, v] of [[a + 1, y + 5], [b - 2, y + 5], [a + 1, y + 22], [b - 2, y + 22]]) pn.dot(u, v, P.iron[4]);
+      }
+    },
+    // G 折翼：每个胯位收着一只铁骨龙翼——三根翼骨从肩关节往后下方张开，翼膜在骨间下垂成弧，被炉火从里面照透（暗红）；肩上一枚黄铜爪钩
+    wings(pn, x, y, o) {
+      const { core } = fireOf(o);
+      for (const cx of [22, 74]) {
+        const S = [x + cx + 8, y + 5], tips = [[x + cx - 16, y + 25], [x + cx - 5, y + 28], [x + cx + 7, y + 26]];
+        const pts = [S, tips[0]];
+        for (let k = 0; k < 2; k++) { const A = tips[k], B = tips[k + 1]; for (let i = 1; i < 6; i++) { const u = i / 6; pts.push([A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u - 3.6 * Math.sin(Math.PI * u)]); } pts.push(B); }
+        pn.poly(pts).paint([P.black, P.fire[0], P.fire[1], core], { bevel: 'l' });
+        for (const T of tips) pn.cap(S[0], S[1], T[0], T[1], 1.3);
+        pn.cap(S[0], S[1], S[0] - 13, S[1] + 2, 1.6);
+        pn.paint(plate(P.black), { bevel: 'l' });
+        ball(pn, NEAR.steel, S[0], S[1], 2.6);
+        pn.poly([[S[0] + 1, S[1] - 2], [S[0] + 5, S[1] - 1], [S[0] + 3, S[1] + 1.5]]).paint(NEAR.brass);
+      }
+    },
+  };
+  const SKIRT_LIST = [
+    ['giant', 'B 巨鳞', '一排六片大盾形鳞（15px 宽、尖朝下），后面错开一排只露鳞尖；每片中脊 + 侧槽 + 铆钉'],
+    ['tiles', 'A 叠瓦大甲', '三条横向宽甲带上压下，每条下沿六个大圆瓣；瓣缝透火'],
+    ['scutes', 'C 鳄背脊板', '两排竖向大甲板，每块一道隆起的龙骨脊，下排错开半块、下沿短尖'],
+    ['lava', 'D 熔岩裂甲', '七八块不规则黑曜岩甲板，板间是熔岩裂缝（亮心随呼吸变亮），下沿参差'],
+    ['blades', 'E 后掠刃鳞', '七片长弯刃甲往后下方掠，像收拢的羽 / 镰刀，刃间透火'],
+    ['doors', 'F 炉门护甲', '每个胯位一扇铆接大炉门（铰链、门闩、三道透火格栅），中间一块拱形炉口护板，门下三枚尖'],
+    ['wings', 'G 折翼', '每个胯位收着一只铁骨龙翼：三根翼骨往后张开，翼膜被炉火照透成暗红，肩上黄铜爪钩'],
+  ];
+
   // ---------- 编制（15 种 = 主线 6 + 变体 9） ----------
   // mt 材质档；hull 车体；back / front 车体附加层；leg 腿型；main 主线；kept = 之前采用的
   const SET = [
@@ -772,18 +866,20 @@ SA.QLAB = (() => {
       idea: '车体是教堂立面：石缝、扶壁柱顶金十字、尖拱彩窗（以太光流过），正中门楼（玫瑰窗 + 尖拱木门）。两个胯位各垂一面深红燕尾旗（金边、金十字），遮住胯和大腿根。腿：飞扶壁大腿、石砌方柱小腿（发光尖拱龛），膝上小尖塔，两级台座。' },
     { mt: 6, name: '大本钟', hull: 'bigben', leg: 'bigben', ref: '威斯敏斯特宫钟楼（大本钟，1859）',
       idea: '厚重建筑感：车体是垂直式哥特窗格 + 正中大钟面（指针在走）+ 下沿粗挑檐托石。腿是方形塔身，膝盖是一座方钟亭（小钟面也在走），小腿往下加粗、刻竖棂横档，脚是三级台座。' },
-    { mt: 6, name: '熔炉龙骑', hull: 'furnace', front: 'scales', leg: 'dragon', ref: '双足熔心龙骑（只取鳞、炉火、肋骨、尖刺、爪，不做龙头）',
-      idea: '三排交叠的鳞甲裙板从车体中部垂下，罩住胯和大腿根；鳞片之间的缝透出炉火（随呼吸明灭，偶尔闪火星），每片鳞有亮边暗边、中脊和铆钉，最下一排鳞尖朝下带黄铜尖。腿是粗壮的三段龙腿：交叠甲片大腿 + 炉膛，膝前 / 跗关节各一根黄铜尖刺；脚是分开的弯爪——三根前爪 + 一根后爪，只有爪尖点地。' },
+    { mt: 6, name: '熔炉龙骑', hull: 'furnace', front: 'giant', leg: 'dragon', ref: '双足熔心龙骑（只取鳞、炉火、肋骨、尖刺、爪，不做龙头）',
+      idea: '车体下挂一片盖住腿根的大块鳞甲裙板，甲缝透出炉火——七种方案见下方「熔炉龙骑 · 鳞甲裙板」，这里先用 B 巨鳞。腿是粗壮的三段龙腿：交叠甲片大腿 + 炉膛，膝前 / 跗关节各一根黄铜尖刺；脚是分开的弯爪——三根前爪 + 一根后爪，只有爪尖点地。' },
   ];
   const LEG_H = { crank: { reach: 4, up: 34, kx: 7 }, skirt: { reach: 3 }, gren: { reach: 3 }, pedrail: { reach: 2 }, knight: { reach: 2 }, mantis: { up: 2, kx: 12, reach: 3 }, clock: { up: -1, kx: 11 }, anchor: { reach: 3 }, dragon: { reach: 0 }, gothic: { reach: 3 }, bigben: { reach: 3 } };
 
   // 机身起伏：对角两腿交替着地（plantGait：一对腿在 u=0.75、另一对在 u=0.25 撑在胯正下方 = 最高；u=0、0.5 双支撑 = 最低），每步两次
-  const bobOf = (o) => (o.mv ? Math.round(2 * (1 - Math.abs(Math.sin(o.a || 0)))) : 0);
+  // 步幅（v7）：跟车速变——慢走 14px、快跑 24px（原来最多 13）；步态角按走过的距离推进：Δa = 2π·距离 / (4·步幅)，所以同样的车速步频更低，脚不打滑
+  const strideOf = (v) => Math.max(14, Math.min(24, 14 + v * 0.12));
+  const bobOf = (o) => (o.mv ? Math.round((2 + ((o.stride || 14) - 14) / 10) * (1 - Math.abs(Math.sin(o.a || 0)))) : 0);
 
   // 画一只整件四足到透明画布，坐标 (ox, oy) = 模块左上角。o = { mv, a 步态角, t 秒, stride, top, hull（换车体对照用） }
   function figure(g, ox, oy, e, o = {}) {
     const pn = LL.Pen(g.canvas.width, g.canvas.height).at(1, 0, 0);
-    const S = o.stride || 13, lo = { mv: !!o.mv, a: o.a || 0, plant: true, plantS: S, plantH: 5 + 0.3 * S };
+    const S = o.stride || 14, lo = { mv: !!o.mv, a: o.a || 0, plant: true, plantS: S, plantH: 4 + 0.3 * S };
     const y = oy + bobOf(o), H = { ...(LEG_H[e.leg] || {}), ...(e.H || {}) };
     const ho = { t: o.t || 0, top: !!o.top, mv: !!o.mv, a: o.a || 0, gy: oy + 48, trail: o.trail };
     const leg = (M, far, [hx, hy], gy, dir, ph) => {
@@ -794,12 +890,12 @@ SA.QLAB = (() => {
       for (const [, , fn] of q) fn();
     };
     leg(FAR, true, HIPS.fr, oy + 45, -1, Math.PI); leg(FAR, true, HIPS.ff, oy + 45, 1, 0);
-    const hull = o.hull || e.hull, back = o.hull ? o.back : e.back, front = o.hull ? o.front : e.front;
+    const hull = o.hull || e.hull, back = o.hull ? o.back : e.back, front = o.skirt || (o.hull ? o.front : e.front);
     if (back) BACK[back](pn, ox, y, ho);
     HULL[hull](pn, ox, y, ho);
     leg(NEAR, false, HIPS.nr, oy + 48, -1, 0); leg(NEAR, false, HIPS.nf, oy + 48, 1, Math.PI);
-    if (front) FRONT[front](pn, ox, y, ho);
+    if (front) (FRONT[front] || SKIRTS[front])(pn, ox, y, ho);
     pn.flush(g);
   }
-  return { SET, figure, LEGS, HULL, HULL_CANDS, bobOf };
+  return { SET, figure, LEGS, HULL, HULL_CANDS, SKIRT_LIST, bobOf, strideOf };
 })();

@@ -30,8 +30,12 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v6 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v7 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
+    <p><b>v7</b><br>
+      ① <b>步幅加大、步频降低、随车速变</b>：步幅 = 14 + 车速 × 0.12（慢 30 → 17.6px，中 60 → 21px，快 100 → 24px；原来最多 13px）；步态按走过的距离推进（一整步 = 4 × 步幅），
+      所以同样车速下步频更低（车速 60 时约 0.7 步/秒，原游戏里约 1.2 步/秒），脚不打滑。抬脚高度和机身起伏也跟步幅变大。顶上加了「车速」切换，画面底下的地面刻度跟着车速往后走——着地的脚应该和刻度一起走、不滑。<br>
+      ② <b>熔炉龙骑的鳞甲彻底重做</b>：去掉细密小鳞，出 7 种大块方案（见「熔炉龙骑 · 鳞甲裙板」）：B 巨鳞 · A 叠瓦大甲 · C 鳄背脊板 · D 熔岩裂甲 · E 后掠刃鳞 · F 炉门护甲 · G 折翼。都盖住腿根、甲缝透火；上面一览里先用 B 巨鳞。</p>
     <p><b>v6（你对 v5 的四条意见）</b><br>
       ① 曲柄步行机的藤蔓：颜色改成压暗的橄榄绿（去掉鲜绿和橙色小花，只留零星米色花点），叶子间距加大一倍，垂藤只留一缕，窗里的盆栽只留三成。<br>
       ② 锚链铁甲：两根锚链——前面一根<b>短的吊着晃</b>（走路时往后甩），车腹正中一根<b>长的垂到地面、只拖四节</b>；拖地那截<b>跟着前进 / 后退换边</b>（顶上加了「方向」切换，切的时候链子慢慢摆到另一边）。<br>
@@ -53,12 +57,13 @@
       ⑥ 哥特圣殿 → <b>哥特教堂</b>：石缝、扶壁柱顶金十字、正中门楼（玫瑰窗 + 尖拱木门）；两个胯位各垂一面深红燕尾旗（金边金十字、随风摆），遮住胯和大腿根。<br>
       之前的规则不变：腿加粗、机身按步态起伏、腿按层画（驱动件 → 大腿 → 胯销 → 连杆 → 小腿 → 膝销 → 脚 → 踝销）。T4～T6 车体候选见下方（T6 的 B 换成大本钟）。</p>
     <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9。T1 工装 Mk.II · T2 桁架爬机 / 裙甲堡 · T3 板簧拖车 / 掷弹兵 / 步行履带 · T4 曲柄步行机 / 蒸汽圣骑（龟足）/ 螳臂步行机 · T5 汽锤步行机 / 钟表巨像 / 锚链铁甲 · T6 哥特教堂 / 大本钟 / 熔炉龙骑。
-      <b>探索稿，还没有接进游戏</b>。<b>请确认</b>：T4～T6 各选哪种车体；这六处改动行不行。</p>
+      <b>探索稿，还没有接进游戏</b>。<b>请确认</b>：熔炉龙骑选哪种鳞甲裙板；步幅 / 步频的手感；T4～T6 各选哪种车体。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
     <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button></span>
     <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">行走</button><button class="btn small" data-v="0">静止</button></span>
+    <span class="lbl">车速</span><span class="seg" id="spd"><button class="btn small" data-v="30">慢</button><button class="btn small on" data-v="60">中</button><button class="btn small" data-v="100">快</button></span>
     <span class="lbl">方向</span><span class="seg" id="dir"><button class="btn small on" data-v="1">前进</button><button class="btn small" data-v="-1">后退</button></span>
   </div>
   <section>
@@ -72,6 +77,10 @@
   <section>
     <h2 class="sec">T4～T6 车体候选 <small>每档三种，都穿该档主线腿 · 行走动画</small></h2>
     <div id="hulls"></div>
+  </section>
+  <section>
+    <h2 class="sec">熔炉龙骑 · 鳞甲裙板 7 种 <small>都盖住腿根，甲缝透出炉火；全部是大块甲板，不用细密小鳞 · 行走动画</small></h2>
+    <div class="cards" id="skirts"></div>
   </section>
   <section>
     <h2 class="sec">六档主线并排 <small>T1 → T6，同一步态帧，1× 和 2×</small></h2>
@@ -92,7 +101,7 @@
 (() => {
   const L = SA.MATLAB, Q = SA.QLAB, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
-  const st = { mode: 'color', zoom: 3, run: 1, t: 0, dir: 1, ph: 0, trail: 1 };
+  const st = { mode: 'color', zoom: 3, run: 1, t: 0, dir: 1, ph: 0, trail: 1, v: 60, dist: 0 };
   const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
   const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
   function gray(src) {
@@ -107,12 +116,14 @@
   const OX = 34, OY = 32, W = 96 + OX * 2, H = 48 + OY + 6;
   function fig(e, a, o = {}) {
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13, hull: o.hull, front: o.front, back: o.back, trail: o.trail == null ? st.trail : o.trail });
+    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: Q.strideOf(st.v), hull: o.hull, front: o.front, back: o.back, skirt: o.skirt, trail: o.trail == null ? st.trail : o.trail });
     if (!o.raw) applyMat(lay, e.mt, OX, OY);
     if (o.sil) { const g = lay.getContext('2d'); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#0b0c10'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
     if (o.bare) return lay;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d'); g.fillStyle = SA.PAL.bg ? SA.PAL.bg[2] : '#23252c'; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0);
+    const g = c.getContext('2d'); g.fillStyle = SA.PAL.bg ? SA.PAL.bg[2] : '#23252c'; g.fillRect(0, 0, W, H);
+    g.fillStyle = SA.PAL.bg[4]; const sh = st.run && o.mv !== false ? st.dist : 0; for (let u = ((-sh % 12) + 12) % 12; u < W; u += 12) g.fillRect(Math.round(u), OY + 48, 3, 1);   // 地面刻度：随车速往后走，用来看脚有没有钉在地上
+    g.drawImage(lay, 0, 0);
     return c;
   }
   const A = () => (st.run ? st.ph : 0.7);   // 步态角：前进时增加、后退时减少
@@ -145,6 +156,15 @@
       box.append(row);
     }
   }
+  function renderSkirts() {
+    const box = $('skirts'); box.replaceChildren();
+    const e = Q.SET.find(x => x.leg === 'dragon');
+    for (const [id, name, idea] of Q.SKIRT_LIST) {
+      const lv = el('div');
+      live.push([lv, (t) => fig(e, A(t), { t: t / 10, skirt: id }), st.zoom]);
+      box.append(el('div', { className: 'card', style: 'max-width:340px' }, el('h3', {}, name), lv, el('p', {}, idea)));
+    }
+  }
   function renderStatic() {
     const T = $('mainline'); T.replaceChildren();
     const mains = Q.SET.filter(e => e.main);
@@ -157,13 +177,14 @@
     const S = $('sil'); S.replaceChildren();
     for (const e of Q.SET) S.append(el('div', { style: 'text-align:center;font-size:11px' }, show(fig(e, 0.6, { sil: true, raw: true }), 1), el('div', {}, `T${e.mt} ${e.name}`)));
   }
-  function tick() { st.t++; if (st.run) st.ph += st.dir * Math.PI * 2 / 24; st.trail += Math.max(-0.12, Math.min(0.12, st.dir - st.trail)); for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
-  function renderAll() { renderRows(); renderHulls(); renderStatic(); tick(); }
+  function tick() { st.t++; if (st.run) { const d = st.v * 0.09; st.dist += st.dir * d; st.ph += st.dir * Math.PI * 2 * d / (4 * Q.strideOf(st.v)); } st.trail += Math.max(-0.12, Math.min(0.12, st.dir - st.trail)); for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
+  function renderAll() { renderRows(); renderHulls(); renderSkirts(); renderStatic(); tick(); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
   seg($('play'), v => st.run = +v);
   seg($('dir'), v => st.dir = +v);
+  seg($('spd'), v => st.v = +v);
   renderAll();
   setInterval(tick, 90);
   window.__quadReady = true;
