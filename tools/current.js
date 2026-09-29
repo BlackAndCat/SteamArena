@@ -428,35 +428,50 @@ SA.QLAB = (() => {
       });
     },
 
-    // T6 熔炉龙骑（重做）：粗壮的三段龙腿（膝朝前、跗关节朝后），大腿是三块交叠甲片 + 嵌在里面的炉膛，膝前尖刺、跗关节后刺，三爪 + 后爪；脚尖统一朝车头
+    // T6 铁鳞龙骑（v8 重做，不再有透火）：粗壮的三段龙腿（膝朝前、跗关节朝后，脚尖统一朝车头）。
+    // 大腿是三片带中脊的厚甲板上压下（每片在下一片上投一道阴影），膝上一块厚膝甲 + 一根粗角刺，小腿两片甲 + 跗关节后刺，
+    // 跖骨粗短，脚是三根粗弯爪 + 一根后爪、爪根有指节垫
     dragon(c, H) {
-      const { pn, M, hx, hy, far, t, L } = c, F = footOf(c, H), Hk = [F[0] - 3, F[1] - 7.5];
-      const [kx, ky, ex, ey] = ik(hx, hy, Hk[0], Hk[1], H.l1 || 14, H.l2 || 15, 1);
+      const { pn, M, hx, hy, L } = c, F = footOf(c, H), Hk = [F[0] - 6, F[1] - 12.5];
+      const [kx, ky, ex, ey] = ik(hx, hy, Hk[0], Hk[1], H.l1 || 16, H.l2 || 13, 1);
       const T = bone(hx, hy, kx, ky), B = bone(kx, ky, ex, ey), n = B.len, x = F[0], y = F[1];
+      const lame = (Bn, a0, a1, w0, w1, R) => {   // 一片厚甲：先投影、再甲面、再中脊和两颗粗糙斑点
+        pn.poly(slab(Bn, a0 + 1.4, a1 + 1.4, w0, w1)).paint(DSH, { outline: false, bevel: '' });
+        pn.poly(slab(Bn, a0, a1, w0, w1)).paint(R);
+        pn.ln(...Bn.p(a0 + 0.8, 0), ...Bn.p(a1 - 1, 0), R[3]);
+        pn.dot(...Bn.p((a0 + a1) / 2, w0 * 0.5), R[1]); pn.dot(...Bn.p(a0 + 1.5, -w0 * 0.55), R[1]);
+      };
       L(Z.TH, () => {
-        pn.poly(slab(T, -2.5, T.len + 1, 5.4, 3.8)).paint(M.steel);
-        for (const a of [T.len * 0.3, T.len * 0.62]) pn.poly(T.pts([[a - 0.5, -5], [a + 2.2, -4.2], [a + 2.2, 4.2], [a - 0.5, 5]])).paint(M.steel, { bevel: 'l' });
-        if (!far) { const q = T.p(T.len * 0.46, 0), hot = Math.sin(t * 6 + c.ph) > 0; pn.fill(q[0] - 2, q[1] - 1.2, 4, 2.4, P.fire[hot ? 3 : 2]); pn.fill(q[0] - 2, q[1] - 1.2, 4, 1, P.fire[1]); }
+        pn.poly(slab(T, -3, T.len + 1, 7.4, 5.4)).paint(M.steel);
+        const Lt = T.len;
+        for (const [a0, a1, w0, w1] of [[Lt * 0.62, Lt + 1, 6, 5.4], [Lt * 0.3, Lt * 0.7, 6.8, 6.2], [-3, Lt * 0.38, 7.6, 7]]) lame(T, a0, a1, w0, w1, M.steel);
+        pn.ln(...T.p(0, 6.6), ...T.p(Lt, 4.6), M.steel[3]);   // 前缘亮边
       });
-      hub(c, 4);
+      hub(c, 4.6);
       L(Z.SH, () => {
-        pn.poly(slab(B, 0, n, 3.8, 2.6)).paint(M.iron);
-        for (let a = 2.5; a < n - 1; a += 2.8) pn.ln(...B.p(a, -2.6), ...B.p(a + 1.2, 0), M.iron[3]);
-        pn.poly([[ex, ey - 1.6], [ex - 7, ey - 3.6], [ex - 1.4, ey + 2]]).paint(M.brass);   // 跗关节后刺
+        pn.poly(slab(B, 0, n, 5.2, 3.8)).paint(M.steel);
+        for (const [a0, a1, w0, w1] of [[n * 0.5, n, 4.6, 3.8], [0, n * 0.56, 5.4, 4.8]]) lame(B, a0, a1, w0, w1, M.steel);
+        pn.ln(...B.p(1, 4.6), ...B.p(n - 1, 3.4), M.steel[3]);   // 前缘亮边
+        pn.poly([[ex - 1, ey - 2.4], [ex - 8.5, ey - 4], [ex - 7.5, ey - 2.6], [ex - 1.4, ey + 2.4]]).paint(M.steel);   // 跗关节后刺（粗）
       });
-      L(Z.KN, () => { pn.poly([[kx - 1.5, ky - 2], [kx + 7, ky - 6.5], [kx + 2, ky + 1.5]]).paint(M.brass); ball(pn, M.iron, kx, ky, 3.2); });
-      L(Z.FT, () => {   // 三根前爪 + 一根后爪，各自分开、弯曲，只有爪尖点地（不要鞋底）
-        const b = [x, y - 2.8];
-        pn.cap(ex, ey, ...b, 2).paint(M.iron, { bevel: 'l' });
-        const talon = (pts) => { for (let k = 1; k < pts.length; k++) pn.cap(...pts[k - 1], ...pts[k], 1.35 - k * 0.3); };
-        talon([b, [x + 3.5, y - 3.6], [x + 6.5, y - 2], [x + 7.6, y]]);
-        talon([[x, y - 3.4], [x + 2.4, y - 5.4], [x + 4.6, y - 5], [x + 5.4, y - 3]]);
-        talon([b, [x - 3, y - 2.8], [x - 5.2, y - 1.4], [x - 5.8, y]]);
-        pn.paint(M.leg, { bevel: 'l' });
-        for (const [u, v] of [[7.6, -0.3], [5.4, -3.2], [-5.8, -0.3]]) pn.dot(x + u, y + v, M.brass[3]);
-        ball(pn, M.iron, ...b, 1.6);
+      L(Z.KN, () => {
+        pn.poly([[kx - 2.4, ky - 2.4], [kx + 4, ky - 6], [kx + 9, ky - 8.5], [kx + 7, ky - 4.5], [kx + 3, ky + 2]]).paint(M.steel);   // 膝角
+        pn.ln(kx + 1, ky - 2, kx + 7.5, ky - 7, M.steel[3]);
+        pn.disc(kx, ky, 4.4).paint(M.steel); pn.ln(kx - 2.6, ky - 1.5, kx + 2.4, ky - 2.8, M.steel[3]); pn.dot(kx - 1, ky + 1.5, M.steel[1]);
       });
-      L(Z.AN, () => ball(pn, M.iron, ex, ey, 2.2));
+      L(Z.FT, () => {
+        pn.cap(ex, ey, x, y - 3, 2.8).paint(M.steel, { bevel: 'l' });
+        pn.ln(ex + 1.5, ey, x + 1.5, y - 4, M.steel[3]);
+        const claw = (pts, r0) => { for (let k = 1; k < pts.length; k++) pn.cap(...pts[k - 1], ...pts[k], r0 - k * 0.45); };
+        claw([[x + 0.5, y - 3.4], [x + 4.5, y - 4.2], [x + 8, y - 2.4], [x + 9.4, y]], 2);
+        claw([[x, y - 4.2], [x + 3, y - 6.4], [x + 6, y - 6], [x + 7.2, y - 3.6]], 1.8);
+        claw([[x - 0.5, y - 3], [x - 3.6, y - 3.4], [x - 6, y - 1.6], [x - 6.6, y]], 1.8);
+        pn.paint(M.iron, { bevel: 'l' });
+        for (const [u, v] of [[9.2, -0.4], [7.2, -3.8], [-6.5, -0.4]]) pn.dot(x + u, y + v, M.steel[3]);
+        for (const u of [2.2, 5.6]) pn.dot(x + u, y - 1.2, M.leg[1]);   // 指节垫下的暗缝
+        ball(pn, M.iron, x, y - 3.4, 2.4);
+      });
+      L(Z.AN, () => { ball(pn, M.iron, ex, ey, 3); pn.dot(ex - 1, ey - 1, M.iron[3]); });
     },
   };
 
@@ -626,17 +641,14 @@ SA.QLAB = (() => {
       clock(x + 48, y + 11.5, 7);
       for (let u = 4; u <= 92; u += 6) pn.rect(x + u - 1.6, y + 20, 3.2, 2.8).paint(NEAR.steel, { bevel: 'l' });
     },
-    // C 熔炉龙鳞：车体侧面是一副弯曲的铁肋骨，肋骨之间透出炉火（随呼吸明灭），顶上一排鳞片，下沿一排带黄铜尖的粗尖刺
-    furnace(pn, x, y, o) {
+    // C 铁鳞龙骑车体（v8）：没有火光——车体本身只露出顶板下一条厚边和两头的角板，其余被裙板（龙鳞裙板三方案之一）盖住
+    drake(pn, x, y, o) {
       deck(pn, x, y, o);
-      pn.poly([[x + 1, y + 3], [x + 95, y + 3], [x + 93, y + 17], [x + 3, y + 17]]).paint(NEAR.iron);
-      const hot = 0.5 + 0.5 * Math.sin((o.t || 0) * 2.6);
-      pn.fill(x + 5, y + 7, 86, 8, P.fire[hot > 0.5 ? 2 : 1]); pn.fill(x + 5, y + 10, 86, 3, P.fire[hot > 0.5 ? 3 : 2]);
-      for (let u = 6; u < 92; u += 7) { pn.cap(x + u, y + 6, x + u + 2.2, y + 11, 1.3).cap(x + u + 2.2, y + 11, x + u + 1, y + 16, 1.3); }
-      pn.paint(NEAR.steel, { bevel: 'l' });
-      for (let u = 4; u < 94; u += 5) pn.poly([[x + u - 2.6, y + 3], [x + u + 2.6, y + 3], [x + u, y + 6.6]]).paint(NEAR.iron);
-      for (let u = 8; u < 92; u += 8) { pn.poly([[x + u - 3, y + 17], [x + u + 3, y + 17], [x + u, y + 24]]).paint(NEAR.steel); pn.dot(x + u, y + 23.4, P.brass[3]); }
+      pn.poly([[x + 1, y + 3], [x + 95, y + 3], [x + 93, y + 18], [x + 3, y + 18]]).paint(NEAR.iron);
+      pn.fill(x + 2, y + 3, 92, 1.5, P.iron[1]);
+      for (const [a, s] of [[2, 1], [94, -1]]) pn.poly([[x + a, y + 3], [x + a + s * 6, y + 3], [x + a + s * 2, y + 14]]).paint(NEAR.steel);   // 两头的角板
     },
+
   };
   // 每档的车体候选（T4～T6 重新探索）；SET 里的变体默认用第一种
   const HULL_CANDS = {
@@ -648,7 +660,7 @@ SA.QLAB = (() => {
       ['nautilus', 'C 鹦鹉螺潜艇', '雪茄形铆接艇身、艇首大圆观察窗、锯齿龙骨、艇尾螺旋桨（凡尔纳，1870）']],
     6: [['gothic', 'A 哥特教堂', '石砌立面 + 扶壁柱顶金十字，尖拱彩窗（以太光流过），正中门楼：玫瑰窗 + 尖拱木门，下沿倒挂尖拱花边（主线另配两面胯位燕尾旗）'],
       ['bigben', 'B 大本钟', '威斯敏斯特钟楼式厚重石砌车体：垂直式哥特窗格、镀金檐带，正中大钟面（指针在走），下沿一排粗挑檐托石'],
-      ['furnace', 'C 熔炉龙鳞', '肋骨炉膛车体 + 大块鳞甲裙板（这里用 B 巨鳞，七种见「熔炉龙骑 · 鳞甲裙板」）', 'giant']],
+      ['drake', 'C 铁鳞龙骑', '厚边车体 + 龙脊甲裙板（三种裙板见「铁鳞龙骑 · 车体裙板」），没有透火，全是有厚度的甲片', 'spine']],
   };
 
   // 车体的附加层：BACK 画在车体后面（露出车体下沿的部分），FRONT 画在近侧腿前面
@@ -725,114 +737,60 @@ SA.QLAB = (() => {
     },
   };
 
-  // ---------- 熔炉龙骑的鳞甲裙板：7 种方案（v7：v6 的细密小鳞让人密恐，全部改成大块）----------
-  // 都盖住胯（腿根，y+10）和大腿上部，范围 x+2～x+94、y+4～y+28；甲板的描边用炉火色 = 缝里透出来的火光（随呼吸明灭）
-  const fireOf = (o) => { const t = o.t || 0, hot = Math.sin(t * 2.6) > 0; return { t, seam: hot ? P.fire[2] : P.fire[1], core: hot ? P.fire[3] : P.fire[2] }; };
-  const plate = (seam) => [seam, P.iron[1], P.iron[2], P.iron[3]];
-  const shrink = (pts, d) => { const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length; return pts.map(([px, py]) => { const l = Math.hypot(px - cx, py - cy) || 1; return [px - (px - cx) / l * d, py - (py - cy) / l * d]; }); };
+  // ---------- 铁鳞龙骑：车体裙板 3 方案（v8：不要透火，专注物理甲片和龙的质感）----------
+  // 每片甲都有厚度：先在下一片上投一道 1.5px 的阴影，再画甲面（亮边 / 暗边）、中脊和几颗粗糙斑点；上排压下排，所以从最下一排开始画
+  const DSH = [P.black, P.black, P.dark[0], P.dark[0]];
+  const PLATE = [P.dark[0], P.iron[1], P.iron[2], P.iron[3]];
+  const armor = (pn, pts, keel, ramp = PLATE, dy = 1.6) => {
+    pn.poly(pts.map(([u, v]) => [u, v + dy])).paint(DSH, { outline: false, bevel: '' });
+    pn.poly(pts).paint(ramp);
+    if (keel) { pn.ln(keel[0], keel[1], keel[2], keel[3], P.iron[4]); pn.ln(keel[0] + 1, keel[1] + 1, keel[2] + 1, keel[3], P.iron[1]); }
+  };
+  const horn = (pn, x, y, dx, dy, w) => { pn.poly([[x - w, y], [x + w, y], [x + dx * 0.6 + w * 0.3, y + dy * 0.6], [x + dx, y + dy]]).paint([P.dark[0], P.iron[2], P.iron[3], P.iron[4]]); pn.ln(x - w * 0.2, y + 0.5, x + dx * 0.85, y + dy * 0.85, P.iron[4]); };
   const SKIRTS = {
-    // A 叠瓦大甲：三条横向宽甲带，上压下；每条下沿是六个大圆瓣（一瓣 15px），瓣中一道脊、瓣根一颗铆钉
-    tiles(pn, x, y, o) {
-      const { seam } = fireOf(o);
-      [[4, 12], [10, 19], [17, 27]].map((b, i) => [b, i]).reverse().forEach(([[t0, b0], bi]) => {
-        const off = bi % 2 ? 7.7 : 0, w = 15.3, pts = [[x + 2, y + t0], [x + 94, y + t0]];
-        for (let px = 94; px >= 2; px -= 1) { const f = (((px - 2 + off) / w) % 1 + 1) % 1; pts.push([x + px, y + b0 - 3.4 + 3.4 * Math.sin(Math.PI * f)]); }
-        pn.poly(pts).paint(plate(seam));
-        for (let k = -1; k < 7; k++) { const cx = x + 2 - off + w * (k + 0.5); if (cx < x + 4 || cx > x + 92) continue; pn.ln(cx, y + t0 + 2, cx, y + b0 - 1, P.iron[3]); pn.dot(cx, y + t0 + 1, P.brass[3]); }
-      });
-    },
-    // B 巨鳞：一排六片大盾形鳞（15px 宽、从 y+4 垂到 y+26 的尖），后面错开一排五片只露出鳞尖；每片一道中脊 + 两道侧槽 + 顶上一颗铆钉
-    giant(pn, x, y, o) {
-      const { seam } = fireOf(o), sc = (cx, top, tip, hw, back) => {
-        const pts = [[cx - hw, top], [cx + hw, top], [cx + hw, tip - 10], [cx + hw * 0.45, tip - 3.5], [cx, tip], [cx - hw * 0.45, tip - 3.5], [cx - hw, tip - 10]];
-        pn.poly(pts).paint(back ? [seam, P.iron[0], P.iron[1], P.iron[2]] : plate(seam), { clip: [x + 2, x + 94] });
-        if (back || cx < x + 5 || cx > x + 91) return;
-        pn.ln(cx, top + 2, cx, tip - 2, P.iron[3]); pn.ln(cx - hw * 0.5, top + 3, cx - hw * 0.3, tip - 8, P.iron[1]); pn.ln(cx + hw * 0.5, top + 3, cx + hw * 0.3, tip - 8, P.iron[1]);
-        pn.dot(cx, top + 1.5, P.brass[3]);
-      };
-      for (let k = 0; k < 5; k++) sc(x + 2 + 15.3 * (k + 1), y + 8, y + 29, 7, true);
-      for (let k = 0; k < 6; k++) sc(x + 2 + 15.3 * (k + 0.5), y + 4, y + 26, 7.4, false);
-    },
-    // C 鳄背脊板：两排竖向大甲板（11px 宽），每块一道隆起的龙骨脊（亮线 + 阴影），下排错开半块、下沿一枚短尖
-    scutes(pn, x, y, o) {
-      const { seam } = fireOf(o);
-      for (const [t0, b0, off, last] of [[13, 25, 5.75, 1], [4, 15, 0, 0]]) for (let u = 2 - off; u < 94; u += 11.5) {
-        const a = x + u, b = x + u + 11.5, cx = (a + b) / 2;
-        const pts = last ? [[a + 0.5, y + t0], [b - 0.5, y + t0], [b - 0.5, y + b0 - 2], [cx, y + b0 + 2.5], [a + 0.5, y + b0 - 2]] : [[a + 1.5, y + t0], [b - 1.5, y + t0], [b - 0.5, y + t0 + 1.5], [b - 0.5, y + b0 - 1], [a + 0.5, y + b0 - 1], [a + 0.5, y + t0 + 1.5]];
-        pn.poly(pts).paint(plate(seam), { clip: [x + 2, x + 94] });
-        if (cx < x + 4 || cx > x + 92) continue;
-        pn.ln(cx, y + t0 + 1.5, cx, y + b0 - 1.5, P.iron[4]); pn.ln(cx + 1, y + t0 + 2, cx + 1, y + b0 - 1.5, P.iron[1]);
-      }
-    },
-    // D 熔岩裂甲：七八块不规则的黑曜岩甲板，板与板之间是 1～2px 的熔岩裂缝（亮心随呼吸变亮），下沿参差
-    lava(pn, x, y, o) {
-      const { core, t } = fireOf(o);
-      const xs = [2, 15, 29, 43, 57, 71, 84, 94], r1 = [13, 16, 12, 15, 13, 16, 12, 14], r2 = [26, 28, 25, 28, 26, 27, 25, 27];
-      const top = xs.map((u) => [x + u, y + 4]), mid = xs.map((u, i) => [x + u + (i % 2 ? 2 : -2) * (i > 0 && i < 7 ? 1 : 0), y + r1[i]]), bot = xs.map((u, i) => [x + u + (i % 2 ? -1.5 : 1.5) * (i > 0 && i < 7 ? 1 : 0), y + r2[i]]);
-      pn.poly(top.concat(bot.slice().reverse())).paint([P.fire[0], P.fire[1], core, core], { bevel: '' });
-      for (const [R0, R1] of [[top, mid], [mid, bot]]) for (let i = 0; i < 7; i++) {
-        if ((i + (R0 === top ? 0 : 1)) % 3 === 2) { pn.poly(shrink([R0[i], R0[i + 1], R1[i + 1]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false }); pn.poly(shrink([R0[i], R1[i + 1], R1[i]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false }); }
-        else pn.poly(shrink([R0[i], R0[i + 1], R1[i + 1], R1[i]], 1)).paint([P.black, P.dark[1], P.dark[2], P.dark[3]], { outline: false });
-      }
-      for (let k = 0; k < 6; k++) if (Math.sin(t * 4 + k * 2.1) > 0.6) pn.dot(x + 8 + k * 15, y + 14 + (k % 2) * 2, P.fire[3]);
-    },
-    // E 后掠刃鳞：七片长长的弯刃甲从上沿往后下方掠（像收拢的羽 / 镰刀），后一片压前一片，刃间透火
-    blades(pn, x, y, o) {
-      const { seam } = fireOf(o);
-      for (let k = 0; k < 7; k++) {
-        const ax = x + 12 + k * 13.2, a = [ax, y + 4.5], cc = [ax + 1, y + 17], tip = [ax - 11, y + 27], pts = [], back = [];
-        for (let i = 0; i <= 8; i++) {
-          const u = i / 8, px = (1 - u) ** 2 * a[0] + 2 * u * (1 - u) * cc[0] + u * u * tip[0], py = (1 - u) ** 2 * a[1] + 2 * u * (1 - u) * cc[1] + u * u * tip[1];
-          const dx = 2 * (1 - u) * (cc[0] - a[0]) + 2 * u * (tip[0] - cc[0]), dy = 2 * (1 - u) * (cc[1] - a[1]) + 2 * u * (tip[1] - cc[1]), l = Math.hypot(dx, dy) || 1, w = 6.2 * (1 - u) + 0.3;
-          pts.push([px + dy / l * w, py - dx / l * w]); back.push([px - dy / l * w * 0.35, py + dx / l * w * 0.35]);
+    // A 龙脊甲：三层带中脊的大盾鳞（每片 13px 宽），最下一层是长长的尖角甲垂到 y+28；上层压下层、层层投影
+    spine(pn, x, y, o) {
+      for (const [t0, h, off, long] of [[14, 8.5, 0, 1], [9, 8, 6.5, 0], [4, 8, 0, 0]]) {
+        for (let u = 2 + off - 13; u < 94; u += 13) {
+          const a = Math.max(x + 2, x + u), b = Math.min(x + 94, x + u + 13), cx = x + u + 6.5, bt = y + t0 + h;
+          if (b - a < 3) continue;
+          const pts = (long ? [[a, y + t0], [b, y + t0], [b, bt - 5], [cx, bt + 2], [a, bt - 5]] : [[a, y + t0], [b, y + t0], [b, bt - 3], [cx + 3, bt - 0.5], [cx, bt], [cx - 3, bt - 0.5], [a, bt - 3]]).map(([px, py]) => [Math.min(x + 94, Math.max(x + 2, px)), py]);
+          armor(pn, pts, cx > x + 4 && cx < x + 92 ? [cx, y + t0 + 1, cx, bt - 2] : null);
+          if (cx > x + 4 && cx < x + 92) { pn.dot(cx - 3, y + t0 + 3, P.iron[1]); pn.dot(cx + 3.5, y + t0 + 4.5, P.iron[1]); }
         }
-        pn.poly(pts.concat(back.reverse())).paint(plate(seam), { clip: [x + 1, x + 95] });
-        const m = pts[3]; pn.dot(m[0] - 1, m[1] + 1, P.iron[4]); pn.dot(ax, y + 5.5, P.brass[3]);
-      }
-      pn.fill(x + 2, y + 3.5, 92, 1.5, P.iron[0]);
-    },
-    // F 炉门护甲：每个胯位一扇铆接的大炉门（铰链带、门闩，门上三道透火的格栅缝），两门之间一块炉口护板（拱形火口 + 竖栅），门下沿三枚尖
-    doors(pn, x, y, o) {
-      const { seam, core } = fireOf(o);
-      const grate = (a, b, t0, b0) => { pn.rect(a, t0, b - a, b0 - t0).paint([P.black, P.fire[1], core, core], { bevel: '' }); };
-      pn.rect(x + 35, y + 5, 26, 17).paint(NEAR.iron);
-      pn.poly([[x + 40, y + 21], [x + 40, y + 13], [x + 48, y + 8], [x + 56, y + 13], [x + 56, y + 21]]).paint([P.black, P.fire[1], core, core], { bevel: '' });
-      for (let u = 42; u < 56; u += 3) pn.fill(x + u, y + 9, 1.2, 12, P.iron[1]);
-      for (const cx of [22, 74]) {
-        const a = x + cx - 13, b = x + cx + 13;
-        for (const u of [cx - 9, cx, cx + 9]) pn.poly([[x + u - 2.4, y + 23], [x + u + 2.4, y + 23], [x + u, y + 28.5]]).paint(plate(seam));
-        pn.rect(a, y + 4, 26, 20).paint(NEAR.steel);
-        pn.rect(a + 2, y + 6, 22, 16).paint(NEAR.iron, { bevel: 's' });
-        for (const r of [9, 13, 17]) grate(a + 5, b - 5, y + r, y + r + 1.6);
-        for (const r of [7, 19]) pn.rect(cx < 48 ? a - 1 : b - 9, y + r, 10, 2).paint(NEAR.brass);   // 铰链带（在外侧）
-        pn.rect(cx < 48 ? b - 3 : a + 1, y + 12, 2, 5).paint(NEAR.brass);   // 门闩
-        if (pn.hi) for (const [u, v] of [[a + 1, y + 5], [b - 3, y + 5], [a + 1, y + 21], [b - 3, y + 21]]) rivet(pn, u, v); else for (const [u, v] of [[a + 1, y + 5], [b - 2, y + 5], [a + 1, y + 22], [b - 2, y + 22]]) pn.dot(u, v, P.iron[4]);
       }
     },
-    // G 折翼：每个胯位收着一只铁骨龙翼——三根翼骨从肩关节往后下方张开，翼膜在骨间下垂成弧，被炉火从里面照透（暗红）；肩上一枚黄铜爪钩
-    wings(pn, x, y, o) {
-      const { core } = fireOf(o);
+    // B 龙腹横甲：四条横向的宽腹甲（像龙 / 蛇的腹鳞），每条一片压一片、下沿微微下垂，甲面有横向的细纹；两头各一块弯角护板，最下一条挂五根粗尖角
+    belly(pn, x, y, o) {
+      for (let k = 2; k >= 0; k--) {
+        const t0 = y + 4 + k * 5.5, b = t0 + 7.6, pts = [[x + 8, t0], [x + 88, t0]];
+        for (let px = 88; px >= 8; px -= 2) pts.push([x + px, b - 1.6 + 1.6 * Math.sin(Math.PI * (px - 8) / 80)]);
+        armor(pn, pts, null);
+        for (let px = 20; px < 80; px += 15) { pn.ln(x + px, t0 + 1, x + px, b - 1, P.iron[0]); pn.ln(x + px + 1, t0 + 1, x + px + 1, b - 1.5, P.iron[3]); }   // 腹甲的分节缝
+        pn.ln(x + 9, t0 + 1, x + 87, t0 + 1, P.iron[3]);
+      }
+      for (let u = 20; u < 80; u += 15) horn(pn, x + u + 7.5, y + 22.5, 0, 6, 2.6);
+      for (const [a, s] of [[2, 1], [94, -1]]) armor(pn, [[x + a, y + 4], [x + a + s * 9, y + 4], [x + a + s * 8, y + 16], [x + a + s * 3, y + 26], [x + a, y + 20]], [x + a + s * 5, y + 6, x + a + s * 4, y + 22]);
+    },
+    // C 棘背甲：两个胯位各一副三层圆肩甲（一层比一层窄），每层两颗粗锥形骨刺朝外下方；中间一块带脊的胸甲，下沿两根向下的粗角
+    horns(pn, x, y, o) {
+      armor(pn, [[x + 37, y + 4], [x + 59, y + 4], [x + 59, y + 15], [x + 48, y + 21], [x + 37, y + 15]], [x + 48, y + 5, x + 48, y + 19]);
+      horn(pn, x + 43, y + 17, -1.5, 8, 2.6); horn(pn, x + 53, y + 17, 1.5, 8, 2.6);
       for (const cx of [22, 74]) {
-        const S = [x + cx + 8, y + 5], tips = [[x + cx - 16, y + 25], [x + cx - 5, y + 28], [x + cx + 7, y + 26]];
-        const pts = [S, tips[0]];
-        for (let k = 0; k < 2; k++) { const A = tips[k], B = tips[k + 1]; for (let i = 1; i < 6; i++) { const u = i / 6; pts.push([A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u - 3.6 * Math.sin(Math.PI * u)]); } pts.push(B); }
-        pn.poly(pts).paint([P.black, P.fire[0], P.fire[1], core], { bevel: 'l' });
-        for (const T of tips) pn.cap(S[0], S[1], T[0], T[1], 1.3);
-        pn.cap(S[0], S[1], S[0] - 13, S[1] + 2, 1.6);
-        pn.paint(plate(P.black), { bevel: 'l' });
-        ball(pn, NEAR.steel, S[0], S[1], 2.6);
-        pn.poly([[S[0] + 1, S[1] - 2], [S[0] + 5, S[1] - 1], [S[0] + 3, S[1] + 1.5]]).paint(NEAR.brass);
+        for (const [t0, hw, h] of [[11, 11, 10], [4, 14, 10]]) {
+          const pts = [[x + cx - hw, y + t0]];
+          for (let k = 0; k <= 8; k++) { const a = Math.PI * k / 8; pts.push([x + cx - Math.cos(a) * hw, y + t0 + 2 + Math.sin(a) * (h - 2)]); }
+          pts.push([x + cx + hw, y + t0]);
+          armor(pn, pts, [x + cx, y + t0 + 1, x + cx, y + t0 + h - 1.5]);
+        }
+        for (const [s, t0, hw] of [[-1, 4, 14], [1, 4, 14], [-1, 11, 11], [1, 11, 11]]) horn(pn, x + cx + s * hw * 0.62, y + t0 + 6.5, s * 5, 5.5, 2.2);
       }
     },
   };
   const SKIRT_LIST = [
-    ['giant', 'B 巨鳞', '一排六片大盾形鳞（15px 宽、尖朝下），后面错开一排只露鳞尖；每片中脊 + 侧槽 + 铆钉'],
-    ['tiles', 'A 叠瓦大甲', '三条横向宽甲带上压下，每条下沿六个大圆瓣；瓣缝透火'],
-    ['scutes', 'C 鳄背脊板', '两排竖向大甲板，每块一道隆起的龙骨脊，下排错开半块、下沿短尖'],
-    ['lava', 'D 熔岩裂甲', '七八块不规则黑曜岩甲板，板间是熔岩裂缝（亮心随呼吸变亮），下沿参差'],
-    ['blades', 'E 后掠刃鳞', '七片长弯刃甲往后下方掠，像收拢的羽 / 镰刀，刃间透火'],
-    ['doors', 'F 炉门护甲', '每个胯位一扇铆接大炉门（铰链、门闩、三道透火格栅），中间一块拱形炉口护板，门下三枚尖'],
-    ['wings', 'G 折翼', '每个胯位收着一只铁骨龙翼：三根翼骨往后张开，翼膜被炉火照透成暗红，肩上黄铜爪钩'],
+    ['spine', 'A 龙脊甲', '三层带中脊的大盾鳞（每片 13px），最下一层是长尖角甲垂到车体下方；上层压下层、每层在下一层上投影，甲面有粗糙斑点'],
+    ['belly', 'B 龙腹横甲', '四条横向宽腹甲一条压一条（像龙腹的横鳞），甲面横向细纹；两头各一块弯角护板，最下挂五根粗尖角'],
+    ['horns', 'C 棘背甲', '两个胯位各一副三层圆肩甲，每层两颗粗锥形骨刺朝外下方；中间一块带脊的胸甲，下沿两根粗角'],
   ];
 
   // ---------- 编制（15 种 = 主线 6 + 变体 9） ----------
@@ -866,8 +824,8 @@ SA.QLAB = (() => {
       idea: '车体是教堂立面：石缝、扶壁柱顶金十字、尖拱彩窗（以太光流过），正中门楼（玫瑰窗 + 尖拱木门）。两个胯位各垂一面深红燕尾旗（金边、金十字），遮住胯和大腿根。腿：飞扶壁大腿、石砌方柱小腿（发光尖拱龛），膝上小尖塔，两级台座。' },
     { mt: 6, name: '大本钟', hull: 'bigben', leg: 'bigben', ref: '威斯敏斯特宫钟楼（大本钟，1859）',
       idea: '厚重建筑感：车体是垂直式哥特窗格 + 正中大钟面（指针在走）+ 下沿粗挑檐托石。腿是方形塔身，膝盖是一座方钟亭（小钟面也在走），小腿往下加粗、刻竖棂横档，脚是三级台座。' },
-    { mt: 6, name: '熔炉龙骑', hull: 'furnace', front: 'giant', leg: 'dragon', ref: '双足熔心龙骑（只取鳞、炉火、肋骨、尖刺、爪，不做龙头）',
-      idea: '车体下挂一片盖住腿根的大块鳞甲裙板，甲缝透出炉火——七种方案见下方「熔炉龙骑 · 鳞甲裙板」，这里先用 B 巨鳞。腿是粗壮的三段龙腿：交叠甲片大腿 + 炉膛，膝前 / 跗关节各一根黄铜尖刺；脚是分开的弯爪——三根前爪 + 一根后爪，只有爪尖点地。' },
+    { mt: 6, name: '铁鳞龙骑', hull: 'drake', front: 'spine', leg: 'dragon', ref: '龙的鳞甲 / 骨刺 / 爪 + 中世纪板甲的叠片做法（v8 重做，去掉透火）',
+      idea: '车体和裙板全是有厚度的物理甲片：每片带中脊、亮边暗边、粗糙斑点，上片在下片上投一道阴影；三种裙板见「铁鳞龙骑 · 车体裙板」，这里用 A 龙脊甲。腿大幅加粗：大腿三片厚甲（最宽 15px）、膝上厚膝甲 + 粗角刺、小腿两片甲 + 跗关节粗后刺、粗短跖骨，脚是三根粗弯爪 + 后爪。' },
   ];
   const LEG_H = { crank: { reach: 4, up: 34, kx: 7 }, skirt: { reach: 3 }, gren: { reach: 3 }, pedrail: { reach: 2 }, knight: { reach: 2 }, mantis: { up: 2, kx: 12, reach: 3 }, clock: { up: -1, kx: 11 }, anchor: { reach: 3 }, dragon: { reach: 0 }, gothic: { reach: 3 }, bigben: { reach: 3 } };
 
