@@ -166,9 +166,97 @@ SA.CUR = (() => {
       } },
   ];
 
+
+  // ================= v3（2026-09-29 用户：v2 锅炉太敷衍，重做）=================
+  // 煤块：暗色块 + 描边 + 左上一粒反光（一眼看出是亮晶晶的煤）
+  const lump = (x, y, s = 3, hot = 0) => {
+    const c = hot > 0.6 ? [P.fire[1], P.fire[2], P.fire[3]] : hot > 0.2 ? [P.dark[0], P.fire[1], P.fire[2]] : [P.black, P.dark[1], P.dark[3]];
+    R(x, y, s, s, c[0]); R(x, y, s - 1, s - 1, c[1]); if (s > 2) px(x + 1, y, hot > 0.2 ? c[2] : P.iron[4]); else px(x, y, c[2]);
+  };
+  // 滚子链：一串链节（亮的链板 + 暗的销）沿 a → b 排开，off = 走了多远
+  function chainRun(ax, ay, bx, by, off, horiz = true) {
+    const n = Math.round(Math.hypot(bx - ax, by - ay)), dx = (bx - ax) / n, dy = (by - ay) / n;
+    for (let i = 0; i < n; i++) {
+      const k = ((i + off) % 4 + 4) % 4, x0 = ax + dx * i, y0 = ay + dy * i;
+      px(x0, y0, k < 2 ? P.iron[3] : P.iron[1]);
+      if (horiz) px(x0, y0 + 1, k === 1 ? P.iron[0] : P.iron[2]); else px(x0 + 1, y0, k === 1 ? P.iron[0] : P.iron[2]);
+    }
+  }
+  function shovelPose3(t) {
+    const p = saw(t, 56), P0 = [6, 52], P1 = [31, 45], lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], ease = (k) => k * k * (3 - 2 * k);
+    const blade = p < 0.28 ? P0 : p < 0.52 ? lerp(P0, P1, ease((p - 0.28) / 0.24)) : p < 0.66 ? P1 : lerp(P1, P0, ease((p - 0.66) / 0.34));
+    return { p, blade, loaded: p > 0.15 && p < 0.58, lean: p < 0.28 ? -1 : p < 0.66 ? 1 : 0 };
+  }
+  const BOILER3 = [
+    { key: 'E3', name: '链条炉排 · 司炉台', ref: '维多利亚工厂锅炉房：链条炉排 + 顶上的天轴齿轮传动 + 司炉工',
+      idea: '（v3）背景是一整面小块铆接钢板，右边一只拱形大炉膛烧着火。司炉小工站在镂空的格栅踏板上（左下一道镂空楼梯），左边一堆带反光的煤，他一锹一锹地把煤铲到输送链上；输送链由链节和链轮组成，把煤一路送进炉膛烧红。顶上一根工字梁挂着黄铜齿轮组，一条传动链从顶上的大齿轮一直垂下来带动输送链的链轮；梁上还垂着一根长拉环。',
+      draw(x, y, o) {
+        const t = o.t || 0, heat = o.heat, run = t * 0.5;
+        // 背景：小块钢板（8px 一块，交错明暗、角上铆钉）
+        for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { const bx = x + i * 8, by = y + j * 8; R(bx, by, 8, 8, P.iron[0]); R(bx + 1, by + 1, 7, 7, (i + j) % 2 ? P.iron[2] : P.iron[1]); R(bx + 1, by + 1, 7, 1, P.iron[3]); px(bx + 2, by + 2, P.iron[4]); px(bx + 6, by + 6, P.iron[0]); }
+        // 炉膛：拱形炉口 + 火焰 + 厚铆接炉框 + 黄铜口沿
+        R(x + 38, y + 26, 34, 32, P.iron[0]); R(x + 40, y + 28, 30, 28, P.iron[2]);
+        g.save(); g.beginPath(); g.moveTo(x + 43, y + 55); g.lineTo(x + 43, y + 38); g.arc(x + 55, y + 38, 12, Math.PI, 0); g.lineTo(x + 67, y + 55); g.closePath(); g.clip(); flames(x + 43, y + 26, 24, 29, t, heat); g.restore();
+        for (let k = 0; k <= 12; k++) { const a = Math.PI + k / 12 * Math.PI; px(x + 55 + Math.cos(a) * 12.6, y + 38 + Math.sin(a) * 12.6, P.brass[2]); px(x + 55 + Math.cos(a) * 13.4, y + 38 + Math.sin(a) * 13.4, P.brass[0]); }
+        for (const [a, b] of [[40, 29], [68, 29], [40, 53], [68, 53]]) px(x + a, y + b, P.iron[4]);
+        // 顶上：工字梁 + 黄铜齿轮组 + 垂下来的传动链 + 长拉环
+        R(x, y + 2, 72, 5, P.iron[0]); R(x, y + 3, 72, 3, P.iron[3]); R(x, y + 4, 72, 1, P.iron[2]); for (let u = 4; u < 72; u += 8) px(x + u, y + 4, P.iron[4]);
+        gear(x + 27, y + 14, 6.5, 12, t * 0.05); gear(x + 38.5, y + 10, 4, 8, -t * 0.05 * 6.5 / 4); gear(x + 47, y + 14.5, 4.5, 9, t * 0.05 * 6.5 / 4.5);
+        R(x + 26, y + 6, 3, 3, P.iron[1]); R(x + 37, y + 6, 3, 2, P.iron[1]);
+        for (const [cx, d] of [[22, -1], [31, 1]]) { R(x + cx - 0.5, y + 14, 3, 38, P.iron[0]); chainRun(x + cx, y + 14, x + cx, y + 52, d * run, false); }
+        R(x + 8, y + 7, 1, 20, P.brass[1]); for (let yy = 9; yy < 27; yy += 3) px(x + 8, y + yy, P.brass[3]); ring(x + 8.5, y + 29.5, 2, P.brass[2]); ring(x + 8.5, y + 29.5, 1.2, P.brass[0]);
+        // 输送链：头部链轮（被传动链带着）→ 上行链带着煤 → 进炉膛；下行链回来
+        gear(x + 27, y + 52, 4, 9, run * 0.25, IRONL);
+        R(x + 27, y + 46.5, 36, 4, P.iron[0]); R(x + 27, y + 55, 36, 4, P.iron[0]);
+        chainRun(x + 27, y + 47.5, x + 62, y + 47.5, -run); chainRun(x + 27, y + 56, x + 62, y + 56, run);
+        R(x + 29, y + 49.5, 14, 6, P.iron[1]); R(x + 29, y + 49.5, 14, 1, P.iron[0]);
+        for (let k = 0; k < 6; k++) { const lx = x + 32 + ((k * 6 + run) % 34); if (lx > x + 66) continue; lump(lx, y + 44.5, 3, Math.max(0, (lx - x - 43) / 14) * (0.5 + heat)); }
+        // 地上：镂空格栅踏板 + 左下镂空楼梯
+        R(x, y + 58, 40, 4, P.iron[0]); for (let u = 1; u < 39; u += 3) { R(x + u, y + 58, 2, 1, P.iron[3]); R(x + u, y + 59, 2, 2, P.dark[0]); }
+        R(x, y + 58, 40, 1, P.iron[4]);
+        for (let k = 0; k < 3; k++) { const sx = x + 2 + k * 6, sy = y + 62 + k * 3.4; R(sx, sy, 7, 2, P.iron[3]); for (let u = 1; u < 7; u += 2) px(sx + u, sy + 1, P.dark[0]); }
+        line(x + 1, y + 58, x + 21, y + 71, 1, P.iron[4]);
+        R(x + 40, y + 58, 32, 14, P.iron[1]); R(x + 40, y + 58, 32, 1, P.iron[3]);
+        box(x + 46, y + 60, 20, 10, IRON); R(x + 49, y + 63, 14, 5, P.dark[0]); R(x + 50, y + 66, 12, 2, P.steam[0]); for (let u = 51; u < 62; u += 3) px(x + u, y + 65, heat > 0.4 ? P.fire[1] : P.fire[0]); px(x + 63, y + 64, P.brass[3]);   // 灰坑门
+        // 煤堆：一块块带反光的煤垒成一座小山
+        for (const [a, b, s] of [[1, 55, 3], [4, 55, 3], [7, 55, 3], [10, 55, 2], [2, 52, 3], [5, 52, 3], [8, 52, 3], [3, 49, 3], [6, 49, 3], [4.5, 46.5, 2]]) lump(x + a, y + b, s);
+      },
+      over(x, y, o, mini) {
+        const t = o.t || 0, S = shovelPose3(t), bx = x + S.blade[0], by = y + S.blade[1], cx = x + 16 + S.lean * 0.6, cy = y + 52;
+        const hand = [cx + (S.lean >= 0 ? 3 : -2), cy + 1];
+        line(hand[0], hand[1], bx, by, 1, P.leather[1]); px(Math.round((hand[0] + bx) / 2), Math.round((hand[1] + by) / 2), P.leather[2]);
+        R(bx - 1.5, by - 1, 4, 2, P.iron[4]); px(bx - 1, by - 1, P.white); if (Math.sin(t * 0.5) > 0.3) px(bx + 1, by - 1, P.white);
+        if (S.loaded) { R(bx - 1, by - 3, 3, 2, P.dark[1]); px(bx - 1, by - 3, P.white); }
+        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6 + (S.p > 0.28 && S.p < 0.6 ? -1 : 0)));
+        px(hand[0], hand[1], P.black); px(hand[0] - (S.lean >= 0 ? 4 : -4), hand[1] + 1, P.black);
+      } },
+  ];
+  const TANKS3 = [
+    { key: 'AF', name: '拼装水柜 · 中央舷窗 + 蒸汽泵 + 角铁', ref: '布雷斯韦特分片钢水柜 + 舷窗 + 给水泵 + 包角铁',
+      idea: '（v3：去掉刻度盘、浮球和侧面的浮球室）九块带菱形压筋的钢板拼成水柜，四边一圈角铁、四角三角包角板；正中一扇大舷窗看得见水位和气泡；右下一台小蒸汽给水泵的活塞来回推。',
+      draw(x, y, o) {
+        const t = o.t || 0, lv = o.water;
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+          const bx = x + 3 + i * 22, by = y + 3 + j * 20; box(bx, by, 22, 20, IRONL);
+          line(bx + 11, by + 3, bx + 18, by + 10, 1, P.iron[4]); line(bx + 18, by + 10, bx + 11, by + 17, 1, P.iron[2]); line(bx + 11, by + 17, bx + 4, by + 10, 1, P.iron[2]); line(bx + 4, by + 10, bx + 11, by + 3, 1, P.iron[4]);
+        }
+        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[3]); };
+        edge(x + 1, y + 1, 70, 4); edge(x + 1, y + 59, 70, 4); edge(x + 1, y + 1, 4, 62); edge(x + 67, y + 1, 4, 62);
+        for (let u = 8; u < 66; u += 6) { px(x + u, y + 3, P.iron[4]); px(x + u, y + 61, P.iron[4]); }
+        for (let u = 8; u < 58; u += 6) { px(x + 3, y + u, P.iron[4]); px(x + 69, y + u, P.iron[4]); }
+        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [67, 5, -1, 1], [5, 59, 1, -1], [67, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 9, y + cy], [x + cx, y + cy + sy * 9]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 5, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 2, y + cy + sy * 5, P.iron[4]); }
+        ball(x + 36, y + 32, 16, BRASS); for (let k = 0; k < 14; k++) { const a = k / 14 * TAU; px(x + 36 + Math.cos(a) * 14.2, y + 32 + Math.sin(a) * 14.2, P.brass[0]); }
+        g.save(); g.beginPath(); g.arc(x + 36, y + 32, 12.2, 0, TAU); g.clip(); water(x + 23, y + 19, 26, 26, lv, t); g.restore();
+        px(x + 29, y + 25, P.glass[3]); px(x + 30, y + 24, P.glass[3]); px(x + 28, y + 26, P.glass[3]);
+        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
+        const s = Math.sin(t * 0.2) * 3;
+        box(x + 46, y + 62, 12, 9, IRONL); R(x + 58, y + 65, 5 + s, 2, P.iron[4]); R(x + 62 + s, y + 63, 2, 6, P.brass[1]);
+        gauge(x + 50, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 40, y + 66, 6, 3, IRONL);
+      } },
+  ];
   const MODS = [
-    { id: 'boiler_l', name: '大型锅炉 · 链条炉排 v2', w: 3, h: 3, rule: '3×3 能源 · 入煤口 + 煤堆 + 司炉小工（画在材质层之后）+ 链条炉排把煤送进炉膛 · 压力表挪到右侧立柱', SET: BOILER2 },
-    { id: 'water_l', name: '大水箱 · A + E + F 合一', w: 3, h: 3, rule: '3×3 冷却 · 分片拼装钢板 + 角铁 / 包角板 + 大舷窗 + 浮球液位 + 蒸汽给水泵 · 青色只用在水上', SET: TANKS2 },
+    { id: 'boiler_l', name: '大型锅炉 · 司炉台 v3', w: 3, h: 3, rule: '3×3 能源 · 小钢板背景 + 拱形炉膛 · 镂空踏板和楼梯上的司炉小工（画在材质层之后）· 带反光的煤堆 · 链节 + 链轮的输送链 · 顶上黄铜齿轮组 + 垂下来的传动链 + 长拉环', SET: BOILER3 },
+    { id: 'water_l', name: '大水箱 · 拼装水柜 v3', w: 3, h: 3, rule: '3×3 冷却 · 分片拼装钢板 + 角铁 / 包角板 + 正中大舷窗 + 蒸汽给水泵（去掉刻度盘、浮球、浮球室）· 青色只用在水上', SET: TANKS3 },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   function over(ctx, x, y, e, o = {}, mini) { g = ctx; if (e.over) e.over(x, y, o, mini); }
