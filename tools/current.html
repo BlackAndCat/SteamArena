@@ -30,14 +30,16 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · 重做 v2 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · 重做 v3 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
-    <p><b>你对 v1 的意见</b>：剪影区分度不够，没有双足龙骑、圣骑、掷弹兵那种出彩的感觉。采用 T2 桁架爬机、T3 板簧拖车、T4 曲柄步行机、T5 汽锤步行机（都放主线，不改），其余重画，加入龙、裙甲、仪表、齿轮等元素，重新审视剪影。<br>
-      <b>v2 靠四样东西拉开剪影</b>：① 膝盖的位置和朝向（高膝蜘蛛 / 人形正膝在半高处 / 膝朝里 / 三段龙腿）；② 脚形（带肋平脚、尖头铁靴、履带段、船锚、三爪、岩板）；
-      ③ 车体下沿的附加层（整圈裙甲、骑士风筝盾、罩袍、半露大齿轮、垂下的锚链、晶簇、锯齿尖刺）；④ 膝部大件（压力表盘、大齿轮、扇形侧翼、羽翼、岩石宝石）。先看下面的「剪影对照」。</p>
-    <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9。主线：T1 工装 Mk.II（新）· T2 桁架爬机 · T3 板簧拖车 · T4 曲柄步行机 · T5 汽锤步行机 · T6 熔心龙骑（新）。
-      变体（全新）：T2 裙甲堡 · T3 掷弹兵、步行履带 · T4 蒸汽圣骑、仪表步行机 · T5 钟表巨像、锚链铁甲 · T6 圣堂骑士、晶枝。风格仍是工业 / 蒸汽朋克 / 维多利亚 / 少量一战，龙骑只取鳞甲、炉膛、尖刺和爪，不做龙头。
-      附加层（裙甲、盾、罩袍、齿轮、锚链、晶簇）都在车体下沿以下，顶板以上不画。<b>探索稿，还没有接进游戏</b>。<b>请确认</b>：主线 / 变体的取舍，哪些还要改。</p>
+    <p><b>你对 v2 的意见 → 我的改法</b><br>
+      ① 腿普遍太细 → 全部加粗：大腿 6～8px、小腿 4～6px，脚、膝盖、胯销都放大。<br>
+      ② 四足看不到颠簸 → 机身按步态起伏：对角两腿交替着地的瞬间（双支撑）机身最低，一对腿撑在胯正下方时最高，每步两次、幅度 2px（腿按 IK 跟着伸缩，脚仍钉在地上）。<br>
+      ③ 遮挡关系 → 每条腿按固定层次画：<b>驱动件（飞轮）→ 大腿 → 胯销 → 连杆 / 撑杆 → 小腿 → 膝销 → 脚 → 踝销</b>。所以摆过来的小腿会盖住胯销、小腿压在大腿外侧；远侧腿看到的是内侧面，整组倒过来。车体附加层（裙甲、盾、齿轮、锚链）单独在最前 / 最后。<br>
+      ④ T6 整体重做：<b>哥特圣殿</b>（主线：飞扶壁 + 石柱 + 尖塔腿，彩窗 + 玫瑰窗车体）· <b>天象仪</b>（浑天仪膝 + 车腹太阳系仪）· <b>熔炉龙骑</b>（粗三段龙腿 + 肋骨炉火车体）。仪表步行机重做：大表盘落在腿的半高处、玻璃液位管小腿、仪器底座脚。<br>
+      ⑤ 底盘 T4～T6 重新探索：每档三种车体候选，见下面「T4～T6 车体候选」（都穿该档主线腿）。上面一览里的变体暂时用每档的 A 候选。</p>
+    <p style="color:var(--muted)">编制：15 种 = 主线 6 + 变体 9。T1 工装 Mk.II · T2 桁架爬机 / 裙甲堡 · T3 板簧拖车 / 掷弹兵 / 步行履带 · T4 曲柄步行机 / 蒸汽圣骑 / 仪表步行机 · T5 汽锤步行机 / 钟表巨像 / 锚链铁甲 · T6 哥特圣殿 / 天象仪 / 熔炉龙骑。
+      <b>探索稿，还没有接进游戏</b>。<b>请确认</b>：T4～T6 各选哪种车体；T6 三种和新仪表步行机行不行。</p>
   </header>
   <div class="cbar">
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
@@ -51,6 +53,10 @@
   <section>
     <h2 class="sec">15 种一览 <small>每行一档材质，主线在最左，右边是该档的变体（同一车体、换腿）· 行走动画</small></h2>
     <div id="rows"></div>
+  </section>
+  <section>
+    <h2 class="sec">T4～T6 车体候选 <small>每档三种，都穿该档主线腿 · 行走动画</small></h2>
+    <div id="hulls"></div>
   </section>
   <section>
     <h2 class="sec">六档主线并排 <small>T1 → T6，同一步态帧，1× 和 2×</small></h2>
@@ -86,7 +92,7 @@
   const OX = 12, OY = 8, W = 96 + OX * 2, H = 48 + OY + 6;
   function fig(e, a, o = {}) {
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13 });
+    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13, hull: o.hull });
     if (!o.raw) applyMat(lay, e.mt, OX, OY);
     if (o.sil) { const g = lay.getContext('2d'); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#0b0c10'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
     if (o.bare) return lay;
@@ -111,6 +117,19 @@
       box.append(row);
     }
   }
+  function renderHulls() {
+    const box = $('hulls'); box.replaceChildren();
+    for (const mt of [4, 5, 6]) {
+      const main = Q.SET.find(e => e.mt === mt && e.main), row = el('div', { className: 'cards', style: 'margin-bottom:14px;align-items:flex-start' });
+      row.append(el('div', { style: 'width:96px;padding-top:8px' }, el('b', { style: `color:${SA.MATS[mt].chip};font-size:15px` }, `T${mt} ${SA.MATS[mt].name}`), el('div', { style: 'font-size:11.5px;color:var(--muted);margin-top:4px' }, '腿：' + main.name)));
+      for (const [id, name, idea] of Q.HULL_CANDS[mt]) {
+        const lv = el('div');
+        live.push([lv, (t) => fig(main, A(t), { t: t / 10, hull: id }), st.zoom]);
+        row.append(el('div', { className: 'card', style: 'max-width:340px' }, el('h3', {}, name), lv, el('p', {}, idea)));
+      }
+      box.append(row);
+    }
+  }
   function renderStatic() {
     const T = $('mainline'); T.replaceChildren();
     const mains = Q.SET.filter(e => e.main);
@@ -124,7 +143,7 @@
     for (const e of Q.SET) S.append(el('div', { style: 'text-align:center;font-size:11px' }, show(fig(e, 0.6, { sil: true, raw: true }), 1), el('div', {}, `T${e.mt} ${e.name}`)));
   }
   function tick() { st.t++; for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
-  function renderAll() { renderRows(); renderStatic(); tick(); }
+  function renderAll() { renderRows(); renderHulls(); renderStatic(); tick(); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
