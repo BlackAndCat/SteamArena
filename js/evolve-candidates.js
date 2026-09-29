@@ -84,6 +84,7 @@
   // 这样界面能明确显示筛选失败，而不是把章节节奏悄悄压缩掉。
   function normalizeReport(report) {
     if (!report || typeof report !== 'object') throw new TypeError('进化报告必须是对象');
+    report = SA.Camp?.migrateEvolutionReport ? SA.Camp.migrateEvolutionReport(report) : report;
     const rawChapters = Array.isArray(report.chapters) ? report.chapters : [];
     const chapters = rawChapters.map((chapter, chapterIndex) => {
       const ci = integer(chapter?.chapter, chapterIndex);
@@ -91,7 +92,7 @@
       return {
         chapter: ci,
         name: chapterName(chapter, ci),
-        stages: rawStages.map((stage, stageIndex) => normalizeStage(chapter, ci, stage, stageIndex)),
+        stages: rawStages.map((stage, stageIndex) => normalizeStage(chapter, ci, stage, integer(stage.spec?.stage, stageIndex))),
       };
     });
     const stages = chapters.flatMap(chapter => chapter.stages);

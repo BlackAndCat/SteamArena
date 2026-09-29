@@ -9,6 +9,34 @@ const STAGE_CARS_LOCAL_KEY = 'steam_arena_stage_cars_local_v1';
 const STAGE_CARS_CHANNEL_NAME = 'steam-arena-stage-cars';
 let stageCarsChannel = null;
 
+// 插入甲片关后，旧序章第二关仍是铲斗关，统一顺延到第三关；其他章不变。
+function migrateStageIndex(chapter, stage, layout) {
+  return (layout || 1) < SA.CAMPAIGN_LAYOUT && chapter === 0 && stage === 1 ? 2 : stage;
+}
+function migrateStageRecords(records, layout) {
+  const result = {};
+  for (const [key, record] of Object.entries(records || {})) {
+    const [ci, si] = key.split(':').map(Number), target = `${ci}:${migrateStageIndex(ci, si, layout)}`;
+    result[target] = record ? { ...record, id: target } : record;
+  }
+  return result;
+}
+// 报告按其布局版本迁移副本；包括候选、选关证据和失败行，不改历史文件或车辆构筑。
+function migrateEvolutionReport(report) {
+  if (!report || report.campaignLayout >= SA.CAMPAIGN_LAYOUT) return report;
+  const result = JSON.parse(JSON.stringify(report)), layout = report.campaignLayout;
+  const spec = value => { if (value && Number.isInteger(value.stage)) value.stage = migrateStageIndex(value.chapter, value.stage, layout); };
+  const record = value => { if (value) spec(value.spec); };
+  for (const ch of result.chapters || []) for (const stage of ch.stages || []) {
+    spec(stage.spec); record(stage.selected); (stage.top || []).forEach(record);
+  }
+  (result.candidates || []).forEach(record);
+  (result.selectionFailures || []).forEach(spec);
+  if (result.scope?.stage != null) spec(result.scope);
+  result.campaignLayout = SA.CAMPAIGN_LAYOUT;
+  return result;
+}
+
 function readLocalStageCars(text) {
   try {
     const raw = text === undefined
@@ -17,7 +45,7 @@ function readLocalStageCars(text) {
     if (!raw) return null;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!parsed || typeof parsed !== 'object' || !parsed.records || typeof parsed.records !== 'object' || Array.isArray(parsed.records)) return null;
-    return { version: 1, records: parsed.records, updatedAt: parsed.updatedAt || null };
+    return { version: 1, campaignLayout: parsed.campaignLayout, records: parsed.records, updatedAt: parsed.updatedAt || null };
   } catch (error) {
     return null;
   }
@@ -25,9 +53,16 @@ function readLocalStageCars(text) {
 
 function applyLocalStageCars(payload) {
   if (!SA.STAGE_CARS || !SA.StageCars) return { ok: false, count: 0 };
-  if (!SA.__STAGE_CARS_FILE_RECORDS) SA.__STAGE_CARS_FILE_RECORDS = { ...(SA.STAGE_CARS.records || {}) };
+  if (!SA.__STAGE_CARS_FILE_RECORDS) {
+    // 老版生成文件会先把旧第二关覆盖到新位置；恢复新关模板后再按新编号应用手工车。
+    if ((SA.STAGE_CARS.campaignLayout || 1) < SA.CAMPAIGN_LAYOUT && SA.STAGE_CARS.records?.['0:1'])
+      SA.CAMPAIGN[0].stages[1] = { ...SA.PROLOGUE_PLATE_STAGE };
+    SA.__STAGE_CARS_FILE_RECORDS = migrateStageRecords(SA.STAGE_CARS.records, SA.STAGE_CARS.campaignLayout);
+    SA.STAGE_CARS.campaignLayout = SA.CAMPAIGN_LAYOUT;
+    SA.STAGE_CARS.targets = SA.CAMPAIGN.slice(0, 3).flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
+  }
   const local = arguments.length ? payload : readLocalStageCars();
-  SA.STAGE_CARS.records = { ...SA.__STAGE_CARS_FILE_RECORDS, ...(local?.records || {}) };
+  SA.STAGE_CARS.records = { ...SA.__STAGE_CARS_FILE_RECORDS, ...migrateStageRecords(local?.records, local?.campaignLayout) };
   if (typeof SA.StageCars.applyToCampaign === 'function') SA.StageCars.applyToCampaign();
   return { ok: !!local, count: Object.keys(local?.records || {}).length };
 }
@@ -55,7 +90,7 @@ function openStageCarsChannel() {
 }
 
 function saveLocalStageCars(records) {
-  const payload = { version: 1, records, updatedAt: new Date().toISOString() };
+  const payload = { version: 1, campaignLayout: SA.CAMPAIGN_LAYOUT, records, updatedAt: new Date().toISOString() };
   let localPersisted = false;
   try {
     if (typeof localStorage !== 'undefined') {
@@ -155,6 +190,11 @@ SA.Camp = (() => {
     const out = { lines: [], unlocks: [] };
     if (!st) return out;
     if (st.unlock) { applyUnlock(st.unlock); out.unlocks.push({ title: '新功能开放', u: st.unlock }); }
+    // 固定模块奖励只由首次通关发放；读档补解锁和重打均不会经过此处。
+    for (const item of st.rewardItems || []) {
+      SA.S.addInv(item.id, item.count, item.mt);
+      out.lines.push(`获得 ${M[item.id].name} ×${item.count}`);
+    }
     if (st.drop) {
       SA.S.addIngots(st.drop);
       for (const k in st.drop) out.lines.push(`掉落 ${SA.INGOTS[k].name} ×${st.drop[k]}`);
@@ -298,7 +338,7 @@ SA.Camp = (() => {
     const check = SA.StageCars.validate(record, chapter, stageIndex, v);
     if (!check.ok) throw new Error(`关卡车不能保存：${check.errors.join('；')}`);
     if (check.warnings.length) console.warn(`关卡车保存警告（允许保存）：${check.warnings.join('；')}`);
-    const payload = { version: 1, records: { ...(SA.STAGE_CARS.records || {}), [record.id]: record } };
+    const payload = { version: 1, campaignLayout: SA.CAMPAIGN_LAYOUT, records: { ...(SA.STAGE_CARS.records || {}), [record.id]: record } };
     // 先落浏览器本机存档并广播，正式游戏页无需重启就能看到这辆车。
     const local = saveLocalStageCars(payload.records);
     let response = null;
@@ -343,7 +383,7 @@ SA.Camp = (() => {
     saveStageCar,
   };
 
-  return { backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
+  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
 })();
 SA.dev = SA.Camp.dev;
 if (SA.StageCars) {

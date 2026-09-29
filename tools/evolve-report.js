@@ -70,10 +70,10 @@
   }
   // 候选车库只有分享码、标签和分数，整理成和报告里一样的记录形状
   function normalize(data) {
-    if (data && Array.isArray(data.chapters)) return data;
+    if (data && Array.isArray(data.chapters)) return SA.Camp.migrateEvolutionReport(data);
     const rows = (data && data.candidates) || [];
     return {
-      generatedAt: data && data.generatedAt, rules: data && data.rules, lite: true, chapters: [], selectionFailures: [],
+      campaignLayout: data && data.campaignLayout, generatedAt: data && data.generatedAt, rules: data && data.rules, lite: true, chapters: [], selectionFailures: [],
       candidates: rows.map(r => ({
         name: '', code: r.code, cells: r.cells, style: r.tags && r.tags.style, chassis: r.tags && r.tags.chassis, archiveClass: 'normal',
         spec: { chapter: r.tags && r.tags.chapter, stage: r.tags && r.tags.stage, terrain: r.tags && r.tags.terrain },

@@ -20,6 +20,7 @@ const evolveFirstStage = require('./evolve-first-stage-check');
 const trackChain = require('./track-chain-check');
 const stageRules = require('./evolve-stage-rules-check');
 const evolveArena = require('./evolve-arena-check');
+const prologuePlate = require('./prologue-plate-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -171,6 +172,7 @@ async function main() {
   result.stageRules = constraints;
   result.trackChain = tracks;
   result.arena = await evolveArena.run();
+  result.prologuePlate = prologuePlate.run();
   console.log(JSON.stringify(result, null, 2));
 }
 

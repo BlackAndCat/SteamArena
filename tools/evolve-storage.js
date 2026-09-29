@@ -128,7 +128,7 @@ function candidateRows(report) {
 /** 写入可入库的候选库，只输出分享码、标签、分数和规则指纹。 */
 function writeCandidates(report, destination = DEFAULT_CANDIDATES) {
   const rows = candidateRows(report);
-  const data = { generatedAt: report && report.generatedAt, rules: report && report.rules, candidates: rows };
+  const data = { campaignLayout: report && report.campaignLayout, generatedAt: report && report.generatedAt, rules: report && report.rules, candidates: rows };
   const content = JSON.stringify(data, null, 2);
   const bytes = Buffer.byteLength(content, 'utf8');
   assertSize('候选库', bytes, CANDIDATE_LIMIT);

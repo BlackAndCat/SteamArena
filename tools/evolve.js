@@ -1055,7 +1055,7 @@ function run(options = {}) {
   }
   const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)]));
   if (options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
-  return { generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, cache: duelCache ? duelCache.summary() : { disabled: true }, chapters: chapterReports, selectionFailures, candidates: all };
+  return { campaignLayout: SA.CAMPAIGN_LAYOUT, generatedAt: new Date().toISOString(), seed: options.seed || 20260925, rules: fingerprint, moduleValues, config, cache: duelCache ? duelCache.summary() : { disabled: true }, chapters: chapterReports, selectionFailures, candidates: all };
 }
 
 function checkpointChapter(chapter, pendingStages, SA) {
@@ -1093,7 +1093,7 @@ async function runAsync(options = {}) {
   }
   const pool = createEvaluationPool(workerCount);
   const progress = event => options.onProgress?.({ ...event, elapsedMs: Date.now() - telemetry.startedAt });
-  const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
+  const checkpoint = (pendingChapter = null, state = 'running') => options.onCheckpoint?.({ campaignLayout: SA.CAMPAIGN_LAYOUT, status: state, generatedAt: new Date().toISOString(), seed, rules: fingerprint, config, chapters: chapterReports, pendingChapter, candidates: all, selectionFailures, cache: duelCache.summary(), telemetry: { ...telemetry, elapsedMs: Date.now() - telemetry.startedAt } });
   progress({ phase: 'start', total: chapterIndexes.length });
   try {
     chapterLoop: for (const chapter of chapterIndexes) {
@@ -1106,7 +1106,7 @@ async function runAsync(options = {}) {
         const bossIndex = SA.CAMPAIGN[chapter].stages.findIndex(row => row.boss);
         if (bossIndex >= 0 && bossIndex !== scope.stage) chapterBoss = reference(chapter, bossIndex);
       }
-      const stageIndexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
+      const stageIndexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
       for (const stage of stageIndexes) {
         if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
         const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
@@ -1162,7 +1162,7 @@ async function runAsync(options = {}) {
     if (status === 'complete' && options.strict && selectionFailures.length) throw new Error(`选关硬条件未全部满足：${JSON.stringify(selectionFailures)}`);
     const moduleValues = Object.fromEntries(Object.keys(SA.MODULES).map(id => [id, cellValue(SA, id, SA.CAMP_START.mat)])); telemetry.elapsedMs = Date.now() - telemetry.startedAt;
     progress({ phase: status === 'complete' ? 'complete' : 'interrupted', completed: telemetry.completedChapters, total: chapters }); checkpoint(null, status);
-    return { status, generatedAt: new Date().toISOString(), seed, rules: fingerprint, moduleValues, config, cache: duelCache.summary(), chapters: chapterReports, selectionFailures, candidates: all, telemetry, scope, seedWarnings };
+    return { campaignLayout: SA.CAMPAIGN_LAYOUT, status, generatedAt: new Date().toISOString(), seed, rules: fingerprint, moduleValues, config, cache: duelCache.summary(), chapters: chapterReports, selectionFailures, candidates: all, telemetry, scope, seedWarnings };
   } finally { await pool.close(); }
 }
 
@@ -1373,8 +1373,8 @@ function robustness(SA, vehicle, opponents, spec, seed, games = 1) {
 // 规则指纹变化后只重评估旧候选，不重新进化。输入是 --sample 生成的报告，
 // 输出每台车的强度、表现、合法性和偏移，供任务 F 的自动检查消费。
 function impact(file, games = 4, perturb = null) {
-  const baseline = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
   const { SA } = loadGame();
+  const baseline = SA.Camp.migrateEvolutionReport(JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')));
   if (perturb && SA.K[perturb.key] != null) SA.K[perturb.key] = Math.max(1, Number(SA.K[perturb.key]) * Number(perturb.factor || 1));
   const currentRules = ruleFingerprint(SA), rows = [], threshold = { strength: 75, performance: 10 };
   for (const record of baseline.candidates || []) {
@@ -1406,7 +1406,7 @@ function impact(file, games = 4, perturb = null) {
   return { baselineRules: baseline.rules, currentRules, changed: baseline.rules !== currentRules, perturb, threshold, candidates: rows, flagged: flagged.length, moduleValues: { before: beforeValues, after: moduleValues, delta: moduleValueDelta }, note: '本报告只重评估旧候选，不自动改动规则、关卡或数值。' };
 }
 
-// P7 固定夹具：故意把战斗时限缩到 1/10，验证影响报告能识别规则指纹变化并标出候选偏移（缩到一半时多数对局 50 秒内就结束，结果不变，测不出来）。
+// P7 固定夹具：把战斗时限缩到约一秒，验证指纹变化和候选偏移；短程基础车在十秒内已能分胜负。
 function impactCheck() {
   const { SA } = loadGame();
   // 无水箱基础车可能在十秒内烧干；时限扰动夹具显式带水，保证实际触及时限差异。
@@ -1418,7 +1418,7 @@ function impactCheck() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'steam-evolve-impact-')), file = path.join(dir, 'evolve-fixture.json');
   try {
     fs.writeFileSync(file, JSON.stringify(baseline), 'utf8');
-    const report = impact(file, 2, { key: 'BATTLE_TIME', factor: 0.1 });   // 战斗只剩 10 秒：几乎所有对局都会超时，必然偏移
+    const report = impact(file, 2, { key: 'BATTLE_TIME', factor: 0.01 }); // 提前截断交火，确保差异超过影响报告阈值。
     if (!report.changed || !report.candidates.length || !report.candidates[0].robustness?.length) throw new Error('P7 影响报告没有识别规则变化或稳健性行');
     if (!report.candidates.some(row => row.flagged)) throw new Error('P7 影响报告没有标出受影响候选');
     return { changed: report.changed, flagged: report.flagged, perturb: report.perturb, rules: { before: report.baselineRules, after: report.currentRules } };
@@ -1437,7 +1437,7 @@ async function main(argv) {
   if (mode === '--first-stage' || mode === '--first-two-stages') {
     // 保留既有的种群、代数、真实战斗评分和手工锁定规则；仅限制预演范围。
     // 输出到报告页读取的有界目录，不写战役数据、手工车或全战役候选车库。
-    const report = await runAsync({ chapters: 1, firstStageOnly: mode === '--first-stage', seed: Number(argv[1]) || 20260929,
+    const report = await runAsync({ chapters: 1, firstStageOnly: mode === '--first-stage', firstTwoStages: mode === '--first-two-stages', seed: Number(argv[1]) || 20260929,
       onProgress: event => { if (event.phase !== 'candidate') console.log(JSON.stringify(event)); } });
     const saved = storage.writeReport(report, OUT_DIR);
     console.log(JSON.stringify({ file: saved.file, rules: report.rules, selectionFailures: report.selectionFailures, telemetry: report.telemetry }, null, 2));

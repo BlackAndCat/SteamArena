@@ -174,7 +174,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         if not isinstance(payload, dict) or payload.get('version', 1) != 1 or not isinstance(records, dict) or len(records) > 32:
             self._json(400, {'error': '关卡车数据格式不合法'})
             return
-        allowed_keys = {'0:0', '0:1', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'}
+        allowed_keys = {'0:0', '0:1', '0:2', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'}
         for key, record in records.items():
             if not isinstance(key, str) or not re.fullmatch(r'\d{1,2}:\d{1,2}', key):
                 self._json(400, {'error': '关卡键不合法'})
@@ -189,7 +189,12 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 if len(record['cells']) > 256 or len(json.dumps(record, ensure_ascii=False)) > 500000:
                     self._json(413, {'error': f'{key} 记录过大'})
                     return
-        data = json.dumps({'version': 1, 'targets': ['0:0', '0:1', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'], 'records': records}, ensure_ascii=False, indent=2)
+        # 仍开着的旧工作台可能提交旧序章编号；校验后将铲斗关顺延，保留其构筑。
+        if payload.get('campaignLayout', 1) == 1 and '0:1' in records:
+            records = dict(records)
+            old = records.pop('0:1')
+            records['0:2'] = dict(old, id='0:2') if old else old
+        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': ['0:0', '0:1', '0:2', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'], 'records': records}, ensure_ascii=False, indent=2)
         helper = r'''SA.StageCars = (() => {
   const data = SA.STAGE_CARS;
   const keyOf = (chapter, stage) => `${chapter}:${stage}`;

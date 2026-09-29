@@ -9,10 +9,19 @@
     if (!raw) return [];
     const data = JSON.parse(raw);
     if (data.version !== 1 || !Array.isArray(data.records)) throw new Error('进化擂台候选库格式不正确，请先导出备份');
+    if ((data.campaignLayout || 1) < SA.CAMPAIGN_LAYOUT) for (const row of data.records) {
+      const sp = row.record?.spec;
+      if (sp) sp.stage = SA.Camp.migrateStageIndex(sp.chapter, sp.stage, data.campaignLayout);
+      if (row.parentKey) {
+        const parent = JSON.parse(row.parentKey);
+        parent[1] = SA.Camp.migrateStageIndex(parent[0], parent[1], data.campaignLayout);
+        row.parentKey = JSON.stringify(parent);
+      }
+    }
     return data.records;
   }
   function write(records) {
-    const raw = JSON.stringify({ version: 1, records });
+    const raw = JSON.stringify({ version: 1, campaignLayout: SA.CAMPAIGN_LAYOUT, records });
     if (new TextEncoder().encode(raw).length > LIMIT) throw new Error('进化擂台候选库已超过 1 MB，请先取消不需要的收藏');
     localStorage.setItem(KEY, raw);
     window.dispatchEvent(new Event('evolve-arena-change'));
@@ -58,7 +67,7 @@
   }
   // 历史报告保持只读；展示时加入收藏，并用手工版本替换它的原始候选。
   function merge(report) {
-    const result = clone(report), protectedRows = read().filter(row => row.favorite || row.manual);
+    const result = clone(SA.Camp.migrateEvolutionReport(report)), protectedRows = read().filter(row => row.favorite || row.manual);
     result.candidates ||= []; result.chapters ||= [];
     for (const row of protectedRows) {
       const sp = row.record.spec;

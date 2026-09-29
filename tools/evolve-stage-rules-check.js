@@ -17,21 +17,22 @@ function run() {
       const growth = row.budget / rules[i - 1].budget - 1;
       assert(growth >= 0.15 - 1e-9 && growth <= 0.30 + 1e-9, `${key} 预算增幅超出 15%～30%`);
     }
-    assert.strictEqual(row.status, i < 2 ? 'preview' : 'draft');
+    assert.strictEqual(row.status, i < 3 ? 'preview' : 'draft');
     for (const id of [...row.addMods, ...(row.stageMods || [])]) assert(SA.MODULES[id] && !SA.MODULES[id].retired, `未知模块 ${id}`);
     const spec = evolve.stageSpec(SA, row.chapter, row.stage);
     assert(!spec.rewardModule || spec.availableMods.includes(spec.rewardModule), `${key} 奖励未列入模块表`);
   });
   assert.throws(() => evolve.run({ chapters: 2 }), /仍待审阅/, '审阅稿被直接整批生成');
-  const first = evolve.stageSpec(SA, 0, 0), second = evolve.stageSpec(SA, 0, 1);
-  assert.strictEqual(first.budget, 360); assert.strictEqual(second.budget, 450);
-  assert.deepStrictEqual(first.availableMods, ['track', 'helmet', 'plate', 'boiler_s', 'tank_s', 'mg_s']);
-  assert.deepStrictEqual(second.availableMods, [...first.availableMods, 'bucket']);
+  const first = evolve.stageSpec(SA, 0, 0), second = evolve.stageSpec(SA, 0, 1), third = evolve.stageSpec(SA, 0, 2);
+  assert.strictEqual(first.budget, 360); assert.strictEqual(second.budget, 420); assert.strictEqual(third.budget, 485);
+  assert.deepStrictEqual(first.availableMods, ['track', 'helmet', 'boiler_s', 'tank_s', 'mg_s']);
+  assert.deepStrictEqual(second.availableMods, [...first.availableMods, 'plate']);
+  assert.deepStrictEqual(third.availableMods, [...second.availableMods, 'bucket']);
   // 旧原车 / 开局库存中添加高级件也不能污染候选模块池。
   SA.CAMP_START.mods.push('cannon_giant'); SA.CAMPAIGN[0].stages[0].subs = [[0, 0, 'cannon_giant']];
   assert.deepStrictEqual(evolve.stageSpec(SA, 0, 0).availableMods, first.availableMods);
-  const gun = evolve.minimalVehicle(SA, first, 'tank_s'), ram = evolve.minimalVehicle(SA, second, 'bucket');
-  assert(gun && ram, '前两关最小构筑不存在');
+  const gun = evolve.minimalVehicle(SA, first, 'tank_s'), ram = evolve.minimalVehicle(SA, third, 'bucket');
+  assert(gun && ram, '序章最小构筑不存在');
   const gs = SA.V.stats(gun), rs = SA.V.stats(ram);
   assert.strictEqual(gs.value, 360); assert.strictEqual(gs.count, 5);
   assert.strictEqual(rs.value, 402); assert.strictEqual(rs.count, 4);
@@ -51,7 +52,7 @@ function run() {
   assert.strictEqual(evolve.randomVehicle(SA, first, new evolve.RNG(1), 'cannon_m'), null);
   // 多种随机布局与全部变异操作都必须留在硬上限内；标尺车受相同限制。
   let checked = 0;
-  for (const spec of [first, second]) {
+  for (const spec of [first, second, third]) {
     for (let seed = 1; seed <= 60; seed++) {
       const v = evolve.randomVehicle(SA, spec, new evolve.RNG(seed), seed % 2 ? spec.rewardModule : null);
       assert(v && evolve.legalVehicle(SA, v, spec), `种子 ${seed} 生成非法车`); checked++;
@@ -89,7 +90,7 @@ function run() {
   assert(split.strength > 1100 && split.strength < 1300, '75% 胜率错误地撞到 1700 上限');
   const uneven = evolve.strengthFromRows([{ n: 2, winRate: 1 }, { n: 200, winRate: 0.5 }]);
   assert(uneven.strength < 1010, '没有按真实样本量计算强度');
-  return { stages: rules.length, generatedScope: 2, first: { value: bs.value, count: bs.count }, firstWithReward: { value: gs.value, count: gs.count }, second: { value: rs.value, count: rs.count }, checked, constraints: true, savingsRank: true, draftGuard: true };
+  return { stages: rules.length, generatedScope: 3, first: { value: bs.value, count: bs.count }, firstWithReward: { value: gs.value, count: gs.count }, bucket: { value: rs.value, count: rs.count }, checked, constraints: true, savingsRank: true, draftGuard: true };
 }
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
 module.exports = { run };

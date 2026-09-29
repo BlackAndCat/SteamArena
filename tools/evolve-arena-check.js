@@ -18,8 +18,8 @@ async function run() {
     getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/evolve-arena.js'), 'utf8'), context);
   const arena = SA.EvolveArena, spec = evolve.stageSpec(SA, 0, 1);
-  const vehicle = evolve.minimalVehicle(SA, spec, 'bucket');
-  const rec = { name: '手工铲斗夹具', cells: SA.StageCars.cellsOf(vehicle), code: SA.V.encode(vehicle), spec, style: 'turtle', strength: 1200, winRate: 0.75, games: 40 };
+  const vehicle = evolve.minimalVehicle(SA, spec, 'plate');
+  const rec = { name: '手工甲片夹具', cells: SA.StageCars.cellsOf(vehicle), code: SA.V.encode(vehicle), spec, style: 'turtle', strength: 1200, winRate: 0.75, games: 40 };
   const saved = arena.remember(rec, { favorite: true });
   const modified = arena.saveEdited(saved.id, vehicle, { name: '擂台手工车', style: 'rush' });
   assert(modified.manual && modified.favorite && modified.participate);
@@ -27,12 +27,12 @@ async function run() {
   assert.strictEqual(SA.V.decode(modified.record.code).name, '擂台手工车', '分享码没有使用手工车名');
   assert.strictEqual(memory.get('steam_arena_save'), '正式存档哨兵');
   assert.strictEqual(memory.size, 2, '擂台写入了其他存档键');
-  const base = { rules: 'old', chapters: [{ chapter: 0, stages: [{ spec, top: [rec], selected: rec }] }], candidates: [rec], selectionFailures: [] };
+  const base = { campaignLayout: SA.CAMPAIGN_LAYOUT, rules: 'old', chapters: [{ chapter: 0, stages: [{ spec, top: [rec], selected: rec }] }], candidates: [rec], selectionFailures: [] };
   const overlay = arena.merge(base);
   assert.strictEqual(overlay.candidates.length, 1);
   assert(overlay.chapters[0].stages[0].selected.manual);
   assert(overlay.chapters[0].stages[0].selected.needsEvaluation);
-  assert.strictEqual(base.candidates[0].name, '手工铲斗夹具', '展示合并污染原报告');
+  assert.strictEqual(base.candidates[0].name, '手工甲片夹具', '展示合并污染原报告');
   // 未知模块不得被 fromCells 静默丢弃后当成另一台合法种子。
   const bad = { ...modified.record, name: '无效模块夹具', cells: [...rec.cells, [0, 0, 0, 'missing_module', 1, 0]] };
   const previousConfig = { ...config.population };
@@ -44,7 +44,7 @@ async function run() {
     assert.strictEqual(report.chapters[0].stages.length, 1);
     assert.strictEqual(report.chapters[0].stages[0].spec.stage, 1, '单关索引被改成第一关');
     assert.strictEqual(report.seedWarnings.length, 1);
-    const measured = report.candidates.find(item => arena.key(item) === arena.key(modified.record));
+    const measured = report.candidates.find(item => arena.key(item) === arena.key(modified.record) && item.name === modified.record.name);
     assert(measured, '手工种子在最终报告中丢失');
     assert.strictEqual(measured.style, 'rush', '手工绑定性格被覆盖');
     assert.strictEqual(JSON.stringify(measured.cells), JSON.stringify(modified.record.cells));

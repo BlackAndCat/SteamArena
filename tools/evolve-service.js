@@ -58,7 +58,7 @@ async function generate(request, emit = () => {}) {
     const filename = path.join(__dirname, request.baseReport);
     if (!fs.existsSync(filename)) throw new Error('原报告已清理，请刷新报告列表后再生成');
     if (fs.statSync(filename).size > storage.REPORT_LIMIT) throw new Error('原报告超过大小限制');
-    base = JSON.parse(fs.readFileSync(filename, 'utf8'));
+    base = evolve.loadGame().SA.Camp.migrateEvolutionReport(JSON.parse(fs.readFileSync(filename, 'utf8')));
   }
   const references = (base?.chapters || []).flatMap(ch => ch.stages.map(stage => stage.selected).filter(Boolean));
   const fresh = await evolve.runAsync({ scope, games, workers, seed, seeds, references, onProgress: event => emit({ type: 'progress', ...event }) });

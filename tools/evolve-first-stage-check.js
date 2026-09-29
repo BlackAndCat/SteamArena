@@ -16,7 +16,7 @@ async function run() {
     const options = { seed: 20260929, games: 1, chapters: 1 };
     const chapter = evolve.run(options), first = evolve.run({ ...options, firstStageOnly: true });
     const parallel = await evolve.runAsync({ ...options, firstStageOnly: true, workers: 2 });
-    assert.strictEqual(chapter.chapters[0].stages.length, 2, '原整章预演范围发生变化');
+    assert.strictEqual(chapter.chapters[0].stages.length, 3, '序章甲片关未纳入整章预演');
     for (const report of [first, parallel]) {
       assert.strictEqual(report.chapters.length, 1, '首关预演多生成了章节');
       assert.strictEqual(report.chapters[0].stages.length, 1, '首关预演多生成了关卡');

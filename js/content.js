@@ -91,6 +91,18 @@ SA.SIDE_ENCOUNTERS = [
     reward: { id: 'armor_heavy', mt: 3, unique: true, source: 'side' },
   },
 ];
+// 序章第二关新增甲片奖励；保留原始模板供旧手工关卡记录迁移时恢复新关。
+SA.CAMPAIGN_LAYOUT = 2;
+SA.PROLOGUE_PLATE_STAGE = {
+  name: '补丁号', pilot: '铆工 小艾达', prize: 0, aim: 0.45, style: 'turtle',
+  blurb: '驾驶舱上方焊着一块甲片。观察它护住了哪里，再试着从薄弱处打进去。',
+  rows: ['........', '........', '........', '........', '........', '........'],
+  subs: [[8, 5, 'boiler_s'], [9, 4, 'helmet'], [9, 6, 'mg_s'], [10, 4, 'track'], [8, 4, 'plate']],
+  spec: { terrain: 'flat', reward: 'plate', lesson: '用少量甲片保护驾驶舱和锅炉，认识装甲的位置比堆叠数量更重要。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+  unlock: { mods: ['plate'], note: '获得一块甲片：回到车间，把它装在要害受到攻击的一侧。' },
+  // 甲片已属于开局模块，单独解锁不会发放实物；首次通关明确给一块黄铜甲片。
+  rewardItems: [{ id: 'plate', count: 1, mt: 1 }],
+};
 SA.CAMPAIGN = [
   {
     name: '序章 · 铁匠铺后院', place: '铁匠铺后院',
@@ -103,6 +115,7 @@ SA.CAMPAIGN = [
         spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
         unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一门机炮和四块铁装甲，再给你一只小水罐练习冷却。' },
       },
+      { ...SA.PROLOGUE_PLATE_STAGE },
       {
         name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 120, aim: 0.6,
         blurb: '老汤姆的机炮从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。',
