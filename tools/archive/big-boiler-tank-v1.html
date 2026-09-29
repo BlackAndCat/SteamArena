@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>大锅炉 + 大水箱 · 12 种（v1）</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -28,11 +28,11 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：大型锅炉 + 大水箱 · v2 · 2026-09-29</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（驾驶舱家族）已进游戏，归档在 <a href="archive/cockpits.html">archive/cockpits.html</a>（舱壁上的竖线已换成圆形舱门）。</p>
-    <p><b>你的意见</b>：① 链条炉排要有入煤口，压力表挪到侧面，留出煤被送进炉膛的过程，再加一个拿着闪亮铲子一直干活的煤球小工；② 大舷窗水柜 + 浮球液位箱 + 分片拼装水柜 + 蒸汽泵合成一个，加包角铁加固整体。</p>
-    <p><b>v2</b>：锅炉——左下一堆煤，煤球小工铲一锹、抬起来、扬进入煤口（一块煤飞进去），入煤口下面的链条炉排把煤一路带进炉膛烧红、烧成灰掉进灰坑；压力表和水位管挪到右侧立柱。水箱——九块菱形压筋钢板 + 四边角铁 + 四角三角包角板，正中大舷窗，右侧浮球室的浮球通过竖杆 + 横杆带着舷窗上方的刻度盘指针，右下蒸汽给水泵。
-      上一版 12 种存档在 <a href="archive/big-boiler-tank-v1.html">archive/big-boiler-tank-v1.html</a>。<b>请确认</b>，行的话就进游戏。</p>
+    <h1>大锅炉 + 大水箱 · 12 种 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29：用户选锅炉 E 链条炉排（加入煤口、小工）、水箱 A + E + F 合一（加角铁），v2 在「当前开发」</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（驾驶舱家族）已进游戏，归档在 <a href="cockpits.html">cockpits.html</a>（舱壁上的竖线已换成圆形舱门）。</p>
+    <p><b>大型锅炉 / 大水箱</b>（都是 3×3 = 72×72）：剪影是方块，所以每个造型换一种<b>内部构造</b>来做文章——锅炉：双炉胆正面 · 机车锅炉剖面 · 立式火管剖面 · 水管锅炉 · 链条炉排 · 三联锅炉组；水箱：大舷窗 · 水塔 · 分舱水柜 · 玻璃冷却槽 · 浮球液位箱 · 分片拼装水柜 + 蒸汽泵。
+      热度（锅炉的火）和剩水量（水箱的水位）都做成了动画。每张卡：大图（当前材质）+ 装在车上的样子（左右是游戏里的真铁甲）+ T1～T6 六档。</p>
+    <p style="color:var(--muted)"><b>请每个选一个</b>（也可以说想把哪几个的元素合起来）。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -43,10 +43,10 @@
   <div id="mods"></div>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/coal.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script>
+<script src="../material-lab.js"></script>
+<script src="big-boiler-tank-v1.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
   const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
@@ -66,10 +66,9 @@
   const BG = P.bg[2];
   // 热度来回变、水位慢慢降再补满
   const optOf = (t) => ({ t, heat: 0.5 + 0.5 * Math.sin(t * 0.02), water: 1 - ((t % 500) / 500) * 0.95 });
-  const stoker = () => (SA.Coal ? SA.Coal.mini(SA.Coal.crew('司炉小工'), { st: 1 }) : null);
   function one(e, mt, t, pad = 8) {
     const W = 72 + pad * 2, H = 72 + pad * 2, lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), pad, pad, e, optOf(t)); applyMat(lay, mt, pad, pad); Q.over(lay.getContext('2d'), pad, pad, e, optOf(t), stoker());
+    Q.figure(lay.getContext('2d'), pad, pad, e, optOf(t)); applyMat(lay, mt, pad, pad);
     const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0); return c;
   }
   function onCar(e, mt, t) {
@@ -78,7 +77,7 @@
     try { for (const yy of [0, 48]) { SA.SPR.drawModule(g, 'armor', ox, oy + yy, { mt }); SA.SPR.drawModule(g, 'armor', ox + 96, oy + yy, { mt }); } } catch (err) {}
     g.save(); g.beginPath(); g.rect(0, 0, W, oy + 72); g.clip(); g.fillStyle = BG; g.fillRect(0, oy + 72, W, 12); g.restore();
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), ox + 24, oy, e, optOf(t)); applyMat(lay, mt, ox + 24, oy); Q.over(lay.getContext('2d'), ox + 24, oy, e, optOf(t), stoker());
+    Q.figure(lay.getContext('2d'), ox + 24, oy, e, optOf(t)); applyMat(lay, mt, ox + 24, oy);
     g.fillStyle = BG; g.fillRect(0, oy + 72, W, H); g.drawImage(lay, 0, 0);
     return c;
   }

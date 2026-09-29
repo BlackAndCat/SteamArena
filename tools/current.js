@@ -81,180 +81,96 @@ SA.CUR = (() => {
   const valve = (x, y, t, per = 140, off = 0) => { R(x - 1, y, 3, 4, P.brass[1]); R(x - 2, y, 5, 1, P.brass[3]); if (saw(t + off, per) < 0.18) puff(x, y - 1, t * 2, 3, 7); };
   const doorG = (cx, cy, r, t, heat) => { disc(cx, cy, r + 1, P.iron[0]); disc(cx, cy, r, P.iron[2]); disc(cx - 1, cy - 1, r - 1.5, P.iron[3]); for (let k = -1; k <= 1; k++) R(cx - r * 0.55, cy + k * 2.4 - 0.5, r * 1.1, 1, heat > 0.2 ? P.fire[heat > 0.6 && Math.sin(t * 0.4 + k) > 0 ? 3 : 2] : P.dark[0]); px(cx + r - 2, cy, P.brass[3]); };
 
-  // ================= 大型锅炉 boiler_l（3×3 = 72×72，能源）：炉火是唯一允许发光的；剪影是方块，创意在内部构造 =================
-  const BOILER = [
-    { key: 'A', name: '兰开夏双炉胆', ref: '兰开夏锅炉（1844）：一只大卧式锅炉筒里并排两根炉胆',
-      idea: '正面看一只砌在砖座里的大锅炉筒：圆形的筒端一圈铆钉，下半并排两扇炉门（门缝里透出炉火，热度越高越亮），上半一只大压力表 + 两根水位玻璃管，筒顶两只安全阀轮流泄汽。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        bricks(x, y + 60, 72, 12); box(x, y + 6, 72, 56, IRON);
-        ball(x + 36, y + 34, 27, IRONL); for (let k = 0; k < 28; k++) { const a = k / 28 * TAU; px(x + 36 + Math.cos(a) * 24.5, y + 34 + Math.sin(a) * 24.5, P.iron[4]); }
-        doorG(x + 25, y + 43, 7.5, t, heat); doorG(x + 47, y + 43, 7.5, t, heat);
-        gauge(x + 36, y + 20, 6, 0.3 + 0.5 * heat);
-        for (const u of [23, 47]) { R(x + u, y + 14, 3, 13, P.glass[0]); R(x + u, y + 20 - heat * 3, 3, 7 + heat * 3, P.water[1]); R(x + u - 1, y + 13, 5, 1, P.brass[2]); R(x + u - 1, y + 27, 5, 1, P.brass[2]); }
-        valve(x + 22, y + 2, t); valve(x + 50, y + 2, t, 140, 70);
-        for (const [a, b] of [[3, 9], [67, 9], [3, 56], [67, 56]]) rivet(x + a, y + b);
-      } },
-    { key: 'B', name: '机车锅炉剖面', ref: '蒸汽机车锅炉的教科书剖面（火箱 → 火管 → 烟箱）',
-      idea: '锅炉壳从正面剖开：左边是火箱（大团炉火），中间一排排横向火管（管口发红、热气沿管往右流），右边是烟箱和排气管；顶上汽包和安全阀。一眼看懂「火怎么把水烧开」。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        box(x, y + 4, 72, 64, IRON); R(x + 2, y + 66, 68, 6, P.iron[1]);
-        box(x + 4, y + 14, 20, 48, IRONL); flames(x + 7, y + 26, 14, 33, t, heat);
-        R(x + 24, y + 14, 34, 42, P.steam[1]); for (let yy = 16; yy < 54; yy += 2) R(x + 24, y + yy, 34, 1, P.steam[2]);
-        for (let i = 0; i < 6; i++) { const yy = y + 20 + i * 6; R(x + 24, yy, 34, 3, P.iron[1]); R(x + 24, yy + 1, 34, 1, P.dark[1]); const p = saw(t * (1 + heat) + i * 9, 40); R(x + 24 + p * 30, yy + 1, 4, 1, P.fire[heat > 0.5 ? 3 : 2]); px(x + 24, yy + 1, P.fire[3]); }
-        box(x + 58, y + 14, 12, 48, IRON); R(x + 60, y + 18, 8, 40, P.dark[0]); R(x + 62, y + 10, 4, 10, P.iron[3]);
-        ball(x + 36, y + 10, 6, BRASS); valve(x + 36, y + 0, t);
-        gauge(x + 14, y + 9, 3.5, 0.3 + 0.5 * heat);
-      } },
-    { key: 'C', name: '立式火管锅炉剖面', ref: '维多利亚立式锅炉（考克兰式）的剖面',
-      idea: '一只胖胖的立式锅炉筒占满中间，正面开一扇大剖面窗：里面一根根竖着的火管发着红光，火管之间是翻滚的白汽泡；底下拱形炉门里是炉火，两侧给水泵和水位管。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        R(x + 2, y + 64, 68, 8, P.iron[1]); R(x + 2, y + 64, 68, 1, P.iron[3]);
-        shape((u, v) => ((u - x - 36) / 26) ** 2 + ((v - y - 13) / 11) ** 2 <= 1 && v <= y + 13.5, x + 9, y + 1, x + 63, y + 14, IRONL); vtube(x + 10, y + 13, 52, 53, IRONL); R(x + 11, y + 13, 50, 1, P.iron[3]);
-        R(x + 18, y + 14, 36, 28, P.steam[1]);
-        for (let u = 0; u < 6; u++) { const xx = x + 21 + u * 6; R(xx, y + 14, 2, 28, P.iron[1]); if (Math.sin(t * 0.3 + u) > -0.3) R(xx, y + 14 + ((t + u * 5) % 28), 2, 3, P.fire[heat > 0.4 ? 2 : 1]); }
-        for (let k = 0; k < 8; k++) { const p = saw(t * (0.8 + heat) + k * 11, 50); px(x + 20 + k * 4.4, y + 40 - p * 25, P.steam[2]); }
-        R(x + 17, y + 13, 38, 1, P.brass[2]); R(x + 17, y + 42, 38, 1, P.brass[2]);
-        R(x + 26, y + 48, 20, 14, P.iron[0]); flames(x + 28, y + 50, 16, 12, t, heat);
-        for (const [a, b] of [[14, 20], [57, 20], [14, 50], [57, 50]]) rivet(x + a, y + b);
-        vtube(x + 2, y + 30, 6, 34, IRON); R(x + 3, y + 36, 4, 6, P.glass[1]);
-        gauge(x + 65, y + 34, 4, 0.3 + 0.5 * heat); valve(x + 36, y + 0, t);
-      } },
-    { key: 'D', name: '水管锅炉', ref: '巴布科克-威尔科克斯水管锅炉（1867）',
-      idea: '砖砌炉室的正面剖开：炉火在下面，上面一排斜着的水管（前高后低）从前集箱通到后集箱，水管里的水被烧得往上翻，最上面横着一只大汽包，汽包上一只压力表和安全阀。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        bricks(x, y + 12, 72, 60);
-        R(x + 6, y + 18, 60, 48, P.dark[0]); flames(x + 8, y + 48, 56, 16, t, heat);
-        for (let k = 0; k < 6; k++) { const y0 = y + 24 + k * 4; line(x + 12, y0, x + 60, y0 + 10, 2, P.iron[1]); line(x + 12, y0 - 1, x + 60, y0 + 9, 1, P.iron[3]); const p = saw(t * (0.6 + heat) + k * 13, 45); px(x + 60 - p * 48, y0 + 10 - p * 10, P.water[2]); }
-        box(x + 8, y + 20, 6, 28, IRONL); box(x + 58, y + 30, 6, 26, IRONL);
-        R(x + 2, y + 2, 68, 12, P.iron[0]); htube(x + 7, y + 3, 58, 11, IRONL); disc(x + 7, y + 8.5, 5, P.iron[2]); disc(x + 65, y + 8.5, 5, P.iron[1]);
-        gauge(x + 24, y + 8, 3.6, 0.3 + 0.5 * heat); valve(x + 48, y - 1, t);
-        R(x + 30, y + 58, 12, 8, P.iron[2]); R(x + 31, y + 60, 10, 1, P.fire[heat > 0.3 ? 2 : 0]);
-      } },
-    { key: 'E', name: '链条炉排', ref: '维多利亚工厂锅炉的机械加煤机（链条炉排）',
-      idea: '左上一只煤斗，煤块落在一条一直往右走的链条炉排上，炉排一路走、一路烧（左边黑煤、中间红炭、右边灰烬掉进灰坑）；炉排上方是锅炉筒，筒上压力表和安全阀。整台机器在「动」。',
+
+  // ================= v2（用户选定方向后细化）=================
+  // 煤球小工的铲煤动作：一个循环 60 格——铲（刃在煤堆里）→ 抬 → 扬（刃到入煤口，一块煤飞进去）→ 回
+  const SHOVEL = { pile: [6, 63], mouth: [17, 34] };
+  function shovelPose(t) {
+    const p = saw(t, 60), P0 = SHOVEL.pile, P1 = SHOVEL.mouth, lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const ease = (k) => k * k * (3 - 2 * k);
+    const blade = p < 0.3 ? P0 : p < 0.55 ? lerp(P0, P1, ease((p - 0.3) / 0.25)) : p < 0.68 ? P1 : lerp(P1, P0, ease((p - 0.68) / 0.32));
+    return { p, blade, loaded: p > 0.18 && p < 0.6, lump: p >= 0.58 && p < 0.72 ? (p - 0.58) / 0.14 : -1, lean: p < 0.3 ? -1 : p < 0.68 ? 1 : 0 };
+  }
+  const BOILER2 = [
+    { key: 'E2', name: '链条炉排 · 入煤口 + 小工', ref: '维多利亚工厂锅炉的机械加煤机 + 司炉工',
+      idea: '（v2）左下一堆煤，一个煤球小工拿着亮闪闪的铲子一直在铲：铲一锹、抬起来、扬进左边的入煤口（一块煤飞进去），再回去铲。入煤口下面就是一直往右走的链条炉排：煤块从入煤口落下，被带进炉膛烧红，烧成灰掉进右下的灰坑。压力表和水位管挪到右侧立柱上，炉膛全部露出来；上面是锅炉筒和安全阀。',
       draw(x, y, o) {
         const t = o.t || 0, heat = o.heat;
         box(x, y + 2, 72, 68, IRON);
-        htube(x + 11, y + 8, 50, 18, IRONL); disc(x + 11, y + 17, 9, P.iron[2]); disc(x + 61, y + 17, 9, P.iron[1]); for (let u = 16; u < 58; u += 9) R(x + u, y + 8, 1, 18, P.iron[2]);
-        gauge(x + 36, y + 17, 5, 0.3 + 0.5 * heat); valve(x + 22, y + 2, t);
-        poly([[x + 3, y + 30], [x + 19, y + 30], [x + 15, y + 42], [x + 7, y + 42]], IRON); for (let k = 0; k < 5; k++) px(x + 7 + k * 2, y + 33 + (k % 2), P.dark[0]);
-        R(x + 4, y + 42, 62, 16, P.dark[0]);
+        htube(x + 11, y + 6, 48, 18, IRONL); disc(x + 11, y + 15, 9, P.iron[2]); disc(x + 59, y + 15, 9, P.iron[1]); for (let u = 17; u < 56; u += 8) R(x + u, y + 6, 1, 18, P.iron[2]);
+        valve(x + 24, y + 2, t); valve(x + 46, y + 2, t, 140, 70);
+        // 右侧立柱：压力表 + 水位玻璃管
+        box(x + 62, y + 26, 9, 34, IRONL); gauge(x + 66.5, y + 32, 3.6, 0.3 + 0.5 * heat);
+        R(x + 65, y + 38, 3, 14, P.glass[0]); R(x + 65, y + 44 - heat * 3, 3, 8 + heat * 3, P.water[1]); R(x + 64, y + 37, 5, 1, P.brass[2]); R(x + 64, y + 52, 5, 1, P.brass[2]);
+        // 炉膛（入煤口右边一直到立柱）
+        R(x + 22, y + 28, 39, 26, P.dark[0]); flames(x + 26, y + 32, 34, 18, t, heat);
+        R(x + 21, y + 27, 41, 1, P.iron[0]); R(x + 21, y + 28, 1, 22, P.iron[3]);
+        // 入煤口：一只斜口煤斗 + 上沿黄铜口唇，斗里堆着煤
+        poly([[x + 9, y + 30], [x + 25, y + 30], [x + 22, y + 46], [x + 13, y + 46]], IRON);
+        R(x + 9, y + 29, 16, 2, P.brass[1]); R(x + 9, y + 29, 16, 1, P.brass[3]);
+        for (const [a, b] of [[14, 34], [17, 33], [20, 34], [15, 37], [18, 38], [16, 41], [19, 42]]) { R(x + a, y + b, 2, 2, P.dark[1]); px(x + a, y + b, P.dark[3]); }
+        // 链条炉排：从煤斗下面一直走到灰坑，煤块从黑 → 红 → 灰
+        R(x + 10, y + 50, 52, 6, P.dark[1]);
         const sh = (t * 0.5) % 4;
-        for (let u = 0; u < 60; u += 4) { const xx = x + 5 + ((u + sh) % 60), k = (xx - x) / 66; R(xx, y + 54, 3, 2, P.iron[3]); const c = k < 0.3 ? P.dark[2] : k < 0.75 ? P.fire[heat > 0.5 && Math.sin(t * 0.3 + u) > 0 ? 3 : 2] : P.steam[0]; R(xx, y + 51, 3, 3, c); }
-        flames(x + 22, y + 44, 30, 7, t, heat);
-        gear(x + 7, y + 57, 3, 7, t * 0.12, IRONL); gear(x + 63, y + 57, 3, 7, t * 0.12, IRONL);
-        R(x + 54, y + 60, 14, 8, P.dark[1]); R(x + 56, y + 64, 10, 3, P.steam[0]);
-      } },
-    { key: 'F', name: '三联锅炉组', ref: '维多利亚船用锅炉舱（多台锅炉并联）',
-      idea: '三台立式锅炉肩并肩，一根黄铜总汽管把它们串起来（管上一只大压力表），每台底下一扇小炉门各自透着火光、火光一台接一台地亮；中间那台高一点。剪影是三根柱子顶一根横管。',
-      draw(x, y, o) {
-        const t = o.t || 0, heat = o.heat;
-        R(x + 2, y + 66, 68, 6, P.iron[1]); R(x + 2, y + 66, 68, 1, P.iron[3]);
-        for (const [cx, top] of [[13, 16], [36, 10], [59, 16]]) {
-          vtube(x + cx - 10, y + top, 20, 66 - top, IRONL); ball(x + cx, y + top, 10, IRONL);
-          for (const yy of [top + 10, 44]) { R(x + cx - 10, y + yy, 20, 2, P.brass[1]); R(x + cx - 10, y + yy, 20, 1, P.brass[3]); }
-          const on = Math.sin(t * 0.08 - cx * 0.1) > -0.2; R(x + cx - 5, y + 52, 10, 9, P.iron[0]); flames(x + cx - 4, y + 53, 8, 7, t + cx, on ? heat : heat * 0.3);
-        }
-        htube(x + 4, y + 4, 64, 5, BRASS); gauge(x + 36, y + 6.5, 5, 0.3 + 0.5 * heat);
-        for (const u of [13, 59]) R(x + u - 1, y + 8, 3, 8, P.brass[1]);
-        valve(x + 60, y - 1, t);
+        for (let u = 0; u < 52; u += 4) { const xx = x + 10 + ((u + sh) % 52), k = (xx - x - 10) / 52; R(xx, y + 54, 3, 2, P.iron[3]); const c = k < 0.22 ? P.dark[2] : k < 0.8 ? P.fire[heat > 0.5 && Math.sin(t * 0.3 + u) > 0 ? 3 : 2] : P.steam[0]; R(xx, y + 51, 3, 3, c); }
+        gear(x + 11, y + 56, 3, 7, t * 0.12, IRONL); gear(x + 60, y + 56, 3, 7, t * 0.12, IRONL);
+        R(x + 54, y + 60, 16, 8, P.dark[1]); R(x + 56, y + 63, 11, 4, P.steam[0]); if (saw(t, 30) < 0.5) px(x + 60, y + 58 + saw(t, 30) * 8, P.steam[1]);   // 灰坑
+        // 地上的煤堆
+        for (const [a, b, r] of [[5, 66, 4], [9, 67, 3.4], [2.5, 68, 2.6], [7, 63, 2.4]]) disc(x + a, y + b, r, P.dark[1]);
+        for (const [a, b] of [[4, 64], [7, 65], [3, 67], [10, 66], [6, 62]]) px(x + a, y + b, P.dark[3]);
+        R(x + 1, y + 68, 22, 2, P.iron[1]);
+      },
+      // 小工画在材质层之后（煤球的颜色不被材料换掉）：游戏同款煤球小人 + 两只小手 + 木柄 + 闪亮的铲刃
+      over(x, y, o, mini) {
+        const t = o.t || 0, S = shovelPose(t), bx = x + S.blade[0], by = y + S.blade[1], cx = x + 12 + S.lean * 0.6, cy = y + 58;
+        const hand = [cx + (S.lean >= 0 ? 3 : -2), cy + 1];
+        line(hand[0], hand[1], bx, by, 1, P.leather[1]); px(Math.round((hand[0] + bx) / 2), Math.round((hand[1] + by) / 2), P.leather[2]);
+        R(bx - 1.5, by - 1, 4, 2, P.iron[4]); px(bx - 1, by - 1, P.white); if (Math.sin(t * 0.5) > 0.3) px(bx + 1, by - 1, P.white);   // 闪亮的铲刃
+        if (S.loaded) R(bx - 1, by - 2, 2, 1, P.dark[1]);
+        if (S.lump >= 0) { const k = S.lump, lx = x + SHOVEL.mouth[0] + k * 1, ly = y + SHOVEL.mouth[1] - Math.sin(k * Math.PI) * 5 + k * 3; R(lx, ly, 2, 2, P.dark[1]); }
+        if (mini) g.drawImage(mini, Math.round(cx - 5), Math.round(cy - 6 + (S.p > 0.3 && S.p < 0.6 ? -1 : 0)));
+        px(hand[0], hand[1], P.black); px(hand[0] - (S.lean >= 0 ? 4 : -4), hand[1] + 1, P.black);   // 两只小手
       } },
   ];
-
-  // ================= 大水箱 water_l（3×3 = 72×72，冷却）：水位跟着剩水量降（water 0～1）；青色只用在水上 =================
-  const hoop = (x, y, w) => { R(x, y, w, 3, P.brass[0]); R(x, y, w, 2, P.brass[1]); R(x, y, w, 1, P.brass[2]); };   // 紫铜箍（沿用小水罐的语言）
-  const TANKS = [
-    { key: 'A', name: '大舷窗水柜', ref: '沿用已定稿小水罐 W1 的语言（大窗 + 紫铜箍）',
-      idea: '方水柜正中一扇大圆舷窗（一圈螺栓），窗里的水位跟着存量降、气泡往上冒；上下两道紫铜箍，顶上注水口，右下一只出水龙头。和小水罐一眼是一家。',
+  const TANKS2 = [
+    { key: 'AEF', name: '拼装水柜 · 舷窗 + 浮球 + 蒸汽泵 + 角铁', ref: '布雷斯韦特分片钢水柜 + 舷窗 + 浮球液位机构 + 给水泵 + 包角铁',
+      idea: '（v2：A + E + F 合一）九块带菱形压筋的钢板拼成水柜，四边一圈角铁、四个角各一块三角包角板（铆钉加固）；正中一扇大舷窗看得见水位和气泡；右侧浮球室的观察缝里浮球随水位升降，一根竖杆 + 横杆把它连到舷窗上方的半圆刻度盘，指针同步摆；右下角一台小蒸汽给水泵的活塞来回推。',
       draw(x, y, o) {
         const t = o.t || 0, lv = o.water;
-        box(x + 2, y + 6, 68, 60, IRON); hoop(x + 2, y + 12, 68); hoop(x + 2, y + 58, 68);
-        R(x + 28, y + 1, 16, 5, P.brass[1]); R(x + 28, y + 1, 16, 1, P.brass[3]);
-        ball(x + 36, y + 36, 19, BRASS); for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; px(x + 36 + Math.cos(a) * 17.2, y + 36 + Math.sin(a) * 17.2, P.brass[0]); }
-        g.save(); g.beginPath(); g.arc(x + 36, y + 36, 15, 0, TAU); g.clip(); water(x + 21, y + 21, 30, 30, lv, t); g.restore();
-        px(x + 28, y + 26, P.glass[3]); px(x + 29, y + 25, P.glass[3]);
-        R(x + 62, y + 50, 8, 4, P.brass[1]); R(x + 67, y + 53, 3, 4, P.brass[0]); if (saw(t, 60) < 0.5) px(x + 68, y + 58 + saw(t, 60) * 8, P.water[2]);
-        box(x + 4, y + 66, 64, 6, IRON);
-      } },
-    { key: 'B', name: '水塔', ref: '维多利亚铁路的给水塔（桁架塔身 + 水柜 + 浮标液位板）',
-      idea: '上半是一只铆接水柜，下半是交叉斜撑的桁架塔身（透空），柜侧一块刻度板，一根浮标拉绳吊着指针随水位上下；一根出水管从柜底垂下来。剪影里唯一透空的一种。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        box(x + 6, y + 2, 60, 32, IRON); for (let u = 12; u < 66; u += 9) R(x + u, y + 3, 1, 30, P.iron[1]); hoop(x + 6, y + 8, 60); hoop(x + 6, y + 28, 60);
-        for (const u of [9, 60]) { R(x + u, y + 34, 3, 36, P.iron[3]); R(x + u, y + 34, 1, 36, P.iron[4]); }
-        for (let k = 0; k < 3; k++) { const y0 = y + 36 + k * 11; line(x + 12, y0, x + 60, y0 + 10, 1, P.iron[2]); line(x + 60, y0, x + 12, y0 + 10, 1, P.iron[2]); R(x + 10, y0, 52, 1, P.iron[3]); }
-        box(x + 2, y + 68, 68, 4, IRON);
-        R(x + 68, y + 4, 3, 28, P.dark[0]); for (let k = 0; k <= 4; k++) R(x + 67, y + 4 + k * 7, 2, 1, P.brass[2]);
-        const py = y + 4 + (1 - lv) * 26; R(x + 66, py, 5, 2, P.fire[2]); line(x + 69, y + 1, x + 69, py, 1, P.iron[3]);
-        R(x + 33, y + 34, 6, 20, P.iron[1]); R(x + 34, y + 34, 2, 20, P.iron[3]); R(x + 30, y + 54, 12, 3, P.brass[1]);
-        if (lv > 0.05) { const p = saw(t, 30); R(x + 35, y + 57, 2, 3 + p * 6, P.water[2]); }
-        R(x + 7, y + 3, 58, 2, P.water[saw(t, 80) < 0.5 ? 1 : 2]);
-      } },
-    { key: 'C', name: '分舱水柜', ref: '船舶的分舱水柜（隔板 + 各舱液位管）',
-      idea: '一只大柜分成三个竖舱，每舱一根高液位玻璃管；三舱不是一起降——先用左舱、再用中舱、最后用右舱，一眼看出还剩几舱水；舱底一根总管连着三只阀。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        box(x + 2, y + 2, 68, 62, IRON);
-        for (let i = 0; i < 3; i++) {
-          const x0 = x + 5 + i * 22, sub = Math.max(0, Math.min(1, lv * 3 - (2 - i)));
-          R(x0, y + 5, 20, 56, P.iron[2]); R(x0, y + 5, 1, 56, P.iron[3]);
-          R(x0 + 6, y + 9, 8, 46, P.brass[0]); water(x0 + 7, y + 10, 6, 44, sub, t + i * 30, { bubbles: sub > 0.05 });
-          for (let k = 0; k < 5; k++) R(x0 + 3, y + 10 + k * 11, 2, 1, P.iron[0]);
-          if (i < 2) { R(x0 + 20, y + 4, 2, 58, P.iron[0]); R(x0 + 20, y + 4, 1, 58, P.iron[3]); }
-        }
-        htube(x + 2, y + 63, 68, 5, IRONL); for (const u of [15, 37, 59]) { disc(x + u, y + 65.5, 2.6, P.brass[1]); px(x + u, y + 65, P.brass[3]); }
-        R(x + 4, y + 68, 64, 4, P.iron[1]);
-      } },
-    { key: 'D', name: '玻璃冷却槽', ref: '维多利亚的玻璃水族缸 + 浸在水里的冷却盘管',
-      idea: '黄铜框的大玻璃槽（四根立柱 + 上下框），水里泡着一条紫铜冷却盘管（来回弯），盘管周围不断冒气泡；水位降下来盘管就露出水面。最「看得见里面」的一种。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        water(x + 4, y + 6, 64, 58, lv, t);
-        const top = y + 6 + 58 * (1 - lv);
-        for (let k = 0; k < 5; k++) { const yy = y + 14 + k * 10; line(x + 10, yy, x + 62, yy, 2, P.brass[0]); line(x + 10, yy - 1, x + 62, yy - 1, 1, P.brass[2]); const ex = k % 2 ? x + 10 : x + 62; R(ex - 1, yy - 1, 2, 11, P.brass[1]); if (yy > top) for (let b = 0; b < 3; b++) { const p = saw(t + k * 7 + b * 13, 26); px(x + 16 + b * 18 + k * 3, yy - 2 - p * 6, P.water[3]); } }
-        R(x + 2, y + 2, 68, 4, P.brass[1]); R(x + 2, y + 2, 68, 1, P.brass[3]); R(x + 2, y + 64, 68, 6, P.brass[0]); R(x + 2, y + 64, 68, 2, P.brass[2]);
-        for (const u of [2, 35, 67]) { R(x + u, y + 2, 3, 66, P.brass[0]); R(x + u, y + 2, 1, 66, P.brass[3]); }
-        for (const u of [8, 42]) { px(x + u, y + 10, P.glass[3]); px(x + u + 1, y + 9, P.glass[3]); }
-      } },
-    { key: 'E', name: '浮球液位箱', ref: '维多利亚水箱的浮球阀 + 大刻度盘',
-      idea: '铆接方箱正面一只大半圆刻度盘，一根黄铜杠杆从箱侧的浮球室伸过来带着指针走：浮球室的观察缝里能看到浮球随水位升降，刻度盘指针同步摆。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
-        box(x + 2, y + 4, 68, 64, IRON); for (const [a, b] of [[5, 7], [64, 7], [5, 62], [64, 62]]) rivet(x + a, y + b);
-        R(x + 50, y + 12, 14, 48, P.iron[0]); water(x + 52, y + 14, 10, 44, lv, t, { bubbles: false });
-        const fy = y + 14 + 44 * (1 - lv) - 2; disc(x + 57, fy, 3.2, P.brass[1]); disc(x + 56, fy - 1, 1.4, P.brass[3]);
-        g.save(); g.beginPath(); g.rect(x, y, 72, y + 40 - y); g.clip(); ball(x + 26, y + 40, 20, BRASS); disc(x + 26, y + 40, 17.5, P.steam[2]); g.restore();
-        for (let k = 0; k <= 8; k++) { const a = Math.PI + k / 8 * Math.PI; line(x + 26 + Math.cos(a) * 14, y + 40 + Math.sin(a) * 14, x + 26 + Math.cos(a) * 16.5, y + 40 + Math.sin(a) * 16.5, 1, k < 2 ? P.fire[1] : P.dark[1]); }
-        const a = Math.PI + lv * Math.PI; line(x + 26, y + 40, x + 26 + Math.cos(a) * 13, y + 40 + Math.sin(a) * 13, 1, P.dark[0]); disc(x + 26, y + 40, 2, P.brass[2]);
-        line(x + 26, y + 40, x + 57, fy, 1, P.brass[0]);
-        R(x + 6, y + 42, 42, 2, P.brass[1]); R(x + 8, y + 50, 38, 12, P.iron[2]); R(x + 10, y + 52, 34, 1, P.iron[4]);
-        R(x + 4, y + 68, 64, 4, P.iron[1]);
-      } },
-    { key: 'F', name: '分片拼装水柜 + 蒸汽泵', ref: '布雷斯韦特分片钢水柜（方格面板 + 法兰）+ 小型蒸汽给水泵',
-      idea: '水柜由九块方格钢板用法兰螺栓拼成（每块板上一道菱形压筋，最有辨识度的工业水柜），右下角一台小蒸汽给水泵的活塞来回推；柜侧一根竖液位管。',
-      draw(x, y, o) {
-        const t = o.t || 0, lv = o.water;
+        // 分片钢板
         for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-          const bx = x + 2 + i * 21, by = y + 2 + j * 21; box(bx, by, 21, 21, IRONL);
-          line(bx + 10.5, by + 3, bx + 18, by + 10.5, 1, P.iron[4]); line(bx + 18, by + 10.5, bx + 10.5, by + 18, 1, P.iron[2]); line(bx + 10.5, by + 18, bx + 3, by + 10.5, 1, P.iron[2]); line(bx + 3, by + 10.5, bx + 10.5, by + 3, 1, P.iron[4]);
-          for (const [a, b] of [[1, 1], [18, 1], [1, 18], [18, 18]]) px(bx + a + 0.5, by + b + 0.5, P.iron[0]);
+          const bx = x + 3 + i * 20, by = y + 3 + j * 20; box(bx, by, 20, 20, IRONL);
+          line(bx + 10, by + 3, bx + 17, by + 10, 1, P.iron[4]); line(bx + 17, by + 10, bx + 10, by + 17, 1, P.iron[2]); line(bx + 10, by + 17, bx + 3, by + 10, 1, P.iron[2]); line(bx + 3, by + 10, bx + 10, by + 3, 1, P.iron[4]);
         }
-        R(x + 66, y + 4, 4, 58, P.brass[0]); water(x + 67, y + 5, 2, 56, lv, t, { bubbles: false });
+        // 角铁：四边一圈 + 四角三角包角板
+        const edge = (ax, ay, w, h) => { R(ax, ay, w, h, P.iron[0]); R(ax + 1, ay + 1, w - 2, h - 2, P.iron[1]); R(ax + 1, ay + 1, w - 2, 1, P.iron[3]); };
+        edge(x + 1, y + 1, 62, 4); edge(x + 1, y + 59, 62, 4); edge(x + 1, y + 1, 4, 62); edge(x + 59, y + 1, 4, 62);
+        for (let u = 8; u < 58; u += 6) { px(x + u, y + 3, P.iron[4]); px(x + u, y + 61, P.iron[4]); px(x + 3, y + u, P.iron[4]); px(x + 61, y + u, P.iron[4]); }
+        for (const [cx, cy, sx, sy] of [[5, 5, 1, 1], [59, 5, -1, 1], [5, 59, 1, -1], [59, 59, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 9, y + cy], [x + cx, y + cy + sy * 9]], IRON); px(x + cx + sx * 2, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 5, y + cy + sy * 2, P.iron[4]); px(x + cx + sx * 2, y + cy + sy * 5, P.iron[4]); }
+        // 大舷窗
+        ball(x + 32, y + 34, 14, BRASS); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(x + 32 + Math.cos(a) * 12.4, y + 34 + Math.sin(a) * 12.4, P.brass[0]); }
+        g.save(); g.beginPath(); g.arc(x + 32, y + 34, 10.5, 0, TAU); g.clip(); water(x + 21, y + 23, 22, 22, lv, t); g.restore();
+        px(x + 26, y + 28, P.glass[3]); px(x + 27, y + 27, P.glass[3]);
+        // 右侧浮球室 + 连杆 + 刻度盘
+        R(x + 63, y + 6, 8, 52, P.iron[0]); R(x + 64, y + 7, 6, 50, P.iron[2]); water(x + 65, y + 9, 4, 46, lv, t, { bubbles: false });
+        const fy = y + 9 + 46 * (1 - lv) - 1.5; disc(x + 67, fy, 2.4, P.brass[1]); px(x + 66, fy - 1, P.brass[3]);
+        line(x + 67, y + 13, x + 67, fy - 2, 1, P.brass[2]); line(x + 32, y + 13, x + 67, y + 13, 1, P.brass[0]); line(x + 32, y + 12, x + 67, y + 12, 1, P.brass[2]);
+        g.save(); g.beginPath(); g.rect(x + 20, y + 3, 24, 11); g.clip(); disc(x + 32, y + 14, 9, P.brass[0]); disc(x + 32, y + 14, 7.5, P.steam[2]); g.restore();
+        for (let k = 0; k <= 6; k++) { const a = Math.PI + k / 6 * Math.PI; px(x + 32 + Math.cos(a) * 6, y + 14 + Math.sin(a) * 6, k < 1 ? P.fire[1] : P.dark[1]); }
+        const na = Math.PI + lv * Math.PI; line(x + 32, y + 14, x + 32 + Math.cos(na) * 5.5, y + 14 + Math.sin(na) * 5.5, 1, P.dark[0]); disc(x + 32, y + 14, 1.3, P.brass[2]);
+        // 右下蒸汽给水泵 + 底座
+        R(x + 1, y + 64, 70, 8, P.iron[1]); R(x + 1, y + 64, 70, 1, P.iron[3]);
         const s = Math.sin(t * 0.2) * 3;
-        R(x + 44, y + 58, 26, 14, P.iron[1]); box(x + 46, y + 60, 12, 8, IRONL); R(x + 58, y + 63, 5 + s, 2, P.iron[4]); R(x + 62 + s, y + 61, 2, 6, P.brass[1]);
-        gauge(x + 52, y + 56, 3, 0.4 + 0.2 * Math.sin(t * 0.2));
-        R(x + 2, y + 66, 42, 6, P.iron[1]);
+        box(x + 46, y + 62, 12, 9, IRONL); R(x + 58, y + 65, 5 + s, 2, P.iron[4]); R(x + 62 + s, y + 63, 2, 6, P.brass[1]);
+        gauge(x + 50, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 40, y + 66, 6, 3, IRONL);
       } },
   ];
 
   const MODS = [
-    { id: 'boiler_l', name: '大型锅炉', w: 3, h: 3, rule: '3×3 能源 · 炉火是唯一允许发光的 · 剪影是方块，创意在内部构造 · 热度越高火越旺（页面上热度来回变）', SET: BOILER },
-    { id: 'water_l', name: '大水箱', w: 3, h: 3, rule: '3×3 冷却 · 青色只用在水上 · 水位跟着剩水量降（页面上水位慢慢降再补满）· 剪影是方块，创意在内部构造', SET: TANKS },
+    { id: 'boiler_l', name: '大型锅炉 · 链条炉排 v2', w: 3, h: 3, rule: '3×3 能源 · 入煤口 + 煤堆 + 司炉小工（画在材质层之后）+ 链条炉排把煤送进炉膛 · 压力表挪到右侧立柱', SET: BOILER2 },
+    { id: 'water_l', name: '大水箱 · A + E + F 合一', w: 3, h: 3, rule: '3×3 冷却 · 分片拼装钢板 + 角铁 / 包角板 + 大舷窗 + 浮球液位 + 蒸汽给水泵 · 青色只用在水上', SET: TANKS2 },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
-  return { MODS, figure };
+  function over(ctx, x, y, e, o = {}, mini) { g = ctx; if (e.over) e.over(x, y, o, mini); }
+  return { MODS, figure, over };
 })();

@@ -30,8 +30,10 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '大锅炉 + 大水箱 12 种', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：大型锅炉 6（双炉胆 / 机车锅炉剖面 / 立式火管剖面 / 水管锅炉 / 链条炉排 / 三联锅炉组）+ 大水箱 6（大舷窗 / 水塔 / 分舱水柜 / 玻璃冷却槽 / 浮球液位箱 / 分片拼装 + 蒸汽泵），3×3 方块，创意在内部构造', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '大锅炉 + 大水箱 v2', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：大型锅炉 v2（链条炉排 + 入煤口 + 煤堆 + 拿亮铲子的煤球司炉小工）、大水箱 v2（分片拼装钢板 + 角铁包角 + 大舷窗 + 浮球液位 + 蒸汽给水泵）', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'big-boiler-tank-v1', group: 'module', url: 'archive/big-boiler-tank-v1.html', name: '大锅炉 + 大水箱 · 12 种', ver: 'v1', date: '2026-09-29', status: 'archived',
+      desc: '3×3 方块，创意在内部构造：锅炉 6（双炉胆 / 机车剖面 / 立式火管 / 水管 / 链条炉排 / 三联）+ 水箱 6（舷窗 / 水塔 / 分舱 / 玻璃槽 / 浮球 / 分片拼装）；用户选链条炉排、水箱 A + E + F 合一，v2 在当前开发', docs: ['docs/art-plan.md'] },
     { id: 'cockpits', group: 'module', url: 'archive/cockpits.html', name: '驾驶舱家族重做', ver: 'v2', date: '2026-09-29', status: 'shipped',
       desc: '单人 4 · 双人 4 · 四人 4（看得见舱里的煤球驾驶员 + 会动的操纵件）；选定方窗驾驶箱 / 双层驾驶台 / 机车驾驶室（小楼梯、前 2 后 2）进游戏', docs: ['docs/art-plan.md'] },
     { id: 'five-modules', group: 'module', url: 'archive/five-modules.html', name: '五模块造型探索', ver: 'v2', date: '2026-09-29', status: 'shipped',
