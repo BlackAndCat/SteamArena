@@ -51,21 +51,6 @@ SA.SPR = (() => {
   const BRASS = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]];
   const RUST = [P.rust[0], P.rust[1], P.rust[2], P.rust[3]];
 
-  // 竖着的水罐（24 宽 × hh 高）：胶囊形罐身 + 黄铜箍 + 注水口 + 水位窗
-  function tankArt(x, y, hh, o) {
-    const top = y + 10, bot = y + hh - 10, rad = hh > 24 ? 9 : 8;
-    R(x + 10, y + 1, 4, 3, P.brass[1]); R(x + 10, y + 1, 4, 1, P.brass[3]);
-    disc(x + 12, top, rad, P.iron[0]); disc(x + 12, bot, rad, P.iron[0]); R(x + 12 - rad, top, rad * 2 + 1, bot - top, P.iron[0]);
-    disc(x + 12, top, rad - 1, P.iron[3]); disc(x + 12, bot, rad - 1, P.iron[3]); R(x + 13 - rad, top, rad * 2 - 1, bot - top, P.iron[3]);
-    R(x + 13 - rad, top - 2, 1, bot - top + 4, P.iron[4]); R(x + 10 + rad, top - 2, 1, bot - top + 4, P.iron[2]);
-    const wy = top - 3, wh = bot - top + 6;
-    R(x + 9, wy, 6, wh, P.iron[0]); R(x + 10, wy + 1, 4, wh - 2, P.glass[0]);
-    const lh = Math.round((wh - 2) * (o.lv == null ? 29 : o.lv) / 29), wb = wy + wh - 1;
-    if (lh > 0) { R(x + 10, wb - lh, 4, lh, P.water[2]); R(x + 10, wb - lh, 4, 1, P.water[3]); }
-    if (lh > 3) R(x + 11 + ((o.fr || 0) % 2), wb - 1 - (((o.fr || 0) * 3) % (lh - 1)), 1, 1, P.water[3]);
-    for (const by of hh > 24 ? [y + 7, y + hh - 8] : [y + hh - 4]) { R(x + 3, by, 18, 2, P.brass[1]); R(x + 3, by, 18, 1, P.brass[2]); }
-  }
-
   // 炮塔外壳（直射炮 / 机枪共用）
   function housing(x, y, cupola) {
     if (cupola) { box(x + 10, y + 7, 22, 10, IRON); R(x + 14, y + 10, 12, 1, P.iron[0]); }
@@ -356,6 +341,203 @@ SA.SPR = (() => {
     R(Math.round(cx - 2), Math.round(cy - 2), 1, 1, P.brass[3]);
     R(Math.round(cx + 1), Math.round(cy - 2), 1, 1, P.gauge[1]); R(Math.round(cx + 2), Math.round(cy - 1), 1, 1, P.gauge[1]);
     line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 2), Math.round(cy - 1.5), 1, P.dark[0]);
+  }
+
+  // ---------- 竖式锅炉 boiler_s（1×2，2026-09-28 定稿 A3 立式 · 拱形炉口，样机 tools/boiler-lab.html）----------
+  // 立式锅炉筒 + 右上烟囱 + 占下半个模块的拱形大炉口（18 × 24，火 14 × 20）+ 黄铜拱心石。六档同火炮家族：
+  // 原形圆筒 → 方包壳平顶 → 斜肩板；散热口 3 竖缝 → 4 密排 → 两行 → 两行斜百叶；盖板下铆钉 2 → 3 → 4（T1～3 黄铜、镀镍起钢质淡青）；
+  // 钢起底座两端包角铁；镀镍起左上小压力表。代码和样机 boiler-lab.js 的 v2Base(true) / v2Over 逐行对应
+  const BOILER_S_TIERS = [
+    { f: 'raw', vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { f: 'raw', vent: ['slits', 3], riv: [2, 'brass'], parts: [] },
+    { f: 'box', vent: ['slits2', 4], riv: [3, 'brass'], parts: ['corners'] },
+    { f: 'box', vent: ['slits2', 4], riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', vent: ['grid2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', vent: ['louver2', 4], riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  const BOILER_S_ZONE = { stack: [15, 5, 2, 10], riv: 12, vent: 15, door: [3, 19, 18, 24], gauge: [7.5, 5.5] };
+  const px = (x, y, c) => R(x, y, 1, 1, c);
+  const slimW = (style, n) => (style === 'slits' ? n * 3 - 1 : n * 2 + (style === 'louver2' ? 1 : 0));
+  const riveXs = (n, x0, x1) => (n === 2 ? [x0 + 1, x1 - 3] : Array.from({ length: n }, (_, i) => Math.round(x0 + (x1 - x0 - 2) * i / (n - 1))));
+  // 竖放圆柱明暗（左边受光），ramp = 五阶（描边 → 最亮）
+  const IRON5 = [P.iron[0], P.iron[1], P.iron[2], P.iron[3], P.iron[4]];
+  const DARK5 = [P.dark[0], P.dark[1], P.dark[2], P.dark[3], P.iron[2]];
+  function cylV(x0, y0, w, h, ramp = IRON5) {
+    for (let i = 0; i < w; i++) {
+      const t = i / (w - 1);
+      R(x0 + i, y0, 1, h, ramp[i === 0 || i === w - 1 ? 0 : t < 0.14 ? 3 : t < 0.3 ? 4 : t < 0.42 ? 3 : t < 0.78 ? 2 : 1]);
+    }
+  }
+  // 烟囱：cap = rim 翻边（T1～2）/ box 方帽 + 挡雨缝（T3～4）/ slant 斜罩（T5～6）
+  function stackV(x0, w, y0, y1, cap) {
+    cylV(x0, y0, w, y1 - y0, DARK5);
+    if (cap === 'rim') { R(x0 - 1, y0 - 2, w + 2, 2, P.dark[0]); R(x0, y0 - 2, w, 1, P.dark[3]); }
+    else if (cap === 'box') {
+      R(x0 - 2, y0 - 5, w + 4, 3, P.dark[0]); R(x0 - 1, y0 - 4, w + 2, 1, P.dark[3]);
+      R(x0 + 1, y0 - 2, 1, 2, P.dark[0]); R(x0 + w - 2, y0 - 2, 1, 2, P.dark[0]);
+      R(x0 - 1, y0 + 3, w + 2, 2, P.dark[0]); R(x0, y0 + 3, w, 1, P.dark[3]);
+    } else {
+      for (let k = 0; k < 4; k++) { R(x0 - 3 + k, y0 - 5 + k, w + 6 - k * 2, 1, k === 0 ? P.dark[3] : P.dark[2]); px(x0 - 3 + k, y0 - 5 + k, P.dark[0]); px(x0 + w + 2 - k, y0 - 5 + k, P.dark[0]); }
+      R(x0 - 3, y0 - 6, w + 6, 1, P.dark[0]);
+      R(x0 - 1, y0 + 3, w + 2, 2, P.dark[0]); R(x0, y0 + 3, w, 1, P.dark[3]);
+    }
+  }
+  // 斜肩包壳：顶上两角各切掉 d 像素的 45° 斜板
+  function slantShell(x, y, w, h, d) {
+    box(x, y, w, h, IRONL);
+    for (let k = 0; k < d; k++) {
+      const n = d - k;
+      ctx.clearRect(x, y + k, n, 1); ctx.clearRect(x + w - n, y + k, n, 1);
+      px(x + n, y + k, P.iron[0]); px(x + w - 1 - n, y + k, P.iron[0]);
+      if (k > 0) { px(x + n, y + k, P.iron[4]); px(x + w - 1 - n, y + k, P.iron[1]); }
+    }
+  }
+  // 大炉膛的火：暗炉膛 + 后壁余光 + 煤缝窜起的火舌（芯黄 → 橙 → 红尖，火力决定高度，4 帧摇曳）+ 煤层
+  const FL_SWAY = [0, 1, 0, -1], FL_TALL = [1, 0.8, 0.92, 0.72];
+  function fireBig(x0, y0, w, h, lv, fr) {
+    R(x0, y0, w, h, P.dark[0]);
+    const bed = Math.max(4, Math.round(h * 0.3)), by = y0 + h - bed;
+    const fh = Math.round((h - bed) * [0, 0.5, 0.75, 0.95][lv]);
+    for (let yy = by - Math.round(fh * 0.7); yy < by; yy++) for (let i = 0; i < w; i++) if (((i + yy + fr) & 1) === 0) px(x0 + i, yy, P.fire[0]);
+    const n = Math.max(2, Math.round(w / 5)), step = w / n;
+    for (let k = 0; k < n; k++) {
+      const c = x0 + (k + 0.5) * step + FL_SWAY[(fr + k) % 4], H = Math.max(3, Math.round(fh * FL_TALL[(fr + k * 2) % 4])), hw = step * 0.62 + 0.5;
+      for (let r = 0; r < H; r++) {
+        const t = r / H, half = hw * Math.pow(1 - t, 0.8);
+        for (let i = 0; i < w; i++) {
+          const dx = Math.abs(x0 + i + 0.5 - c); if (dx > half) continue;
+          const inner = dx <= half * 0.5;
+          px(x0 + i, by - 1 - r, t < 0.45 && inner ? P.fire[3] : t < 0.75 && inner ? P.fire[2] : t < 0.4 ? P.fire[2] : P.fire[1]);
+        }
+      }
+    }
+    if (lv >= 2) px(x0 + (2 + fr * 3) % w, by - fh - 2 + (fr % 2), P.fire[2]);
+    if (lv >= 3) { px(x0 + (w - 3 - fr * 4 + w * 4) % w, by - fh - 1 - (fr % 2), P.fire[3]); px(x0 + (5 + fr * 5) % w, by - fh - 4, P.fire[1]); }
+    R(x0, by, w, bed, P.fire[1]);
+    let lx = 0, k = 0;
+    while (lx < w) {
+      const lw = Math.min([4, 3, 4, 3][k % 4], w - lx), top = by + (k % 2), X = x0 + lx;
+      R(X, top, lw, y0 + h - 1 - top, P.dark[1]); px(X, top, P.dark[3]); if (lw > 1) R(X + 1, top, lw - 1, 1, P.dark[2]);
+      const hot = (k * 5 + fr) % 4;
+      if (lx + lw < w) R(X + lw - 1, top + 1, 1, Math.max(1, y0 + h - 3 - top), hot < lv ? P.fire[Math.min(3, lv - 1 + (hot === 0 ? 1 : 0))] : P.fire[0]);
+      lx += lw; k++;
+    }
+    R(x0, y0 + h - 1, w, 1, P.fire[lv >= 3 ? 2 : 1]);
+  }
+  // 拱形炉口：暗铁厚框 + 半圆拱 + 黄铜拱心石 + 炉栅横档 + 左侧两只黄铜铰链 + 右侧门闩
+  function archMouth(x, y, w, h, lv, fr) {
+    box(x, y, w, h, IRON);
+    const fx = x + 2, fy = y + 2, fw = w - 4, fh = h - 4;
+    fireBig(fx, fy, fw, fh, lv, fr);
+    const r = fw / 2, cx = fx + r, cy = fy + r;
+    for (let yy = fy; yy < cy; yy++) for (let xx = fx; xx < fx + fw; xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.sqrt(dx * dx + dy * dy);
+      if (d > r) px(xx, yy, P.iron[2]); else if (d > r - 1) px(xx, yy, P.dark[0]);
+    }
+    R(cx - 1, fy - 2, 2, 3, P.brass[2]); px(cx - 1, fy - 2, P.brass[3]); R(cx - 1, fy + 1, 2, 1, P.brass[0]);
+    R(fx - 1, fy + fh, fw + 2, 1, P.iron[0]);
+    R(x - 1, y + 3, 2, 3, P.brass[1]); px(x - 1, y + 3, P.brass[3]); R(x - 1, y + h - 6, 2, 3, P.brass[1]); px(x - 1, y + h - 6, P.brass[3]);
+    R(x + w - 2, y + (h >> 1) - 1, 2, 3, P.brass[2]); px(x + w - 2, y + (h >> 1) - 1, P.brass[3]);
+  }
+  function boilerS(x, y, q) {
+    const T = BOILER_S_TIERS[(q.mt || 1) - 1], Z = BOILER_S_ZONE;
+    stackV(x + Z.stack[0], Z.stack[1], y + Z.stack[2], y + Z.stack[3] + 1, T.f === 'raw' ? 'rim' : T.f);
+    if (T.f === 'raw') { cylV(x + 3, y + 11, 18, 32); box(x + 2, y + 9, 20, 3, IRONL); }
+    else if (T.f === 'box') { box(x + 2, y + 10, 20, 33, IRONL); box(x + 1, y + 8, 22, 3, IRON); }
+    else { slantShell(x + 2, y + 9, 20, 34, 4); R(x + 6, y + 8, 12, 2, P.iron[0]); R(x + 7, y + 8, 10, 1, P.iron[3]); }
+    if (T.parts.includes('gauge')) R(x + 7, y + 8, 1, 2, P.iron[0]);
+    const [vs, vn] = T.vent, two = vs === 'grid2' || vs === 'louver2';
+    slimVents(x, y, 12 - (slimW(vs, vn) >> 1), Z.vent - (two ? 1 : 0), two ? 2 : 3, vs, vn);
+    archMouth(x + Z.door[0], y + Z.door[1], Z.door[2], Z.door[3], q.lv || 2, q.fr || 0);
+    box(x + 1, y + 43, 22, 5, IRON); R(x + 2, y + 44, 20, 1, P.iron[3]);
+    if (T.parts.includes('corners')) { PART.corner(x + 1, y + 43, 1, -1); PART.corner(x + 19, y + 43, -1, -1); }
+  }
+  function boilerSOver(x, y, q) {
+    const T = BOILER_S_TIERS[(q.mt || 1) - 1];
+    for (const rx of riveXs(T.riv[0], 4, 20)) PART.rivet(x + rx, y + BOILER_S_ZONE.riv, RIVET_TIER[T.riv[1]]);
+    if (T.parts.includes('gauge')) gaugeS(x + BOILER_S_ZONE.gauge[0], y + BOILER_S_ZONE.gauge[1]);
+  }
+
+  // ---------- 水罐 tank_tall（1×2）/ 小水罐 tank_s（1×1）（2026-09-28 定稿 W1 大水窗罐 + 两道紫铜加强箍，样机 tools/boiler-lab.html）----------
+  // 铁罐身 + 几乎占满罐身的玻璃水窗（圆柱明暗的水、水面波纹、上升气泡，水位跟着剩余水量）+ 左侧滴水的黄铜龙头 + 两道紫铜加强箍。
+  // 形体在 T3、T5 跃迁：圆角罐 → 方罐 + 平顶盖板 → 四角斜切的八角罐。1×2 另有：顶部铆钉 2 → 3 → 4、钢起底部包角铁、镀镍起左上小压力表、
+  // 窗边刻度；1×1 只靠剪影（不放铆钉 / 包角铁 / 压力表），两道箍夹住水窗。紫铜是饱和色，材质处理不动，六档都是紫铜
+  const COPPER = ['#4a2418', '#8c4228', '#c46a3c', '#eaa070'];
+  const TANK_TIERS = [
+    { f: 'raw', riv: [2, 'brass'], parts: [] },
+    { f: 'raw', riv: [2, 'brass'], parts: [] },
+    { f: 'box', riv: [3, 'brass'], parts: ['corners'] },
+    { f: 'box', riv: [3, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+    { f: 'slant', riv: [4, 'steel'], parts: ['corners', 'gauge'] },
+  ];
+  // 罐身：按形状判定逐像素上色（外沿描边、左上两像素亮、右下两像素暗）；raw = 圆角 r、box = 直角、slant = 四角 45° 切 d
+  function tankShell(x, y, w, h, f, r) {
+    const d = r - 1;
+    const inside = (xx, yy) => {
+      if (xx < x || yy < y || xx >= x + w || yy >= y + h) return false;
+      if (f === 'box') return true;
+      const ex = xx < x + r ? x + r - xx : xx >= x + w - r ? xx - (x + w - r - 1) : 0, ey = yy < y + r ? y + r - yy : yy >= y + h - r ? yy - (y + h - r - 1) : 0;
+      return f === 'slant' ? ex + ey <= d + 1 : ex * ex + ey * ey <= r * r + r * 0.6;
+    };
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
+      if (!inside(xx, yy)) continue;
+      if (!inside(xx - 1, yy) || !inside(xx + 1, yy) || !inside(xx, yy - 1) || !inside(xx, yy + 1)) { px(xx, yy, P.iron[0]); continue; }
+      px(xx, yy, !inside(xx - 2, yy) || !inside(xx, yy - 2) ? P.iron[4] : !inside(xx + 2, yy) || !inside(xx, yy + 2) ? P.iron[2] : P.iron[3]);
+    }
+  }
+  // 水窗里的水（lv 0~1）
+  function waterWin(x, y, w, h, lv, fr) {
+    R(x, y, w, h, P.glass[0]);
+    for (let i = 0; i < w; i += 3) px(x + i + (i % 2), y + 1, P.glass[1]);
+    const lh = Math.max(0, Math.min(h, Math.round(h * lv))), top = y + h - lh;
+    if (lh > 0) {
+      for (let i = 0; i < w; i++) { const t = i / Math.max(1, w - 1); R(x + i, top, 1, lh, i === 0 || i === w - 1 ? P.water[0] : t < 0.3 ? P.water[2] : t > 0.78 ? P.water[0] : P.water[1]); }
+      if (w > 6) R(x + Math.round(w * 0.2), top + 2, 1, Math.max(0, lh - 3), P.water[3]);
+      for (let i = 0; i < w; i++) { const wave = ((i + fr) % 4) < 2; px(x + i, top, wave ? P.water[3] : P.water[2]); if (lh > 1 && wave) px(x + i, top + 1, P.water[2]); }
+      if (lh > 5) for (const [bx, sp] of [[0.35, 0], [0.62, 5], [0.5, 11]]) { const yy = y + h - 2 - ((fr * 3 + sp) % Math.max(1, lh - 4)); if (yy > top + 2) px(x + Math.round(w * bx), yy, P.water[3]); }
+    }
+    R(x + 1, y + 1, 1, Math.max(1, Math.round(h * 0.45)), P.glass[3]);
+    if (h > 12) px(x + 1, y + Math.round(h * 0.45) + 2, P.glass[2]);
+  }
+  // 紫铜加强箍：比罐身两边各宽 1px，上亮下暗、两端描边
+  function copperHoop(x, y, w) { R(x, y, w, 2, COPPER[1]); R(x, y, w, 1, COPPER[3]); R(x + 1, y + 1, w - 2, 1, COPPER[2]); px(x, y, COPPER[0]); px(x, y + 1, COPPER[0]); px(x + w - 1, y, COPPER[0]); px(x + w - 1, y + 1, COPPER[0]); }
+  function tankTap(x, y, fr, dropTo) {
+    R(x, y, 3, 2, P.brass[1]); R(x, y, 3, 1, P.brass[3]);
+    R(x, y + 2, 2, 2, P.brass[1]); px(x, y + 2, P.brass[2]); R(x + 1, y - 2, 1, 2, P.brass[2]);
+    const dy = y + 4 + fr * 2; if (dy < dropTo) { px(x, dy, P.water[3]); if (fr > 0) px(x, dy - 1, P.water[2]); }
+  }
+  const tankSkid = (x, y, w, h = 3) => { box(x, y, w, h, IRON); R(x + 1, y + h, 3, 1, P.iron[0]); R(x + w - 4, y + h, 3, 1, P.iron[0]); };
+  const tankLv = (q) => (q.lv == null ? 1 : q.lv / 29);
+  function tankTall(x, y, q) {
+    const T = TANK_TIERS[(q.mt || 1) - 1], fr = q.fr || 0;
+    R(x + 11, y + 1, 9, 2, P.brass[1]); R(x + 11, y + 1, 9, 1, P.brass[3]); px(x + 15, y + 1, P.brass[0]);        // 顶上手轮
+    R(x + 13, y + 3, 4, 3, P.iron[3]); R(x + 13, y + 3, 1, 3, P.iron[4]);
+    tankShell(x + 2, y + 5, 20, 39, T.f, 4);
+    if (T.f === 'box') box(x + 1, y + 4, 22, 3, IRON);
+    R(x + 4, y + 11, 16, 27, P.iron[0]);
+    waterWin(x + 5, y + 12, 14, 25, tankLv(q), fr);
+    for (let yy = y + 14; yy <= y + 35; yy += 5) R(x + 20, yy, 1, 1, P.iron[4]);                                    // 窗边刻度
+    copperHoop(x + 1, y + 19, 22); copperHoop(x + 1, y + 29, 22);
+    tankTap(x, y + 33, fr, y + 44);
+    tankSkid(x + 3, y + 44, 18);
+    if (T.parts.includes('corners')) { PART.corner(x + 2, y + 39, 1, -1); PART.corner(x + 17, y + 39, -1, -1); }
+  }
+  function tankTallOver(x, y, q) {
+    const T = TANK_TIERS[(q.mt || 1) - 1];
+    for (const rx of riveXs(T.riv[0], 5, 19)) PART.rivet(x + rx, y + 7, RIVET_TIER[T.riv[1]]);
+    if (T.parts.includes('gauge')) gaugeS(x + 5.5, y + 3.5);
+  }
+  function tankSmall(x, y, q) {
+    const T = TANK_TIERS[(q.mt || 1) - 1], fr = q.fr || 0;
+    R(x + 9, y + 0, 6, 2, P.brass[1]); R(x + 9, y + 0, 6, 1, P.brass[3]); R(x + 11, y + 2, 2, 1, P.iron[0]);        // 注水口盖
+    tankShell(x + 2, y + 3, 20, 18, T.f, 3);
+    if (T.f === 'box') box(x + 1, y + 2, 22, 3, IRON);
+    R(x + 4, y + 7, 16, 12, P.iron[0]);
+    waterWin(x + 5, y + 8, 14, 10, tankLv(q), fr);
+    copperHoop(x + 1, y + 5, 22); copperHoop(x + 1, y + 19, 22);
+    tankTap(x, y + 13, fr % 2, y + 21);
+    tankSkid(x + 3, y + 21, 18, 2);
   }
   // 中炮 2×1 的立面分区：T1～2 敞开炮架（散热口在炮组下方、铆钉在前挡板脚）；T3～6 炮廓（表位左上、散热区在表位下、铆钉压炮廓和底座的接缝）
   const CANNON_M_ZONE = {
@@ -838,6 +1020,8 @@ SA.SPR = (() => {
 
   // 材质处理之后才画的「身份件」：DRAW 画铁件，OVER 画颜色固定的零件
   const OVER = {
+    boiler_s(x, y, q) { boilerSOver(x, y, q); },
+    tank_tall(x, y, q) { tankTallOver(x, y, q); },
     cannon_giant(x, y, q) { giantOver(x, y, giantO(q)); },   // 象牙白炮口箍 + 端面、上弦铆钉、地脚螺栓、墙板铭牌
     cannon(x, y, q) {
       const T = CANNON_TIERS[(q.mt || 1) - 1], Z = CANNON_ZONE;
@@ -1148,8 +1332,9 @@ SA.SPR = (() => {
       R(x + 13, y + 7, 3, 1, P.iron[2]); R(x + 7, y + 17, 2, 1, P.iron[2]);
     },
     // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
-    tank_s(x, y, o) { tankArt(x, y, 24, o); },
-    tank_tall(x, y, o) { tankArt(x, y, 48, o); },
+    tank_s(x, y, q) { tankSmall(x, y, q); },
+    tank_tall(x, y, q) { tankTall(x, y, q); },
+    boiler_s(x, y, q) { boilerS(x, y, q); },
     // 臼炮 2×2（高抛火炮，2026-09-27 定稿，样机 tools/gun-family-lab.html 臼炮 v1）：参考 19 世纪攻城 / 岸防臼炮——
     // 炮管短粗、越往炮口越粗、炮口厚箍 + 大口径黑洞；炮耳在炮尾，夹在炮耳座里（炮耳座画在炮管前面）；低矮厚重的炮床；
     // 两侧活动大齿轮在 UNDER.mortar（随仰角转）。T1～2 方炮床 + 方炮耳座 → T3～4 台阶炮床 + 加厚炮耳座、一道铁箍 → T5～6 炮床前沿斜切 + 梯形炮耳座、两道铁箍。
@@ -1471,7 +1656,7 @@ SA.SPR = (() => {
   function quant(id, o) {
     const q = {};
     switch (id) {
-      case 'boiler': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
+      case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
       case 'cockpit': case 'copilot': case 'helmet': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
       case 'cannon': case 'cannon_m': case 'cannon_s': case 'cannon_heavy': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
@@ -1552,7 +1737,7 @@ SA.SPR = (() => {
     gold: (M) => (M.trimC ? [M.trimC[3], M.trimC[1], M.trimC[1], M.trimC[0]] : [P.brass[3], P.brass[1], P.brass[1], P.brass[0]].map(rgbOf)),
   };
   // 这些区域里的暗铁色像素不参与材质处理（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
-  const DECOR_SKIP = { boiler: [[11, 19, 26, 21]] };
+  const DECOR_SKIP = { boiler: [[11, 19, 26, 21]], boiler_s: [[5, 21, 14, 20]] };
   let matPass = null;   // 样机页可以换一套材质处理（setMatPass），游戏里始终是 decorate
   function decorate(cv, mat, ox, oy, skip = []) {
     const M = matOf(mat.key);

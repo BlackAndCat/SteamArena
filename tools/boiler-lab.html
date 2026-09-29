@@ -33,7 +33,8 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>竖式锅炉 + 小水罐 · 造型探索 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v2 · 2026-09-28 · 锅炉改用立式、放大炉膛；两种小水罐重画</small></h1>
+    <h1>竖式锅炉 + 小水罐 · 造型探索 <small style="font-size:13px;color:var(--muted);letter-spacing:0">v3 · 2026-09-28 · 已定稿进游戏：锅炉 A3 拱形炉口、水罐 W1 + 两道紫铜箍</small></h1>
+    <p><b>定稿（用户，2026-09-28）</b>：锅炉用 <b>A3 拱形炉口</b>；水罐用 <b>W1 大水窗罐</b>，罐身加两道紫铜加强箍（1×2 横跨水窗，1×1 上下夹住水窗；紫铜不随材料变）。已写进游戏 <code>js/sprites.js</code>（<code>boilerS</code> / <code>tankTall</code> / <code>tankSmall</code>），六档形体：锅炉 圆筒 → 方包壳 → 斜肩；水罐 圆角罐 → 方罐 + 平顶盖板 → 八角罐，1×2 水罐顶部铆钉 2 → 3 → 4、钢起包角铁、镀镍起小压力表，1×1 只靠剪影。下面各表里标「游戏」的行就是游戏里的画。</p>
     <p><b>v2（用户，2026-09-28）</b>：① 锅炉<b>采用 A 立式锅炉</b>，但扩大炉膛、提高识别度，让燃火的部分占更多空间 → 炉口从 14 × 12（火 10 × 8）放大到 <b>18 × 24（火 14 × 20，约 3.5 倍）</b>，占掉下半个模块；火舌从煤缝窜起、随火力长高（小火半膛、大火满膛）。两个炉口形状待挑：<b>A2 大方炉门</b> / <b>A3 拱形炉口</b>。② <b>1×1 小水罐、1×2 水罐重画</b>：水从一条 4px 窄窗变成最大的一块颜色，两个方向待挑：<b>W1 大水窗罐</b> / <b>W2 玻璃水筒</b>（页面下半）。六档形体（T3 / T5 跃迁）等水罐方向定了再做，现在六档只是换材料。</p>
     <p style="color:var(--muted)">v1 记录：计划表第 11 项 <code>boiler_s</code>（暂定 id，数据等 astra）：<b>锅炉最小一档，1×2（24 × 48）竖放</b>。要求：竖立炉身 + 烟囱 + 炉门火光；和水罐、蓄压罐分开——<b>只有锅炉发光</b>。三个候选都按 <code>docs/visual-rules.md</code> 做了六档：形体在 T3、T5 跃迁（原形 → 方包壳平顶 → 斜肩板），散热口 3 竖缝 → 4 密排 → 两行 → 两行斜百叶，接缝铆钉 2 → 3 → 4（T1～3 黄铜、镀镍起钢质淡青），钢起包角铁，镀镍起直径 7 的小压力表。表在左、烟囱在右，和现有 2×2 锅炉一致。</p>
     <p style="color:var(--muted)">v1 当时一度选了 C 高烟囱，之后用户改为 A 立式。v1 的 A / B / C 留在六档对比表最下面作记录。</p>
@@ -167,6 +168,7 @@
   function renderTiers() {
     const T = $('tiers'); T.replaceChildren(head());
     for (const C of B.CANDS) T.append(el('tr', {}, el('th', { className: 'rh' }, C.name), ...[1, 2, 3, 4, 5, 6].map(mt => cell(cand(C, mt)))));
+    T.append(el('tr', {}, el('th', { className: 'rh' }, '竖式锅炉 boiler_s', el('small', {}, '游戏（定稿 A3）')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('boiler_s', mt, 24, 48)))));
     for (const C of B.HIST) T.append(el('tr', { style: 'opacity:.6' }, el('th', { className: 'rh' }, C.name, el('small', {}, 'v1 记录')), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(cand(C, mt), 2)))));
     T.append(el('tr', {}, el('th', { className: 'rh' }, '燃煤锅炉 2×2', el('small', {}, '游戏现状（旧画）')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameMod('boiler', mt, 48, 48)))));
   }
@@ -179,9 +181,9 @@
     const box = $('tanks'); box.replaceChildren();
     const pair = (fS, fT) => { const a = el('div'), b = el('div'), c = el('div'); animCv.push([a, fS, 3], [b, fT, 3]); c.append(el('div', { className: 'row' }, a, b)); return c; };
     const levels = (f) => el('div', { className: 'row', style: 'margin-top:8px' }, ...[1, 0.7, 0.35, 0.1].map(wl => show(f(wl), 1)));
-    box.append(el('div', { className: 'card' }, el('h3', {}, '游戏现状（旧画）'), pair(() => gameTank('tank_s', 1), () => gameTank('tank_tall', 1)),
+    box.append(el('div', { className: 'card' }, el('h3', {}, '游戏（定稿：W1 + 紫铜箍）'), pair(() => gameTank('tank_s', 1), () => gameTank('tank_tall', 1)),
       el('div', { className: 'row', style: 'margin-top:8px' }, show(gameTank('tank_s', 1), 1), show(gameTank('tank_tall', 1), 1)),
-      el('p', {}, '胶囊罐身 + 中间 4px 宽的水位窗：水只占 1×2 的约 8%，1× 下几乎只剩一条细线，和蓄压罐、冷凝器容易混。')));
+      el('p', {}, '定稿进游戏的画（直接调用 SA.SPR.drawModule）。旧画是胶囊罐身 + 4px 宽水位窗，水只占约 8%。')));
     for (const T of TK.CANDS) box.append(el('div', { className: 'card' }, el('h3', {}, T.name), pair(() => tank(T, 'small', 1), () => tank(T, 'tall', 1)),
       levels((wl) => tank(T, 'tall', 1, { lv: wl })), levels((wl) => tank(T, 'small', 1, { lv: wl })),
       el('p', {}, T.idea), el('p', {}, '下面两排：1× 下的满 / 七成 / 三成 / 见底。')));
@@ -189,12 +191,12 @@
   function renderTankTiers() {
     const T = $('tankTiers'); T.replaceChildren(head());
     for (const TT of TK.CANDS) for (const size of ['small', 'tall']) T.append(el('tr', {}, el('th', { className: 'rh' }, TT.name, el('small', {}, size === 'small' ? '1×1 小水罐' : '1×2 水罐')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(tank(TT, size, mt)))));
-    for (const id of ['tank_s', 'tank_tall']) T.append(el('tr', { style: 'opacity:.6' }, el('th', { className: 'rh' }, id === 'tank_s' ? '小水罐 1×1' : '水罐 1×2', el('small', {}, '游戏现状（旧画）')), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(gameTank(id, mt), 2)))));
+    for (const id of ['tank_s', 'tank_tall']) T.append(el('tr', { style: 'opacity:.6' }, el('th', { className: 'rh' }, id === 'tank_s' ? '小水罐 1×1' : '水罐 1×2', el('small', {}, '游戏（定稿）')), ...[1, 2, 3, 4, 5, 6].map(mt => cell(gameTank(id, mt)))));
   }
   function renderVersus() {
     const T = $('versus'); T.replaceChildren();
     const items = [...B.CANDS.map(C => [C.name, (mt) => cand(C, mt)]), ...TK.CANDS.map(TT => [TT.name, (mt) => tank(TT, 'tall', mt)]),
-      ['水罐（旧画）', (mt) => gameTank('tank_tall', mt)], ['蓄压罐（占位）', (mt) => gameMod('pressure_tank', mt, 24, 48)],
+      ['水罐（游戏定稿）', (mt) => gameTank('tank_tall', mt)], ['竖式锅炉（游戏定稿）', (mt) => gameMod('boiler_s', mt, 24, 48)], ['蓄压罐（占位）', (mt) => gameMod('pressure_tank', mt, 24, 48)],
       ['铁装甲 1×2', (mt) => gameMod('armor', mt, 24, 48)], ['冷凝器（占位）', (mt) => gameMod('condenser', mt, 24, 48)]];
     T.append(el('tr', {}, el('th'), ...items.map(([n]) => el('th', {}, n))));
     for (const mt of [1, 3, 6]) {
@@ -220,7 +222,7 @@
   }
   function renderCtx() {
     const T = $('ctx'); T.replaceChildren(head());
-    for (const C of B.CANDS) for (const TT of [...TK.CANDS, null]) T.append(el('tr', {}, el('th', { className: 'rh' }, C.name, el('small', {}, TT ? '+ ' + TT.name : '+ 旧水罐')), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(C, TT, mt), 2)))));
+    for (const C of B.CANDS) for (const TT of [...TK.CANDS, null]) T.append(el('tr', {}, el('th', { className: 'rh' }, C.name, el('small', {}, TT ? '+ ' + TT.name : '+ 游戏定稿水罐')), ...[1, 2, 3, 4, 5, 6].map(mt => el('td', {}, show(chunk(C, TT, mt), 2)))));
   }
   function renderArmor() {
     const pair = (mt) => { const c = document.createElement('canvas'); c.width = OX + 48 + 4; c.height = OY + 48 + 2; const g = c.getContext('2d'); g.fillStyle = P.iron[1]; g.fillRect(OX, OY, 48, 48); SA.SPR.drawModule(g, 'armor', OX, OY, { mt }); SA.SPR.drawModule(g, 'armor', OX + 24, OY, { mt }); return c; };

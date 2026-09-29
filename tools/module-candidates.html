@@ -188,6 +188,7 @@
   }
   function itemsOf(id) {
     const ap = AP.MODS[id];
+    if (ap.status === 'done' && SA.MODULES[id] && !SA.MODULES[id].placeholder) return [gameItem(id)];
     if (ap.lab && SA[ap.lab]) return SA[ap.lab].CANDS.map(cd => labItem(id, SA[ap.lab], cd));
     if (ap.status === 'cand' && NIGHT.has(id)) return NIGHT.get(id).cands.map(cd => nightItem(id, cd));
     if (SA.MODULES[id] && !SA.MODULES[id].placeholder) return [gameItem(id)];
