@@ -1,6 +1,8 @@
 // 视觉样机登记表：视觉样机馆（tools/lab.html）按这里分类、排版本；每个样机页引入本文件后，
 // 单独打开（不在样机馆的框架里）时右上角会出现一枚导航标签，点它回到样机馆。
 // 新做的视觉样机：在 items 里加一行，并在页面 </body> 前加 <script src="labs.js"></script>。
+// 两个总览页（2026-09-28 用户定）：module-candidates.html = 全部进度；current.html = 当前开发（不复用：确认后本期内容复制到
+// archive/<名字>.html 登记成历史存档，current 换成下一项）。
 // status：live = 现行（直接读游戏代码，永远和游戏一致）；explore = 探索中（等用户定）；
 //         shipped = 已进游戏（定稿样机，留作参考）；archived = 历史存档（已被后来的版本取代）
 window.SA = window.SA || {};
@@ -13,6 +15,7 @@ SA.LABS = {
     archived: { name: '历史存档', color: '#a8a39a', desc: '已被后来的版本取代，保留记录' },
   },
   GROUPS: [
+    { id: 'top', name: '总览', desc: '两页：模块造型全部进度（全部模块、定稿的样子）+ 当前开发（只放正在开发、等开发者确认的东西）' },
     { id: 'spec', name: '美术规范', desc: '风格速查与全部模块的实物' },
     { id: 'module', name: '模块造型', desc: '单个模块的造型与材质探索' },
     { id: 'chassis', name: '底盘', desc: '四足、双足、子格套件的演进' },
@@ -24,6 +27,10 @@ SA.LABS = {
     { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
+    { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
+      desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机枪 v2', date: '2026-09-28', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机枪家族 v2 · 车载枪座——车载机枪 A 球形枪座 / B 小枪塔 / C 侧舷枪座；重机枪 A 装甲枪室 + 冷凝罐 / B 蒸汽加特林 / C 液压升降排枪。确认后归档到 archive/', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'style', group: 'spec', url: 'style-guide.html', name: '美术风格参考', ver: 'v1', date: '2026-09-26', status: 'live',
       desc: '调色板、风格锚点、剪影 / 灰度测试、材料六阶、场景明度、界面组件、生成提示词', docs: ['docs/art-style.md', 'docs/art-direction.md'] },
     { id: 'material', group: 'spec', url: 'material-lab.html', name: '材质语言 v2', ver: 'v14', date: '2026-09-27', status: 'shipped',
@@ -38,10 +45,8 @@ SA.LABS = {
       desc: '火炮家族全部定稿进游戏（2026-09-28 巨炮 v6 进游戏后归档）。按 docs/visual-rules.md 推到其他火炮：中炮（敞开炮架 → 方平顶炮廓 → 斜板炮廓，炮管加长）、小炮（卡隆短炮，1×1 只靠剪影：铸造瓶身 → 方套箱 → 斜肩套箱）已进游戏；侧炮（窄挂板 + 粗方柱 → 方箱挂板 + 双柱横撑 → 斜板挂板 + 实心腹板）也已进游戏；重炮 v5（历史重炮 + 预制齿轮组）已进游戏；臼炮（短粗、炮口更粗 + 两侧活动大齿轮）也已进游戏；齿轮 v6 对称纯色；巨炮 v6（4×4 攻城臼炮阵地：椭圆弧象牙白炮口箍、分格弹簧底座 + 回转支承、黄铜炮弹、钢板墙、齿轮、燃煤仓、脚手架 + 工程师帽操作员）也已进游戏。和直射火炮逐档对照，含仰角检查', docs: ['docs/visual-rules.md'] },
     { id: 'boiler-s', group: 'module', url: 'boiler-lab.html', name: '竖式锅炉 + 小水罐', ver: 'v3', date: '2026-09-28', status: 'shipped',
       desc: '已定稿进游戏：竖式锅炉 A3 立式 · 拱形大炉口（火 14 × 20）；小水罐 / 水罐 W1 大水窗罐 + 两道紫铜加强箍；各六档。页面保留 v1 A / B / C、v2 A2 / A3、W1 / W2 探索记录和「游戏」行对照；附铁装甲改 1×2', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
-    { id: 'mg-family', group: 'module', url: 'mg-lab.html', name: '机枪家族 · 造型探索', ver: 'v1', date: '2026-09-28', status: 'explore',
-      desc: '车载机枪 mg_s（1×1）：A 刘易斯式 / B 哈乞开斯式 / C 小转管；重机枪 mg_heavy（1×2，上枪下弹药箱）：A 马克沁式 / B 加特林式 / C 诺登菲尔特排枪。各六档、仰角 −8°～32° 检查、开火动画（后坐 + 供弹 + 枪口焰）、和机炮 / 小炮 / 中炮家族对照、放进车体。定了以后回头重画 2×2 机炮', docs: ['docs/art-plan.md', 'docs/visual-rules.md'] },
-    { id: 'candidates', group: 'module', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v3', date: '2026-09-28', status: 'explore',
-      desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'mg-family-v1', group: 'module', url: 'archive/mg-family-v1.html', name: '机枪家族 v1 · 步兵式', ver: 'v1', date: '2026-09-28', status: 'archived',
+      desc: '已被「当前开发」机枪 v2 取代：用户指出机枪都是车载的，三脚架、立柱支架、握把这类步兵元素不合适。车载 A 刘易斯 / B 哈乞开斯 / C 小转管；重机枪 A 马克沁 / B 加特林 / C 诺登菲尔特', docs: ['docs/art-plan.md'] },
     { id: 'chassis', group: 'chassis', url: 'chassis-lab.html', name: '整件底盘 · 外观与步态', ver: 'v4', date: '2026-09-25', status: 'shipped',
       desc: '四足 4×2 整件（蜘蛛）+ 真双足 2×4（陀螺胯、一对长腿）；外观和步态已进游戏', docs: ['docs/true-biped.md §8'] },
     { id: 'mech-kit', group: 'chassis', url: 'mech-kit.html', name: '机甲套件 · 子格验证', ver: 'v3', date: '2026-09-25', status: 'archived',
@@ -59,14 +64,14 @@ SA.LABS = {
 
 // 单独打开的样机页：右上角挂一枚导航标签
 (() => {
-  const file = location.pathname.split('/').pop();
+  const path = decodeURIComponent(location.pathname), file = path.split('/').pop();
   if (file === 'lab.html' || window.top !== window) return;
-  const it = SA.LABS.ITEMS.find(x => x.url === file);
+  const it = SA.LABS.ITEMS.find(x => path.endsWith('/' + x.url));   // url 可以带子目录（archive/…）
   if (!it) return;
   const stt = SA.LABS.STATUS[it.status];
   const put = () => {
     const a = document.createElement('a');
-    a.href = `lab.html#${it.id}`;
+    a.href = `${'../'.repeat(it.url.split('/').length - 1)}lab.html#${it.id}`;
     a.title = '回到视觉样机馆';
     a.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;display:flex;align-items:center;gap:8px;padding:6px 10px;'
       + 'background:#161a24;border:2px solid #0b0e15;box-shadow:inset 2px 2px 0 #343c4e,3px 3px 0 rgba(7,8,12,.6);'
