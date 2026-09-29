@@ -57,7 +57,7 @@ SA.ARTPLAN = {
     periscope: { status: 'done', ch: 1, note: '轭架望远镜（2026-09-29 进游戏）：转台 + U 形轭架 + 黄铜望远镜慢慢俯仰；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'archived'], ['2026-09-29', '造型 7 种 → D 轭架望远镜', 'archive/periscope.html', 'shipped']] },
     autoloader: { status: 'done', ch: 1, note: '链式扬弹机（2026-09-29 进游戏）：竖框 + 两只链轮，三发黄铜炮弹往上送；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore'], ['2026-09-29', '造型 7 种（选 链式扬弹机）', 'archive/five-modules.html', 'shipped']] },
     mortar_s: { status: 'done', ch: 2, note: '炮塔臼炮（2026-09-29 进游戏）：半球装甲炮塔 + 粗短炮管 + 跟炮管转的防盾；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#mortar_s', 'explore'], ['2026-09-29', '造型 7 种（选 炮塔臼炮）', 'archive/five-modules.html', 'shipped']] },
-    cockpit_pair: { status: 'cand', pri: 6, ch: 2, note: '1×2 双人舱，第二章 Boss 奖励；驾驶员保持 1×1 大小', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore'], ['2026-09-29', '造型 7 种（每个选一个）', 'current.html', 'explore'], ['2026-09-29', '驾驶舱家族重做（看得见舱内 + 操纵件）', 'current.html', 'explore']] },
+    cockpit_pair: { status: 'done', ch: 2, note: '双层驾驶台（2026-09-29 进游戏）：一扇高窗里上下两层，上层对传声管、下层扳操纵杆', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#cockpit_pair', 'explore'], ['2026-09-29', '造型 7 种（每个选一个）', 'current.html', 'explore'], ['2026-09-29', '驾驶舱家族重做（看得见舱内 + 操纵件）', 'archive/cockpits.html', 'shipped']] },
     pressure_chamber: { status: 'done', ch: 2, note: '风箱增压器（2026-09-29 进游戏）：皮风箱 + 储气包 + 压力表，不发光；用户定以后是 1×2（数据改动交接 astra，1×1 时画小版）', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#pressure_chamber', 'explore'], ['2026-09-29', '造型 6 种（选 风箱增压器）', 'archive/five-modules.html', 'shipped']] },
     condenser: { status: 'done', ch: 2, note: '盘管冷凝柱（2026-09-29 进游戏）：实心铁柱 + 盘管 + 青色水珠 / 滴水；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#condenser', 'explore'], ['2026-09-29', '造型 6 种（选 盘管冷凝柱）', 'archive/five-modules.html', 'shipped']] },
     // ---------- 第 3 档：新增尺寸（数据和文字占位已接入，专用造型待做）----------
@@ -95,7 +95,7 @@ SA.ARTPLAN = {
     boiler: { status: 'legacy', pri: 27, ch: 0, note: '两阶段已画；竖式 / 大型锅炉定稿后按锅炉家族统一复核', hist: [] },
     armor: { status: 'legacy', pri: 28, ch: 0, note: '2026-09-28 用户定：从 2×2 改成竖着的 1×2（中间横接缝 + 两列铆钉，并排两块 = 原来一块），已进游戏；六档造型仍待按新规范复核', hist: [['2026-09-28', '改成 1×2', 'boiler-lab.html', 'explore']] },
     armor_heavy: { status: 'legacy', pri: 29, ch: 1, note: '同铁装甲', hist: [] },
-    helmet: { status: 'legacy', pri: 30, ch: 0, note: '驾驶舱 1×1，T5 换装已画', hist: [] },
+    helmet: { status: 'done', ch: 0, note: '方窗驾驶箱（2026-09-29 重做进游戏）：铆接方箱 + 宽窗，窗里是驾驶员，窗下露出方向盘上半圈', hist: [] },
     plate: { status: 'legacy', pri: 31, ch: 0, note: '24px 甲片', hist: [] },
     water: { status: 'legacy', pri: 32, ch: 0, note: '水箱 2×2；大水箱定稿后按水箱家族统一复核', hist: [] },
     tank_s: { status: 'done', ch: 0, note: '小水罐 1×1：W1 大水窗罐 + 两道暗紫铜加强箍（收在罐身里、圆柱明暗）；六档 圆角罐 → 方罐平顶 → 八角罐', hist: [['2026-09-28', 'v1 重画：W1 大水窗罐 / W2 玻璃水筒', 'boiler-lab.html', 'explore'], ['2026-09-28', '定稿 W1 + 紫铜箍，进游戏', 'boiler-lab.html', 'shipped']] },
@@ -103,6 +103,6 @@ SA.ARTPLAN = {
     bucket: { status: 'legacy', pri: 35, ch: 0, note: '铲斗两阶段已画', hist: [] },
     spike: { status: 'legacy', pri: 36, ch: 3, note: '撞角两阶段已画', hist: [] },
     piston: { status: 'legacy', pri: 37, ch: 3, note: '蒸汽撞锤两阶段已画', hist: [] },
-    cockpit: { status: 'legacy', pri: 38, ch: 4, note: '四人联合驾驶舱', hist: [] },
+    cockpit: { status: 'done', ch: 4, note: '机车驾驶室（2026-09-29 重做进游戏）：一个贯通的司机室，后排两人在栏杆平台上、右边小楼梯，前排扳调节杆 / 拉汽笛，中间大舵轮', hist: [] },
   },
 };

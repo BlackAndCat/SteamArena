@@ -30,8 +30,10 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '驾驶舱家族 12 种', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：驾驶舱家族重做——单人 4 · 双人 4 · 四人 4；看得见舱里的煤球驾驶员 + 会动的操纵件，大驾驶舱是一个贯通的舱室', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '空', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：空——驾驶舱家族已进游戏（archive/cockpits.html），下一项等用户指定', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'cockpits', group: 'module', url: 'archive/cockpits.html', name: '驾驶舱家族重做', ver: 'v2', date: '2026-09-29', status: 'shipped',
+      desc: '单人 4 · 双人 4 · 四人 4（看得见舱里的煤球驾驶员 + 会动的操纵件）；选定方窗驾驶箱 / 双层驾驶台 / 机车驾驶室（小楼梯、前 2 后 2）进游戏', docs: ['docs/art-plan.md'] },
     { id: 'five-modules', group: 'module', url: 'archive/five-modules.html', name: '五模块造型探索', ver: 'v2', date: '2026-09-29', status: 'shipped',
       desc: '装弹机 7 · 小臼炮 7 · 双人驾驶舱 7 · 加压舱 6（+1×2）· 冷凝器 6；选定炮塔臼炮、链式扬弹机、风箱增压器、盘管冷凝柱进游戏', docs: ['docs/art-plan.md'] },
     { id: 'periscope', group: 'module', url: 'archive/periscope.html', name: '观察镜 · 7 种造型', ver: 'v1', date: '2026-09-29', status: 'shipped',

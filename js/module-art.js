@@ -11,7 +11,7 @@ SA.MODULE_ART = {
   biped: { vis: [1, 2, 3, 4, 5, 6], susp: { pts: [26, 34] } },   // 真双足的近侧 / 远侧脚（legs.js bipedArt，模块内 x）
   cockpit: { vis: [1, 5] },
   helmet: { vis: [1, 5] },
-  cockpit_pair: { art: 'helmet', placeholder: '双人' },
+  cockpit_pair: { vis: [1, 5] },   // 2026-09-29 专用造型：双层驾驶台
   cannon: { vis: [1, 3, 5], piv: [34, 27], blen: 40, barrel: 24, rcPx: 9, back: 0.05, ret: 2.2 },
   cannon_m: { vis: [1, 3, 5], piv: [18, 13], blen: 40, barrel: 18, rcPx: 6, back: 0.05, ret: 2.4 },
   cannon_s: { vis: [1, 3, 5], piv: [12, 13], blen: 24, barrel: 12, rcPx: 4, back: 0.03, ret: 2.8 },

@@ -876,6 +876,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
           for (const o of sp.hits) { const [bx, by, bw, bh] = boxOf(v, SA.V.layerOf(id), o.r, o.c); g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(bx, by, bw, bh); }
           g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });
+          if (SA.isCockpit(id)) SA.SPR.cockpitCrew(g, id, x, y, { t, mt: selMt, seed: 0 }, null, { pilot: '你', t });   // 驾驶舱：驾驶员 + 操纵件也画出来
           g.globalAlpha = 1;
           tint(fromModule(id, t, selMt), x, y, w, h, bad ? RED : GREEN, pulse(t, 0.3, 0.6, 1), tintPad(id));
         }

@@ -537,6 +537,98 @@ SA.SPR = (() => {
     tankSkid(x + 3, y + 21, 18, 2);
   }
 
+  // ---------- 驾驶舱家族（2026-09-29 定稿，样机 tools/archive/cockpits.html）：单人 C 方窗驾驶箱 · 双人 A 双层驾驶台 · 四人 A 机车驾驶室 ----------
+  // 看得见舱里的煤球驾驶员 + 会动的操纵件。分层画：back（DRAW[id]，q.layer 为空）→ cockpitCrew 按 COCKPIT_ART 的座位画驾驶员（剪在舱窗里）
+  // → mid（四人舱：抬高的平台前沿、栏杆、小楼梯，把驾驶员分成后 2 前 2）→ 前排驾驶员 → front（操纵杆、汽笛拉索、舵轮、挡板）。
+  // mid / front 用 drawModule(..., { layer }) 取带材质的缓存精灵；动画帧 fr（60 帧 = 6 秒一轮）。舱内墙面是暖色皮木色（不是金属，材质层不换）
+  const COCKPIT_ART = {
+    helmet: { win: [4, 4, 16, 12], rows: [[[12, 11]]] },
+    cockpit_pair: { win: [4, 4, 16, 38], rows: [[[10, 19], [14, 37]]] },
+    cockpit: { win: [7, 8, 34, 30], rows: [[[18, 20], [30, 20]], [[11, 33], [37, 33]]], mid: true },
+  };
+  const CK = (() => {
+    const Rr = (x, y, w, h, c) => R(Math.round(x), Math.round(y), Math.round(w), Math.round(h), c);
+    const p1 = (x, y, c) => Rr(x, y, 1, 1, c);
+    const ringDots = (cx, cy, r, c) => { const n = Math.ceil(r * 7); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; p1(Math.floor(cx + Math.cos(a) * r), Math.floor(cy + Math.sin(a) * r), c); } };
+    function room(x0, y0, w, h, floor = true) {
+      Rr(x0, y0, w, h, P.leather[1]);
+      for (let u = x0 + 3; u < x0 + w - 1; u += 5) Rr(u, y0 + 1, 1, h - 3, P.leather[0]);
+      Rr(x0, y0, w, 2, P.leather[0]); Rr(x0, y0 + 2, w, 1, P.leather[2]);
+      if (floor) { Rr(x0, y0 + h - 2, w, 2, P.dark[2]); Rr(x0, y0 + h - 2, w, 1, P.dark[1]); }
+    }
+    const lamp = (x, y) => { Rr(x - 1, y - 2, 3, 1, P.brass[1]); disc(x + 0.5, y + 0.5, 1.4, P.brass[2]); p1(x, y, P.fire[3]); };
+    const gauge = (cx, cy, r, v) => { disc(cx, cy, r, P.brass[0]); disc(cx, cy, r - 1, P.steam[2]); const a = Math.PI * (0.75 + 1.5 * v), L = Math.max(1.5, r - 1.5); line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 0.5 + Math.cos(a) * L), Math.round(cy - 0.5 + Math.sin(a) * L), 1, P.dark[0]); };
+    const lever = (x, y, len, ang) => { const ex = x + Math.sin(ang) * len, ey = y - Math.cos(ang) * len; line(x, y, Math.round(ex), Math.round(ey), 1, P.brass[1]); disc(ex + 0.5, ey + 0.5, 1.3, P.brass[0]); p1(Math.floor(ex), Math.floor(ey), P.brass[3]); disc(x + 0.5, y + 0.5, 1.4, P.iron[0]); };
+    const wheelS = (cx, cy, r, rot, n) => { ringDots(cx, cy, r, P.brass[0]); ringDots(cx, cy, r - 0.8, P.brass[2]); for (let k = 0; k < n; k++) { const a = rot + k / n * Math.PI * 2; line(cx, cy, Math.round(cx + Math.cos(a) * (r + 1.4)), Math.round(cy + Math.sin(a) * (r + 1.4)), 1, P.brass[1]); p1(Math.floor(cx + Math.cos(a) * (r + 1.8)), Math.floor(cy + Math.sin(a) * (r + 1.8)), P.brass[3]); } disc(cx, cy, 1.3, P.brass[3]); };
+    const pullOf = (T, per) => { const p = ((T % per) + per) % per / per; return p < 0.12 ? p / 0.12 : p < 0.3 ? 1 : p < 0.4 ? 1 - (p - 0.3) / 0.1 : 0; };
+    const cord = (x, y, len, pull) => { const e = y + len + Math.round(pull * 3); for (let yy = y; yy < e; yy += 2) p1(x, yy, P.brass[1]); ringDots(x + 0.5, e + 1.5, 1.4, P.brass[2]); };
+    const puffUp = (x, y, T) => { for (let k = 0; k < 2; k++) { const p = ((T * 0.12 + k / 2) % 1); disc(x + Math.sin(p * 6 + k) * 1.2, y - p * 4, 0.8 + p * 1.4, p < 0.5 ? P.steam[2] : P.steam[1]); } };
+    return { Rr, p1, room, lamp, gauge, lever, wheelS, pullOf, cord, puffUp };
+  })();
+  // T = 动画时刻（和样机的 60ms 一格对齐）：fr 0～59 → T 0～100
+  const ckT = (q) => (q.fr || 0) * 100 / 60;
+  // 单人 1×1 · 方窗驾驶箱：铆接方箱开一扇宽窗，窗上遮阳眉，窗下沿露出方向盘上半圈（左右转一点）
+  function helmetArt(x, y, q) {
+    const { Rr, room, lamp, wheelS } = CK, T = ckT(q);
+    if (q.layer === 'front') {
+      Rr(x + 3, y + 3, 18, 2, P.iron[0]); Rr(x + 3, y + 3, 18, 1, P.iron[3]);
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, 24, 16); ctx.clip(); wheelS(x + 12, y + 18, 5, 0.3 * Math.sin(T * Math.PI * 2 / 100), 3); ctx.restore();
+      Rr(x + 3, y + 15, 18, 2, P.iron[1]); Rr(x + 3, y + 15, 18, 1, P.iron[4]);
+      return;
+    }
+    box(x + 1, y + 1, 22, 22, IRON); rivet(x + 3, y + 19); rivet(x + 19, y + 19);
+    room(x + 4, y + 4, 16, 12); lamp(x + 16, y + 6);
+  }
+  // 双人 1×2 · 双层驾驶台：一扇高窗里上下两层——上层站在格栅平台上对传声管喊话，下层扳操纵杆；舱壁两只压力表、一盏灯
+  function cockpitPairArt(x, y, q) {
+    const { Rr, p1, room, lamp, gauge, lever } = CK, T = ckT(q);
+    if (q.layer === 'front') {
+      Rr(x + 3, y + 24, 18, 2, P.brass[1]); for (let u = 4; u < 20; u += 3) p1(x + u, y + 25, P.brass[0]);
+      line(x + 16, y + 4, x + 16, y + 13, 2, P.brass[1]); disc(x + 15, y + 14, 1.6, P.brass[2]); p1(x + 15, y + 14, P.dark[0]);
+      lever(x + 18, y + 41, 9, -0.5 + 0.35 * Math.sin(T * Math.PI * 2 / 100));
+      Rr(x + 3, y + 41, 18, 2, P.iron[1]); Rr(x + 3, y + 41, 18, 1, P.iron[4]);
+      return;
+    }
+    box(x + 1, y + 1, 22, 46, IRON); room(x + 4, y + 4, 16, 38); lamp(x + 12, y + 7);
+    gauge(x + 17, y + 11, 2.4, 0.5); gauge(x + 7, y + 30, 2.4, 0.35);
+    Rr(x + 4, y + 24, 16, 2, P.dark[2]);
+    for (const yy of [43, 2]) { rivet(x + 3, y + yy); rivet(x + 19, y + yy); }
+  }
+  // 四人 2×2 · 机车驾驶室：后墙是锅炉背板（三只表、黄铜管、灯）；后排两人站在带栏杆的抬高平台上，右边一道小楼梯下到地板；
+  // 前排左边扳粗调节杆、右边拉汽笛（顶上冒汽），中间一只大换向舵轮；最前面一块铆接侧板挡住下半身
+  function cockpitArt(x, y, q) {
+    const { Rr, p1, room, lamp, gauge, pullOf, cord, puffUp } = CK, T = ckT(q);
+    if (q.layer === 'mid') {
+      Rr(x + 7, y + 28, 26, 10, P.dark[1]); Rr(x + 7, y + 28, 26, 1, P.dark[0]);
+      Rr(x + 7, y + 25, 26, 3, P.leather[0]); Rr(x + 7, y + 25, 26, 1, P.brass[2]);
+      Rr(x + 7, y + 22, 26, 1, P.brass[2]); for (let u = 9; u < 33; u += 4) Rr(x + u, y + 22, 1, 3, P.brass[1]);
+      for (let k = 0; k < 3; k++) { const sx = x + 33 + k * 3, sy = y + 25 + k * 4; Rr(sx, sy, 4, 2, P.leather[0]); Rr(sx, sy, 4, 1, P.brass[1]); Rr(sx, sy + 2, 4, 2, P.dark[1]); }
+      Rr(x + 33, y + 22, 1, 4, P.brass[1]); line(x + 33, y + 22, x + 41, y + 33, 1, P.brass[2]);
+      return;
+    }
+    if (q.layer === 'front') {
+      const pl = pullOf(T, 100);
+      Rr(x, y + 3, 48, 5, P.iron[0]); Rr(x + 1, y + 3, 46, 3, P.iron[3]); Rr(x + 1, y + 6, 46, 1, P.brass[2]);
+      Rr(x + 39, y, 3, 3, P.brass[2]); if (pl > 0.5) puffUp(x + 40, y, T);
+      cord(x + 40, y + 8, 18, pl);
+      box(x + 2, y + 38, 44, 10, IRON); for (const u of [5, 36, 41]) rivet(x + u, y + 41);
+      Rr(x + 8, y + 41, 8, 4, P.brass[1]); Rr(x + 9, y + 42, 6, 2, P.brass[2]);
+      const la = -0.15 + 0.4 * Math.sin(T * Math.PI * 2 / 100), lx = x + 14, ly = y + 38, ex = lx + Math.sin(la) * 13, ey = ly - Math.cos(la) * 13;
+      line(lx, ly, Math.round(ex), Math.round(ey), 2, P.brass[0]); line(lx, ly - 1, Math.round(ex), Math.round(ey - 1), 1, P.brass[2]); disc(ex + 0.5, ey + 0.5, 2, P.brass[0]); disc(ex, ey, 1.2, P.brass[3]); disc(lx + 0.5, ly + 0.5, 2, P.iron[0]);
+      const cx = x + 27, cy = y + 36, r = 5.4, rot = T * 0.04;
+      disc(cx, cy, r + 1, P.brass[0]); disc(cx, cy, r, P.brass[2]); disc(cx, cy, r - 1.2, P.dark[1]);
+      for (let k = 0; k < 6; k++) { const a = rot + k / 6 * Math.PI * 2; line(cx, cy, Math.round(cx + Math.cos(a) * (r + 2.6)), Math.round(cy + Math.sin(a) * (r + 2.6)), 1, P.brass[1]); disc(cx + Math.cos(a) * (r + 2.6), cy + Math.sin(a) * (r + 2.6), 1, P.brass[3]); }
+      disc(cx, cy, 1.8, P.brass[3]);
+      return;
+    }
+    box(x + 2, y + 7, 5, 40, IRON); box(x + 41, y + 7, 5, 40, IRON);
+    room(x + 7, y + 8, 34, 30, false);
+    Rr(x + 7, y + 17, 34, 2, P.brass[1]); Rr(x + 7, y + 17, 34, 1, P.brass[2]);
+    gauge(x + 14, y + 12, 2.6, 0.5); gauge(x + 24, y + 11.5, 3, 0.4); gauge(x + 34, y + 12, 2.6, 0.6);
+    lamp(x + 38, y + 10);
+    void p1;
+  }
+
   // ---------- 2026-09-29 定稿的四个模块（样机 tools/archive/five-modules.html）：小臼炮 · 装弹机 · 加压舱 · 冷凝器 ----------
   // 各档只换材质颜色（装饰层），造型不变。这几个造型带斜线和圆形零件，画法用一套按像素判定上色的小工具（外沿描边、左上亮、右下暗），坐标一律取整。
   const K5 = (() => {
@@ -1603,28 +1695,7 @@ SA.SPR = (() => {
       }
       for (let k = 8; k < 42; k += 8) { rivet(x + k, y + 4, P.iron[3]); rivet(x + k, y + 41, P.iron[3]); rivet(x + 4, y + k, P.iron[3]); rivet(x + 41, y + k, P.iron[3]); }
     },
-    cockpit(x, y, o) {
-      // 2×2 联合驾驶舱（4 名驾驶员）：大铁壳 + 黄铜拱顶，四个舷窗里各坐一个 1×1 大小的驾驶员（不放大，见 module-plan §0.5）；
-      // 舷窗之间是传声管和压力表。史诗起驾驶员换装（皮飞行帽 + 护目镜），拱顶多一圈黄铜饰边
-      const st = o.st || 1;
-      box(x + 3, y + 3, 42, 42, IRON);
-      arch(x + 24, y + 4, y + 44, 19, P.brass[0]);
-      arch(x + 24, y + 5, y + 43, 18, P.brass[2]);
-      arch(x + 24, y + 7, y + 42, 16, P.iron[2]);
-      arch(x + 24, y + 8, y + 41, 15, P.iron[1]);
-      for (let a = 0; a <= 8; a++) {
-        const ang = Math.PI + a / 8 * Math.PI;
-        R(Math.round(x + 24 + Math.cos(ang) * 17), Math.round(y + 24 + Math.sin(ang) * 17), 1, 1, P.brass[3]);
-      }
-      if (st >= 2) { R(x + 21, y + 1, 7, 3, P.brass[0]); R(x + 22, y + 1, 5, 2, P.brass[2]); R(x + 23, y + 1, 3, 1, P.brass[3]); }
-      // 传声管：十字把四个舷窗连起来，中间一只压力表
-      R(x + 23, y + 12, 2, 28, P.brass[1]); R(x + 23, y + 12, 1, 28, P.brass[2]);
-      R(x + 10, y + 25, 28, 2, P.brass[1]); R(x + 10, y + 25, 28, 1, P.brass[2]);
-      disc(x + 24, y + 26, 3.4, P.brass[0]); disc(x + 24, y + 26, 2.5, P.steam[2]); R(x + 24, y + 25, 1, 2, P.dark[0]);
-      porthole(x + 15, y + 17, o, 0); porthole(x + 33, y + 17, o, 1);
-      porthole(x + 15, y + 35, o, 2); porthole(x + 33, y + 35, o, 3);
-      for (const ry of [30, 38]) { R(x + 6, y + ry, 2, 2, P.brass[3]); R(x + 40, y + ry, 2, 2, P.brass[3]); }
-    },
+    cockpit(x, y, o) { cockpitArt(x, y, o); },
     copilot(x, y, o) {
       // 副驾驶：圆舷窗里的暖棕紫小黑炭球，扶着黄铜望远镜往外看；下方两根拉杆
       box(x + 3, y + 3, 42, 42, IRON);
@@ -1837,22 +1908,9 @@ SA.SPR = (() => {
       trunnionBolt(x + 12, y + 13);
     },
     // ---------- 小模块：24px 原生画（不再借大模块缩小），像素大小和大模块一样 ----------
-    // 1×1 驾驶舱：铁头盔 + 黄铜舷窗，窗里是小黑炭球驾驶员（联合驾驶舱里的驾驶员也按这个大小）
-    helmet(x, y, o) {
-      arch(x + 12, y + 2, y + 22, 10, P.iron[0]);
-      arch(x + 12, y + 3, y + 21, 9, P.iron[2]);
-      for (const [hx, hy] of [[5, 7], [6, 5], [8, 4], [4, 9], [4, 11]]) R(x + hx, y + hy, 1, 1, P.iron[3]);
-      R(x + 20, y + 9, 1, 9, P.iron[1]);
-      R(x + 8, y + 1, 5, 2, P.brass[0]); R(x + 9, y + 1, 3, 1, P.brass[2]);
-      R(x + 2, y + 18, 20, 4, P.brass[0]); R(x + 3, y + 18, 18, 3, P.brass[1]); R(x + 3, y + 18, 18, 1, P.brass[3]);
-      rivet(x + 4, y + 13);
-      disc(x + 13, y + 11, 6.2, P.black); disc(x + 13, y + 11, 5.4, P.brass[1]);
-      for (const [px, py] of [[9, 7], [11, 6], [8, 9]]) R(x + px, y + py, 1, 1, P.brass[3]);
-      disc(x + 13, y + 11, 4.3, P.glass[0]);
-      pilot(x + 13, y + 12, o.lv || 0, (o.seed || 0) % 2 === 0, o.st || 1);
-      R(x + 10, y + 8, 1, 1, P.glass[3]);
-      if ((o.st || 1) >= 2) { R(x + 11, y - 1, 3, 3, P.brass[0]); R(x + 12, y - 1, 1, 2, P.brass[3]); }   // 史诗起：头盔顶上的黄铜冠饰
-    },
+    // 1×1 驾驶舱（2026-09-29 重做：方窗驾驶箱，见 helmetArt）；双人 / 四人联合驾驶舱见 cockpitPairArt / cockpitArt
+    helmet(x, y, o) { helmetArt(x, y, o); },
+    cockpit_pair(x, y, o) { cockpitPairArt(x, y, o); },
     plate(x, y) {
       box(x + 2, y + 2, 20, 20, IRONL);
       R(x + 3, y + 11, 18, 1, P.iron[1]); R(x + 3, y + 12, 18, 1, P.iron[4]);
@@ -2107,7 +2165,8 @@ SA.SPR = (() => {
     switch (id) {
       case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
-      case 'cockpit': case 'copilot': case 'helmet': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
+      case 'copilot': q.lv = Math.floor((o.t || 0) * 1.5 + (o.seed || 0)) % 4; break;
+      case 'cockpit': case 'cockpit_pair': case 'helmet': if (o.layer) { q.layer = o.layer; q.fr = Math.floor((o.t || 0) * 10) % 60; } break;   // 舱体静止；中层 / 前层的操纵件 6 秒一轮
       case 'cannon': case 'cannon_m': case 'cannon_s': case 'cannon_heavy': case 'side_cannon': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 0); break;
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'cannon_giant': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 75); break;   // 没有仰角（车间、图标）时按静止 75° 画
@@ -2526,23 +2585,26 @@ SA.SPR = (() => {
 
   // 驾驶舱舷窗里的车手（碳球，js/coal.js）：模块精灵里原有的驾驶员被盖掉，换成这台车自己的车手。
   // 1×1 驾驶舱一个舷窗；联合驾驶舱四个，第一个是车手，其余三个是船员。画在材质处理之后，颜色不被换掉
-  const CREW_HOLES = { helmet: [[13, 11]], cockpit: [[15, 17], [33, 17], [15, 35], [33, 35]] };
+  // 驾驶员：按 COCKPIT_ART 的座位分排画（剪在舱窗里），排与排之间叠中层，最后叠前层（操纵件、挡板）
   function cockpitCrew(g, id, x, y, mo, veh, o) {
-    const holes = CREW_HOLES[id];
-    if (!holes || !SA.Coal) return;
-    const main = o.pilot ? (typeof o.pilot === 'string' ? SA.Coal.byName[o.pilot] || SA.Coal.crew(o.pilot) : o.pilot) : SA.Coal.pilotOf(veh);
+    const A = COCKPIT_ART[id];
+    if (!A) return;
+    const main = o.pilot ? (typeof o.pilot === 'string' ? SA.Coal && (SA.Coal.byName[o.pilot] || SA.Coal.crew(o.pilot)) : o.pilot) : SA.Coal && SA.Coal.pilotOf(veh);
     const st = SA.stageOf(id, mo.mt || 1), seed = mo.seed || 0;
-    holes.forEach(([hx, hy], i) => {
-      const ch = i === 0 ? main : SA.Coal.crew(`${veh && veh.name}-${i}`);
-      const f = ((Math.floor((o.t || 0) * 1.5 + seed + i) % 4) + 4) % 4, bob = f === 1 || f === 2 ? 1 : 0;
-      const px = x + hx, py = y + hy;
-      g.save();
-      g.beginPath(); g.arc(px + 0.5, py + 0.5, 4.8, 0, Math.PI * 2); g.clip();
-      g.fillStyle = P.glass[0]; g.fillRect(px - 5, py - 5, 11, 11);
-      g.drawImage(SA.Coal.mini(ch, { blink: f === 3 && (seed + i) % 2 === 0, st }), px - 5, py + 1 + bob - 6);
+    let i = 0;
+    const row = (seats) => {
+      if (!SA.Coal) return;
+      g.save(); g.beginPath(); g.rect(x + A.win[0], y + A.win[1], A.win[2], A.win[3]); g.clip();
+      for (const [sx, sy] of seats) {
+        const ch = i === 0 ? main : SA.Coal.crew(`${veh && veh.name}-${i}`);
+        const f = ((Math.floor((o.t || 0) * 1.5 + seed + i) % 4) + 4) % 4, bob = f === 1 || f === 2 ? 1 : 0;
+        g.drawImage(SA.Coal.mini(ch, { blink: f === 3 && (seed + i) % 2 === 0, st }), x + sx - 5, y + sy - 6 + bob);
+        i++;
+      }
       g.restore();
-      g.fillStyle = P.glass[3]; g.fillRect(px - 3, py - 3, 1, 1);
-    });
+    };
+    A.rows.forEach((seats, k) => { row(seats); if (k === 0 && A.mid) drawModule(g, id, x, y, { ...mo, layer: 'mid' }); });
+    drawModule(g, id, x, y, { ...mo, layer: 'front' });
     ctx = g;
   }
 
@@ -2659,7 +2721,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    PADX, drawModule, cockpitCrew, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
     setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };

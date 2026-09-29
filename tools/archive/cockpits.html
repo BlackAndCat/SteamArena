@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驾驶舱家族重做（已定稿）</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1500px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .cards { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; width: 400px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--brass2); }
+  .card p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .tiers { display: flex; gap: 4px; margin-top: 8px; }
+  .tiers div, .elev div { text-align: center; font-size: 10.5px; color: var(--muted); }
+  .elev { display: flex; gap: 6px; margin-top: 6px; }
+  .scroll { overflow-x: auto; }
+  nav.jump a { margin-right: 12px; font-size: 13px; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>驾驶舱家族重做 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29 用户选定：单人 C 方窗驾驶箱 · 双人 A 双层驾驶台 · 四人 A 机车驾驶室（加小楼梯、前 2 后 2），已进游戏</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（观察镜）已进游戏，选定轭架望远镜，归档在 <a href="archive/periscope.html">archive/periscope.html</a>。</p>
+    <p><b>你的要求</b>：驾驶舱家族三个全部重做——要能看到舱里的小黑煤球，可以加各种操纵件（操纵杆、汽笛拉索……）；单人舱塞不下可以不加；大驾驶舱是<b>一个贯通的舱室</b>，不是几个隔开的煤球。</p>
+    <p><b>做法</b>：每个造型分三层——舱壳 + 被灯照亮的暖色舱内 → 驾驶员（游戏同款煤球小人，大小不变，剪在舱窗里）→ 前层的操纵件和挡板（挡住下半身，像坐在舱里）。操纵件都会动：操纵杆来回扳、汽笛一拉顶上冒汽、舵轮和手轮转、车钟手柄扳。
+      单人 4 种 · 双人 4 种 · 四人 4 种。<b>请每种尺寸选一个</b>（也可以混搭：比如三个都用机车驾驶室的语言做成一家）。</p>
+    <p style="color:var(--muted)">上一期：小臼炮 / 装弹机 / 加压舱 / 冷凝器已进游戏（<a href="five-modules.html">five-modules.html</a>）；冷凝器的水珠已减量、改成一道连贯的水流。</p>
+    <nav class="jump" id="jump" style="margin-top:8px"></nav>
+  </header>
+  <div class="cbar">
+    <span class="lbl">大图材质</span><span class="seg" id="mat"></span>
+    <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">播放</button><button class="btn small" data-v="0">静止</button></span>
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button><button class="btn small" data-v="sil">剪影</button></span>
+  </div>
+  <div id="mods"></div>
+</div>
+
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="cockpits.js"></script>
+<script src="../labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mt: 1, run: 1, t: 0, mode: 'color' };
+  const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
+  const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  const BG = P.bg[2];
+  // 小臼炮的仰角 / 后坐：仰角在 32°～82° 之间慢慢扫，每 3 秒开一炮（后坐 1 → 0）
+  const aimOf = (t) => 57 + 25 * Math.sin(t * 0.02), kickOf = (t) => { const p = (t % 50) / 50; return p < 0.3 ? 1 - p / 0.3 : 0; };
+  // 驾驶员：按 seats 画游戏同款煤球小人（11×11），剪在舱窗 win 里（圆 c / 矩形 r；没有 win = 敞篷，不剪）
+  function crew(g, e, ox, oy, t, seats, base = 0) {
+    seats = seats || e.seats;
+    if (!SA.Coal || !seats) return;
+    g.save();
+    if (e.win) { g.beginPath(); if (e.win.c) g.arc(ox + e.win.c[0], oy + e.win.c[1], e.win.c[2], 0, Math.PI * 2); else g.rect(ox + e.win.r[0], oy + e.win.r[1], e.win.r[2], e.win.r[3]); g.clip(); }
+    seats.forEach(([sx, sy], j) => {
+      const i = base + j, ch = SA.Coal.crew('驾驶舱-' + i), f = ((Math.floor(t / 11 + i * 1.7) % 4) + 4) % 4, bob = f === 1 || f === 2 ? 1 : 0;
+      g.drawImage(SA.Coal.mini(ch, { blink: f === 3 && i % 2 === 0, st: 1 }), ox + sx - 5, oy + sy - 6 + bob);
+    });
+    g.restore();
+  }
+  // 一只驾驶舱：后层 → 材质 → 驾驶员（有 rows 就先后排）→ 中层（单独过材质层）→ 前排 → 前层（单独过材质层）
+  function build(m, e, mt, t, W, H, ox, oy, bg) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, W, H); }
+    const back = document.createElement('canvas'); back.width = W; back.height = H;
+    const bg2 = back.getContext('2d');
+    Q.figure(bg2, ox, oy, e, { t }); applyMat(back, mt, ox, oy);
+    const layer = (fn) => { const L2 = document.createElement('canvas'); L2.width = W; L2.height = H; fn(L2.getContext('2d')); applyMat(L2, mt, ox, oy); bg2.drawImage(L2, 0, 0); };
+    const sil = st.mode === 'sil';
+    if (e.rows) {
+      if (!sil) crew(bg2, e, ox, oy, t, e.rows[0], 0);
+      layer((c2) => Q.mid(c2, ox, oy, e, { t }));
+      if (!sil) crew(bg2, e, ox, oy, t, e.rows[1], e.rows[0].length);
+    } else if (!sil) crew(bg2, e, ox, oy, t);
+    layer((c2) => Q.front(c2, ox, oy, e, { t }));
+    if (sil) { bg2.globalCompositeOperation = 'source-in'; bg2.fillStyle = '#0b0c10'; bg2.fillRect(0, 0, W, H); }
+    g.drawImage(back, 0, 0);
+    return c;
+  }
+  function one(m, e, mt, t) { const W = m.w * 24 + 4, H = m.h * 24 + 6; return build(m, e, mt, t, W, H, 2, 4, st.mode === 'sil' ? '#8a7d70' : BG); }
+  // 装在车上：左右各一块 1×2 铁甲（游戏的真精灵）
+  function onCar(m, e, mt, t) {
+    const ox = 8, oy = 8, W = m.w * 24 + 64, H = Math.max(48, m.h * 24) + 16;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H);
+    try { SA.SPR.drawModule(g, 'armor', ox, oy, { mt }); SA.SPR.drawModule(g, 'armor', ox + 24 + m.w * 24, oy, { mt }); if (m.h === 1) SA.SPR.drawModule(g, 'boiler_s', ox + 24, oy, { mt, t: t / 16 }); } catch (err) {}
+    g.drawImage(build(m, e, mt, t, W, H, ox + 24, oy + (m.h === 1 ? 24 : 0), null), 0, 0);
+    return c;
+  }
+  const live = [];
+  function render() {
+    const box = $('mods'); box.replaceChildren(); live.length = 0;
+    const jump = $('jump'); jump.replaceChildren();
+    for (const m of Q.MODS) {
+      jump.append(el('a', { href: '#' + m.id, textContent: `${m.name}（${m.SET.length}）` }));
+      const cards = el('div', { className: 'cards' });
+      for (const e of m.SET) {
+        const big = el('div'), car = el('div'), tiers = el('div', { className: 'tiers' });
+        const z = m.w === 2 ? 4 : m.h === 2 ? 4 : 6;
+        live.push(() => { big.replaceChildren(show(one(m, e, st.mt, st.t), z)); car.replaceChildren(show(onCar(m, e, st.mt, st.t), 2)); });
+        for (let mt = 1; mt <= 6; mt++) tiers.append(el('div', {}, show(one(m, e, mt, 40), m.w === 2 ? 1 : m.h === 2 ? 1.2 : 1.5), `T${mt}`));
+        const extra = null;
+        cards.append(el('div', { className: 'card' }, el('h3', {}, `${e.key} ${e.name}`), el('div', { className: 'row' }, big, car), extra, tiers,
+          el('p', {}, e.idea), el('p', { style: 'font-size:11.5px;opacity:.8' }, '参考：' + e.ref)));
+      }
+      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, `${m.name}`, el('small', {}, `${m.id} · ${m.SET.length} 种`)), el('p', { className: 'lead' }, m.rule), cards));
+    }
+    tick(true);
+  }
+  function tick(force) { if (st.run && !force) st.t++; for (const f of live) f(); }
+  const seg = (bx, fn) => bx.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; bx.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); render(); });
+  const mb = $('mat'); for (let mt = 1; mt <= 6; mt++) { const b = el('button', { className: 'btn small' + (mt === 1 ? ' on' : ''), textContent: `T${mt} ${SA.MATS[mt].name}` }); b.dataset.v = mt; mb.append(b); }
+  seg(mb, v => st.mt = +v);
+  seg($('play'), v => st.run = +v);
+  seg($('mode'), v => st.mode = v);
+  render();
+  setInterval(() => tick(false), 60);
+  window.__curReady = true;
+})();
+</script></body></html>
