@@ -37,8 +37,23 @@ function collect() {
       boundary.push({ args, expected: finiteTime(SA.heatReference(...args)) });
     }
   }
+  // 冷却、水耗尽和干散热也会触发分支；包含精确零、常量邻域与 GPU 范围外输入。
+  for (const water of [0, 1e-35, 1, 100, 1e7]) for (const cool of [0, 1, 30, 60, 100]) {
+    for (const offset of [-1e-9, 0, 1e-9]) {
+      const args = [30 + offset, cool, water, 2, 4, 0.8];
+      boundary.push({ args, expected: finiteTime(SA.heatReference(...args)) });
+    }
+  }
+  const rng = new evolve.RNG(20260929), random = [];
+  for (let i = 0; i < 8192; i++) {
+    const args = [rng.next() * 200, rng.next() * 150, rng.next() * 2000, rng.next() * 10, rng.next() * 30, 0.2 + rng.next() * 0.8];
+    // 每八项中的一项无水、一项无冷却，覆盖直接累积以及水量截断。
+    if (i % 8 === 0) args[2] = 0;
+    if (i % 8 === 1) args[1] = 0;
+    random.push({ args, expected: finiteTime(SA.heatReference(...args)) });
+  }
   const constants = Object.fromEntries(['IDLE_HEAT', 'DISSIPATE', 'HEAT_MAX', 'WATER_PER_HEAT', 'COOL_FULL'].map(key => [key, SA.K[key]]));
-  return { version: 1, rules: evolve.ruleFingerprint(SA), constants, reference: SA.heatReference.toString(), coolRate: SA.coolRate.toString(), real, boundary };
+  return { version: 2, rules: evolve.ruleFingerprint(SA), constants, reference: SA.heatReference.toString(), coolRate: SA.coolRate.toString(), real, boundary, random };
 }
 
 // WGSL 无穷大不作为业务值：300 表示预测窗口结束仍未过热，所有有限结果均小于 300。
@@ -47,6 +62,6 @@ if (require.main === module) {
   const fixture = collect(), file = path.resolve(process.argv[2] || path.join(__dirname, 'out/gpu-heat-fixture.json'));
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(fixture));
-  console.log(JSON.stringify({ file, rules: fixture.rules, real: fixture.real.length, boundary: fixture.boundary.length }));
+  console.log(JSON.stringify({ file, rules: fixture.rules, real: fixture.real.length, boundary: fixture.boundary.length, random: fixture.random.length }));
 }
 module.exports = { collect };

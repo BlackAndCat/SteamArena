@@ -9,6 +9,7 @@
  *   node tools/evolve.js --check       检查种子可复现、规则指纹和合法构筑
  *   node tools/evolve.js --sample      小规模试跑，结果写入 tools/out/
  *   node tools/evolve.js --sample 2 3  2 个章节、每档 3 个候选的快速试跑
+ *   node tools/evolve.js --first-stage [种子]  只预演第一关，不替换战役或候选车库
  */
 'use strict';
 
@@ -909,7 +910,7 @@ function applyStagePatch(SA, chapter, stage, patch = {}) {
 function run(options = {}) {
   const { SA } = loadGame();
   const fingerprint = ruleFingerprint(SA);
-  const chapters = Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length);
+  const chapters = options.firstStageOnly ? 1 : Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length);
   const quickGames = options.games || config.evaluation.quickGames;
   const rng = new RNG(options.seed || 20260925);
   const all = [], chapterReports = [], selectionFailures = [];
@@ -928,7 +929,7 @@ function run(options = {}) {
     });
     const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
     let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
-    for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+    for (let stage = 0; stage < (options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length); stage++) {
       const spec = stageSpec(SA, chapter, stage);
       const actual = stageFor(SA, chapter, stage);
       if (actual?.source === 'manual' && actual.locked) {
@@ -1011,7 +1012,7 @@ function checkpointChapter(chapter, pendingStages, SA) {
 // 长跑入口：候选评分使用常驻 worker，阶段边界写入进度和检查点；同步 run() 保留给旧工具。
 async function runAsync(options = {}) {
   const { SA } = loadGame(), fingerprint = ruleFingerprint(SA);
-  const chapters = Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length), quickGames = options.games || config.evaluation.quickGames;
+  const chapters = options.firstStageOnly ? 1 : Math.min(options.chapters || SA.CAMPAIGN.length, SA.CAMPAIGN.length), quickGames = options.games || config.evaluation.quickGames;
   const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
   const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
   const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0 };
@@ -1027,7 +1028,7 @@ async function runAsync(options = {}) {
       const manualBossIndex = SA.CAMPAIGN[chapter].stages.findIndex((_, index) => { const item = stageFor(SA, chapter, index); return item?.source === 'manual' && item.locked && item.boss && item.vehicle; });
       const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
       let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
-      for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      for (let stage = 0; stage < (options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length); stage++) {
         if (options.shouldStop?.()) { status = 'interrupted'; break chapterLoop; }
         const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
         if (actual?.source === 'manual' && actual.locked) {
@@ -1337,6 +1338,15 @@ async function main(argv) {
   if (mode === '--impact-check') { console.log(JSON.stringify(impactCheck(), null, 2)); return; }
   if (mode === '--cache-check') { console.log(JSON.stringify(cacheCheck(), null, 2)); return; }
   if (mode === '--health') { console.log(JSON.stringify(healthCheck(Number(argv[1]) || 4), null, 2)); return; }
+  if (mode === '--first-stage') {
+    // 保留既有的种群、代数、真实战斗评分和手工锁定规则；仅限制预演范围。
+    // 输出到报告页读取的有界目录，不写战役数据、手工车或全战役候选车库。
+    const report = await runAsync({ firstStageOnly: true, seed: Number(argv[1]) || 20260929,
+      onProgress: event => { if (event.phase !== 'candidate') console.log(JSON.stringify(event)); } });
+    const saved = storage.writeReport(report, OUT_DIR);
+    console.log(JSON.stringify({ file: saved.file, rules: report.rules, selectionFailures: report.selectionFailures, telemetry: report.telemetry }, null, 2));
+    return;
+  }
   if (mode === '--impact') {
     if (!argv[1]) throw new Error('--impact 需要一个旧报告 JSON 路径');
     const perturb = argv[3] === '--perturb' ? { key: argv[4], factor: Number(argv[5]) } : null;

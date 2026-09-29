@@ -16,6 +16,7 @@ const evolveCandidates = require('./evolve-candidates-check');
 const campaignReplay = require('./campaign-replay-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
+const evolveFirstStage = require('./evolve-first-stage-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -151,6 +152,7 @@ async function main() {
   const selectedView = evolveCandidates.run();
   const runtime = evolveRuntime.run();
   const selection = evolveSelection.run();
+  const firstStage = await evolveFirstStage.run();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai, selectedView };
   result.unique = unique;
   result.side = side;
@@ -161,6 +163,7 @@ async function main() {
   result.battle = battle;
   result.runtime = runtime;
   result.selection = selection;
+  result.firstStage = firstStage;
   console.log(JSON.stringify(result, null, 2));
 }
 

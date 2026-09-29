@@ -39,7 +39,7 @@
     const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js'];
     const texts = await Promise.all([...files.map(f => `../${f}`), 'evolve-config.js'].map(u => fetch(u, { cache: 'no-store' }).then(r => r.text())));
     const module = { exports: {} };
-    new Function('module', 'exports', 'require', texts[3])(module, module.exports, () => ({}));
+    new Function('module', 'exports', 'require', texts[files.length])(module, module.exports, () => ({}));
     const payload = stable({
       version: module.exports.rulesVersion,
       gameVersion: SA.RULES_VERSION || null,
@@ -59,7 +59,8 @@
     try {
       const html = await fetch('out/', { cache: 'no-store' }).then(r => (r.ok ? r.text() : ''));
       const names = [...html.matchAll(/href="(evolve-\d+\.json)"/g)].map(m => m[1]);
-      return [...new Set(names)].sort().reverse();
+      // 历史报告有较短的数字文件名，按数字排序才能让新生成的时间戳报告排在最前。
+      return [...new Set(names)].sort((a, b) => Number(b.match(/\d+/)[0]) - Number(a.match(/\d+/)[0]));
     } catch (e) { return []; }
   }
   async function hasCandidates() {
