@@ -552,10 +552,17 @@ SA.SPR = (() => {
     const ringDots = (cx, cy, r, c) => { const n = Math.ceil(r * 7); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; p1(Math.floor(cx + Math.cos(a) * r), Math.floor(cy + Math.sin(a) * r), c); } };
     function room(x0, y0, w, h, floor = true) {
       Rr(x0, y0, w, h, P.leather[1]);
-      for (let u = x0 + 3; u < x0 + w - 1; u += 5) Rr(u, y0 + 1, 1, h - 3, P.leather[0]);
       Rr(x0, y0, w, 2, P.leather[0]); Rr(x0, y0 + 2, w, 1, P.leather[2]);
       if (floor) { Rr(x0, y0 + h - 2, w, 2, P.dark[2]); Rr(x0, y0 + h - 2, w, 1, P.dark[1]); }
     }
+    // 舱壁上的圆形舱门：和墙同色系（不抢驾驶员），一圈暗框 + 左上亮边 + 左侧铰链 + 中间小手轮 + 右侧把手，一眼能认出是门（2026-09-29 取代墙上的竖缝线）
+    const hatch = (cx, cy, r) => {
+      disc(cx, cy, r, P.leather[0]); disc(cx, cy, r - 1, P.leather[1]);
+      for (let k = 0; k < 10; k++) { const a = Math.PI * 1.05 + k / 10 * Math.PI * 0.8; p1(Math.floor(cx + Math.cos(a) * (r - 1.4)), Math.floor(cy + Math.sin(a) * (r - 1.4)), P.leather[2]); }
+      Rr(cx - r - 1, cy - 1, 2, 3, P.leather[0]);
+      ringDots(cx, cy, 1.5, P.leather[0]); p1(Math.floor(cx), Math.floor(cy), P.leather[0]);
+      p1(Math.floor(cx + r - 2), Math.floor(cy), P.brass[1]);
+    };
     const lamp = (x, y) => { Rr(x - 1, y - 2, 3, 1, P.brass[1]); disc(x + 0.5, y + 0.5, 1.4, P.brass[2]); p1(x, y, P.fire[3]); };
     const gauge = (cx, cy, r, v) => { disc(cx, cy, r, P.brass[0]); disc(cx, cy, r - 1, P.steam[2]); const a = Math.PI * (0.75 + 1.5 * v), L = Math.max(1.5, r - 1.5); line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 0.5 + Math.cos(a) * L), Math.round(cy - 0.5 + Math.sin(a) * L), 1, P.dark[0]); };
     const lever = (x, y, len, ang) => { const ex = x + Math.sin(ang) * len, ey = y - Math.cos(ang) * len; line(x, y, Math.round(ex), Math.round(ey), 1, P.brass[1]); disc(ex + 0.5, ey + 0.5, 1.3, P.brass[0]); p1(Math.floor(ex), Math.floor(ey), P.brass[3]); disc(x + 0.5, y + 0.5, 1.4, P.iron[0]); };
@@ -563,7 +570,7 @@ SA.SPR = (() => {
     const pullOf = (T, per) => { const p = ((T % per) + per) % per / per; return p < 0.12 ? p / 0.12 : p < 0.3 ? 1 : p < 0.4 ? 1 - (p - 0.3) / 0.1 : 0; };
     const cord = (x, y, len, pull) => { const e = y + len + Math.round(pull * 3); for (let yy = y; yy < e; yy += 2) p1(x, yy, P.brass[1]); ringDots(x + 0.5, e + 1.5, 1.4, P.brass[2]); };
     const puffUp = (x, y, T) => { for (let k = 0; k < 2; k++) { const p = ((T * 0.12 + k / 2) % 1); disc(x + Math.sin(p * 6 + k) * 1.2, y - p * 4, 0.8 + p * 1.4, p < 0.5 ? P.steam[2] : P.steam[1]); } };
-    return { Rr, p1, room, lamp, gauge, lever, wheelS, pullOf, cord, puffUp };
+    return { Rr, p1, room, hatch, lamp, gauge, lever, wheelS, pullOf, cord, puffUp };
   })();
   // T = 动画时刻（和样机的 60ms 一格对齐）：fr 0～59 → T 0～100
   const ckT = (q) => (q.fr || 0) * 100 / 60;
@@ -577,7 +584,7 @@ SA.SPR = (() => {
       return;
     }
     box(x + 1, y + 1, 22, 22, IRON); rivet(x + 3, y + 19); rivet(x + 19, y + 19);
-    room(x + 4, y + 4, 16, 12); lamp(x + 16, y + 6);
+    room(x + 4, y + 4, 16, 12); CK.hatch(x + 7.5, y + 9.5, 3.2); lamp(x + 16, y + 6);
   }
   // 双人 1×2 · 双层驾驶台：一扇高窗里上下两层——上层站在格栅平台上对传声管喊话，下层扳操纵杆；舱壁两只压力表、一盏灯
   function cockpitPairArt(x, y, q) {
@@ -590,7 +597,7 @@ SA.SPR = (() => {
       return;
     }
     box(x + 1, y + 1, 22, 46, IRON); room(x + 4, y + 4, 16, 38); lamp(x + 12, y + 7);
-    gauge(x + 17, y + 11, 2.4, 0.5); gauge(x + 7, y + 30, 2.4, 0.35);
+    CK.hatch(x + 16, y + 17, 3.5); gauge(x + 16.5, y + 8.5, 2, 0.5); gauge(x + 7, y + 30, 2.4, 0.35);
     Rr(x + 4, y + 24, 16, 2, P.dark[2]);
     for (const yy of [43, 2]) { rivet(x + 3, y + yy); rivet(x + 19, y + yy); }
   }
@@ -623,8 +630,9 @@ SA.SPR = (() => {
     }
     box(x + 2, y + 7, 5, 40, IRON); box(x + 41, y + 7, 5, 40, IRON);
     room(x + 7, y + 8, 34, 30, false);
+    CK.hatch(x + 11, y + 13, 3.3);
     Rr(x + 7, y + 17, 34, 2, P.brass[1]); Rr(x + 7, y + 17, 34, 1, P.brass[2]);
-    gauge(x + 14, y + 12, 2.6, 0.5); gauge(x + 24, y + 11.5, 3, 0.4); gauge(x + 34, y + 12, 2.6, 0.6);
+    gauge(x + 19, y + 12, 2.6, 0.5); gauge(x + 27, y + 11.5, 3, 0.4); gauge(x + 35, y + 12, 2.4, 0.6);
     lamp(x + 38, y + 10);
     void p1;
   }
