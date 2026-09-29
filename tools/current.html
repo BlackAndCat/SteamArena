@@ -30,8 +30,13 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v5 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：四足底盘六档 · v6 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。你确认后，本期内容归档到 <code>tools/archive/</code>，这一页换成下一项。上一期（双足六档 + 腰胯）已进游戏，归档在 <a href="archive/biped-tiers.html">archive/biped-tiers.html</a>。</p>
+    <p><b>v6（你对 v5 的四条意见）</b><br>
+      ① 曲柄步行机的藤蔓：颜色改成压暗的橄榄绿（去掉鲜绿和橙色小花，只留零星米色花点），叶子间距加大一倍，垂藤只留一缕，窗里的盆栽只留三成。<br>
+      ② 锚链铁甲：两根锚链——前面一根<b>短的吊着晃</b>（走路时往后甩），车腹正中一根<b>长的垂到地面、只拖四节</b>；拖地那截<b>跟着前进 / 后退换边</b>（顶上加了「方向」切换，切的时候链子慢慢摆到另一边）。<br>
+      ③ 步行履带：侧裙板从车体中部（y+6）一直垂到 y+28，<b>把腿根整个罩住</b>。<br>
+      ④ 熔炉龙骑：原来的肋骨 / 鳞片车体改成<b>盖住腿根的鱼鳞甲裙板</b>——四排圆鳞上下错开交叠，每片鳞有亮边暗边和中脊，<b>鳞缝就是透出来的炉火</b>（随呼吸明灭、偶尔闪火星），最下一排是带黄铜尖的鳞尖。车体候选 C 也带上了这层裙板。</p>
     <p><b>v5（你对 v4 的六条意见）</b><br>
       ① 螳臂步行机换成<b>铁路沙龙车厢</b>车体。<br>
       ② 水晶宫温室（曲柄步行机）：腿上缠满<b>常春藤</b>（叶子 + 小花），膝上垂下几缕藤蔓随风摆，窗里摆盆栽、檐下垂藤；膝盖改成<b>夸张的高膝</b>，最高点超出车体顶板约 24px（半个底盘高，可以再调）。<br>
@@ -54,6 +59,7 @@
     <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
     <span class="lbl">放大</span><span class="seg" id="zoom"><button class="btn small" data-v="2">2×</button><button class="btn small on" data-v="3">3×</button></span>
     <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">行走</button><button class="btn small" data-v="0">静止</button></span>
+    <span class="lbl">方向</span><span class="seg" id="dir"><button class="btn small on" data-v="1">前进</button><button class="btn small" data-v="-1">后退</button></span>
   </div>
   <section>
     <h2 class="sec">剪影对照 <small>纯黑剪影，1× 原生像素：15 种一眼分得开吗（同一步态帧）</small></h2>
@@ -86,7 +92,7 @@
 (() => {
   const L = SA.MATLAB, Q = SA.QLAB, $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
-  const st = { mode: 'color', zoom: 3, run: 1, t: 0 };
+  const st = { mode: 'color', zoom: 3, run: 1, t: 0, dir: 1, ph: 0, trail: 1 };
   const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
   const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
   function gray(src) {
@@ -101,7 +107,7 @@
   const OX = 34, OY = 32, W = 96 + OX * 2, H = 48 + OY + 6;
   function fig(e, a, o = {}) {
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13, hull: o.hull });
+    Q.figure(lay.getContext('2d'), OX, OY, e, { mv: o.mv !== false, a, t: o.t || 0, stride: 13, hull: o.hull, front: o.front, back: o.back, trail: o.trail == null ? st.trail : o.trail });
     if (!o.raw) applyMat(lay, e.mt, OX, OY);
     if (o.sil) { const g = lay.getContext('2d'); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#0b0c10'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
     if (o.bare) return lay;
@@ -109,7 +115,7 @@
     const g = c.getContext('2d'); g.fillStyle = SA.PAL.bg ? SA.PAL.bg[2] : '#23252c'; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0);
     return c;
   }
-  const A = (t) => (st.run ? t / 24 * Math.PI * 2 : 0.7);
+  const A = () => (st.run ? st.ph : 0.7);   // 步态角：前进时增加、后退时减少
   const live = [];
   function renderRows() {
     const box = $('rows'); box.replaceChildren(); live.length = 0;
@@ -131,9 +137,9 @@
     for (const mt of [4, 5, 6]) {
       const main = Q.SET.find(e => e.mt === mt && e.main), row = el('div', { className: 'cards', style: 'margin-bottom:14px;align-items:flex-start' });
       row.append(el('div', { style: 'width:96px;padding-top:8px' }, el('b', { style: `color:${SA.MATS[mt].chip};font-size:15px` }, `T${mt} ${SA.MATS[mt].name}`), el('div', { style: 'font-size:11.5px;color:var(--muted);margin-top:4px' }, '腿：' + main.name)));
-      for (const [id, name, idea] of Q.HULL_CANDS[mt]) {
+      for (const [id, name, idea, front] of Q.HULL_CANDS[mt]) {
         const lv = el('div');
-        live.push([lv, (t) => fig(main, A(t), { t: t / 10, hull: id }), st.zoom]);
+        live.push([lv, (t) => fig(main, A(t), { t: t / 10, hull: id, front }), st.zoom]);
         row.append(el('div', { className: 'card', style: 'max-width:340px' }, el('h3', {}, name), lv, el('p', {}, idea)));
       }
       box.append(row);
@@ -151,12 +157,13 @@
     const S = $('sil'); S.replaceChildren();
     for (const e of Q.SET) S.append(el('div', { style: 'text-align:center;font-size:11px' }, show(fig(e, 0.6, { sil: true, raw: true }), 1), el('div', {}, `T${e.mt} ${e.name}`)));
   }
-  function tick() { st.t++; for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
+  function tick() { st.t++; if (st.run) st.ph += st.dir * Math.PI * 2 / 24; st.trail += Math.max(-0.12, Math.min(0.12, st.dir - st.trail)); for (const [b, f, z] of live) b.replaceChildren(show(f(st.t), z)); }
   function renderAll() { renderRows(); renderHulls(); renderStatic(); tick(); }
   const seg = (box, fn) => box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; box.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); renderAll(); });
   seg($('mode'), v => st.mode = v);
   seg($('zoom'), v => st.zoom = +v);
   seg($('play'), v => st.run = +v);
+  seg($('dir'), v => st.dir = +v);
   renderAll();
   setInterval(tick, 90);
   window.__quadReady = true;
