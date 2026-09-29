@@ -2,6 +2,7 @@
 // 通用机制字段：salvo=每轮发射数，salvoGap=轮内间隔；splash={r,k}=命中点溅射半径与衰减；
 // tether=牵引收绳速度；range=持续喷射射程，cone=半角；heatPerSec/dmgPerSec=持续喷射速率；
 // store=蓄压容量，dryCool=不耗水散热，waterSave=冷却耗水倍率；reloadMul/spreadMul=实体辅助效果。
+// 格子 unique=独立奖励身份，look=固定外观 key；它们不改变模块 id 或战斗数值。库存、分享码与战斗副本均保留身份。
 // 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x，近侧脚在前、远侧脚在后），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）。
 // 蜘蛛四足的脚往外张：splay = 脚离胯多远，hips = 近侧 / 远侧的胯；同一段四足的前半格往前张、后半格往后张（SA.suspPts 算）
 window.SA = window.SA || {};
@@ -255,7 +256,7 @@ SA.MODULES = {
     get desc() { return `蓄压罐：动力富余时储存蒸汽，动力不足时每秒最多补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点，容量 20；存量过半被毁会爆炸。`; },
   },
   pressure_chamber: {
-    name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 1,
+    name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 2,
     price: 64, hp: 58, supply: 2, power: 0, heatRate: 1.1, kg: 95, q: 1,
     desc: '小格加压单元，提供 2 点动力，同时每秒增加 1.1 点产热；动力不足时优先考虑它。',
   },
@@ -469,18 +470,47 @@ SA.upCost = (id, lv) => Math.round(SA.MODULES[id].price * SA.K.UP_COST * lv);
 SA.coolRate = (cool, heat) => cool * Math.max(0.15, Math.min(1, heat / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
 
-// 唯一件（K5）：规则写在模块或战利品数据里，不把某个模块名硬编码进购买 / 缴获流程。
-// 模块上的 unique 适合 Boss 专属件；关卡的 uniqueLoot 可以临时把任意模块标成固定材料的唯一奖励。
-SA.uniqueRule = (id) => {
-  const m = SA.MODULES[id];
-  const own = m && m.unique ? (m.unique === true ? {} : m.unique) : null;
-  const fromCampaign = (SA.CAMPAIGN || []).flatMap(ch => ch.stages || []).flatMap(stage => stage.uniqueLoot || []).find(x => x.id === id);
-  const fromSide = (SA.SIDE_ENCOUNTERS || []).map(encounter => encounter.reward).find(x => x && x.id === id && x.unique);
-  const raw = own || fromCampaign || fromSide;
-  if (!raw) return null;
-  return { id, mt: raw.mt || 5, once: raw.once !== false, source: raw.source || 'salvage' };
+// 唯一腿部外观：材料取造型原档，每种独立缴获一次。半人马同材料的速度、动力、重量均与普通四足一致。
+// chapter 为战役数组序号（0=序章）；双足变体从第三章起的场外精英获得，四足从第一章起逐档开放。
+SA.LEG_VARIANTS = [
+  ['quad', 'skirtfort', '裙甲堡', 2, 1], ['quad', 'gren', '掷弹兵', 3, 2], ['quad', 'pedrail', '步行履带', 3, 2],
+  ['quad', 'knight', '蒸汽圣骑', 4, 3], ['quad', 'mantis', '螳臂步行机', 4, 3],
+  ['quad', 'centaur', '半人马', 5, 4], ['quad', 'anchor', '锚链铁甲', 5, 4],
+  ['quad', 'bigben', '大本钟', 6, 5], ['quad', 'dragon', '黑龙', 6, 5],
+  ['biped', 'stilt', '高跷', 2, 3], ['biped', 'blade', '板簧跑刃', 3, 3], ['biped', 'skirt', '裙甲堡', 3, 3],
+  ['biped', 'mail', '锁甲骑士腿', 4, 3], ['biped', 'panto', '缩放仪平行腿', 4, 3],
+  ['biped', 'steamman', '蒸汽人', 5, 4], ['biped', 'bellows', '风箱腿', 5, 4],
+  ['biped', 'templar', '圣堂骑士腿', 6, 5], ['biped', 'crystal', '晶枝腿', 6, 5],
+].map(([id, look, name, mt, chapter]) => ({ id, key: `${id}:${look}`, look, name, mt, chapter, once: true, source: 'side' }));
+
+// 只有模块自身声明 unique 才封禁整类购买。普通观察镜 / 重装甲的支线奖励仅给那一件实例标身份。
+SA.uniqueByKey = (key) => {
+  const m = SA.MODULES[key];
+  if (m && m.unique) return { id: key, key, mt: 5, once: true, source: 'salvage', ...(m.unique === true ? {} : m.unique) };
+  return SA.LEG_VARIANTS.find(x => x.key === key)
+    || (SA.SIDE_ENCOUNTERS || []).map(x => x.reward).find(x => x && x.key === key && x.unique) || null;
 };
-SA.isUnique = (id) => !!SA.uniqueRule(id);
+SA.uniqueRule = (x) => {
+  if (typeof x === 'string') return SA.MODULES[x]?.unique ? SA.uniqueByKey(x) : null;
+  if (!x) return null;
+  const rule = typeof x.unique === 'string' ? SA.uniqueByKey(x.unique)
+    : x.look ? SA.LEG_VARIANTS.find(v => v.id === x.id && v.look === x.look) : SA.uniqueRule(x.id);
+  return rule && rule.id === x.id ? rule : null;
+};
+SA.isUnique = (x) => !!SA.uniqueRule(x);
+// 战利品配置归一：key 是领取账本的身份，id 始终是基础模块种类。
+SA.rewardRule = (x) => {
+  if (!x) return null;
+  const registered = SA.uniqueByKey(x.key || (typeof x.unique === 'string' ? x.unique : x.id));
+  return { ...registered, ...x, key: x.key || registered?.key || x.id, mt: x.mt || registered?.mt || 5, once: x.once !== false, source: x.source || 'salvage' };
+};
+// 校验外观与身份组合；从蓝图读回固定材料，不允许外观字段把普通件伪装成免缴获的唯一件。
+SA.fixIdentity = (cell) => {
+  const rule = SA.uniqueRule(cell);
+  if (rule) { cell.unique = rule.key; if (rule.look) cell.look = rule.look; else delete cell.look; }
+  else { delete cell.unique; delete cell.look; }
+  return rule;
+};
 
 // ---------- 材料：模块品质 = 材料 ----------
 // 1~4 用钱在车间升级（随战役解锁）；5 史诗、6 传奇还要消耗特定的锭 / 结晶，只能靠委托、缴获和 Boss 掉落获得
@@ -523,7 +553,8 @@ SA.newCell = (id, mt = 1) => {
 // 旧数据修正：已取消的模块换成替代品，材料不够最低要求的补到最低（耐久按比例保留）
 SA.fixCell = (cell) => {
   if (!cell) return cell;
-  const id = SA.liveId(cell.id), mt = Math.max(cell.mt || 1, SA.minMt(id));
+  const unique = SA.fixIdentity(cell);
+  const id = SA.liveId(cell.id), mt = unique ? unique.mt : Math.max(cell.mt || 1, SA.minMt(id));
   if (id === cell.id && mt === (cell.mt || 1)) return cell;
   const ratio = Math.max(0, Math.min(1, cell.hp / SA.mod(cell).hp));
   cell.id = id; if (mt > 1) cell.mt = mt;

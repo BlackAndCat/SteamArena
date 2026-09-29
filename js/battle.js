@@ -1199,8 +1199,8 @@ SA.Battle = (() => {
     const uniqueLoot = Array.isArray(B.opts.uniqueLoot) ? B.opts.uniqueLoot : [];
     SA.V.each(B.e.v, (cell) => {
       if (cell.hp <= 0) return;
-      const unique = uniqueLoot.find(item => item.id === cell.id) || null;
-      survivors.push({ id: cell.id, mt: cell.mt || 1, ...(unique ? { unique: { ...unique, id: cell.id } } : {}) });
+      const unique = uniqueLoot.find(item => item.id === cell.id && (!cell.unique || (item.key || item.id) === cell.unique)) || SA.uniqueRule(cell);
+      survivors.push({ id: cell.id, mt: cell.mt || 1, ...(cell.look ? { look: cell.look } : {}), ...(unique ? { unique: SA.rewardRule({ ...unique, id: cell.id }) } : {}) });
     });
     // 真人记录只保存一局的聚合指标，供 P8 校准代理 AI；不写逐帧数据，也不记录友谊赛以外的隐私信息。
     const humanId = recordHumanBattle({

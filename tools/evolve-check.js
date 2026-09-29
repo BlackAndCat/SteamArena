@@ -23,6 +23,8 @@ const evolveArena = require('./evolve-arena-check');
 const prologuePlate = require('./prologue-plate-check');
 const evolveProgress = require('./evolve-progress-check');
 const evolveChapters = require('./evolve-chapters-check');
+const pressureChamber = require('./pressure-chamber-check');
+const uniqueVariants = require('./unique-variant-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -95,7 +97,7 @@ function uniqueRuleCheck() {
   if (first.length !== 1 || first[0].mt !== 5 || !first[0].unique) throw new Error(`唯一件固定材料或缴获候选错误：${JSON.stringify(first)}`);
   if (!SA.S.claimUnique(first[0].unique.id, first[0].mt, 'salvage')) throw new Error('唯一件首次领取失败');
   if (SA.Camp.salvageOptions([{ id: 'boss_ram', mt: 5, unique: { id: 'boss_ram', mt: 5, once: true, source: 'salvage' } }]).length) throw new Error('唯一件重复领取未被拦截');
-  if (!SA.isUnique('periscope') || !SA.isUnique('armor_heavy')) throw new Error('支线唯一奖励没有接入唯一件规则');
+  if (SA.isUnique('periscope') || SA.isUnique('armor_heavy')) throw new Error('支线奖励把普通模块整类锁成唯一件');
   return { initialClaims, claimed: SA.S.d.uniqueClaims.boss_ram };
 }
 
@@ -105,7 +107,7 @@ function sideRuleCheck() {
   if (SA.Camp.sideEntries().length) throw new Error('第一章提前开放支线');
   fresh.camp.ch = 1;
   const entries = SA.Camp.sideEntries();
-  if (entries.length !== 2 || entries.some(e => e.prize || e.reward == null)) throw new Error('支线数据或奖励错误');
+  if (entries.length !== SA.SIDE_ENCOUNTERS.filter(e => (e.chapter || 1) <= 1).length || entries.some(e => e.prize || e.reward == null)) throw new Error('支线数据或奖励错误');
   if (!entries.every(e => e.settleDamage !== false)) throw new Error('支线战损默认值错误');
   if (!SA.Camp.sideWin(entries[0].id) || SA.Camp.sideWin(entries[0].id)) throw new Error('支线完成记录不是一次性');
   return { available: entries.map(e => e.id), firstWin: entries[0].id };
@@ -177,6 +179,8 @@ async function main() {
   result.prologuePlate = prologuePlate.run();
   result.progress = await evolveProgress.run();
   result.chapters = await evolveChapters.run();
+  result.pressureChamber = pressureChamber.run();
+  result.uniqueVariants = uniqueVariants.run();
   console.log(JSON.stringify(result, null, 2));
 }
 

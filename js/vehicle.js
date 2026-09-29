@@ -8,7 +8,9 @@ SA.V = (() => {
   const grid = () => Array.from({ length: K.ROWS }, () => Array(K.COLS).fill(null));
   // av：铁装甲的数据版本。2026-09-28 铁装甲从 2×2 改成竖着的 1×2；没有 av 的旧数据读进来时由 widenArmor 拆成并排两块
   const ARMOR_VER = 2;
-  const create = (name = '原型机') => ({ name, body: grid(), side: grid(), av: ARMOR_VER });
+  // pv：加压舱占格版本。旧车未记录 pv，表示仍按 1×1 摆放，读入后迁移到 1×2。
+  const PRESSURE_VER = 2;
+  const create = (name = '原型机') => ({ name, body: grid(), side: grid(), av: ARMOR_VER, pv: PRESSURE_VER });
   const layerOf = (id) => (M[id].layer === 'side' ? 'side' : 'body');
   // 满耐久：改装（炮盾 / 附加装甲）每级按比例加；参战副本直接带 max
   const maxHp = (cell) => cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
@@ -49,6 +51,10 @@ SA.V = (() => {
     const keep = bip.find(x => x.r === want) || bip[Math.floor((bip.length - 1) / 2)];
     for (const x of a) v.body[x.r][x.c] = null;
     const dr = keep.r - want;
+    // 旧加压舱扩高与旧双足抬升同时发生时，不能让底盘清场/顶部裁剪先吞掉加压舱。
+    const preservePressure = (cell, r, c) => {
+      if (cell?.id === 'pressure_chamber') (v.pressureMoves || (v.pressureMoves = [])).push({ cell, r, c });
+    };
     if (dr > 0) for (const layer of ['body', 'side']) {
       const L = v[layer];
       for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) {
@@ -56,6 +62,7 @@ SA.V = (() => {
         if (!cell) continue;
         L[r][c] = null;
         if (r - dr >= 0) L[r - dr][c] = cell;
+        else preservePressure(cell, r - dr, c);
       }
     }
     // 迁移时胯放在车身重心正下方（旧车身往往好几格宽，直接用原来的某一格会失衡、走不动）
@@ -64,8 +71,8 @@ SA.V = (() => {
     const c0 = Math.max(0, Math.min(K.COLS - 2, mw ? Math.round(mx / mw - 1) : keep.c)), f = fp('biped');
     const O = occ(v, 'body');
     if (dr > 0) {   // 只在迁移旧格式时清场；新格式里放错的模块留着，由 issues() 标红
-      for (const [rr, cc] of box(want, c0, f.w, f.h)) { const o = O[rr][cc]; if (o) v.body[o.r][o.c] = null; }   // 压在胯 / 腿区上的模块让位
-      for (let r = want + 2; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) if (v.body[r][c]) v.body[r][c] = null;   // 腿区不能放模块
+      for (const [rr, cc] of box(want, c0, f.w, f.h)) { const o = O[rr][cc]; if (o && v.body[o.r][o.c]) { preservePressure(o.cell, o.r, o.c); v.body[o.r][o.c] = null; } }   // 压在胯 / 腿区上的模块让位
+      for (let r = want + 2; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) if (v.body[r][c]) { preservePressure(v.body[r][c], r, c); v.body[r][c] = null; }   // 腿区不能放模块
     }
     delete keep.cell.bipedZones;
     v.body[want][c0] = keep.cell;
@@ -138,7 +145,7 @@ SA.V = (() => {
       L[r * 2][c * 2] = SA.newCell(cell.id, t);
       if (cell.id === 'armor' && L[r * 2][c * 2 + 1] && L[r * 2][c * 2 + 1].id === 'armor') L[r * 2][c * 2 + 1] = SA.newCell('armor', t);
     }
-    return normalizeChassis(v);
+    return migratePressure(normalizeChassis(v), true);
   }
   // 旧数据里的一块 2×2 铁装甲 → 并排两块 1×2（右边那块复制材料、改装和耐久），占满原来的格子
   function widenArmor(v) {
@@ -152,19 +159,20 @@ SA.V = (() => {
     return v;
   }
   // 大格网格（6 × 8，每格一个模块对象）→ 子格载具
-  function fromBig(name, body, side) {
+  function fromBig(name, body, side, lim) {
     const v = create(name);
+    v.pv = undefined;
+    if (lim) v.lim = lim;
     for (const [layer, g] of [['body', body], ['side', side || []]])
       g.forEach((row, r) => row.forEach((cell, c) => { if (cell) v[layer][r * 2][c * 2] = SA.fixCell(cell); }));
-    return widenArmor(v);
+    return migratePressure(normalizeChassis(widenArmor(v)));
   }
   // 旧存档（6 × 8 大格）→ 子格
   function migrate(v) {
     if (!v || !v.body) return v;
-    if (v.body.length === K.ROWS) return normalizeChassis(v.av ? v : widenArmor(v));
-    const out = fromBig(v.name, v.body, v.side);
-    if (v.lim) out.lim = v.lim;
-    return normalizeChassis(out);
+    if (v.body.length === K.ROWS) return migratePressure(normalizeChassis(v.av ? v : widenArmor(v)));
+    const out = fromBig(v.name, v.body, v.side, v.lim);
+    return migratePressure(normalizeChassis(out));
   }
 
   // 改装台的可用区域：战役逐章扩建。v.lim = { cols, rows }（大格数，只有玩家的车有），列从中间往两边扩，行从底盘往上扩
@@ -405,6 +413,38 @@ SA.V = (() => {
     return out;
   }
 
+  // 旧加压舱原占 1×1；只搬这件，按离原锚点最近的合法位置尝试，其他模块和侧挂都不挪。
+  // 找不到不会丢弃：完整 cell 留在 migrationStock，由存档层退回库存；重复读取 pv=2 的车不再迁移。
+  function migratePressure(v, conflictsOnly = false) {
+    if (!conflictsOnly && v.pv === PRESSURE_VER && !v.pressureMoves) return v;
+    const cells = v.pressureMoves || [];
+    delete v.pressureMoves;
+    each(v, (cell, r, c, layer) => { if (layer === 'body' && cell.id === 'pressure_chamber') cells.push({ cell, r, c }); });
+    for (const x of cells) if (inGrid(x.r, x.c) && v.body[x.r][x.c] === x.cell) v.body[x.r][x.c] = null;
+    v.migrationStock = v.migrationStock || [];
+    v.pv = PRESSURE_VER;
+    for (const x of cells) {
+      // 无版本的关卡 cells 也可能已经按 1×2 写好；合法且不冲突的锚点原样保留。
+      const f = fp(x.cell.id);
+      if (conflictsOnly && fits(x.r, x.c, f.w, f.h) && free(v, 'body', x.r, x.c, f.w, f.h)) { v.body[x.r][x.c] = x.cell; continue; }
+      const before = new Set(issues(v).filter(i => !(i.layer === 'body' && i.r === x.r && i.c === x.c)).map(i => `${i.layer}:${i.r}:${i.c}`));
+      const positions = [];
+      for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) positions.push([r, c]);
+      positions.sort((a, b) => Math.abs(a[0] - x.r) + Math.abs(a[1] - x.c) - Math.abs(b[0] - x.r) - Math.abs(b[1] - x.c) || Math.abs(a[0] - x.r) - Math.abs(b[0] - x.r) || a[0] - b[0] || a[1] - b[1]);
+      let placed = false;
+      for (const [r, c] of positions) {
+        if (!canPlace(v, x.cell.id, r, c).ok) continue;
+        v.body[r][c] = x.cell;
+        const newIssues = issues(v).some(i => !(i.layer === 'body' && i.r === r && i.c === c) && !before.has(`${i.layer}:${i.r}:${i.c}`));
+        if (!newIssues) { placed = true; break; }
+        v.body[r][c] = null;
+      }
+      if (!placed) v.migrationStock.push(x.cell);
+    }
+    if (!v.migrationStock.length) delete v.migrationStock;
+    return v;
+  }
+
   // 直射武器：模块覆盖的每一行都要检查；任一行前方有己方存活主体模块就算被挡。
   // 这样 1×1 小模块、驾驶舱以及高大的重炮/巨炮都会和战斗判定保持一致；高抛炮不受影响。
   function blockedList(v) {
@@ -568,6 +608,8 @@ SA.V = (() => {
       if (cell.hp <= 0) return;
       const max = Math.round(maxHp(cell) * hpMul);
       b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      if (cell.look) b[layer][r][c].look = cell.look;
+      if (cell.unique) b[layer][r][c].unique = cell.unique;
     });
     return b;
   }
@@ -575,27 +617,34 @@ SA.V = (() => {
   // 布局（本地蓝图用）：原样记录每个模块的锚点，悬空的也保留。g: 2 = 子格坐标（没有 g 的旧蓝图是大格坐标，读的时候 ×2）
   function layout(v) {
     const b = [], s = [];
-    each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push([r, c, cell.id]));
-    return { b, s, g: 2, a: ARMOR_VER };
+    each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push(cell.look || cell.unique ? [r, c, cell.id, { look: cell.look, unique: cell.unique }] : [r, c, cell.id]));
+    return { b, s, g: 2, a: ARMOR_VER, pv: PRESSURE_VER, ms: v.migrationStock || [] };
   }
   function fromLayout(name, L) {
     const v = create(name), k = L.g === 2 ? 1 : 2;
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
-      for (const [r, c, id] of list)
-        if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) v[layer][r * k][c * k] = SA.newCell(id);
-    return normalizeChassis(L.a === ARMOR_VER ? v : widenArmor(v));
+      for (const [r, c, id, variant] of list)
+        if (M[id] && inGrid(r * k, c * k) && layerOf(SA.liveId(id)) === layer) {
+          const cell = SA.newCell(id);
+          if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
+          v[layer][r * k][c * k] = SA.fixCell(cell);
+        }
+    v.pv = L.pv;
+    v.migrationStock = JSON.parse(JSON.stringify(L.ms || []));
+    return migratePressure(normalizeChassis(L.a === ARMOR_VER ? v : widenArmor(v)));
   }
   // 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级] → 载具（进化报告用；分享码不记材料和改装）
   function fromCells(name, cells) {
     const v = create(name);
-    for (const [l, r, c, id, mt, lv] of cells || []) {
+    for (const [l, r, c, id, mt, lv, variant] of cells || []) {
       const live = SA.liveId(id);
       if (!M[live] || !inGrid(r, c)) continue;
       const cell = SA.newCell(live, mt || 1);
       if (lv) { cell.lv = lv; cell.hp = maxHp(cell); }
-      v[l ? 'side' : 'body'][r][c] = cell;
+      if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
+      v[l ? 'side' : 'body'][r][c] = SA.fixCell(cell);
     }
-    return normalizeChassis(v);
+    return migratePressure(normalizeChassis(v), true);
   }
   // 布局需要的模块数量 { id: n }
   function countIds(v) {
@@ -607,8 +656,8 @@ SA.V = (() => {
   // 分享码：SA2.<base64>（子格坐标）；旧的 SA1 码是大格坐标，照样能读
   function encode(v) {
     const b = [], s = [];
-    each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push([r, c, SA.MODULE_ORDER.indexOf(cell.id)]));
-    const json = JSON.stringify({ n: v.name, b, s, a: ARMOR_VER });
+    each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push(cell.look || cell.unique ? [r, c, SA.MODULE_ORDER.indexOf(cell.id), { look: cell.look, unique: cell.unique }] : [r, c, SA.MODULE_ORDER.indexOf(cell.id)]));
+    const json = JSON.stringify({ n: v.name, b, s, a: ARMOR_VER, pv: PRESSURE_VER, ms: v.migrationStock || [] });
     return 'SA2.' + btoa(unescape(encodeURIComponent(json)));
   }
 
@@ -620,27 +669,54 @@ SA.V = (() => {
       const k = ver === 1 ? 2 : 1;
       const d = JSON.parse(decodeURIComponent(escape(atob(raw.slice(4)))));
       const v = create(String(d.n || '无名载具').slice(0, 20));
+      v.pv = d.pv;
+      v.migrationStock = d.ms || [];
       // 自下而上摆放，保证规则合法；侧炮最后挂
-      let list = [...(d.b || []), ...(d.s || [])].map(([r, c, i]) => [r * k, c * k, i]);
+      let list = [...(d.b || []), ...(d.s || [])].map(([r, c, i, variant]) => [r * k, c * k, i, variant]);
       // 旧分享码（没有 a）里的铁装甲是 2×2：右边补一块，拼回原来的大小
       const ai = SA.MODULE_ORDER.indexOf('armor');
-      if (d.a !== ARMOR_VER) list = list.concat(list.filter(x => x[2] === ai && x[1] + 1 < K.COLS).map(([r, c, i]) => [r, c + 1, i]));
+      if (d.a !== ARMOR_VER) list = list.concat(list.filter(x => x[2] === ai && x[1] + 1 < K.COLS).map(([r, c, i, variant]) => [r, c + 1, i, variant]));
       // 旧分享码里的双足锚在第 CH 行（逐格或 1×2）：和 liftForBiped 一样整车上移一层，只留中间那一格作 2×4 双足的胯
       const bi = SA.MODULE_ORDER.indexOf('biped'), feet = list.filter(x => x[2] === bi);
       if (feet.length && feet.some(x => x[0] !== chassisRow('biped'))) {
         const keep = feet.sort((p, q) => p[1] - q[1])[Math.floor((feet.length - 1) / 2)], dr = keep[0] - chassisRow('biped');
-        list = list.filter(x => x[2] !== bi).map(([r, c, i]) => [r - Math.max(0, dr), c, i]).filter(([r]) => r >= 0);
-        list.push([chassisRow('biped'), Math.min(K.COLS - 2, keep[1]), bi]);
+        list = list.filter(x => x[2] !== bi).map(([r, c, i, variant]) => [r - Math.max(0, dr), c, i, variant]);
+        for (const [r, c, i] of list) if (r < 0 && SA.MODULE_ORDER[i] === 'pressure_chamber')
+          (v.pressureMoves || (v.pressureMoves = [])).push({ cell: SA.newCell('pressure_chamber'), r, c });
+        list = list.filter(([r]) => r >= 0);
+        list.push([chassisRow('biped'), Math.min(K.COLS - 2, keep[1]), bi, keep[3]]);
+      }
+      // 旧码里的加压舱仍是 1×1。先保留全部锚点，再统一扩格，避免逐件摆放时把被它支撑的模块提前丢掉。
+      if (d.pv !== PRESSURE_VER && list.some(x => SA.MODULE_ORDER[x[2]] === 'pressure_chamber')) {
+        for (const [r, c, i, variant] of list) {
+          const id = SA.MODULE_ORDER[i];
+          if (!id || !inGrid(r, c)) continue;
+          const cell = SA.newCell(SA.liveId(id));
+          if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
+          v[layerOf(cell.id)][r][c] = SA.fixCell(cell);
+        }
+        return migratePressure(normalizeChassis(v));
       }
       list = list.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       let pending = list.filter(x => SA.MODULE_ORDER[x[2]] !== 'side_cannon').concat(list.filter(x => SA.MODULE_ORDER[x[2]] === 'side_cannon'));
       // 侧挂 / 悬挑的模块要等撑住它的模块摆好才合法，而那个模块可能排在后面：摆不下的留到下一轮再试，直到没有进展
       while (pending.length) {
-        const next = pending.filter(([r, c, i]) => { const id = SA.MODULE_ORDER[i]; return id && !place(v, SA.liveId(id), r, c).ok; });
+        const next = pending.filter(([r, c, i, variant]) => {
+          const id = SA.MODULE_ORDER[i];
+          if (!id) return false;
+          if (!place(v, SA.liveId(id), r, c).ok) return true;
+          const cell = v[layerOf(SA.liveId(id))][r][c];
+          if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
+          SA.fixCell(cell);
+          return false;
+        });
         if (next.length === pending.length) break;
         pending = next;
       }
-      return normalizeChassis(v);
+      // 车间允许保存标红部件；新版分享码不能因自由摆放尚不合法而吞掉加压舱。
+      for (const [, , i] of pending) if (SA.MODULE_ORDER[i] === 'pressure_chamber')
+        v.migrationStock.push(SA.newCell('pressure_chamber'));
+      return migratePressure(normalizeChassis(v));
     } catch (e) { return null; }
   }
 

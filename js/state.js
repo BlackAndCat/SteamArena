@@ -11,8 +11,8 @@ SA.S = (() => {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
       inv: { armor: 4, mg: 1 }, ingots: {},   // 铁装甲 1×2：四块 = 原来两块 2×2
       vehicle: SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs),
-      // 唯一件领取账本：键是模块 id；只记录已从战利品领取过的件，不删除旧存档已有库存。
-      uniqueClaims: {},
+      // 领取账本按奖励 key 记；stockCells 保存有身份或迁移耐久的库存实例，inv 仍是供现有车间读取的总件数。
+      uniqueClaims: {}, stockCells: [],
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
       camp: { ch: 0, st: 0, intro: -1, done: false, sideWins: {}, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
@@ -27,10 +27,14 @@ SA.S = (() => {
     if (!d || !d.vehicle || !d.camp) d = fresh();
     d.ingots = d.ingots || {};
     d.uniqueClaims = d.uniqueClaims || {};
+    d.stockCells = d.stockCells || [];
     const oldArmor = !d.vehicle.av;         // 铁装甲 2×2 → 1×2 之前的存档：车上的由 migrate 拆成两块，库存里的数量翻倍
     d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
     if (oldArmor) for (const k in d.inv || {}) if (SA.parseKey(k).id === 'armor') d.inv[k] *= 2;
     fixModules(d);
+    // 放不下的旧加压舱保留材料、耐久和改装后入库；清空待退清单，刷新不重复补偿。
+    for (const cell of d.vehicle.migrationStock || []) addInv(cell.id, 1, cell.mt || 1, cell);
+    delete d.vehicle.migrationStock;
     return d;
   }
   // 模块表改动后的旧存档修正：副驾驶 → 联合驾驶舱；低于最低材料的（黄铜直射火炮）补到最低材料；开局的新模块补进商店
@@ -46,10 +50,24 @@ SA.S = (() => {
     const inv = {};
     for (const k in s.inv) { const f = SA.fixKey(k); inv[f] = (inv[f] || 0) + s.inv[k]; }
     s.inv = inv;
-    // 旧存档若已经有标记为唯一件的库存 / 车上模块，保留物品并视为已领取，避免迁移后重复发放。
+    // 清掉旧实现把普通模块库存误算成唯一件的账本条目；独立支线奖励按 sideWins 在 backfill 补发。
+    for (const key of Object.keys(s.uniqueClaims)) if (!SA.uniqueByKey(key)) delete s.uniqueClaims[key];
+    for (const cell of s.stockCells) {
+      const oldKey = SA.fixKey(SA.invKey(cell.id, cell.mt || 1));
+      SA.fixCell(cell);
+      const newKey = SA.invKey(cell.id, cell.mt || 1);
+      // 唯一件的固定材料纠正必须同时移动聚合计数，否则旧键会残留一件可再次取出的普通模块。
+      if (oldKey !== newKey && s.inv[oldKey] > 0) {
+        if (--s.inv[oldKey] <= 0) delete s.inv[oldKey];
+        s.inv[newKey] = (s.inv[newKey] || 0) + 1;
+      }
+    }
+    // 已持有的实例保留身份；普通观察镜、重装甲、四足和双足不再登记全局唯一。
     SA.V.each(s.vehicle, (cell) => {
-      if (SA.isUnique(cell.id)) s.uniqueClaims[cell.id] = s.uniqueClaims[cell.id] || { mt: cell.mt || 1, source: 'legacy' };
+      const rule = SA.uniqueRule(cell);
+      if (rule) s.uniqueClaims[rule.key] = s.uniqueClaims[rule.key] || { mt: cell.mt || 1, source: 'legacy' };
     });
+    for (const cell of s.stockCells) { const rule = SA.uniqueRule(cell); if (rule) s.uniqueClaims[rule.key] = s.uniqueClaims[rule.key] || { mt: cell.mt || 1, source: 'legacy' }; }
     for (const k in s.inv) {
       const p = SA.parseKey(k);
       if (s.inv[k] > 0 && SA.isUnique(p.id)) s.uniqueClaims[p.id] = s.uniqueClaims[p.id] || { mt: p.mt, source: 'legacy' };
@@ -69,7 +87,28 @@ SA.S = (() => {
   function reset() { d = fresh(); save(); return d; }
 
   // 库存按「模块 + 材料」分开记：黄铜的键就是 id，其余是 id@材料（SA.invKey）
-  const addInv = (id, n = 1, mt = 1) => { const k = SA.invKey(id, mt); d.inv[k] = (d.inv[k] || 0) + n; if (d.inv[k] <= 0) delete d.inv[k]; };
+  function addInv(id, n = 1, mt = 1, cell = null) {
+    if (n < 0) { for (let i = 0; i < -n; i++) takeStock(id, mt); return; }
+    const k = SA.invKey(id, mt);
+    d.inv[k] = (d.inv[k] || 0) + n;
+    if (cell) for (let i = 0; i < n; i++) d.stockCells.push(SA.fixCell(JSON.parse(JSON.stringify(cell))));
+  }
+  // 库存选择接口：不改现有按种类/材料分行的 UI。默认按入库顺序先装唯一件；Opus 可传 key 精确选择，null 指普通件。
+  function stockOptions(id, mt) {
+    const saved = d.stockCells.filter(x => x.id === id && (x.mt || 1) === mt);
+    const plain = Math.max(0, (d.inv[SA.invKey(id, mt)] || 0) - saved.length);
+    return [...saved.filter(x => SA.isUnique(x)), ...saved.filter(x => !SA.isUnique(x)), ...Array.from({ length: plain }, () => SA.newCell(id, mt))];
+  }
+  function takeStock(id, mt, uniqueKey) {
+    if (!(d.inv[SA.invKey(id, mt)] > 0)) return null;
+    const cell = stockOptions(id, mt).find(x => uniqueKey === undefined || (SA.uniqueRule(x)?.key || null) === uniqueKey);
+    if (!cell) return null;
+    const at = d.stockCells.indexOf(cell);
+    if (at >= 0) d.stockCells.splice(at, 1);
+    const k = SA.invKey(id, mt);
+    if (--d.inv[k] <= 0) delete d.inv[k];
+    return cell;
+  }
   const invCount = (id) => Object.keys(d.inv).reduce((a, k) => a + (SA.parseKey(k).id === id ? d.inv[k] : 0), 0);
   // 从库存取出一个该模块，优先拿材料最好的；返回材料等级，没有就返回 0
   function takeBest(id) {
@@ -80,10 +119,10 @@ SA.S = (() => {
   }
   const addIngots = (map) => { for (const k in map || {}) d.ingots[k] = (d.ingots[k] || 0) + map[k]; };
   // 唯一件只能由缴获流程写入账本；重复调用保持幂等并拒绝第二件。
-  function hasUnique(id) { return !!(d.uniqueClaims && d.uniqueClaims[id]); }
-  function claimUnique(id, mt, source = 'salvage') {
-    if (hasUnique(id)) return false;
-    d.uniqueClaims[id] = { mt: mt || SA.uniqueRule(id)?.mt || 5, source, at: Date.now() };
+  function hasUnique(key) { return !!(d.uniqueClaims && d.uniqueClaims[key]); }
+  function claimUnique(key, mt, source = 'salvage') {
+    if (hasUnique(key)) return false;
+    d.uniqueClaims[key] = { mt: mt || SA.uniqueByKey(key)?.mt || 5, source, at: Date.now() };
     return true;
   }
 
@@ -166,45 +205,62 @@ SA.S = (() => {
   // 应用蓝图要花多少钱：优先复用车上的模块（受损的先用上，保留原耐久），再用库存，最后补买
   function plan(bp) {
     const target = SA.V.fromLayout(d().vehicle.name, bp);
-    const need = SA.V.countIds(target);
+    const requests = [];
+    SA.V.each(target, (cell, r, c, layer) => requests.push({ cell, r, c, layer }));
+    // 旧蓝图放不下的加压舱仍计入需求，应用后留在库存；分享蓝图不会凭空赠送这些零件。
+    for (const cell of target.migrationStock || []) requests.push({ cell, stock: true });
+    const identity = cell => SA.uniqueRule(cell)?.key || cell.id;
+    const need = {}, kinds = {};
+    for (const { cell } of requests) { const key = identity(cell); need[key] = (need[key] || 0) + 1; kinds[key] = cell; }
     const pool = {};
     let scrap = 0;
     const blocked = [];
     SA.V.each(d().vehicle, (cell) => {
       if (cell.hp <= 0) scrap += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
-      else (pool[cell.id] = pool[cell.id] || []).push(cell);
+      else { const key = identity(cell); (pool[key] = pool[key] || []).push(cell); }
     });
     // 车上的同款模块：材料好的先用，同材料里受损的先用上（保留原耐久）
     for (const id in pool) pool[id].sort((a, b) => (b.mt || 1) - (a.mt || 1) || a.hp / SA.V.maxHp(a) - b.hp / SA.V.maxHp(b));
-    const buy = {};
+    const buy = {}, stock = {};
     let buyCost = 0, fixCost = 0;
-    for (const id in need) {
-      const miss = Math.max(0, need[id] - (pool[id] || []).length - SA.S.invCount(id));
-      if (miss && SA.isUnique(id)) blocked.push(`${M[id].name}是唯一件，只能通过缴获获得`);
-      else if (miss) { buy[id] = miss; buyCost += miss * SA.buyPrice(id); }
+    for (const key in need) {
+      const cell = kinds[key], id = cell.id;
+      stock[key] = [];
+      for (let mt = SA.MAT_MAX; mt >= 1; mt--) stock[key].push(...stockOptions(id, mt).filter(x => identity(x) === key));
+      const miss = Math.max(0, need[key] - (pool[key] || []).length - stock[key].length);
+      if (miss && SA.isUnique(cell)) blocked.push(`${SA.uniqueRule(cell).name || M[id].name}是唯一件，只能通过缴获获得`);
+      else if (miss) { buy[id] = (buy[id] || 0) + miss; buyCost += miss * SA.buyPrice(id); }
     }
     // 用不上的受损模块要修好才能放回库存
     for (const id in pool) for (const cell of pool[id].slice(need[id] || 0)) if (cell.hp < SA.V.maxHp(cell)) fixCost += SA.S.repairCost(cell);
-    return { target, need, pool, buy, buyCost, fixCost, scrap, blocked, cost: buyCost + fixCost };
+    return { target, requests, identity, need, pool, stock, buy, buyCost, fixCost, scrap, blocked, cost: buyCost + fixCost };
   }
 
   // 付款确认后按原计划组装，库存、回收款与车辆变更统一在逻辑层处理。
   function applyPlan(p) {
+      if (p.blocked.length) return false;
       for (const id in p.buy) SA.S.addInv(id, p.buy[id], SA.buyMt(id));
-      SA.V.each(p.target, (cell, r, c, layer) => {
-        const reuse = p.pool[cell.id] && p.pool[cell.id].shift();
-        if (reuse) p.target[layer][r][c] = reuse;
-        else p.target[layer][r][c] = SA.newCell(cell.id, SA.S.takeBest(cell.id) || 1);
-      });
+      for (const { cell, r, c, layer, stock } of p.requests) {
+        const key = p.identity(cell), reuse = p.pool[key] && p.pool[key].shift();
+        const saved = !reuse && p.stock[key].shift();
+        const item = reuse || takeStock(cell.id, saved ? saved.mt || 1 : SA.buyMt(cell.id), SA.uniqueRule(cell)?.key || null);
+        if (stock) addInv(item.id, 1, item.mt || 1, item);
+        else p.target[layer][r][c] = item;
+      }
+      delete p.target.migrationStock;
       // 用不上的模块回库存；改装件按半价回收
       for (const id in p.pool) for (const cell of p.pool[id]) {
-        SA.S.addInv(cell.id, 1, cell.mt || 1);
+        const restored = SA.newCell(cell.id, cell.mt || 1);
+        if (cell.unique) restored.unique = cell.unique;
+        if (cell.look) restored.look = cell.look;
+        SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) ? restored : null);
         for (let k = 1; k <= (cell.lv || 0); k++) d().money += Math.round(SA.upCost(cell.id, k) * 0.5);
       }
       d().money += p.scrap;
       d().vehicle = p.target;
       SA.Camp.syncLim();
       SA.S.save();
+      return true;
   }
 
   // 统一列表：我的 → 官方 → 内置分享码示例（示例也能当蓝图直接应用）
@@ -259,7 +315,7 @@ SA.S = (() => {
       tag: e.won ? ['ok', '可重打'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
       lock: null, replay: e.won,
       start: () => SA.Battle.start({ mode: 'side', sideId: e.id, replay: e.won, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
-        uniqueLoot: e.reward ? [{ id: e.reward.id, mt: e.reward.mt, once: true, source: e.reward.source || 'side' }] : [] }),
+        uniqueLoot: e.reward ? [SA.rewardRule(e.reward)] : [] }),
     }));
     if (mode === 'tour') return SA.OPPONENTS.map((o, i) => {
       const op = SA.S.opponent(i);
@@ -345,6 +401,8 @@ SA.S = (() => {
       } else if (res.win) {
         lines.push('遭遇战胜利：不发奖金，也不计声望。');
         if (firstWin) {
+          const reward = (SA.SIDE_ENCOUNTERS || []).find(e => e.id === res.opts.sideId)?.reward;
+          if (reward?.guaranteed && SA.Camp.claimReward(reward)) lines.push(`固定缴获 ${reward.name || SA.MODULES[reward.id].name} ×1`);
           const loot = SA.Camp.salvageOptions(res.survivors || []);
           if (loot.length) pre.push({ kind: 'salvage', survivors: res.survivors || [] });
           else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
@@ -416,13 +474,19 @@ SA.S = (() => {
     let back = 0;
     for (let k = 1; k <= (cell.lv || 0); k++) back += Math.round(SA.upCost(cell.id, k) * 0.5);
     if (cell.hp <= 0) back += Math.round(SA.cellValue({ id: cell.id, mt: cell.mt }) * 0.1);
-    else SA.S.addInv(cell.id, 1, cell.mt || 1);
+    else {
+      const stock = SA.newCell(cell.id, cell.mt || 1);
+      if (cell.unique) stock.unique = cell.unique;
+      if (cell.look) stock.look = cell.look;
+      SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) ? stock : null);
+    }
     d.money += back;
     return back;
   }
 
   // 材料升级：黄铜 → 熟铁 → 钢 → 镀镍（花钱，随战役解锁）→ 乌兹钢 / 以太合金（还要消耗锭 / 结晶）
   function matUpInfo(cell) {
+    if (SA.isUnique(cell)) return { max: true, why: '唯一件材料固定' };
     const to = (cell.mt || 1) + 1;
     if (to > SA.MAT_MAX) return { max: true };
     const mat = SA.MATS[to], cost = SA.matUpCost(cell.id, to);
@@ -435,13 +499,18 @@ SA.S = (() => {
   }
 
   // 通过原摆放检查并付款后执行换件；回收和库存扣除保持原先顺序。
-  function installStock(v, id, r, c, mt, layer, cur, clash) {
+  function installStock(v, id, r, c, mt, layer, cur, clash, uniqueKey) {
+    const check = SA.V.clone(v);
+    if (cur) check[layer][cur.r][cur.c] = null;
+    for (const o of clash) check.body[o.r][o.c] = null;
+    if (!SA.V.canPut(check, id, r, c).ok) return 0;
+    const item = takeStock(id, mt, uniqueKey);
+    if (!item) return 0;
     const old = cur && cur.cell;
       let scrap = 0;
       if (old) { v[layer][cur.r][cur.c] = null; scrap = stashCell(old); }
       for (const o of clash) { v.body[o.r][o.c] = null; scrap += stashCell(o.cell); }
-      SA.V.put(v, id, r, c, mt);
-      SA.S.addInv(id, -1, mt);
+      v[layer][r][c] = item;
     return scrap;
   }
 
@@ -451,6 +520,7 @@ SA.S = (() => {
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }
   function repairCells(cells) { for (const c of cells) c.hp = SA.V.maxHp(c); }
   function upgradeMaterial(cell, u) {
+    if (SA.isUnique(cell)) return false;
     if (u.mat.ingot) d.ingots[u.mat.ingot]--;
     const before = SA.V.maxHp(cell);
     cell.mt = u.to;
@@ -462,9 +532,12 @@ SA.S = (() => {
     if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
   }
   function renameVehicle(name) { d.vehicle.name = name.trim() || '原型机'; save(); }
-  function sellStock(id, mt) {
-    const x = Math.round(SA.cellValue({ id, mt }) * 0.5);
-    d.money += x; addInv(id, -1, mt);
+  function sellStock(id, mt, uniqueKey) {
+    // 旧库存行未展示唯一身份；未明确指定 key 时只出售普通件，避免合并行误卖不可再次领取的奖励。
+    const cell = takeStock(id, mt, uniqueKey === undefined ? null : uniqueKey);
+    if (!cell) return 0;
+    const x = Math.round(SA.cellValue(cell) * 0.5);
+    d.money += x;
     return x;
   }
   function removeVehicleCell(layer, r, c) {
@@ -474,5 +547,5 @@ SA.S = (() => {
     for (const cell of res.removed) scrap += stashCell(cell);
     return { ...res, scrap };
   }
-  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, orderStatus, readyOrders, deliverOrder, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
+  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, orderStatus, readyOrders, deliverOrder, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
 })();

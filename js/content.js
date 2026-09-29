@@ -82,15 +82,31 @@ SA.SIDE_ENCOUNTERS = [
     id: 'dock_patrol', name: '码头巡逻队', pilot: '河岸工头', chapter: 1, terrain: 'mud', aim: 0.72, style: 'rush', settleDamage: true,
     blurb: '码头外的巡逻队拦住了补给车。没有观众，也没有奖金，但他们的观察镜值得拆下来研究。',
     rows: ['........', '........', '...K....', '...OM...', '..WOA...', '..TT...'],
-    reward: { id: 'periscope', mt: 2, unique: true, source: 'side' },
+    subs: [[3, 6, 'periscope']],
+    reward: { id: 'periscope', key: 'side:dock_patrol', mt: 2, unique: true, guaranteed: true, once: true, source: 'side' },
   },
   {
     id: 'factory_escort', name: '工厂护送车', pilot: '夜班领班', chapter: 1, terrain: 'crates', aim: 0.78, style: 'turtle', settleDamage: true,
     blurb: '护送车不参加赛会，只守着工厂门口。击败它可以拿到一块稀有装甲。',
-    rows: ['........', '........', '...K....', '..OMC...', '..WOA...', '..TT...'],
-    reward: { id: 'armor_heavy', mt: 3, unique: true, source: 'side' },
+    rows: ['........', '........', '...K....', '..OMC...', '..WOH...', '..TT...'],
+    reward: { id: 'armor_heavy', key: 'side:factory_escort', mt: 3, unique: true, guaranteed: true, once: true, source: 'side' },
   },
 ];
+// 变体精英沿用两套合法底盘构筑；固定外观只写到敌车和缴获格子，主线、基础模块数值与材料倍率不变。
+// 胜利后的固定缴获独立于存活零件池：炸坏敌方底盘也不会永久错过外观，重打不重复发放。
+for (const variant of SA.LEG_VARIANTS) {
+  const quad = variant.id === 'quad';
+  SA.SIDE_ENCOUNTERS.push({
+    id: `variant_${variant.id}_${variant.look}`, name: `${quad ? '四足' : '双足'}精英 · ${variant.name}`, pilot: '场外机械师',
+    chapter: variant.chapter, mt: variant.mt, terrain: 'flat', aim: 0.8, style: 'wander', settleDamage: true,
+    blurb: `首次击败可固定缴获「${variant.name}」${quad ? '四足' : '双足'}底盘；同材料数值与普通底盘相同。`,
+    rows: quad ? ['........', '........', '........', '........', '...O....', '...Q....']
+      : ['........', '........', '........', '...O....', '...B....', '........'],
+    subs: quad ? [[7, 6, 'helmet'], [7, 7, 'mg_s'], [8, 8, 'water']]
+      : [[5, 6, 'helmet'], [5, 7, 'mg_s'], [6, 8, 'water']],
+    reward: { ...variant, unique: true, guaranteed: true },
+  });
+}
 // 序章第二关新增甲片奖励；保留原始模板供旧手工关卡记录迁移时恢复新关。
 SA.CAMPAIGN_LAYOUT = 2;
 SA.PROLOGUE_PLATE_STAGE = {
@@ -252,7 +268,7 @@ SA.CAMPAIGN = [
       {
         name: '差分机', pilot: '皇家工程师 惠特克', prize: 500, terrain: 'crates', aim: 0.9, mt: 4,
         blurb: '三门机炮、一组双联机枪加一门火炮，火力网密不透风，但全是镀镍的轻家伙。重装甲顶上去，机炮就只能冒火星。',
-        rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..B.....'], subs: [[2, 10, 'mg2']],
+        rows: ['........', '........', '....M...', '...KAM..', '..WOOAM.', '..B.....'], subs: [[4, 10, 'mg2']],
         spec: { terrain: 'crates', reward: null, lesson: '综合考试一：重装甲、机炮与双联机枪火力网和双足机动同时出现，检验前几章的防守与接近。', targetStrength: [0.65, 0.8], performanceMin: 35 },
       },
       {

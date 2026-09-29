@@ -35,7 +35,9 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 function noop() {}
 
 function context2d() {
-  const base = { canvas: null, measureText: () => ({ width: 0 }), createLinearGradient: () => ({ addColorStop: noop }) };
+  // 新材质读取会取画布像素；测试环境只需提供等长的透明像素缓冲。
+  const base = { canvas: null, measureText: () => ({ width: 0 }), createLinearGradient: () => ({ addColorStop: noop }),
+    getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) };
   return new Proxy(base, {
     get(target, key) {
       if (key in target) return target[key];

@@ -173,6 +173,8 @@ SA.Camp = (() => {
       ch.stages.forEach((raw, si) => { const s = stage(ci, si) || raw; if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
       if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
     });
+    // 旧版本支线已标完成却从未出现奖励候选：按独立领取 key 补发，刷新与之后的重打均不再发。
+    for (const encounter of SA.SIDE_ENCOUNTERS || []) if (C.sideWins[encounter.id] && encounter.reward?.guaranteed) claimReward(encounter.reward);
   }
   function unlockLines(u) {
     const out = [];
@@ -212,10 +214,19 @@ SA.Camp = (() => {
   // ---------- 竞技场外遭遇战（K6） ----------
   function sideEntries() {
     const C = c();
-    return (SA.SIDE_ENCOUNTERS || []).filter(e => C.ch >= (e.chapter || 1)).map(e => ({
-      ...e, vehicle: SA.V.fromAscii(e.name, e.rows, e.sides || [], e.mt || 1, e.elite || [], e.subs || []),
-      won: !!C.sideWins[e.id],
-    }));
+    return (SA.SIDE_ENCOUNTERS || []).filter(e => C.ch >= (e.chapter || 1)).map(e => {
+      const vehicle = SA.V.fromAscii(e.name, e.rows, e.sides || [], e.mt || 1, e.elite || [], e.subs || []);
+      const reward = e.reward && SA.rewardRule(e.reward);
+      let tagged = false;
+      SA.V.each(vehicle, cell => {
+        if (!reward || tagged || cell.id !== reward.id) return;
+        cell.unique = reward.key;
+        if (reward.look) cell.look = reward.look;
+        SA.fixCell(cell); cell.hp = SA.V.maxHp(cell);
+        tagged = true;
+      });
+      return { ...e, vehicle, won: !!C.sideWins[e.id] };
+    });
   }
   function sideWin(id) {
     const C = c();
@@ -236,13 +247,13 @@ SA.Camp = (() => {
   function salvageOptions(survivors) {
     const seen = new Set(), pool = [];
     for (const x of survivors) {
-      const unique = x.unique ? { ...SA.uniqueRule(x.id), ...x.unique, id: x.id } : SA.uniqueRule(x.id);
+      const unique = x.unique && typeof x.unique === 'object' ? SA.rewardRule({ ...x.unique, id: x.id }) : SA.uniqueRule(x);
       if (unique && unique.once !== false) {
-        if (SA.S.hasUnique(unique.id)) continue;
-        const key = `unique:${unique.id}`;
+        if (SA.S.hasUnique(unique.key)) continue;
+        const key = `unique:${unique.key}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        pool.push({ ...x, id: unique.id, mt: unique.mt || x.mt || 5, unique });
+        pool.push({ ...x, id: unique.id, mt: unique.mt || x.mt || 5, look: unique.look, unique });
         continue;
       }
       const k = SA.invKey(x.id, x.mt);
@@ -264,9 +275,17 @@ SA.Camp = (() => {
 
   // 缴获选择的唯一件检查与入库集中在规则层，失败时不重复发放。
   function claimSalvage(x) {
-    if (x.unique && !SA.S.claimUnique(x.unique.id, x.mt, x.unique.source || 'salvage')) return false;
-    SA.S.addInv(x.id, 1, x.mt);
+    const unique = x.unique && typeof x.unique === 'object' ? SA.rewardRule(x.unique) : SA.uniqueRule(x);
+    if (unique && !SA.S.claimUnique(unique.key, unique.mt, unique.source || 'salvage')) return false;
+    const cell = SA.newCell(x.id, unique ? unique.mt : x.mt);
+    if (unique) { cell.unique = unique.key; if (unique.look) cell.look = unique.look; }
+    SA.S.addInv(cell.id, 1, cell.mt || 1, unique ? cell : null);
     return true;
+  }
+  // 固定缴获与手选缴获共用同一领取账本，不依赖敌件存活，也不会因已有普通同类件而被过滤。
+  function claimReward(reward) {
+    const rule = SA.rewardRule(reward);
+    return claimSalvage({ id: rule.id, mt: rule.mt, look: rule.look, unique: rule });
   }
 
   // 保留旧公共入口；界面模块在 camp.js 之后加载，调用时再转交。
@@ -383,7 +402,7 @@ SA.Camp = (() => {
     saveStageCar,
   };
 
-  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
+  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
 })();
 SA.dev = SA.Camp.dev;
 if (SA.StageCars) {
