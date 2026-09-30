@@ -2,3 +2,4 @@
 window.SA = window.SA || {};
 SA.BUILD_SYS = '2026-09-30 overnight-diagnostics+rootcause-economy+tanks3x+bigwater3x+stage-editor+stage-workshop+evolve-cache+evolve-workers+evolve-progress+selected-view+gpu-benchmark+module-family+giant-indirect+armor-merge+module-display-check+replay-settlement+native-vm+boss-reference+gpu-heat+gpu-interval+first-stage-preview+track-chain+stage-limits+four-core+efficiency+evolve-arena+prologue-plate+evolve-eta+economy60-reward+chapter-generation+manual-prologue+pressure2+leg-unique+side-loot+story-data+surrender-api+tiny-starter+special-weapons+audit-correctness+campaign-visibility+removed-modes+page-overrides+page-file-autosave+rookie-prologue-ai-r1+all-stage-manual+fresh-stage-start';
 SA.BUILD_SYS += '+engineering-units-v1'; // 马力、质量、给水与机组热量的统一工程单位。
+SA.BUILD_SYS += '+module-property-workbench'; // 模块文字与玩法属性工作台。

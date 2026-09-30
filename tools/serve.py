@@ -3,10 +3,12 @@
 # 用法（仓库根目录）：python tools/serve.py        端口默认 5173，可传参数改：python tools/serve.py 8000
 import http.server
 import json
+import math
 import os
 import re
 import sys
 import tempfile
+import threading
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
 from evolve_service import EvolutionService
@@ -15,9 +17,85 @@ from evolve_service import EvolutionService
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_ROOT = os.path.join(ROOT, 'text')
 STAGE_CARS_FILE = os.path.join(ROOT, 'js', 'stage-cars.js')
+MODULES_FILE = os.path.join(ROOT, 'js', 'modules.js')
+MODULE_SCHEMA_FILE = os.path.join(ROOT, 'tools', 'module-editor-schema.js')
+MODULE_SAVE_LOCK = threading.Lock()
 SAFE_PART = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 MAX_BODY = 2 * 1024 * 1024
 EVOLUTION = EvolutionService(ROOT)
+
+
+def _module_json_block(source, start, end, variable):
+    """只读取工作台标记包围的纯 JSON 赋值，避免解析或重写模块原表。"""
+    before, found, remainder = source.partition(start)
+    body, closing, after = remainder.partition(end)
+    if not found or not closing or end in after or start in before:
+        raise ValueError('模块工作台数据标记缺失或重复')
+    matched = re.fullmatch(r'\s*' + re.escape(variable) + r'\s*=\s*(.*?)\s*;\s*', body, re.DOTALL)
+    if not matched:
+        raise ValueError('模块工作台数据格式不合法')
+    return json.loads(matched.group(1)), before, after
+
+
+def _validate_module_overrides(fields, overrides, module_id, allowed_ids):
+    """按共享字段白名单校验稀疏覆盖对象，拒绝外观和原型属性。"""
+    if not isinstance(overrides, dict):
+        raise ValueError('模块属性必须是对象')
+
+    def visit(items, prefix=''):
+        for key, value in items.items():
+            if not isinstance(key, str) or key in ('__proto__', 'constructor', 'prototype'):
+                raise ValueError('模块属性名不合法')
+            path = f'{prefix}.{key}' if prefix else key
+            rule = fields.get(path)
+            children = any(item.startswith(path + '.') for item in fields)
+            if isinstance(value, dict) and children:
+                if not value or path == 'kick' and module_id != 'biped':
+                    raise ValueError(f'{path} 结构不合法')
+                visit(value, path)
+                continue
+            if rule is None:
+                raise ValueError(f'不可编辑的属性：{path}')
+            if path == 'kick' and module_id == 'biped':
+                raise ValueError('双足踢击必须填写对象属性')
+            kind = rule['type']
+            if kind == 'number':
+                if (type(value) not in (int, float) or not math.isfinite(value)
+                        or value < rule.get('min', -math.inf)
+                        or value > rule.get('max', math.inf)
+                        or rule.get('integer') and not float(value).is_integer()):
+                    raise ValueError(f'{path} 必须是有效范围内的数字')
+            elif kind == 'string':
+                if (not isinstance(value, str) or len(value) > rule['maxLength']
+                        or any(ord(char) < 32 and (path != 'desc' or char not in '\t\n\r') for char in value)
+                        or rule.get('enum') and value not in rule['enum']
+                        or rule.get('moduleId') and value not in allowed_ids):
+                    raise ValueError(f'{path} 文本不合法')
+            elif kind == 'boolean':
+                if not isinstance(value, bool):
+                    raise ValueError(f'{path} 必须是布尔值')
+            elif kind == 'array':
+                if (not isinstance(value, list) or len(value) < rule['minItems']
+                        or len(value) > rule['maxItems']):
+                    raise ValueError(f'{path} 数组不合法')
+                for entry in value:
+                    if rule['itemType'] == 'number':
+                        if (type(entry) not in (int, float) or not math.isfinite(entry)
+                                or entry < rule.get('itemMin', -math.inf)):
+                            raise ValueError(f'{path} 数组不合法')
+                    elif (not isinstance(entry, str) or len(entry) > rule['itemMaxLength']
+                          or any(ord(char) < 32 for char in entry)
+                          or rule.get('itemEnum') and entry not in rule['itemEnum']):
+                        raise ValueError(f'{path} 数组不合法')
+            else:
+                raise ValueError(f'{path} 字段类型不合法')
+
+    visit(overrides)
+    # 只有五个模块在原表限定了材料边界；其余沿用 1～6 阶默认值。
+    original_min = {'cannon': 2, 'cannon_heavy': 4, 'cannon_giant': 6, 'flamer': 4}
+    original_max = {'steamjet': 3}
+    if overrides.get('minMt', original_min.get(module_id, 1)) > overrides.get('maxMt', original_max.get(module_id, 6)):
+        raise ValueError('最低材料阶不能超过最高材料阶')
 
 
 class NoCache(http.server.SimpleHTTPRequestHandler):
@@ -68,6 +146,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == '/__modules/status':
+            self._json(200, {'ok': True})
+            return
         if parsed.path in ('/__evolve/config', '/__evolve/job'):
             try:
                 self._json(200, EVOLUTION.catalog() if parsed.path.endswith('/config') else EVOLUTION.snapshot())
@@ -93,7 +174,10 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__evolve/run', '/__evolve/stop') and not self._allow_local_write():
+        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__evolve/run', '/__evolve/stop') and not self._allow_local_write():
+            return
+        if parsed.path == '/__modules/save':
+            self._save_modules()
             return
         if parsed.path in ('/__evolve/run', '/__evolve/stop'):
             self._evolve_request(parsed.path)
@@ -168,6 +252,60 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             self._json(500, {'error': f'写入文本文件失败：{error}'})
             return
         self._json(200, {'ok': True, 'file': os.path.relpath(path, ROOT).replace(os.sep, '/'), 'revision': document['updatedAt']})
+
+    def _save_modules(self):
+        """仅替换模块覆盖块中的一个 ID，保持原表、getter、注释及其他模块原样。"""
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > MAX_BODY:
+            self._json(413, {'error': '请求体过大或为空'})
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode('utf-8'))
+            if not isinstance(payload, dict) or set(payload) != {'id', 'overrides'}:
+                raise ValueError('模块保存数据格式不合法')
+            module_id = payload['id']
+            if not isinstance(module_id, str):
+                raise ValueError('模块 ID 不合法')
+            with open(MODULE_SCHEMA_FILE, 'r', encoding='utf-8') as stream:
+                schema_source = stream.read()
+            schema, _, _ = _module_json_block(schema_source, '// MODULE_EDITOR_SCHEMA_START',
+                                               '// MODULE_EDITOR_SCHEMA_END', 'SA.MODULE_EDITOR_SCHEMA')
+            # 模块 ID 从现有顺序表取白名单；工作台不能新增、重排或重命名模块 ID。
+            with MODULE_SAVE_LOCK:
+                with open(MODULES_FILE, 'r', encoding='utf-8', newline='') as stream:
+                    source = stream.read()
+                order = re.search(r'SA\.MODULE_ORDER\s*=\s*\[(.*?)\];', source, re.DOTALL)
+                allowed_ids = set(re.findall(r"'([A-Za-z0-9_]+)'", order.group(1))) if order else set()
+                if module_id not in allowed_ids:
+                    raise ValueError('模块 ID 不存在')
+                _validate_module_overrides(schema['fields'], payload['overrides'], module_id, allowed_ids)
+                records, before, after = _module_json_block(source, '// MODULE_EDITOR_OVERRIDES_START',
+                                                              '// MODULE_EDITOR_OVERRIDES_END', 'SA.MODULE_OVERRIDES')
+                if not isinstance(records, dict):
+                    raise ValueError('模块覆盖表不合法')
+                if payload['overrides']:
+                    records[module_id] = payload['overrides']
+                else:
+                    records.pop(module_id, None)
+                body = 'SA.MODULE_OVERRIDES = ' + json.dumps(records, ensure_ascii=False, separators=(',', ':'), allow_nan=False) + ';'
+                newline = '\r\n' if '\r\n' in source else '\n'
+                content = before + '// MODULE_EDITOR_OVERRIDES_START' + newline + body + newline + '// MODULE_EDITOR_OVERRIDES_END' + after
+                temporary = None
+                try:
+                    fd, temporary = tempfile.mkstemp(prefix='.modules-', suffix='.js', dir=os.path.dirname(MODULES_FILE))
+                    with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+                        stream.write(content)
+                    os.replace(temporary, MODULES_FILE)
+                finally:
+                    if temporary and os.path.exists(temporary):
+                        os.unlink(temporary)
+        except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError) as error:
+            self._json(400, {'error': str(error)})
+            return
+        self._json(200, {'ok': True, 'id': module_id, 'file': 'js/modules.js'})
 
     def _evolve_request(self, endpoint):
         """仅允许本机同源页面启动固定的模拟程序，不提供通用命令执行接口。"""

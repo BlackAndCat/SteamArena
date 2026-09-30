@@ -22,6 +22,8 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、进化报告、关卡车工作台、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp-ui.js` 的 `DEV_TOOLS` 就会出现在面板上。关卡车工作台也可从这里直接打开。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱；`SA.dev.designMode()` 开启隔离设计存档，`SA.dev.loadStageCar(ch, st)` 把关卡车送进车间，`SA.dev.saveStageCar(ch, st)` 保存，`SA.dev.exitDesign()` 恢复正式存档。
 
+模块属性工作台：在「开发者」面板或关卡车工作台打开 `tools/module-editor.html`，按名称或类别选模块，直接调整文字和玩法属性并点「一键保存」。使用本地 `tools/serve.py` 时直接写入 `js/modules.js`；Chrome / Edge 静态打开时首次选择该文件并授权写入，此后浏览器记住文件句柄。保存成功后工作台自动刷新；已打开的游戏页面刷新后读取新属性。
+
 进化任务开始前会预检所选全部关卡的标尺构筑，失败提示对应章节、关卡、奖励和预算。`node tools/evolve-chapters-check.js` 用小种群检查第一至第五章共 15 关的奖励保底、90 台标尺及完整生成流程，已接入 `node tools/evolve-check.js`；生成成功与胜率 / 地形 / 奖励效果达标分别报告。
 
 审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。

@@ -67,7 +67,8 @@
     .fold > summary { cursor: pointer; color: var(--brass3); font-weight: 700; }
     .fold > .grid, .fold > .buttons, .fold > .notice { margin-top: 9px; }
     .module-summary { min-height: 31px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-    .module-summary .chip { color: var(--brass3); }
+    .module-summary .chip { display: inline-flex; align-items: center; gap: 5px; color: var(--brass3); }
+    .module-summary .chip canvas { width: 28px; height: 28px; image-rendering: pixelated; }
     .module-picker { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(7, 8, 12, .78); }
     .module-picker[hidden] { display: none; }
     .module-picker-window { width: min(1080px, 100%); max-height: min(840px, calc(100vh - 32px)); display: flex; flex-direction: column; background: var(--dark1); border: 2px solid var(--brass2); box-shadow: 5px 5px 0 rgba(0,0,0,.45); }
@@ -92,6 +93,7 @@
 </head>
 <body>
   <h1>关卡车工作台</h1>
+  <p class="muted"><a class="btn" href="module-editor.html" target="_blank" rel="noopener">打开模块属性工作台 ↗</a></p>
   <p class="muted">“保存到进化擂台”保留候选构筑，自动标记手工修改并可参与后续进化。“保存为手工关卡车”才会立即同步正式游戏，并在写入服务可用时同步到 <code>js/stage-cars.js</code>。拼装过程使用独立设计存档。</p>
   <div id="arena-notice" class="notice" hidden></div>
   <div class="layout">

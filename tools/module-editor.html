@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模块属性工作台</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; overflow: auto; }
+    body { max-width: 1500px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0 0 5px; color: var(--brass2); font-size: 22px; }
+    h2 { margin: 0; color: var(--brass3); font-size: 17px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; }
+    .panel { background: var(--dark1); border: 1px solid var(--dark3); padding: 12px; }
+    .filters { display: grid; gap: 6px; margin: 10px 0; }
+    input, select, textarea { box-sizing: border-box; width: 100%; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 6px; font: inherit; }
+    textarea { min-height: 80px; resize: vertical; }
+    .module-list { display: grid; gap: 4px; max-height: calc(100vh - 188px); overflow: auto; }
+    .module-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 5px; cursor: pointer; }
+    .module-item:hover, .module-item.selected { border-color: var(--brass2); background: var(--dark2); }
+    .module-item canvas { width: 42px; height: 42px; image-rendering: pixelated; flex: none; }
+    .module-item b, .module-item small { display: block; }
+    .module-item small { color: var(--muted); }
+    .hero { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .hero canvas { width: 72px; height: 72px; image-rendering: pixelated; }
+    .hero small { display: block; color: var(--muted); }
+    .group { margin: 12px 0; padding: 10px; background: var(--dark0); border: 1px solid var(--dark3); }
+    .group h3 { margin: 0 0 9px; color: var(--brass3); font-size: 15px; }
+    .fields { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 10px 14px; }
+    .field { display: grid; align-content: start; gap: 4px; font-size: 12px; color: var(--muted); }
+    .field.wide { grid-column: 1 / -1; }
+    .field > span { display: flex; gap: 6px; align-items: baseline; }
+    .field code { color: var(--muted); font-size: 10px; }
+    .field input[type="checkbox"] { width: auto; justify-self: start; accent-color: var(--brass2); }
+    .array-items { display: grid; gap: 5px; }
+    .array-row { display: flex; gap: 5px; }
+    .array-row button { flex: none; }
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .notice { white-space: pre-wrap; border: 1px solid var(--dark3); background: var(--dark0); padding: 8px; margin-top: 8px; }
+    .notice.ok { border-color: var(--gauge1); color: var(--gauge2); }
+    .notice.bad { border-color: var(--fire2); color: var(--fire3); }
+    .notice.warn { border-color: var(--brass2); color: var(--brass3); }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .module-list { max-height: 240px; } .fields { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>模块属性工作台</h1>
+  <p class="muted">选一个模块，修改文字与玩法属性，再点“一键保存”。首次浏览器直存需要选择本项目的 <code>js/modules.js</code> 并授予写入权限；之后可直接保存。</p>
+  <div class="layout">
+    <aside class="panel">
+      <h2>全部模块</h2>
+      <div class="filters"><input id="search" type="search" placeholder="搜索名称或 ID" aria-label="搜索模块"><select id="category" aria-label="按类别筛选"></select></div>
+      <div id="module-list" class="module-list"></div>
+    </aside>
+    <main class="panel">
+      <div id="hero" class="hero"></div>
+      <div id="fields"></div>
+      <div class="actions"><button class="btn primary" id="save" type="button">一键保存</button><span id="dirty" class="muted"></span></div>
+      <div id="notice" class="notice" role="status" aria-live="polite">正在检查保存方式……</div>
+    </main>
+  </div>
+  <script src="../js/palette.js"></script>
+  <script src="../js/modules.js"></script>
+  <script src="module-editor-schema.js"></script>
+  <script src="../js/module-art.js"></script>
+  <script src="../js/dynamics.js"></script>
+  <script src="../js/sprites.js"></script>
+  <script src="../js/legs.js"></script>
+  <script src="../js/vehicle.js"></script>
+  <script src="module-editor.js"></script>
+</body>
+</html>

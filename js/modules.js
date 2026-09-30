@@ -453,6 +453,31 @@ const REPAIR_RATE = {
   boss_core: 0.24, boss_lens: 0.22, boss_ram: 0.2,
 };
 for (const id in REPAIR_RATE) SA.MODULES[id].repairRate = REPAIR_RATE[id];
+
+// 工作台在工程单位换算与派生属性完成后取快照，只覆盖用户实际改过的字段。
+// 描述等只读 getter 的默认文本也存入快照；编辑描述时只替换该实例的属性。
+SA.MODULE_DEFAULTS = JSON.parse(JSON.stringify(SA.MODULES));
+// MODULE_EDITOR_OVERRIDES_START
+SA.MODULE_OVERRIDES = {};
+// MODULE_EDITOR_OVERRIDES_END
+for (const [id, fields] of Object.entries(SA.MODULE_OVERRIDES)) {
+  const module = SA.MODULES[id];
+  if (!module || !fields || typeof fields !== 'object' || Array.isArray(fields)) continue;
+  const apply = (target, edits) => {
+    for (const [key, value] of Object.entries(edits)) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+      if (value && typeof value === 'object' && !Array.isArray(value)
+          && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+        apply(target[key], value);
+      } else if (Object.getOwnPropertyDescriptor(target, key)?.get) {
+        Object.defineProperty(target, key, { value, writable: true, configurable: true, enumerable: true });
+      } else {
+        target[key] = value;
+      }
+    }
+  };
+  apply(module, fields);
+}
 SA.repairRate = (id) => SA.MODULES[id].repairRate || 0.05;
 
 

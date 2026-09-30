@@ -252,8 +252,17 @@
 
   function unlockModuleIds() { return $('unlock-mods').value.split(',').map(x => x.trim()).filter(Boolean); }
   function renderUnlockSummary() {
-    const ids = unlockModuleIds(), names = ids.map(id => SA.MODULES[id]?.name || id);
-    $('unlock-mods-summary').innerHTML = names.length ? names.map(name => `<span class="chip">${esc(name)}</span>`).join('') : '<span class="muted">未选择模块</span>';
+    const ids = unlockModuleIds(), summary = $('unlock-mods-summary');
+    if (!ids.length) { summary.innerHTML = '<span class="muted">未选择模块</span>'; return; }
+    // 已选奖励沿用选择器的模块图像，文字仍取模块定义中的当前名称。
+    summary.replaceChildren(...ids.map(id => {
+      const chip = document.createElement('span'); chip.className = 'chip';
+      if (SA.MODULES[id]) {
+        const pic = SA.SPR.moduleCanvas(id, 1, 1); pic.setAttribute('aria-hidden', 'true'); chip.append(pic);
+      }
+      const name = document.createElement('span'); name.textContent = SA.MODULES[id]?.name || id;
+      chip.append(name); return chip;
+    }));
   }
   function renderModulePicker() {
     const selected = new Set(unlockModuleIds()), grid = $('module-picker-grid'); grid.innerHTML = '';
