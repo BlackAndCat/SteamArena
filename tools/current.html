@@ -28,9 +28,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：Boss 唯一件 · 圣堂压力核心 · 寡妇液压撞头 · 公爵测距棱镜 · v1 · 2026-09-29</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（辅助四件：蓄压罐 C、测距仪 F、陀螺仪 A、散热片 B）已进游戏，归档在 <a href="archive/aux-modules.html">archive/aux-modules.html</a>。</p>
-    <p><b>本期 v1</b>：三件 Boss 唯一件各 6 种——<b>A～C 是 2026-09-27 的夜间候选</b>按现在的画法重画，<b>D～F 是新方向</b>。每件都带着 Boss 的身份：圣堂 = 哥特尖拱 / 玫瑰窗 / 十字 / 尖塔 + 呼吸的炉火余烬；寡妇 = 锈钢撞击件 + 黑寡妇的红沙漏；公爵 = 黄铜、贵族、单片眼镜 + 四色分光。撞头和棱镜是乌兹钢档的唯一件，材质条先给 T5，再给 T1 / T3 / T6 对照。<b>请每件挑一个</b>（可以组合）。</p>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：水箱（按档加固）· 铲斗 · 撞角 · 蒸汽撞锤 · v1 · 2026-09-29</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（Boss 唯一件：圣杯炉 / 三联活塞锤 / 旋转棱镜鼓）已进游戏，归档在 <a href="archive/boss-uniques.html">archive/boss-uniques.html</a>；燃煤锅炉、铁装甲、重装甲、甲片按你的意思视作通过。</p>
+    <p><b>本期 v1</b>：① <b>水箱</b>：三种加固思路（箍带 / 护笼 / 装甲窗框），每种从 T1 画到 T6——T1 黄铜不加，越往上越结实，大窗里的蓝水始终是主体（看每张卡下面的材质条）。② <b>铲斗、撞角、蒸汽撞锤</b>各 6 种：A 是现役重画，B～F 是新方向；撞击件一律锈钢色、左边贴车头，普通 / 精英两个阶段（材质条的 T1 / T5）。<b>请每种挑一个</b>。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -66,7 +66,7 @@
   // 一件武器：模块本体过材质层，汽 / 火 / 烟画在材质层之后；四周留出炮口和特效伸出去的地方
   function one(e, m, mt, o, pad = 6) {
     const W = m.w * 24 + pad + 56, H = m.h * 24 + pad * 2 + 18, ox = pad, oy = pad + 18, lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), ox, oy, e, o); applyMat(lay, mt, ox, oy); Q.over(lay.getContext('2d'), ox, oy, e, o, m);
+    Q.figure(lay.getContext('2d'), ox, oy, e, { ...o, mt }); applyMat(lay, mt, ox, oy); Q.over(lay.getContext('2d'), ox, oy, e, { ...o, mt }, m);
     const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0); return c;
   }
   // 装在车上：左边一块装甲、下面一排装甲，武器贴在车体右上角
@@ -77,7 +77,7 @@
     try { for (let u = 0; u < 2; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy, { mt }); for (let u = 0; u < 2 + m.w; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy + 48, { mt }); } catch (err) {}
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
     const sx = m.side ? ox + 24 : mx, sy = m.side ? oy + 24 : my;
-    Q.figure(lay.getContext('2d'), sx, sy, e, o); applyMat(lay, mt, sx, sy); Q.over(lay.getContext('2d'), sx, sy, e, o, m);
+    Q.figure(lay.getContext('2d'), sx, sy, e, { ...o, mt }); applyMat(lay, mt, sx, sy); Q.over(lay.getContext('2d'), sx, sy, e, { ...o, mt }, m);
     if (m.side) { g.save(); g.filter = 'brightness(0) opacity(0.55)'; g.drawImage(lay, 3, 3); g.restore(); }
     g.drawImage(lay, 0, 0); return c;
   }
