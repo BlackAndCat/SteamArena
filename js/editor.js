@@ -59,7 +59,7 @@ SA.Editor = (() => {
     sheetEl = h('aside', { class: 'ed-sheet px-sk px-sk-iron px-drop' }, SA.PX.ui.img(SA.PX.bigClip(34), 2, 'position:absolute;left:50%;top:-6px;margin-left:-34px;z-index:2'), plateEl);
     viewEl = h('div', { class: 'ed-view' });
     leverEl = h('div', { class: 'ed-lever' });
-    stage = h('div', { class: 'ed-stage' }, cv, viewEl, tipEl, leverEl,
+    stage = h('div', { class: 'ed-stage' }, cv, viewEl, tipEl,
       h('button', { class: 'ed-help', title: '图例与规则', 'aria-label': '图例与规则', onclick: openHelp }, '?'));
     // 中间：画布 + 下方操作栏；右边：模块清单 / 蓝图库（拖出车外的模块丢到这里就回库存）
     ctxEl = h('div', { class: 'dock-ctx' });
@@ -67,7 +67,7 @@ SA.Editor = (() => {
     invEl = h('div', { class: 'panel-list' });
     dockEl = h('aside', { class: 'ed-panel' }, toolsEl, invEl);
     tabsEl = h('nav', { class: 'ed-tabs' });
-    screen.append(h('div', { class: 'ed' }, sheetEl, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), h('div', { class: 'ed-cat' }, dockEl, tabsEl)));
+    screen.append(h('div', { class: 'ed' }, sheetEl, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl, leverEl)), h('div', { class: 'ed-cat' }, dockEl, tabsEl)));
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
@@ -432,12 +432,11 @@ SA.Editor = (() => {
       h('div', { class: 'ed-sheet-row' }, h('span', {}, '评分 ', UI.num(s.rating)), s.problems.length ? UI.hand(`${s.problems.length} 项问题`, 15) : h('span', { class: 'px-small' }, '✓ 可出战')),
       hurtList.length ? UI.btn(`修理 ${hurtList.length} 处 · ${money(cost)}`, { sm: true, title: SA.UI.repairBrief(hurtList), onclick: () => repair(hurtList) }) : null,
       SA.UI.pxStats(s, veh(), preview)].filter(Boolean));
-    // 右下调速杆：车能出战就推杆去出战页
-    // 车间的出口（拉闸只留给黑板上真正开打那一下）：回院子 / 出战（也是回院子，再把出战黑板拉下来）
+    // 车间的出口（拉闸只留给黑板上真正开打那一下）：放在改装台下面那条工单的右端——回院子 / 出战（也是回院子，再把出战黑板拉下来）
     leverEl.innerHTML = '';
-    leverEl.append(UI.btn('← 回院子', { onclick: () => SA.nav('home') }),
-      UI.btn('出战 →', { kind: 'pri', gear: true, title: s.canDeploy ? '回院子，拉下出战黑板' : `还有问题：\n${s.problems.join('\n')}`, onclick: () => SA.nav('arena') }),
-      ...(s.canDeploy ? [] : [h('div', { class: 'px-hand px-prob ed-exit-warn' }, `还有 ${s.problems.length} 项问题`)]));
+    leverEl.append(UI.btn('← 回院子', { sm: true, onclick: () => SA.nav('home') }),
+      UI.btn('出战 →', { kind: 'pri', sm: true, title: s.canDeploy ? '回院子，拉下出战黑板' : `还有问题：\n${s.problems.join('\n')}`, onclick: () => SA.nav('arena') }),
+      ...(s.canDeploy ? [] : [h('div', { class: 'px-hand px-prob ed-exit-warn', title: s.problems.join('\n') }, `还有 ${s.problems.length} 项问题`)]));
   }
 
   // 画布右上角：看哪一层 + 蓝图库开关（右侧面板在模块清单和蓝图库之间切换）
@@ -612,11 +611,7 @@ SA.Editor = (() => {
         row.addEventListener('pointermove', onMove);
         row.addEventListener('pointercancel', cancelPress);
         invEl.append(row);
-        // 选中的那一行展开：穿深 / 装甲厚度对照、新属性说明和装上后的变化（V4）
-        if (st.sel === key) {
-          const more = [SA.UI.newAttrInfo(id, mt, veh()), SA.UI.penTable(id, Math.max(mt, SA.Camp.maxMat()))].filter(Boolean);
-          if (more.length) invEl.append(h('div', { class: `mdetail cat-${m.cat}` }, more));
-        }
+        // 选中时不再展开对照表（2026-09-30 用户：只要悬浮纸条）
       }
     }
     if (!shown) invEl.append(h('div', { class: 'empty' },
