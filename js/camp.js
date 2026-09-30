@@ -400,6 +400,7 @@ SA.Camp = (() => {
     exitDesign,
     loadStageCar,
     saveStageCar,
+    resetVehicle: () => SA.S.replaceWithStarter(),
   };
 
   return { migrateStageIndex, migrateEvolutionReport, backfill, owns, sideEntries, sideWin, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };

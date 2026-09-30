@@ -2,6 +2,9 @@
 
 ## 当前状态
 
+- 2026-09-30 本轮用户明确选择“只做后台接口，视觉和交互交接给 Opus”。新档固定为与当前手工小提米同档的黄铜四件车（履带 / 小锅炉 / 小机枪 / 头盔舱，评分 73）；`SA.dev.resetVehicle()` 主动换车，原车各件连同耐久 / 改装 / 唯一身份退库，资金与进度不变。`SA.StoryData` 已提供剧情编辑、战前战后插入点和保存；投降演出状态、3.5 秒分段进度、车顶锚点及跳过接口已完成。专项回归与完整 `evolve-check.js` 通过，已有档保留原车，剧情刷新 / 失败草稿 / 连续保存通过。用户授权将当前手工 `stage-cars.js` 改动原样一起提交；未手工编辑其内容。画面、表情接线、Ctrl+S、插入提示、编辑器与换车按钮仍待 Opus，不能将后台完成当成界面功能已上线。
+- 2026-09-30 浏览器验收：隔离来源的新档玩家 / 小提米同为评分 73，首关进入、正常结算与重打实射通过（造成 2 点伤害）；页面错误与警告均为 0。`tools/sim.html?embedded=1` 战役检验 480/480 局完成，无 NaN / Infinity；普通关 12/12 达标，Boss 目标区间仍为 0/6、平均 62 秒，沿用既有平衡待定项。投降后台修改与提交前旧版本在同一批实际车辆上做 54 局固定种子差分，无画面完整摘要逐字一致。
+
 - 2026-09-29 本轮验收（本次提交）：同步 `9aa9e79` 后完整 `node tools/evolve-check.js`、10 个修改 JS 语法、加压舱迁移与 18 变体 / 20 遭遇奖励专项通过；另补齐无画面 Canvas 像素读取桩，`tools/evolve.js` 语法及五件新模块 / 30 材料组合检查通过，巨炮 16 组弹道与主控 / 副驾驶 / 双向 AI 专项通过。隔离浏览器首关实射造成 26 点伤害并正常结算；战役检验 480/480 局，无报错或 NaN。小样本平衡仍未定稿：普通关 12/12 达标，Boss 目标区间 0/6，平均 63 秒；保留为战役平衡问题。唯一库存已补错误材料键迁移与误卖回归，未指定 key 的合并行只出售普通件。开发期间用户又保存了 `js/stage-cars.js`，这批新改动原样留在工作区，未纳入本轮后台提交。
 
 - 2026-09-29 本轮补齐：用户手工设计的序章三车已单独上传（`da76ba2`）。加压舱固定 1×2，独立 `pv` 版本覆盖存档 / 蓝图 / 分享码 / 关卡清单；下格占用时就近安置，仅移动加压舱，无位置则保留完整耐久 / 改装退库存。旧双足上移、顶部裁剪、自由摆放分享码和重复读档均有专项回归。
@@ -24,6 +27,11 @@
 - 2026-09-29 算法续研：以 `b320c22` 为实验基线，无画面 VM 优化在固定小规模预演的三次计时中位数上提速 1.87×，68 场战斗完整差分一致；修复 Boss 比较方向和奖励车跨章标尺，17 关小样本未达标 14 → 12。真实 GPU 热量循环大批量有吞吐收益，但临界输入 12/27 发生半秒误差，暂不接入；详情与复现见 `evolve-plan.md` §15。提交前同步 `d33b5ef` 后完整检查再次通过；未覆盖既有预演、手工关卡车或正式战役数据。
 
 ## 给 Opus 的接口
+
+- 2026-09-30 投降演出接线（待 Opus）：`battle-view.js` 返回的适配器加 `supportsSurrenderAnimation: true` 后，规则条件触发时发 `surrender-start`，`B.surrender='raising'` 且 `B.frozen=true`；每个 rAF（包括 frozen 时）先调用 `api.advanceSurrender(dt)`，使用真实 dt，不乘游戏倍速。`api.surrenderState()` 返回 `phase/name/why/duration/elapsed/poleProgress/flagProgress/canConfirm/crewExpression/anchor`，总时长 3.5 秒，前 1.2 秒伸杆，后 2.3 秒升旗；`anchor={x,y,layer,r,c,id}` 是残存模块最高顶边中点的世界坐标，已处理敌车镜像与坡角，画面可按模块造型补偏移。所有敌车驾驶员读 `crewExpression:'sad'`（`coal.js` 已有难过表情，`sprites.js` 的驾驶员需传入覆盖值）；点击演出调用 `api.skipSurrenderAnimation()`，只完成升旗并发一次原 `surrender` 确认事件，不能代玩家接受。拒绝后快照为 null，应撤旗 / 恢复表情；接受后照原规则结算。未声明适配器能力时继续即时确认，当前旧画面不会卡住。后台不绘制旗杆、旗帜或人物。
+- 2026-09-30 剧情编辑接线（待 Opus）：`text-manager.js` 已加载 `SA.StoryData`，编辑前 `await SA.Text.ready`。`list()` 给出 58 个稳定场景，`get(id)` 返回深拷贝的 `{text,who?,scene?}[]`，`set(id,lines)` 写本机草稿，`await save()` 沿用 `/__text/save` 写 `text/steam-arena/zh-CN.json`，失败保留草稿并返回 `ok:false`；`pending:true` 表示保存请求途中又有修改。已有文本键不会被剧情覆盖清掉；同页保存请求顺序执行。默认场景为 `opening`、`tutorial.intro`、`tutorial.parts.<索引>`、`stage.<章,关>.win/lose`、`feat.<功能>`；字符串编辑保留原位置的角色 / 分镜元数据。空数组清空场景；最多 100 行，每场景 JSON 不超过 10000 字符；角色仅现有 `SA.STORY.cast`，分镜限 sleep/roof/roll/car。`SA.STORY` 本身不被修改，Opus 必须将原展示读取改为 get；教程 intro 与 parts 的 lines 将返回行的 text 还原为原字符串格式。
+- 2026-09-30 战前 / 战后接线（待 Opus）：开发者模式的编辑开关、询问是否插入、简易编辑器、Ctrl+S 保存及“保存并播放后继续”均由 Opus 实现。`point('before'|'after','章,关')` 返回场景 id，非战役用不传 key 的 `before.current/after.current`；未写入时 get 返回空数组。战役出战参数新增 `opts.storyKey`，结算结果已包含 `res.opts` 与 `res.surrendered`，请保存实际关卡 key，不能在胜利推进后读取新的当前关卡。出战按钮与开场自动首战都需覆盖战前提示；接受投降结算并回主界面后进入战后提示，编辑完用 `SA.Story.talk(get(id),{onDone:继续原流程})` 播放，取消 / 不插入则继续原流程。普通玩家不显示开发者询问。现有 seen 标记不要用来跳过刚编写的剧情。
+- 2026-09-30 主动换车接线（待 Opus）：开发者面板增加“换成简陋初始车”按钮，调用 `SA.dev.resetVehicle()` 后刷新当前车间 / 出战页；这是主动替换整车，不清存档。后台 `SA.S.starterVehicle()` 返回新的四件黄铜车，`SA.S.replaceWithStarter()` 先逐件保留实例退库、再替换并保存。旧档不会自动换车；按钮入口与提示尚未接入。本轮用户仅授权后台，未修改视觉文件或视觉构建号。
 
 - 2026-09-29 腿部变体接线：基础 `cell.id` 仍为 `quad` / `biped`，`cell.unique` 为 `quad:<look>` / `biped:<look>`。四足 key：`skirtfort / gren / pedrail / knight / mantis / centaur / anchor / bigben / dragon`（已由现有画面消费）；双足 key：`stilt / blade / skirt / mail / panto / steamman / bellows / templar / crystal`。请双足的 `modOpts`、精灵缓存和 `bipedArt` 读取 `cell.look`，无 look 继续按材料六档。后台不会为半人马额外提速。
 - 2026-09-29 库存接口：`SA.S.stockOptions(id, mt)` 返回该行的完整实例（含 `unique / look / hp / lv`），`SA.S.installStock(...原参数, uniqueKey)` / `takeStock(id, mt, uniqueKey)` / `sellStock(id, mt, uniqueKey)` 支持指定奖励 key；安装 / 取件不传则按入库顺序先选唯一件，传 `null` 明确选普通件；出售不传 key 只卖普通件，唯一件必须明确指定身份，避免聚合行误卖。`d.inv` 仍是旧界面所需的聚合计数，`d.stockCells` 为实例明细。请后续在同材料库存行细分变体名和预览，并把选择的 key 传入；`SA.uniqueRule(cell)` 可取得名称 / 固定材料。现有合并行已可安装唯一件，双足画面和分项选择待视觉接线。

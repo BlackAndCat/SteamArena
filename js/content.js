@@ -1,10 +1,10 @@
 // 内容数据：赛事对手、订单、云车库预置载具
 window.SA = window.SA || {};
 
-// 开局的车：大格 ASCII + 子格小模块 [r, c, id]（子格坐标）。1×1 驾驶舱顶上垫一块甲片，前面是横躺的 2×1 中炮
+// 开局的车：固定的小提米级四件构筑；坐标是子格 [r, c, id]，全车黄铜，无额外改装。
 SA.STARTER = {
-  rows: ['........', '........', '........', '........', '...OWA..', '...TTT..'],
-  subs: [[7, 7, 'helmet'], [6, 7, 'plate'], [7, 8, 'cannon_m']],
+  rows: ['........', '........', '........', '........', '........', '........'],
+  subs: [[8, 9, 'boiler_s'], [8, 10, 'mg_s'], [9, 10, 'helmet'], [10, 9, 'track']],
 };
 
 SA.OPPONENTS = [
@@ -69,8 +69,8 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // spec：每关的探索稿规格。terrain / reward / lesson / targetStrength / performanceMin 供进化报告和验收读取，
 // 它描述设计意图，不直接替代战斗数值或敌车的实际布局；关卡调整时优先改这里和 unlock 的对应关系。
 // subs：用子格坐标放置 1×1 / 1×2 / Boss 大件，坐标仍是 24px 最小格；无专用美术的模块由通用占位显示。
-// 开局已有：履带 / 驾驶舱 / 锅炉 / 水箱 / 铁装甲 / 中炮 / 机炮，黄铜材料，4×3 改装台
-SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg'], mat: 1, grid: { cols: 4, rows: 3 } };
+// 开局已有小锅炉、小机枪，商店清单继续保留原有可用模块；黄铜材料，4×3 改装台。
+SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg', 'boiler_s', 'mg_s'], mat: 1, grid: { cols: 4, rows: 3 } };
 SA.FEATURES = {
   garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',

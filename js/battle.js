@@ -1,5 +1,5 @@
 // 竞技场：加速/撞击、直射与高抛弹道 + 弹道预览、数字键切换武器、侧挂层优先、热量/水、AI
-// 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender。
+// 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
 SA.RULES_VERSION = '2026-09-28-giant-indirect-module-family';
@@ -16,6 +16,8 @@ SA.Battle = (() => {
   let B = null;
   let view = null;
   const CAMERA_ZMIN = 0.62;
+  // 投降演出按真实秒数推进，不受战斗倍速影响；先伸杆，再升旗。
+  const SURRENDER_DURATION = 3.5, SURRENDER_POLE_TIME = 1.2;
 
   // 无画面模拟可以注入固定种子；正常游戏仍使用浏览器的随机数。
   let random = Math.random;
@@ -966,7 +968,7 @@ SA.Battle = (() => {
   // 彻底没法打：开不了火，也撞不了人（有撞击件、有动力、能开动就还算能打）
   const helpless = (s) => !!crippled(s) && !(canMelee(s) && s.supply > 0);
 
-  // 投降：对手彻底没法打、而玩家还能打，持续 1 秒就挂白旗。战斗暂停，玩家选择接受（立即获胜，额外声望）还是继续打
+  // 投降：条件持续 1 秒后暂停战斗；支持新接口的画面先演升旗，再询问接受或拒绝。
   // 只有对手会投降（玩家没了武器还能等对手烧干）；无画面模拟里视为玩家接受投降
   // 剩余耐久比例（含已损毁的模块）
   const hpFrac = (s) => { let a = 0, m = 0; SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); }); return a / Math.max(1, m); };
@@ -980,6 +982,49 @@ SA.Battle = (() => {
     if (fe < T.SURRENDER_LOW_HP && hpFrac(p) >= fe * T.SURRENDER_HP_MULTIPLIER) return '伤得太重，打不下去了';
     return null;
   }
+
+  // 在残存模块的顶边中点中取最高处；敌车镜像和坡角都沿用真实战斗坐标。
+  // 锚点同时保留模块位置，画面层可按造型补充像素偏移，不必改变规则状态。
+  function surrenderAnchor(s) {
+    let top = null;
+    SA.V.each(s.v, (cell, r, c, layer) => {
+      if (!alive(cell)) return;
+      const f = SA.fp(cell.id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
+      const [x, y] = toWorld(s, x0 + f.w * C / 2, cellY(r, s));
+      if (!top || y < top.y) top = { x, y, layer, r, c, id: cell.id };
+    });
+    return top;
+  }
+
+  // 只读演出快照：驾驶员统一读 crewExpression，伸杆和升旗分别读两个进度。
+  // 拒绝投降后返回 null，画面据此撤旗并恢复正常表情。
+  function surrenderState() {
+    if (!B || !['raising', 'asked', 'accepted'].includes(B.surrender)) return null;
+    const elapsed = B.surrenderElapsed;
+    return { phase: B.surrender, name: B.e.name, why: B.surrenderWhy,
+      duration: SURRENDER_DURATION, elapsed, poleProgress: clamp(elapsed / SURRENDER_POLE_TIME, 0, 1),
+      flagProgress: clamp((elapsed - SURRENDER_POLE_TIME) / (SURRENDER_DURATION - SURRENDER_POLE_TIME), 0, 1),
+      canConfirm: B.surrender === 'asked', crewExpression: 'sad', anchor: { ...B.surrenderAnchor } };
+  }
+
+  // 新画面须在每个 rAF（包括 frozen 时）传入真实 dt；规则只推进演出，不消耗战斗时间。
+  function advanceSurrender(dt) {
+    if (!B || B.surrender !== 'raising' || !Number.isFinite(dt) || dt <= 0) return surrenderState();
+    B.surrenderElapsed = Math.min(SURRENDER_DURATION, B.surrenderElapsed + dt);
+    if (B.surrenderElapsed >= SURRENDER_DURATION) {
+      B.surrender = 'asked';
+      emit('surrender', surrenderState());
+    }
+    return surrenderState();
+  }
+
+  // 点击跳过只完成升旗并打开确认，不代替玩家接受；重复请求不重复发事件。
+  function skipSurrenderAnimation() {
+    if (!B || B.surrender !== 'raising') return false;
+    advanceSurrender(SURRENDER_DURATION);
+    return true;
+  }
+
   function surrender(dt) {
     const p = B.p, e = B.e;
     if (p.dead || e.dead || B.surrender) return;
@@ -987,17 +1032,22 @@ SA.Battle = (() => {
     B.surT = why ? (B.surT || 0) + dt : 0;
     if (B.surT < T.SURRENDER_HOLD_TIME) return;
     if (B.headless) { B.surrender = 'accepted'; kill(e, `${why}，挂白旗投降`); return; }
-    B.surrender = 'asked';
+    // 旧画面尚未接入升旗时仍使用即时确认，避免冻结后无人推进演出。
+    const animated = !!view?.supportsSurrenderAnimation;
+    B.surrender = animated ? 'raising' : 'asked';
     B.surrenderWhy = why;
+    B.surrenderElapsed = animated ? 0 : SURRENDER_DURATION;
+    B.surrenderAnchor = surrenderAnchor(e);
     B.frozen = true;
     B.keys.left = B.keys.right = B.keys.fire = false;
     for (let i = 0; i < 12; i++) emit('part', { type: 'steam', x: e.x + VW / 2 + rnd(-40, 40), y: VY + rnd(0, 60), vx: rnd(-20, 20), vy: rnd(-60, -20), life: rnd(1, 2), col: undefined });
-    emit('surrender', { name: e.name, why });
+    emit(animated ? 'surrender-start' : 'surrender', surrenderState());
   }
 
   // 画面层只发出操作请求；泄压、投降和撤退的状态变化统一留在规则层。
   function vent() {
     if (!B || B.p.vented || B.p.dead) return false;
+    if (B.surrender === 'raising' || B.surrender === 'asked') return false;
     B.p.vented = true;
     B.p.ventCount++;
     B.p.heat = Math.max(0, B.p.heat - T.VENT_HEAT);
@@ -1010,6 +1060,7 @@ SA.Battle = (() => {
 
   function retreat() {
     if (!B || B.p.dead) return false;
+    if (B.surrender === 'raising' || B.surrender === 'asked') return false;
     kill(B.p, '主动撤出比赛');
     return true;
   }
@@ -1032,6 +1083,8 @@ SA.Battle = (() => {
   }
 
   function step(dt) {
+    // 实时画面与手动调试均不得在升旗或确认期间偷跑物理、炮弹或结算。
+    if (B.surrender === 'raising' || B.surrender === 'asked') return;
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
     B.p.kickCooldown = Math.max(0, B.p.kickCooldown - dt);
@@ -1115,6 +1168,7 @@ SA.Battle = (() => {
 
     if (!B.ending) {
       surrender(dt);
+      if (B.surrender === 'raising' || B.surrender === 'asked') return;
       // 武器打光：一方开局有武器、现在全被摧毁，而另一方还有 → 判负；两边同时打光走下面的平手
       // 敌方判负：武器打光 + 水烧干 + 没有近战（撞击件）。这条只对敌方生效，玩家不会因此判负
       const e = B.e;
@@ -1287,8 +1341,8 @@ SA.Battle = (() => {
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
     getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt,
     muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh,
-    vent, retreat, acceptSurrender, refuseSurrender,
+    vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });
-  return { start, startState, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender };
+  return { start, startState, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
 })();

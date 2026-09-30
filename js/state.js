@@ -6,11 +6,14 @@ SA.S = (() => {
   const DESIGN_KEY = 'steam_arena_design_v1'; // 设计模式的临时存档，与正式进度完全分开
   let d = null;
 
+  // 新档与开发者主动替换共用同一份固定的黄铜四件车配置。
+  function starterVehicle() { return SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs); }
+
   function fresh() {
     return {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
       inv: { armor: 4, mg: 1 }, ingots: {},   // 铁装甲 1×2：四块 = 原来两块 2×2
-      vehicle: SA.V.fromAscii('一号原型机', SA.STARTER.rows, [], 1, [], SA.STARTER.subs),
+      vehicle: starterVehicle(),
       // 领取账本按奖励 key 记；stockCells 保存有身份或迁移耐久的库存实例，inv 仍是供现有车间读取的总件数。
       uniqueClaims: {}, stockCells: [],
       bet: null,
@@ -85,6 +88,16 @@ SA.S = (() => {
     } catch (e) { /* 隐私模式 */ }
   }
   function reset() { d = fresh(); save(); return d; }
+
+  // 主动换车时逐件退回原车，保留每件的耐久、等级、唯一身份和外观；其余存档字段不动。
+  function replaceWithStarter() {
+    if (!d || !d.vehicle) throw new Error('请先加载存档');
+    SA.V.each(d.vehicle, cell => addInv(cell.id, 1, cell.mt || 1, cell));
+    d.vehicle = starterVehicle();
+    if (SA.Camp?.syncLim) SA.Camp.syncLim();
+    save();
+    return d.vehicle;
+  }
 
   // 库存按「模块 + 材料」分开记：黄铜的键就是 id，其余是 id@材料（SA.invKey）
   function addInv(id, n = 1, mt = 1, cell = null) {
@@ -306,7 +319,8 @@ SA.S = (() => {
         return { key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
           tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
-          start: () => SA.Battle.start({ mode: 'campaign', replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) };
+          // 剧情编号在开战时固定，战后即使进度已经推进，也能定位原来打的关卡。
+          start: () => SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) };
       }));
     }
     if (mode === 'side') return SA.Camp.sideEntries().map(e => ({
@@ -547,5 +561,5 @@ SA.S = (() => {
     for (const cell of res.removed) scrap += stashCell(cell);
     return { ...res, scrap };
   }
-  return { load, save, reset, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, orderStatus, readyOrders, deliverOrder, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
+  return { load, save, reset, starterVehicle, replaceWithStarter, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, orderStatus, readyOrders, deliverOrder, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
 })();

@@ -38,6 +38,7 @@ SA.Text = (() => {
   let editorInput = null;
   let editorBox = null;
   let statusEl = null;
+  let saves = Promise.resolve(); // 同页的连续保存按顺序写入，防止旧请求覆盖新稿。
   let readyResolve;
   const ready = new Promise(resolve => { readyResolve = resolve; });
 
@@ -400,7 +401,9 @@ SA.Text = (() => {
     scan();
   }
 
-  async function save() {
+  function save() { saves = saves.then(saveNow, saveNow); return saves; }
+
+  async function saveNow() {
     if (!dirty) return { ok: true, local: true };
     persistLocal();
     const payload = { version: 1, game: config.game, locale: config.locale, values: { ...values } };
@@ -408,10 +411,12 @@ SA.Text = (() => {
       const response = await fetch(config.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      dirty = false;
+      // 请求期间若继续编辑，保留新草稿的未保存标记，避免旧响应误报全部已同步。
+      dirty = Object.keys(values).some(key => values[key] !== payload.values[key]) ||
+        Object.keys(payload.values).some(key => !(key in values));
       persistLocal();
-      updateToolbar(`已写入 ${fileName()}`);
-      return { ok: true, file: fileName(), revision: data.revision };
+      updateToolbar(dirty ? '部分修改仍待保存' : `已写入 ${fileName()}`);
+      return { ok: true, file: fileName(), revision: data.revision, pending: dirty };
     } catch (error) {
       updateToolbar('本地已保存；请用 tools/serve.py 后再点保存写入文件');
       return { ok: false, error };
@@ -473,4 +478,94 @@ SA.Text = (() => {
   };
 
   return api;
+})();
+
+// 剧情数据接口：编辑前等待 SA.Text.ready；所有覆盖值沿用同一份文本文件与本地草稿。
+SA.StoryData = (() => {
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const story = () => SA.STORY;
+
+  // 场景 ID 来自现有剧情、战役关卡及通用对战槽，避免读取任意对象属性路径。
+  function list() {
+    const ids = ['opening', 'tutorial.intro', 'before.current', 'after.current'];
+    (story().tutorial?.parts || []).forEach((_, i) => ids.push(`tutorial.parts.${i}`));
+    for (const key of Object.keys(story().stage || {})) {
+      if (!/^\d+,\d+$/.test(key)) continue;
+      for (const outcome of ['win', 'lose']) if (story().stage[key][outcome]) ids.push(`stage.${key}.${outcome}`);
+    }
+    for (const id of Object.keys(story().feat || {})) ids.push(`feat.${id}`);
+    (SA.CAMPAIGN || []).forEach((chapter, ci) => chapter.stages.forEach((_, si) => {
+      ids.push(`before.${ci},${si}`, `after.${ci},${si}`);
+    }));
+    return ids;
+  }
+
+  function valid(id) {
+    if (typeof id !== 'string' || !list().includes(id)) throw new Error(`无效剧情场景：${id}`);
+  }
+
+  // 默认台词按调用时的 SA.STORY 生成；stage/feat 的纯字符串由远房亲戚讲述。
+  function defaults(id) {
+    if (id === 'opening') return story().opening;
+    if (id === 'tutorial.intro') return [story().tutorial.intro];
+    if (id.startsWith('tutorial.parts.')) return story().tutorial.parts[Number(id.slice(15))].lines;
+    if (id.startsWith('stage.')) {
+      const match = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
+      return story().stage[match[1]][match[2]];
+    }
+    if (id.startsWith('feat.')) return story().feat[id.slice(5)];
+    return [];
+  }
+
+  function normalize(id, lines) {
+    const speaker = id.startsWith('stage.') || id.startsWith('feat.') ? 'uncle' : null;
+    return lines.map(line => typeof line === 'string' ? { text: line, ...(speaker ? { who: speaker } : {}) } : clone(line));
+  }
+
+  // get 始终返回新对象；未编辑的场景从当前默认数据读取，不修改 SA.STORY。
+  function get(id) {
+    valid(id);
+    const raw = SA.Text.get(`story:${id}`, '');
+    return raw ? clone(JSON.parse(raw)) : normalize(id, defaults(id));
+  }
+
+  // set 接受字符串或 {text,who?,scene?}；省略元数据时沿用该位置原有值。
+  function set(id, lines) {
+    valid(id);
+    if (!Array.isArray(lines) || lines.length > 100) throw new Error('剧情必须是至多 100 行的数组');
+    const old = get(id);
+    const next = lines.map((line, i) => {
+      if (typeof line !== 'string' && (!line || typeof line !== 'object' || Array.isArray(line))) throw new Error(`第 ${i + 1} 行格式无效`);
+      const item = typeof line === 'string' ? { text: line } : line;
+      if (Object.keys(item).some(key => !['text', 'who', 'scene'].includes(key))) throw new Error(`第 ${i + 1} 行包含非法字段`);
+      if (typeof item.text !== 'string' || !item.text.trim()) throw new Error(`第 ${i + 1} 行文本不能为空`);
+      const row = { text: item.text };
+      for (const key of ['who', 'scene']) {
+        const value = Object.hasOwn(item, key) ? item[key] : old[i]?.[key];
+        if (value !== undefined) {
+          if (typeof value !== 'string' || !value.trim()) throw new Error(`第 ${i + 1} 行 ${key} 无效`);
+          if (key === 'who' && !Object.hasOwn(story().cast || {}, value)) throw new Error(`未知剧情角色：${value}`);
+          if (key === 'scene' && !['sleep', 'roof', 'roll', 'car'].includes(value)) throw new Error(`未知开场分镜：${value}`);
+          row[key] = value;
+        }
+      }
+      return row;
+    });
+    const encoded = JSON.stringify(next);
+    if (encoded.length > 10000) throw new Error('剧情场景超过 10000 字符的保存上限');
+    SA.Text.set(`story:${id}`, encoded);
+    return clone(next);
+  }
+
+  // 战役按“章,关”保存；其他对战共用 current 插入点。是否提示与展示由画面层决定。
+  function point(phase, key = 'current') {
+    if (phase !== 'before' && phase !== 'after') throw new Error('剧情插入点必须是 before 或 after');
+    if (typeof key !== 'string' || (key !== 'current' && !/^\d+,\d+$/.test(key))) throw new Error('剧情插入点关卡无效');
+    const id = `${phase}.${key}`;
+    valid(id);
+    return id;
+  }
+
+  async function save() { await SA.Text.ready; return SA.Text.save(); }
+  return { list, get, set, save, point };
 })();

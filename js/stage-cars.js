@@ -21,7 +21,15 @@ SA.STAGE_CARS = {
       "cells": [
         [
           0,
-          7,
+          8,
+          9,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
           10,
           "mg_s",
           1,
@@ -29,24 +37,8 @@ SA.STAGE_CARS = {
         ],
         [
           0,
-          8,
           9,
-          "tank_s",
-          1,
-          0
-        ],
-        [
-          0,
-          8,
           10,
-          "boiler_s",
-          1,
-          0
-        ],
-        [
-          0,
-          9,
-          9,
           "helmet",
           1,
           0
@@ -60,7 +52,7 @@ SA.STAGE_CARS = {
           0
         ]
       ],
-      "code": "SA2.eyJuIjoi6L+b5YyW5YCZ6YCJwrcxLTEtODQwNDLCt+WPmOW8gjQ3MTYxIiwiYiI6W1s3LDEwLDQyXSxbOCw5LDE4XSxbOCwxMCw0NF0sWzksOSwxNl0sWzEwLDksMF1dLCJzIjpbXSwiYSI6Mn0=",
+      "code": "SA2.eyJuIjoi6L+b5YyW5YCZ6YCJwrcxLTEtODQwNDLCt+WPmOW8gjQ3MTYxIiwiYiI6W1s4LDksNDRdLFs4LDEwLDQyXSxbOSwxMCwxNl0sWzEwLDksMF1dLCJzIjpbXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
       "style": "rush",
       "aim": 0.35,
       "terrain": "flat",
@@ -82,17 +74,17 @@ SA.STAGE_CARS = {
       "weakness": "",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-09-29T08:41:40.692Z",
+      "updatedAt": "2026-09-29T13:25:25.658Z",
       "rules": "2026-09-28-giant-indirect-module-family",
       "analysis": {
-        "rating": 82,
-        "value": 360,
-        "weight": 1572.5,
-        "drive": 0.5,
-        "water": 36,
-        "overheat": 68.5,
+        "rating": 73,
+        "value": 340,
+        "weight": 1435,
+        "drive": 0.4,
+        "water": 0,
+        "overheat": 43.5,
         "dps": 3.733333333333333,
-        "hp": 436
+        "hp": 408
       }
     },
     "0:1": {
@@ -273,6 +265,109 @@ SA.STAGE_CARS = {
         "overheat": 67,
         "dps": 3.733333333333333,
         "hp": 741
+      }
+    },
+    "1:0": {
+      "version": 1,
+      "id": "1:0",
+      "cells": [
+        [
+          0,
+          7,
+          7,
+          "cannon_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          6,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi6ZOB55qu572Q5aS0IiwiYiI6W1s3LDcsMjFdLFs4LDQsNDRdLFs4LDUsMThdLFs4LDcsNl0sWzksNSwxOF0sWzksNiwxNl0sWzEwLDQsMF0sWzEwLDYsMF1dLCJzIjpbXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "style": "turtle",
+      "aim": 0.55,
+      "terrain": "crates",
+      "boss": false,
+      "prize": 130,
+      "unlock": {
+        "feat": [
+          "street",
+          "bank"
+        ],
+        "note": "街头赛和银行开放：先用短赛补足改装预算，再决定把钱投到武器还是冷却。",
+        "mods": []
+      },
+      "uniqueLoot": [],
+      "name": "铁皮罐头",
+      "pilot": "锅炉工 胖哈利",
+      "blurb": "车头糊满了铁皮，机炮打上去只冒火星（装甲每发减伤）。用直射火炮把铁皮凿穿，再打它的火炮。",
+      "weakness": "",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-09-29T13:27:28.684Z",
+      "rules": "2026-09-28-giant-indirect-module-family",
+      "analysis": {
+        "rating": 126,
+        "value": 574,
+        "weight": 2885,
+        "drive": 0.9,
+        "water": 72,
+        "overheat": 137.5,
+        "dps": 4.438888888888889,
+        "hp": 758
       }
     }
   }

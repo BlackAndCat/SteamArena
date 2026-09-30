@@ -25,11 +25,12 @@ const evolveProgress = require('./evolve-progress-check');
 const evolveChapters = require('./evolve-chapters-check');
 const pressureChamber = require('./pressure-chamber-check');
 const uniqueVariants = require('./unique-variant-check');
+const storyDev = require('./story-dev-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
-  const make = id => SA.V.fromAscii(`辅助件检查·${id}`, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], [[8, 12, id]]);
-  const base = SA.V.stats(SA.V.fromAscii('辅助件检查·基础', SA.STARTER.rows, SA.STARTER.sides || [], 1));
+  const make = id => SA.V.fromAscii(`辅助件检查·${id}`, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], [...SA.STARTER.subs, [8, 12, id]]);
+  const base = SA.V.stats(SA.S.starterVehicle());
   const periscope = SA.V.stats(make('periscope'));
   const lens = SA.V.stats(make('boss_lens'));
   const expected = {
@@ -118,7 +119,7 @@ function shareGarageCheck() {
   if (typeof SA.S.Cloud.upload !== 'undefined') throw new Error('分享码车库仍保留上传到云端模拟');
   const examples = SA.S.Cloud.list();
   if (!examples.length || examples.some(entry => !SA.V.decode(entry.code))) throw new Error('内置分享码示例无法解码');
-  const vehicle = SA.V.fromAscii('分享码车库检查', SA.STARTER.rows, SA.STARTER.sides || []);
+  const vehicle = SA.S.starterVehicle();
   const code = SA.V.encode(vehicle), decoded = SA.V.decode(code);
   if (!decoded || SA.V.encode(decoded) !== code) throw new Error('分享码导出 / 导入往返失败');
   return { examples: examples.length, roundTrip: true };
@@ -181,6 +182,7 @@ async function main() {
   result.chapters = await evolveChapters.run();
   result.pressureChamber = pressureChamber.run();
   result.uniqueVariants = uniqueVariants.run();
+  result.storyDev = await storyDev.run();
   console.log(JSON.stringify(result, null, 2));
 }
 
