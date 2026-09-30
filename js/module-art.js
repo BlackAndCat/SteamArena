@@ -24,10 +24,10 @@ SA.MODULE_ART = {
   pressure_chamber: {},   // 2026-09-29 专用造型：风箱增压器（用户定以后是 1×2，数据改动交接 astra；1×1 时画同一套造型的小版）
   radiator: { art: 'water', placeholder: '散热' },
   condenser: {},   // 2026-09-29 专用造型：盘管冷凝柱（各档只换颜色）
-  rocket_rack: { vis: [1, 5], art: 'cannon', placeholder: '火箭', piv: [24, 28], blen: 34, barrel: 22, rcPx: 7, back: 0.05, ret: 2.2 },
-  harpoon: { vis: [1, 5], art: 'cannon_m', placeholder: '鱼叉', piv: [18, 13], blen: 34, barrel: 22, rcPx: 5, back: 0.04, ret: 2.8 },
-  flamer: { vis: [1, 5], art: 'cannon_m', placeholder: '喷火', piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
-  steamjet: { vis: [1, 5], art: 'cannon_m', placeholder: '蒸汽喷射', piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
+  rocket_rack: { vis: [1, 2, 3, 4, 5, 6], piv: [24, 28], blen: 34, barrel: 22, rcPx: 7, back: 0.05, ret: 2.2 },
+  harpoon: { vis: [1], piv: [18, 13], blen: 34, barrel: 22, rcPx: 5, back: 0.04, ret: 2.8 },
+  flamer: { vis: [1], piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
+  steamjet: { vis: [1], piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
   boss_core: { art: 'boiler', placeholder: '核心' },
   boss_lens: { art: 'helmet', placeholder: '棱镜' },
   boss_ram: { art: 'piston', placeholder: '撞头' },

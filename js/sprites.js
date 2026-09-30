@@ -1679,7 +1679,309 @@ SA.SPR = (() => {
         gauge(x + 54, y + 60, 2.6, 0.4 + 0.2 * Math.sin(t * 0.2)); htube(x + 44, y + 66, 6, 3, IRONL);
       } },
   ];
+
+  // ---------- 特殊武器（2026-09-29 定稿，样机 tools/archive/special-weapons.html）：鱼叉（链锚抓钩 + 绞缆盘）、蒸汽喷射器（扇形喷汽阀）、
+  // 喷火器（翅片喷焰炮，火焰混白汽）、火箭架六档（投矛臂 / 投掷轮 / 板簧连弩 / 气压抛射管 / 火箭助推炸弹 / 管束发射架）。和大锅炉共用上面的小工具 ----------
+  // ================= 转动炮组 + 特效小工具 =================
+  // 转动：先在离屏按「水平」画好（支点落在 (60,50)），再绕支点转到仰角 a（度，向上为正）贴回来；最近邻，保持像素风（和游戏 sprites.js turn 一样）
+  const layer = document.createElement('canvas'); layer.width = 140; layer.height = 100;
+  function turn(px0, py0, a, fn) {
+    const main = g, lg = layer.getContext('2d'); lg.clearRect(0, 0, 140, 100); g = lg; fn(60, 50); g = main;
+    main.save(); main.imageSmoothingEnabled = false; main.translate(Math.round(px0), Math.round(py0)); main.rotate(-(a || 0) * Math.PI / 180); main.drawImage(layer, -60, -50); main.restore();
+  }
+  // 炮组上 (u, v) 点（沿炮管 u、垂直 v，向下为正）在世界里的位置
+  const at = (px0, py0, a, u, v = 0) => { const r = (a || 0) * Math.PI / 180; return [px0 + Math.cos(r) * u + Math.sin(r) * v, py0 - Math.sin(r) * u + Math.cos(r) * v]; };
+  const ROPE = [P.leather[0], P.leather[1], P.leather[2]];
+  // 下垂的绳子：两点之间一条抛物线，每隔 2 像素一个亮点（麻绳的捻纹）
+  function rope(x0, y0, x1, y1, sag = 4) {
+    const n = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+    for (let i = 0; i <= n; i++) { const k = i / n, xx = x0 + (x1 - x0) * k, yy = y0 + (y1 - y0) * k + Math.sin(k * Math.PI) * sag; px(xx, yy, i % 3 ? ROPE[1] : ROPE[2]); }
+  }
+  // 鱼叉头：叉尖在 X0 + 8，两道倒钩往后翻
+  function barbHead(X0, Y) {
+    R(X0 - 2, Y - 1, 4, 2, P.iron[3]); R(X0 - 2, Y - 1, 4, 1, P.iron[4]);
+    poly([[X0 + 1, Y - 3.5], [X0 + 8.5, Y], [X0 + 1, Y + 3.5]], IRONL);
+    line(X0 + 1, Y - 3, X0 - 2, Y - 5, 1, P.iron[3]); line(X0 + 1, Y + 3, X0 - 2, Y + 5, 1, P.iron[2]);
+  }
+  // 红色警示带（饱和色，材质层不换）
+  const warn = (x, y, w, h) => { R(x, y, w, h, P.fire[0]); for (let u = 0; u < w; u += 3) R(x + u, y, 1, h, P.fire[1]); R(x, y, w, 1, P.fire[1]); };
+  // 喷口火焰：从 (x,y) 沿角度 a 喷出的锥形火（材质层之后画）
+  function flameJet(x, y, a, len, t) {
+    const r = a * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r);
+    for (let i = 0; i < len; i++) {
+      const w = 1 + i * 0.28, k = i / len, jit = Math.sin(i * 0.9 + t * 0.7) * (0.6 + k * 1.6);
+      for (let s = -w; s <= w; s += 1) {
+        const e = Math.abs(s) / w, col = k > 0.85 ? (e < 0.5 ? P.fire[1] : P.fire[0]) : e < 0.35 ? (k < 0.35 ? P.white : P.fire[3]) : e < 0.7 ? P.fire[2] : P.fire[1];
+        if (k > 0.7 && ((i * 7 + Math.round(s) * 3 + t) % 5 === 0)) continue;
+        px(x + cx * i - cy * (s + jit), y + cy * i + cx * (s + jit), col);
+      }
+    }
+  }
+  // 引燃小火苗：2～3 像素，一直在跳
+  const pilot = (x, y, t) => { px(x, y, P.fire[t % 3 === 0 ? 3 : 2]); px(x + 1, y - (t % 2), P.fire[2]); if (t % 4 < 2) px(x, y - 1, P.fire[1]); };
+  // 喷汽：一串往外扩的白汽团（材质层之后画）；strong = 正在喷
+  function steamJet(x, y, a, len, t, strong) {
+    const r = a * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r), n = strong ? 9 : 2;
+    for (let k = 0; k < n; k++) {
+      const p = saw(t * (strong ? 2.2 : 0.8) + k * (100 / n), 100), d = p * (strong ? len : 8), rr = 0.8 + p * (strong ? 4.2 : 1.6), wob = Math.sin(k * 2.1 + t * 0.2) * p * 3;
+      disc(x + cx * d - cy * wob, y + cy * d + cx * wob - (strong ? 0 : p * 3), rr, p < 0.35 ? P.white : p < 0.75 ? P.steam[2] : P.steam[1]);
+    }
+  }
+  // 车载炮座（2×1）：贴车体的矮底座 + 两片耳轴板（没有三脚架 / 立柱）
+  const cradle = (x, y, x0 = 10, w = 18) => { box(x + x0, y + 18, w, 6, IRON); R(x + x0 + 1, y + 18, w - 2, 1, P.iron[3]); for (const u of [3, w - 5]) R(x + x0 + u, y + 10, 3, 8, P.iron[1]); };
+  const pin = (x, y) => { disc(x, y, 2.4, P.brass[0]); disc(x, y, 1.5, P.brass[2]); px(x - 1, y - 1, P.brass[3]); };
+  const flange = (X, Y, h) => { R(X, Y - h / 2 - 1, 2, h + 2, P.iron[0]); R(X, Y - h / 2 - 1, 1, h + 2, P.iron[4]); };
+
+  const STEAM = [
+    { key: 'A', name: '扇形喷汽阀', draw(x, y, o) {
+        cradle(x, y, 8, 20); ball(x + 12, y + 17, 4.5, IRONL); R(x + 7, y + 16, 10, 3, P.iron[1]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 2, 32, 4, BRASS); flange(X + 2, Y, 4); flange(X + 14, Y, 4);
+          poly([[X + 23, Y - 2], [X + 30, Y - 5], [X + 31, Y - 5], [X + 31, Y + 5], [X + 30, Y + 5], [X + 23, Y + 2]], BRASS); R(X + 30, Y - 5, 1, 10, P.dark[0]);
+          R(X - 3, Y - 7, 1, 5, P.iron[2]); gear(X - 2.5, Y - 8, 3.5, 6, o.on ? o.t * 0.3 : 0.2);
+        });
+        pin(x + 18, y + 13); gauge(x + 5, y + 19, 2.6, o.on ? 0.3 : 0.75);
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); steamJet(mx, my, o.a, 30, o.t, o.on); if (o.on) { const [m2, n2] = at(x + 18, y + 13, o.a, 31, -3); steamJet(m2, n2, o.a + 10, 24, o.t + 30, true); const [m3, n3] = at(x + 18, y + 13, o.a, 31, 3); steamJet(m3, n3, o.a - 10, 24, o.t + 60, true); } } },
+  ];
+  const bed2 = (x, y) => { box(x + 10, y + 38, 28, 10, IRON); R(x + 11, y + 38, 26, 1, P.iron[3]); for (const u of [15, 29]) R(x + u, y + 24, 4, 14, P.iron[1]); };
+  const ROCKET = [
+    { key: 'A', name: '管束发射架', draw(x, y, o) {
+        bed2(x, y);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          for (let i = 0; i < 4; i++) { const v = -10.5 + i * 5.5; htube(X - 16, Y + v - 2.5, 42, 5, IRONL); R(X + 25, Y + v - 3, 2, 6, P.iron[0]); R(X + 25, Y + v - 1.5, 2, 3, P.dark[0]); if (i < o.n) { R(X + 27, Y + v - 1.5, 3, 3, P.fire[0]); R(X + 30, Y + v - 0.5, 2, 1, P.fire[1]); px(X + 27, Y + v - 1.5, P.fire[1]); } }
+          for (const u of [-8, 12]) { R(X + u, Y - 14, 3, 24, P.brass[0]); R(X + u, Y - 14, 1, 24, P.brass[3]); R(X + u + 1, Y - 14, 1, 24, P.brass[2]); }
+        });
+        pin(x + 24, y + 28);
+      } },
+  ];
+  function flameJet2(x, y, a, len, t) {
+    const r = a * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r), L = len * 0.72;
+    const put = (u, v, c) => px(x + cx * u - cy * v, y + cy * u + cx * v, c);
+    for (let i = 0; i < L; i++) {
+      const k = i / L, w = 1 + i * 0.24 * (1 - k * 0.35), jit = Math.sin(i * 0.55 + t * 0.6) * k * 1.4;
+      for (let s = -w; s <= w; s += 0.5) {
+        const e = Math.abs(s) / w;
+        put(i, s + jit, e < 0.3 ? (k < 0.3 ? P.white : P.fire[3]) : e < 0.65 ? (k < 0.75 ? P.fire[3] : P.fire[2]) : e < 0.9 ? P.fire[2] : P.fire[1]);
+      }
+    }
+    for (let q = 0; q < 7; q++) {                                                   // 火舌尖化成汽团：越远越大、越白
+      const p = saw(t * 2 + q * 14, 100), u = L * 0.8 + p * len * 0.55, v = Math.sin(q * 2.3 + t * 0.15) * (2 + p * 4), rr = 1.6 + p * 3.6;
+      const c = p < 0.2 ? P.fire[3] : p < 0.55 ? P.white : P.steam[2];
+      disc(x + cx * u - cy * v, y + cy * u + cx * v, rr, c);
+    }
+    for (const sd of [-1, 1]) { const p = saw(t * 3 + (sd > 0 ? 50 : 0), 100); disc(x + cx * (2 + p * 8) - cy * sd * (3 + p * 3), y + cy * (2 + p * 8) + cx * sd * (3 + p * 3), 1 + p * 1.6, p < 0.5 ? P.white : P.steam[2]); }   // 喷口两侧的白汽领子
+  }
+  const FLAME2 = [
+    { key: 'F2', name: '翅片喷焰炮', draw(x, y, o) {
+        box(x + 4, y + 16, 26, 8, IRONL); for (let u = 0; u < 24; u += 4) line(x + 5 + u, y + 23, x + 8 + u, y + 17, 2, P.fire[0]);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          htube(X - 8, Y - 4, 34, 8, IRONL);
+          for (let u = 2; u < 18; u += 2) { R(X + u, Y - 9, 1, 18, P.iron[u % 4 ? 1 : 3]); px(X + u, Y - 9, P.iron[4]); }
+          poly([[X + 25, Y - 4], [X + 30, Y - 2.5], [X + 30, Y + 2.5], [X + 25, Y + 4]], IRONL); R(X + 29, Y - 1, 2, 2, P.dark[0]);
+        });
+      },
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 30, 0); o.on ? flameJet2(mx, my, o.a, 46, o.t) : pilot(Math.round(mx), Math.round(my) - 1, o.t); } },
+  ];
+
+  // 鱼叉 v2：链锚抓钩 + 身后占满高度的绞缆盘（正面看的大圆盘，一圈圈缠着的缆绳）
+  const HARPOON2 = [
+    { key: 'E2', name: '链锚抓钩 + 绞缆盘', draw(x, y, o) {
+        const cx = x + 13, cy = y + 12, spin = (o.out ? 1 : -0.3) * o.t * 0.12;
+        cableDrum(cx, cy, spin);
+        cradle(x, y, 12, 16);
+        turn(x + 18, y + 13, o.a, (X, Y) => {
+          const d = o.k * 5; htube(X - 7 - d, Y - 4, 28, 8, IRONL); R(X + 18 - d, Y - 5, 3, 10, P.iron[0]); R(X + 19 - d, Y - 4, 1, 8, P.iron[4]); R(X - 3 - d, Y - 4, 2, 8, P.brass[1]);
+          if (!o.out) { R(X + 21 - d, Y - 1, 6, 2, P.iron[3]); disc(X + 27 - d, Y, 1.5, P.iron[4]); for (const s of [-1, -0.35, 0.35, 1]) { line(X + 27 - d, Y, X + 32 - d, Y + s * 5, 1, P.iron[3]); line(X + 32 - d, Y + s * 5, X + 30 - d, Y + s * 6.5, 1, P.iron[4]); } }
+        });
+        pin(x + 18, y + 13);
+        // 缆绳：从绞盘顶上出来，拴到炮口的一小段铁链（射出时绷直伸出去）
+        const [rx, ry] = at(x + 18, y + 13, o.a, 21, -1);
+        if (o.out) { line(cx, cy - 10.5, rx, ry, 1, ROPE[1]); const [ex, ey] = at(x + 18, y + 13, o.a, 60, 0); const n = Math.round(Math.hypot(ex - rx, ey - ry) / 2); for (let i = 0; i <= n; i++) { const k = i / n; px(rx + (ex - rx) * k, ry + (ey - ry) * k, i < 6 ? (i % 2 ? P.iron[4] : P.iron[1]) : ROPE[i % 3 ? 1 : 2]); } }
+        else rope(cx + 2, cy - 10.5, rx, ry, 2);
+      } },
+  ];
+
+  // 火箭架 v2：投石机 / 投矛器。每个投射点一枚短炸弹（圆胖弹体 + 红箍 + 一截引信）。
+  // o.n：架上几枚（装填 / 打空时用）；o.s：一轮投掷的进度 0～1（0 = 没在投）
+  const bomb = (cx, cy) => {
+    disc(cx, cy, 2.6, P.iron[0]); disc(cx, cy, 1.8, P.iron[2]); px(cx - 1, cy - 1, P.iron[4]);
+    R(cx - 2, cy, 5, 1, P.fire[0]); px(cx - 1, cy, P.fire[1]);
+    R(cx, cy - 4, 1, 2, P.brass[1]); px(cx + 1, cy - 5, P.fire[3]);
+  };
+  const cup = (cx, cy) => { R(cx - 3, cy + 2, 7, 2, P.iron[0]); R(cx - 3, cy + 2, 7, 1, P.iron[3]); px(cx - 3, cy + 1, P.iron[2]); px(cx + 3, cy + 1, P.iron[2]); };
+  const beam = (x0, y0, x1, y1, w = 3) => { line(x0, y0, x1, y1, w, P.iron[0]); line(x0, y0, x1, y1, Math.max(1, w - 2), P.iron[3]); };
+  const easeOut = (k) => 1 - (1 - k) ** 3;
+  // 单臂整体甩一次（B、D）：0～0.35 甩出去，0.35～0.6 停在前面，0.6～1 空臂收回来
+  const swingOf = (s) => (s <= 0 ? 0 : s < 0.35 ? easeOut(s / 0.35) : s < 0.6 ? 1 : 1 - (s - 0.6) / 0.4);
+  const CATA = [
+    { key: 'G', name: '四杓投掷轮', draw(x, y, o) {
+        const H = [x + 22, y + 26], firing = o.s > 0, per = firing ? o.s * 4 : 0, shot = Math.floor(per), sw = firing ? easeOut(per - shot) : 0;
+        beam(x + 10, y + 42, H[0], H[1], 4); beam(x + 34, y + 42, H[0], H[1], 4); box(x + 6, y + 40, 34, 8, IRON);
+        const base = -Math.PI * 0.75 + (shot + sw) * Math.PI / 2;
+        for (let k = 0; k < 4; k++) {
+          const a = base - k * Math.PI / 2, ex = H[0] + Math.cos(a) * 17, ey = H[1] + Math.sin(a) * 17;
+          beam(H[0], H[1], ex, ey, 3);
+          const loaded = firing ? (k > shot || (k === shot && sw < 0.8)) : k < o.n;
+          const ux = Math.cos(a), uy = Math.sin(a);
+          R(ex - 2 - uy * 0, ey - 2, 5, 5, P.iron[0]); R(ex - 1, ey - 1, 3, 3, P.iron[2]);
+          if (loaded) bomb(ex - uy * 3.5 * -1 + ux * 0, ey - 3.5);
+        }
+        disc(H[0], H[1], 9, P.brass[0]); disc(H[0], H[1], 8, P.brass[1]); disc(H[0], H[1], 6, P.brass[0]); for (let k = 0; k < 8; k++) { const a = base + k * Math.PI / 4; line(H[0], H[1], H[0] + Math.cos(a) * 6, H[1] + Math.sin(a) * 6, 1, P.brass[2]); }
+        disc(H[0], H[1], 2.2, P.iron[0]); px(H[0] - 1, H[1] - 1, P.brass[3]);
+      } },
+    { key: 'H', name: '投矛臂', draw(x, y, o) {
+        box(x + 4, y + 40, 40, 8, IRON); R(x + 22, y + 33, 6, 8, P.iron[1]); R(x + 22, y + 33, 6, 1, P.iron[3]);
+        const Pv = [x + 25, y + 36], sw = swingOf(o.s), a = (-172 + sw * 112) * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a);
+        const Cyl = [x + 40, y + 42], Arm8 = [Pv[0] + ux * 9, Pv[1] + uy * 9];
+        line(Cyl[0], Cyl[1], Arm8[0], Arm8[1], 5, P.iron[0]); line(Cyl[0], Cyl[1], Arm8[0], Arm8[1], 3, P.iron[3]);
+        line(Cyl[0], Cyl[1], Cyl[0] + (Arm8[0] - Cyl[0]) * 0.45, Cyl[1] + (Arm8[1] - Cyl[1]) * 0.45, 5, P.brass[1]);
+        beam(Pv[0], Pv[1], Pv[0] + ux * 27, Pv[1] + uy * 27, 4); R(Pv[0] + ux * 27 - 1, Pv[1] + uy * 27 - 2, 3, 3, P.brass[2]);
+        for (let k = 0; k < 4; k++) {
+          const d = 26 - k * 5.5, bx = Pv[0] + ux * d, by = Pv[1] + uy * d, nx = uy, ny = -ux;   // 托架在臂的上沿
+          const tx = bx + nx * -3, ty = by + ny * -3;
+          line(bx, by, tx, ty, 1, P.iron[3]);
+          const gone = o.s > 0 ? o.s > 0.22 + k * 0.035 : k >= o.n;
+          if (!gone) bomb(tx, ty - 1);
+        }
+        pin(Pv[0], Pv[1]);
+      } },
+    { key: 'I', name: '四联投石机', draw(x, y, o) {
+        R(x + 2, y + 15, 44, 3, P.iron[0]); R(x + 2, y + 15, 44, 1, P.iron[3]); R(x + 4, y + 13, 40, 2, P.leather[1]);
+        for (const u of [3, 43]) R(x + u, y + 15, 2, 28, P.iron[1]);
+        box(x + 2, y + 42, 44, 6, IRON);
+        for (let k = 3; k >= 0; k--) {
+          const Pv = [x + 12 + k * 9, y + 41 - k * 4], firing = o.s > 0, p = firing ? Math.max(0, Math.min(1, o.s * 4.5 - k)) : 0;
+          const up = firing ? easeOut(p) : k < o.n ? 0 : 1, a = (-168 + up * 88) * Math.PI / 180, ex = Pv[0] + Math.cos(a) * 15, ey = Pv[1] + Math.sin(a) * 15;
+          R(Pv[0] - 4, Pv[1] - 1, 8, 4 + k * 4, P.iron[1]); R(Pv[0] - 4, Pv[1] - 1, 8, 1, P.iron[3]);
+          beam(Pv[0], Pv[1], ex, ey, 3);
+          R(ex - 2, ey - 2, 4, 3, P.iron[0]);
+          if (firing ? p < 0.75 : k < o.n) bomb(ex, ey - 4);
+          disc(Pv[0], Pv[1], 2.6, ROPE[0]); disc(Pv[0], Pv[1], 1.8, ROPE[1]); px(Pv[0], Pv[1] - 1, ROPE[2]);
+        }
+      } },
+    { key: 'J', name: '配重投石机', draw(x, y, o) {
+        const Ax = [x + 24, y + 17], sw = swingOf(o.s), a = (150 - sw * 208) * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a);
+        beam(x + 11, y + 43, Ax[0], Ax[1], 4); beam(x + 37, y + 43, Ax[0], Ax[1], 4); beam(x + 15, y + 34, x + 33, y + 34, 2); box(x + 6, y + 42, 36, 6, IRON);
+        const S = [Ax[0] - ux * 8, Ax[1] - uy * 8];
+        line(S[0], S[1], S[0], S[1] + 4, 1, P.iron[3]); box(S[0] - 4, S[1] + 4, 9, 8, IRONL); px(S[0] - 2, S[1] + 6, P.iron[4]); px(S[0] + 2, S[1] + 6, P.iron[4]);
+        const E = [Ax[0] + ux * 19, Ax[1] + uy * 19];
+        beam(S[0], S[1], E[0], E[1], 4);
+        for (let k = 0; k < 4; k++) {
+          const b = a + (k - 1.5) * 0.5, tx = E[0] + Math.cos(b) * 5, ty = E[1] + Math.sin(b) * 5;
+          line(E[0], E[1], tx, ty, 1, P.iron[3]);
+          const gone = o.s > 0 ? o.s > 0.24 + k * 0.03 : k >= o.n;
+          if (!gone) bomb(tx + Math.cos(b) * 2, ty + Math.sin(b) * 2);
+        }
+        pin(Ax[0], Ax[1]);
+      } },
+  ];
+  // 投掷时的小烟尘：从脱手点往外飘两团汽（材质层之后）
+  function cataFx(x, y, o) { if (o.s > 0.15 && o.s < 0.5) { const p = (o.s - 0.15) / 0.35; disc(x + 40 + p * 8, y + 8 - p * 6, 1 + p * 2.5, p < 0.5 ? P.white : P.steam[2]); disc(x + 32 + p * 10, y + 4 - p * 4, 0.8 + p * 2, P.steam[2]); } }
+
+  function cableDrum(cx, cy, spin) {
+    disc(cx, cy, 12, P.brass[0]); disc(cx, cy, 11, P.brass[1]); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(cx + Math.cos(a) * 11.4, cy + Math.sin(a) * 11.4, P.brass[3]); }
+    for (let yy = Math.floor(cy - 10); yy <= cy + 10; yy++) for (let xx = Math.floor(cx - 10); xx <= cx + 10; xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.hypot(dx, dy);
+      if (d > 9.9) continue;
+      if (d < 3.2) continue;
+      const f = (d - 3.4) / 2.1, ring = Math.floor(f), fr = f - ring;
+      if (ring > 2 || fr > 0.72 || f < 0) { px(xx, yy, P.black); continue; }
+      const a = Math.atan2(dy, dx), lit = Math.cos(a + Math.PI * 0.75);                                     // 左上 = 1，右下 = -1
+      const ph = ((a - spin) / TAU * 8 % 1 + 1) % 1, tw = ring === 2 && ph < 0.12;   // 捻纹：只在最外圈，一圈 8 道短痕（看得出绞盘在转）
+      px(xx, yy, tw ? ROPE[0] : lit > 0.35 ? ROPE[2] : lit < -0.4 ? ROPE[0] : ROPE[1]);
+    }
+    disc(cx, cy, 3, P.brass[0]); disc(cx, cy, 2.2, P.brass[2]); for (let k = 0; k < 4; k++) { const a = spin + k * TAU / 4; px(cx + Math.cos(a) * 2.2, cy + Math.sin(a) * 2.2, P.brass[0]); }
+    px(cx - 1, cy - 1, P.brass[3]); px(cx, cy, P.iron[0]);
+  }
+
+  // ---------- 火箭架六档：从「扔」到「射」 ----------
+  // 状态统一：o.n 架上几枚（装填 / 空）；o.s 一轮开火进度 0～1；o.a 仰角（会转的发射管用）
+  const lobA = (o) => Math.max(18, o.a || 0);   // 火箭是抛射的：发射管最低也抬 18°
+  const shotsOf = (o) => { if (!(o.s > 0)) return { n: o.n, fire: false, p: 0 }; const sh = o.s * 5 + 0.8, f = Math.min(4, Math.floor(sh)), p = sh >= 5 ? 1 : sh - f; return { n: 4 - f, fire: f >= 1 && p < 0.6, p }; };
+  // 飞出去的一枚炸弹（材质层之后画）：从 (x0,y0) 沿角度 ang 飞 d 像素，身后拖两团小烟
+  function flyBomb(x0, y0, ang, d) {
+    const r = ang * Math.PI / 180, cx = Math.cos(r), cy = -Math.sin(r);
+    for (const k of [0.45, 0.2]) disc(x0 + cx * d * k, y0 + cy * d * k, 0.8 + (1 - k) * 1.2, k > 0.3 ? P.steam[2] : P.steam[1]);
+    const bx = x0 + cx * d, by = y0 + cy * d; disc(bx, by, 2.6, P.dark[0]); disc(bx, by, 1.8, P.dark[2]); px(bx - 1, by - 1, P.steam[2]); R(bx - 2, by, 5, 1, P.fire[0]); px(bx - cx * 3, by - cy * 3 - 1, P.fire[3]);
+  }
+  const tubeFx = (dx, dy) => (x, y, o) => { const S = shotsOf(o); if (!S.fire) return; const [bx, by] = at(x + 24, y + 28, o.a, dx, dy); steamJet(bx, by, o.a + 180, 14, o.t, true); };
+  const coil = (x0, y0, x1, y1, turns, rr) => {   // 画一根螺旋弹簧：沿 a→b 一圈圈的斜线
+    const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux, N = turns * 8;
+    for (let i = 0; i < N; i++) { const k0 = i / N, k1 = (i + 1) / N, s0 = Math.sin(k0 * turns * TAU), s1 = Math.sin(k1 * turns * TAU); line(x0 + ux * L * k0 + nx * rr * s0, y0 + uy * L * k0 + ny * rr * s0, x0 + ux * L * k1 + nx * rr * s1, y0 + uy * L * k1 + ny * rr * s1, 1, Math.cos(k0 * turns * TAU) > 0 ? P.iron[4] : P.iron[1]); }
+  };
+  const ROCKET6 = [
+    { key: 'T1', tier: 1, name: '投矛臂', draw: (x, y, o) => CATA[1].draw(x, y, o), fx: cataFx },
+    { key: 'T2', tier: 2, name: '四杓投掷轮', draw: (x, y, o) => CATA[0].draw(x, y, o), fx: cataFx },
+    { key: 'T3b', tier: 3, name: '板簧连弩', draw(x, y, o) {
+        const S = shotsOf(o);
+        box(x + 4, y + 40, 40, 8, IRON);
+        for (let i = 0; i < 22; i++) { R(x + 2 + i, y + 18 + i, 3, 1, P.iron[0]); px(x + 3 + i, y + 18 + i, P.iron[3]); }        // 45° 脊梁：四条发射槽的根都钉在上面
+        R(x + 2, y + 18, 3, 23, P.iron[0]); R(x + 3, y + 18, 1, 23, P.iron[3]);                                                 // 后立柱
+        for (let k = 0; k < 4; k++) {
+          const sx = x + 4 + k * 6, sy = y + 20 + k * 6, loaded = k < S.n, bend = loaded ? 2 : 0;
+          for (let i = 0; i < 19; i++) { R(sx + i, sy - i, 2, 1, P.iron[1]); px(sx + i + 2, sy - i, P.iron[0]); px(sx + i + 1, sy - i - 1, P.iron[4]); }         // 发射槽（朝右上 45°）
+          const cx = sx + 16, cy = sy - 16;
+          for (let i = -3; i <= 3; i++) { const b = Math.round(i * i / 9 * bend); R(cx + i - b, cy + i + b, 2, 1, P.iron[4]); px(cx + i - b + 2, cy + i + b, P.iron[1]); }   // 板簧弓（垂直于槽）
+          R(cx - 1, cy - 1, 3, 3, P.brass[1]); px(cx - 1, cy - 1, P.brass[3]);
+          const d = loaded ? 7 : 1, nx = cx - d, ny = cy + d;
+          line(cx - 3 - bend, cy - 3 + bend, nx, ny, 1, P.white); line(cx + 3 - bend, cy + 3 + bend, nx, ny, 1, P.white);
+          if (loaded) bomb(nx + 2, ny - 4);
+        }
+      },
+      fx(x, y, o) { const S = shotsOf(o); if (!(o.s > 0) || S.n >= 4 || S.p >= 1 || o.game) return; const k = S.n, cx = x + 4 + k * 6 + 16, cy = y + 20 + k * 6 - 16; if (S.p < 0.9) flyBomb(cx - 5, cy + 1, 45, 6 + S.p * 30); } },
+    { key: 'T4a', tier: 4, name: '气压抛射管', draw(x, y, o) {
+        box(x + 4, y + 40, 40, 8, IRON); const S = shotsOf(o), tilt = (50 + (o.a || 0) * 0.4) * Math.PI / 180;
+        htube(x + 6, y + 36, 36, 4, IRONL); gauge(x + 40, y + 33, 3, S.fire ? 0.3 : 0.8);
+        for (let k = 0; k < 4; k++) {
+          const bx = x + 10 + k * 8, by = y + 37, L = 16 + (k % 2) * 5, ex = bx + Math.cos(tilt) * L, ey = by - Math.sin(tilt) * L;
+          line(bx, by, ex, ey, 6, P.iron[0]); line(bx, by, ex, ey, 4, P.iron[2]); line(bx - 1, by - 1, ex - 1, ey - 1, 1, P.iron[4]);
+          line(ex - 1, ey + 1, ex + 2, ey - 2, 2, P.iron[0]);
+          if (k < S.n) bomb(ex, ey - 2);
+        }
+      },
+      fx(x, y, o) {   // 刚打空的是第 n 根：白汽和飞出去的炸弹都从这一根的管口出来
+        const S = shotsOf(o); if (!(o.s > 0) || S.n >= 4 || S.p >= 1) return;
+        const k = S.n, tilt = 50 + (o.a || 0) * 0.4, L = 16 + (k % 2) * 5, r = tilt * Math.PI / 180, mx = x + 10 + k * 8 + Math.cos(r) * L, my = y + 37 - Math.sin(r) * L;
+        if (S.fire) steamJet(mx, my, tilt, 12, o.t, true);
+        if (S.p < 0.9 && !o.game) flyBomb(mx, my - 2, tilt, 4 + S.p * 30);
+      } },
+    { key: 'T5a', tier: 5, name: '火箭助推炸弹', draw(x, y, o) {
+        box(x + 8, y + 40, 32, 8, IRON); const S = shotsOf(o);
+        turn(x + 24, y + 28, lobA(o), (X, Y) => {
+          R(X - 18, Y - 14, 3, 26, P.iron[0]); R(X - 18, Y - 14, 1, 26, P.iron[3]); R(X + 14, Y - 14, 3, 26, P.iron[0]);
+          for (let k = 0; k < 4; k++) {
+            const v = -11 + k * 6.5; R(X - 18, Y + v + 3, 36, 1, P.iron[2]);
+            if (k < S.n) { R(X - 16, Y + v + 1, 18, 1, P.leather[2]); R(X + 2, Y + v - 1, 10, 3, P.iron[3]); R(X + 2, Y + v - 1, 10, 1, P.iron[4]); R(X + 5, Y + v - 1, 1, 3, P.brass[1]); bomb(X + 15, Y + v); }
+          }
+        });
+        pin(x + 24, y + 28);
+      },
+      fx(x, y, o) {   // 刚打出去的是第 n 层：整枚火箭炸弹沿导轨冲出去，尾部喷火
+        const S = shotsOf(o); if (!(o.s > 0) || S.n >= 4 || S.p >= 1) return;
+        const A = lobA(o), v = -11 + S.n * 6.5, d = o.game ? 0 : S.p * 34, [tx, ty] = at(x + 24, y + 28, A, 2 + d, v), [hx, hy] = at(x + 24, y + 28, A, 12 + d, v), [bx, by] = at(x + 24, y + 28, A, 15 + d, v);
+        if (o.game) { if (S.fire) flameJet2(tx, ty, A + 180, 10, o.t); return; }
+        flameJet2(tx, ty, o.a + 180, 10, o.t); line(tx, ty, hx, hy, 3, P.dark[2]); line(tx, ty - 1, hx, hy - 1, 1, P.steam[1]);
+        disc(bx, by, 2.6, P.dark[0]); disc(bx, by, 1.8, P.dark[2]); R(bx - 2, by, 5, 1, P.fire[0]);
+      } },
+    { key: 'T6', tier: 6, name: '管束发射架', draw(x, y, o) { const S = shotsOf(o); ROCKET[0].draw(x, y, { ...o, a: lobA(o), n: S.n }); },
+      fx(x, y, o) {   // 刚打空的是第 n 根管：管尾喷烟，火箭拖着火从这根管口飞出去
+        const S = shotsOf(o); if (!(o.s > 0) || S.n >= 4 || S.p >= 1) return;
+        const A = lobA(o), v = -10.5 + S.n * 5.5, [rx, ry] = at(x + 24, y + 28, A, -17, v);
+        if (S.fire) steamJet(rx, ry, A + 180, 14, o.t, true);
+        if (o.game) return;
+        const d = S.p * 36, [tx, ty] = at(x + 24, y + 28, A, 26 + d, v), [hx, hy] = at(x + 24, y + 28, A, 34 + d, v);
+        flameJet2(tx, ty, o.a + 180, 9, o.t); line(tx, ty, hx, hy, 2, P.dark[2]); px(hx, hy, P.fire[1]);
+      } },
+  ];
   return {
+    harpoon(c, x, y, o) { g = c; HARPOON2[0].draw(x, y, o); },
+    steamjet(c, x, y, o) { g = c; STEAM[0].draw(x, y, o); },
+    steamjetFx(c, x, y, o) { g = c; STEAM[0].fx(x, y, o); },
+    flamer(c, x, y, o) { g = c; FLAME2[0].draw(x, y, o); },
+    flamerFx(c, x, y, o) { g = c; FLAME2[0].fx(x, y, o); },
+    rocket(c, x, y, o, tier) { g = c; ROCKET6[Math.max(0, Math.min(5, tier - 1))].draw(x, y, o); },
+    rocketFx(c, x, y, o, tier) { g = c; const e = ROCKET6[Math.max(0, Math.min(5, tier - 1))]; if (e.fx) e.fx(x, y, { ...o, game: true }); },
     boiler(c, x, y, o) { g = c; BOILER4[0].draw(x, y, o); },
     stoker(c, x, y, o, mini) { g = c; BOILER4[0].over(x, y, o, mini); },
     tank(c, x, y, o) { g = c; TANKS4[0].draw(x, y, o); },
@@ -2168,6 +2470,11 @@ SA.SPR = (() => {
     boiler_s(x, y, q) { boilerS(x, y, q); },
     boiler_l(x, y, q) { BIG.boiler(ctx, x, y, { t: q.fr * 8, heat: q.ht / 2 }); },   // 炉火 3 档 × 13 帧（链节、煤块刚好循环）
     water_l(x, y, q) { BIG.tank(ctx, x, y, { t: q.fr * 9, water: q.lv / 29 }); },
+    // 特殊武器（2026-09-29 定稿）：转动部分按 module-art 的耳轴 / 炮口几何；汽、火、飞出去的烟在 weaponFx 里逐帧画（材质处理之后）
+    harpoon(x, y, q) { BIG.harpoon(ctx, x, y, { a: q.a, k: (q.k || 0) / 8, out: !!q.out, t: (q.fr || 0) * 4 }); },
+    steamjet(x, y, q) { BIG.steamjet(ctx, x, y, { a: q.a, on: !!q.on, t: 0 }); },
+    flamer(x, y, q) { BIG.flamer(ctx, x, y, { a: q.a, t: 0 }); },
+    rocket_rack(x, y, q) { BIG.rocket(ctx, x, y, { a: q.a, n: q.n, s: q.s / 18, t: 0 }, q.st || 1); },   // 六档六种样式（q.st = 材料档）
     mg_s(x, y, q) { mgS(x, y, q); },
     mg_heavy(x, y, q) { mgH(x, y, q); },
     // 臼炮 2×2（高抛火炮，2026-09-27 定稿，样机 tools/gun-family-lab.html 臼炮 v1）：参考 19 世纪攻城 / 岸防臼炮——
@@ -2406,6 +2713,10 @@ SA.SPR = (() => {
     const q = {};
     switch (id) {
       case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
+      case 'harpoon': q.a = angQ(o.a, 0); q.k = SA.Dyn.quant(o.recoil, 8); if (o.out) { q.out = 1; q.fr = Math.floor((o.t || 0) * 8) % 8; } break;   // 射出后绞盘放缆：8 帧
+      case 'steamjet': q.a = angQ(o.a, 0); if (o.flash > 0) q.on = 1; break;
+      case 'flamer': q.a = angQ(o.a, 0); break;
+      case 'rocket_rack': q.a = angQ(o.a, 20); q.n = o.rn == null ? 4 : o.rn; q.s = Math.round((o.rs || 0) * 18); break;   // 架上几枚 + 一轮开火进度 18 档
       case 'boiler_l': q.fr = Math.floor((o.t || 0) * 6) % 13; q.ht = Math.max(0, Math.min(2, Math.round((o.heat || 0) * 2))); break;
       case 'water_l': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 8; break;
       case 'water': case 'tank_s': case 'tank_tall': q.lv = Math.round(29 * Math.max(0, Math.min(1, o.water == null ? 1 : o.water))); q.fr = Math.floor((o.t || 0) * 4) % 4; break;
@@ -2737,6 +3048,8 @@ SA.SPR = (() => {
         gR: o.gnd && same(c + w) && o.gnd[`${r},${c + w}`] ? o.gnd[`${r},${c + w}`][0] : 0,
         recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
+        flash: dyn ? dyn.flashOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,   // 喷射器 / 喷火器：正在喷
+        out: !!(o.tetherCell && o.tetherCell === cell),   // 鱼叉：已射出、绳子拴着对手
         a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
         phase, gait: phase, stride,
@@ -2800,9 +3113,10 @@ SA.SPR = (() => {
         if ((cell.id === 'quad' || cell.id === 'biped') && o.ghostLegs) {
           drawModule(g, cell.id, x, y, { ...mo, part: 'shell' });
           g.save(); g.globalAlpha = 0.35; drawModule(g, cell.id, x, y, { ...mo, part: 'legs' }); g.restore(); ctx = g;
-        } else drawModule(g, cell.id, x, y, mo);
+        } else { if (cell.id === 'rocket_rack') Object.assign(mo, rocketLive(cell, mo)); drawModule(g, cell.id, x, y, mo); }
         if (SA.isCockpit(cell.id)) cockpitCrew(g, cell.id, x, y, mo, veh, o);
         if (cell.id === 'boiler_l') bigStoker(g, x, y, mo);
+        weaponFx(g, cell.id, x, y, mo);
         if (cell.id !== 'quad' && cell.id !== 'biped') scaled(g, x, y, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c));   // 四足的格子大半是腿间空地，裂纹会画在空中
         if (o.showBlocked && isBlocked(r, c)) blockedMark(x + f.w * S + 12, y + f.h * S - 21);
       });
@@ -2858,6 +3172,27 @@ SA.SPR = (() => {
     if (!SA.Coal) return;
     const mini = SA.Coal.mini(SA.Coal.crew('司炉小工'), { st: SA.stageOf('boiler_l', mo.mt || 1) });
     BIG.stoker(g, x, y, { t: (mo.t || 0) * 16.7 + (mo.seed || 0) * 7 }, mini); ctx = g;
+  }
+
+  // 火箭架的齐射节奏：战斗里只有「开了第几发」（feed），这里按时间记一轮：0.9 秒打完 → 空 3 秒 → 2 秒里一枚枚装回
+  const RKT = new WeakMap();
+  function rocketLive(cell, mo) {
+    const t = mo.t || 0, R = RKT.get(cell) || { feed: mo.feed || 0, start: -99 };
+    if ((mo.feed || 0) > R.feed) { if (t - R.start > 1.2) R.start = t; R.feed = mo.feed; }
+    RKT.set(cell, R);
+    const d = t - R.start;
+    if (d < 0.9) return { rs: Math.max(0.01, d / 0.9), rn: 4 };
+    const e = d - 0.9;
+    return { rs: 0, rn: e < 3 ? 0 : e < 5 ? Math.min(4, 1 + Math.floor((e - 3) / 0.5)) : 4 };
+  }
+  // 特殊武器的汽 / 火（材质处理之后逐帧画，颜色不被换掉）
+  function weaponFx(g, id, x, y, mo) {
+    const T = (mo.t || 0) * 16.7, a = mo.a == null ? 0 : mo.a;
+    if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
+    else if (id === 'flamer') BIG.flamerFx(g, x, y, { a, t: T, on: mo.flash > 0 });
+    else if (id === 'rocket_rack') BIG.rocketFx(g, x, y, { a: mo.a == null ? 20 : mo.a, t: T, n: mo.rn == null ? 4 : mo.rn, s: mo.rs || 0 }, SA.stageOf('rocket_rack', mo.mt || 1));
+    else return;
+    ctx = g;
   }
 
   function eachCell(grid, fn) {
@@ -2974,7 +3309,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, cockpitCrew, bigStoker, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    PADX, drawModule, cockpitCrew, bigStoker, weaponFx, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
     setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };

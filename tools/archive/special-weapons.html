@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>特殊武器</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -28,8 +28,13 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：暂无</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。目前没有进行中的项目。上一期（特殊武器：鱼叉、蒸汽喷射器、喷火器、火箭架六档）已进游戏，归档在 <a href="archive/special-weapons.html">archive/special-weapons.html</a>。</p>
+    <h1>特殊武器 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29 定稿进游戏：鱼叉（链锚抓钩 + 绞缆盘）· 蒸汽喷射器（扇形喷汽阀）· 喷火器（翅片喷焰炮）· 火箭架六档</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（大型锅炉 + 大水箱）已进游戏，归档在 <a href="big-boiler-tank.html">archive/big-boiler-tank.html</a>。</p>
+    <p><b>你对 v1 的选择</b>：① 鱼叉用 E 链锚抓钩，把绞缆盘做成背景一个占满空间的圆盘、一圈圈绞线；② 蒸汽喷射器选 A 扇形喷汽阀；③ 喷火器选 F 翅片喷焰炮，火焰黑色杂点太多显脏，要和蒸汽适当结合，取消电极；④ 火箭重做成投石机 / 投矛器样式，每个投射点装一枚短小的炸弹。</p>
+    <p><b>v2</b>：鱼叉、喷射器、喷火器各一件；投掷架 4 种（G 投掷轮 · H 投矛臂 · I 四联投石机 · J 配重投石机）。</p>
+    <p><b>v3</b>：绞盘改成三圈粗缆；火箭架排成六档进化线，T3～T5 各两个候选。</p>
+    <p><b>你对 v3 的选择</b>：T3 选板簧连弩（但太模糊，分不清是什么）；T4 选气压抛射管（烟和飞出去的炸弹对不上，反了）；T5 选火箭助推炸弹，T6 管束发射架。</p>
+    <p><b>v4（请再审查一次）</b>：板簧连弩重画——不再斜着转（转动会让细线发糊），四层水平发射槽 + 两根立柱，每层右端一副板簧弓 + 黄铜夹箍、白色弓弦、弦前一枚炸弹，开火时一层层弹出。气压抛射管的开火顺序修正：白汽和飞出去的炸弹都从刚打空的那根管口出来；火箭助推炸弹、管束发射架也按同样的顺序画出飞出去的那一发（带尾焰）。火箭架只留选定的六档。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -40,10 +45,10 @@
   <div id="mods"></div>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/coal.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="special-weapons.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
   const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
