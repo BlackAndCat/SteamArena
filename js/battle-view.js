@@ -56,118 +56,14 @@ SA.BattleView.create = function createBattleView(api) {
       ], [{ label: '接受投降', primary: true, onClick: () => api.acceptSurrender() }], '拒绝，继续打', () => api.refuseSurrender());
     }
   }
-  // ---------- 背景：一座圆形竞技场 ----------
-  // 场地左右无限延伸。天空固定；远处的厂房和一圈看台画在「圆筒」上：屏幕中间 1:1、越往两边越压缩，
-  // 镜头跟着车移动时看台跟着转，看起来像车在绕着圆形竞技场跑。地面（和地形）在世界坐标里，跟车 1:1 移动
-  const HZ = GROUND - 240, GS = HZ, GE = GROUND - 110;
-  const TW = 1248;   // 可平铺纹理的周期：人群 6、旗 26、柱 48、地面刻痕 48 都能整除
+  // ---------- 背景：按场次换场景（js/scenes.js）----------
+  // 铁匠铺后院（序章）/ 野地（遭遇战）/ 预选赛（其余比赛）。天空不动，远景、中远景、中景按不同视差平移，地面 1:1，
+  // 近景（废料堆、长草、前排观众）压在车前面、画面最下沿，移动得比车还快。场景动效用自己的时钟，不跟战斗暂停
   let BD = null;
-  function buildBackdrop() {
-    const mk = (w, hh) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; return [c, c.getContext('2d')]; };
-    let seed = 7;
-    const rr = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-    // 天空（固定不动）
-    const [sky, x] = mk(W, HZ);
-    const band = (y0, y1, col) => { x.fillStyle = col; x.fillRect(0, y0, W, y1 - y0); };
-    const b1 = Math.round(HZ * 0.3), b2 = Math.round(HZ * 0.62);
-    band(0, b1, P.bg[3]); band(b1, b2, P.bg[4]); band(b2, HZ, P.bg[5]);
-    for (const [y, col] of [[b1, P.bg[4]], [b2, P.bg[5]]])
-      for (let i = 0; i < W; i += 2) { x.fillStyle = col; x.fillRect(i + 1, y - 4, 1, 1); x.fillRect(i, y - 2, 1, 1); x.fillRect(i + 1, y - 1, 1, 1); }
-    x.fillStyle = P.bg[6];
-    const sunY = Math.round(HZ * 0.42);
-    for (let yy = -40; yy <= 40; yy++) { const w = Math.sqrt(1600 - yy * yy); x.fillRect(Math.round(W * 0.76 - w), sunY + yy, Math.round(w * 2), 1); }
-    // 远处的厂房：一圈 TW 宽可平铺，画成两圈宽（采样跨过接缝时不用拆两段）
-    const [line, y] = mk(TW * 2, HZ);
-    for (let i = 0; i < 18; i++) {
-      const bx0 = Math.round(rr() * TW), bw = Math.round(48 + rr() * 90), bh = Math.round(40 + rr() * 110), ch = 54 + Math.round(rr() * 40);
-      for (const bx of [bx0 - TW, bx0, bx0 + TW, bx0 + 2 * TW]) {
-        y.fillStyle = P.bg[3]; y.fillRect(bx, HZ - bh, bw, bh);
-        y.fillRect(bx + Math.round(bw * 0.3), HZ - bh - ch, 12, 66);
-        y.fillStyle = P.bg[4];
-        for (let k = 0; k < Math.floor(bw / 18); k++) y.fillRect(bx + 8 + k * 18, HZ - bh + 14, 6, 9);
-      }
-    }
-    // 看台：人群、彩旗、围栏（一圈 TW，复制成两圈）
-    const S0 = GS - 5;
-    const [stands, z] = mk(TW * 2, GE + 14 - S0);
-    z.fillStyle = P.bg[2]; z.fillRect(0, GS - S0, TW, GE - GS);
-    for (let yy = GS + 8; yy < GE - 8; yy += 13) {
-      z.fillStyle = P.bg[1]; z.fillRect(0, yy + 9 - S0, TW, 3);
-      for (let i = 0; i < TW; i += 6) {
-        const v = rr();
-        if (v < 0.7) { z.fillStyle = v < 0.25 ? P.bg[4] : v < 0.5 ? P.bg[3] : P.bg[5]; z.fillRect(i, yy + 2 - S0, 4, 6); z.fillRect(i + 1, yy - S0, 2, 2); }
-      }
-    }
-    for (let i = 0; i < TW; i += 26) { z.fillStyle = (i / 26) % 2 ? P.bg[5] : P.bg[4]; z.fillRect(i, 0, 16, 4); z.fillRect(i + 3, 4, 10, 3); z.fillRect(i + 6, 7, 4, 3); }
-    z.fillStyle = P.bg[1]; z.fillRect(0, GE - S0, TW, 14);
-    for (let i = 0; i < TW; i += 48) { z.fillStyle = P.bg[0]; z.fillRect(i, GE - 6 - S0, 8, 20); }
-    z.drawImage(stands, 0, 0, TW, stands.height, TW, 0, TW, stands.height);
-    // 竞技场外（遭遇战）：没有看台和观众，换成工厂砖墙 + 煤气路灯 + 管道，墙头只有铁丝和烟囱影子
-    const [wall, wz] = mk(TW * 2, GE + 14 - S0);
-    const wTop = GS + 10 - S0, wBot = GE - S0;
-    wz.fillStyle = P.bg[2]; wz.fillRect(0, wTop, TW, wBot - wTop);
-    for (let yy = wTop; yy < wBot; yy += 6) {   // 砖缝：错缝砌
-      wz.fillStyle = P.bg[1]; wz.fillRect(0, yy, TW, 1);
-      for (let i = ((yy - wTop) / 6) % 2 ? 6 : 0; i < TW; i += 12) wz.fillRect(i, yy, 1, 6);
-      for (let i = 0; i < TW; i += 12) if (rr() < 0.12) { wz.fillStyle = P.bg[3]; wz.fillRect(i + 2, yy + 2, 8, 3); wz.fillStyle = P.bg[1]; }
-    }
-    wz.fillStyle = P.bg[3]; wz.fillRect(0, wTop - 4, TW, 4); wz.fillStyle = P.bg[1]; wz.fillRect(0, wTop, TW, 1);   // 墙头压顶
-    for (let i = 0; i < TW; i += 7) { wz.fillStyle = P.bg[1]; wz.fillRect(i, wTop - 9, 1, 5); }   // 铁丝桩
-    wz.fillStyle = P.bg[1]; wz.fillRect(0, wTop - 8, TW, 1);
-    for (let i = 0; i < TW; i += 150) {   // 两根横走的管道 + 法兰
-      wz.fillStyle = P.bg[4]; wz.fillRect(i, wTop + 14, 110, 4); wz.fillStyle = P.bg[5]; wz.fillRect(i, wTop + 14, 110, 1);
-      for (let k = 0; k < 110; k += 36) { wz.fillStyle = P.bg[3]; wz.fillRect(i + k, wTop + 12, 3, 8); }
-    }
-    for (let i = 40; i < TW; i += 120) {   // 煤气路灯：灯柱 + 暖黄灯罩（唯一的一点暖光）
-      wz.fillStyle = P.bg[0]; wz.fillRect(i, wTop - 22, 3, wBot - wTop + 22); wz.fillRect(i - 5, wTop - 24, 13, 3);
-      wz.fillStyle = P.fire[1]; wz.fillRect(i - 3, wTop - 21, 9, 6); wz.fillStyle = P.fire[3]; wz.fillRect(i - 1, wTop - 20, 5, 3);
-    }
-    for (let i = 90; i < TW; i += 260) { wz.fillStyle = P.bg[1]; wz.fillRect(i, wTop + 22, 44, wBot - wTop - 22); wz.fillStyle = P.bg[0];   // 关着的厂门
-      for (let k = 4; k < 44; k += 8) wz.fillRect(i + k, wTop + 24, 1, wBot - wTop - 26); }
-    wz.fillStyle = P.bg[1]; wz.fillRect(0, wBot, TW, 14);
-    wz.drawImage(wall, 0, 0, TW, wall.height, TW, 0, TW, wall.height);
-    // 地面：世界坐标里平铺（跟车 1:1 移动）
-    const F0 = GE + 14;
-    const [floor, f] = mk(TW, H - F0);
-    f.fillStyle = P.bg[3]; f.fillRect(0, 0, TW, GROUND - F0);
-    for (let i = 0; i < 900; i++) { f.fillStyle = rr() < 0.5 ? P.bg[2] : P.bg[4]; f.fillRect(Math.round(rr() * TW), Math.round(rr() * (GROUND - F0)), 4, 1); }
-    f.fillStyle = P.bg[2]; f.fillRect(0, GROUND - F0, TW, H - GROUND);
-    f.fillStyle = P.bg[4]; f.fillRect(0, GROUND - F0, TW, 1);
-    for (let i = 0; i < TW; i += 48) { f.fillStyle = P.bg[1]; f.fillRect(i, GROUND - F0 + 18, 30, 4); }
-    return { sky, line, stands, wall, floor, S0, F0 };
-  }
-  // 圆筒映射：屏幕列 sx → 纹理坐标 rot + asin(u·K0)·R（u = 离屏幕中心的比例）。中间一个屏幕像素 = 1/z 个纹理像素（和世界一样的缩放），两边压缩
-  // 这里画在世界层里：1 个画布像素 = 1 个纹理像素（和车一样），最后和车一起整体放大，像素大小一致
-  function drum(tex, wy0, rot, vw, oy) {
-    const K0 = 0.82, R = (vw / 2) / K0, per = tex.width / 2, th = tex.height;
-    const y = Math.round(wy0 - oy), STEP = 4;
-    const tx = (sx) => rot + Math.asin(clamp((sx - vw / 2) / (vw / 2), -1, 1) * K0) * R;
-    let t0 = tx(0);
-    for (let sx = 0; sx < vw; sx += STEP) {
-      const t1 = tx(sx + STEP), u = ((t0 % per) + per) % per;
-      g.drawImage(tex, Math.floor(u), 0, Math.max(1, Math.round(t1 - t0)), th, sx, y, STEP, th);
-      t0 = t1;
-    }
-  }
-  // 背景：天空 → 远处厂房（转得慢）→ 看台（像绕着场地转）→ 两边压暗，显出圆筒感。
-  // 画在世界层的「视口像素」里（左上角 = 取整后的镜头角 ox, oy），vw × vh 是镜头看到的世界像素
-  function drawBackdrop(vw, vh, oy) {
-    const cam = B.cam;
-    g.fillStyle = P.bg[3]; g.fillRect(0, 0, vw, vh);
-    const sw = Math.max(vw, W);   // 天空不跟镜头缩放：拉远时也铺满
-    g.drawImage(BD.sky, 0, 0, W, HZ, Math.round(vw / 2 - sw / 2), -oy, sw, HZ);
-    drum(BD.line, 0, cam.x * 0.12, vw, oy);
-    drum(B.opts && B.opts.mode === 'side' ? BD.wall : BD.stands, BD.S0, cam.x * 0.45, vw, oy);   // 遭遇战在竞技场外：没有看台
-    const bot = GE + 14 - oy;   // 从画面顶部一直压到看台底部，不留硬边
-    const gr = g.createLinearGradient(0, 0, vw, 0);
-    gr.addColorStop(0, 'rgba(7,8,12,0.6)'); gr.addColorStop(0.2, 'rgba(7,8,12,0)'); gr.addColorStop(0.8, 'rgba(7,8,12,0)'); gr.addColorStop(1, 'rgba(7,8,12,0.6)');
-    g.fillStyle = gr; g.fillRect(0, 0, vw, bot);
-  }
-  // 世界坐标里的地面：按 TW 平铺，镜头走到哪铺到哪
-  function drawFloor() {
-    const cam = B.cam;
-    for (let x = Math.floor((cam.x - 40) / TW) * TW; x < cam.x + cam.w + 40; x += TW) g.drawImage(BD.floor, x, BD.F0);
-  }
+  const sceneT = () => performance.now() / 1000;
+  function drawBackdrop(vw, vh, oy) { SA.Scenes.back(BD, g, vw, vh, oy, B.cam.x, sceneT(), B.opts); }
+  function drawFloor() { SA.Scenes.floor(BD, g, B.cam); }
+  function drawNear(vw, vh, oy) { SA.Scenes.front(BD, g, vw, vh, oy, B.cam.x, sceneT()); }
 
   // ---------- 绘制 ----------
   // 地形：土坡填满到地面、泥地一层湿泥、货箱（木板 + 铁包角，越破裂纹越多）
@@ -314,6 +210,7 @@ SA.BattleView.create = function createBattleView(api) {
     }
     for (const tx of B.texts) if (PIXEL_TEXT.test(tx.str)) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
     g.restore();
+    drawNear(vw, vh, oy);   // 近景压在车和炮弹前面
     present(vw, vh, ox, oy, false);
 
     // 叠加层：直接画在设备分辨率上（文字、细条、准星、弹道扇区都是矢量，不再被放大成糊块）
@@ -901,10 +798,10 @@ SA.BattleView.create = function createBattleView(api) {
       const reach = Math.min((b.x1 - b.x0) / 2 / Math.max(0.01, Math.abs(dx)), (b.y1 - b.y0) / 2 / Math.max(0.01, Math.abs(dy)));
       return { part: p.part, label: p.label, b, mx, my, ox: dx, oy: dy, reach };   // o = 由车内指向车外的方向
     }).filter(Boolean);
-    const lines = [{ who: 'uncle', text: tut.intro, on: () => { I.focus = null; } }];
+    const lines = tut.intro.map(L => ({ ...L, on: () => { I.focus = null; } }));
     for (const p of tut.parts) {
       if (!I.arrows.some(a => a.part === p.part)) continue;
-      for (const text of p.lines) lines.push({ who: 'uncle', text, on: () => { I.focus = p.part; } });
+      for (const L of p.lines) lines.push({ ...L, on: () => { I.focus = p.part; } });
     }
     I.vn = SA.Story.talk(lines, { host: wrap, cls: 'vn-battle', onDone: () => {
       SA.Story.mark('tutorial');
@@ -1085,7 +982,7 @@ SA.BattleView.create = function createBattleView(api) {
   function start(opts) {
     api.startState(opts);
     B = api.getState();
-    BD = BD || buildBackdrop();
+    BD = SA.Scenes.pick(opts);
 
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';

@@ -3,7 +3,7 @@
 // 设计目标：
 // 1. 运行时编辑或删除 DOM 文本、按钮文案和 title/aria-label 等属性，并隐藏所选元素；
 // 2. 同一个 key 可以绑定多个位置，修改后即时联动；
-// 3. 开发服务器将覆盖值保存到 text/<game>/<locale>.json，静态部署则保存到 localStorage；
+// 3. 首次选择文本文件后自动保存；浏览器草稿随时留在 localStorage；
 // 4. 不直接改写散落在业务 JS 里的字符串，避免正则替换破坏模板和逻辑。
 //
 // 最小接入示例：
@@ -44,11 +44,17 @@ SA.Text = (() => {
   let editorBox = null;
   let statusEl = null;
   let saves = Promise.resolve(); // 同页的连续保存按顺序写入，防止旧请求覆盖新稿。
+  let fileHandle = null;
+  let filePermission = false;
+  let fileLoadPending = null;
+  let autoSaveTimer = 0;
+  let changeRevision = 0;
   let readyResolve;
   const ready = new Promise(resolve => { readyResolve = resolve; });
 
   const storageKey = () => `sa-text-${config.game}-${config.locale}`;
   const fileName = () => `text/${config.game}/${config.locale}.json`;
+  const handleKey = () => `${config.game}/${config.locale}:${location.pathname}`;
   const safeKey = key => typeof key === 'string' && key.length > 0 && key.length <= 240;
   const isUiElement = el => el && el.closest && el.closest('#sa-text-manager');
 
@@ -97,8 +103,10 @@ SA.Text = (() => {
     if (values[key] === next && key in values) return next;
     values[key] = next;
     dirty = true;
+    changeRevision++;
     applyKey(key);
     persistLocal();
+    scheduleAutoSave();
     if (!options.silent) notify(key);
     updateToolbar();
     return next;
@@ -352,8 +360,7 @@ SA.Text = (() => {
     const status = document.createElement('span'); status.className = 'sa-text-status';
     head.append(title, status);
     const actions = document.createElement('div'); actions.className = 'sa-text-actions';
-    actions.append(makeButton('toggle', '开启编辑'), makeButton('save', '保存'), makeButton('export', '导出 JSON'), makeButton('reset', '清除覆盖'));
-    actions.querySelector('[data-text-action="save"]').disabled = true;
+    actions.append(makeButton('toggle', '开启编辑'), makeButton('save', '选择保存文件'), makeButton('export', '导出 JSON'), makeButton('reset', '清除覆盖'));
     editorBox = document.createElement('div'); editorBox.className = 'sa-text-editor'; editorBox.hidden = true;
     const label = document.createElement('label'); label.textContent = '当前文案';
     editorInput = document.createElement('textarea'); editorInput.rows = 2;
@@ -414,14 +421,14 @@ SA.Text = (() => {
     removedElements.add(removalPath(activeElement));
     hideElement(activeElement);
     activeElement = null; activeEntry = null; editorBox.hidden = true;
-    dirty = true; persistLocal(); updateToolbar('元素已隐藏；点击保存写入文件');
+    dirty = true; changeRevision++; persistLocal(); scheduleAutoSave(); updateToolbar('元素已隐藏；草稿已保存');
   }
 
   function removeSelectedText() {
     if (!activeEntry) return;
     set(activeEntry.key, '');
     editorInput.value = '';
-    updateToolbar('文字已删除；点击保存写入文件');
+    updateToolbar('文字已删除；草稿已保存');
   }
 
   function onPointerDown(event) {
@@ -465,13 +472,14 @@ SA.Text = (() => {
     const toggleButton = toolbar.querySelector('[data-text-action="toggle"]');
     const saveButton = toolbar.querySelector('[data-text-action="save"]');
     toggleButton.textContent = editing ? '完成编辑' : '开启编辑';
-    saveButton.disabled = !dirty;
+    saveButton.disabled = !dirty && !!fileHandle && filePermission;
+    saveButton.textContent = fileHandle ? '保存到已选文件' : '选择保存文件';
     if (editorBox) {
       editorBox.querySelector('[data-text-action="parent"]').disabled = !activeElement || !activeElement.parentElement || activeElement.parentElement === document.body;
       editorBox.querySelector('[data-text-action="remove-element"]').disabled = !canRemove(activeElement);
       editorBox.querySelector('[data-text-action="remove-text"]').disabled = !activeEntry;
     }
-    statusEl.textContent = message || (dirty ? '有未保存修改' : (loaded ? '已同步' : '正在加载…'));
+    statusEl.textContent = message || (dirty ? (filePermission ? '正在自动保存到文件…' : '草稿已保存；点击选择 text/steam-arena/zh-CN.json') : (loaded ? (filePermission ? '文件已同步' : '本机草稿已保存') : '正在加载…'));
   }
 
   function persistLocal() {
@@ -625,13 +633,15 @@ SA.StoryData = (() => {
   // 默认台词按调用时的 SA.STORY 生成；stage/feat 的纯字符串由远房亲戚讲述。
   function defaults(id) {
     if (id === 'opening') return story().opening;
-    if (id === 'tutorial.intro') return [story().tutorial.intro];
+    if (id === 'tutorial.intro') return [].concat(story().tutorial.intro);
     if (id.startsWith('tutorial.parts.')) return story().tutorial.parts[Number(id.slice(15))].lines;
     if (id.startsWith('stage.')) {
       const match = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
       return story().stage[match[1]][match[2]];
     }
     if (id.startsWith('feat.')) return story().feat[id.slice(5)];
+    const insert = /^(before|after)\.(.+)$/.exec(id);
+    if (insert) return (story()[insert[1]] || {})[insert[2]] || [];
     return [];
   }
 

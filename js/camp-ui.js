@@ -88,7 +88,7 @@ SA.CampUI = (() => {
 
   // ---------- 试驾场：任选场地和对手 ----------
   // 对手来源：战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 分享码示例 / 随机街头车；可以改材料、AI 性格、枪法。
-  const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '' };   // 记住上一次的选择
+  const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '', scene: '' };   // 记住上一次的选择
   const SRC = [['camp', '战役各关'], ['tour', '终局锦标赛'], ['bp', '官方蓝图'], ['mine', '我的蓝图'], ['cloud', '分享码示例'], ['evolve', '进化报告'], ['street', '随机街头车']];
   const STYLES = [['', '按对手默认'], ['roam', '游走'], ['rush', '冲锋'], ['kite', '放风筝'], ['turtle', '龟缩']];
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
@@ -134,6 +134,7 @@ SA.CampUI = (() => {
         field('对手来源', sel(SRC, SB.src, (v) => { SB.src = v; SB.foe = (foeList(v)[0] || {}).key; })),
         field('对手', L.length ? sel(L.map(f => [f.key, f.name]), SB.foe, (v) => { SB.foe = v; }) : h('span', { class: 'muted' }, '这里还没有车')),
         field('场地', sel([['', '按对手默认'], ...SA.TERRAIN_ORDER.map(k => [k, SA.TERRAINS[k].name])], SB.terrain, (v) => { SB.terrain = v; })),
+        field('场景', sel([['', '预选赛（默认）'], ...Object.entries(SA.Scenes.NAMES).filter(([k]) => k !== 'qual')], SB.scene, (v) => { SB.scene = v; })),
         field('对手材料', sel([[0, '保持原样'], ...SA.MATS.slice(1).map((m, i) => [i + 1, m.rank ? `${m.rank} · ${m.name}` : m.name])], SB.mt, (v) => { SB.mt = +v; })),
         field('AI 性格', sel(STYLES, SB.style, (v) => { SB.style = v; })),
         field('对手枪法', sel([['', '按对手默认'], ...[0.3, 0.5, 0.65, 0.8, 0.9, 1].map(a => [a, `瞄准 ${a}`])], SB.aim, (v) => { SB.aim = v; }))));
@@ -150,7 +151,7 @@ SA.CampUI = (() => {
         h('div', { class: 'dialog-actions', style: 'padding:10px 0 0;justify-content:flex-start' },
           h('button', { class: 'btn primary', disabled: !me.canDeploy, onclick: () => {
             SA.UI.closeModal();
-            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1 });
+            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1, scene: SB.scene || undefined });
           } }, '开打'),
           SB.src === 'street' ? h('button', { class: 'btn', onclick: () => draw() }, '换一台') : null));
     }

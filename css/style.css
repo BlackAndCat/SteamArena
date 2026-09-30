@@ -740,6 +740,10 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
 .vn-text { flex: 1; font-size: 19px; line-height: 1.75; font-weight: 700; letter-spacing: .04em; color: var(--text); text-shadow: 2px 2px 0 var(--dark0); white-space: pre-wrap; min-height: 3.5em; }
 .vn[data-who=narr] .vn-portrait, .vn[data-who=narr] .vn-name { display: none; }
 .vn[data-who=narr] .vn-text { color: var(--brass3); padding: 8px 12px; }
+/* 老汤姆和远房亲戚同框：左亲戚、右老汤姆，说话的那个亮，另一个压暗；名牌挪到说话人那一边 */
+.vn-portrait, .vn-name { transition: filter .15s; }
+.vn-duo[data-who=uncle] .vn-portrait2, .vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2) { filter: brightness(.45) saturate(.5); }
+.vn-duo[data-who=smith] .vn-name { left: auto; right: 22px; }
 .vn-name { position: absolute; top: -26px; left: 22px; z-index: 1; padding: 4px 16px 6px; font-size: 15px; font-weight: 900; letter-spacing: .12em; color: #2a1a05;
   background: var(--brass3); clip-path: var(--px-corner-s); box-shadow: inset -3px -3px 0 var(--brass1); }
 .vn-name:empty { display: none; }
