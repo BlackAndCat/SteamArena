@@ -90,6 +90,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 | `js/editor.js` | 车间：改装台、铭牌、底部操作栏（模块 / 蓝图库）、点选与拖放、就地买卖与修理、图例；由 Opus 维护 |
 | `js/battle.js` | 竞技场规则：加速与撞击、直射 / 高抛弹道、伤害、武器组、镜头状态、AI 和 `SA.Battle.simulate`；通过事件总线向画面层发出状态变化 |
 | `js/battle-view.js` | 竞技场画面：世界层、载具、背景、粒子、特效、准星、HUD、面板和输入；消费 `SA.Battle.emit` 事件，由 Opus 维护 |
+| `js/scenes.js` | 战斗场景：按比赛类型选择背景，并绘制远近景、地面与前景层 |
 | `js/camp-ui.js` | 战役弹窗、开发者面板和试驾场的界面层；规则调用 `SA.Camp` / `SA.S` 接口；由 Opus 维护 |
 | `docs/art-direction.md` | 美术统一与辨识度方案 |
 | `tools/evolve.html` · `evolve-report.js` | 进化擂台：定向生成、胜率、收藏、手工候选回流；与数值自测共用入口 |
