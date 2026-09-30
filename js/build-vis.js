@@ -7,3 +7,4 @@ SA.BUILD_VIS += '+home-weather'; // 院子重画：晴 / 雨 / 夜 / 雾四种�
 SA.BUILD_VIS += '+prologue-yard'; // 序章战斗的铁匠铺后院改用主页面院子的画（同一座铁匠铺、院墙、院门、天气）
 SA.BUILD_VIS += '+workshop-pan-zoom'; // 车间蓝图横向拖动与滚轮缩放。
 SA.BUILD_VIS += '+cooling-water-labels'; // 水量提示只描述冷却耗水。
+SA.BUILD_VIS += '+blueprint-zoom-crisp'; // 蓝图缩放只用 1/2/3 整数倍、最近邻不糊、最小 1 倍；纸比画布宽、平移夹在纸里；打开时车居中；尺子斜放

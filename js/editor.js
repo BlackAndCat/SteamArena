@@ -10,6 +10,10 @@ SA.Editor = (() => {
   const PADX = SA.SPR.PADX, C = K.CELL;
   const W = K.COLS * C + PADX * 2, H = K.ROWS * C + 12;
   const DRAG_PX = 6;
+  // 蓝图缩放（2026-09-30 用户：缩小会露出一大片不像蓝图的底色、缩放发糊）：
+  // 只用整数倍 1 / 2 / 3（画布只有 W×H 个像素，小数倍一重采样就糊、缩小就丢像素），最小 1 倍；关掉平滑、平移取整。
+  // 蓝图纸比画布左右各宽 MX，平移（拖动 / 缩放锚点 / 打开时让车居中）始终夹在纸的范围里，永远看不到纸外面。
+  const ZOOMS = [1, 2, 3], MX = 5 * C;
   // sel：准备连续放置的库存 / 商店键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
@@ -40,9 +44,10 @@ SA.Editor = (() => {
     SA.go('garage');
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
-    Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null, zoom: 1, panX: 0 });
+    Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null, zoom: 1, panX: 0, wheelAcc: 0 });
     if (st.plateOpen == null) st.plateOpen = window.innerWidth >= 1700;   // 展开的铭牌会盖住格子，默认收成一行
     st.stats = SA.V.stats(veh());
+    centerView();
 
     cv = h('canvas', { class: 'px', width: W, height: H });
     g = cv.getContext('2d');
@@ -114,13 +119,27 @@ SA.Editor = (() => {
     // 模块按压或拖动期间固定落点；deltaMode 换算后各设备的滚轮幅度一致。
     if (st.press || st.drag) return;
     const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cv.clientHeight : 1);
-    const zoom = Math.max(0.5, Math.min(2, st.zoom * Math.exp(-delta * 0.001)));
+    // 滚轮一格（约 100）换一档；触控板的小幅滚动先攒着，攒够一档再换
+    st.wheelAcc = (Math.sign(delta) === Math.sign(st.wheelAcc) ? st.wheelAcc : 0) + delta;
+    if (Math.abs(st.wheelAcc) < 60) return;
+    const i = ZOOMS.indexOf(st.zoom), zoom = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + (st.wheelAcc < 0 ? 1 : -1)))];
+    st.wheelAcc = 0;
+    if (zoom === st.zoom) return;
     const rc = cv.getBoundingClientRect();
     const x = (e.clientX - rc.left) / rc.width * W;
     // 鼠标下的蓝图横坐标不变；纵向始终以地面底线为缩放锚点。
-    st.panX = x - (x - st.panX) * zoom / st.zoom;
+    st.panX = clampPan(x - (x - st.panX) * zoom / st.zoom, zoom);
     st.zoom = zoom;
     st.hover = cellAtXY(e.clientX, e.clientY);
+  }
+  // 平移夹在蓝图纸里：纸在蓝图坐标 [-MX, W + MX]，画面 [0, W] 必须整个落在纸上；取整，像素不会错位
+  function clampPan(p, z = st.zoom) { return Math.round(Math.max(W - z * (W + MX), Math.min(z * MX, p))); }
+  // 打开车间：1 倍，车（已装的模块）左右居中
+  function centerView() {
+    let c0 = K.COLS, c1 = -1;
+    SA.V.each(veh(), (cell, r, c) => { c0 = Math.min(c0, c); c1 = Math.max(c1, c + SA.fp(cell.id).w - 1); });
+    const cx = c1 < 0 ? W / 2 : PADX + (c0 + c1 + 1) / 2 * C;
+    st.zoom = 1; st.wheelAcc = 0; st.panX = clampPan(W / 2 - cx, 1);
   }
   // 把模块 id 摆到鼠标位置：模块中心对准鼠标（底盘自动贴到最底两行），返回锚点和会压到的模块（ignore 的锚点除外）
   const overCanvas = (x, y) => { const rc = cv.getBoundingClientRect(); return x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom; };
@@ -186,7 +205,7 @@ SA.Editor = (() => {
     }
     if (p.src.kind === 'pan') {
       if (!st.drag && Math.hypot(e.clientX - p.x, e.clientY - p.y) > DRAG_PX) st.drag = p.src;
-      if (st.drag) st.panX = p.src.panX + (e.clientX - p.x) / cv.getBoundingClientRect().width * W;
+      if (st.drag) st.panX = clampPan(p.src.panX + (e.clientX - p.x) / cv.getBoundingClientRect().width * W);
       st.hover = cellAtXY(e.clientX, e.clientY);
       return;
     }
@@ -871,22 +890,25 @@ SA.Editor = (() => {
     const key = `${box.c0},${box.c1},${box.r0}|${reg.r0},${reg.c0},${reg.c1}`;
     if (key === bpKey && bpCv) return bpCv;
     bpKey = key;
-    bpCv = bpCv || document.createElement('canvas'); bpCv.width = W; bpCv.height = H;
-    const k = bpCv.getContext('2d'), img = k.createImageData(W, H), px = img.data;
+    const BW = W + MX * 2;   // 纸比画布左右各宽 MX（平移、居中时不露底）
+    bpCv = bpCv || document.createElement('canvas'); bpCv.width = BW; bpCv.height = H;
+    const k = bpCv.getContext('2d'), img = k.createImageData(BW, H), px = img.data;
     const hex = (hx) => [parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)];
     const T = [hex(BPC.deep), hex(BPC.base), hex(BPC.lite)];
     // 纸：斑驳三阶抖动 + 边缘压暗 + 两圈淡淡的水渍
     const rings = [[W * 0.18, H * 0.72, 34], [W * 0.83, H * 0.3, 22]];
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      let n = wash(x, y, 3) * 0.75 + wash(x * 3, y * 3, 9) * 0.25;
-      const e = Math.min(x, y, W - 1 - x, H - 1 - y); if (e < 14) n -= (14 - e) / 14 * 0.55;
+    for (let y = 0; y < H; y++) for (let xi = 0; xi < BW; xi++) {
+      const x = xi - MX;
+      let n = wash(x + 400, y, 3) * 0.75 + wash((x + 400) * 3, y * 3, 9) * 0.25;
+      const e = Math.min(xi, y, BW - 1 - xi, H - 1 - y); if (e < 14) n -= (14 - e) / 14 * 0.55;
       for (const [rx, ry, rr] of rings) { const dd = Math.abs(Math.hypot(x - rx, y - ry) - rr); if (dd < 1.5) n -= 0.35; }
       const t = Math.max(0, Math.min(2, Math.floor(n * 2.2 + bay4(x, y) - 0.35)));
-      const i = (y * W + x) * 4, c = T[t];
+      const i = (y * BW + xi) * 4, c = T[t];
       px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
       if (hsh(x, y, 5) > 0.996) { px[i] = c[0] + 22; px[i + 1] = c[1] + 26; px[i + 2] = c[2] + 30; }   // 纸纤维亮点
     }
     k.putImageData(img, 0, 0);
+    k.save(); k.translate(MX, 0);   // 以下按蓝图坐标画（格子从 PADX 开始）
     // 手画的线：每 ~26 像素抖一下，笔压不匀（偶尔断一个像素），画全区之外伸出去一截渐渐断掉
     const dot = (x, y, a, strong) => { k.fillStyle = `${strong ? BPC.ink : BPC.faint}${a})`; k.fillRect(x, y, 1, 1); };
     const X0 = PADX + box.c0 * C, X1 = PADX + (box.c1 + 1) * C, Y0 = box.r0 * C, Y1 = K.ROWS * C;
@@ -916,17 +938,22 @@ SA.Editor = (() => {
       k.fillStyle = `${BPC.faint}0.12)`; for (let j = 0; j < C; j++) if (((x + j) % 8) === 0 || true) { const q = (x + y + j) % 8; if (q === 0) k.fillRect(x + j, y + C - 1 - j, 1, 1); }
     }
     decorate(k);
+    k.restore();
     return bpCv;
   }
   // 桌上的小物件（画在车下面，纯装饰）
   function decorate(k) {
     const R = (x, y, w, hh, col) => { k.fillStyle = col; k.fillRect(x, y, w, hh); };
-    // 黄杨木尺：左上角，两头黄铜包角，刻度 2 / 10 / 20
-    const rx = 8, ry = 6, rw = 132;
-    R(rx + 2, ry + 3, rw, 12, 'rgba(8,18,30,.45)');   // 影子
-    R(rx, ry, rw, 12, '#6b4a24'); R(rx + 1, ry + 1, rw - 2, 10, '#c9a36a'); R(rx + 1, ry + 1, rw - 2, 1, '#e3c48c'); R(rx + 1, ry + 10, rw - 2, 1, '#9a7442');
-    for (let i = 6; i < rw - 6; i += 2) { const len = (i - 6) % 20 === 0 ? 5 : (i - 6) % 10 === 0 ? 4 : 2; R(rx + i, ry + 1, 1, len, '#5a3a18'); }
-    for (const ex of [rx, rx + rw - 5]) { R(ex, ry, 5, 12, '#4e3510'); R(ex + 1, ry + 1, 3, 10, '#d9a441'); R(ex + 1, ry + 1, 3, 1, '#f5d77a'); }
+    // 黄杨木尺：左上角斜放（每往右 4 像素往下 1 像素，干净的像素斜线），两头黄铜包角，刻度 2 / 10 / 20
+    const rx = 8, ry = 4, rw = 132, TH = 12, dy = (i) => ry + (i >> 2);
+    for (let i = 0; i < rw; i++) R(rx + i + 2, dy(i) + 3, 1, TH, 'rgba(8,18,30,.45)');   // 影子
+    for (let i = 0; i < rw; i++) {
+      const x = rx + i, y = dy(i), cap = i < 5 || i >= rw - 5, edge = i === 0 || i === rw - 1;
+      R(x, y, 1, TH, cap ? '#4e3510' : '#6b4a24');
+      if (edge) continue;
+      R(x, y + 1, 1, TH - 2, cap ? '#d9a441' : '#c9a36a'); R(x, y + 1, 1, 1, cap ? '#f5d77a' : '#e3c48c'); if (!cap) R(x, y + TH - 2, 1, 1, '#9a7442');
+      if (!cap && (i - 6) % 2 === 0 && i < rw - 6) { const len = (i - 6) % 20 === 0 ? 5 : (i - 6) % 10 === 0 ? 4 : 2; R(x, y + 1, 1, len, '#5a3a18'); }
+    }
     // 右上角：印度橡皮（旧红褐，一角磨圆）+ 几粒橡皮屑
     const ex = W - 52, ey = 10;
     R(ex + 2, ey + 3, 24, 12, 'rgba(8,18,30,.45)');
@@ -951,9 +978,10 @@ SA.Editor = (() => {
     g.fillRect(0, 0, W, H);
     // 蓝图、车辆、标记和预览使用同一变换；底线固定，平移只作用于横轴。
     g.save();
+    g.imageSmoothingEnabled = false;   // 整数倍放大 + 最近邻，像素不糊
     g.translate(st.panX, K.ROWS * C * (1 - st.zoom));
     g.scale(st.zoom, st.zoom);
-    g.drawImage(blueprint(v), 0, 0);
+    g.drawImage(blueprint(v), -MX, 0);
     const O = SA.V.occ(v, 'body');
     g.fillStyle = 'rgba(111,207,106,0.06)';
     for (let c = 0; c < K.COLS; c++) if (O[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
