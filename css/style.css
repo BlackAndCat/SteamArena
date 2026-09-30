@@ -217,20 +217,8 @@ body[data-screen=garage] #screen { min-height: 0; }
 
 /* 战斗 */
 .bt { flex: 1; display: flex; flex-direction: column; align-items: center; background: var(--bg0); }
-.bt-hud { width: 100%; max-width: 1280px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; padding: 8px 16px; align-items: start; }
-.bt-side { display: grid; gap: 4px; }
-.bt-side .nm { font-weight: 900; }
-.bt-side.enemy .nm { text-align: right; }
-.bt-side .state { font-size: 12px; color: var(--fire3); min-height: 16px; }
-.bt-timer { font-size: 22px; font-weight: 900; color: var(--brass2); font-variant-numeric: tabular-nums; padding-top: 4px; }
 .bt-canvas-wrap { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 0 8px; }
 .bt canvas { cursor: none; touch-action: none; border: 2px solid var(--dark0); }
-.bt-bottom { width: 100%; max-width: 1280px; display: flex; gap: 10px; align-items: center; padding: 8px 16px 14px; flex-wrap: wrap; }
-.bt-ctrl { display: flex; gap: 6px; flex-wrap: wrap; }
-.bt-ctrl .btn { touch-action: none; user-select: none; -webkit-user-select: none; }
-.bt-info { flex: 1; min-width: 240px; font-size: 13px; color: var(--muted); min-height: 38px; }
-.bt-info b { color: var(--text); }
-.bt-info .side { color: var(--magenta); font-weight: 900; }
 /* 热量超过 75：整条红光闪烁 */
 .heat.hot { animation: hotglow .9s ease-in-out infinite; border-color: #ff3b2f; }
 .heat.hot > i { animation: hot .9s ease-in-out infinite; }
@@ -268,10 +256,6 @@ body[data-screen=garage] #screen { min-height: 0; }
 }
 @media (max-height: 560px) and (orientation: landscape) {
   .dock-ctx .info .sub { display: none; }
-}
-@media (max-width: 480px) {
-  .bt-hud { grid-template-columns: 1fr 1fr; }
-  .bt-timer { grid-column: 1 / -1; grid-row: 1; text-align: center; }
 }
 
 /* 车间：「?」图例按钮、蓝图库页签 */
@@ -489,16 +473,11 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .brass-plate .plate-toggle .weight.bad { background: var(--magenta); color: #fff; }
 .vs-chips { display: flex; gap: 4px; }
 
-.slot.co { border-color: var(--glass2); }
-.slot .co-tag { margin-left: 6px; font-size: 10px; padding: 0 4px; background: var(--glass2); color: #0b0e15; }
 
 .bt-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .bt-speed input { width: 110px; }
 .bt-speed b { color: var(--brass3); font-variant-numeric: tabular-nums; min-width: 42px; }
 
-.bt-side .state .alert { display: inline-block; margin-right: 6px; padding: 1px 6px; font-weight: 900; color: #fff; background: #b8391b; border: 1px solid #ff3b2f; animation: alertblink .6s steps(2) infinite; }
-@keyframes alertblink { 50% { background: #ff3b2f; } }
-.bt-side .state { font-size: 13px; min-height: 20px; }
 
 /* ---------- 材料 / 战役 ---------- */
 .chip.mat { color: var(--mat); border-color: color-mix(in srgb, var(--mat) 55%, transparent); background: color-mix(in srgb, var(--mat) 12%, var(--dark1)); }
@@ -526,7 +505,6 @@ kbd { display: inline-block; min-width: 18px; padding: 0 4px; margin: 0 2px; fon
 .chip.aux .x:hover { color: #ff5a4a; }
 .btn.small.aux { font-size: 11px; padding: 2px 6px; }
 
-.bt-timer small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; letter-spacing: 1px; }
 .terrain-note { display: grid; gap: 2px; padding: 6px 10px; background: var(--dark1); border-left: 3px solid #6b4a2b; font-size: 12px; }
 .terrain-note b { color: #d9b27a; }
 
@@ -759,11 +737,6 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
 }
 
 /* 投降：升白旗时画面上方的提示条（点击画面跳过） */
-.bt-sur { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 12px; align-items: baseline; padding: 6px 16px 8px;
-  background: rgba(7, 8, 12, .78); border: 2px solid var(--brass1); box-shadow: 4px 4px 0 rgba(7, 8, 12, .5); pointer-events: none; white-space: nowrap; animation: bt-sur-in .25s steps(3); }
-.bt-sur b { color: var(--text); font-size: 15px; letter-spacing: .06em; }
-.bt-sur span { color: var(--muted); font-size: 12px; }
-@keyframes bt-sur-in { from { opacity: 0; transform: translate(-50%, -8px); } }
 
 /* 剧情编辑器（开发者，js/story-dev.js） */
 .dev-check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text); cursor: pointer; }
@@ -1049,16 +1022,6 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 }
 
 /* ---- 战斗顶条：铁梁 + 纸名牌 + 玻璃管（两头黄铜管箍）+ 黄铜计时牌 ---- */
-.bt-hud { border: 12px solid transparent; border-image: var(--sk-iron) 6 fill / 12px repeat; padding: 0 8px; filter: drop-shadow(4px 4px 0 rgba(7, 8, 12, .55)); }
-.bt-side .nm { display: inline-block; justify-self: start; border: 8px solid transparent; border-image: var(--sk-paper) 6 fill / 8px repeat; padding: 0 4px; color: #2a1a05; font: bold 14px SimSun, serif; letter-spacing: .1em; }
-.bt-side.enemy .nm { justify-self: end; }
-.bt-side .bar-row .name { color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; font: bold 12px SimSun, serif; }
-.bt-side .bar { position: relative; height: 12px; background: #161a24; border: 2px solid #0b0e15; border-radius: 0; box-shadow: inset 0 2px 0 #0b0e15; margin: 0 6px; overflow: visible; }
-.bt-side .bar > i { box-shadow: inset 0 2px 0 rgba(255, 255, 255, .35), inset 0 -2px 0 rgba(0, 0, 0, .3); }
-.bt-side .bar::before, .bt-side .bar::after { content: ''; position: absolute; top: -4px; width: 6px; height: 16px; background: #d9a441; box-shadow: inset 2px 0 0 #f5d77a, inset -2px 0 0 #9a6b1d, 0 0 0 2px #4e3510; z-index: 1; }
-.bt-side .bar::before { left: -8px; } .bt-side .bar::after { right: -8px; }
-.bt-timer { border: 8px solid transparent; border-image: var(--sk-brass) 4 fill / 8px repeat; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; padding: 0 10px; }
-.bt-timer small { color: #4e3510; }
 
 /* ---- 改装台 · 邮购目录的纸页签（一次只看一类；替换折叠条）---- */
 .ed-cat { display: flex; min-height: 0; min-width: 0; }
@@ -1144,3 +1107,58 @@ body[data-yard] #screen { min-height: 0; }
 .ed-dock .dock-ctx .info { min-width: 180px; }
 .ed-lever { position: static; flex: none; display: flex; align-items: center; gap: 8px; padding-left: 12px; border-left: 2px dashed #8a6a3a; }
 .ed-exit-warn { order: -1; font-size: 14px; white-space: nowrap; }
+
+/* ---------- 战斗界面 A 驾驶台（2026-09-30 用户选定；样机 tools/current.html）----------
+   战场上不挂框：上方两块铁名牌 + 正中计时鼓压在画面上；车况、警报、武器、按钮在下面一条铁皮仪表台 */
+.bt { gap: 6px; padding-bottom: 8px; }
+.bt-stage { position: relative; line-height: 0; }
+.bt-top { position: absolute; left: 10px; right: 10px; top: 8px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; line-height: 1.2; }
+.bt-plate { padding: 0 6px; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; font: bold 15px SimSun, serif; letter-spacing: .08em; white-space: nowrap; }
+.bt-clock { display: grid; justify-items: center; gap: 2px; }
+.bt-clock span { font: bold 12px SimSun, serif; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; letter-spacing: .1em; }
+.bt-sur { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 3; display: grid; justify-items: center; gap: 2px; padding: 4px 22px 6px; min-width: 300px; line-height: 1.3;
+  pointer-events: none; white-space: nowrap; animation: bt-sur-drop .3s steps(4); }
+.bt-sur i { justify-self: start; font: bold 12px SimSun, serif; font-style: normal; color: #7e2a12; letter-spacing: .3em; }
+.bt-sur b { font: bold 22px "Microsoft YaHei", sans-serif; color: #2a1a05; letter-spacing: .04em; }
+.bt-sur span { font: bold 13px SimSun, serif; color: #5a4426; }
+@keyframes bt-sur-drop { from { transform: translate(-50%, -40px); } }
+
+.bt-dash { box-sizing: border-box; max-width: 100%; display: flex; align-items: stretch; gap: 14px; padding: 2px 6px; flex-wrap: wrap; }
+.dash-car { display: flex; align-items: flex-end; gap: 12px; flex: none; }
+.dash-fig { display: grid; justify-items: center; gap: 2px; }
+.dash-fig span, .dash-lamp span, .dash-hp span { font: bold 13px SimSun, serif; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; }
+.dash-fig.bad span { color: #ff8a5c; }
+.dash-hull { display: grid; gap: 6px; align-content: end; }
+.dash-hp { display: flex; align-items: center; gap: 8px; }
+.dash-lamps { display: flex; gap: 8px; }
+.dash-lamp { display: grid; justify-items: center; gap: 1px; min-width: 32px; }
+.dash-lamp span { font-size: 12px; color: #8a8577; }
+.dash-lamp span.on { color: #ffd36b; }
+.dash-mid { flex: 1; min-width: 420px; display: grid; gap: 6px; align-content: center; }
+.dash-note { min-height: 20px; padding: 0 8px; display: flex; align-items: center; justify-content: center; text-align: center; font: bold 14px SimSun, serif; color: #5a4426; letter-spacing: .04em; line-height: 1.3; }
+.dash-note[data-k="alert"] { color: #b8391b; font: bold 16px "Microsoft YaHei", sans-serif; }
+.dash-note[data-k="warn"] { color: #2a1a05; }
+.dash-note[data-k="tut"] { color: #2a1a05; }
+.dash-keys { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.dash-key { all: unset; box-sizing: border-box; position: relative; min-width: 0; min-height: 50px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 8px solid transparent; border-image: var(--sk-ironBtn) 4 fill / 8px repeat; image-rendering: pixelated;
+  font: bold 12px/1.1 SimSun, serif; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; }
+.dash-key .px-n { position: absolute; left: -4px; top: -4px; }
+.dash-key .t { max-width: 100%; max-height: 2.3em; overflow: hidden; padding-top: 5px; text-align: center; word-break: break-all; line-height: 1.1; }   /* 键窄时名字折成两行，不截字 */
+.dash-key .c { position: absolute; right: -4px; top: -4px; font: bold 11px SimSun, serif; }
+.dash-key .rl { position: absolute; left: -2px; right: -2px; bottom: -4px; height: 4px; background: #0b0e15; }
+.dash-key .rl i { display: block; height: 100%; width: 0; background: #d9a441; }
+.dash-key .rl i.ok { background: #6fcf6a; }
+.dash-key:hover { filter: brightness(1.15); }
+.dash-key.on { border-image: var(--sk-brassDn) 4 fill / 8px repeat; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; transform: translateY(2px); }
+.dash-key.off { border-image: var(--sk-flat) 4 fill / 8px repeat; color: #6f7a8e; text-shadow: none; }
+.dash-key.co::after { content: ''; position: absolute; right: 2px; bottom: 4px; width: 4px; height: 4px; background: #7fd8e4; box-shadow: 0 0 0 2px #0b0e15; }
+.dash-key.empty { cursor: default; border: 0; min-height: 50px; }
+.dash-act { flex: none; display: grid; gap: 4px; align-content: center; justify-items: stretch; }
+.dash-vent { display: flex; align-items: center; gap: 6px; }
+.dash-act .bt-speed { justify-content: flex-end; }
+.dash-act .bt-speed input { width: 80px; }
+/* 触屏才显示的移动 / 开火键 */
+.bt-touch { display: none; width: 100%; gap: 6px; }
+.bt-touch .btn { touch-action: none; user-select: none; -webkit-user-select: none; }
+@media (pointer: coarse) { .bt-touch { display: flex; } }

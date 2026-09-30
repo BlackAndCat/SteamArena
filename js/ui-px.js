@@ -307,6 +307,68 @@ SA.PX = (() => {
     k.g.drawImage(gear(5, 7, RAMP.brass, 0.25 + pos), px - 5, py - 5);
     return k.c;
   }
+  // ---------- 战斗仪表台（界面 A 驾驶台，2026-09-30 用户选定）----------
+  // 压力表：黄铜外圈（hot = 烧红）+ 纸表盘 + 九道刻度 + 红区 + 指针；pct 0..1（略超 1 指针压过红区）
+  function gauge(R, pct, red = 0.8, hot = false) {
+    const D = R * 2 + 2, k = C(D, D), c = R + 0.5;
+    for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
+      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+      if (d > R + 0.4) continue;
+      const a = Math.atan2(x + 0.5 - c, -(y + 0.5 - c)) / Math.PI * 180, f = (a + 135) / 270;
+      if (d > R - 1) k.p(x, y, hot ? P.fire[0] : P.brass[0]);
+      else if (d > R - 3) k.p(x, y, hot ? (x + y < D ? P.fire[2] : P.fire[1]) : (x + y < D ? P.brass[3] : P.brass[1]));
+      else if (d > R - 4) k.p(x, y, P.brass[0]);
+      else if (d > R - 7 && d <= R - 5 && f >= red && f <= 1 && Math.abs(a) <= 135) k.p(x, y, P.fire[1]);
+      else k.p(x, y, d < R - 9 ? RAMP.paper.l : RAMP.paper.b);
+    }
+    for (let i = 0; i <= 8; i++) { const a = (-135 + 270 * i / 8) * Math.PI / 180; k.p(Math.round(c - 0.5 + Math.sin(a) * (R - 5.5)), Math.round(c - 0.5 - Math.cos(a) * (R - 5.5)), INK); }
+    const a = (-135 + 270 * Math.max(0, Math.min(1.04, pct))) * Math.PI / 180, m = Math.round(c - 0.5);
+    line(k, m, m, Math.round(m + Math.sin(a) * (R - 6)), Math.round(m - Math.cos(a) * (R - 6)), pct >= red ? P.fire[1] : INK);
+    k.r(m - 1, m - 1, 3, 3, P.brass[1]); k.p(m - 1, m - 1, P.brass[3]);
+    return k.c;
+  }
+  // 竖液位管：上下黄铜盖 + 玻璃 + 液面（ramp 四阶，暗→亮）；warn = 玻璃框描红
+  function tube(h, pct, ramp, warn = false) {
+    const k = C(9, h);
+    box(k, 0, 0, 9, 3, RAMP.brass); box(k, 0, h - 3, 9, 3, RAMP.brass);
+    k.r(1, 3, 7, h - 6, warn ? P.fire[1] : P.dark[0]); k.r(2, 3, 5, h - 6, P.dark[1]);
+    const lv = Math.round((h - 6) * Math.max(0, Math.min(1, pct)));
+    for (let y = 0; y < lv; y++) { const yy = h - 4 - y; k.r(2, yy, 5, 1, ramp[2]); k.p(2, yy, ramp[3]); k.p(6, yy, ramp[1]); }
+    if (lv) k.r(2, h - 3 - lv, 5, 1, ramp[3]);
+    for (let y = 4; y < h - 4; y += 2) k.p(3, y, P.dark[3]);   // 玻璃上一道虚线反光
+    return k.c;
+  }
+  // 指示灯：黄铜圈 + 玻璃（亮 = 灯色 + 白芯；暗 = 深玻璃）
+  function lamp(on, col) {
+    const k = C(11, 11);
+    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
+      const d = Math.hypot(x - 5, y - 5);
+      if (d > 5.4) continue;
+      if (d > 4.3) k.p(x, y, P.brass[0]);
+      else if (d > 3.3) k.p(x, y, x + y < 9 ? P.brass[3] : P.brass[1]);
+      else k.p(x, y, on ? (d < 1.6 ? '#fff4d8' : col) : (x + y < 9 ? P.dark[2] : P.dark[1]));
+    }
+    if (!on) k.p(4, 4, P.dark[3]);
+    return k.c;
+  }
+  // 一排装甲片：n 片还在（黄铜）、其余打掉了（暗）
+  function plates(n, of = 10) {
+    const k = C(of * 6 + 1, 9);
+    for (let i = 0; i < of; i++) { const on = i < n; box(k, i * 6, 0, 7, 9, on ? RAMP.brass : { o: P.dark[0], b: P.dark[1], l: P.dark[2], d: P.dark[0] }); if (on) k.p(i * 6 + 2, 2, P.brass[3]); }
+    return k.c;
+  }
+  // 计时鼓：铁框 + 一格一格的纸字轮
+  function drum(str) {
+    const N = str.length, w = 6 + N * 8, k = C(w, 15);
+    box(k, 0, 0, w, 15, RAMP.iron);
+    box(k, 2, 2, N * 8 + 1, 11, { o: P.dark[0], b: P.dark[0], l: P.dark[0], d: P.dark[0] });
+    [...str].forEach((ch, i) => {
+      const x = 3 + i * 8, PR = RAMP.paper;
+      for (let y = 3; y < 12; y++) k.r(x, y, 7, 1, y === 3 || y === 11 ? PR.d : y === 4 || y === 10 ? PR.a : PR.l);
+      k.g.drawImage(num(ch, INK), x + 1, 4);
+    });
+    return k.c;
+  }
   // 路标木牌：两块木板（长木纹、斜面、中缝）、箭头尖露出端面、靠柱子一头箍一条铁带、两颗铁钉、下沿磕掉两小块
   // 画的时候都按朝右画，dir = -1 时整张镜像（铁带就到了右边，贴着柱子）
   function sign(w, dir = 1, R = RAMP.wood, seed = 1) {
@@ -367,7 +429,7 @@ SA.PX = (() => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) { const row = y >> 3, off = row ? 8 : 0, mort = (y % 8 === 7) || ((x + off) % 16 === 15); b.p(x, y, mort ? P.bg[0] : hash((x + off) >> 4, row, 9) < 0.5 ? P.bg[3] : P.bg[2]); if (!mort && (y % 8 === 0)) b.p(x, y, P.bg[4]); }
     root.style.setProperty('--px-brick', `url(${b.c.toDataURL()})`);
   }
-  return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, brush, pin, tape, NOTE, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
+  return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, gauge, tube, lamp, plates, drum, sign, post, crate, planks, paperLabel, brush, pin, tape, NOTE, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
 })();
 
 // ---------- 界面件（DOM）：游戏和样机页共用。类名都带 px- 前缀，样式在 css/style.css「像素界面件」一节 ----------
