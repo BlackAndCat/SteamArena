@@ -1,0 +1,298 @@
+/* 界面重建 · 四套方案样机（tools/ui-lab.html）。外壳 + 方案 A / B / C / D 各自一段，互不影响（.pa / .pb / .pc / .pd 作用域） */
+
+/* ============ 外壳 ============ */
+body.uilab { padding: 16px 20px 80px; overflow-y: auto; }
+.uilab h1 { color: var(--brass2); font-size: 20px; margin: 0 0 6px; letter-spacing: 2px; }
+.uilab h1 small { font-size: 13px; color: var(--muted); letter-spacing: 0; font-weight: 400; }
+.uilab .lead { color: var(--muted); max-width: 1100px; line-height: 1.7; margin: 0 0 12px; }
+.uilab .lead b { color: var(--text); }
+.finds { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; margin-bottom: 12px; }
+.find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; line-height: 1.6; }
+.find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; } .find li { margin: 2px 0; }
+.ctl { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 12px; margin: 0 -4px 14px;
+  background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); }
+.ctl .k { color: var(--muted); font-size: 12px; }
+.ctl .seg { display: inline-flex; border: 2px solid var(--dark0); flex-wrap: wrap; }
+.ctl .seg button { background: var(--dark2); border: 0; padding: 5px 10px; cursor: pointer; }
+.ctl .seg button + button { border-left: 1px solid var(--dark0); }
+.ctl .seg button.on { background: var(--brass1); color: var(--text); }
+.ctl .picks { margin-left: auto; font-size: 13px; }
+.ctl .picks b { color: var(--brass3); }
+.pitch { background: var(--dark1); border: 2px solid var(--dark0); padding: 14px 18px; margin-bottom: 18px; max-width: 1280px; }
+.pitch-t { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pitch-t b { font-size: 22px; color: var(--brass3); letter-spacing: 3px; }
+.pitch .pid { font-size: 28px; font-weight: 900; color: var(--dark0); background: var(--brass2); padding: 0 10px; }
+.pitch .tag { color: var(--muted); }
+.pitch p { line-height: 1.7; margin: 8px 0; max-width: 1000px; }
+.pitch .pc { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 10px 24px; }
+.pitch .pc i { font-style: normal; color: var(--brass2); font-weight: 700; }
+.pitch .pc ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.6; }
+.blk { margin: 0 0 26px; max-width: 1280px; }
+.blk-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.blk-h > b { color: var(--brass2); font-size: 15px; letter-spacing: 2px; }
+.blk-h .muted { font-size: 12px; flex: 1; min-width: 200px; }
+.pick { cursor: pointer; margin-left: auto; background: var(--dark2); border: 2px solid var(--dark0); padding: 4px 12px; color: var(--text); }
+.pick:hover { border-color: var(--brass1); }
+.pick.on { background: var(--gauge1); border-color: var(--gauge2); color: #fff; font-weight: 700; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 600px), 1fr)); gap: 8px 18px; }
+.cmp .blk { margin-bottom: 18px; }
+.stage { position: relative; width: 100%; overflow: hidden; border: 2px solid var(--dark0); background: #000; }
+.scr { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; overflow: hidden; }
+.scr canvas, .sheet canvas { image-rendering: pixelated; }
+.sheet { padding: 22px; }
+.sheet .row { display: flex; flex-wrap: wrap; gap: 16px 22px; align-items: flex-start; margin-bottom: 18px; }
+.sheet .cap { font-size: 12px; opacity: .75; margin-top: 6px; display: block; }
+.ab { position: absolute; }
+
+
+/* ============ v2 · 铁匠铺 × 蒸汽公报：铁是底、铜是手、纸是字 ============
+   铁 = 结构和底板（面板、托盘、框）；铜 = 能动手的地方（按钮框、旋钮、夹子、铆钉、游标）；纸 = 所有的字和数（标签、清单、票、报）。
+   颜色取自炉火、铸铁、黄铜、新旧纸和墨；只有「朱红」和「炉火」表示要你做的事。 */
+.fg { --soot: #140e0b; --wood0: #22150c; --wood1: #3a2415; --wood2: #5a3920; --wood3: #83552d;
+  --iron0: #16171b; --iron1: #2c2e35; --iron2: #464952; --iron3: #6c707a; --iron4: #a7abb4;
+  --brass0: #4a3210; --brass1: #94661c; --brass2: #d4a03f; --brass3: #f3d57a; --patina: #5d8a76;
+  --paper: #f1e6c8; --paper2: #e6d6ad; --paper3: #d3bd8a; --kraft: #c8a472; --kraft2: #a9844f;
+  --ink: #231a12; --ink2: #5b4a37; --ink3: #8a765a; --red: #a8281d; --red2: #c9432f; --pencil: #56524c;
+  --glow: #ef7a21; --glow2: #ffd166; --chalk: #ece6d4; --board: #1b2420; --blue: #1c4677; --blue2: #2a5b92;
+  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --hand: "KaiTi", "STKaiti", "Kaiti SC", serif;
+  --num: Georgia, "Times New Roman", serif;
+  --type: "Courier New", "Noto Serif SC", monospace;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .2 0 0 0 0 .1 .9 0 0 0 -.38'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --fiber: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012 .09' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .28 0 0 0 0 .12 1.4 0 0 0 -.62'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --speck: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.2 0 0 0 -.62'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--ink); font-family: var(--serif); }
+.fg.sheet { background: var(--speck), radial-gradient(ellipse at 30% 0%, rgba(239, 122, 33, .14), transparent 60%), repeating-linear-gradient(90deg, rgba(0, 0, 0, .16) 0 1px, transparent 1px 13px), linear-gradient(180deg, #3d2616, #24160d); color: var(--paper); }
+.fg .hand { font-family: var(--hand); }
+
+/* ---- 三种材料的基底 ---- */
+.m-paper { position: relative; color: var(--ink); background: var(--grain), var(--fiber), radial-gradient(ellipse at 85% 12%, rgba(150, 100, 40, .16), transparent 38%), radial-gradient(ellipse at 10% 95%, rgba(120, 80, 30, .14), transparent 40%), linear-gradient(180deg, #f4ead0, #ebdcb4);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset, 2px 3px 0 rgba(0, 0, 0, .28), 4px 8px 14px rgba(0, 0, 0, .3); }
+.m-paper.old { background: var(--grain), var(--fiber), radial-gradient(ellipse at 20% 20%, rgba(150, 100, 40, .2), transparent 45%), radial-gradient(ellipse at 90% 85%, rgba(120, 70, 20, .24), transparent 45%), linear-gradient(180deg, #eadbb0, #dcc693); }
+.m-kraft { color: var(--ink); background: var(--grain), var(--fiber), linear-gradient(180deg, #d2b07c, #bb955e); }
+.m-blue { color: #eaf4ff; background: var(--grain), linear-gradient(rgba(234, 244, 255, .2) 1px, transparent 1px) 0 0 / 48px 48px, linear-gradient(90deg, rgba(234, 244, 255, .2) 1px, transparent 1px) 0 0 / 48px 48px,
+  linear-gradient(rgba(234, 244, 255, .07) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, rgba(234, 244, 255, .07) 1px, transparent 1px) 0 0 / 12px 12px, radial-gradient(ellipse at 50% 40%, #245488, #173c68 90%); }
+.m-iron { position: relative; color: var(--paper); background: var(--speck), repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px), linear-gradient(160deg, var(--iron2), var(--iron1) 70%);
+  border: 3px solid var(--iron0); box-shadow: inset 2px 2px 0 var(--iron3), inset -2px -2px 0 #0e0f12, 3px 4px 0 rgba(0, 0, 0, .5); }
+.m-brass { color: #2a1a05; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .09) 0 1px, transparent 1px 3px), linear-gradient(180deg, var(--brass3), var(--brass2) 48%, var(--brass1));
+  border: 2px solid var(--brass0); box-shadow: inset 1px 1px 0 #fff3c4, inset -1px -1px 0 var(--brass0); }
+.rivets::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 8px 8px, var(--iron4) 0 1.4px, var(--iron0) 2px 3.2px, transparent 3.6px), radial-gradient(circle at calc(100% - 8px) 8px, var(--iron4) 0 1.4px, var(--iron0) 2px 3.2px, transparent 3.6px),
+    radial-gradient(circle at 8px calc(100% - 8px), var(--iron4) 0 1.4px, var(--iron0) 2px 3.2px, transparent 3.6px), radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), var(--iron4) 0 1.4px, var(--iron0) 2px 3.2px, transparent 3.6px); }
+.screw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px var(--brass0), 1px 1px 0 1px rgba(0, 0, 0, .35);
+  background: linear-gradient(35deg, transparent 43%, var(--brass0) 43% 60%, transparent 60%), radial-gradient(circle at 35% 30%, var(--brass3), var(--brass1) 75%); }
+.tack { position: absolute; width: 13px; height: 13px; border-radius: 50%; z-index: 3; background: radial-gradient(circle at 35% 30%, #fff1b8, var(--brass2) 45%, var(--brass0) 90%); box-shadow: 1px 2px 0 rgba(0, 0, 0, .45); }
+.eyelet { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; background: radial-gradient(circle, var(--wood0) 0 2.4px, var(--brass2) 2.8px 4px, var(--brass0) 4.4px); }
+
+/* ---- 字 ---- */
+.t-h1 { font: 900 30px var(--serif); letter-spacing: .12em; }
+.t-h2 { font: 900 20px var(--serif); letter-spacing: .12em; }
+.t-kick { font: 700 12px var(--serif); letter-spacing: .3em; color: var(--red); }
+.t-num { font-family: var(--num); font-variant-numeric: lining-nums tabular-nums; font-weight: 700; }
+.t-type { font-family: var(--type); }
+.t-small { font-size: 12px; color: var(--ink2); line-height: 1.5; }
+.t-engrave { color: #2a1a05; font-family: var(--serif); font-weight: 900; letter-spacing: .14em; text-shadow: 0 1px 0 rgba(255, 240, 190, .75), 0 -1px 0 rgba(78, 53, 16, .35); }
+
+/* ---- 按钮 · 三种（统一：铜是框、纸是字、铁是底）---- */
+/* v1 铜框纸签：黄铜卡框里插一张纸签，两头两颗螺丝；主操作是朱红纸签 */
+.k-btn { cursor: pointer; font: inherit; border: 0; padding: 0; background: none; color: var(--ink); display: inline-flex; align-items: center; }
+.k-btn.v1 { gap: 6px; padding: 5px 7px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .09) 0 1px, transparent 1px 3px), linear-gradient(180deg, var(--brass3), var(--brass2) 45%, var(--brass1));
+  border: 2px solid var(--brass0); box-shadow: inset 1px 1px 0 #fff3c4, inset -1px -1px 0 var(--brass0), 2px 3px 0 rgba(0, 0, 0, .45); }
+.k-btn.v1 .card { padding: 5px 14px 4px; font: 900 15px var(--serif); letter-spacing: .12em; white-space: nowrap; background: var(--grain), linear-gradient(180deg, #efe2bf, #e2cf9f);
+  box-shadow: inset 0 3px 2px -1px rgba(78, 53, 16, .55), inset 0 -2px 1px -1px rgba(78, 53, 16, .45), 0 0 0 1px var(--brass0); }
+.k-btn.v1.pri .card { color: #fff3e0; background: var(--grain), linear-gradient(180deg, #c9432f, #9e2419); text-shadow: 0 1px 0 #5a0f08; }
+.k-btn.v1:hover { filter: brightness(1.07); }
+.k-btn.v1.press, .k-btn.v1:active { transform: translateY(2px); box-shadow: inset 1px 1px 0 #fff3c4, inset -1px -1px 0 var(--brass0), 0 1px 0 rgba(0, 0, 0, .45); }
+.k-btn.v1.off { filter: grayscale(.85) brightness(.75); cursor: not-allowed; }
+.k-btn.v1.sm { padding: 3px 5px; gap: 4px; } .k-btn.v1.sm .card { font-size: 12px; padding: 3px 9px 2px; } .k-btn.v1.sm .screw { width: 7px; height: 7px; }
+.k-btn.v1.big .card { font-size: 22px; padding: 8px 26px 7px; letter-spacing: .25em; }
+/* v2 铜钮纸条：铁底板上一颗黄铜按钮（主操作是红珐琅），右边铆一条纸标签 */
+.k-btn.v2 { gap: 8px; padding: 5px 10px 5px 6px; background: var(--speck), linear-gradient(160deg, var(--iron2), var(--iron1)); border: 2px solid var(--iron0); box-shadow: inset 1px 1px 0 var(--iron3), 2px 3px 0 rgba(0, 0, 0, .45); }
+.k-btn.v2 .knob { width: 24px; height: 24px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--brass2) 40%, var(--brass1) 75%, var(--brass0)); box-shadow: 0 0 0 2px var(--brass0), 0 3px 0 2px #0e0f12; }
+.k-btn.v2.pri .knob { background: radial-gradient(circle at 35% 30%, #ffb09a, #c9432f 45%, #7a160e 85%); box-shadow: 0 0 0 3px var(--brass1), 0 0 0 4px var(--brass0), 0 3px 0 4px #0e0f12; }
+.k-btn.v2 .strip { position: relative; padding: 3px 16px; font: 900 14px var(--serif); letter-spacing: .1em; white-space: nowrap; background: var(--grain), linear-gradient(180deg, #efe2bf, #e2cf9f); box-shadow: 1px 1px 0 rgba(0, 0, 0, .4); }
+.k-btn.v2 .strip::before, .k-btn.v2 .strip::after { content: ''; position: absolute; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--brass3), var(--brass0)); }
+.k-btn.v2 .strip::before { left: 4px; } .k-btn.v2 .strip::after { right: 4px; }
+.k-btn.v2.press .knob, .k-btn.v2:active .knob { box-shadow: 0 0 0 2px var(--brass0), 0 1px 0 2px #0e0f12; transform: translateY(2px); }
+.k-btn.v2.off { filter: grayscale(.85) brightness(.75); }
+/* v3 铆铜票根：一张票根两头各一颗黄铜铆钉；主操作是朱红票 */
+.k-btn.v3 { position: relative; padding: 8px 26px; font: 900 15px var(--serif); letter-spacing: .18em; color: var(--ink); background: var(--grain), linear-gradient(180deg, #efe2bf, #e0cc98);
+  -webkit-mask: radial-gradient(circle at 0 50%, transparent 7px, #000 7.5px) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 7px, #000 7.5px) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle at 0 50%, transparent 7px, #000 7.5px) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 7px, #000 7.5px) right / 51% 100% no-repeat;
+  box-shadow: inset 0 0 0 2px var(--ink2), inset 0 0 0 4px transparent; }
+.k-btn.v3::before, .k-btn.v3::after { content: ''; position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--brass3), var(--brass1) 60%, var(--brass0)); }
+.k-btn.v3::before { left: 12px; } .k-btn.v3::after { right: 12px; }
+.k-btn.v3.pri { color: #fff3e0; background: var(--grain), linear-gradient(180deg, #c9432f, #9e2419); box-shadow: inset 0 0 0 2px #6e140c; }
+.k-btn.v3.off { filter: grayscale(.8); opacity: .6; }
+
+/* ---- 面板 · 三种 ---- */
+/* v1 铁夹板：铁底板 + 顶上一只黄铜夹子夹住几张纸（下面的纸错开露边） */
+.k-clip { position: relative; padding: 26px 10px 10px; background: var(--speck), linear-gradient(160deg, var(--iron2), var(--iron1)); border: 3px solid var(--iron0); box-shadow: inset 2px 2px 0 var(--iron3), 3px 5px 0 rgba(0, 0, 0, .5); }
+.k-clip > .clip { position: absolute; left: 50%; top: -8px; translate: -50% 0; width: 96px; height: 30px; z-index: 4; border-radius: 6px 6px 3px 3px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .12) 0 1px, transparent 1px 3px), linear-gradient(180deg, var(--brass3), var(--brass2) 50%, var(--brass1)); border: 2px solid var(--brass0); box-shadow: inset 0 -5px 0 rgba(78, 53, 16, .35), 2px 3px 0 rgba(0, 0, 0, .45); }
+.k-clip > .clip::after { content: ''; position: absolute; left: 50%; top: 6px; width: 16px; height: 8px; margin-left: -8px; border-radius: 4px; background: var(--iron0); box-shadow: inset 0 2px 0 #000; }
+.k-clip > .u { position: absolute; left: 12px; right: 12px; top: 24px; bottom: 12px; background: var(--grain), #e0cd9c; box-shadow: 1px 2px 0 rgba(0, 0, 0, .35); }
+.k-clip > .u.a { rotate: -1.6deg; translate: -4px 5px; } .k-clip > .u.b { rotate: 1.3deg; translate: 4px 3px; background: var(--grain), #d8c38f; }
+.k-clip > .sheet { position: relative; z-index: 2; padding: 16px 14px 12px; }
+.k-clip > .sheet > .ttl, .k-pin > .ttl { font: 900 16px var(--serif); letter-spacing: .2em; text-align: center; border-bottom: 3px double var(--ink); padding-bottom: 3px; margin-bottom: 10px; }
+/* 按钮大小（v2 / v3） */
+.k-btn.v2.sm { padding: 3px 7px 3px 4px; gap: 5px; } .k-btn.v2.sm .knob { width: 16px; height: 16px; } .k-btn.v2.sm .strip { font-size: 12px; padding: 2px 12px; }
+.k-btn.v2.big .knob { width: 38px; height: 38px; } .k-btn.v2.big .strip { font-size: 22px; padding: 6px 22px; letter-spacing: .2em; }
+.k-btn.v3.sm { padding: 5px 20px; font-size: 12px; letter-spacing: .08em; } .k-btn.v3.sm::before { left: 8px; width: 6px; height: 6px; margin-top: -3px; } .k-btn.v3.sm::after { right: 8px; width: 6px; height: 6px; margin-top: -3px; }
+.k-btn.v3.big { padding: 13px 40px; font-size: 22px; letter-spacing: .25em; }
+/* v2 铁框纸芯：铆钉铁框里嵌一张纸，黄铜铭牌铆在上框当标题 */
+.k-frame { position: relative; padding: 16px; background: var(--speck), linear-gradient(160deg, var(--iron2), var(--iron1)); border: 3px solid var(--iron0); box-shadow: inset 2px 2px 0 var(--iron3), inset -2px -2px 0 #0e0f12, 3px 5px 0 rgba(0, 0, 0, .5); }
+.k-frame > .paper { padding: 22px 16px 14px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .25), inset 2px 2px 4px rgba(0, 0, 0, .25); }
+.k-frame > .plate { position: absolute; left: 50%; top: 4px; translate: -50% 0; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 3px 10px; white-space: nowrap; font: 900 14px var(--serif); letter-spacing: .18em; }
+/* v3 钉墙纸：黄铜图钉钉住的纸，右下角卷起 */
+.k-pin { position: relative; padding: 18px 16px 16px; rotate: -1deg; }
+.k-pin::after { content: ''; position: absolute; right: 0; bottom: 0; width: 34px; height: 34px; background: linear-gradient(135deg, transparent 50%, #cdb57f 50%, #f0e2bd 80%); box-shadow: -2px -2px 3px rgba(0, 0, 0, .18); }
+.k-pin .tack:nth-of-type(1) { left: 10px; top: 8px; } .k-pin .tack:nth-of-type(2) { right: 12px; top: 6px; }
+
+/* ---- 属性表 · 三种 ---- */
+/* v1 液位管：纸刻度卡上一根玻璃管，两头黄铜管箍；红铅笔 = 装上以后 */
+.k-tube { display: grid; grid-template-columns: 44px 1fr 74px; gap: 4px 8px; align-items: center; font-size: 13px; }
+.k-tube .nm { font-weight: 900; letter-spacing: .12em; }
+.k-tube .v { text-align: right; font: 700 14px var(--num); }
+.k-tube .v.bad { color: var(--red); }
+.k-tube .glass { position: relative; height: 14px; margin: 0 7px; border-radius: 7px; background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(190, 200, 205, .35) 45%, rgba(120, 130, 135, .3)); box-shadow: inset 0 0 0 1.5px rgba(40, 30, 20, .55), inset 0 -3px 3px rgba(0, 0, 0, .15); }
+.k-tube .glass::before, .k-tube .glass::after { content: ''; position: absolute; top: -3px; width: 9px; height: 20px; border-radius: 2px; z-index: 3;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px), linear-gradient(90deg, var(--brass1), var(--brass3) 45%, var(--brass1)); box-shadow: 0 0 0 1px var(--brass0); }
+.k-tube .glass::before { left: -8px; } .k-tube .glass::after { right: -8px; }
+.k-tube .liq { position: absolute; left: 2px; top: 2px; bottom: 2px; border-radius: 5px; background: linear-gradient(180deg, rgba(255, 255, 255, .45), transparent 35%), var(--c, #c9432f); }
+.k-tube .ghost { position: absolute; top: 1px; bottom: 1px; border: 1.5px dashed var(--red); border-radius: 4px; background: repeating-linear-gradient(-45deg, rgba(168, 40, 29, .35) 0 1.5px, transparent 1.5px 4px); }
+.k-tube .lim { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--red); z-index: 4; }
+.k-tube .scale { grid-column: 2; height: 6px; margin: -3px 7px 0; background: repeating-linear-gradient(90deg, var(--ink2) 0 1px, transparent 1px 10%) 0 0 / 100% 6px no-repeat, repeating-linear-gradient(90deg, var(--ink3) 0 1px, transparent 1px 2%) 0 0 / 100% 3px no-repeat; }
+.k-tube .note { grid-column: 2 / 4; margin: -2px 7px 0; font: 11px var(--hand); color: var(--pencil); }
+.k-tube .note b { color: var(--red); font-weight: 400; }
+/* v2 纸面表盘：黄铜表圈 + 印刷纸表面 */
+.k-dial { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; --v: .5; --d: 0; --sz: 78px; }
+.k-dial .face { position: relative; width: var(--sz); height: var(--sz); border-radius: 50%; background: var(--grain), radial-gradient(circle at 40% 35%, #fbf3dc, #eadcb6 60%, #d8c492);
+  box-shadow: 0 0 0 3px var(--brass1), 0 0 0 5px var(--brass0), 0 0 0 7px var(--brass2), 0 0 0 9px var(--brass0), 3px 5px 0 9px rgba(0, 0, 0, .45), inset 0 2px 6px rgba(0, 0, 0, .3); }
+.k-dial .face::before { content: ''; position: absolute; inset: 7%; border-radius: 50%; background: repeating-conic-gradient(from -135deg, var(--ink) 0 1.6deg, transparent 1.6deg 27deg), conic-gradient(from 81deg, var(--red) 0 54deg, transparent 54deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 66%, #000 67% 78%, transparent 79%); mask: radial-gradient(circle, transparent 0 66%, #000 67% 78%, transparent 79%); }
+.k-dial .face::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 135deg, #e6d6ad 0 90deg, transparent 90deg); -webkit-mask: radial-gradient(circle, transparent 0 58%, #000 59% 90%, transparent 91%); mask: radial-gradient(circle, transparent 0 58%, #000 59% 90%, transparent 91%); }
+.k-dial .needle, .k-dial .ghost { position: absolute; left: 50%; top: 50%; width: 4px; height: 40%; margin-left: -2px; transform-origin: 50% 100%; translate: 0 -100%; z-index: 2; background: var(--ink); clip-path: polygon(50% 0, 100% 90%, 100% 100%, 0 100%, 0 90%); rotate: calc(-135deg + var(--v) * 270deg); }
+.k-dial .ghost { background: var(--red); opacity: .55; rotate: calc(-135deg + (var(--v) + var(--d)) * 270deg); z-index: 1; }
+.k-dial .cap { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--brass3), var(--brass0)); z-index: 3; }
+.k-dial .val { position: absolute; left: 0; right: 0; bottom: 13%; text-align: center; font: 700 12px var(--num); }
+.k-dial .lbl { font: 900 12px var(--serif); letter-spacing: .12em; padding: 1px 10px; }
+/* v3 印刷条 + 铜游标：纸上印的网线条，一只黄铜游标骑在上面指现在的值 */
+.k-bar { display: grid; grid-template-columns: 44px 1fr 74px; gap: 3px 8px; align-items: center; font-size: 13px; }
+.k-bar .nm { font-weight: 900; letter-spacing: .12em; }
+.k-bar .v { text-align: right; font: 700 14px var(--num); }
+.k-bar .tr { position: relative; height: 12px; border: 1px solid var(--ink); background: repeating-linear-gradient(90deg, rgba(35, 26, 18, .5) 0 1px, transparent 1px 10%); }
+.k-bar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px); }
+.k-bar .ghost { position: absolute; top: -3px; bottom: -3px; border: 2px solid var(--red); }
+.k-bar .cur { position: absolute; top: -9px; width: 14px; height: 30px; margin-left: -7px; z-index: 3; background: linear-gradient(90deg, var(--brass1), var(--brass3) 50%, var(--brass1)); clip-path: polygon(0 0, 100% 0, 100% 30%, 50% 45%, 0 30%, 0 100%, 0 100%); box-shadow: 0 0 0 1px var(--brass0); }
+.k-bar .cur::after { content: ''; position: absolute; left: 6px; top: 12px; bottom: 0; width: 2px; background: var(--brass0); }
+.k-bar.bad .fill { background: repeating-linear-gradient(90deg, var(--red) 0 2px, transparent 2px 4px); } .k-bar.bad .v { color: var(--red); }
+
+/* ---- 其余小件 ---- */
+/* 资源：铁壳计数器（纸白字轮 + 黄铜窗框）+ 夹着的账单纸条 */
+.k-counter { display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px 6px 8px; }
+.k-counter .win { display: inline-flex; gap: 1px; padding: 3px; background: var(--iron0); box-shadow: 0 0 0 2px var(--brass1), 0 0 0 3px var(--brass0), inset 0 2px 3px #000; }
+.k-counter .win i { width: 15px; padding: 3px 0; text-align: center; font: 700 17px/1 var(--num); font-style: normal; color: var(--ink);
+  background: linear-gradient(180deg, #8a826f 0, #efe6cc 22%, #fbf4e0 50%, #efe6cc 78%, #8a826f 100%); }
+.k-counter .win i.u { color: var(--red); }
+.k-stars { display: inline-flex; gap: 2px; }
+.k-stars i { width: 16px; height: 16px; font-style: normal; background: linear-gradient(180deg, var(--brass3), var(--brass1)); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.k-stars i.off { background: #0e0f12; opacity: .6; }
+.k-slip { position: relative; padding: 4px 10px 4px 16px; font: 12px var(--serif); rotate: -1.5deg; }
+.k-slip::before { content: ''; position: absolute; left: -4px; top: -3px; width: 10px; height: 22px; border-radius: 3px; background: linear-gradient(90deg, var(--iron3), var(--iron4), var(--iron3)); box-shadow: 0 0 0 1px var(--iron0); }
+/* 材料：牛皮纸吊牌 + 黄铜鸡眼 + 彩色油墨章；史诗 / 传奇描金边 */
+.k-mat { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; font: 700 12px var(--serif); clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%); }
+.k-mat .band { width: 8px; align-self: stretch; margin: -3px 0; }
+.k-mat .rn { font: 700 12px var(--num); }
+.k-mat.gold { box-shadow: inset 0 0 0 2px var(--brass2); }
+/* 零件卡：铁托盘格里插一张目录卡，黄铜护角；件数盖章，没货挂价签 */
+.k-part { position: relative; display: grid; justify-items: center; gap: 4px; padding: 8px 6px 7px; cursor: pointer; }
+.k-part .pic { height: 64px; display: grid; place-items: center; }
+.k-part .pic canvas { max-height: 62px; max-width: 86px; width: auto !important; height: auto !important; }
+.k-part .nm { font: 700 12px var(--serif); }
+.k-part::before, .k-part::after { content: ''; position: absolute; width: 10px; height: 10px; background: linear-gradient(135deg, var(--brass3), var(--brass1)); box-shadow: 0 0 0 1px var(--brass0); }
+.k-part::before { left: -1px; top: -1px; clip-path: polygon(0 0, 100% 0, 0 100%); } .k-part::after { right: -1px; bottom: -1px; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.k-part .stamp { position: absolute; right: 5px; top: 4px; font: 900 12px var(--num); color: var(--red); border: 2px solid var(--red); border-radius: 3px; padding: 0 4px; rotate: 8deg; opacity: .85; }
+.k-part .price { position: absolute; right: -8px; top: 2px; font: 700 11px var(--num); padding: 1px 6px 1px 12px; clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%); }
+.k-part.sel { outline: 3px solid var(--red); outline-offset: 1px; }
+.k-part.none .pic { opacity: .5; filter: sepia(.6) grayscale(.3); }
+/* 页签：纸页签 + 黄铜鸡眼 */
+.k-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 8px; font: 900 13px var(--serif); letter-spacing: .1em; cursor: pointer; border-radius: 6px 6px 0 0; }
+.k-tab.on { box-shadow: 0 -3px 0 var(--red) inset; }
+/* 开关：铁板上一只黄铜拨杆，两边纸标签 */
+.k-switch { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; }
+.k-switch .lab { font: 900 12px var(--serif); padding: 1px 7px; letter-spacing: .08em; }
+.k-switch .lab.dim { opacity: .45; }
+.k-switch .base { position: relative; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, var(--iron3), var(--iron0)); box-shadow: 0 0 0 2px var(--brass1), 0 0 0 3px var(--brass0); }
+.k-switch .lev { position: absolute; left: 50%; top: 50%; width: 6px; height: 18px; margin-left: -3px; transform-origin: 50% 100%; translate: 0 -100%; rotate: var(--r, -35deg); border-radius: 3px; background: linear-gradient(90deg, var(--brass1), var(--brass3), var(--brass1)); box-shadow: 0 0 0 1px var(--brass0); }
+.k-switch .lev::after { content: ''; position: absolute; left: -3px; top: -5px; width: 12px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff3c4, var(--brass2), var(--brass0)); }
+/* 悬停提示：带红边线的索引卡 + 黄铜回形针 */
+.k-card { position: relative; padding: 12px 14px 10px 22px; font: 13px/1.6 var(--serif); background: var(--grain), linear-gradient(90deg, transparent 13px, rgba(168, 40, 29, .5) 13px 14px, transparent 14px), repeating-linear-gradient(180deg, transparent 0 20px, rgba(60, 110, 160, .22) 20px 21px), linear-gradient(180deg, #fbf5e2, #efe4c4);
+  box-shadow: 2px 4px 0 rgba(0, 0, 0, .3); }
+.k-card::before { content: ''; position: absolute; left: 16px; top: -10px; width: 12px; height: 34px; border: 2px solid var(--brass2); border-radius: 7px; box-shadow: 0 0 0 1px var(--brass0); }
+.k-card b { font-size: 15px; }
+.k-card .up { color: #2f6a2a; font-weight: 700; } .k-card .dn { color: var(--red); font-weight: 700; }
+/* 提示条：电报纸带，左端铜夹 */
+.k-tele { position: relative; display: inline-flex; align-items: center; gap: 10px; padding: 7px 16px 7px 30px; font: 700 13px var(--type); letter-spacing: .06em; background: var(--grain), linear-gradient(180deg, #f6ecd0, #eadbb3); box-shadow: 2px 3px 0 rgba(0, 0, 0, .35); }
+.k-tele::before { content: ''; position: absolute; left: -6px; top: -4px; bottom: -4px; width: 22px; border-radius: 3px; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .2) 0 1px, transparent 1px 3px), linear-gradient(90deg, var(--brass1), var(--brass3), var(--brass1)); box-shadow: 0 0 0 1px var(--brass0), 2px 2px 0 rgba(0, 0, 0, .35); }
+.k-tele b { color: var(--red); }
+.k-tele .st { font: 900 11px var(--serif); color: #fff; padding: 1px 6px; background: #3f7a3a; rotate: -5deg; }
+.k-tele.bad .st { background: var(--red); }
+/* 印章 / 蜡封 */
+.k-stamp { display: inline-block; font: 900 14px var(--serif); letter-spacing: .2em; color: var(--red); border: 3px solid var(--red); border-radius: 4px; padding: 1px 9px; rotate: -7deg; opacity: .85; mix-blend-mode: multiply; }
+.k-stamp.ok { color: #2f5f2a; border-color: #2f5f2a; }
+.k-seal { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; color: #ffd9c8; font: 900 12px/1.1 var(--serif); text-align: center; background: radial-gradient(circle at 35% 30%, #d9483a, var(--red) 50%, #6e1410);
+  box-shadow: 0 0 0 4px #8c1d14, 2px 3px 0 4px rgba(0, 0, 0, .3), inset 0 0 0 5px rgba(0, 0, 0, .15); }
+/* 战斗顶条：铁梁 + 玻璃管 + 黄铜秒表（纸表面） */
+.k-hud { display: grid; grid-template-columns: 1fr 78px 1fr; gap: 12px; align-items: center; padding: 8px 14px; }
+.k-hud .clk { width: 70px; height: 70px; margin: auto; border-radius: 50%; display: grid; place-items: center; font: 700 22px var(--num); color: var(--ink); background: var(--grain), radial-gradient(circle, #fbf3dc, #e2d2a6);
+  box-shadow: 0 0 0 3px var(--brass1), 0 0 0 5px var(--brass0), 0 0 0 7px var(--brass2), 0 0 0 8px var(--brass0); }
+.k-hud .who { font: 900 13px var(--serif); padding: 0 8px; letter-spacing: .1em; }
+
+/* ---- 画面用：黑板、海报、档案、下注单、路标、拉闸、气泡 ---- */
+.chalk { position: relative; font-family: var(--hand); color: var(--chalk); padding: 14px 18px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, .08), transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(255, 255, 255, .05), transparent 50%), var(--speck), var(--board);
+  border: 10px solid var(--wood2); box-shadow: inset 0 0 0 2px var(--wood0), 0 0 0 2px var(--wood0), 4px 6px 0 rgba(0, 0, 0, .5); text-shadow: 0 0 1px rgba(236, 230, 212, .7); }
+.chalk .t { font-size: 21px; letter-spacing: .1em; border-bottom: 2px solid rgba(236, 230, 212, .4); padding-bottom: 4px; margin-bottom: 8px; }
+.chalk .ln { display: flex; gap: 10px; align-items: center; font-size: 18px; padding: 3px 0; }
+.chalk .ln .ck { width: 18px; color: #a6e3a0; }
+.chalk .ln .who { font-size: 13px; opacity: .7; margin-left: auto; }
+.chalk .ln.lock { opacity: .38; }
+.chalk .strike { position: relative; opacity: .7; }
+.chalk .strike::after { content: ''; position: absolute; left: -4px; right: -6px; top: 52%; height: 2px; background: var(--chalk); rotate: -4deg; box-shadow: 0 3px 0 -1px rgba(236, 230, 212, .5); }
+.chalk .circ { position: relative; color: var(--glow2); }
+.chalk .circ::after { content: ''; position: absolute; inset: -6px -12px; border: 2.5px solid var(--glow2); border-radius: 48% 52% 45% 55% / 55% 45% 55% 45%; rotate: -3deg; }
+.chalk .rag { position: absolute; width: 38px; height: 12px; background: repeating-linear-gradient(90deg, #d8d2c0 0 2px, #b8b2a0 2px 4px); border-radius: 3px; box-shadow: 1px 2px 0 rgba(0, 0, 0, .4); }
+.chalk .stick { position: absolute; width: 24px; height: 6px; background: #f4f0e4; border-radius: 2px; box-shadow: 1px 1px 0 rgba(0, 0, 0, .4); }
+.sign { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 18px; font: 900 20px var(--serif); letter-spacing: .1em; color: #f3e6c8;
+  background: var(--speck), repeating-linear-gradient(180deg, transparent 0 13px, rgba(0, 0, 0, .3) 13px 15px), linear-gradient(90deg, var(--wood2), var(--wood3) 40%, var(--wood2));
+  border: 3px solid var(--wood0); box-shadow: inset 2px 2px 0 rgba(255, 220, 170, .18), 4px 5px 0 rgba(0, 0, 0, .5); text-shadow: 2px 2px 0 var(--wood0); }
+.sign small { display: block; font: 12px var(--serif); color: #e2cfa6; letter-spacing: 0; text-shadow: 1px 1px 0 var(--wood0); }
+.sign.r { clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 50%, calc(100% - 22px) 100%, 0 100%); padding-right: 36px; }
+.sign.l { clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 0 50%); padding-left: 36px; }
+.sign.go { background: var(--speck), repeating-linear-gradient(180deg, transparent 0 13px, rgba(0, 0, 0, .25) 13px 15px), linear-gradient(90deg, #8a4a1c, #c0702a 40%, #8a4a1c); }
+.sign .screw { position: absolute; top: 50%; margin-top: -4.5px; }
+.lever { cursor: pointer; display: flex; align-items: center; gap: 12px; }
+.lever .slot { position: relative; width: 44px; height: 108px; background: linear-gradient(90deg, var(--iron0), var(--iron1) 50%, var(--iron0)); border: 3px solid var(--iron0); box-shadow: inset 0 0 0 2px var(--iron2), 3px 4px 0 rgba(0, 0, 0, .5); }
+.lever .slot::before { content: ''; position: absolute; left: 50%; top: 8px; bottom: 8px; width: 6px; margin-left: -3px; background: #000; }
+.lever .arm { position: absolute; left: 50%; top: 14px; width: 8px; height: 56px; margin-left: -4px; background: linear-gradient(90deg, var(--iron3), var(--iron4), var(--iron2)); transform-origin: 50% 100%; rotate: -24deg; }
+.lever .knob { position: absolute; left: 50%; top: 4px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff9c70, var(--red2) 55%, #5a1208); border: 2px solid #2a0804; translate: -12px 0; }
+.say { position: absolute; z-index: 6; max-width: 250px; padding: 8px 12px; font: 14px/1.5 var(--serif); color: var(--ink); background: var(--grain), linear-gradient(180deg, #f6ecd2, #ecdcb4); border: 2px solid var(--soot); box-shadow: 3px 4px 0 rgba(0, 0, 0, .45);
+  opacity: 0; translate: 0 6px; transition: opacity .25s, translate .25s; pointer-events: none; }
+.say.on { opacity: 1; translate: 0 0; }
+.say::after { content: ''; position: absolute; left: var(--tail, 24px); bottom: -9px; width: 12px; height: 12px; background: #ecdcb4; border-right: 2px solid var(--soot); border-bottom: 2px solid var(--soot); rotate: 45deg; }
+.say b { color: var(--red); }
+.say .who { display: block; font: 900 11px var(--serif); color: var(--ink2); letter-spacing: .15em; }
+.spark { position: absolute; width: 4px; height: 4px; background: var(--glow2); box-shadow: 0 0 6px 2px rgba(255, 190, 80, .8); opacity: 0; pointer-events: none; }
+.puff { position: absolute; border-radius: 50%; background: rgba(230, 230, 225, .55); pointer-events: none; animation: puff 3.2s linear infinite; }
+@keyframes puff { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 15% { opacity: .7; } 100% { opacity: 0; transform: translate(26px, -110px) scale(2.2); } }
+@keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+@keyframes flick { 0%, 100% { opacity: .85; } 40% { opacity: 1; } 60% { opacity: .75; } }
+.bob { animation: bob 2.4s steps(2) infinite; }
+.who-click { cursor: pointer; }
+.who-click:hover { filter: brightness(1.25) drop-shadow(0 0 4px rgba(255, 209, 102, .7)); }
+
+/* 修补：纸上的字一律用墨色；标签不折行；引线 / 红铅笔的 svg 叠在画面上 */
+.b-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 5; }
+.k-card, .k-tele, .k-mat, .k-part, .k-tab, .k-slip, .say { color: var(--ink); }
+.k-switch .lab, .k-frame > .plate, .k-slip, .t-engrave, .k-mat, .k-tab { white-space: nowrap; }

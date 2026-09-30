@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>界面重建 · 铁匠铺 × 公报</title>
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="ui-lab-v2.css">
+</head>
+<body class="uilab">
+<h1>界面重建 v2 · 铁匠铺 × 蒸汽公报 <small>历史存档（小组件不像素、东西太多，已由 <a href="../ui-lab.html" style="color:var(--brass2)">v3 像素版</a> 取代）· 2026-09-30 · 更早：<a href="ui-lab-v1.html" style="color:var(--brass2)">v1 四套方案</a></small></h1>
+<p class="lead">按你选的方向把 <b>A 铁匠铺工坊</b> 和 <b>C 蒸汽公报</b> 合成一套。车、模块、碳球人物和战斗场景都直接读游戏代码，数据是写死的样例（第一章打到 Boss 煤灰寡妇）；只是样机，游戏没动。
+小组件的按钮、面板、属性表各做了三种，<b>点「选这个」以后，下面三个画面会立刻换成你选的那一种</b>；三个画面各有「这页方向可以」。选择记在本机。</p>
+
+<div class="finds">
+  <div class="find"><b>你这一轮说的</b>
+  <ol>
+    <li>主页面用铁匠铺：背景是老铁匠的铺子，铁匠、亲戚这些人物闲谈、闲着的时候有互动。</li>
+    <li>改装台 = 蓝图 + 铁匠工房 + 公报：桌上铺着几叠纸卷，正中间是改装台，两侧的纸列出参数和零件。</li>
+    <li>出战：铁匠工房的小黑板（打过的划掉、要打的圈起来），加上公报的大对决、对手档案、下注单，要更有质感。</li>
+    <li>小组件科技感太强；黄铜最接近但还不够——要<b>黄铜、铁和纸</b>有机结合。</li>
+  </ol></div>
+  <div class="find"><b>这一轮的做法：铁是底、铜是手、纸是字</b>
+  <ol>
+    <li><b>铁</b>只做结构：底板、托盘、画框、夹板，永远在最下层。</li>
+    <li><b>铜</b>只出现在「能动手」的地方：按钮框、旋钮、夹子、拨杆、游标、铆钉——看到黄铜就知道能按。</li>
+    <li><b>纸</b>承载所有的字和数：标签、清单、票据、报纸、档案。不再有「发光的屏幕字」。</li>
+    <li>要你做的事只用两种颜色：<b>朱红</b>（主操作、问题、印章）和<b>炉火</b>（拉闸、火光）。</li>
+    <li>主页面的人物会自己聊天、干活（每几秒换一句）；点人物，他会说跟你眼下有关的那句。</li>
+  </ol></div>
+</div>
+
+<div class="ctl" id="ctl"></div>
+<div id="out"></div>
+
+<script src="../../js/text-manager.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/coal.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script>
+<script src="../../js/legs.js"></script><script src="../../js/vehicle.js"></script><script src="../../js/content.js"></script><script src="../../js/terrain-art.js"></script><script src="../../js/scenes.js"></script>
+<script src="../ui-lab.js"></script>
+<script src="ui-lab-v2.js"></script>
+<script src="../labs.js"></script>
+</body></html>
