@@ -17,7 +17,7 @@
   p.lead { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
   .cards { display: flex; gap: 16px; flex-wrap: wrap; }
-  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; width: 720px; }
+  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; width: 760px; }
   .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--brass2); }
   .card p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
@@ -28,8 +28,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：暂无</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。目前没有进行中的项目。上一期（水箱纵向箍带加固、犁铧、舰艏撞角、双缸蓄力撞锤）已进游戏，归档在 <a href="archive/tank-rams.html">archive/tank-rams.html</a>。</p>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：机甲套件核心六件 · v1 · 2026-09-29</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（水箱 + 撞击件）已进游戏，归档在 <a href="archive/tank-rams.html">archive/tank-rams.html</a>；方案文档 <code>docs/mech-kit-plan.md</code>。</p>
+    <p><b>本期 v1 · 机甲套件核心六件</b>：① <b>头盔驾驶舱、肩甲、背负锅炉</b>不是新模块，是现有的 1×1 驾驶舱、甲片、竖式锅炉装在双足上时换的「机甲外观」；② <b>盾臂、格斗臂、锤臂 / 剑臂、臂炮</b>是全新的手臂模块（2×3 子格，肩膀属于手臂），别的底盘也能装，只是没有双足好看（每张卡右边最后一台是装在履带车上）。每种 6 个，A 多为 09-25 机甲套件的草图重画。右边都是装在一台会走的真双足上的效果。<b>请每种挑一个</b>。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -69,7 +70,29 @@
     const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0); return c;
   }
   // 装在车上：左边一块装甲、下面一排装甲，武器贴在车体右上角
+  // 机甲件：装在一台游戏里的真双足上看效果（躯干用甲片、头顶用驾驶舱）；手臂另外再装一台履带车对照
+  function mechMock(e, m, mt, o) {
+    const W = m.arm ? 250 : 130, H = 205, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H);
+    const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
+    const T = st.t / 16, one2 = (ox, by, chassis) => {
+      try {
+        if (chassis === 'biped') SA.SPR.drawModule(g, 'biped', ox, by, { mt, t: T, moving: true, gait: st.t * 0.08, stride: 16 });
+        else SA.SPR.drawModule(g, 'track', ox, by, { mt, t: T, phase: st.t * 0.5, connL: false, connR: false });
+        for (const [dx, dy] of [[0, -48], [24, -48], [0, -24], [24, -24]]) if (!(m.slot === 'shoulder' && dx === 24 && dy === -48)) SA.SPR.drawModule(g, 'plate', ox + dx, by + dy, { mt });
+        if (m.slot !== 'head') SA.SPR.drawModule(g, 'helmet', ox + 12, by - 72, { mt });
+      } catch (err) {}
+      const at = { head: [ox + 12, by - 72], shoulder: [ox + 24, by - 48], back: [ox - 24, by - 48], arm: [ox + 10, by - 48] }[m.slot];
+      const oo = { ...o, mt };
+      Q.figure(lay.getContext('2d'), at[0], at[1], e, oo); return () => Q.over(lay.getContext('2d'), at[0], at[1], e, oo, m);
+    };
+    const fx = [one2(40, 100, 'biped')];
+    if (m.arm) fx.push(one2(160, 150, 'track'));
+    applyMat(lay, mt, 0, 0); for (const f of fx) f();
+    g.drawImage(lay, 0, 0); return c;
+  }
   function onCar(e, m, mt, o) {
+    if (m.slot) return mechMock(e, m, mt, o);
     const ox = 4, oy = 22, W = 48 + m.w * 24 + 60, H = oy + 48 + 48 + 4, c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H);
     const mx = ox + 48, my = oy + 48 - m.h * 24;

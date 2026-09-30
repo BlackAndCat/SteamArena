@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '—', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。目前没有进行中的项目', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机甲套件核心六件 v1', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：头盔驾驶舱 / 肩甲 / 背负锅炉（现有驾驶舱、甲片、竖式锅炉的机甲外观）+ 盾臂 / 格斗臂 / 锤剑臂 / 臂炮（全新手臂模块），各 6 种，都装在会走的真双足上看效果', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'tank-rams', group: 'module', url: 'archive/tank-rams.html', name: '水箱加固 + 撞击件', ver: 'v3', date: '2026-09-29', status: 'shipped',
       desc: '已进游戏：水箱纵向箍带按档加固（T1 黄铜不加 → T6 双竖箍 + 螺栓法兰，大窗蓝水不挡）、铲斗 D 犁铧（精英双铧）、撞角 B 舰艏撞角、蒸汽撞锤 B 双缸蓄力（两缸蓄力压弹簧 → 挂钩一松锤头弹出 + 冲击波 + 猛喷蒸汽 + 震颤，再重新蓄力）', docs: ['docs/art-plan.md'] },
     { id: 'boss-uniques', group: 'module', url: 'archive/boss-uniques.html', name: 'Boss 唯一件', ver: 'v1', date: '2026-09-29', status: 'shipped',
