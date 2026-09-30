@@ -46,7 +46,7 @@ SA.Home = (() => {
   }
   function showBoard(stage, o = {}) {
     const UI = X.ui, canBack = SA.Camp.has('garage');
-    for (const el of stage.querySelectorAll('.yard-dim, .yard-board, .yb-back')) el.remove();
+    for (const el of stage.querySelectorAll('.yard-dim, .yard-board')) el.remove();
     const inner = h('div', { class: 'yb-in' });
     const roller = (() => { const k = X.C(604, 12); X.box(k, 4, 2, 596, 8, X.RAMP.iron); k.r(5, 3, 594, 1, P.iron[3]);
       for (const x of [0, 596]) { X.box(k, x, 0, 8, 12, X.RAMP.brass); k.r(x + 2, 2, 4, 1, P.brass[3]); } return k.c; })();
@@ -55,15 +55,14 @@ SA.Home = (() => {
       h('div', { class: 'yb-face px-sk px-sk-board' }, inner),
       UI.img(roller, 2, 'position:absolute;left:0;top:-6px'),
       canBack ? h('button', { class: 'yb-pull px-hot', title: '收起黑板，回院子（Esc）', onclick: closeBoard }, UI.img(ring, 2)) : null);
-    stage.append(h('div', { class: 'yard-dim' }), brd,
-      canBack ? h('div', { class: 'yb-back' }, UI.btn('← 回院子', { sm: true, title: '收起黑板（Esc）', onclick: closeBoard })) : null);
+    // 回院子：黑板右下拉杆往左扳（js/arena.js）、黑板下沿的拉环、Esc
+    stage.append(h('div', { class: 'yard-dim' }), brd);
     if (!o.instant) setTimeout(() => brd.classList.add('down'), 30);   // 先挂上去再下拉，过渡才会播放
     return inner;
   }
   function closeBoard() {
     if (!live || !live.root.isConnected) { SA.nav('home'); return; }
-    const st = live.stage, brd = st.querySelector('.yard-board'), dim = st.querySelector('.yard-dim'), back = st.querySelector('.yb-back');
-    if (back) back.remove();
+    const st = live.stage, brd = st.querySelector('.yard-board'), dim = st.querySelector('.yard-dim');
     if (brd) brd.classList.remove('down');
     if (dim) dim.classList.add('out');
     setTimeout(() => { if (brd) brd.remove(); if (dim) dim.remove(); }, 450);

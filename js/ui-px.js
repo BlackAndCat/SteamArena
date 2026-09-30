@@ -277,7 +277,7 @@ SA.PX = (() => {
     return k.c;
   }
   // 拉杆（调速杆）：铁底座 + 黄铜扇形齿板 + 三像素宽的铁杆 + 黄铜箍 + 皮握把，轴心是一只小黄铜齿轮
-  // pos 0 = 往后扳（待命）、1 = 往前推到底（出战）
+  // pos 0 = 往左扳到底（回院子，暗刻度）、0.5 = 立在正中（定位齿）、1 = 往右推到底（出战，红刻度）
   function lever(pos = 0) {
     const W = 50, H = 58, k = C(W, H), px = 25, py = 46, B = RAMP.brass;
     for (let y = 0; y < py; y++) for (let x = 0; x < W; x++) {
@@ -290,6 +290,7 @@ SA.PX = (() => {
     }
     // 两个刻度：待命（暗）/ 出战（红）
     for (const [ang, col] of [[-50, P.dark[0]], [50, P.fire[2]]]) { const r = ang * Math.PI / 180; k.r(Math.round(px + Math.sin(r) * 19.5) - 1, Math.round(py - Math.cos(r) * 19.5) - 1, 2, 2, col); }
+    k.r(px - 1, py - 25, 2, 3, B.o); k.p(px - 1, py - 25, B.l);   // 正中的定位齿：杆平时立在这里
     box(k, 5, py, 40, 12, RAMP.iron); rivet(k, 8, py + 4); rivet(k, 39, py + 4);
     // 杆
     const ang = (-42 + 84 * pos) * Math.PI / 180, L = 31, ux = Math.sin(ang), uy = -Math.cos(ang), nx = -uy, ny = ux;
@@ -495,14 +496,61 @@ SA.PX.ui = (() => {
     el.addEventListener('pointerdown', tipHide);
     return el;
   }
-  // 调速杆：悬停往前推（三帧）
-  function lever(label, o = {}) {
-    const lv = img(X.lever(0));
-    const box = h('div', { class: 'px-hot', style: 'display:flex;flex-direction:column;align-items:center;gap:4px', onclick: o.onclick || null, title: o.title || null }, lv, plate(label, 'font-size:18px'), o.sub ? h('span', { class: 'px-cap' }, o.sub) : null);
-    const fr = [0, 0.5, 1].map(p => X.lever(p)); let t = null;
-    const draw = (f) => { const g = lv.getContext('2d'); g.clearRect(0, 0, lv.width, lv.height); g.drawImage(f, 0, 0); };
-    box.addEventListener('mouseenter', () => { let i = 0; clearInterval(t); t = setInterval(() => { i = Math.min(2, i + 1); draw(fr[i]); if (i === 2) clearInterval(t); }, 70); });
-    box.addEventListener('mouseleave', () => { clearInterval(t); draw(fr[0]); });
+  // 双向拉杆（出战黑板右下）：杆起始立在正中。按住往左扳到底 = left.go（回院子），往右推到底 = right.go（出战）；
+  // 没扳到底就松手，杆弹回中间。两端各一行小字说明，杆快到哪头，哪头的字就亮起来。没有按钮。
+  // o.left / o.right = { label, go, disabled（不能走时的原因，推到底只提示不执行）}；没有 left 时杆只能往右推
+  function throttle(o = {}) {
+    const N = 40, cache = new Map();
+    const frame = (p) => { const q = Math.round(p * N); if (!cache.has(q)) cache.set(q, X.lever(q / N)); return cache.get(q); };
+    const lv = img(frame(0.5));
+    lv.style.cssText += ';cursor:grab;touch-action:none';
+    const side = (s, x) => h('span', { class: `px-thr-t ${s}${x && x.disabled ? ' off' : ''}`, title: x && x.disabled ? x.disabled : null }, x ? x.label : '');
+    const L = side('l', o.left), R = side('r', o.right);
+    const box = h('div', { class: 'px-thr', title: o.title || null }, L, lv, R);
+    const RANGE = 44;   // 杆头从正中到一端在屏幕上走的距离（CSS px），鼠标拖多少杆头就走多少
+    let pos = 0.5, drag = null, raf = 0;
+    const draw = () => {
+      const g = lv.getContext('2d'); g.clearRect(0, 0, lv.width, lv.height); g.drawImage(frame(pos), 0, 0);
+      L.classList.toggle('hot', !!o.left && pos < 0.2); R.classList.toggle('hot', pos > 0.8);
+    };
+    // 弹回中间：带一点回弹，像弹簧把杆拉回定位齿
+    const settle = (from = pos) => {
+      cancelAnimationFrame(raf);
+      const t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / 260), e = 1 - Math.pow(1 - k, 3) * Math.cos(k * 4.2);
+        pos = from + (0.5 - from) * e; draw();
+        if (k < 1 && lv.isConnected) raf = requestAnimationFrame(step); else { pos = 0.5; draw(); }
+      };
+      raf = requestAnimationFrame(step);
+    };
+    // 只点了一下没拖：杆往右轻轻晃一下再回来，提示它是拖的
+    const nudge = () => { pos = 0.62; draw(); settle(0.62); };
+    lv.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); cancelAnimationFrame(raf);
+      try { lv.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件没有活动指针 */ }
+      lv.style.cursor = 'grabbing';
+      // 院子舞台整体按窗口缩放：拖动距离换算回舞台里的像素
+      drag = { x: e.clientX, p: pos, moved: false, k: lv.getBoundingClientRect().width / (lv.offsetWidth || 1) || 1 };
+    });
+    lv.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 3) drag.moved = true;
+      pos = Math.max(o.left ? 0 : 0.5, Math.min(1, drag.p + dx / (RANGE * drag.k) / 2)); draw();
+    });
+    const release = () => {
+      if (!drag) return;
+      const moved = drag.moved; drag = null; lv.style.cursor = 'grab';
+      if (!moved) { nudge(); return; }
+      const act = pos <= 0.08 ? o.left : pos >= 0.92 ? o.right : null;
+      if (act && act.disabled) { if (SA.UI && SA.UI.toast) SA.UI.toast(act.disabled); settle(); return; }
+      if (act) { pos = pos < 0.5 ? 0 : 1; draw(); act.go(); setTimeout(() => { if (lv.isConnected) settle(); }, 700); return; }
+      settle();
+    };
+    lv.addEventListener('pointerup', release);
+    lv.addEventListener('pointercancel', release);
     return box;
   }
   // 纸上的笔迹：红笔圈 / 波浪下划线 / 手写字
@@ -525,5 +573,5 @@ SA.PX.ui = (() => {
       h('div', { style: `position:absolute;top:9px;${dir > 0 ? 'left:26px' : 'right:26px'};width:${lw * 2}px;height:34px` }, img(X.paperLabel(lw, 17, (o.seed || 3) + 2), X.S, 'position:absolute;left:0;top:0'),
         h('span', { class: 'px-sign-t', style: o.go ? `color:${X.PEN}` : '' }, text)));
   }
-  return { h, img, num, sk, btn, plate, tag, matTag, stamp, rack, meter, counter, toggle, card, brackets, bubble, lever, loop, underline, hand, dial, sign, tip, tipHide, RED_WOOD };
+  return { h, img, num, sk, btn, plate, tag, matTag, stamp, rack, meter, counter, toggle, card, brackets, bubble, throttle, loop, underline, hand, dial, sign, tip, tipHide, RED_WOOD };
 })();

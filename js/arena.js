@@ -179,14 +179,18 @@ SA.Arena = (() => {
       field('评分', UI.num(e.rating), h('span', { class: 'px-small' }, ' 你 '), UI.num(s.rating)),
       field('速度', SA.kmh(fs.topSpeed), h('span', { class: 'px-small' }, fs.topSpeed > s.topSpeed * 1.2 ? ' 比你快' : fs.topSpeed < s.topSpeed * 0.8 ? ' 比你慢' : ' 差不多'))]));
     const why = e.lock || (!s.canDeploy ? '先把车修整好' : null);
-    const label = st.mode === 'camp' ? (e.replay ? '重打' : '拉闸出战') : st.mode === 'tour' ? '拉闸出战' : '应战';
+    const label = st.mode === 'camp' ? (e.replay ? '重打' : '出战') : st.mode === 'tour' ? '出战' : '应战';
     const go = () => { if (why) { SA.UI.toast(why); return; } document.querySelector('#modal').hidden = true; SA.StoryDev.before({ key: st.mode === 'camp' ? e.key : 'current', replay: e.replay }, () => e.start()); };
     return [
       D.news ? UI.sk('paper', [UI.stamp('号外'), ' ', D.news], 'padding:0 6px;font-size:13px', 'px-drop') : null,
       dossier,
       betSlip(e),
       ...readiness(s),
-      h('div', { class: 'ar-go' }, UI.lever(label, { sub: why, title: why || `${label} · ${e.name}`, onclick: go }),
+      // 拉杆在正中：往左扳到底回院子（车间解锁后才有院子可回），往右推到底出战
+      h('div', { class: 'ar-go' }, UI.throttle({ title: why || `${label} · ${e.name}`,
+        left: SA.Camp.has('garage') ? { label: '← 回院子', go: () => SA.Home.closeBoard() } : null,
+        right: { label: `${label} →`, go, disabled: why } }),
+        why ? h('div', { class: 'px-cap' }, why) : null,
         h('div', { class: 'px-cap' }, 'A / D 移动 · 鼠标瞄准 · 按住左键稳住准星 · 1–9 换武器')),
     ];
   }
