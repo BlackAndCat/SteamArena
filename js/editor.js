@@ -17,7 +17,7 @@ SA.Editor = (() => {
   // 商店分组的折叠状态记在本机
   function loadFold() { try { return new Set(JSON.parse(localStorage.getItem('steam_arena_fold_v1')) || []); } catch (e) { return new Set(); } }
   function saveFold() { try { localStorage.setItem('steam_arena_fold_v1', JSON.stringify([...st.fold])); } catch (e) { /* ignore */ } }   // shop：「商店」开关，打开后列表里也显示没有库存的模块
-  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro, frame = null;
+  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro, frame = null, sheetEl = null, leverEl = null;
 
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
@@ -46,16 +46,18 @@ SA.Editor = (() => {
     cv = h('canvas', { class: 'px', width: W, height: H });
     g = cv.getContext('2d');
     tipEl = h('div', { class: 'ed-tip' });
-    plateEl = h('div', { class: 'brass-plate' });
+    plateEl = h('div', { class: 'ed-sheet-paper px-sk px-sk-paper' });
+    sheetEl = h('aside', { class: 'ed-sheet px-sk px-sk-iron px-drop' }, SA.PX.ui.img(SA.PX.bigClip(34), 2, 'position:absolute;left:50%;top:-6px;margin-left:-34px;z-index:2'), plateEl);
     viewEl = h('div', { class: 'ed-view' });
-    stage = h('div', { class: 'ed-stage' }, cv, plateEl, viewEl, tipEl,
+    leverEl = h('div', { class: 'ed-lever' });
+    stage = h('div', { class: 'ed-stage' }, cv, viewEl, tipEl, leverEl,
       h('button', { class: 'ed-help', title: '图例与规则', 'aria-label': '图例与规则', onclick: openHelp }, '?'));
     // 中间：画布 + 下方操作栏；右边：模块清单 / 蓝图库（拖出车外的模块丢到这里就回库存）
     ctxEl = h('div', { class: 'dock-ctx' });
     toolsEl = h('div', { class: 'panel-tools' });
     invEl = h('div', { class: 'panel-list' });
     dockEl = h('aside', { class: 'ed-panel' }, toolsEl, invEl);
-    screen.append(h('div', { class: 'ed' }, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), dockEl));
+    screen.append(h('div', { class: 'ed' }, sheetEl, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), dockEl));
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
@@ -359,34 +361,33 @@ SA.Editor = (() => {
     return out;
   }
   function renderPlate() {
-    const s = st.stats;
+    const s = st.stats, UI = SA.PX.ui;
     plateEl.innerHTML = '';
-    plateEl.classList.toggle('closed', !st.plateOpen);
-    const nameIn = h('input', { type: 'text', class: 'plate-name', value: veh().name, maxLength: 20, 'aria-label': '车名',
+    const nameIn = h('input', { type: 'text', class: 'plate-name px-sk px-sk-brass', value: veh().name, maxLength: 20, 'aria-label': '车名',
       onchange: () => { SA.S.renameVehicle(nameIn.value); } });
-    const bad = s.problems.length;
     const hurtList = damagedCells();
     const cost = hurtList.reduce((a, x) => a + SA.S.repairCost(x), 0);
+    // 拿着库存里的零件：算一遍装上以后的数，性能单上用棋盘点标出变化
+    let preview = null;
+    if (st.sel) { try { preview = SA.V.statsWith(veh(), kid(st.sel), kmt(st.sel)); } catch (e) { preview = null; } }
     plateEl.append(...[
-      h('div', { class: 'plate-head' }, nameIn,
-        h('button', { class: 'plate-toggle', title: st.plateOpen ? '收起性能' : '展开性能', onclick: () => { st.plateOpen = !st.plateOpen; renderPlate(); } },
-          h('span', { class: 'rating' }, `评分 ${s.rating}`),
-          h('span', { class: `weight ${s.weight > s.load ? 'bad' : ''}`, title: `总重 / 底盘承重 ${SA.tons(s.load)}` }, SA.tons(s.weight)),
-          h('span', { class: `flag ${bad ? 'bad' : ''}` }, bad ? `✗ ${bad} 项问题` : s.warnings.length ? `${s.warnings.length} 项提醒` : '✓ 可出战'),
-          h('span', { class: 'fold' }, st.plateOpen ? '▴' : '▾'))),
-      hurtList.length ? h('button', { class: 'btn small plate-fix', title: `最贵的几项：
-${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hurtList.length} 处受损 · ${money(cost)}`) : null,
-      st.plateOpen ? h('div', { class: 'plate-body' }, SA.UI.statBars(s, veh())) : null].filter(Boolean));
+      h('div', { class: 'ed-sheet-t px-h2' }, '性能单'),
+      nameIn,
+      h('div', { class: 'ed-sheet-row' }, h('span', {}, '评分 ', UI.num(s.rating)), s.problems.length ? UI.hand(`${s.problems.length} 项问题`, 15) : h('span', { class: 'px-small' }, '✓ 可出战')),
+      hurtList.length ? UI.btn(`修理 ${hurtList.length} 处 · ${money(cost)}`, { sm: true, title: SA.UI.repairBrief(hurtList), onclick: () => repair(hurtList) }) : null,
+      SA.UI.pxStats(s, veh(), preview)].filter(Boolean));
+    // 右下调速杆：车能出战就推杆去出战页
+    leverEl.innerHTML = '';
+    leverEl.append(UI.lever('出战', { sub: s.canDeploy ? null : `还有 ${s.problems.length} 项问题`, title: s.canDeploy ? '去出战页' : s.problems.join('\n'), onclick: () => SA.nav('arena') }));
   }
 
   // 画布右上角：看哪一层 + 蓝图库开关（右侧面板在模块清单和蓝图库之间切换）
   function setDock(k) { st.dock = k; st.sel = null; st.pick = null; st.bp = null; renderAll(); }
   function renderView() {
     viewEl.innerHTML = '';
-    const seg = (items, cur, set) => h('span', { class: 'seg' }, items.map(([k, n]) =>
-      h('button', { class: `btn small ${cur === k ? 'on' : ''}`, onclick: () => { set(k); renderAll(); } }, n)));
+    const setLayer = (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(kid(st.sel)) !== k) st.sel = null; renderAll(); };
     viewEl.append(...[
-      has('side') ? seg([['body', '主体层'], ['side', '侧挂层']], st.layer, (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(kid(st.sel)) !== k) st.sel = null; }) : null,
+      has('side') ? SA.PX.ui.toggle('主体层', '侧挂层', st.layer === 'side', () => setLayer(st.layer === 'side' ? 'body' : 'side')) : null,
       has('blueprints') ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，分享码也在这里',
         onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库') : null].filter(Boolean));
   }
@@ -447,7 +448,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     ctxEl.append(h('div', { class: 'info' },
       s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, '车已就绪'), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
       h('div', { class: 'sub' }, '从模块清单选一个，再点格子放置；拖动车上的模块可移动 / 对调，拖回清单就放回库存。')),
-    s.canDeploy ? h('div', { class: 'acts' }, h('button', { class: 'btn small primary', onclick: () => SA.nav('arena') }, '去出战 →')) : '');
+    '');
   }
 
   // ---------- 右侧面板：页签 + 「商店」开关 / 蓝图筛选 ----------
@@ -550,7 +551,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     invEl.scrollTop = keep;
   }
 
-  function renderDock() { renderCtx(); renderInv(); }
+  function renderDock() { renderPlate(); renderCtx(); renderInv(); }
   function renderAll() { renderPlate(); renderView(); renderCtx(); renderTools(); renderInv(); }
 
   // ---------- 蓝图库 · 分享码示例（底部操作栏的第二个页签）----------
@@ -805,24 +806,25 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     const c = document.createElement('canvas');
     c.width = c.height = 8;
     const hg = c.getContext('2d');
-    hg.fillStyle = 'rgba(120,110,95,0.22)';
+    hg.fillStyle = 'rgba(160,200,240,0.2)';
     for (let i = 0; i < 8; i++) hg.fillRect(7 - i, i, 1, 1);
     return (hatchPat = g.createPattern(c, 'repeat'));
   }
 
   function draw(t) {
     const v = veh();
-    g.fillStyle = P.bg[2];
-    g.fillRect(0, 0, W, H);
-    g.fillStyle = P.bg[3]; g.fillRect(0, H - 12, W, 12);
-    g.fillStyle = P.bg[4]; g.fillRect(0, H - 12, W, 1);
-    // 网格：小格细线，大格（2×2 小格）粗一点
-    g.fillStyle = 'rgba(0,0,0,0.25)';
+    // 蓝图纸（界面重建 v3）：底色 + 6 像素一个的小点 + 子格细线 + 大格粗线；最底下一条是地面
+    const BP = P.blueprint;
+    g.fillStyle = BP[1]; g.fillRect(0, 0, W, H);
+    g.fillStyle = BP[2];
+    for (let y = 0; y < K.ROWS * C; y += 6) for (let x = PADX; x < PADX + K.COLS * C; x += 6) g.fillRect(x, y, 1, 1);
     for (let c = 0; c <= K.COLS; c++) if (c % 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
     for (let r = 0; r <= K.ROWS; r++) if (r % 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
-    g.fillStyle = P.bg[1];
+    g.fillStyle = BP[3];
     for (let c = 0; c <= K.COLS; c += 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
     for (let r = 0; r <= K.ROWS; r += 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
+    g.fillStyle = BP[0]; g.fillRect(0, H - 12, W, 12);
+    g.fillStyle = BP[3]; g.fillRect(0, H - 12, W, 1);
     const O = SA.V.occ(v, 'body');
     g.fillStyle = 'rgba(111,207,106,0.06)';
     for (let c = 0; c < K.COLS; c++) if (O[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
@@ -832,7 +834,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       for (let c = 0; c < K.COLS; c++) {
         if (r >= reg.r0 && c >= reg.c0 && c <= reg.c1) continue;
         const x = PADX + c * C, y = r * C;
-        g.fillStyle = 'rgba(7,8,12,0.62)'; g.fillRect(x, y, C, C);
+        g.fillStyle = 'rgba(8,24,46,0.7)'; g.fillRect(x, y, C, C);
         g.fillStyle = hatch(); g.fillRect(x, y, C, C);
       }
     const drag = st.drag && st.drag.kind === 'cell' ? st.drag : null;

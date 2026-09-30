@@ -113,42 +113,68 @@ SA.UI = (() => {
   }
 
 
-  // ---------- 侧边栏：两块铆钉钢板导航（车间 / 出战）+ 资源 ----------
-  // 徽标：车间显示出战前必须处理的问题数。
-  // 函数名沿用 topbar()：各处改完数据都调用它刷新。车间、银行都要战役解锁后才出现
+  // ---------- 顶栏（界面重建 v3）：像素铁条，左边回院子 + 车间 / 出战，右边钱计数器 + 设置齿轮 ----------
+  // 函数名沿用 topbar()：各处改完数据都调用它刷新。车间、院子、银行都要战役解锁后才出现；院子和战斗里不显示（院子有自己的）
   function topbar() {
-    const d = S();
+    const d = S(), UI = SA.PX.ui;
+    SA.PX.init();
     const bar = $('#side');
     bar.innerHTML = '';
-    const cur = SA.current;
-    const s = SA.V.stats(d.vehicle);
-    const fix = s.problems.length;
-    const has = SA.Camp.has;
+    const cur = SA.current, has = SA.Camp.has;
+    const fix = SA.V.stats(d.vehicle).problems.length;
     const st = SA.Camp.current(), ch = SA.CAMPAIGN[SA.Camp.chIndex()];
-    const where = st ? ch.name.split(' · ')[0] : `锦标赛第 ${d.round + 1} 轮`;
-    const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0);
-    const plate = (key, icon, label, sub, badge, bad) => h('button', { class: `nav-plate ${cur === key ? 'on' : ''}`, 'aria-current': cur === key ? 'page' : null, onclick: () => SA.nav(key) },
-      h('span', { class: 'rivets' }),
-      SA.SPR.iconCanvas(icon, cur === key ? '#2a1a05' : '#d9a441', 4),
-      h('span', { class: 'nm' }, label),
-      h('span', { class: 'sub' }, sub),
-      badge ? h('span', { class: `badge ${bad ? 'bad' : ''}` }, badge) : null);
-    bar.append(
-      h('div', { class: 'side-title' }, '蒸汽', h('br'), '竞技场'),
-      h('nav', { class: 'side-nav' },
-        has('garage') ? plate('home', 'flag', '院子', '铁匠铺', null) : null,
-        has('garage') ? plate('garage', 'wrench', '车间', has('shop') ? '改装 · 商店' : '改装', fix ? `${fix} 项问题` : null, true) : null,
-        plate('arena', 'swords', '出战', where, null)),
-      h('div', { class: 'side-res' },
-        h(has('bank') ? 'button' : 'span', { class: 'res money', title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? openBank : null },
-          h('span', { class: 'k' }, '资金'), h('b', {}, money(d.money)),
-          d.debt ? h('span', { class: 'debt' }, `债 ${money(d.debt)}`) : null),
-        h('span', { class: 'res' }, h('span', { class: 'k' }, '声望'), h('b', {}, '★'.repeat(Math.min(d.rep, 8)) || '—'), d.rep > 8 ? `×${d.rep}` : null),
-        ingots.length ? h('span', { class: 'res' }, h('span', { class: 'k' }, '材料'), h('b', {}, ingots.map(([k, n]) => `${SA.INGOTS[k].name}×${n}`).join(' '))) : null,
-        h('span', { class: 'res season' }, h('span', { class: 'k' }, SA.Camp.done() ? '赛季' : '战役'), h('b', {}, SA.Camp.done() ? `${d.season} · ${d.round + 1}/6` : ch.place)),
-        h('button', { class: 'dev-btn', title: '开发者模式：一键解锁、跳章、加钱', onclick: SA.Camp.dev.panel }, '开发者'),
-        h('button', { class: `dev-btn ${SA.Text && SA.Text.isEditing() ? 'on' : ''}`, title: '一键切换页面编辑模式', onclick: () => { SA.Text.toggle(); topbar(); } }, SA.Text && SA.Text.isEditing() ? '完成页面编辑' : '页面管理')),
-    );
+    const where = st ? ch.name : `锦标赛第 ${d.round + 1} 轮`;
+    const nav = (key, label, extra) => UI.btn(label, { kind: cur === key ? 'pri' : 'sec', gear: cur === key, onclick: () => SA.nav(key), title: extra || null });
+    const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
+    const counter = UI.counter({ money: d.money, rep: d.rep, ingotList: ingots, onclick: has('bank') });
+    if (has('bank')) { counter.title = '银行：借款 / 还款'; counter.addEventListener('click', openBank); }
+    const gear = UI.btn(null, { title: '设置', icon: UI.img(SA.PX.gear(6, 8, SA.PX.RAMP.brass, 0.1)), onclick: settings }); gear.style.padding = '0 2px';
+    bar.append(...[
+      has('garage') ? UI.btn('← 院子', { sm: true, onclick: () => SA.nav('home') }) : null,
+      has('garage') ? null : UI.plate('蒸汽竞技场', 'font-size:18px'),
+      h('span', { class: 'top-where' }, where),
+      h('span', { class: 'top-gap' }),
+      has('garage') ? h('span', { class: 'top-nav' }, nav('garage', fix ? `车间 · ${fix} 项问题` : '车间'), nav('arena', '出战')) : null,
+      counter,
+      d.debt ? UI.tag([h('span', {}, '欠银行'), UI.num(money(d.debt), SA.PX.RED)]) : null,
+      gear,
+    ].filter(Boolean));
+  }
+  // 设置：开发者面板和页面管理
+  function settings() {
+    const editing = SA.Text && SA.Text.isEditing();
+    dialog('设置', [h('p', { style: 'margin-top:0' }, '开发和调试用的入口。')], [
+      { label: '开发者', onClick: () => SA.Camp.dev.panel() },
+      SA.Text ? { label: editing ? '完成页面编辑' : '页面管理', onClick: () => { SA.Text.toggle(); topbar(); } } : null,
+    ].filter(Boolean));
+  }
+
+  // ---------- 像素性能单（界面重建 v3）：齿条表 + 问题；preview = 装上手里零件以后的 stats（棋盘点显示变化）----------
+  function pxStats(s, v, preview) {
+    const UI = SA.PX.ui, P = SA.PAL;
+    const heatOf = (x) => Math.min(1, (x.heatGen + SA.K.IDLE_HEAT) / Math.max(0.1, SA.K.DISSIPATE + x.cool + (x.dryCool || 0)));
+    const effW = (x) => (x.waterSave < 1 ? x.water / x.waterSave : x.water);
+    const wScale = Math.max(250, effW(s), preview ? effW(preview) : 0);
+    const rows = (x) => [
+      { k: 'power', name: '动力', pct: x.demand / Math.max(x.supply, x.demand, 1e-6), val: `${Math.round(x.demand)}/${Math.round(x.supply)}`, bad: x.demand > x.supply,
+        note: `额定需求 ${SA.Phys.fmtKw(x.demand)}（设备 ${SA.Phys.fmtKw(x.equip)} + 行驶 ${SA.Phys.fmtKw(x.drive)}）· 锅炉 ${SA.Phys.fmtPower(x.supply)}（红线）` },
+      { k: 'weight', name: '重量', pct: x.weight / Math.max(x.load, x.weight, 1e-6), val: SA.tons(x.weight), bad: x.weight > x.load, note: `满水 ${SA.tons(x.weight)}（干重 ${SA.tons(x.dryWeight)}）· 底盘承重 ${SA.tons(x.load)}（红线）· 撞击伤害 ×${SA.ramMul(x.weight).toFixed(2)}` },
+      { k: 'speed', name: '速度', pct: x.topSpeed / 100, val: SA.kmh(x.topSpeed), note: `最高 ${SA.kmh(x.topSpeed)}（底盘 ${SA.kmh(x.speed)} × 动力 ${Math.round((x.speedMul || 0) * 100)}%）· 刹车 ×${(x.brake || 0).toFixed(2)} · 晃动 ×${(x.sway || 0).toFixed(2)}` },
+      { k: 'heat', name: '热量', pct: heatOf(x), val: `${Math.round(heatOf(x) * 100)}%`, bad: heatOf(x) >= 1, note: `产热 ${SA.Phys.fmtKw(x.heatGen + SA.K.IDLE_HEAT)} · 水冷 ${SA.Phys.fmtKw(x.cool)}${x.dryCool ? ` + 散热片 ${SA.Phys.fmtKw(x.dryCool)}` : ''} · ${x.overheat === Infinity ? '预计不达过热阈值' : `全力开火约 ${Math.round(x.overheat)} 秒后过热`}` },
+      { k: 'water', name: '水', pct: effW(x) / wScale, val: SA.Phys.fmtWater(x.water), note: `${x.tanks} 只水箱 · ${SA.Phys.fmtWater(x.water)}${x.waterSave < 1 ? ` · 冷凝回收后耗水 ×${f1(x.waterSave)}` : ''}` },
+      { k: 'hp', name: '耐久', pct: x.hp / Math.max(x.maxHp, 1), val: `${x.hp}`, note: `${x.hp}/${x.maxHp} · 火力 ${x.dps.toFixed(1)}/秒 · 综合评分 ${x.rating}` },
+    ];
+    const now = rows(s), nxt = preview ? rows(preview) : null;
+    const lim = { power: s.supply / Math.max(s.supply, s.demand, 1e-6), weight: s.load / Math.max(s.load, s.weight, 1e-6) };
+    return h('div', { class: 'px-stats' },
+      now.map((g, i) => {
+        const d2 = nxt ? nxt[i].pct - g.pct : 0;
+        const el = UI.meter({ ...g, pct: Math.min(1, g.pct), delta: Math.abs(d2) > 0.004 ? d2 : 0 }, { w: 50, lim: lim[g.k] });
+        el.title = g.note; return el;
+      }),
+      preview ? h('div', { class: 'px-small' }, '棋盘点 = 装上手里的零件以后') : null,
+      s.problems.map(p => h('div', { class: 'px-hand px-prob' }, p)),
+      s.warnings.map(w => h('div', { class: 'px-small px-warn' }, w)));
   }
 
   // ---------- 属性条 ----------
@@ -440,6 +466,6 @@ SA.UI = (() => {
     return row;
   }
 
-  return { toast, openModal, closeModal, dialog, pay, topbar, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
+  return { toast, openModal, closeModal, dialog, pay, topbar, settings, pxStats, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
     repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith: SA.V.statsWith, uniqueBadge, feedbackRow };
 })();

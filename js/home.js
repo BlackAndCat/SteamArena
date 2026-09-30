@@ -92,7 +92,7 @@ SA.Home = (() => {
     const bubbles = { rel: UI.bubble(34, 386, 30), tom: UI.bubble(196, 420, 80), tim: UI.bubble(timX - 120, 418, 150) };
     const sparks = [...Array(6)].map((_, i) => h('i', { class: 'px-spark', style: `background:${i % 2 ? P.fire[3] : P.fire[2]}` }));
     const zz = ab(124, 450, UI.num('z z Z', '#e4e0d6', P.dark[0])); zz.style.opacity = '0';
-    const gearBtn = UI.btn(null, { title: '设置', icon: UI.img(X.gear(6, 8, X.RAMP.brass, 0.1)), onclick: settings }); gearBtn.style.padding = '0 2px';
+    const gearBtn = UI.btn(null, { title: '设置', icon: UI.img(X.gear(6, 8, X.RAMP.brass, 0.1)), onclick: () => SA.UI.settings() }); gearBtn.style.padding = '0 2px';
     const ingots = Object.entries(D.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     stage.append(...[
       UI.img(backdrop(), 2, 'position:absolute;left:-330px;top:-690px'),
@@ -141,15 +141,6 @@ SA.Home = (() => {
     if (timer) clearInterval(timer);
     timer = setInterval(step, 100);
     step();
-  }
-
-  // 设置：开发者面板和页面管理（侧边栏在主页面上藏起来了，入口放这里）
-  function settings() {
-    const editing = SA.Text && SA.Text.isEditing();
-    SA.UI.dialog('设置', [h('p', { style: 'margin-top:0' }, '开发和调试用的入口。')], [
-      { label: '开发者', onClick: () => SA.Camp.dev.panel() },
-      SA.Text ? { label: editing ? '完成页面编辑' : '页面管理', onClick: () => { SA.Text.toggle(); SA.UI.topbar(); } } : null,
-    ].filter(Boolean));
   }
 
   return { open };

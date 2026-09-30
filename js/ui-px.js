@@ -331,6 +331,10 @@ SA.PX = (() => {
     GEARS.btn = gearStrip(6, 8, RAMP.brass, 3); GEARS.btnIron = gearStrip(6, 8, RAMP.iron, 3);
     GEARS.small = gearStrip(4, 6, RAMP.brass, 3);
     root.style.setProperty('--gear-btn', `url(${GEARS.btn.url})`); root.style.setProperty('--gear-small', `url(${GEARS.small.url})`);
+    root.style.setProperty('--px-desk', `url(${planks().toDataURL()})`);
+    const b = C(32, 16);   // 砖墙：两排错缝砖
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) { const row = y >> 3, off = row ? 8 : 0, mort = (y % 8 === 7) || ((x + off) % 16 === 15); b.p(x, y, mort ? P.bg[0] : hash((x + off) >> 4, row, 9) < 0.5 ? P.bg[3] : P.bg[2]); if (!mort && (y % 8 === 0)) b.p(x, y, P.bg[4]); }
+    root.style.setProperty('--px-brick', `url(${b.c.toDataURL()})`);
   }
   return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
 })();
@@ -415,7 +419,7 @@ SA.PX.ui = (() => {
   function toggle(a, b, right, onclick) {
     const k = X.C(15, 15); k.g.drawImage(X.gear(7, 9, X.RAMP.brass, 0.1), 0, 0);
     const ex = right ? 13 : 1; X.line(k, 7, 7, ex, 3, P.dark[0]); X.line(k, 7, 8, ex, 4, P.dark[0]); k.r(6, 6, 3, 3, P.dark[0]); k.p(6, 6, P.iron[3]);
-    const lab = (t, on) => sk('paper', t, `padding:0 2px;font:bold 14px SimSun,serif;white-space:nowrap;${on ? '' : 'color:#9a845f'}`);
+    const lab = (t, on) => sk('paper', t, `padding:0 2px;font:bold 14px SimSun,serif;white-space:nowrap;text-shadow:none;color:${on ? '#2a1a05' : '#9a845f'}`);
     const el = sk('iron', [lab(a, !right), img(k.c, X.S, 'cursor:pointer'), lab(b, right)], 'display:inline-flex;gap:6px;align-items:center;padding:0 2px');
     if (onclick) { el.style.cursor = 'pointer'; el.addEventListener('click', onclick); }
     return el;

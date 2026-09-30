@@ -27,6 +27,7 @@ SA.nav = (name, arg, quiet) => {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
+  SA.PX.init();   // 像素界面件的九宫格 / 齿轮 / 桌面纹理挂到 CSS 变量上
   SA.S.load();
   SA.Camp.backfill();
   SA.nav(SA.Camp.has('garage') ? 'home' : 'arena');

@@ -53,6 +53,8 @@ function editor() {
   context.ResizeObserver = class { observe() {} disconnect() {} };
   SA.go = page => { SA.current = page; };
   SA.S.reset();
+  // 车间的性能单 / 调速杆 / 换层旋钮用像素界面件（界面重建 v3），和 editor.js 一起加载
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/ui-px.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/editor.js'), 'utf8'), context);
   const tick = () => { const pending = [...frames]; frames.clear(); for (const [, fn] of pending) fn(); };
   for (let i = 0; i < 5; i++) SA.Editor.open();
