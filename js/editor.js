@@ -476,16 +476,16 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
     const m = SA.mod(id, mt), out = [];
     if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, SA.kmh(m.speed), m.brake >= 1.5 ? '起步刹车最快' : m.brake < 0.8 ? '刹车慢' : '刹车中等', m.sway < 0.6 ? '移动最稳' : m.sway > 1.2 ? '移动晃' : '移动一般');
     else if (m.dmg) out.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛' : `散布 ±${m.spread}°`, m.penetration >= 99 ? '不会弹开' : `穿深 ${m.penetration}`);
-    else if (m.supply) out.push(`动力 +${m.supply}`, `产热 ${m.heatRate}/s`);
-    else if (m.store) out.push(`储能 ${m.store}`, `不够时补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC}/s`);
-    else if (m.water) out.push(`冷却 ${m.cool}/s`, `水 ${m.water}`);
-    else if (m.dryCool) out.push(`不耗水散热 ${m.dryCool}/s`);
-    else if (m.waterSave) out.push(`省水 ${Math.round((1 - m.waterSave) * 100)}%`, `冷却 ${m.cool}/s`);
+    else if (m.supply) out.push(`动力 ${SA.Phys.fmtPower(m.supply)}`, `回路产热 ${SA.Phys.fmtKw(m.heatRate)}`);
+    else if (m.store) out.push(`储能 ${SA.Phys.fmtHeat(m.store)}`, `不够时补 ${SA.Phys.fmtKw(SA.K.BATTLE.STORE_RELEASE_PER_SEC)}`);
+    else if (m.water) out.push(`冷却 ${SA.Phys.fmtKw(m.cool)}`, `水 ${SA.Phys.fmtWater(m.water)}`);
+    else if (m.dryCool) out.push(`不耗水散热 ${SA.Phys.fmtKw(m.dryCool)}`);
+    else if (m.waterSave) out.push(`省水 ${Math.round((1 - m.waterSave) * 100)}%`, `冷却 ${SA.Phys.fmtKw(m.cool)}`);
     else if (m.ram) out.push(`撞击 ${m.ram}`, m.punch ? `活塞 ${m.punch}` : `耐久 ${m.hp}`);
     else out.push(`耐久 ${m.hp}`);
     if (m.tether) out.push('牵引');
     if (m.armor && !m.load) out.push(`装甲厚 ${Math.round(m.armor * 10) / 10}`);
-    if (m.power) out.push(`动力 -${m.power}`);
+    if (m.power) out.push(`额定功率 ${SA.Phys.fmtKw(m.power)}`);
     out.push(SA.tons(SA.weightOf({ id })));
     return out;
   }

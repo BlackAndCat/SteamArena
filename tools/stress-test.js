@@ -180,7 +180,7 @@ function main() {
       }
       for (const side of ['p', 'e']) {
         const event = result.events && result.events[side];
-        if (event && (event.minWater < -1e-6 || event.maxHeat > Number(SA.K.HEAT_MAX) + 1 || event.maxHeat < -1e-6)) report.counts.bounds++;
+        if (event && (event.minWater < -1e-6 || event.maxHeat > SA.V.stats(side === 'p' ? a : b).heatMax + 1 || event.maxHeat < -1e-6)) report.counts.bounds++;
       }
       const code = SA.V.encode(a), decoded = SA.V.decode(code);
       if (!decoded || SA.V.encode(decoded) !== code) { report.counts.shareMismatch++; throw new Error('分享码往返不一致'); }

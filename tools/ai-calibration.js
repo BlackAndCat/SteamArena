@@ -34,6 +34,9 @@ function createSummary(input = {}) {
   const hits = number(events.hit || input.hits);
   const charged = number(events.chargedHit || input.chargedHits);
   const maxHeat = number(events.maxHeat || input.maxHeat);
+  const heatMax = number(events.heatMax || input.heatMax);
+  // 旧记录的热量是 0–100 进度；新记录按各自机组热容换成 0–1 进度。
+  const maxHeatRatio = heatMax > 0 ? maxHeat / heatMax : maxHeat <= 100 ? maxHeat / 100 : 0;
   const minWater = number(events.minWater || input.minWater);
   const duration = number(input.time || input.t);
   return {
@@ -53,6 +56,7 @@ function createSummary(input = {}) {
     farRate: number(input.farRate, metrics.farTime && duration ? metrics.farTime / duration : 0),
     noEngageRate: number(input.noEngageRate, metrics.noEngageTime && duration ? metrics.noEngageTime / duration : 0),
     maxHeat,
+    maxHeatRatio,
     minWater,
     damageDealt: number(input.damageDealt || input.pDealt),
     damageTaken: number(input.damageTaken || input.pTaken),
@@ -99,7 +103,7 @@ function aggregate(records) {
     count: rows.length, outcomes,
     hitRate: avg('hitRate'), chargedRate: avg('chargedRate'), closeRate: avg('closeRate'),
     farRate: avg('farRate'), noEngageRate: avg('noEngageRate'), time: avg('time'),
-    maxHeat: avg('maxHeat'), minWater: avg('minWater'), damageDealt: avg('damageDealt'),
+    maxHeat: avg('maxHeat'), maxHeatRatio: avg('maxHeatRatio'), minWater: avg('minWater'), damageDealt: avg('damageDealt'),
     damageTaken: avg('damageTaken'), feedback: rows.reduce((all, row) => { if (row.feedback) all[row.feedback] = (all[row.feedback] || 0) + 1; return all; }, {}),
   };
 }
@@ -111,19 +115,20 @@ function calibrate(humanRecords, aiRecords = []) {
   const delta = key => human[key] - ai[key];
   const aim = Math.max(0.2, Math.min(0.99, 0.8 + delta('hitRate') * 0.8));
   const retargetFactor = Math.max(0.5, Math.min(1.5, 1 - delta('time') / 120));
-  const heatHoldHigh = Math.max(55, Math.min(90, 72 + (human.maxHeat - ai.maxHeat) * 0.25));
-  const heatHoldLow = Math.max(30, Math.min(65, 45 + (human.maxHeat - ai.maxHeat) * 0.15));
+  const heatDelta = (human.maxHeatRatio - ai.maxHeatRatio) * 100;
+  const heatHoldHigh = Math.max(55, Math.min(90, 72 + heatDelta * 0.25));
+  const heatHoldLow = Math.max(30, Math.min(65, 45 + heatDelta * 0.15));
   return {
     sampleCount: { human: human.count, ai: ai.count },
     human,
     ai,
-    difference: { hitRate: delta('hitRate'), chargedRate: delta('chargedRate'), closeRate: delta('closeRate'), time: delta('time'), maxHeat: delta('maxHeat') },
+    difference: { hitRate: delta('hitRate'), chargedRate: delta('chargedRate'), closeRate: delta('closeRate'), time: delta('time'), maxHeatRatio: delta('maxHeatRatio') },
     aiProfile: { aim, retargetFactor, heatHoldHigh, heatHoldLow },
     suggestions: {
       aim: delta('hitRate') > 0.05 ? '提高代理瞄准能力' : delta('hitRate') < -0.05 ? '降低代理瞄准能力' : '瞄准命中率接近',
       engagement: delta('closeRate') > 0.1 ? '代理需要更积极接近' : delta('closeRate') < -0.1 ? '代理需要增加交战距离' : '交战距离接近',
       pacing: Math.abs(delta('time')) > 8 ? (delta('time') > 0 ? '真人对局更长，检查代理开火节奏' : '代理对局更长，检查其反应和开火节奏') : '对局时长接近',
-      heat: Math.abs(delta('maxHeat')) > 10 ? (delta('maxHeat') > 0 ? '真人热量更高，检查代理热量控制' : '代理热量更高，检查其热量控制') : '热量峰值接近',
+      heat: Math.abs(heatDelta) > 10 ? (heatDelta > 0 ? '真人热量更高，检查代理热量控制' : '代理热量更高，检查其热量控制') : '热量峰值接近',
       note: 'aiProfile 可传给 SA.Battle.simulate 复测；工具只输出校准建议，不直接改写战斗规则或持久化配置。',
     },
   };

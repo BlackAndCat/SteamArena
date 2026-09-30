@@ -17,25 +17,22 @@ SA.K = {
   CELL: 24,           // 子格原生像素
   ART: 48,            // 模块精灵的原生尺寸（2×2 子格）
   GRAVITY: 780,       // 炮弹重力 px/s²
-  MOVE_HEAT: 2,       // 行驶额外产热 /秒
-  MOVE_WATER: 0.3,    // 行驶直接耗水 /秒（蒸汽驱动）
-  FIRE_WATER: 0.15,   // 开火耗水：每发 = 武器产热 × 该系数
-  CHUFF_WATER: 0.2,   // 起步时锅炉每「库吃」一下耗水
+  MOVE_HEAT: 0,       // 行驶热量已计入机组负载，不重复产热
   ACCEL: 48,          // 起步加速度 px/s²（按质量缩放；撞击需要助跑）
   BRAKE: 62,          // 制动减速度 px/s²：松开按键会滑行一大段才停下；反向要先停稳再重新起步
   SKID: 320,          // 被撞飞 / 被推着走时的打滑急停减速度 px/s²（场地没有墙，靠它让车停住）
   KNOCK_MAX: 70,      // 铲斗 / 撞角 / 撞锤一次击退的速度上限 px/s
-  HEAT_MAX: 100,
-  DISSIPATE: 1.2,     // 自然散热 /秒
-  IDLE_HEAT: 0.8,     // 机器只要在运转就会产热 /秒（站着不动也会慢慢变热）
-  COOL_FULL: 30,      // 热量到这个值时水箱全力冷却；越凉冷却越弱，所以热量会缓慢积累
-  WATER_PER_HEAT: 0.25, // 每冷却 1 点热量消耗的水
+  HEAT_MAX: 5000,     // 标称 50 kJ/K 回路从 20°C 升到 120°C 的热量；实车用自身热容
+  DISSIPATE: 60,     // 标称自然散热 kW，实际由回路温差缩放
+  IDLE_HEAT: 40,     // 机组辅助热输入 kW
+  COOL_FULL: 30,      // 回路比环境高 30°C 时达到额定冷却
+  WATER_PER_HEAT: 1 / 2257, // 蒸发 1 L 水约带走 2257 kJ
   WATER_SAVE_MIN: 0.4,   // 多个省水模块叠加后的最低耗水倍率
   BATTLE_TIME: 100,
   GAME_SPEED: 0.75,   // 战斗节奏默认放慢到 0.75 倍（战斗界面底部有滑条可调，记在本机）
   // 重量：每个模块 = 基础重量 + 自身重量（kg）；底盘按承重（kg）限制总重
   WEIGHT_BASE: 250,   // 一个 2×2 模块的基础重量；小模块按面积折算
-  DRIVE_PER_T: 0.3,   // 每吨车重需要的行驶动力：动力需求 = 设备耗能 + 车重 × 该系数
+  DRIVE_PER_T: 0,     // 行驶功率由牵引力、目标速度与质量计算
   RAM_SELF: 0.5,      // 反震：撞击时自己的撞击面承受的反作用伤害（占造成伤害的比例）
   RAM_TETHER_SELF: 0.25, // 被鱼叉拉过来的撞击反震减半（docs/campaign-direction.md §2）
   // 模块改装（炮盾 / 附加装甲）：纯属性升级，最多 3 级
@@ -55,8 +52,8 @@ SA.K = {
   // 战斗调参：战斗逻辑、HUD 和车间说明统一从这里读取，避免同一个规则在多个文件各写一份数字。
   BATTLE: {
     // 储能与警报：储能释放是每秒速率，爆罐阈值和 HUD 阈值按比例表达。
-    STORE_RELEASE_PER_SEC: 3, STORE_BURST_RATIO: 0.5,
-    HEAT_ALERT: 75, WATER_LOW_RATIO: 0.2,
+    STORE_RELEASE_PER_SEC: 30, STORE_BURST_RATIO: 0.5,
+    HEAT_ALERT: 0.75, WATER_LOW_RATIO: 0.2,
     // 地形、悬挂与瞄准：这些值决定泥地/坡地的速度、车辆贴地响应和移动射击散布。
     MASS_MIN_TONS: 0.5, BIPED_HIP_SWAY: 2.5, TOP_HEAVY_SWAY: 1.25,
     MUD_SPEED: { track: 0.8, quad: 0.65, biped: 0.45 }, MUD_DEFAULT_SPEED: 0.7,
@@ -70,7 +67,7 @@ SA.K = {
     // 命中、起步、移动与货箱：与模块字段相乘前的通用物理参数。
     RICOCHET_BASE: 0.18, RICOCHET_DEFICIT: 0.5, RICOCHET_MAX: 0.92, RICOCHET_DAMAGE: 0.05,
     SPOOL_BASE: 0.3, SPOOL_MASS: 0.05, SPOOL_MIN: 0.4, SPOOL_MAX: 0.9,
-    CHUFF_INTERVAL: 0.2, CHUFF_HEAT: 0.3,
+    CHUFF_INTERVAL: 0.2, CHUFF_HEAT: 0,
     WILD_SIGN_CHANCE: 0.5, WILD_JITTER_MIN: 1, WILD_JITTER_MAX: 1.4,
     RECOIL_HIGH_SPEED_FACTOR: 0.3, RECOIL_ANIM_HIGH: 2, RECOIL_ANIM_NORMAL: 4,
     SHELL_SHAKE_BASE: 1.5, SHELL_SHAKE_PUSH_DIVISOR: 6,
@@ -86,14 +83,14 @@ SA.K = {
     CONTACT_GAP: 1, BIPED_KICK_SHOVE: 22, RAM_TARGET_DAMAGE: 0.5, RAM_SPEED_THRESHOLD: 25,
     RAM_COOLDOWN: 0.35, RAM_CLOSING_REFERENCE: 60, RAM_DEFAULT_DAMAGE: 6, RAM_RESTITUTION: 0.25,
     TETHER_TIMEOUT: 4, TETHER_MAX_DISTANCE: 760, TETHER_PULL_DISTANCE: 18, TETHER_SPEED_MAX: 35,
-    PISTON_DECAY: 4, PISTON_SHOVE: 30, WEAPON_KNOCK_FACTOR: 8, VENT_HEAT: 35,
+    PISTON_DECAY: 4, PISTON_SHOVE: 30, WEAPON_KNOCK_FACTOR: 8, VENT_HEAT: 1750,
     // 供能、瞄准与 AI：与玩家/副驾驶装填、AI 选点和移动风格有关的阈值。
     UTIL_MIN: 0.3, FOCUS_SHAKE_DECAY: 0.2, FOCUS_IDLE_DECAY: 2.5,
     AIM_TURN_THRESHOLD: 3, COPILOT_FOCUS: 0.4, COPILOT_RELOAD_MIN: 0.2, COPILOT_RELOAD_MAX: 0.8,
     SALVO_FACTOR_MIN: 0.95, SALVO_FACTOR_MAX: 1.05, COPILOT_RELOAD_FACTOR_MIN: 1, COPILOT_RELOAD_FACTOR_MAX: 1.2,
     AI_TARGET_WEIGHTS: { side: 3, weapon: 2.5, cockpit: 2, boiler: 1.6, water: 1.2, chassis: 0.3, other: 0.6 },
     AI_COPILOT_ERROR_X: 34, AI_COPILOT_ERROR_Y: 20, AI_RETARGET_MIN: 3, AI_RETARGET_MAX: 6,
-    AI_HEAT_HIGH: 72, AI_HEAT_LOW: 45, AI_ERROR_SCALE: 100, AI_ERROR_BIAS: 9, AI_ERROR_Y_SCALE: 0.6,
+    AI_HEAT_HIGH: 0.72, AI_HEAT_LOW: 0.45, AI_ERROR_SCALE: 100, AI_ERROR_BIAS: 9, AI_ERROR_Y_SCALE: 0.6,
     AI_CHARGE_RUSH_CHANCE: 0.35, AI_CHARGE_KITE_CHANCE: 0.15, AI_CHARGE_DEFAULT_CHANCE: 0.7,
     AI_MOVE_RANGE_KITE: [400, 640], AI_MOVE_RANGE_RUSH: [70, 260], AI_MOVE_RANGE_DEFAULT: [140, 520],
     AI_TURTLE_OFFSET: 40, AI_CHARGE_TIME: [3, 5], AI_MOVE_TIME: [2, 5], AI_FAST_SPEED: 70,
@@ -156,12 +153,12 @@ SA.MODULES = {
   tank_s: {
     name: '小水罐', cat: 'cooling', layer: 'body', w: 1, h: 1,
     price: 20, hp: 28, power: 0, water: 36, cool: 1, kg: 75, q: 1,
-    desc: '只占一个小格的水罐：水 36、每秒冷却 1。',
+    desc: '只占一个小格的水罐：储水 36 L，额定水冷 50 kW。',
   },
   tank_tall: {
     name: '水罐', cat: 'cooling', layer: 'body', w: 1, h: 2,
     price: 38, hp: 52, power: 0, water: 75, cool: 2, kg: 150, q: 1,
-    desc: '竖着的细水罐，占 1×2 小格：水 75、每秒冷却 2，塞进缝里正好。',
+    desc: '竖着的细水罐，占 1×2 小格：储水 75 L，额定水冷 100 kW。',
   },
   // 已取消：功能并入驾驶员人数。定义留着给旧存档 / 旧分享码解码，读进来一律换成联合驾驶舱（SA.RETIRED）
   copilot: {
@@ -254,12 +251,12 @@ SA.MODULES = {
   pressure_tank: {
     name: '蓄压罐', cat: 'energy', layer: 'body', w: 1, h: 2,
     price: 96, hp: 72, power: 0, store: 20, explode: 20, kg: 190, q: 1,
-    get desc() { return `蓄压罐：动力富余时储存蒸汽，动力不足时每秒最多补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点，容量 20；存量过半被毁会爆炸。`; },
+    get desc() { return `蓄压罐：动力富余时储存蒸汽能量，动力不足时最多补 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} kW，容量 1000 kJ；存量过半被毁会爆炸。`; },
   },
   pressure_chamber: {
     name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 2,
     price: 64, hp: 58, supply: 2, power: 0, heatRate: 1.1, kg: 95, q: 1,
-    desc: '小格加压单元，提供 2 点动力，同时每秒增加 1.1 点产热；动力不足时优先考虑它。',
+    desc: '小格加压单元，提供 20 kW 轴功率，约 27.2 公制马力；自带 8 L 给水，额定回路余热 55 kW。',
   },
   radiator: {
     name: '散热片', cat: 'cooling', layer: 'side', w: 1, h: 2,
@@ -269,7 +266,7 @@ SA.MODULES = {
   condenser: {
     name: '冷凝器', cat: 'cooling', layer: 'body', w: 1, h: 2,
     price: 105, hp: 78, cool: 3, waterSave: 0.7, kg: 180, q: 1,
-    get desc() { return `冷凝器：降低全车冷却耗水（多个按乘积叠加，最低 ${SA.K.WATER_SAVE_MIN}），本身不储水。`; },
+    get desc() { return `冷凝器：回收闭式产汽及冷却用水（多个按乘积叠加，耗水最低 ×${SA.K.WATER_SAVE_MIN}）；开放式蒸汽喷射不回收，本身不储水。`; },
   },
   rocket_rack: {
     name: '抛射架', cat: 'firepower', layer: 'body',
@@ -293,7 +290,7 @@ SA.MODULES = {
     dmg: 4, reload: 0.1, heat: 3, heatToEnemy: 6, heatPerSec: 3, dmgPerSec: 4, range: 170, cone: 10, proj: 'flame', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 18,
     elev: [-12, 25], slew: 30, windup: 0.2, wild: 0.05, rest: 0, aimT: 0.7,
 
-    desc: 'T4～T6 喷火器：射程 170px、±10° 锥形持续喷火；每秒给对手加热 6、对命中模块造成 4 点伤害，自身每秒产热 3。',
+    desc: 'T4～T6 喷火器：射程 170px、±10° 锥形持续喷火；向对手机组传热 300 kW、对命中模块造成持续伤害 4/秒，自身回路产热 150 kW。',
   },
   steamjet: {
     name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1, maxMt: 3,
@@ -301,13 +298,13 @@ SA.MODULES = {
     dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 1.5, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 16,
     elev: [-12, 25], slew: 30, windup: 0.1, wild: 0.05, rest: 0, aimT: 0.1,
 
-    desc: 'T1～T3 蒸汽喷射器：射程 170px、±10° 蒸汽锥，每秒给对手加热 4 并小幅击退，模块伤害 3；自身每秒产热 1.5、耗水 0.5。钢材料为上限。',
+    desc: 'T1～T3 蒸汽喷射器：射程 170px、±10° 蒸汽锥，额定轴功率 20 kW；连续喷射向对手传热 200 kW，自身产热 75 kW，开式排汽不回收，实际耗水受锅炉产汽限制。钢材料为上限。',
   },
   // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
   boss_core: {
     name: '圣堂压力核心', cat: 'energy', layer: 'body', w: 1, h: 1,
     price: 280, hp: 150, supply: 5, store: 8, water: 24, cool: 3, heatRate: 0, heatMul: 0.9, kg: 120, q: 2, special: 'pressure-buffer',
-    get desc() { return `铁甲圣堂的压力核心：提供稳定动力、8 点蓄压、24 点储水和 3 点冷却；蓄压按普通蓄压罐规则释放（每秒最多 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} 点），锅炉产热 ×0.9。Boss 战利品。`; },
+    get desc() { return `铁甲圣堂的压力核心：提供 50 kW 轴功率、400 kJ 蓄压、24 L 储水和 150 kW 额定水冷；蓄压最多释放 ${SA.K.BATTLE.STORE_RELEASE_PER_SEC} kW，回路余热 ×0.9。Boss 战利品。`; },
   },
   boss_lens: {
     name: '公爵测距棱镜', cat: 'control', layer: 'body', w: 1, h: 1, unique: { mt: 5, once: true, source: 'salvage' },
@@ -322,12 +319,12 @@ SA.MODULES = {
   boiler: {
     name: '燃煤锅炉', cat: 'energy', layer: 'body',
     price: 130, hp: 120, power: 0, supply: 6, q: 1, heatRate: 1.5, explode: 40, kg: 550,
-    desc: '提供 6 点动力；动力用得越满，产热越多。被击毁会爆炸波及相邻模块。',
+    desc: '额定供给 60 kW 轴功率，约 81.6 公制马力；自带 24 L 给水，满载蒸汽热功率 500 kW、耗水约 0.187 L/s。被击毁会爆炸波及相邻模块。',
   },
   water: {
     name: '水箱', cat: 'cooling', layer: 'body',
     price: 70, hp: 100, power: 0, water: 150, q: 1, cool: 4, kg: 300,
-    desc: '每秒吸收 4 热量并消耗水。水烧干后热量会迅速堆积。',
+    desc: '机组回路比环境高 30°C 时额定水冷 200 kW；蒸发每 1 L 水约移走 2257 kJ 热量。',
   },
   bucket: {
     name: '铲斗', cat: 'ram', layer: 'ram', mount: ['track', 'quad', 'biped'],
@@ -394,19 +391,31 @@ SA.MODULES = {
   boiler_s: {
     name: '竖式锅炉', cat: 'energy', layer: 'body', w: 1, h: 2,
     price: 72, hp: 70, power: 0, supply: 3, heatRate: 0.8, explode: 22, kg: 240, q: 1,
-    desc: '占 1×2 小格的小型锅炉，提供 3 点动力；动力用得越满，产热越多，被击毁会爆炸。',
+    desc: '占 1×2 小格的小型锅炉，供给 30 kW 轴功率，约 40.8 公制马力；自带 12 L 给水，满载耗水约 0.093 L/s。被击毁会爆炸。',
   },
   boiler_l: {
     name: '大型锅炉', cat: 'energy', layer: 'body', w: 3, h: 3,
     price: 290, hp: 250, power: 0, supply: 13.5, heatRate: 3.4, explode: 80, kg: 1235, q: 3,
-    desc: '占 3×3 小格的大型锅炉，提供 13.5 点动力；容量充足，但重量、产热和殉爆风险都高。',
+    desc: '占 3×3 小格的大型锅炉，供给 135 kW 轴功率，约 183.5 公制马力；自带 54 L 给水，满载耗水约 0.420 L/s，重量、余热和殉爆风险都高。',
   },
   water_l: {
     name: '大水箱', cat: 'cooling', layer: 'body', w: 3, h: 3,
     price: 158, hp: 210, power: 0, water: 340, cool: 9, kg: 675, q: 2,
-    desc: '占 3×3 小格，储水 340、每秒冷却 9；适合需要长时间开火的大型战车。',
+    desc: '占 3×3 小格，储水 340 L，额定水冷 450 kW；适合需要长时间开火的大型战车。',
   },
 };
+
+// 旧配置数值一次性迁移到工程单位；模块 ID 与分享码顺序不变。
+// power 为设备工作额定轴功率 kW，supply 为锅炉轴功率 kW；热字段为 kJ 或 kW。
+for (const m of Object.values(SA.MODULES)) {
+  // 小型初始车没有外接水箱；锅炉自带按原额定档位配置的给水箱。
+  if (m.supply && !m.water) m.water = m.supply * 4;
+  if (m.power) m.power *= 10;
+  if (m.supply) m.supply *= 10;
+  for (const key of ['heat', 'heatRate', 'heatPerSec', 'heatToEnemy', 'cool', 'dryCool', 'store']) if (m[key]) m[key] *= 50;
+  // 蒸汽喷射流量要与锅炉额定产汽共享预算；流量由负载功率决定，不再直接从此字段扣储水。
+  if (m.waterPerSec) m.waterPerSec = Math.min(m.waterPerSec, m.power / 0.12 / 2680);
+}
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
   'armor', 'armor_heavy', 'cannon', 'mortar', 'mg', 'side_cannon', 'bucket', 'spike', 'piston',
@@ -464,14 +473,57 @@ SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
 SA.tons = fmtT;
 SA.kmh = (pxs) => `${(pxs * SA.K.KMH).toFixed(1)} km/h`;
+// 蒸汽与牵引的统一量纲：锅炉标称轴功率 kW，显示为公制马力 PS；1 L 给水约为 1 kg。
+SA.Phys = {
+  PS_KW: 0.73549875, STEAM_KJ_L: 2680, LATENT_KJ_L: 2257, STEAM_EFF: 0.12,
+  PX_M: 1.5 / 48, GRAVITY: 9.81, ROLL: 0.025, TRANSMISSION: 0.8,
+  kwToPs: kw => kw / 0.73549875,
+  steamWater: (shaftKw, seconds = 1) => shaftKw / 0.12 / 2680 * seconds,
+  // 目标速度下预留 0.7 m/s² 起步牵引力；实战每帧再按 P=Fv 限制。
+  driveKw: (kg, pxs) => kg * (0.7 + 9.81 * 0.025) * Math.max(0, pxs) * (1.5 / 48) / 0.8 / 1000,
+  heatCapacity: kg => 8 * 4.18 + Math.max(0, kg) * 0.02 * 0.5, // 8 L 循环水及参与换热的 2% 金属（0.5 kJ/kg/K）
+  heatMax: kg => (120 - 20) * SA.Phys.heatCapacity(kg),
+  temp: (heat, cap) => 20 + heat / Math.max(1, cap),
+  fmtPower: kw => `${SA.Phys.kwToPs(kw).toFixed(1)} 马力`,
+  fmtKw: kw => `${kw.toFixed(1)} kW`,
+  fmtWater: l => `${l.toFixed(1)} L`,
+  fmtHeat: kj => `${kj.toFixed(0)} kJ`,
+  fmtTemp: c => `${c.toFixed(0)} °C`,
+  // 180°C 工作蒸汽与 20°C 起始给水的焓差取 2680 kJ/L；冷却回路温度另算。
+  // 燃烧效率按 80%：燃烧损失散向环境；蒸汽余热中只有 coolingKw 进入本车回路。
+  boilerEnergy: (shaftKw, coolingKw = 0) => {
+    const steamKw = shaftKw / 0.12;
+    const combustionKw = steamKw / 0.8;
+    return { steamKw, shaftKw, coolingKw, exhaustKw: Math.max(0, steamKw - shaftKw - coolingKw),
+      combustionKw, combustionLossKw: combustionKw - steamKw };
+  },
+  waterLimitedKw: (water, dt, recovery = 1, openKw = 0) => {
+    const budget = water * 0.12 * 2680 / Math.max(dt, 1e-9);
+    return budget <= openKw ? budget : openKw + (budget - openKw) / Math.max(recovery, 0.01);
+  },
+  // 机组/冷却回路按能量守恒积分：蒸汽给水与蒸发冷却共用储水，但各只扣一次。
+  thermalStep: (heat, water, dt, p) => {
+    const recovery = p.steamRecovery == null ? 1 : p.steamRecovery;
+    const waterFactor = (kw) => (kw - Math.min(kw, p.openKw || 0)) * recovery + Math.min(kw, p.openKw || 0);
+    const shaftKw = Math.min(p.shaftKw, SA.Phys.waterLimitedKw(water, dt, recovery, p.openKw || 0));
+    const steamUsed = SA.Phys.boilerEnergy(waterFactor(shaftKw)).steamKw / 2680 * dt;
+    water = Math.max(0, water - steamUsed);
+    heat = Math.max(0, heat + (p.heatKw * (p.shaftKw ? shaftKw / p.shaftKw : 0) + p.weaponKw + (shaftKw ? SA.K.IDLE_HEAT : 0)) * dt);
+    const passive = Math.min(heat, (SA.K.DISSIPATE + p.dryCool) * Math.max(0, (SA.Phys.temp(heat, p.capacity) - 20) / 30) * dt);
+    heat -= passive;
+    const cooled = Math.min(heat, SA.coolRate(p.cool, heat, p.capacity) * dt, water * 2257 / p.waterSave);
+    heat -= cooled; water -= cooled / 2257 * p.waterSave;
+    return { heat: Math.max(0, heat), water: Math.max(0, water), shaftKw, cooled, passive, steamUsed };
+  },
+};
 // 撞击伤害倍率：跟车重成正比（6 t 为 ×1），0.5 ~ 3 倍
 SA.ramMul = (kg) => Math.max(0.5, Math.min(3, kg / 6000));
 // 改装：武器加炮盾，底盘加裙板，撞击件加厚撞面，其余加附加装甲
 SA.upName = (id) => (SA.isWeapon(id) ? '炮盾' : SA.MODULES[id].layer === 'chassis' ? '加固裙板' : SA.MODULES[id].layer === 'ram' ? '加厚撞面' : '附加装甲');
 SA.upHp = (id) => (SA.isWeapon(id) ? 0.3 : 0.25);   // 每级耐久 +%
 SA.upCost = (id, lv) => Math.round(SA.MODULES[id].price * SA.K.UP_COST * lv);
-// 水箱这一刻能带走多少热量 /秒：越热冷却越猛（最低 15%）
-SA.coolRate = (cool, heat) => cool * Math.max(0.15, Math.min(1, heat / SA.K.COOL_FULL));
+// 水箱这一刻能带走多少热量（kW）：由机组回路相对环境温差决定。
+SA.coolRate = (cool, heat, cap = 50) => cool * Math.max(0, Math.min(1, (SA.Phys.temp(heat, cap) - 20) / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
 
 // 唯一腿部外观：材料取造型原档，每种独立缴获一次。半人马同材料的速度、动力、重量均与普通四足一致。

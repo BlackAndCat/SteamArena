@@ -48,6 +48,7 @@ SA.Battle = (() => {
     refresh(s);
     settle(s, 1);
     s.water = s.waterMax;
+    refresh(s); // 开局按满水质量计算驱动需求与碰撞质量。
     s.startHp = SA.V.maxHp ? SA.V.stats(s.v).maxHp : 0;
     s.maxHeat = 0;
     s.minWater = s.water;
@@ -80,8 +81,9 @@ SA.Battle = (() => {
     let thrown = false;
     SA.V.each(s.v, (cell) => { if (cell.id === 'track' && cell.hp <= 0) thrown = true; });
     // mass = 车重（吨）：决定加速、起步、碰撞和撞击伤害；动力需求 = 设备耗能 + 车重 × 行驶系数
-    const mass = Math.max(T.MASS_MIN_TONS, kg / 1000);
-    const demand = equip + mass * K.DRIVE_PER_T;
+    const mass = Math.max(T.MASS_MIN_TONS, (kg + Math.max(0, s.water)) / 1000);
+    const driveKw = SA.Phys.driveKw(mass * 1000, ch ? sp / ch : 0);
+    const demand = equip + driveKw;
     // 底盘手感（多种底盘取平均）：accelK 起步、brakeK 刹车、sway 移动时的晃动、spoolK 起步憋气时间
     const avg = (x, d) => (ch ? x / ch : d);
     // 瞄准能力：基础值 + 瞄准类部件加成（以后的瞄准镜等）
@@ -108,7 +110,10 @@ SA.Battle = (() => {
       s.bipedLegDead = s.bipedLegHp <= 0;
       s.bipedHipDead = s.bipedHipHp <= 0;
     }
-    Object.assign(s, { supply, demand, heatRate, heatMul, cool, dryCool, waterSave, storeMax, waterMax, minCol, frontCol, rams, mass, thrown, prism,
+    const heatCapacity = SA.Phys.heatCapacity(kg), heatMax = SA.Phys.heatMax(kg);
+    // 被毁模块带走其自身热容对应的能量；幸存回路保持原温升，不因质量突降凭空跳温。
+    if (s.heatCapacity && heatCapacity < s.heatCapacity) s.heat *= heatCapacity / s.heatCapacity;
+    Object.assign(s, { supply, demand, driveKw, equip, dryKg: kg, heatRate, heatMul, heatCapacity, heatMax, cool, dryCool, waterSave, storeMax, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     if (s.chassisId === 'biped') {
       if (s.bipedLegDead || s.balance === '失衡') s.speed = 0;
@@ -136,7 +141,7 @@ SA.Battle = (() => {
   function kill(s, reason) {
     if (s.dead) return;
     s.dead = true; s.reason = reason; s.failureAt = B.t;
-    s.failureType = reason.includes('锅炉烧干') ? 'overheat' : (reason.includes('水') ? 'dry' : null);
+    s.failureType = reason.includes('过热') || reason.includes('锅炉烧干') ? 'overheat' : (reason.includes('水') ? 'dry' : null);
     s.fireHeldAtFailure = !!s.fireHeld; s.holdAtFailure = !!s.hold; s.ventAtFailure = !!s.vented;
     s.dir = 0; s.fireHeld = false;
     for (let i = 0; i < 50; i++) emit('part', { type: 'steam', x: s.x + VW / 2 + rnd(-120, 120), y: VY + (s.yo || 0) + 120 + rnd(-90, 90), vx: rnd(-30, 30), vy: rnd(-90, -24), life: rnd(1, 2.2), col: undefined });
@@ -145,7 +150,7 @@ SA.Battle = (() => {
   // 诊断遥测：只记录首次触达阈值的时间，不参与战斗判定。
   function markTelemetry(s) {
     if (s.firstWaterEmptyAt == null && s.water <= 0) s.firstWaterEmptyAt = B.t;
-    if (s.firstHeatMaxAt == null && s.heat >= K.HEAT_MAX) s.firstHeatMaxAt = B.t;
+    if (s.firstHeatMaxAt == null && s.heat >= s.heatMax) s.firstHeatMaxAt = B.t;
   }
 
   // 诊断只读耐久快照，供经济模拟按实际受损模块估算修理费；不参与判定。
@@ -180,12 +185,7 @@ SA.Battle = (() => {
     for (const [a, b] of B.ter.mud) mud += Math.max(0, Math.min(R, b) - Math.max(L, a));
     for (const c of B.ter.crates) if (c.dead) junk += Math.max(0, Math.min(R, c.x1 + T.DEBRIS_SLOW_RADIUS) - Math.max(L, c.x0 - T.DEBRIS_SLOW_RADIUS));   // 碎木堆：谁开过去都慢一点
     const mk = (1 - (mud / wd) * (1 - (MUD[s.chassisId] || T.MUD_DEFAULT_SPEED))) * (1 - Math.min(1, junk / wd) * T.DEBRIS_SLOW_FACTOR);
-    let slope = 1;
-    if (dir) {
-      const front = dir > 0 ? R : L, back = dir > 0 ? L : R;
-      slope = clamp(1 - (groundAt(back) - groundAt(front)) / wd * T.SLOPE_FACTOR, T.SLOPE_MIN, T.SLOPE_MAX);
-    }
-    return { top: mk * slope, acc: mk };
+    return { top: mk, acc: mk }; // 坡阻已由牵引力方程计算，不在速度上重复处罚。
   }
   // 车身贴地 + 悬挂（见 docs/game-design.md §4.1）：上层车体是刚体，底盘每格两个接地点（履带的两组负重轮、腿式的两只脚）各自在行程内伸缩。
   // 车底是一条斜线，坡度 kw（世界里每往右 1px 往下多少 px）= 接地点下面地面的最小二乘拟合 × 主底盘的跟坡比例；
@@ -434,7 +434,6 @@ SA.Battle = (() => {
     }
     // 连续喷射的 heat 是自身每秒产热，普通武器的 heat 是每轮（齐射也只算一轮）。
     s.heat += w.m.heatPerSec ? w.m.heat * w.m.reload : w.m.heat;
-    s.water = Math.max(0, s.water - (w.m.waterPerSec ? 0 : w.m.heat * K.FIRE_WATER));
     // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
     s.anim.gun(w.key, w.m);
@@ -545,8 +544,6 @@ SA.Battle = (() => {
     if (s.chuffT > 0) return;
     s.chuffT = T.CHUFF_INTERVAL;
     s.rock = 1;
-    s.heat += T.CHUFF_HEAT;
-    s.water = Math.max(0, s.water - K.CHUFF_WATER);
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (layer !== 'body' || !alive(cell) || cell.id !== 'boiler') return;
       const x = modBox(s, r, c, cell.id).x0 + (isP(s) ? 37 : 11), y = cellY(r, s);
@@ -569,12 +566,21 @@ SA.Battle = (() => {
     // 地形：泥地减速、上坡慢下坡快
     const tk = terrainK(s, dir || Math.sign(s.vx));
     const top = dir * s.speed * (s.speedMul || 0) * tk.top;
-    const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);   // 越重加速、刹车越慢
+    const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
     const own = s.speed * (s.speedMul || 0) * tk.top;
     const skid = braking && Math.abs(s.vx) > own * T.SKID_SPEED_MULT + T.SKID_SPEED_OFFSET;
-    const acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) : K.ACCEL * s.accelK * tk.acc) * k;
+    let acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) : K.ACCEL * s.accelK * tk.acc) * k;
+    if (!braking && dir) {
+      const [left, right] = span(s), front = dir > 0 ? right : left, back = dir > 0 ? left : right;
+      const grade = (groundAt(back) - groundAt(front)) / Math.max(1, right - left);
+      const kg = s.mass * 1000, metresPerSec = Math.abs(s.vx) * SA.Phys.PX_M;
+      const tractionN = Math.max(0, s.driveAvailableKw || 0) * 1000 * SA.Phys.TRANSMISSION / Math.max(0.4, metresPerSec);
+      const resistanceN = kg * SA.Phys.GRAVITY * (SA.Phys.ROLL + grade);
+      const physicalAcc = Math.max(0, (tractionN - resistanceN) / kg / SA.Phys.PX_M);
+      acc = Math.min(acc, physicalAcc);
+    }
     const vx0 = s.vx;
     s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
@@ -624,10 +630,6 @@ SA.Battle = (() => {
     } else s.anim.phase = s.phase; // 履带沿用链节相位
     s.x = nx;
     settle(s, dt);
-    if (s.moving && s.dir) {
-      s.heat += K.MOVE_HEAT * dt;
-      s.water = Math.max(0, s.water - K.MOVE_WATER * dt);
-    }
   }
 
   // ---------- 逐行碰撞 ----------
@@ -789,11 +791,18 @@ SA.Battle = (() => {
     if (s.fireHeld) s.fireHeldSeconds += dt;
     updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时按 STORE_RELEASE_PER_SEC 限制释放。
-    const baseSupply = s.supply;
+    // 每帧按剩水重算质量；锅炉能输出多少还受本帧可蒸发给水限制。
+    s.mass = Math.max(T.MASS_MIN_TONS, (s.dryKg + s.water) / 1000);
+    s.driveKw = SA.Phys.driveKw(s.mass * 1000, s.speed);
+    s.demand = s.equip + s.driveKw;
+    const openKw = s.fireHeld ? s.weapons.filter(w => w.cell.id === s.sel && w.m.waterPerSec).reduce((n, w) => n + w.m.power, 0) : 0;
+    const baseSupply = Math.min(s.supply, SA.Phys.waterLimitedKw(s.water, dt, s.waterSave, openKw));
     const surplus = Math.max(0, baseSupply - s.demand);
+    let chargeKw = 0;
     if (s.storeMax > 0) {
-      s.store = clamp(s.store + surplus * dt, 0, s.storeMax);
-      if (surplus > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).store) effect(s, cell.id, 'energy', surplus * dt); });
+      chargeKw = Math.min(surplus, (s.storeMax - s.store) / Math.max(dt, 1e-9));
+      s.store = clamp(s.store + chargeKw * dt, 0, s.storeMax);
+      if (chargeKw > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).store) effect(s, cell.id, 'energy', chargeKw * dt); });
     }
     const release = s.storeMax > 0 && baseSupply < s.demand ? Math.min(T.STORE_RELEASE_PER_SEC, s.store / Math.max(dt, 1e-6), s.demand - baseSupply) : 0;
     if (release > 0) {
@@ -803,22 +812,24 @@ SA.Battle = (() => {
     const availableSupply = baseSupply + release;
     const util = availableSupply ? Math.min(1, s.demand / availableSupply) : 0;
     s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
-    s.speedMul = availableSupply <= 0 ? 0 : s.demand ? Math.min(K.SPEED_BOOST, availableSupply / s.demand) : 1;
+    s.driveAvailableKw = Math.max(0, availableSupply - s.equip);
+    s.speedMul = s.driveKw ? Math.min(K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0;
     drive(s, dt);
-    s.heat += (s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util) + K.IDLE_HEAT - K.DISSIPATE) * dt;
-    if (s.water > 0 && s.heat > 0) {
-      const c = Math.min(s.heat, SA.coolRate(s.cool, s.heat) * dt);
-      s.heat -= c; s.water = Math.max(0, s.water - c * K.WATER_PER_HEAT * s.waterSave);
-      const saved = c * K.WATER_PER_HEAT * (1 - s.waterSave);
-      if (saved > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).waterSave) effect(s, cell.id, 'waterSaved', saved); });
-    }
-    s.heat = Math.max(0, s.heat - s.dryCool * dt);
-    if (s.dryCool > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).dryCool) effect(s, cell.id, 'dryCool', SA.mod(cell).dryCool * dt); });
-    s.heat = Math.max(0, s.heat);
+    const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
+      shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
+      heatKw: s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util), weaponKw: 0,
+      cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave, capacity: s.heatCapacity,
+      steamRecovery: s.waterSave,
+      openKw,
+    });
+    s.heat = result.heat; s.water = result.water;
+    const saved = result.cooled / SA.Phys.LATENT_KJ_L * (1 - s.waterSave);
+    if (saved > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).waterSave) effect(s, cell.id, 'waterSaved', saved); });
+    if (s.dryCool > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).dryCool) effect(s, cell.id, 'dryCool', result.passive * SA.mod(cell).dryCool / (K.DISSIPATE + s.dryCool)); });
     s.maxHeat = Math.max(s.maxHeat, s.heat);
     s.minWater = Math.min(s.minWater, s.water);
     markTelemetry(s);
-    if (s.heat >= K.HEAT_MAX) { kill(s, '锅炉烧干，机器停摆'); return; }
+    if (s.heat >= s.heatMax) { kill(s, '机组过热停摆'); return; }
     const aimPt = isHuman(s) ? B.aim : aiAimPoint(s, o);
     const aiming = s.fireHeld && aimPt && s.power > 0 && !s.hold && !o.dead;
     // 玩家松开按键的这一帧也算开火（提前松手 = 用当前稳定度打出去）
@@ -826,8 +837,6 @@ SA.Battle = (() => {
     const at = firing ? targetAt(o, aimPt[0], aimPt[1]) : null;
     const side = !!at && at.layer === 'side';
     if (firing) {
-      // 蒸汽喷射器持续工作时额外耗水；普通武器仍按每发 FIRE_WATER 结算。
-      for (const w of s.weapons) if (w.cell.id === s.sel && w.m.waterPerSec) s.water = Math.max(0, s.water - w.m.waterPerSec * dt);
       markTelemetry(s);
     }
     // 瞄准稳定度：按住就慢慢蓄满（准星收紧、散布缩小），车身晃动会拖慢蓄力并不断把它抖散
@@ -920,9 +929,9 @@ SA.Battle = (() => {
   function ai(s, o, dt) {
     if (s.dead) return;
     const profile = s.aiProfile || {};
-    const heatHigh = Number.isFinite(profile.heatHoldHigh) ? profile.heatHoldHigh : T.AI_HEAT_HIGH;
-    const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow : T.AI_HEAT_LOW;
-    if (s.heat > heatHigh) s.hold = true; else if (s.heat < heatLow) s.hold = false;
+    const heatHigh = Number.isFinite(profile.heatHoldHigh) ? profile.heatHoldHigh / 100 : T.AI_HEAT_HIGH;
+    const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow / 100 : T.AI_HEAT_LOW;
+    if (s.heat / s.heatMax > heatHigh) s.hold = true; else if (s.heat / s.heatMax < heatLow) s.hold = false;
     s.retarget -= dt;
     const tAlive = s.target && alive(o.v[s.target.layer][s.target.r][s.target.c]);
     if (!tAlive || s.retarget <= 0) {
@@ -1281,7 +1290,7 @@ SA.Battle = (() => {
       B.result = { winner: B.draw ? 'draw' : B.e.dead && !B.p.dead ? 'p' : B.p.dead && !B.e.dead ? 'e' : 'draw',
         t: B.t, reason: B.draw || (B.e.dead ? B.e.reason : B.p.reason), pDealt: B.p.dealt, eDealt: B.e.dealt,
         effectStats: { p: B.p.effects, e: B.e.effects },
-        events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, minWater: B.p.minWater, failureType: B.p.failureType, failureAt: B.p.failureAt, firstWaterEmptyAt: B.p.firstWaterEmptyAt, firstHeatMaxAt: B.p.firstHeatMaxAt, fireHeldAtFailure: B.p.fireHeldAtFailure, holdAtFailure: B.p.holdAtFailure, ventAtFailure: B.p.ventAtFailure, holdSeconds: B.p.holdSeconds, fireHeldSeconds: B.p.fireHeldSeconds, ventCount: B.p.ventCount }, e: { ...B.e.events, maxHeat: B.e.maxHeat, minWater: B.e.minWater, failureType: B.e.failureType, failureAt: B.e.failureAt, firstWaterEmptyAt: B.e.firstWaterEmptyAt, firstHeatMaxAt: B.e.firstHeatMaxAt, fireHeldAtFailure: B.e.fireHeldAtFailure, holdAtFailure: B.e.holdAtFailure, ventAtFailure: B.e.ventAtFailure, holdSeconds: B.e.holdSeconds, fireHeldSeconds: B.e.fireHeldSeconds, ventCount: B.e.ventCount } },
+        events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, heatMax: B.p.heatMax, minWater: B.p.minWater, failureType: B.p.failureType, failureAt: B.p.failureAt, firstWaterEmptyAt: B.p.firstWaterEmptyAt, firstHeatMaxAt: B.p.firstHeatMaxAt, fireHeldAtFailure: B.p.fireHeldAtFailure, holdAtFailure: B.p.holdAtFailure, ventAtFailure: B.p.ventAtFailure, holdSeconds: B.p.holdSeconds, fireHeldSeconds: B.p.fireHeldSeconds, ventCount: B.p.ventCount }, e: { ...B.e.events, maxHeat: B.e.maxHeat, heatMax: B.e.heatMax, minWater: B.e.minWater, failureType: B.e.failureType, failureAt: B.e.failureAt, firstWaterEmptyAt: B.e.firstWaterEmptyAt, firstHeatMaxAt: B.e.firstHeatMaxAt, fireHeldAtFailure: B.e.fireHeldAtFailure, holdAtFailure: B.e.holdAtFailure, ventAtFailure: B.e.ventAtFailure, holdSeconds: B.e.holdSeconds, fireHeldSeconds: B.e.fireHeldSeconds, ventCount: B.e.ventCount } },
         // 无画面诊断只读快照：用于压力测试发现位置、耐久、热量和水量越界，不参与判胜或 AI。
         state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water, cells: cellTelemetry(B.p.v) }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water, cells: cellTelemetry(B.e.v) } },
         metrics: { ...B.metrics }, timeout: B.timeout || null };
@@ -1303,7 +1312,7 @@ SA.Battle = (() => {
     // 真人记录只保存一局的聚合指标，供 P8 校准代理 AI；不写逐帧数据，也不记录友谊赛以外的隐私信息。
     const humanId = recordHumanBattle({
       terrain: B.opts.terrain || 'flat', outcome: draw ? 'draw' : win ? 'p' : 'e', time: B.t,
-      events: B.p.events, metrics: B.metrics, maxHeat: B.p.maxHeat, minWater: B.p.minWater,
+      events: B.p.events, metrics: B.metrics, maxHeat: B.p.maxHeat, heatMax: B.p.heatMax, minWater: B.p.minWater,
       pDealt: B.p.dealt, pTaken: B.p.taken,
     });
     if (view) view.presentResult({
@@ -1327,7 +1336,7 @@ SA.Battle = (() => {
         outcome: input.outcome, time: t, shots: fire, hits: hit, ricochets: input.events?.ricochet || 0, chargedHits: charged,
         hitRate: fire ? hit / fire : 0, chargedRate: fire ? charged / fire : 0,
         closeRate: t ? (input.metrics?.nearTime || 0) / t : 0, farRate: t ? (input.metrics?.farTime || 0) / t : 0,
-        noEngageRate: t ? (input.metrics?.noEngageTime || 0) / t : 0, maxHeat: input.maxHeat || 0,
+        noEngageRate: t ? (input.metrics?.noEngageTime || 0) / t : 0, maxHeat: input.maxHeat || 0, heatMax: input.heatMax || 0,
         minWater: input.minWater || 0, damageDealt: input.pDealt || 0, damageTaken: input.pTaken || 0, feedback: null });
       let kept = rows.slice(-MAX), encoded = () => JSON.stringify({ version: 1, records: kept });
       while (kept.length > 1 && encoded().length > LIMIT) kept.shift();
@@ -1375,6 +1384,7 @@ SA.Battle = (() => {
 
   // 调试：预览环境里 rAF 可能不跑，可手动推进
   const debug = {
+    damage(side, r, c, layer = 'body', amount = 1) { const s = side === 'e' ? B.e : B.p; damage(s, null, { layer, r, c }, amount); }, // 单位检查用真实受击与刷新路径。
     step(sec = 1) { for (let i = 0; i < sec * 60; i++) { if (B.done) break; step(1 / 60); } if (view) { view.draw(); view.hudTick(1); } return { t: B.t, px: B.p.x, ex: B.e.x, pv: B.p.vx, ev: B.e.vx, ph: B.p.heat, eh: B.e.heat, pd: B.p.dead, ed: B.e.dead }; },
     get B() { return B; },
     cellCenter(side, r, c, layer = 'body') { const s = side === 'e' ? B.e : B.p; return modCenter(s, layer, r, c); },

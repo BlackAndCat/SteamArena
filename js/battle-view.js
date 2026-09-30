@@ -133,7 +133,7 @@ SA.BattleView.create = function createBattleView(api) {
     // 所以车直接画在设备分辨率上：车身画布先整数倍最近邻放大，再带着旋转双线性画上去 —— 像素块大小一致，斜边平滑不抖
     const Z = cam.z * DPX;
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / s.heatMax, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
     const sur = api.surrenderState();
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', sur ? { crewExpr: sur.crewExpression } : null));
@@ -229,8 +229,8 @@ SA.BattleView.create = function createBattleView(api) {
     g = wc.getContext('2d');
     dg.setTransform(DPX, 0, 0, DPX, 0, 0);   // 屏幕空间（W × H）
     // 过热：屏幕四周红光呼吸，余光就能看到
-    if (!B.p.dead && B.p.heat > T.HEAT_ALERT) {
-      const a = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(B.t * 8))) * Math.min(1, (B.p.heat - T.HEAT_ALERT) / 15 + 0.4);
+    if (!B.p.dead && B.p.heat / B.p.heatMax > T.HEAT_ALERT) {
+      const a = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(B.t * 8))) * Math.min(1, (B.p.heat / B.p.heatMax - T.HEAT_ALERT) / 0.15 + 0.4);
       for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, 0, 0, 60, 0, 0, W, 60], [0, H, 0, H - 60, 0, H - 60, W, 60], [0, 0, 60, 0, 0, 0, 60, H], [W, 0, W - 60, 0, W - 60, 0, 60, H]]) {
         const gr = dg.createLinearGradient(x0, y0, x1, y1);
         gr.addColorStop(0, `rgba(255,40,30,${a})`); gr.addColorStop(1, 'rgba(255,40,30,0)');
@@ -340,7 +340,7 @@ SA.BattleView.create = function createBattleView(api) {
   function alertsOf(s) {
     if (s.dead) return [];
     const out = [];
-    if (s.heat > T.HEAT_ALERT) out.push(['过热！', '#d8261b']);
+    if (s.heat / s.heatMax > T.HEAT_ALERT) out.push(['过热！', '#d8261b']);
     if (s.waterMax && s.water <= 0) out.push(['没水了', '#1c7f99']);
     else if (s.waterMax && s.water / s.waterMax < T.WATER_LOW_RATIO) out.push(['水快没了', '#1c7f99']);
     if (s.supply <= 0) out.push(['失去动力', '#d8261b']);
@@ -362,7 +362,7 @@ SA.BattleView.create = function createBattleView(api) {
       g.fillStyle = flash && pulse > 0.5 ? '#ffffff' : col; g.fillRect(x, yy, Math.round(w * clamp(f, 0, 1)), 4);
     };
     bar(y, a / Math.max(1, m), '#e4e0d6');
-    bar(y + 7, s.heat / K.HEAT_MAX, s.heat > T.HEAT_ALERT ? '#ff3b2f' : '#ef7a21', s.heat > T.HEAT_ALERT);
+    bar(y + 7, s.heat / s.heatMax, s.heat / s.heatMax > T.HEAT_ALERT ? '#ff3b2f' : '#ef7a21', s.heat / s.heatMax > T.HEAT_ALERT);
     bar(y + 14, s.waterMax ? s.water / s.waterMax : 0, '#46c2c9', s.waterMax && s.water / s.waterMax < T.WATER_LOW_RATIO);
     const al = alertsOf(s);
     if (al.length) chips(al, x + w / 2, y - 26, 16);
@@ -608,8 +608,8 @@ SA.BattleView.create = function createBattleView(api) {
     el.root = h('div', { class: `bt-side ${cls}` },
       el.nm = h('div', { class: 'nm' }),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '耐久'), h('div', { class: 'bar hp' }, el.hp = h('i'))),
-      h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量'), el.heatBar = h('div', { class: 'bar heat' }, el.heat = h('i'))),
-      h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '水'), h('div', { class: 'bar water' }, el.water = h('i'))),
+      h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '热量 kJ'), el.heatBar = h('div', { class: 'bar heat' }, el.heat = h('i'))),
+      h('div', { class: 'bar-row' }, el.waterLabel = h('span', { class: 'name' }, '水 L'), h('div', { class: 'bar water' }, el.water = h('i'))),
       el.state = h('div', { class: 'state' }));
     return el;
   }
@@ -618,14 +618,17 @@ SA.BattleView.create = function createBattleView(api) {
     SA.V.each(s.v, (cell) => { a += Math.max(0, cell.hp); m += SA.V.maxHp(cell); });
     el.nm.textContent = s.name;
     el.hp.style.width = `${(a / Math.max(1, m)) * 100}%`;
-    el.heat.style.width = `${Math.min(100, s.heat)}%`;
-    el.heatBar.classList.toggle('hot', s.heat > T.HEAT_ALERT);
+    el.heat.style.width = `${Math.min(100, s.heat / s.heatMax * 100)}%`;
+    el.heatBar.title = `机组/冷却回路 ${SA.Phys.fmtHeat(s.heat)} / ${SA.Phys.fmtHeat(s.heatMax)} · ${SA.Phys.fmtTemp(SA.Phys.temp(s.heat, s.heatCapacity))}`;
+    el.heatBar.classList.toggle('hot', s.heat / s.heatMax > T.HEAT_ALERT);
     el.water.style.width = `${(s.water / Math.max(1, s.waterMax)) * 100}%`;
+    el.waterLabel.textContent = `水 ${s.water.toFixed(0)}/${s.waterMax.toFixed(0)} L`;
+    el.water.parentNode.title = `${SA.Phys.fmtWater(s.water)} / ${SA.Phys.fmtWater(s.waterMax)}`;
     const st = [];
     if (s.dead) st.push(s.reason);
     else {
       if (s.power < 1) st.push(`动力 ${Math.round(s.power * 100)}%`);
-      if (s.heat > T.HEAT_ALERT) st.push('即将烧干！');
+      if (s.heat / s.heatMax > T.HEAT_ALERT) st.push(`机组 ${SA.Phys.fmtTemp(SA.Phys.temp(s.heat, s.heatCapacity))}，即将过热`);
       else if (s.water <= 0) st.push('水已耗尽');
       if (s.hold) st.push('停火降温中');
       if (s.thrown) st.push('履带掉链，无法移动');

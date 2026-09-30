@@ -463,18 +463,12 @@ SA.V = (() => {
     return out;
   }
 
-  function overheatTime(gen, coolRate, water, drain = 0, dryCool = 0, waterSave = 1) {
+  function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw, openKw) {
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
-      heat += (gen + K.IDLE_HEAT - K.DISSIPATE) * 0.5;
-      water = Math.max(0, water - drain * 0.5);
-      if (water > 0 && heat > 0) {
-        const c = Math.min(heat, SA.coolRate(coolRate, heat) * 0.5);
-        heat -= c; water -= c * K.WATER_PER_HEAT * waterSave;
-      }
-      heat = Math.max(0, heat - dryCool * 0.5);
-      heat = Math.max(0, heat);
-      if (heat >= K.HEAT_MAX) return t;
+      const next = SA.Phys.thermalStep(heat, water, 0.5, { shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity, steamRecovery: waterSave, openKw });
+      heat = next.heat; water = next.water;
+      if (heat >= (120 - 20) * capacity) return t + 0.5;
     }
     return Infinity;
   }
@@ -513,7 +507,7 @@ SA.V = (() => {
       if (m.ram) s.rams++;
       if (SA.isCockpit(cell.id)) s.cockpits++;
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
-      if (m.water || m.cool) { s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
+      if (m.water || m.cool) { if (m.cat === 'cooling') s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
     s.center = mass ? massX / mass : chassisCenter;
     // 重心偏移 d 和重心高度都按大格算（true-biped.md §2 的阈值是「格」）；双足从胯层中线量起
@@ -530,7 +524,9 @@ SA.V = (() => {
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     s.sway *= ax.sway;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
-    s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
+    s.dryWeight = s.weight;
+    s.weight += s.water; // 满水纸面重量；战斗帧中使用实时剩余水量。
+    s.drive = SA.Phys.driveKw(s.weight, s.speed);
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
     s.blocked = blockedList(v);
     // 最高速度 = 底盘基础速度 × 动力比（锅炉富余时可以超速，最多 125%）
@@ -538,7 +534,7 @@ SA.V = (() => {
     s.topSpeed = s.speed * s.speedMul;
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
-    let weaponHeat = 0, weaponWater = 0;
+    let weaponHeat = 0;
     each(v, (cell, r, c, layer) => {
       const m = SA.mod(cell);
       if (!alive(cell) || !m.dmg) return;
@@ -555,12 +551,17 @@ SA.V = (() => {
       s.heatDps += (m.heatPerSec || m.heat / reload) * s.power;
       s.tether += m.tether ? 12 : 0;
       weaponHeat += (m.heatPerSec ? m.heat : m.heat / reload) * s.power;
-      weaponWater += (m.waterPerSec || m.heat * K.FIRE_WATER / reload) * s.power;
     });
+    s.heatCapacity = SA.Phys.heatCapacity(s.dryWeight);
+    s.heatMax = SA.Phys.heatMax(s.dryWeight);
     s.boilerHeat = s.heatRate * s.heatMul * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
-    s.overheat = overheatTime(s.heatGen, s.cool, s.water, weaponWater, s.dryCool, s.waterSave);
-    s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps * 2 + s.tether + s.store * 0.7 + s.dryCool * 8 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
+    s.steamWaterPerSec = SA.Phys.steamWater(Math.min(s.supply, s.demand));
+    // 持续开火预测把开放式蒸汽喷射列为不可冷凝的流量。
+    let steamJetKw = 0;
+    each(v, cell => { if (alive(cell) && SA.mod(cell).waterPerSec) steamJetKw += SA.mod(cell).power || 0; });
+    s.overheat = overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, Math.min(s.supply, s.demand), s.boilerHeat, steamJetKw);
+    s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps / 25 + s.tether + s.store * 0.014 + s.dryCool * 0.16 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
 
     s.problems = [];
     if (!s.chassis) s.problems.push('没有底盘');

@@ -194,6 +194,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   }
 
   async function run() {
+    // 旧 WGSL 复制的是抽象热量方程；现行回路温度/产汽积分需另行移植后才可比较。
+    throw new Error('此 WebGPU 热量试验仍使用旧公式，已暂停；现行工程单位请运行 node tools/units-check.js。');
     const max = Math.max(1, Number($('size').value) || 16384), repeat = Math.max(1, Math.min(5, Number($('repeat').value) || 3));
     if (!navigator.gpu) throw new Error('当前浏览器没有 WebGPU，请用支持它的浏览器通过 localhost 打开。');
     const response = await fetch('out/gpu-heat-fixture.json', { cache: 'no-store' });

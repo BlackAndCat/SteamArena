@@ -37,8 +37,8 @@
     if (m.indirect) x += 1;
     if (m.reload && m.reload < SA.K.FAST_RELOAD) x += (SA.K.FAST_RELOAD - m.reload) * 2;
     if (m.splash) x += (m.dmg || 0) * m.splash.k * Math.PI * m.splash.r * m.splash.r / (SA.K.CELL * SA.K.CELL) * 0.08 / Math.max(0.1, m.reload || 1);
-    x += (m.dmgPerSec || 0) + (m.heatToEnemy || 0) * 0.5 + (m.tether || 0) / 10;
-    x += (m.store || 0) * 0.15 + (m.dryCool || 0) + (m.waterSave ? (1 - m.waterSave) * 8 : 0);
+    x += (m.dmgPerSec || 0) + (m.heatToEnemy || 0) * 0.01 + (m.tether || 0) / 10;
+    x += (m.store || 0) * 0.003 + (m.dryCool || 0) / 50 + (m.waterSave ? (1 - m.waterSave) * 8 : 0);
     x += (m.ram || 0) / 10 + (m.punch || 0) / 10 + (m.heatMul ? (1 - m.heatMul) * 10 : 0);
     x += m.reloadMul ? (1 - m.reloadMul) * 10 : 0;
     x += m.spreadMul ? (1 - m.spreadMul) * 8 : 0;
@@ -161,7 +161,7 @@
           })),
         h('h2', {}, '模块生效统计'),
         h('p', { class: 'muted' }, '统计包含本章参考车和战役对手的整轮模拟；被动模块用“激活”计数，武器同时记录开火、命中，鱼叉记录牵引，蓄压罐/散热片/冷凝器记录对应资源效果。'),
-        h('table', {}, h('tr', {}, ['模块', '激活', '开火', '命中', '牵引', '放出储能', '省水', '无水散热'].map(t => h('th', {}, t))),
+        h('table', {}, h('tr', {}, ['模块', '激活', '开火', '命中', '牵引', '放出储能 kJ', '省水 L', '无水散热 kJ'].map(t => h('th', {}, t))),
           ['pressure_tank', 'radiator', 'condenser', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'boss_core', 'boss_lens', 'boss_ram', 'mortar_s', 'mg2', 'periscope', 'autoloader', 'rangefinder', 'gyroscope'].map(id => {
             const e = effectTotals[id] || {};
             return h('tr', {}, h('td', {}, M[id].name), h('td', { class: `num ${e.active > 0 ? 'ok' : 'bad'}` }, Math.round(e.active || 0)), h('td', { class: 'num' }, Math.round(e.fire || 0)), h('td', { class: 'num' }, Math.round(e.hit || 0)), h('td', { class: 'num' }, Math.round(e.tether || 0)), h('td', { class: 'num' }, (e.energy || 0).toFixed(1)), h('td', { class: 'num' }, (e.waterSaved || 0).toFixed(1)), h('td', { class: 'num' }, (e.dryCool || 0).toFixed(1)));
@@ -249,7 +249,7 @@
     out.append(h('h2', {}, `模块性价比 · ${SA.MATS[mt].name}`),
       h('p', { class: 'muted' }, '纸面 DPS = 伤害 × 命中系数 ÷ 装填（同评分公式，没算护甲）。机制贡献把齐射、溅射、持续伤害 / 升温、牵引、储能、冷却和实体辅助倍率换算成可比较的正值，用于确认机制已接入数值链路。价格 = 原价 + 材料升级。绿 = 比同列中位数高 40% 以上，红 = 低 40% 以上。'),
       h('table', {},
-        h('tr', {}, ['模块', '价格', '重量', '耐久', '护甲', '动力', 'DPS', '机制贡献', 'DPS / £100', '耐久 / £', '耐久 / 吨', 'DPS / 动力', 'DPS / 吨'].map(t => h('th', {}, t))),
+        h('tr', {}, ['模块', '价格', '干重 t', '耐久', '护甲', '轴功率 kW', 'DPS', '机制贡献', 'DPS / £100', '耐久 / £', '耐久 / 吨', 'DPS / kW', 'DPS / 吨'].map(t => h('th', {}, t))),
         rows.map(r => h('tr', {},
           h('td', {}, M[r.id].name), h('td', { class: 'num' }, `£${r.price}`), h('td', { class: 'num' }, r.t.toFixed(2)),
           h('td', { class: 'num' }, r.m.hp), h('td', { class: 'num' }, r.m.armor || ''), h('td', { class: 'num' }, r.m.supply ? `+${r.m.supply}` : r.m.power ? `-${r.m.power}` : ''),
