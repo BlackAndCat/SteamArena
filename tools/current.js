@@ -510,14 +510,10 @@ SA.CUR = (() => {
   // 鱼叉 v2：链锚抓钩 + 身后占满高度的绞缆盘（正面看的大圆盘，一圈圈缠着的缆绳）
   const HARPOON2 = [
     { key: 'E2', name: '链锚抓钩 + 绞缆盘', ref: 'v1 选定 E 链锚抓钩为主体 + F 的绞缆盘改成背景大圆盘',
-      idea: '（v2）身后立着一只占满整个模块高度的大绞缆盘（正面看：黄铜轮缘、一圈圈缠满的缆绳、四根辐条和轮毂），前面是粗口径短炮管和四爪抓钩。抓钩后面接一小段铁链，再接盘上的缆绳。射出去时绞盘放缆（缆圈的纹路往外转），收回时往回转。',
+      idea: '（v3）身后立着一只占满整个模块高度的大绞缆盘（正面看：黄铜轮缘、三圈粗缆——每圈之间一道黑缝、左上亮右下暗、稀疏的捻纹——中间黄铜轮毂），前面是粗口径短炮管和四爪抓钩。抓钩后面接一小段铁链，再接盘上的缆绳。射出去时绞盘放缆（缆圈的纹路往外转），收回时往回转。',
       draw(x, y, o) {
         const cx = x + 13, cy = y + 12, spin = (o.out ? 1 : -0.3) * o.t * 0.12;
-        disc(cx, cy, 12, P.brass[0]); disc(cx, cy, 11, P.brass[1]); disc(cx, cy, 10.2, P.leather[0]);
-        for (let r0 = 4; r0 <= 10; r0 += 1.2) { const n = Math.ceil(r0 * 6.5); for (let i = 0; i < n; i++) { const a = i / n * TAU + spin * (1 + r0 * 0.05); px(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, (i + Math.round(r0 * 3)) % 4 === 0 ? ROPE[2] : ROPE[1]); } }
-        for (let k = 0; k < 4; k++) { const a = spin + k * TAU / 4; line(cx + Math.cos(a) * 2.5, cy + Math.sin(a) * 2.5, cx + Math.cos(a) * 4, cy + Math.sin(a) * 4, 1, P.brass[2]); }
-        disc(cx, cy, 2.4, P.brass[0]); disc(cx, cy, 1.5, P.brass[2]); px(cx - 1, cy - 1, P.brass[3]);
-        for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(cx + Math.cos(a) * 11.4, cy + Math.sin(a) * 11.4, P.brass[3]); }
+        cableDrum(cx, cy, spin);
         cradle(x, y, 12, 16);
         turn(x + 18, y + 13, o.a, (X, Y) => {
           const d = o.k * 5; htube(X - 7 - d, Y - 4, 28, 8, IRONL); R(X + 18 - d, Y - 5, 3, 10, P.iron[0]); R(X + 19 - d, Y - 4, 1, 8, P.iron[4]); R(X - 3 - d, Y - 4, 2, 8, P.brass[1]);
@@ -615,6 +611,113 @@ SA.CUR = (() => {
   ];
   // 投掷时的小烟尘：从脱手点往外飘两团汽（材质层之后）
   function cataFx(x, y, o) { if (o.s > 0.15 && o.s < 0.5) { const p = (o.s - 0.15) / 0.35; disc(x + 40 + p * 8, y + 8 - p * 6, 1 + p * 2.5, p < 0.5 ? P.white : P.steam[2]); disc(x + 32 + p * 10, y + 4 - p * 4, 0.8 + p * 2, P.steam[2]); } }
+
+  // ================= v3（2026-09-29 用户：绞盘线缆糊成一团要清楚；火箭架做成六档六种样式，投矛臂、投掷轮保留，v1 火箭架挑一个当高阶，再探索一些）=================
+  // 绞缆盘 v3：三圈粗缆，每圈之间一道黑缝；每圈左上亮、右下暗（光从左上来），捻纹稀疏、随绞盘转
+  function cableDrum(cx, cy, spin) {
+    disc(cx, cy, 12, P.brass[0]); disc(cx, cy, 11, P.brass[1]); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(cx + Math.cos(a) * 11.4, cy + Math.sin(a) * 11.4, P.brass[3]); }
+    for (let yy = Math.floor(cy - 10); yy <= cy + 10; yy++) for (let xx = Math.floor(cx - 10); xx <= cx + 10; xx++) {
+      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy, d = Math.hypot(dx, dy);
+      if (d > 9.9) continue;
+      if (d < 3.2) continue;
+      const f = (d - 3.4) / 2.1, ring = Math.floor(f), fr = f - ring;
+      if (ring > 2 || fr > 0.72 || f < 0) { px(xx, yy, P.black); continue; }
+      const a = Math.atan2(dy, dx), lit = Math.cos(a + Math.PI * 0.75);                                     // 左上 = 1，右下 = -1
+      const ph = ((a - spin) / TAU * 8 % 1 + 1) % 1, tw = ring === 2 && ph < 0.12;   // 捻纹：只在最外圈，一圈 8 道短痕（看得出绞盘在转）
+      px(xx, yy, tw ? ROPE[0] : lit > 0.35 ? ROPE[2] : lit < -0.4 ? ROPE[0] : ROPE[1]);
+    }
+    disc(cx, cy, 3, P.brass[0]); disc(cx, cy, 2.2, P.brass[2]); for (let k = 0; k < 4; k++) { const a = spin + k * TAU / 4; px(cx + Math.cos(a) * 2.2, cy + Math.sin(a) * 2.2, P.brass[0]); }
+    px(cx - 1, cy - 1, P.brass[3]); px(cx, cy, P.iron[0]);
+  }
+
+  // ---------- 火箭架六档：从「扔」到「射」 ----------
+  // 状态统一：o.n 架上几枚（装填 / 空）；o.s 一轮开火进度 0～1；o.a 仰角（会转的发射管用）
+  const shotsOf = (o) => { if (!(o.s > 0)) return { n: o.n, fire: false }; const sh = o.s * 5; return { n: Math.max(0, 4 - Math.floor(sh + 0.8)), fire: sh % 1 < 0.5 && sh < 4.3 }; };
+  const tubeFx = (dx, dy) => (x, y, o) => { const S = shotsOf(o); if (!S.fire) return; const [bx, by] = at(x + 24, y + 28, o.a, dx, dy); steamJet(bx, by, o.a + 180, 14, o.t, true); };
+  const coil = (x0, y0, x1, y1, turns, rr) => {   // 画一根螺旋弹簧：沿 a→b 一圈圈的斜线
+    const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux, N = turns * 8;
+    for (let i = 0; i < N; i++) { const k0 = i / N, k1 = (i + 1) / N, s0 = Math.sin(k0 * turns * TAU), s1 = Math.sin(k1 * turns * TAU); line(x0 + ux * L * k0 + nx * rr * s0, y0 + uy * L * k0 + ny * rr * s0, x0 + ux * L * k1 + nx * rr * s1, y0 + uy * L * k1 + ny * rr * s1, 1, Math.cos(k0 * turns * TAU) > 0 ? P.iron[4] : P.iron[1]); }
+  };
+  const ROCKET6 = [
+    { key: 'T1', tier: 1, name: '投矛臂', ref: 'v2 H，保留', idea: '（T1 黄铜）一根长投矛臂平时向后放倒，臂上四个托架各一枚短炸弹；蒸汽缸一推，长臂抡过头顶，炸弹从臂梢到根部依次脱手。', draw: (x, y, o) => CATA[1].draw(x, y, o), fx: cataFx },
+    { key: 'T2', tier: 2, name: '四杓投掷轮', ref: 'v2 G，保留', idea: '（T2 熟铁）大飞轮伸出十字四根杓臂，每只杓一枚短炸弹；每投一枚飞轮转四分之一圈。', draw: (x, y, o) => CATA[0].draw(x, y, o), fx: cataFx },
+    { key: 'T3a', tier: 3, name: '卷簧投掷臂', ref: '新：钢制大螺旋弹簧拉着的投掷臂（钢 = 弹簧钢）',
+      idea: '（T3 钢候选）一根投掷臂向后压倒，被一根又粗又长的钢螺旋弹簧拉着；臂梢一只四杓头，各一枚炸弹。开火时弹簧猛地收缩，臂甩到竖直撞上挡块，四枚炸弹一起飞出去。「钢」这一档的主角是弹簧。',
+      draw(x, y, o) {
+        box(x + 4, y + 40, 40, 8, IRON); R(x + 36, y + 14, 5, 27, P.iron[1]); R(x + 36, y + 14, 5, 1, P.iron[3]); R(x + 33, y + 14, 8, 3, P.leather[1]);
+        const Pv = [x + 22, y + 38], sw = swingOf(o.s), a = (-172 + sw * 94) * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a);
+        const A10 = [Pv[0] + ux * 10, Pv[1] + uy * 10];
+        coil(x + 39, y + 36, A10[0], A10[1], 6, 2.5); R(x + 38, y + 35, 3, 3, P.iron[0]);
+        beam(Pv[0], Pv[1], Pv[0] + ux * 22, Pv[1] + uy * 22, 4);
+        const E = [Pv[0] + ux * 22, Pv[1] + uy * 22];
+        for (let k = 0; k < 4; k++) { const b = a + (k - 1.5) * 0.45, tx = E[0] + Math.cos(b) * 4, ty = E[1] + Math.sin(b) * 4; line(E[0], E[1], tx, ty, 1, P.iron[3]); const gone = o.s > 0 ? o.s > 0.2 : k >= o.n; if (!gone) bomb(tx - uy * 2, ty + ux * 2 - 1); }
+        pin(Pv[0], Pv[1]);
+      }, fx: cataFx },
+    { key: 'T3b', tier: 3, name: '板簧连弩', ref: '新：四副叠层板簧弓上下排成一架（连弩），每根弦前一枚炸弹',
+      idea: '（T3 钢候选）一只斜架子里上下排着四副叠层钢板簧弓，每根弦前坐着一枚短炸弹；开火时从上到下一根根弦弹直，把炸弹弹出去。四副弓 = 数得出 4。',
+      draw(x, y, o) {
+        box(x + 8, y + 40, 32, 8, IRON);
+        const S = shotsOf(o);
+        turn(x + 24, y + 28, 20 + (o.a || 0) * 0.4, (X, Y) => {
+          for (const u of [-16, 12]) { R(X + u, Y - 18, 3, 36, P.iron[0]); R(X + u, Y - 18, 1, 36, P.iron[3]); }
+          for (let k = 0; k < 4; k++) {
+            const v = -13 + k * 8.5, loaded = k < S.n, bend = loaded ? 3 : 0.6;
+            R(X - 16, Y + v, 28, 2, P.iron[1]); R(X - 16, Y + v, 28, 1, P.iron[3]);
+            for (let lf = 0; lf < 2; lf++) for (let i = -4 + lf; i <= 4 - lf; i++) { const bx = X + 11 + lf - Math.round(i * i / 16 * bend); px(bx, Y + v + i, lf ? P.iron[2] : P.iron[4]); }
+            const nock = loaded ? X - 3 : X + 9; line(X + 11 - bend, Y + v - 4, nock, Y + v, 1, P.steam[1]); line(X + 11 - bend, Y + v + 4, nock, Y + v, 1, P.steam[1]);
+            if (loaded) bomb(X + 1, Y + v - 2);
+          }
+        });
+        pin(x + 24, y + 28);
+      } },
+    { key: 'T4a', tier: 4, name: '气压抛射管', ref: '新：四根短粗的气压迫击管排成管风琴 + 一根蒸汽汇流管',
+      idea: '（T4 镀镍候选）四根短粗的抛射管像管风琴一样一高一低排着，管口露出炸弹的圆顶和引信；底下一根汇流管连着一只压力表。开火时一根接一根「噗」地喷一口白汽，炸弹被顶出去。从「扔」进化到「喷」。',
+      draw(x, y, o) {
+        box(x + 4, y + 40, 40, 8, IRON); const S = shotsOf(o), tilt = (50 + (o.a || 0) * 0.4) * Math.PI / 180;
+        htube(x + 6, y + 36, 36, 4, IRONL); gauge(x + 40, y + 33, 3, S.fire ? 0.3 : 0.8);
+        for (let k = 0; k < 4; k++) {
+          const bx = x + 10 + k * 8, by = y + 37, L = 16 + (k % 2) * 5, ex = bx + Math.cos(tilt) * L, ey = by - Math.sin(tilt) * L;
+          line(bx, by, ex, ey, 6, P.iron[0]); line(bx, by, ex, ey, 4, P.iron[2]); line(bx - 1, by - 1, ex - 1, ey - 1, 1, P.iron[4]);
+          line(ex - 1, ey + 1, ex + 2, ey - 2, 2, P.iron[0]);
+          if (k < S.n) bomb(ex, ey - 2);
+        }
+      },
+      fx(x, y, o) { const S = shotsOf(o); if (!S.fire) return; const k = 4 - S.n - 1, tilt = 50 + (o.a || 0) * 0.4, L = 16 + (k % 2) * 5, r = tilt * Math.PI / 180; steamJet(x + 10 + k * 8 + Math.cos(r) * L, y + 37 - Math.sin(r) * L, tilt, 12, o.t, true); } },
+    { key: 'T4b', tier: 4, name: '蒸汽弹射轨', ref: '新：一根斜轨 + 蒸汽活塞推的弹射滑块 + 轨尾一只竖弹仓',
+      idea: '（T4 镀镍候选）一根斜着往上的弹射轨，轨尾立着一只开了观察窗的竖弹仓，里面的炸弹一个摞一个看得见；开火时蒸汽活塞把滑块沿轨道猛推上去，把炸弹甩出轨头，滑块退回、下一枚掉进来。',
+      draw(x, y, o) {
+        box(x + 4, y + 40, 40, 8, IRON); const S = shotsOf(o);
+        box(x + 3, y + 8, 11, 33, IRONL); R(x + 5, y + 11, 7, 27, P.dark[0]); R(x + 3, y + 8, 11, 2, P.brass[1]);
+        for (let k = 0; k < Math.max(0, S.n - 1); k++) bomb(x + 8.5, y + 35 - k * 7);
+        turn(x + 14, y + 36, 28 + (o.a || 0) * 0.4, (X, Y) => {
+          R(X - 2, Y - 2, 38, 4, P.iron[0]); R(X - 2, Y - 2, 38, 1, P.iron[3]); for (let u = 2; u < 36; u += 6) px(X + u, Y, P.iron[4]);
+          htube(X, Y + 2, 16, 5, IRONL); R(X + 16, Y + 3, 2, 3, P.brass[1]);
+          const sh = S.fire ? 24 : 0; R(X + 4 + sh, Y - 5, 7, 3, P.brass[1]); R(X + 4 + sh, Y - 5, 7, 1, P.brass[3]); if (sh) R(X + 4, Y - 3, sh, 1, P.iron[4]);
+          if (S.n > 0 && !S.fire) bomb(X + 7.5, Y - 8);
+        });
+        pin(x + 14, y + 36);
+      },
+      fx(x, y, o) { const S = shotsOf(o); if (!S.fire) return; const [bx, by] = at(x + 14, y + 36, 28 + (o.a || 0) * 0.4, 0, 5); steamJet(bx, by, 28 + 180, 10, o.t, true); } },
+    { key: 'T5a', tier: 5, name: '火箭助推炸弹', ref: '新：炸弹屁股上绑一节火箭筒 + 导向尾杆（康格里夫的思路套在炸弹上）',
+      idea: '（T5 乌兹钢候选）四条短导轨上下排成梯子，每条上面一枚「火箭炸弹」：前头是圆胖炸弹，后面绑着一节火箭筒和一根导向尾杆。开火时尾部喷火，一枚接一枚冲出去。从「扔」过渡到「射」的一档。',
+      draw(x, y, o) {
+        box(x + 8, y + 40, 32, 8, IRON); const S = shotsOf(o);
+        turn(x + 24, y + 28, o.a, (X, Y) => {
+          R(X - 18, Y - 14, 3, 26, P.iron[0]); R(X - 18, Y - 14, 1, 26, P.iron[3]); R(X + 14, Y - 14, 3, 26, P.iron[0]);
+          for (let k = 0; k < 4; k++) {
+            const v = -11 + k * 6.5; R(X - 18, Y + v + 3, 36, 1, P.iron[2]);
+            if (k < S.n) { R(X - 16, Y + v + 1, 18, 1, P.leather[2]); R(X + 2, Y + v - 1, 10, 3, P.iron[3]); R(X + 2, Y + v - 1, 10, 1, P.iron[4]); R(X + 5, Y + v - 1, 1, 3, P.brass[1]); bomb(X + 15, Y + v); }
+          }
+        });
+        pin(x + 24, y + 28);
+      },
+      fx(x, y, o) { const S = shotsOf(o); if (!S.fire) return; const k = 4 - S.n - 1, [bx, by] = at(x + 24, y + 28, o.a, 1, -11 + k * 6.5); flameJet2(bx, by, o.a + 180, 12, o.t); } },
+    { key: 'T5b', tier: 5, name: '转轮弹巢', ref: 'v1 火箭架 D，放到高阶做候选',
+      idea: '（T5 乌兹钢候选）一只大转轮，侧面四道弹巢槽，每发一次转一格；上面一根长发射管。像一把放大的左轮。', draw(x, y, o) { const S = shotsOf(o); ROCKET[3].draw(x, y, { ...o, n: S.n }); }, fx: tubeFx(-14, -9) },
+    { key: 'T6', tier: 6, name: '管束发射架', ref: 'v1 火箭架 A：选作最高档（从「扔」一路进化到真正的火箭）',
+      idea: '（T6 以太合金）四根粗发射管上下叠成一束，两道箍扎紧，管口露出红色弹头；装在矮炮床的耳轴上。一发一发打出去，管尾喷烟。这一档是整条进化线的终点：真正的火箭。', draw(x, y, o) { const S = shotsOf(o); ROCKET[0].draw(x, y, { ...o, n: S.n }); }, fx: tubeFx(-18, -8) },
+  ];
+  const LINEUP = ['T1', 'T2', 'T3a', 'T4a', 'T5a', 'T6'];   // 推荐的六档（T3～T5 各有两个候选）
   // 火箭：发射那一下，管尾喷一团烟、带一点火
   function rocketFx(x, y, o) {
     if (!o.fire) return;
@@ -635,12 +738,13 @@ SA.CUR = (() => {
       rule: '2×1 · 第三章 · 选定 F 翅片喷焰炮：去掉电极；火焰改成实心火锥 + 白汽领子 + 火舌尖化成汽团（和蒸汽喷射器一家）· 只做镀镍 → 乌兹钢 → 以太合金 · 页面循环：待机（小火苗）→ 喷火',
       state: (t) => { const c = t % 100; return { t, a: lerp(-12, 25, t), on: c >= 40 && c < 90 }; },
       poses: [{ a: -12 }, { a: 0 }, { a: 25 }, { a: 8, on: true }] },
-    { id: 'rocket_rack', name: '火箭架 → 投掷架', w: 2, h: 2, piv: [24, 28], elev: [-8, 38], tiers: [1, 2, 3, 4, 5, 6], SET: CATA, fx: cataFx,
-      rule: '2×2 · 第四章 · 用户：重做成投石机 / 投矛器样式，每个投射点一枚短炸弹（圆胖弹体 + 红箍 + 引信）· 四个投射点 = 四枚齐射 · 页面循环：满 4 枚 → 一轮投完 → 空 → 一枚一枚装回',
-      state: (t) => { const c = t % 150; if (c < 40) return { t, n: 4, s: 0 }; if (c < 76) return { t, n: 4, s: (c - 40) / 36 }; if (c < 100) return { t, n: 0, s: 0 }; return { t, n: Math.min(4, 1 + Math.floor((c - 100) / 12)), s: 0 }; },
-      poses: [{ n: 4, s: 0, label: '满 4 枚' }, { n: 4, s: 0.18, label: '投掷中' }, { n: 4, s: 0.45, label: '投完' }, { n: 2, s: 0, label: '装填 2 / 4' }] },
+    { id: 'rocket_rack', name: '火箭架 · 六档六种（从扔到射）', w: 2, h: 2, piv: [24, 28], elev: [-8, 38], tiers: [1, 2, 3, 4, 5, 6], SET: ROCKET6, lineup: true,
+      rule: '2×2 · 第四章 · 每档一种样式，从低到高是一条进化线：T1 投矛臂（人力杠杆）→ T2 投掷轮（飞轮）→ T3 钢（弹簧）→ T4 镀镍（蒸汽 / 气压）→ T5 乌兹钢（火箭助推）→ T6 以太合金（真正的火箭，v1 管束发射架）· 每个投射点一枚短炸弹，四个 = 四枚齐射 · T3～T5 各两个候选，每张卡只按它那一档的材质画',
+      state: (t) => { const c = t % 150, a = lerp(-8, 38, t); if (c < 40) return { t, a, n: 4, s: 0 }; if (c < 76) return { t, a, n: 4, s: (c - 40) / 36 }; if (c < 100) return { t, a, n: 0, s: 0 }; return { t, a, n: Math.min(4, 1 + Math.floor((c - 100) / 12)), s: 0 }; },
+      poses: [{ a: 10, n: 4, s: 0, label: '满 4 枚' }, { a: 10, n: 4, s: 0.18, label: '开火中' }, { a: 10, n: 4, s: 0.6, label: '打完' }, { a: 10, n: 2, s: 0, label: '装填 2 / 4' }] },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   function over(ctx, x, y, e, o = {}, m) { g = ctx; if (e.fx) e.fx(x, y, o); else if (m && m.fx) m.fx(x, y, o); }
-  return { MODS, figure, over };
+  const byKey = (k) => ROCKET6.find(e => e.key === k);
+  return { MODS, figure, over, LINEUP: LINEUP.map(byKey) };
 })();

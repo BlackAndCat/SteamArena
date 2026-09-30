@@ -28,10 +28,12 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 投掷架 · v2 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 火箭架 · v3 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（大型锅炉 + 大水箱）已进游戏，归档在 <a href="archive/big-boiler-tank.html">archive/big-boiler-tank.html</a>。</p>
     <p><b>你对 v1 的选择</b>：① 鱼叉用 E 链锚抓钩，把绞缆盘做成背景一个占满空间的圆盘、一圈圈绞线；② 蒸汽喷射器选 A 扇形喷汽阀；③ 喷火器选 F 翅片喷焰炮，火焰黑色杂点太多显脏，要和蒸汽适当结合，取消电极；④ 火箭重做成投石机 / 投矛器样式，每个投射点装一枚短小的炸弹。</p>
-    <p><b>v2</b>：鱼叉、喷射器、喷火器各一件（喷射器没改）；投掷架 4 种新方案：<b>G 四杓投掷轮 · H 投矛臂 · I 四联投石机 · J 配重投石机</b>。v1 的 24 种代码留在 current.js 里（归档时一起存）。<b>请确认前三件、投掷架挑一个</b>，就一起进游戏。</p>
+    <p><b>v2</b>：鱼叉、喷射器、喷火器各一件；投掷架 4 种（G 投掷轮 · H 投矛臂 · I 四联投石机 · J 配重投石机）。</p>
+    <p><b>你对 v2 的意见</b>：① 绞盘的线缆糊成一团，要清楚；② 火箭架继续探索，六个材料六种样式、从低到高；投矛臂、投掷轮保留，v1 的火箭架挑一个当高阶形态，再探索一些。</p>
+    <p><b>v3</b>：绞盘改成三圈粗缆（每圈之间一道黑缝、光从左上来、捻纹稀疏）。火箭架排成一条进化线——<b>T1 投矛臂 → T2 投掷轮 → T3 钢：弹簧 → T4 镀镍：蒸汽 / 气压 → T5 乌兹钢：火箭助推炸弹 → T6 以太合金：v1 管束发射架</b>；T3～T5 各两个候选（卷簧投掷臂 / 板簧连弩、气压抛射管 / 蒸汽弹射轨、火箭助推炸弹 / 转轮弹巢）。<b>请确认鱼叉，并给 T3～T5 各挑一个</b>。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -63,7 +65,7 @@
   }
   const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
   const BG = P.bg[2];
-  const mtOf = (m) => (st.mt && m.tiers.includes(st.mt) ? st.mt : m.tiers[0]);
+  const mtOf = (m, e) => { const ts = e && e.tier ? [e.tier] : m.tiers; return st.mt && ts.includes(st.mt) ? st.mt : ts[0]; };
   // 一件武器：模块本体过材质层，汽 / 火 / 烟画在材质层之后；四周留出炮口和特效伸出去的地方
   function one(e, m, mt, o, pad = 6) {
     const W = m.w * 24 + pad + 56, H = m.h * 24 + pad * 2 + 18, ox = pad, oy = pad + 18, lay = document.createElement('canvas'); lay.width = W; lay.height = H;
@@ -88,13 +90,18 @@
       const cards = el('div', { className: 'cards' });
       for (const e of m.SET) {
         const big = el('div'), car = el('div'), tiers = el('div', { className: 'tiers' }), poses = el('div', { className: 'tiers' });
-        live.push(() => { const o = m.state(st.t), mt = mtOf(m); big.replaceChildren(show(one(e, m, mt, o), 3)); car.replaceChildren(show(onCar(e, m, mt, o), 1.5)); });
-        for (const mt of m.tiers) tiers.append(el('div', {}, show(one(e, m, mt, { ...m.state(40), a: 6, k: 0, out: false, on: false, fire: false, n: 4 }, 2), 1), `T${mt} ${SA.MATS[mt].name}`));
-        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label || (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
+        live.push(() => { const o = m.state(st.t), mt = mtOf(m, e); big.replaceChildren(show(one(e, m, mt, o), 3)); car.replaceChildren(show(onCar(e, m, mt, o), 1.5)); });
+        for (const mt of (e.tier ? [e.tier] : m.tiers)) tiers.append(el('div', {}, show(one(e, m, mt, { ...m.state(40), a: 6, k: 0, out: false, on: false, fire: false, n: 4 }, 2), 1), `T${mt} ${SA.MATS[mt].name}`));
+        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m, e), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label || (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
         cards.append(el('div', { className: 'card' }, el('h3', {}, `${e.key} ${e.name}`), el('div', { className: 'row' }, big, car), tiers, poses,
           el('p', {}, e.idea), el('p', { style: 'font-size:11.5px;opacity:.8' }, '参考：' + e.ref)));
       }
-      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, m.name, el('small', {}, `${m.id} · ${m.SET.length} 种 · 材质 ${m.tiers.map(k => 'T' + k).join(' / ')}`)), el('p', { className: 'lead' }, m.rule), cards));
+      let line6 = null;
+      if (m.lineup) {   // 推荐的六档一排：每档按自己的材质画，一起动
+        line6 = el('div', { className: 'tiers', style: 'margin:4px 0 14px;gap:10px' });
+        Q.LINEUP.forEach((e, i) => { const box6 = el('div'); line6.append(el('div', {}, box6, `T${i + 1} ${SA.MATS[i + 1].name} · ${e.name}`)); live.push(() => box6.replaceChildren(show(one(e, m, i + 1, m.state(st.t), 2), 2))); });
+      }
+      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, m.name, el('small', {}, `${m.id} · ${m.SET.length} 种 · 材质 ${m.tiers.map(k => 'T' + k).join(' / ')}`)), el('p', { className: 'lead' }, m.rule), m.lineup ? el('p', { className: 'lead' }, el('b', {}, '推荐的六档一排（T3～T5 可以换成下面的另一个候选）：')) : null, line6, cards));
     }
     tick(true);
   }
