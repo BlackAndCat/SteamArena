@@ -24,14 +24,16 @@ SA.LABS = {
   ],
   // 同一条演进线上的版本（从旧到新）
   LINES: [
-    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'chassis', 'quad-tiers'] },
+    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'mech-kit-v4', 'chassis', 'quad-tiers'] },
     { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '机甲套件 v4', date: '2026-09-30', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：从 09-25「机甲套件 · 子格验证」原样继承接着开发（09-29 那一套已废除）；新增肩甲、背负锅炉、背水罐、喷汽背包（现有模块的子格外观）+ 腕枪臂（新手臂），新整机四台', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '战斗界面 v1', date: '2026-09-30', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：战斗界面三套方案（A 驾驶台 / B 车上见 / C 记分牌），各看常态、告急、对方挂白旗三种时刻；共同改法：白旗画在最上层 + 升旗时压暗只留对方车亮、对方车顶不再挂状态和警报', docs: ['docs/board-opus.md'] },
+    { id: 'mech-kit-v4', group: 'top', url: 'archive/mech-kit-v4.html', name: '机甲套件', ver: 'v4（暂存）', date: '2026-09-30', status: 'explore',
+      desc: '从「当前开发」挪来暂存，还没确认：09-25「机甲套件 · 子格验证」原样继承接着开发；新增肩甲、背负锅炉、背水罐、喷汽背包（现有模块的子格外观）+ 腕枪臂（新手臂），新整机四台', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'ui-lab', group: 'top', url: 'ui-lab.html', name: '界面重建 · 像素版', ver: 'v3 已通过', date: '2026-09-30', status: 'explore',
       desc: '铁匠铺 × 公报的像素版：所有框、按钮、表、齿轮、数字都是代码画的像素图（2 倍、一种像素大小、四阶色、左上光）；黄铜 + 齿轮 = 能动手（主按钮齿轮、齿条表、计数器、换层旋钮、调速杆）；删掉意义不明的装饰，三个画面精简。用户全部通过：像素件（js/ui-px.js，本页也读它）和主页面已进游戏，改装台、出战分阶段进', docs: ['docs/board-opus.md'] },
     { id: 'ui-lab-v2', group: 'top', url: 'archive/ui-lab-v2.html', name: '界面重建 · 铁匠铺 × 公报', ver: 'v2', date: '2026-09-30', status: 'archived',

@@ -1,496 +1,354 @@
-// 「当前开发」页：全局子格套件（机甲套件）v4——从 tools/mech-kit.js（2026-09-25 v3）原样继承，接着开发。
-// v4（2026-09-30）：补上之前计划里有、套件里没有的零件：肩甲、背负锅炉、背水罐、喷汽背包（都是现有模块的子格外观）+ 腕枪臂（新的手臂）
-// 原说明：
-// 所有模块缩小到 1/4：24px 子格，一个旧格 = 2×2 子格，像素大小不变。零件是公共的，双足 / 履带 / 蜘蛛共用；
-// 同一零件有两种品质外观（铁制 / 钢制）。两层：
-//   车体层 —— 驾驶舱、燃炉、水罐、甲片：占格、连成车体框架；
-//   附加层 —— 机械臂（肩膀属于手臂）、盾臂、巨炮臂、剑、锤、侧炮、重炮：画在车体前面，可以盖住车体格、武器可以伸出格外。
-//   附加层规则对所有底盘一样：必须压在或贴着车体零件上；附加层之间不重叠；瞄准它时只打它（沿用侧炮规则）。
-// 只做视觉，不涉及数值。
+// 「当前开发」页：战斗界面 v1 · 三套方案（2026-09-30）。
+// 用户：白旗会被效果和背景人物挡住；不想要敌方的各种实时状态；重新设计战斗页面的提示和各类展示，挑一套满意的。
+// 每套方案画三种时刻（常态 / 告急 / 对方挂白旗），场景、车、人物都读游戏代码，界面件用 js/ui-px.js 的像素画法（2 倍）。
+// 战场按镜头 z = 1 画（1280 × 720 世界像素，和游戏镜头拉远时一样），界面像素 = 2 屏幕像素。
 window.SA = window.SA || {};
 
-SA.MECHKIT = (() => {
-  const P = SA.PAL, S = 24, PADX = SA.SPR.PADX, TAU = Math.PI * 2;
-  const { Pen, U } = SA.LEGLAB;
-  const { NEAR, FAR, bone, gear, rivet } = U;
-  const B2 = SA.BIPED2;
+SA.BATTLEUI = (() => {
+  const P = SA.PAL, X = SA.PX, K = SA.K, C = K.CELL, PADX = SA.SPR.PADX;
+  const W = 1280, H = 720, GROUND = 648, CAMY = GROUND + 60 - H;   // 镜头左上角的世界 y
+  const VW = K.COLS * C + PADX * 2, VH = K.ROWS * C;
+  const INK = '#2a1a05', CHALK = '#e8e3d2', LIGHT = '#e4e0d6', SHADOW = '#0b0e15';
 
-  const LOOK = {
-    L: { name: '铁制', hull: (M) => [M.iron[0], M.iron[1], M.iron[1], M.iron[2]] },
-    K: { name: '钢制', hull: (M) => [M.iron[0], M.iron[1], M.iron[2], M.iron[3]] },
-  };
-  const SOOT = ['#141824', '#2f3850', '#6a7a9c'];
-  const shell = (s, M) => (s === 'L' ? M.iron : M.steel);
-  const flatGauge = (M) => [M.gauge[1], M.gauge[1], P.steam[2], P.steam[2]];
-
-  // ---------- 车体层零件（坐标：块的左上角） ----------
-  const PARTS = {
-    helm: {
-      name: '头盔驾驶舱', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        if (s === 'L') {
-          pn.disc(x + 12, y + 12, 10).rect(x + 2, y + 12, 20, 10).paint(M.iron);
-          pn.rect(x + 1, y + 19, 22, 4).paint(M.brass);
-          pn.disc(x + 14, y + 11, 6.2).paint(M.brass);
-          pn.disc(x + 14, y + 11, 4.6).paint([M.glass[0], M.glass[0], M.glass[0], M.glass[1]], { outline: false });
-          pn.disc(x + 14, y + 12, 3.6).paint([SOOT[0], SOOT[1], SOOT[1], SOOT[2]], { outline: false });
-          for (const ex of [x + 13, x + 16]) {
-            if (o.blink) { pn.fill(ex, y + 11, 2, 1, P.steam[2]); continue; }
-            pn.fill(ex, y + 10, 2, 2, P.white); pn.fill(ex + 1, y + 11, 1, 1, P.black);
-          }
-          pn.dot(x + 11, y + 8, M.glass[3]);
-          pn.rect(x + 7, y + 1, 4, 3).paint(M.brass, { bevel: 'l' });
-          rivet(pn, x + 4, y + 14);
-        } else {
-          pn.poly([[x + 7, y + 3], [x + 12, y], [x + 17, y + 3]]).paint(M.brass);
-          pn.poly([[x + 3, y + 5], [x + 8, y + 2], [x + 18, y + 2], [x + 22, y + 5], [x + 22, y + 22], [x + 2, y + 22], [x + 2, y + 8]]).paint(M.steel);
-          pn.fill(x + 10, y + 9, 12, 3, P.black);
-          if (!o.blink) { pn.dot(x + 15, y + 10, P.white); pn.dot(x + 19, y + 10, P.white); }
-          pn.fill(x + 10, y + 8, 12, 1, P.brass[2]); pn.fill(x + 16, y + 12, 2, 10, P.brass[2]); pn.fill(x + 17, y + 12, 1, 10, P.brass[1]);
-          for (const [dx, dy] of [[12, 15], [20, 15], [13, 18], [20, 18]]) pn.dot(x + dx, y + dy, P.iron[0]);
-          pn.fill(x + 3, y + 20, 19, 1, P.brass[2]);
-          pn.ln(x + 5, y + 7, x + 5, y + 18, M.steel[3]);
-        }
-      },
-    },
-    furnace: {
-      name: '燃炉', w: 2, h: 2, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        const ember = (k) => ((k + o.fl) % 4 === 0 ? M.fire[3] : (k + o.fl) % 2 ? M.fire[2] : M.fire[1]);
-        if (s === 'L') {
-          pn.poly([[x + 3, y + 8], [x + 8, y + 3], [x + 40, y + 3], [x + 45, y + 8], [x + 45, y + 45], [x + 3, y + 45]]).paint(M.iron);
-          for (const yy of [9, 40]) pn.rect(x + 3, y + yy, 42, 3).paint(M.brass, { outline: false });
-          pn.disc(x + 24, y + 26, 11.5).paint(M.brass);
-          pn.disc(x + 24, y + 26, 9.5).paint([P.black, M.fire[0], M.fire[0], M.fire[0]], { outline: false, bevel: '' });
-          for (let k = 0; k < 9; k++) { const a = k * 2.4, rr = (k % 3 + 1) / 3.4 * 9.5; pn.dot(x + 24 + Math.cos(a) * rr, y + 26 + Math.sin(a) * rr, ember(k)); }
-          for (let k = -2; k <= 2; k++) pn.fill(x + 23 + k * 4, y + 17, 1, 19, P.dark[0]);
-          pn.disc(x + 39, y + 20, 3.4).paint(M.brass); pn.disc(x + 39, y + 20, 2.3).paint(flatGauge(M), { outline: false, bevel: '' });
-          pn.ln(x + 39, y + 20, x + 40, y + 18, P.dark[0]);
-          rivet(pn, x + 6, y + 16); rivet(pn, x + 6, y + 33);
-        } else {
-          pn.poly([[x + 3, y + 3], [x + 45, y + 3], [x + 45, y + 30], [x + 36, y + 45], [x + 12, y + 45], [x + 3, y + 30]]).paint(M.steel);
-          pn.fill(x + 4, y + 4, 40, 2, P.brass[2]);
-          pn.ln(x + 5, y + 8, x + 17, y + 20, M.steel[3]); pn.ln(x + 43, y + 8, x + 31, y + 20, M.steel[1]);
-          pn.poly([[x + 16, y + 40], [x + 16, y + 22], [x + 24, y + 12], [x + 32, y + 22], [x + 32, y + 40]]).paint(M.brass);
-          pn.poly([[x + 18, y + 39], [x + 18, y + 23], [x + 24, y + 15], [x + 30, y + 23], [x + 30, y + 39]]).paint([P.black, M.fire[0], M.fire[0], M.fire[0]], { outline: false, bevel: '' });
-          for (let k = 0; k < 12; k++) pn.dot(x + 19 + (k * 5) % 11, y + 20 + (k * 7) % 18, ember(k));
-          for (const xx of [21, 24, 27]) pn.fill(x + xx, y + 16, 1, 24, P.dark[0]);
-          rivet(pn, x + 7, y + 10); rivet(pn, x + 39, y + 10);
-        }
-      },
-    },
-    tank: {
-      name: '水罐', w: 1, h: 2, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        pn.cap(x + 12, y + 12, x + 12, y + 37, 9).paint(shell(s, M));
-        for (const yy of [8, 39]) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
-        pn.rect(x + 9, y + 13, 7, 23).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
-        const lv = 15;
-        pn.fill(x + 10, y + 35 - lv, 5, lv, M.water[2]); pn.fill(x + 10, y + 35 - lv, 5, 1, M.water[3]);
-        pn.dot(x + 12, y + 33 - ((o.fl * 3) % lv), M.water[3]);
-        pn.rect(x + 9, y + 1, 6, 4).paint(M.brass, { bevel: 'l' });
-        if (s === 'K') { pn.ln(x + 5, y + 12, x + 5, y + 36, M.steel[3]); pn.ln(x + 19, y + 12, x + 19, y + 36, M.steel[1]); }
-      },
-    },
-    jar: {
-      name: '小水罐', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M) {
-        pn.cap(x + 12, y + 10, x + 12, y + 15, 8).paint(shell(s, M));
-        pn.rect(x + 9, y + 8, 6, 10).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
-        pn.fill(x + 10, y + 12, 4, 5, M.water[2]); pn.fill(x + 10, y + 12, 4, 1, M.water[3]);
-        pn.rect(x + 4, y + 20, 16, 2).paint(M.brass, { outline: false });
-        pn.rect(x + 10, y, 4, 3).paint(M.brass, { bevel: 'l' });
-      },
-    },
-    plate: {
-      name: '甲片', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M) {
-        if (s === 'L') {
-          pn.rect(x + 2, y + 2, 20, 20).paint(M.iron);
-          for (const [a, b] of [[4, 4], [17, 4], [4, 17], [17, 17]]) rivet(pn, x + a, y + b);
-          pn.fill(x + 3, y + 11, 18, 1, P.iron[0]); pn.fill(x + 3, y + 12, 18, 1, P.iron[3]);
-        } else {
-          pn.rect(x + 2, y + 2, 20, 20).paint(M.steel);
-          pn.fill(x + 3, y + 19, 18, 2, P.brass[2]);
-          pn.ln(x + 5, y + 5, x + 12, y + 16, M.steel[3]); pn.ln(x + 19, y + 5, x + 12, y + 16, M.steel[1]);
-          rivet(pn, x + 4, y + 4); rivet(pn, x + 17, y + 4);
-        }
-      },
-    },
-
-
-    // ---------- v4 新增（2026-09-30）：之前计划里有、套件里还没有的零件 ----------
-    // 这些都不是新模块，是现有模块的子格外观：肩甲 = 甲片、背负锅炉 = 竖式锅炉、背水罐 = 小水罐、喷汽背包 = 加压舱；手臂系列才是新模块
-    pauldron: {
-      name: '肩甲（甲片）', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        const sw = Math.round((o.swing || 0) * 1);
-        if (s === 'L') {
-          // 三片弧形甲片一层压一层，下面两片随步伐轻晃
-          for (let k = 2; k >= 0; k--) {
-            const v = y + 3 + k * 6, dx = k === 0 ? 0 : sw * (k === 2 ? 1 : 0.5), pts = [];
-            for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 + i / 10); pts.push([x + 12 + dx + Math.cos(a) * 11, v + 9 + Math.sin(a) * 7]); }
-            pts.push([x + 23 + dx, v + 11], [x + 1 + dx, v + 11]);
-            pn.poly(pts).paint(M.iron);
-            rivet(pn, x + 3 + dx, v + 5); rivet(pn, x + 19 + dx, v + 5);
-          }
-        } else {
-          // 一整片圆鼓的钢肩甲 + 高高翻起的护颈 + 黄铜包边
-          pn.poly([[x + 1, y + 9], [x + 3, y + 1], [x + 8, y + 1], [x + 9, y + 8]]).paint(M.steel);
-          const pts = [];
-          for (let i = 0; i <= 12; i++) { const a = Math.PI * (1 + i / 12); pts.push([x + 12 + Math.cos(a) * 11.5, y + 16 + Math.sin(a) * 10]); }
-          pts.push([x + 23.5, y + 21], [x + 0.5, y + 21]);
-          pn.poly(pts).paint(M.steel);
-          pn.rect(x + 1, y + 18, 22, 3).paint(M.brass, { outline: false });
-          pn.ln(x + 4, y + 11, x + 11, y + 7, M.steel[3]); pn.fill(x + 4, y + 2, 3, 1, P.brass[2]);
-          rivet(pn, x + 17, y + 11);
-        }
-      },
-    },
-    backboiler: {
-      name: '背负锅炉（竖式锅炉）', w: 1, h: 2, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        // 烟囱从肩后伸出来：机甲剪影最重要的一笔；顶上冒烟
-        pn.rect(x + 5, y - 17, 6, 22).paint(M.dark);
-        if (s === 'K') pn.rect(x + 3, y - 20, 10, 4).paint(M.brass); else pn.rect(x + 4, y - 19, 8, 3).paint(M.dark);
-        for (let k = 0; k < 3; k++) { const p = ((o.t || 0) * 0.9 + k / 3) % 1; pn.disc(x + 8 - p * 5 + Math.sin(k * 2 + p * 6), y - 22 - p * 14, 1.3 + p * 2.6).paint(p < 0.5 ? [P.steam[1], P.steam[2], P.steam[2], P.white] : M.steam, { outline: false }); }
-        pn.cap(x + 12, y + 10, x + 12, y + 38, 9.5).paint(shell(s, M));
-        const bands = s === 'K' ? [8, 22, 37] : [9, 35];
-        for (const yy of bands) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
-        if (s === 'K') { pn.disc(x + 15, y + 16, 3.2).paint(M.brass); pn.disc(x + 15, y + 16, 2.2).paint(flatGauge(M), { outline: false, bevel: '' }); pn.ln(x + 15, y + 16, x + 16, y + 14, P.dark[0]); }
-        else { rivet(pn, x + 5, y + 14); rivet(pn, x + 5, y + 26); }
-        // 炉门：透出炉火
-        pn.rect(x + 6, y + 27, 11, 8).paint(M.dark);
-        for (let k = 0; k < 6; k++) pn.dot(x + 8 + (k * 3) % 8, y + 29 + (k % 3) * 2, (k + o.fl) % 3 ? M.fire[2] : M.fire[3]);
-        // 背带勒到躯干上
-        for (const yy of [12, 30]) pn.rect(x + 19, y + yy, 6, 3).paint(M.leather, { bevel: 'l' });
-      },
-    },
-    backjar: {
-      name: '背水罐（小水罐）', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        for (const cx of [7, 17]) {
-          pn.cap(x + cx, y + 6, x + cx, y + 17, 5).paint(shell(s, M));
-          pn.rect(x + cx - 2, y + 6, 4, 10).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
-          pn.fill(x + cx - 1, y + 10, 2, 5, M.water[2]); pn.fill(x + cx - 1, y + 10, 2, 1, M.water[3]);
-          pn.rect(x + cx - 2, y, 4, 3).paint(M.brass, { bevel: 'l' });
-        }
-        pn.rect(x + 1, y + 12, 22, 3).paint(s === 'K' ? M.brass : M.leather, { bevel: 'l' });
-        pn.cap(x + 7, y + 2, x + 17, y + 2, 0.9).paint(M.brass, { outline: false });
-      },
-    },
-    jetpack: {
-      name: '喷汽背包（加压舱）', w: 1, h: 1, layer: 'body',
-      draw(pn, x, y, s, M, o) {
-        // 背后一只加压箱 + 两只朝下的喷口；走起来喷口一直往下冒一点汽，站定时只剩一丝
-        pn.rect(x + 3, y + 1, 18, 14).paint(shell(s, M));
-        pn.rect(x + 3, y + 6, 18, 2).paint(M.brass, { outline: false });
-        if (s === 'K') { pn.disc(x + 12, y + 4, 2.4).paint(M.brass); pn.dot(x + 12, y + 4, P.dark[0]); } else { rivet(pn, x + 5, y + 10); rivet(pn, x + 17, y + 10); }
-        for (const cx of [7, 17]) pn.poly([[x + cx - 2, y + 15], [x + cx + 2, y + 15], [x + cx + 4, y + 22], [x + cx - 4, y + 22]]).paint(M.brass);
-        const n = o.mv ? 4 : 1;
-        for (const cx of [7, 17]) for (let k = 0; k < n; k++) { const p = ((o.t || 0) * 1.6 + k / n + cx * 0.07) % 1; pn.disc(x + cx + Math.sin(k * 3 + p * 5), y + 24 + p * (o.mv ? 12 : 5), 1 + p * (o.mv ? 3 : 1.4)).paint(p < 0.4 ? [P.steam[1], P.steam[2], P.white, P.white] : M.steam, { outline: false }); }
-      },
-    },
-
-    // ---------- 附加层 ----------
-    arm_fist: { name: '格斗臂', w: 2, h: 3, layer: 'add', arm: 'fist', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'fist') },
-    arm_sword: { name: '剑臂', w: 2, h: 3, layer: 'add', arm: 'sword', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'sword') },
-    arm_hammer: { name: '锤臂', w: 2, h: 3, layer: 'add', arm: 'hammer', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'hammer') },
-    arm_cannon: { name: '巨炮臂', w: 2, h: 3, layer: 'add', arm: 'cannon', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'cannon') },
-    arm_shield: { name: '盾臂', w: 2, h: 3, layer: 'add', arm: 'shield', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'shield') },
-    arm_mg: { name: '腕枪臂', w: 2, h: 3, layer: 'add', arm: 'mg', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'mg') },   // v4 新增：护手拳 + 小臂上一挺短机枪
-    heavy: {
-      name: '重炮', w: 2, h: 2, layer: 'add',
-      draw(pn, x, y, s, M, o) {
-        // 炮座压在车体上，耳轴架起一根长炮管（伸出块外一格），炮管下两根复进气缸
-        const k = Math.round((o.recoil || 0) * 5), py = y + 30;
-        pn.poly([[x + 6, y + 48], [x + 10, y + 36], [x + 26, y + 36], [x + 30, y + 48]]).paint(M.iron);
-        pn.rect(x + 7, y + 44, 22, 2).paint(M.brass, { outline: false });
-        pn.cap(x + 14 - k, py + 7, x + 44 - k, py + 7, 1.6).paint(M.steam, { bevel: 'l' });
-        pn.poly([[x + 2 - k, py - 7], [x + 26 - k, py - 7], [x + 26 - k, py + 7], [x + 2 - k, py + 7]]).paint(shell(s, M));
-        pn.poly([[x + 24 - k, py - 5], [x + 66 - k, py - 4], [x + 66 - k, py + 4], [x + 24 - k, py + 5]]).paint(shell(s, M));
-        pn.rect(x + 64 - k, py - 6, 7, 12).paint(M.brass);
-        pn.fill(x + 70 - k, py - 2, 1, 4, P.black);
-        for (const xx of [30, 44, 56]) pn.fill(x + xx - k, py - 5, 2, 10, P.brass[2]);
-        pn.ln(x + 26 - k, py - 3, x + 62 - k, py - 2, s === 'L' ? M.iron[3] : M.steel[3]);
-        pn.disc(x + 18, py + 3, 4.2).paint(M.brass); pn.dot(x + 18, py + 3, P.brass[0]);
-        rivet(pn, x + 5 - k, py - 4);
-      },
-    },
-    sidegun: {
-      name: '侧炮', w: 2, h: 1, layer: 'add',
-      draw(pn, x, y, s, M) {
-        // 铆接悬臂从车体伸出来，托着一门中口径炮
-        pn.poly([[x - 2, y + 9], [x + 16, y + 11], [x + 16, y + 17], [x - 2, y + 19]]).paint(M.dark);
-        rivet(pn, x + 1, y + 13); rivet(pn, x + 10, y + 13);
-        pn.rect(x + 12, y + 6, 18, 12).paint(shell(s, M));
-        pn.rect(x + 28, y + 9, 24, 6).paint(shell(s, M));
-        pn.rect(x + 50, y + 8, 4, 8).paint(M.brass);
-        pn.fill(x + 36, y + 9, 2, 6, P.brass[2]);
-        pn.disc(x + 18, y + 12, 2.6).paint(M.brass);
-      },
-    },
-  };
-
-  // 机械臂：肩膀属于手臂模块。肩关节 + 肩甲 → 大臂 → 肘 → 小臂 → 手 / 武器；随步伐反向摆
-  function arm(pn, x, y, s, M, o, end) {
-    const R = shell(s, M), sw = o.swing || 0;
-    const sx = x + 14, sy = y + 12;
-    const ex = sx + 2 + sw * 4, ey = sy + 26;
-    const W = { mg: [ex + 13, ey + 13], fist: [ex + 13, ey + 16], sword: [ex + 13, ey + 10], hammer: [ex + 12, ey + 12], cannon: [ex + 4, ey + 2], shield: [ex + 14, ey + 4] }[end];
-    const [wx, wy] = W;
-    // 武器在手后面先画
-    if (end === 'sword') sword(pn, wx, wy, -0.62 + sw * 0.08, s, M);
-    if (end === 'hammer') hammer(pn, wx, wy, 0.55 + sw * 0.1, s, M);
-    // 大臂
-    const UA = bone(sx, sy, ex, ey);
-    pn.poly(UA.pts([[0, -6], [0, 6], [UA.len, 5], [UA.len, -5]])).paint(R);
-    if (s === 'L') pn.ln(...UA.p(3, -6.2), ...UA.p(UA.len - 3, -5), M.steam[3]);
-    else pn.ln(...UA.p(2, 2.4), ...UA.p(UA.len - 2, 2), M.steel[3]);
-    // 小臂 / 炮
-    if (end === 'cannon') bigGun(pn, ex, ey, s, M, o);
-    else {
-      const FA = bone(ex, ey, wx, wy);
-      pn.poly(FA.pts([[0, -5], [0, 5], [FA.len, 6.4], [FA.len, -6]])).paint(R);
-      if (s === 'K') { pn.ln(...FA.p(2, 2.4), ...FA.p(FA.len - 1, 3), M.steel[3]); pn.fill(...FA.p(FA.len - 3, -5), 1, 1, P.brass[2]); }
-      else pn.ln(...FA.p(2, -5), ...FA.p(FA.len - 2, -6), M.steam[3]);
-      if (end === 'shield') shieldOn(pn, wx + 4, wy - 4, s, M);
-      else hand(pn, FA, s, M, end === 'mg' ? 'fist' : end);
-      if (end === 'mg') wristGun(pn, FA, s, M, o);
-    }
-    // 肘
-    if (s === 'L') { pn.disc(ex, ey, 4.4).paint(M.brass); pn.dot(ex, ey, P.brass[0]); }
-    else {
-      pn.disc(ex - 2.5, ey + 0.5, 5.2).paint(M.brass);
-      for (let k = 0; k < 5; k++) { const a = Math.PI * (0.55 + k / 4 * 0.9); pn.ln(ex - 2.5 + Math.cos(a) * 1.4, ey + 0.5 + Math.sin(a) * 1.4, ex - 2.5 + Math.cos(a) * 4.5, ey + 0.5 + Math.sin(a) * 4.5, M.brass[1]); }
-      pn.disc(ex + 0.5, ey, 3).paint(M.steel);
-    }
-    // 肩：关节轴套 + 肩甲（不大于大臂的两倍宽，不抢戏）
-    pn.disc(sx, sy, 6.5).paint(M.dark);
-    if (s === 'L') {
-      pn.poly([[sx - 9, sy - 1], [sx - 6, sy - 8], [sx + 5, sy - 9], [sx + 10, sy - 3], [sx + 8, sy + 3], [sx - 8, sy + 3]]).paint(M.iron);
-      pn.disc(sx, sy - 2, 2.6).paint(M.brass);
-      rivet(pn, sx - 6, sy - 4); rivet(pn, sx + 5, sy - 5);
-    } else {
-      pn.poly([[sx - 10, sy + 1], [sx - 8, sy - 7], [sx - 1, sy - 11], [sx + 8, sy - 9], [sx + 12, sy - 2], [sx + 11, sy + 4], [sx - 9, sy + 5]]).paint(M.steel);
-      pn.poly([[sx - 9, sy + 4], [sx + 11, sy + 3], [sx + 10, sy + 8], [sx - 8, sy + 9]]).paint(M.steel);
-      pn.ln(sx - 9, sy + 3, sx + 11, sy + 2, P.brass[2]); pn.ln(sx - 8, sy + 8, sx + 10, sy + 7, P.brass[2]);
-      pn.ln(sx - 7, sy - 6, sx - 1, sy - 10, M.steel[3]);
-      rivet(pn, sx + 5, sy - 6);
-    }
+  // ---------- 小工具 ----------
+  const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const px = (g, src, x, y, s = 2) => { g.imageSmoothingEnabled = false; g.drawImage(src, Math.round(x), Math.round(y), src.width * s, src.height * s); };
+  function T(g, str, x, y, o = {}) {
+    g.font = o.font || `bold ${o.size || 14}px SimSun, serif`;
+    g.textAlign = o.align || 'left'; g.textBaseline = 'middle';
+    if (o.sh !== false) { g.fillStyle = o.shc || SHADOW; g.fillText(str, x + 2, y + 2); }
+    g.fillStyle = o.col || LIGHT; g.fillText(str, x, y);
+    return g.measureText(str).width;
   }
-  function hand(pn, FA, s, M, end) {
-    if (end === 'fist' && s === 'L') {
-      // 三指液压爪
-      for (const [f, bend] of [[4, 3], [0, 4], [-4, 2]]) { const b = FA.p(FA.len + 5, f), t = FA.p(FA.len + 8, f + bend); pn.cap(...FA.p(FA.len, f * 0.8), ...b, 1.4).cap(...b, ...t, 1.1); }
-      pn.paint(M.brass, { bevel: 'l' });
-      pn.poly(FA.pts([[FA.len - 2, -6], [FA.len - 2, 6], [FA.len + 3, 6], [FA.len + 3, -6]])).paint(M.iron);
-      return;
-    }
-    // 护手拳：握着武器时小一点
-    const big = end === 'fist' ? 1 : 0.8;
-    pn.poly(FA.pts([[FA.len - 2, -6 * big], [FA.len - 2, 6.5 * big], [FA.len + 8 * big, 6 * big], [FA.len + 9 * big, -5 * big]])).paint(shell(s, M));
-    pn.ln(...FA.p(FA.len + 5 * big, -5 * big), ...FA.p(FA.len + 5 * big, 6 * big), (s === 'L' ? M.iron : M.steel)[1]);
-    if (s === 'K') pn.ln(...FA.p(FA.len - 1, -5), ...FA.p(FA.len - 1, 6), P.brass[2]);
+  // 九宫格：用 ui-px 生成的皮肤图（和游戏里的框一模一样），按 2 倍贴
+  const SK = {};
+  async function loadSkins() {
+    X.init();
+    for (const [n, v] of Object.entries(X.SKIN)) { const im = new Image(); im.src = v.url; await im.decode(); SK[n] = { im, c: v.c }; }
   }
-  // 腕枪：绑在小臂外侧的一挺短机枪（弹鼓在下），枪口伸过拳头；开火时枪口一闪
-  function wristGun(pn, FA, s, M, o) {
-    // 暗色机匣贴在小臂外侧 → 一根亮钢枪管伸过拳头 → 黄铜枪口；机匣上顶一只黄铜弹鼓；两道箍把机匣绑在小臂上
-    const k = Math.round((o.recoil || 0) * 2), L = FA.len;
-    pn.poly(FA.pts([[1 - k, -13], [L + 1 - k, -13], [L + 1 - k, -6], [1 - k, -6]])).paint(M.dark);
-    pn.poly(FA.pts([[L - k, -11], [L + 18 - k, -11], [L + 18 - k, -8], [L - k, -8]])).paint(M.steel);
-    pn.poly(FA.pts([[L + 15 - k, -12.5], [L + 19 - k, -12.5], [L + 19 - k, -6.5], [L + 15 - k, -6.5]])).paint(M.brass);
-    pn.disc(...FA.p(8 - k, -15.5), 4).paint(M.brass); pn.disc(...FA.p(8 - k, -15.5), 1.6).paint(M.dark, { outline: false });
-    for (const u of [4, L - 4]) pn.poly(FA.pts([[u, -13.5], [u + 2, -13.5], [u + 2, 5.5], [u, 5.5]])).paint(s === 'K' ? M.brass : M.leather, { outline: false });
-    if ((o.fl || 0) % 2 === 0 && o.mv) { const [mx, my] = FA.p(L + 21 - k, -9.5); pn.disc(mx, my, 1.6).paint([P.fire[1], P.fire[2], P.fire[3], P.white], { outline: false }); }
+  function nine(g, name, x, y, w, h, s = 2) {
+    const { im, c } = SK[name], IW = im.width, IH = im.height, cs = c * s;
+    const sx = [0, c, IW - c, IW], sy = [0, c, IH - c, IH], dx = [x, x + cs, x + w - cs, x + w], dy = [y, y + cs, y + h - cs, y + h];
+    g.imageSmoothingEnabled = false;
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) g.drawImage(im, sx[i], sy[j], sx[i + 1] - sx[i], sy[j + 1] - sy[j], dx[i], dy[j], dx[i + 1] - dx[i], dy[j + 1] - dy[j]);
   }
-  function sword(pn, wx, wy, a, s, M) {
-    const B = bone(wx, wy, wx + Math.cos(a) * 50, wy + Math.sin(a) * 50);
-    pn.poly(B.pts([[-7, -1.6], [-7, 1.6], [0, 1.6], [0, -1.6]])).paint(M.leather);
-    pn.disc(...B.p(-8, 0), 2).paint(M.brass);
-    pn.poly(B.pts([[5, -3], [5, 3], [48, 0.8], [52, 0], [48, -0.8]])).paint([P.iron[0], P.iron[3], P.iron[4], P.white]);
-    pn.ln(...B.p(7, 0), ...B.p(44, 0), P.iron[2]);
-    pn.poly(B.pts([[2, -8], [5, -8], [5, 8], [2, 8]])).paint(M.brass);
-  }
-  function hammer(pn, wx, wy, a, s, M) {
-    // 蒸汽锤：长柄 + 锤头，锤头背后一根活塞
-    const B = bone(wx, wy, wx + Math.cos(a) * 34, wy + Math.sin(a) * 34);
-    pn.poly(B.pts([[-8, -1.8], [-8, 1.8], [30, 1.8], [30, -1.8]])).paint(M.leather);
-    pn.poly(B.pts([[33, 12], [42, 13.5], [42, 18], [33, 17]])).paint(M.steam, { bevel: 'l' });
-    pn.poly(B.pts([[26, -13], [26, 13], [44, 15], [44, -15]])).paint(shell(s, M));
-    for (const aa of [29, 38]) pn.poly(B.pts([[aa, -13.5], [aa + 2, -13.5], [aa + 2, 13.5], [aa, 13.5]])).paint(M.brass, { outline: false });
-    pn.poly(B.pts([[34, -20], [38, -20], [38, -14], [34, -14]])).paint(M.dark);
-  }
-  function bigGun(pn, ex, ey, s, M, o) {
-    const k = Math.round((o.recoil || 0) * 4), R = shell(s, M);
-    pn.disc(ex + 2 - k, ey + 11, 6.5).paint(M.brass); pn.disc(ex + 2 - k, ey + 11, 3).paint(M.dark, { outline: false });
-    pn.rect(ex - 8 - k, ey - 7, 20, 15).paint(R);
-    pn.poly([[ex + 10 - k, ey - 5], [ex + 50 - k, ey - 4], [ex + 50 - k, ey + 4], [ex + 10 - k, ey + 5]]).paint(R);
-    pn.rect(ex + 48 - k, ey - 6, 8, 12).paint(M.brass);
-    pn.fill(ex + 55 - k, ey - 2, 1, 4, P.black);
-    for (const xx of [16, 28, 40]) pn.fill(ex + xx - k, ey - 5, 2, 10, P.brass[2]);
-    pn.ln(ex + 12 - k, ey - 3, ex + 46 - k, ey - 2, R[3]);
-    pn.rect(ex + 12 - k, ey + 5, 5, 7).paint(M.dark);
-    rivet(pn, ex - 6 - k, ey - 5);
-  }
-  function shieldOn(pn, cx, cy, s, M) {
-    if (s === 'L') {
-      pn.poly([[cx - 11, cy - 20], [cx + 11, cy - 20], [cx + 11, cy + 14], [cx, cy + 22], [cx - 11, cy + 14]]).paint(M.iron);
-      pn.ln(cx, cy - 17, cx, cy + 18, M.iron[3]);
-      pn.fill(cx - 7, cy - 14, 14, 2, P.black);
-      pn.disc(cx, cy + 1, 4).paint(M.brass); pn.dot(cx - 1, cy, P.brass[3]);
-      for (const yy of [-17, -6, 9]) { rivet(pn, cx - 10, cy + yy); rivet(pn, cx + 7, cy + yy); }
-    } else {
-      pn.poly([[cx - 13, cy - 21], [cx + 13, cy - 21], [cx + 13, cy + 3], [cx, cy + 24], [cx - 13, cy + 3]]).paint(M.brass);
-      pn.poly([[cx - 11, cy - 19], [cx + 11, cy - 19], [cx + 11, cy + 2], [cx, cy + 21], [cx - 11, cy + 2]]).paint(M.steel, { outline: false });
-      pn.ln(cx - 10, cy - 18, cx - 10, cy + 1, M.steel[3]);
-      gear(pn, cx, cy - 5, 6, 10, 0.2, M.brass, M.steel);
-      pn.fill(cx - 1, cy + 4, 2, 12, P.brass[2]);
-    }
+  // 5×7 数字放大，带一圈黑描边（读数）
+  function bigNum(g, str, x, y, col, s = 3, align = 'left') {
+    const src = X.num(str, col), w = src.width * s;
+    const x0 = Math.round(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x);
+    g.imageSmoothingEnabled = false;
+    const sil = cv(src.width, src.height), sg = sil.getContext('2d'); sg.drawImage(src, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = SHADOW; sg.fillRect(0, 0, sil.width, sil.height);
+    for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [1, 2], [0, 2]]) g.drawImage(sil, x0 + dx * s, y + dy * s, w, src.height * s);
+    g.drawImage(src, x0, y, w, src.height * s);
+    return w;
   }
 
-  // ---------- 车体框架：子格外轮廓，露在外面的角切 4px ----------
-  function hull(pn, cells, M, sty) {
-    const has = (c, r) => cells.has(c + ',' + r);
-    for (const key of cells) {
-      const [c, r] = key.split(',').map(Number), x = PADX + c * S, y = r * S, n = 4;
-      const tl = !has(c - 1, r) && !has(c, r - 1) && !has(c - 1, r - 1);
-      const tr = !has(c + 1, r) && !has(c, r - 1) && !has(c + 1, r - 1);
-      const br = !has(c + 1, r) && !has(c, r + 1) && !has(c + 1, r + 1);
-      const bl = !has(c - 1, r) && !has(c, r + 1) && !has(c - 1, r + 1);
-      pn.poly([
-        [x + (tl ? n : 0), y], [x + S - (tr ? n : 0), y], [x + S, y + (tr ? n : 0)], [x + S, y + S - (br ? n : 0)],
-        [x + S - (br ? n : 0), y + S], [x + (bl ? n : 0), y + S], [x, y + S - (bl ? n : 0)], [x, y + (tl ? n : 0)],
-      ]);
+  // ---------- 像素件（1 倍美术像素，画的时候 ×2）----------
+  // 压力表：黄铜外圈 + 纸表盘 + 刻度 + 红区 + 指针
+  function dial(R, pct, red = 0.8, hot = false) {
+    const D = R * 2 + 2, k = X.C(D, D), c = R + 0.5;
+    for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
+      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+      if (d > R + 0.4) continue;
+      const a = Math.atan2(x + 0.5 - c, -(y + 0.5 - c)) / Math.PI * 180, f = (a + 135) / 270;
+      if (d > R - 1) k.p(x, y, hot ? P.fire[0] : P.brass[0]);
+      else if (d > R - 3) k.p(x, y, hot ? (x + y < D ? P.fire[2] : P.fire[1]) : (x + y < D ? P.brass[3] : P.brass[1]));
+      else if (d > R - 4) k.p(x, y, P.brass[0]);
+      else if (d > R - 7 && d <= R - 5 && f >= red && f <= 1 && Math.abs(a) <= 135) k.p(x, y, P.fire[1]);
+      else k.p(x, y, d < R - 9 ? X.RAMP.paper.l : X.RAMP.paper.b);
     }
-    pn.paint(LOOK[sty].hull(M));
+    for (let i = 0; i <= 8; i++) { const a = (-135 + 270 * i / 8) * Math.PI / 180; k.p(Math.round(c - 0.5 + Math.sin(a) * (R - 5.5)), Math.round(c - 0.5 - Math.cos(a) * (R - 5.5)), INK); }
+    const a = (-135 + 270 * Math.min(1.04, pct)) * Math.PI / 180;
+    X.line(k, Math.round(c - 0.5), Math.round(c - 0.5), Math.round(c - 0.5 + Math.sin(a) * (R - 6)), Math.round(c - 0.5 - Math.cos(a) * (R - 6)), pct >= red ? P.fire[1] : INK);
+    k.r(Math.round(c) - 2, Math.round(c) - 2, 3, 3, P.brass[1]); k.p(Math.round(c) - 2, Math.round(c) - 2, P.brass[3]);
+    return k.c;
   }
-
-  // ---------- 整机：同一套零件装在三种底盘上 ----------
-  // chassis：biped（胯在子格列 PC，腿区在最底两行子格）/ track / spider（占子格列 c0..c1，最底两行）
-  const PC = 7;
-  const MECHS = [
-    { name: '双足 · 剑士', sty: 'L', chassis: 'biped', legs: 'heron',
-      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['jar', 6, 8], ['arm_sword', 7, 6]],
-      note: '头盔正好在胯的正上方。剑臂的肩膀就在胸口中间，剑斜指前上方，伸出格外。' },
-    { name: '双足 · 圣骑', sty: 'K', chassis: 'biped', legs: 'knight',
-      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['plate', 6, 8], ['plate', 8, 8], ['arm_shield', 7, 6], ['heavy', 6, 3]],
-      note: '盾臂挡在胸前，背上一门重炮越过头顶。重炮和侧炮、手臂是同一层、同一套规则。' },
-    { name: '双足 · 锤', sty: 'K', chassis: 'biped', legs: 'gren',
-      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['jar', 8, 8], ['arm_hammer', 7, 6]],
-      note: '换一双腿（掷弹兵），零件照用。蒸汽锤拖在身前，锤头背后一根活塞。' },
-    { name: '双足 · 巨炮', sty: 'L', chassis: 'biped', legs: 'dragon',
-      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['plate', 6, 8], ['arm_cannon', 7, 6]],
-      note: '整条小臂换成一门巨炮，炮管伸出块外一格多，弹鼓挂在炮尾下面。' },
-    { name: '双足 · 轻骑（v4 新件）', sty: 'L', chassis: 'biped', legs: 'heron',
-      parts: [['helm', 7, 5], ['pauldron', 6, 5], ['pauldron', 8, 5], ['plate', 6, 6], ['plate', 8, 6], ['plate', 7, 6], ['jar', 6, 7], ['plate', 7, 7], ['plate', 8, 7], ['backboiler', 5, 6], ['arm_mg', 7, 6]],
-      note: '背负锅炉背在躯干后面一列，烟囱从肩后伸出来冒烟（机甲剪影最重要的一笔）；头盔两边一对叠片肩甲；腕枪臂：护手拳 + 小臂上一挺短机枪。' },
-    { name: '双足 · 突击（v4 新件）', sty: 'K', chassis: 'biped', legs: 'knight',
-      parts: [['helm', 7, 5], ['pauldron', 8, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['backjar', 5, 6], ['jetpack', 5, 7], ['arm_fist', 7, 6]],
-      note: '钢制：前肩一片带护颈的圆肩甲；背后上面一对背水罐、下面一只喷汽背包（走起来喷口往下冒汽）；格斗臂。' },
-    { name: '双足 · 圣骑 + 背锅炉（v4）', sty: 'K', chassis: 'biped', legs: 'knight',
-      parts: [['helm', 7, 5], ['pauldron', 6, 5], ['pauldron', 8, 5], ['plate', 6, 6], ['plate', 7, 6], ['plate', 8, 6], ['tank', 6, 7], ['plate', 7, 7], ['backboiler', 5, 5], ['arm_shield', 7, 6]],
-      note: '原来的圣骑把燃炉换成背负锅炉：躯干空出来全是甲片，更轻；钢制背锅炉带压力表和黄铜防火星罩。' },
-    { name: '履带 · 腕枪臂也能装（v4）', sty: 'L', chassis: 'track', c0: 4, c1: 9,
-      parts: [['tank', 4, 8], ['furnace', 5, 8], ['plate', 7, 9], ['plate', 8, 9], ['jar', 8, 8], ['helm', 7, 8], ['plate', 6, 7], ['pauldron', 7, 7], ['arm_mg', 6, 7]],
-      note: '手臂是新模块，别的底盘也能装：履带车顶上一条腕枪臂 + 一片肩甲，只是没有双足好看。' },
-    { name: '履带 · 同一套零件', sty: 'L', chassis: 'track', c0: 4, c1: 9,
-      parts: [['tank', 4, 8], ['furnace', 5, 8], ['plate', 7, 9], ['plate', 8, 9], ['jar', 8, 8], ['helm', 7, 8], ['plate', 6, 7], ['heavy', 5, 5], ['sidegun', 8, 7]],
-      note: '履带也用子格零件：燃炉、水罐、头盔驾驶舱照样装，重炮架在顶上，侧炮从车体伸出。' },
-    { name: '蜘蛛 · 同一套零件', sty: 'K', chassis: 'spider', c0: 4, c1: 9,
-      parts: [['tank', 5, 8], ['furnace', 6, 8], ['plate', 8, 9], ['jar', 8, 8], ['helm', 6, 7], ['plate', 4, 9], ['arm_hammer', 7, 7]],
-      note: '蜘蛛背着同一套零件，外加一条锤臂：附加层对所有底盘规则一样。' },
-  ];
-  for (const m of MECHS) {
-    m.body = new Set(); m.add = [];
-    for (const [id, c, r] of m.parts) {
-      const pt = PARTS[id];
-      if (pt.layer === 'add') { m.add.push([id, c, r]); continue; }
-      for (let i = 0; i < pt.w; i++) for (let j = 0; j < pt.h; j++) m.body.add((c + i) + ',' + (r + j));
-    }
+  // 竖液位管：上下黄铜盖 + 玻璃 + 液面；ramp 四阶
+  function tube(h, pct, ramp, warn = false) {
+    const k = X.C(9, h);
+    X.box(k, 0, 0, 9, 3, X.RAMP.brass); X.box(k, 0, h - 3, 9, 3, X.RAMP.brass);
+    k.r(1, 3, 7, h - 6, warn ? P.fire[1] : P.dark[0]); k.r(2, 3, 5, h - 6, P.dark[1]);
+    const lv = Math.round((h - 6) * Math.max(0, Math.min(1, pct)));
+    for (let y = 0; y < lv; y++) { const yy = h - 4 - y; k.r(2, yy, 5, 1, ramp[2]); k.p(2, yy, ramp[3]); k.p(6, yy, ramp[1]); }
+    if (lv) k.r(2, h - 3 - lv, 5, 1, ramp[3]);
+    k.r(3, 4, 1, h - 8, 'rgba(255,255,255,0.18)');
+    return k.c;
   }
-
-  const MAT = (far) => {
-    const B = far ? FAR : NEAR, dim = (r) => (far ? [P.black, r[0], r[1], r[2]] : r);
-    return { ...B, glass: dim([P.glass[0], P.glass[1], P.glass[2], P.glass[3]]), water: dim([P.water[0], P.water[1], P.water[2], P.water[3]]) };
-  };
-  const VX = PADX + 2 * S, VY = 60, VW = 12 * S, VH = B2.GROUND + 10 - VY;
-
-  const pens = new Map();
-  const penFor = (cv) => { let pn = pens.get(cv); if (!pn) { pn = Pen(cv.width, cv.height); pens.set(cv, pn); } return pn; };
-  function render(cv, m, st) {
-    const g = cv.getContext('2d'), pn = penFor(cv);
-    g.clearRect(0, 0, cv.width, cv.height);
-    const N = 12, gf = st.mv ? SA.Dyn.frame(st.phase, N, 60 / N) : 0, a = gf / N * TAU;
-    const amp = m.chassis === 'biped' ? 4 : m.chassis === 'spider' ? 1 : 0;
-    const bd = amp - Math.round(Math.abs(Math.sin(a)) * amp);
-    const o = { mv: st.mv, a, bd, q: gf * 5, phase: st.phase, t: st.t, fl: Math.floor(st.t * 8) % 4, ri: 0, rn: 1,
-      swing: st.mv && m.chassis === 'biped' ? -Math.sin(a) : 0, blink: Math.floor(st.t * 1.3) % 5 === 0 && (st.t * 1.3) % 1 < 0.25 };
-    const M = MAT(false), MF = MAT(true);
-    pn.at(1, -VX, -VY);
-    pn.fill(VX, B2.GROUND, VW, 10, P.bg[4]).fill(VX, B2.GROUND, VW, 1, P.bg[5]);
-    const cx = PADX + PC * S + 12, D = m.legs ? B2.legDesign(m.legs).d : null;
-    const cells = [];
-    if (m.c0 != null) for (let c = m.c0; c <= m.c1; c += 2) cells.push(c);
-    const H = { up: 22, kx: 12, reach: 26 }, dirOf = (ri) => (ri < cells.length / 2 ? -1 : 1);
-    // 远侧：腿 / 蜘蛛腿 + 手臂（压暗、右上错位，只画空手）
-    if (st.far) {
-      if (m.chassis === 'biped') B2.bipedLeg(pn, D, cx, o, true);
-      if (m.chassis === 'spider') cells.forEach((c, ri) => B2.spiderLeg(pn, FAR, PADX + c * S + 30, 5 * 48 + bd + 7, B2.GROUND - 3, -dirOf(ri), Math.PI, { ...o, a: o.a + ri * Math.PI }, H));
-      pn.at(1, -VX - 6, -VY + bd - 3);
-      for (const [id, c, r] of m.add) if (PARTS[id].arm) arm(pn, PADX + c * S, r * S, m.sty, MF, { ...o, swing: -o.swing }, 'fist');
+  // 指示灯：黄铜圈 + 玻璃（亮 / 暗）
+  function lamp(on, col) {
+    const k = X.C(11, 11);
+    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
+      const d = Math.hypot(x - 5, y - 5);
+      if (d > 5.4) continue;
+      if (d > 4.3) k.p(x, y, P.brass[0]);
+      else if (d > 3.3) k.p(x, y, x + y < 9 ? P.brass[3] : P.brass[1]);
+      else k.p(x, y, on ? (d < 1.6 ? '#fff4d8' : col) : (x + y < 9 ? P.dark[2] : P.dark[1]));
     }
-    pn.at(1, -VX, -VY + bd);
-    if (st.hull) hull(pn, m.body, M, m.sty);
-    for (const [id, c, r] of m.parts) if (PARTS[id].layer === 'body') PARTS[id].draw(pn, PADX + c * S, r * S, m.sty, M, o);
-    pn.at(1, -VX, -VY);
-    if (m.chassis === 'biped') {
-      const waist = [...m.body].map(k => k.split(',').map(Number)).filter(([c, r]) => r >= 8 && Math.abs(c - PC) === 1).map(([c]) => ({ r: 4, c: c < PC ? 2 : 4 }));
-      B2.pelvis(pn, { pc: 3, bal: { tone: 'ok', d: 0 }, cells: waist }, m.legs, st, bd, cx);
-      B2.bipedLeg(pn, D, cx, o, false);
-    } else if (m.chassis === 'spider') {
-      cells.forEach((c, ri) => B2.carapace(pn, PADX + c * S, 5 * 48 + bd, ri > 0, ri < cells.length - 1));
-      cells.forEach((c, ri) => B2.spiderLeg(pn, NEAR, PADX + c * S + 22, 5 * 48 + bd + 10, B2.GROUND, dirOf(ri), 0, { ...o, a: o.a + ri * Math.PI }, H));
-    }
-    pn.flush(g);
-    if (m.chassis === 'track') cells.forEach((c, ri) => SA.SPR.drawModule(g, 'track', PADX + c * S - VX, 5 * 48 - VY,
-      { moving: st.mv, phase: st.phase, connL: ri > 0, connR: ri < cells.length - 1, top: true }));
-    // 附加层：画在最前面
-    pn.at(1, -VX, -VY + bd);
-    for (const [id, c, r] of m.add) PARTS[id].draw(pn, PADX + c * S, r * S, m.sty, M, o);
-    pn.flush(g);
-    if (st.grid) subgrid(g, m, bd);
+    if (!on) k.p(4, 4, P.dark[3]);
+    return k.c;
   }
-  function subgrid(g, m, bd) {
-    g.save();
-    g.lineWidth = 1;
-    g.strokeStyle = 'rgba(228,224,214,0.16)';
-    for (let c = 0; c <= 16; c++) { const x = PADX + c * S - VX + 0.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, VH); g.stroke(); }
-    for (let r = 0; r <= 12; r++) { const y = r * S - VY + 0.5; g.beginPath(); g.moveTo(0, y); g.lineTo(VW, y); g.stroke(); }
-    g.fillStyle = 'rgba(255,43,214,0.13)'; g.strokeStyle = 'rgba(255,43,214,0.7)'; g.setLineDash([3, 2]);
-    for (const [id, c, r] of m.add) {
-      const x = PADX + c * S - VX, y = r * S - VY + bd, w = PARTS[id].w * S, h = PARTS[id].h * S;
-      g.fillRect(x, y, w, h); g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  // 计时鼓：铁框 + 纸字轮
+  function drum(str) {
+    const N = str.length, w = 6 + N * 8, k = X.C(w, 15);
+    X.box(k, 0, 0, w, 15, X.RAMP.iron);
+    X.box(k, 2, 2, N * 8 + 1, 11, { o: P.dark[0], b: P.dark[0], l: P.dark[0], d: P.dark[0] });
+    [...str].forEach((ch, i) => {
+      const x = 3 + i * 8, PR = X.RAMP.paper;
+      for (let y = 3; y < 12; y++) k.r(x, y, 7, 1, y === 3 || y === 11 ? PR.d : y === 4 || y === 10 ? PR.a : PR.l);
+      k.g.drawImage(X.num(ch, X.INK), x + 1, 4);
+    });
+    return k.c;
+  }
+  // 武器键：黄铜（选中按下去）/ 铁（没选）/ 暗（打不了）；数字 + 装填条
+  function key(n, sel, reload, off) {
+    const k = X.C(30, 22), R = off ? X.RAMP.flat : sel ? X.RAMP.brass : X.RAMP.iron;
+    X.box(k, 0, sel ? 1 : 0, 30, 21, R, sel);
+    k.g.drawImage(X.num(String(n), off ? P.dark[3] : sel ? INK : LIGHT), 3, sel ? 4 : 3);
+    X.box(k, 3, 15 + (sel ? 1 : 0), 24, 4, { o: P.dark[0], b: P.dark[1], l: P.dark[1], d: P.dark[0] }, true);
+    const f = Math.round(22 * (reload == null ? 1 : reload));
+    if (!off && f > 0) k.r(4, 16 + (sel ? 1 : 0), f, 2, reload == null || reload >= 1 ? P.gauge[2] : P.brass[2]);
+    return k.c;
+  }
+  // 九块装甲片一排：耐久（还在的亮、打掉的暗）
+  function plates(n, of) {
+    const k = X.C(of * 6 + 1, 9);
+    for (let i = 0; i < of; i++) { const on = i < n; X.box(k, i * 6, 0, 7, 9, on ? X.RAMP.brass : { o: P.dark[0], b: P.dark[1], l: P.dark[2], d: P.dark[0] }); if (on) k.p(i * 6 + 2, 2, P.brass[3]); }
+    return k.c;
+  }
+  const GEAR_RET = X.gear(11, 8, X.RAMP.brass, 0.15);
+  const GEAR_RED = X.gear(11, 8, X.RAMP.fire, 0.15);
+
+  // ---------- 场景：铁匠铺后院 + 两辆车 ----------
+  const OP = SA.OPPONENTS;
+  const veh = (i) => SA.V.fromAscii(OP[i].name, OP[i].rows, OP[i].sides, 2);
+  const ME = { v: veh(0), x: W / 2 - 200 - PADX - K.COLS * C, name: '锈钉子号', pilot: '你' };
+  const FOE = { v: veh(2), x: W / 2 + 200 - PADX, name: OP[2].name, pilot: OP[2].pilot };
+  const sprite = (v, k) => SA.SPR.renderVehicle(v, { key: k, t: 1.2, heat: 0.5, water: 0.7 });
+  // 车画布里最上面一行实心像素：白旗插在这里（敌方镜像后的屏幕 x）
+  function topOf(src, flip, x0) {
+    const d = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height).data;
+    for (let y = 0; y < src.height; y++) {
+      let sx = 0, n = 0;
+      for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 8) { sx += x; n++; }
+      if (n > 6) { const cx = sx / n; return { x: x0 + (flip ? src.width - cx : cx), y: y + GROUND - CAMY - VH }; }
     }
+    return { x: x0 + src.width / 2, y: 300 };
+  }
+  let BASE = null;
+  function world() {
+    if (BASE) return BASE;
+    const c = cv(W, H), g = c.getContext('2d');
+    SA.Scenes.back('forge', g, W, H, CAMY, 0, 3, { mode: 'campaign', storyKey: '0,1' });
+    g.save(); g.translate(0, -CAMY); SA.Scenes.floor('forge', g, { x: 0, y: CAMY, w: W, h: H }); g.restore();
+    const ps = sprite(ME.v, 'bu-me'), es = sprite(FOE.v, 'bu-foe'), y = GROUND - CAMY - VH;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(ps, ME.x, y);
+    g.save(); g.translate(FOE.x + VW, y); g.scale(-1, 1); g.drawImage(es, 0, 0); g.restore();
+    const front = cv(W, H); SA.Scenes.front('forge', front.getContext('2d'), W, H, CAMY, 0, 3);
+    BASE = { c, front, es, meTop: topOf(ps, false, ME.x), foeTop: topOf(es, true, FOE.x), y };
+    return BASE;
+  }
+  // 战场上的东西：弹道扇区、准星、伤害数字、对方车上的烟火
+  function fx(g, st, o = {}) {
+    const B0 = world(), mx = B0.meTop.x + 60, my = B0.meTop.y + 52, ax = FOE.x + 150, ay = B0.y + 190;
+    if (st !== 'flag') {
+      g.save(); g.globalAlpha = 0.16; g.fillStyle = P.white; g.beginPath();
+      g.moveTo(mx, my); g.lineTo(ax + 40, ay - 52); g.lineTo(ax + 40, ay + 46); g.closePath(); g.fill(); g.restore();
+      for (let i = 0; i < 9; i++) { const t = i / 9, x = mx + (ax - mx) * t, y = my + (ay - my) * t + Math.sin(t * Math.PI) * -8; g.fillStyle = P.black; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 4, 4); g.fillStyle = P.white; g.fillRect(Math.round(x), Math.round(y), 2, 2); }
+    }
+    // 对方车上的烟和火星（白旗被挡的元凶之一）
+    const smoke = [[FOE.x + 120, B0.foeTop.y + 10, 16], [FOE.x + 150, B0.foeTop.y - 14, 22], [FOE.x + 108, B0.foeTop.y - 40, 26], [FOE.x + 170, B0.foeTop.y + 40, 14]];
+    g.save(); g.globalAlpha = st === 'flag' ? 0.25 : 0.75;
+    for (const [x, y, s] of smoke) { g.fillStyle = P.iron[1]; g.fillRect(x - s / 2, y - s / 2, s, s); g.fillStyle = P.dark[3]; g.fillRect(x - s / 2 + 3, y - s / 2 + 3, s - 8, s - 8); }
     g.restore();
+    if (st !== 'flag') {
+      bigNum(g, '32', FOE.x + 250, B0.y + 150, '#ffa133', 4, 'center');
+      bigNum(g, '9×3', FOE.x + 180, B0.y + 104, P.white, 3, 'center');
+      px(g, o.red ? GEAR_RED : GEAR_RET, ax - 23, ay - 23);
+      g.fillStyle = P.black; g.fillRect(ax - 3, ay - 3, 6, 6); g.fillStyle = P.white; g.fillRect(ax - 2, ay - 2, 4, 4);
+    }
+  }
+  // 白旗：画在最上层（压过近景、烟火、界面），旗杆 + 黄铜杆头 + 飘动的旗；周围压暗，只留对方车和旗亮着
+  function flag(g) {
+    const B0 = world(), x = Math.round(B0.foeTop.x), y0 = Math.round(B0.foeTop.y) + 2, len = 70, top = y0 - len;
+    // 压暗：整屏一层暗色（烟火、背景人物、界面都压下去），再把对方的车原样画回来——只有它和旗是亮的
+    g.fillStyle = 'rgba(8,8,14,0.62)'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    g.save(); g.imageSmoothingEnabled = false; g.translate(FOE.x + VW, B0.y); g.scale(-1, 1); g.drawImage(B0.es, 0, 0); g.restore();
+    // 旗杆
+    g.fillStyle = P.black; g.fillRect(x - 5, y0 - 5, 11, 6); g.fillStyle = P.iron[2]; g.fillRect(x - 4, y0 - 4, 9, 4);
+    g.fillStyle = P.black; g.fillRect(x - 2, top, 5, len); g.fillStyle = P.iron[3]; g.fillRect(x - 1, top, 1, len - 3); g.fillStyle = P.iron[1]; g.fillRect(x + 1, top, 1, len - 3);
+    g.fillStyle = P.black; g.fillRect(x - 3, top - 5, 7, 6); g.fillStyle = P.brass[2]; g.fillRect(x - 2, top - 4, 5, 4); g.fillStyle = P.brass[3]; g.fillRect(x - 2, top - 4, 2, 1);
+    const FW = 34, FH = 20;
+    for (let i = 0; i < FW; i++) {
+      const k = i / FW, dy = Math.round(Math.sin(1.2 - i * 0.42) * 2.2 * k), hgt = FH - Math.round(k * 4), shade = Math.sin(2.4 - i * 0.42) > 0.55;
+      g.fillStyle = P.black; g.fillRect(x + 3 + i, top + 1 + dy - 1, 1, hgt + 2);
+      g.fillStyle = shade ? P.iron[4] : P.white; g.fillRect(x + 3 + i, top + 1 + dy, 1, hgt);
+    }
+    g.fillStyle = P.black; g.fillRect(x + 3 + FW, top + Math.round(Math.sin(1.2 - FW * 0.42) * 2.2), 1, FH - 3);
+  }
+  // 驾驶员喊话：纸气泡，尾巴指着驾驶舱
+  function bubble(g, x, y, w, lines, o = {}) {
+    const h = 14 + lines.length * 22;
+    nine(g, 'paper', x, y, w, h);
+    px(g, X.tail(), o.tailX != null ? x + o.tailX : x + 18, y + h - 2);
+    lines.forEach((ln, i) => T(g, ln, x + 12, y + 18 + i * 22, { font: `bold ${o.size || 18}px KaiTi, STKaiti, serif`, col: o.col && i === 0 ? o.col : INK, sh: false }));
   }
 
-  // 零件表里的单件：车体层零件带一块车体框架，附加层零件下面垫一块示意用的车体
-  function renderPart(cv, id, sty, st) {
-    const g = cv.getContext('2d'), pn = penFor(cv), pt = PARTS[id];
-    g.clearRect(0, 0, cv.width, cv.height);
-    const o = { mv: false, a: 0, t: st.t, fl: Math.floor(st.t * 8) % 4, swing: 0 };
-    pn.at(1, -PADX + 10 + (id === 'sidegun' ? S : 0), 14 + (id === 'backboiler' ? 34 : 0));
-    const cells = new Set();
-    if (pt.layer === 'body') for (let i = 0; i < pt.w; i++) for (let j = 0; j < pt.h; j++) cells.add(i + ',' + j);
-    else if (pt.arm) for (const k of ['0,0', '0,1', '1,1', '0,2']) cells.add(k);
-    else if (id === 'sidegun') cells.add('-1,0');
-    else for (let i = 0; i < pt.w; i++) cells.add(i + ',' + pt.h);
-    hull(pn, cells, MAT(false), sty);
-    pt.draw(pn, PADX, 0, sty, MAT(false), o);
-    pn.flush(g);
-  }
-  const partBox = (id) => { const pt = PARTS[id]; return { w: pt.w * S + (pt.layer === 'add' ? 48 : 20) + (id === 'sidegun' ? 24 : 0), h: pt.h * S + 30 + (id === 'heavy' ? S : 0) + (id === 'backboiler' ? 34 : id === 'jetpack' ? 14 : 0) }; };
+  // ---------- 三套方案 ----------
+  // 数据：三种时刻的你的车况
+  const ST = {
+    normal: { hp: 0.72, heat: 0.46, water: 0.62, sel: 1, reload: [1, 0.45], off: false, lamps: [] },
+    alert: { hp: 0.58, heat: 0.97, water: 0.09, sel: 1, reload: [0.3, 0.2], off: true, lamps: ['heat', 'water', 'gun'] },
+    flag: { hp: 0.64, heat: 0.55, water: 0.4, sel: 1, reload: [1, 1], off: false, lamps: [] },
+  };
+  const WEAP = [['火炮', 1], ['机枪', 2]];
 
-  return { PARTS, LOOK, MECHS, render, renderPart, partBox, VW, VH, S };
+  // A 驾驶台：战场干净，所有车况集中在底下一条铁皮仪表台；警报 = 仪表台上的指示灯 + 准星变红；对方的事 = 上方落下一张电报
+  function propA(st) {
+    const s = ST[st], BAR = 132, c = cv(W, H + BAR), g = c.getContext('2d'), B0 = world();
+    g.drawImage(B0.c, 0, 0); fx(g, st, { red: s.off }); g.drawImage(B0.front, 0, 0);
+    // 上方：左右两块名牌（没有条），正中计时鼓
+    nine(g, 'iron', 16, 12, 196, 32); T(g, `你 · ${ME.name}`, 30, 28, { size: 16 });   // 名牌用铁：黄铜只留给能点的东西
+    nine(g, 'iron', W - 16 - 246, 12, 246, 32); T(g, `${FOE.pilot} · ${FOE.name}`, W - 30, 28, { align: 'right', size: 16 });
+    px(g, drum(st === 'flag' ? '41' : st === 'alert' ? '58' : '74'), W / 2 - 22, 10); T(g, '铁匠铺后院', W / 2, 52, { align: 'center', size: 12 });
+    if (st === 'flag') {
+      flag(g);
+      // 电报从上方落下（牛皮纸 + 红笔）
+      const tx = W / 2 - 190, ty = 68;
+      nine(g, 'kraft', tx, ty, 380, 74); px(g, X.pin(), W / 2 - 8, ty - 8);
+      T(g, '电 报', tx + 16, ty + 20, { col: '#7e2a12', sh: false, size: 13 });
+      T(g, `「${FOE.name}」挂白旗了`, W / 2, ty + 38, { align: 'center', col: INK, sh: false, font: 'bold 22px "Microsoft YaHei", sans-serif' });
+      T(g, '点画面跳过 · 接下来选接受或拒绝', W / 2, ty + 60, { align: 'center', col: '#5a4426', sh: false, size: 13 });
+    }
+    // 仪表台
+    const y0 = H;
+    nine(g, 'iron', 0, y0, W, BAR);
+    // 车况：锅炉压力表 + 水位管 + 装甲片
+    const hot = s.heat >= 0.9;
+    px(g, dial(22, s.heat, 0.82, hot), 26, y0 + 12); T(g, '锅炉', 72, y0 + 118, { align: 'center', size: 13, col: hot ? '#ff8a5c' : LIGHT });
+    px(g, tube(46, s.water, P.water, s.water < 0.15), 136, y0 + 12); T(g, '水', 145, y0 + 118, { align: 'center', size: 13, col: s.water < 0.15 ? '#7fd8e4' : LIGHT });
+    T(g, '装甲', 186, y0 + 26, { size: 13 }); bigNum(g, `${Math.round(s.hp * 100)}%`, 230, y0 + 16, LIGHT, 3);
+    px(g, plates(Math.round(s.hp * 10), 10), 186, y0 + 50);
+    // 指示灯：过热 / 缺水 / 动力 / 履带 / 武器
+    const L = [['heat', '过热', P.fire[2]], ['water', '缺水', '#46c2c9'], ['power', '动力', P.fire[2]], ['track', '履带', P.fire[2]], ['gun', '武器', P.fire[2]]];
+    L.forEach(([id, nm, col], i) => { const x = 186 + i * 42, on = s.lamps.includes(id); px(g, lamp(on, col), x, y0 + 74); T(g, nm, x + 11, y0 + 112, { align: 'center', size: 12, col: on ? '#ffd36b' : '#8a8577' }); });
+    // 告示条（纸）：平时是操作提示，出事时一句红字
+    nine(g, 'paper', 420, y0 + 12, 440, 36);
+    if (st === 'alert') T(g, '锅炉过热 · 停火降温中 · 水快没了', 640, y0 + 30, { align: 'center', col: X.RED, sh: false, font: 'bold 17px "Microsoft YaHei", sans-serif' });
+    else T(g, 'A / D 移动 · 鼠标瞄准 · 按住左键稳住准星', 640, y0 + 30, { align: 'center', col: INK, sh: false, size: 14 });
+    // 武器键
+    WEAP.forEach(([nm, n], i) => { const x = 470 + i * 180; px(g, key(n, s.sel === n, s.reload[i], s.off), x, y0 + 58); T(g, nm + (n === 2 ? ' ×2' : ''), x + 70, y0 + 80, { size: 15, col: s.off ? '#8a8577' : LIGHT }); T(g, s.off ? '停火中' : s.reload[i] >= 1 ? '装好了' : '装填中', x + 70, y0 + 102, { size: 12, col: s.off ? '#ff8a5c' : '#b9b4a6' }); });
+    // 右：紧急泄压（炉火红拉手）+ 撤退
+    nine(g, 'fire', 940, y0 + 22, 170, 44); T(g, '紧急泄压', 1025, y0 + 44, { align: 'center', size: 16 }); T(g, '限一次', 1025, y0 + 82, { align: 'center', size: 12, col: '#b9b4a6' });
+    nine(g, 'ironBtn', 1136, y0 + 22, 120, 44); T(g, '撤退', 1196, y0 + 44, { align: 'center', size: 16 });
+    return c;
+  }
+
+  // B 车上见：几乎没有框。你的车况是车头上方三根小液位管（只给你自己）；出事时你的驾驶员喊一句；对方的事由对方驾驶员喊
+  function propB(st) {
+    const s = ST[st], c = cv(W, H), g = c.getContext('2d'), B0 = world();
+    g.drawImage(B0.c, 0, 0); fx(g, st); g.drawImage(B0.front, 0, 0);
+    px(g, drum(st === 'flag' ? '41' : st === 'alert' ? '58' : '74'), W / 2 - 22, 10);
+    // 你车顶上的三根液位管（装甲 / 热 / 水），挂在一块小铁牌上；告急的那根描红
+    const bx = ME.x + 24, by = Math.round(B0.meTop.y) - 104;
+    nine(g, 'iron', bx, by, 92, 84);
+    [[s.hp, P.brass, '甲', false], [s.heat, P.fire, '热', s.heat >= 0.9], [s.water, P.water, '水', s.water < 0.15]].forEach(([v, r, nm, warn], i) => {
+      px(g, tube(28, v, r, warn), bx + 12 + i * 24, by + 10); T(g, nm, bx + 21 + i * 24, by + 74, { align: 'center', size: 12, col: warn ? '#ffd36b' : LIGHT });
+    });
+    // 告急：你的驾驶员喊
+    if (st === 'alert') { const cx = Math.round(B0.meTop.x); bubble(g, cx - 10, B0.meTop.y - 78, 230, ['烫烫烫！先停火！', '水也快见底了…'], { col: X.RED, tailX: 4 }); }
+    // 武器键：地面上一排，靠左；泄压 / 撤退靠右
+    WEAP.forEach(([nm, n], i) => { const x = 22 + i * 132; px(g, key(n, s.sel === n, s.reload[i], s.off), x, H - 52); T(g, nm, x + 68, H - 30, { size: 14, col: s.off ? '#8a8577' : LIGHT }); });
+    nine(g, 'fire', W - 250, H - 50, 120, 40); T(g, '紧急泄压', W - 190, H - 30, { align: 'center', size: 14 });
+    nine(g, 'ironBtn', W - 118, H - 50, 96, 40); T(g, '撤退', W - 70, H - 30, { align: 'center', size: 14 });
+    if (st === 'flag') {
+      flag(g);
+      // 对方驾驶员喊 + 正中一行大字（毛笔红字）
+      const fx0 = Math.round(B0.foeTop.x) - 250, fy0 = Math.round(B0.foeTop.y) - 70;
+      bubble(g, fx0, fy0, 230, ['别打了别打了，', '我认输！'], { tailX: 226 });
+      const br = X.brush('白旗', 44); px(g, br, W / 2 - br.width, 60);
+      T(g, `「${FOE.name}」投降了 · 点画面跳过`, W / 2, 60 + br.height * 2 + 16, { align: 'center', size: 15 });
+    }
+    return c;
+  }
+
+  // C 记分牌：上方挂一块木记分牌（双方名字 + 耐久片 + 计时），这是对方唯一的信息；你的车况在底下一条窄铁条；
+  // 出事时记分牌下面翻出一行字；对方挂白旗时记分牌整块翻过来写「白旗」，四角灯泡亮
+  function propC(st) {
+    const s = ST[st], BAR = 84, c = cv(W, H + BAR), g = c.getContext('2d'), B0 = world();
+    g.drawImage(B0.c, 0, 0); fx(g, st); g.drawImage(B0.front, 0, 0);
+    if (st === 'flag') flag(g);
+    // 记分牌：两根铁链吊着
+    const bw = 560, bh = 92, bx = W / 2 - bw / 2, by = 18;
+    g.fillStyle = P.dark[0]; for (const xx of [bx + 60, bx + bw - 64]) for (let yy = 0; yy < by + 4; yy += 6) { g.fillRect(xx, yy, 4, 5); g.fillStyle = P.iron[2]; g.fillRect(xx + 1, yy + 1, 2, 2); g.fillStyle = P.dark[0]; }
+    nine(g, 'board', bx, by, bw, bh);
+    const bulbs = st === 'flag';
+    for (const [lx, ly] of [[bx + 10, by + 10], [bx + bw - 32, by + 10], [bx + 10, by + bh - 32], [bx + bw - 32, by + bh - 32]]) px(g, lamp(bulbs, '#ffd36b'), lx, ly);
+    if (st === 'flag') {
+      const br = X.brush('白旗', 36, '#f4f0e0', SHADOW); px(g, br, W / 2 - br.width, by + 10);
+      nine(g, 'paper', W / 2 - 200, by + bh + 6, 400, 34);
+      T(g, `「${FOE.name}」挂白旗了 · 点画面跳过`, W / 2, by + bh + 23, { align: 'center', col: INK, sh: false, size: 15 });
+    } else {
+      T(g, '你', bx + 48, by + 30, { col: CHALK, size: 18, font: 'bold 18px "Microsoft YaHei", sans-serif' });
+      px(g, plates(Math.round(s.hp * 10), 10), bx + 48, by + 50);
+      T(g, FOE.pilot, bx + bw - 48, by + 30, { align: 'right', col: CHALK, size: 16, font: 'bold 16px "Microsoft YaHei", sans-serif' });
+      px(g, plates(8, 10), bx + bw - 48 - 122, by + 50);
+      px(g, drum(st === 'alert' ? '58' : '74'), W / 2 - 22, by + 22); T(g, '铁匠铺后院', W / 2, by + 70, { align: 'center', col: CHALK, size: 12 });
+      if (st === 'alert') { nine(g, 'paper', W / 2 - 200, by + bh + 6, 400, 34); T(g, '你的锅炉过热 · 停火降温中', W / 2, by + bh + 23, { align: 'center', col: X.RED, sh: false, font: 'bold 17px "Microsoft YaHei", sans-serif' }); }
+    }
+    // 底条：你的车况（齿条表）+ 武器键 + 泄压 / 撤退
+    const y0 = H;
+    nine(g, 'iron', 0, y0, W, BAR);
+    [['耐久', s.hp, 'hp', false], ['热量', s.heat, 'heat', s.heat >= 0.9], ['水', s.water, 'water', s.water < 0.15]].forEach(([nm, v, kk, bad], i) => {
+      const yy = y0 + 12 + i * 22;
+      T(g, nm, 22, yy + 10, { size: 13, col: bad ? '#ffd36b' : LIGHT });
+      px(g, X.ui.rack(Math.min(1, v), { k: kk, over: bad, w: 80 }), 64, yy);
+      T(g, `${Math.round(v * 100)}%`, 238, yy + 10, { size: 13, col: bad ? '#ff8a5c' : LIGHT });
+    });
+    WEAP.forEach(([nm, n], i) => { const x = 330 + i * 160; px(g, key(n, s.sel === n, s.reload[i], s.off), x, y0 + 18); T(g, nm, x + 68, y0 + 40, { size: 14, col: s.off ? '#8a8577' : LIGHT }); });
+    T(g, 'A / D 移动 · 鼠标瞄准 · 按住左键稳住准星', 860, y0 + 42, { align: 'center', size: 12, col: '#b9b4a6' });
+    nine(g, 'fire', 1010, y0 + 20, 130, 44); T(g, '紧急泄压', 1075, y0 + 42, { align: 'center', size: 15 });
+    nine(g, 'ironBtn', 1156, y0 + 20, 104, 44); T(g, '撤退', 1208, y0 + 42, { align: 'center', size: 15 });
+    return c;
+  }
+
+  const PROPS = [
+    { id: 'A', name: 'A 驾驶台', fn: propA, why: [
+      '战场上什么框都没有：车况、警报、武器、按钮全部收进画面下面一条铁皮仪表台，像坐在驾驶室里看仪表。',
+      '你的车况：锅炉压力表（指针进红区 = 过热）、水位管、装甲片（十片，掉一成灭一片）。',
+      '警报：仪表台上一排指示灯（过热 / 缺水 / 动力 / 履带 / 武器）+ 纸条上一句红字；同时<b>准星变红</b>——眼睛盯着准星也知道现在打不了。',
+      '对方：只有右上角一块名牌，没有任何条。挂白旗时上方钉下一张电报。',
+    ] },
+    { id: 'B', name: 'B 车上见', fn: propB, why: [
+      '几乎没有界面：上方只有计时鼓，武器键和两个按钮缩在地面那一条上。',
+      '你的车况：你车顶上挂一块小铁牌，三根液位管（甲 / 热 / 水），跟着你的车走；告急的那根描红。只给你自己，对方车上什么都不挂。',
+      '警报：你的驾驶员直接喊（纸气泡、手写字），比如「烫烫烫！先停火！」。',
+      '对方的事由对方驾驶员喊：挂白旗时他喊「我认输！」，正中一行毛笔大字「白旗」。',
+    ] },
+    { id: 'C', name: 'C 记分牌', fn: propC, why: [
+      '像看台上的比赛：上方吊一块木记分牌——双方名字、各自十片耐久、中间计时。<b>对方只在这里出现，只有耐久</b>，没有热量、水、警报。',
+      '你的车况：画面下面一条窄铁条，三根齿条表（耐久 / 热量 / 水）+ 武器键 + 两个按钮。',
+      '警报：记分牌下面翻出一行纸条字（只说你的事）。',
+      '对方挂白旗：记分牌整块翻过来写「白旗」，四角灯泡亮，下面一行说明。',
+    ] },
+  ];
+  const STATES = [['normal', '常态'], ['alert', '告急'], ['flag', '对方挂白旗']];
+
+  async function mount() {
+    await loadSkins();
+    const root = document.getElementById('props');
+    for (const p of PROPS) {
+      const box = document.createElement('section'); box.className = 'prop';
+      box.innerHTML = `<h2>${p.name}</h2><ul class="why">${p.why.map(x => `<li>${x}</li>`).join('')}</ul>`;
+      const seg = document.createElement('div'); seg.className = 'seg';
+      const img = document.createElement('img'); img.className = 'shot';
+      const show = (sid) => { img.src = p.fn(sid).toDataURL(); [...seg.children].forEach(b => b.classList.toggle('on', b.dataset.s === sid)); };
+      for (const [sid, nm] of STATES) { const b = document.createElement('button'); b.textContent = nm; b.dataset.s = sid; b.onclick = () => show(sid); seg.append(b); }
+      box.append(seg, img);
+      root.append(box);
+      show('normal');
+    }
+  }
+  return { mount, PROPS, propA, propB, propC };
 })();
+SA.BATTLEUI.mount().catch(e => { console.error(e); document.getElementById('props').textContent = '样机出错：' + e.message; });
