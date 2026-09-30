@@ -523,7 +523,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
       for (const key of keys) {
         shown++;
         const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
-        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === key ? 'sel' : ''} ${n ? '' : 'unowned'}`,
+        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === key ? 'sel' : ''} ${n ? '' : 'unowned'}`, 'data-page-key': `inventory:${key}`,
           title: `${m.desc}\n${SA.UI.statLine(id, mt)}`, onclick: () => selectInv(key) },
         h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1, mt)),
         h('span', { class: 'mid' },
@@ -575,7 +575,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         h('span', { class: 'plus' }, '⇪'), h('span', { class: 'mid' }, h('span', { class: 'nm' }, '分享当前车辆'), h('span', { class: 'muted' }, '生成分享码，发给别人粘贴导入'))));
     for (const bp of bpList()) {
       const p = SA.Blueprints.plan(bp);
-      invEl.append(h('button', { class: `bprow ${st.bp === bp.key ? 'sel' : ''}`, title: bp.desc || bp.name,
+      invEl.append(h('button', { class: `bprow ${st.bp === bp.key ? 'sel' : ''}`, 'data-page-key': `blueprint:${bp.key}`, title: bp.desc || bp.name,
         onclick: () => { st.bp = st.bp === bp.key ? null : bp.key; renderDock(); } },
       bpPic(bp, 1),
       h('span', { class: 'mid' },
@@ -687,7 +687,7 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
         h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k && !M[id].retired).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
       H('材料'),
       h('p', {}, '模块的品质就是材料：', SA.MATS.slice(1).map((mt, i) => [SA.Camp.matChip(i + 1), ` ×${mt.mul} `]),
-        '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，只能靠委托、Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
+        '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，靠 Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
       H('实体辅助模块'),
       h('p', {}, '观察镜、装弹机、陀螺仪和测距仪是可被击毁的 1×1 实体模块，放在车上即可生效。'),
       H('护甲与穿深'),

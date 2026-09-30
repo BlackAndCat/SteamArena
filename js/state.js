@@ -19,7 +19,7 @@ SA.S = (() => {
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
       camp: { ch: 0, st: 0, intro: -1, done: false, sideWins: {}, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
-      orders: ['farmer', 'post', 'mill'], ordersDone: [],
+      orders: [], ordersDone: [],
       wins: 0, losses: 0, battles: 0, champion: 0,
       news: '老汤姆的铁匠铺后院：你的第一台原型机已经点着了锅炉。去「出战」打第一场练习赛。',
     };
@@ -53,7 +53,7 @@ SA.S = (() => {
     const inv = {};
     for (const k in s.inv) { const f = SA.fixKey(k); inv[f] = (inv[f] || 0) + s.inv[k]; }
     s.inv = inv;
-    // 清掉旧实现把普通模块库存误算成唯一件的账本条目；独立支线奖励按 sideWins 在 backfill 补发。
+    // 清掉旧实现把普通模块库存误算成唯一件的账本条目；旧支线记录只供存档兼容。
     for (const key of Object.keys(s.uniqueClaims)) if (!SA.uniqueByKey(key)) delete s.uniqueClaims[key];
     for (const cell of s.stockCells) {
       const oldKey = SA.fixKey(SA.invKey(cell.id, cell.mt || 1));
@@ -321,26 +321,19 @@ SA.S = (() => {
     const D = d;
     if (mode === 'camp') {
       const C = D.camp, over = SA.Camp.done();
-      return SA.CAMPAIGN.flatMap((chapter, chapterIndex) => chapter.stages.map((o, i) => {
-        const stage = SA.Camp.stage(chapterIndex, i);
+      return SA.CAMPAIGN.flatMap((chapter, chapterIndex) => chapter.stages.flatMap((o, i) => {
         const beaten = over || chapterIndex < C.ch || (chapterIndex === C.ch && i < C.st);
         const next = !over && chapterIndex === C.ch && i === C.st;
+        if (!beaten && !next) return [];
+        const stage = SA.Camp.stage(chapterIndex, i);
         const replay = beaten;
-        return { key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
+        return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
           tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
           // 剧情编号在开战时固定，战后即使进度已经推进，也能定位原来打的关卡。
-          start: () => SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) };
+          start: () => SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) }];
       }));
     }
-    if (mode === 'side') return SA.Camp.sideEntries().map(e => ({
-      key: e.id, name: e.name, pilot: e.pilot, blurb: e.blurb, v: e.vehicle, raw: e.vehicle, hpMul: 1,
-      rating: SA.V.stats(e.vehicle).rating, prize: 0, boss: false, terrain: e.terrain || 'flat',
-      tag: e.won ? ['ok', '可重打'] : ['next', '可选遭遇'], title: `遭遇 · ${e.name}`,
-      lock: null, replay: e.won,
-      start: () => SA.Battle.start({ mode: 'side', sideId: e.id, replay: e.won, enemyVehicle: e.vehicle, enemyName: e.name, aim: e.aim, style: e.style, terrain: e.terrain, boss: false, hpMul: 1, prize: 0, settleDamage: e.settleDamage !== false,
-        uniqueLoot: e.reward ? [SA.rewardRule(e.reward)] : [] }),
-    }));
     if (mode === 'tour') return SA.OPPONENTS.map((o, i) => {
       const op = SA.S.opponent(i);
       const bv = SA.V.battleCopy(op.vehicle, op.hpMul, true);
@@ -364,19 +357,6 @@ SA.S = (() => {
   }
 
 
-  // 委托资格与交付沿用原声望、连通和属性条件，不消耗车辆。
-  function orderStatus(o, s) {
-    const locked = d.rep < o.rep;
-    return { locked, ok: !locked && !s.issues.length && o.req.every(([, f, n]) => f(s) >= n) };
-  }
-  function readyOrders(s) {
-    return SA.ORDERS.filter(o => d.orders.includes(o.id) && orderStatus(o, s).ok).length;
-  }
-  function deliverOrder(o, oid) {
-    d.money += o.reward; d.rep += 1; addIngots(o.ingots);
-    d.orders = d.orders.filter(x => x !== oid); d.ordersDone.push(oid);
-    d.news = `${o.who}买下了你的图纸授权，付款 ${formatMoney(o.reward)}。`;
-  }
   // 下注和撤回只变更存档；界面负责保持原刷新与提示顺序。
   function placeBet(amount, odds) { d.money -= amount; d.bet = { amount, odds }; save(); }
   function cancelBet() { d.money += d.bet.amount; d.bet = null; save(); }
@@ -385,12 +365,14 @@ SA.S = (() => {
   const drawFee = (prize) => Math.max(5, Math.round(prize * 0.1 / 5) * 5);
   function settleBattle(res) {
     const lines = [], pre = [], money0 = d.money;
+    // 旧链接或脚本传入已取消的遭遇战时，不结算战损、奖励或旧档进度。
+    if (res.mode === 'side') return { lines, pre, money0 };
     if (res.replay) {
       d.news = res.win ? `「${d.vehicle.name}」重打击败了「${res.enemyName}」。` : `「${d.vehicle.name}」完成了与「${res.enemyName}」的重打。`;
       save();
       return { lines, pre, money0 };
     }
-    const settlesDamage = res.mode !== 'friendly' && (res.mode !== 'side' || res.opts.settleDamage !== false);
+    const settlesDamage = res.mode !== 'friendly';
     if (res.mode !== 'friendly' && settlesDamage) {
       d.battles++;
       // 损伤带回车间
@@ -417,25 +399,6 @@ SA.S = (() => {
       }
       lines.push('街头赛不计声望，也不影响战役进度。');
       SA.Street.consume(res.opts.streetTier);
-    } else if (res.mode === 'side') {
-      const firstWin = res.win && SA.Camp.sideWin(res.opts.sideId || res.enemyName);
-      if (res.draw) {
-        lines.push('遭遇战平手：不发奖金，也不计声望。');
-        d.news = `「${d.vehicle.name}」和「${res.enemyName}」在场外打成平手。`;
-      } else if (res.win) {
-        lines.push('遭遇战胜利：不发奖金，也不计声望。');
-        if (firstWin) {
-          const reward = (SA.SIDE_ENCOUNTERS || []).find(e => e.id === res.opts.sideId)?.reward;
-          if (reward?.guaranteed && SA.Camp.claimReward(reward)) lines.push(`固定缴获 ${reward.name || SA.MODULES[reward.id].name} ×1`);
-          const loot = SA.Camp.salvageOptions(res.survivors || []);
-          if (loot.length) pre.push({ kind: 'salvage', survivors: res.survivors || [] });
-          else lines.push('对手车上没有你缺的零件，这次没什么可缴获的。');
-        } else lines.push('这场遭遇战已经完成过了，没有重复奖励。');
-        d.news = `「${d.vehicle.name}」击败了场外的「${res.enemyName}」。`;
-      } else {
-        lines.push('遭遇战失败：不发奖金，也不计声望。');
-        d.news = `「${d.vehicle.name}」败给了场外的「${res.enemyName}」。`;
-      }
     } else if (res.mode === 'campaign' || res.mode === 'tournament') {
       const camp = res.mode === 'campaign';
       if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${formatMoney(add)}`); }
@@ -479,14 +442,6 @@ SA.S = (() => {
         d.news = `「${d.vehicle.name}」败给了「${res.enemyName}」。${SA.Camp.has('garage') ? '回车间对症改装，再来。' : '再来一次。'}`;
       }
       d.bet = null;
-      // 补充订单
-      const pool = SA.ORDERS.filter(o => !d.orders.includes(o.id) && !d.ordersDone.includes(o.id));
-      if (!pool.length && d.ordersDone.length) d.ordersDone = [];
-      while (d.orders.length < 3) {
-        const p = SA.ORDERS.filter(o => !d.orders.includes(o.id) && !d.ordersDone.includes(o.id));
-        if (!p.length) break;
-        d.orders.push(p[Math.floor(Math.random() * p.length)].id);
-      }
     } else {
       lines.push('友谊赛：不结算奖金，也不留下损伤。');
     }
@@ -516,7 +471,7 @@ SA.S = (() => {
     const mat = SA.MATS[to], cost = SA.matUpCost(cell.id, to);
     if (mat.ingot) {
       const n = d.ingots[mat.ingot] || 0;
-      return { to, mat, cost, ok: n > 0, why: n > 0 ? '' : `需要 ${SA.INGOTS[mat.ingot].name}（委托 / Boss 掉落）` };
+      return { to, mat, cost, ok: n > 0, why: n > 0 ? '' : `需要 ${SA.INGOTS[mat.ingot].name}（Boss 掉落）` };
     }
     if (to > SA.Camp.maxMat()) return { to, mat, cost, ok: false, why: `${mat.name}还没解锁（推进战役）` };
     return { to, mat, cost, ok: true };
@@ -574,5 +529,5 @@ SA.S = (() => {
     for (const cell of res.removed) scrap += stashCell(cell);
     return { ...res, scrap };
   }
-  return { load, save, reset, starterVehicle, replaceWithStarter, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, orderStatus, readyOrders, deliverOrder, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
+  return { load, save, reset, starterVehicle, replaceWithStarter, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
 })();

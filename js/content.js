@@ -258,8 +258,8 @@ SA.CAMPAIGN = [
         unlock: { mods: ['cockpit', 'boss_core'], note: '联合驾驶舱和圣堂压力核心开放：四个驾驶员协同操作，核心提供动力、储压、储水和持续冷却。' },
       },
     ],
-    unlock: { feat: ['orders', 'bet', 'blueprints', 'friendly'], mods: ['mg2', 'radiator', 'gyroscope', 'boiler_l', 'water_l'], grid: { cols: 7, rows: 5 },
-      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片、陀螺仪、大型锅炉和大水箱补齐火力、控制与后勤；委托、下注和蓝图库开放，有些委托会付乌兹钢锭。' },
+    unlock: { feat: ['bet', 'blueprints', 'friendly'], mods: ['mg2', 'radiator', 'gyroscope', 'boiler_l', 'water_l'], grid: { cols: 7, rows: 5 },
+      note: '第四章 Boss 后开放大部分剩余装备：双联机枪、散热片、陀螺仪、大型锅炉和大水箱补齐火力、控制与后勤；下注和蓝图库开放。' },
   },
   {
     name: '第五章 · 水晶宫', place: '海德公园 · 水晶宫',

@@ -1,7 +1,7 @@
-// 可复用的 HTML5 文本管理包。
+// 可复用的 HTML5 页面管理包。
 //
 // 设计目标：
-// 1. 运行时编辑 DOM 文本、按钮文案和 title/aria-label 等属性；
+// 1. 运行时编辑或删除 DOM 文本、按钮文案和 title/aria-label 等属性，并隐藏所选元素；
 // 2. 同一个 key 可以绑定多个位置，修改后即时联动；
 // 3. 开发服务器将覆盖值保存到 text/<game>/<locale>.json，静态部署则保存到 localStorage；
 // 4. 不直接改写散落在业务 JS 里的字符串，避免正则替换破坏模板和逻辑。
@@ -21,10 +21,14 @@ SA.Text = (() => {
     saveUrl: '/__text/save',
   };
   const values = Object.create(null);
+  const removedElements = new Set();
+  const hiddenElements = new Map();
   const defaults = Object.create(null);
   const keyEntries = new Map();
   const allEntries = new Set();
   const autoEntries = new Set();
+  const nodeDefaults = new WeakMap();
+  const attrDefaults = new WeakMap();
   const manualBindings = new WeakMap();
   const listeners = new Set();
   let editing = false;
@@ -34,6 +38,7 @@ SA.Text = (() => {
   let scanTimer = 0;
   let observer = null;
   let activeEntry = null;
+  let activeElement = null;
   let toolbar = null;
   let editorInput = null;
   let editorBox = null;
@@ -88,7 +93,7 @@ SA.Text = (() => {
   function set(key, value, options = {}) {
     if (!safeKey(key)) throw new Error('SA.Text.set 需要非空且不超过 240 字符的 key');
     const next = String(value == null ? '' : value);
-    if (!(key in defaults)) defaults[key] = next;
+    if (!(key in defaults)) defaults[key] = Array.from(keyEntries.get(key) || []).find(entry => entry.auto)?.fallback ?? next;
     if (values[key] === next && key in values) return next;
     values[key] = next;
     dirty = true;
@@ -99,15 +104,22 @@ SA.Text = (() => {
     return next;
   }
 
+  function entryValue(entry) {
+    return entry.key in values ? values[entry.key]
+      : entry.legacyKey && entry.legacyKey in values ? values[entry.legacyKey]
+        : entry.semantic && keyEntries.get(entry.key)?.size && Array.from(keyEntries.get(entry.key)).some(item => item.explicit)
+          ? get(entry.key, entry.fallback) : entry.fallback;
+  }
+
   function applyEntry(entry) {
     if (!entry || !entry.target || !entry.target.isConnected) return;
-    const value = get(entry.key, entry.fallback);
+    const value = entryValue(entry);
     if (entry.kind === 'attr') {
       if (entry.target.getAttribute(entry.attr) !== value) entry.target.setAttribute(entry.attr, value);
       return;
     }
-    const nodes = directTextNodes(entry.target);
-    const node = nodes[entry.nodeIndex || 0];
+    const node = entry.textNode && entry.textNode.parentNode === entry.target
+      ? entry.textNode : directTextNodes(entry.target)[entry.nodeIndex || 0];
     if (!node) return;
     const prefix = entry.prefix || '';
     const suffix = entry.suffix || '';
@@ -122,7 +134,7 @@ SA.Text = (() => {
 
   function directTextNodes(el) {
     return Array.from(el.childNodes || []).filter(node =>
-      node.nodeType === Node.TEXT_NODE && node.data.trim());
+      node.nodeType === Node.TEXT_NODE && (node.data.trim() || node.saTextManaged));
   }
 
   function stableClasses(el) {
@@ -131,15 +143,16 @@ SA.Text = (() => {
   }
 
   // 自动 key 不读取文案本身，所以修改后 key 不会漂移；正式接入仍建议使用 bindText 的语义 key。
-  function elementPath(el) {
+  function elementPath(el, keyed = false) {
     const parts = [];
     let node = el;
     while (node && node.nodeType === Node.ELEMENT_NODE && node !== document.body) {
       let part = node.tagName.toLowerCase();
-      if (node.id) part += `#${node.id}`;
-      const classes = stableClasses(node);
+      if (keyed && node.dataset.pageKey) part += `:key:${encodeURIComponent(node.dataset.pageKey)}`;
+      else if (node.id) part += `#${node.id}`;
+      const classes = keyed && node.dataset.pageKey ? [] : stableClasses(node);
       if (classes.length) part += `.${classes.join('.')}`;
-      if (!node.id && node.parentElement) {
+      if (!node.id && !(keyed && node.dataset.pageKey) && node.parentElement) {
         const same = Array.from(node.parentElement.children).filter(child => child.tagName === node.tagName);
         part += `:n${Math.max(1, same.indexOf(node) + 1)}`;
       }
@@ -150,17 +163,54 @@ SA.Text = (() => {
   }
 
   function textKey(el, index) {
-    return `dom:${elementPath(el)}::text:${index}`;
+    return `dom:${removalPath(el)}::text:${index}`;
   }
 
   function attrKey(el, attr) {
-    return `dom:${elementPath(el)}::attr:${attr}`;
+    return `dom:${removalPath(el)}::attr:${attr}`;
+  }
+
+  // 旧 v1 路径只作读取回退，新编辑始终写入页面与稳定行标识完整的新 key。
+  const legacyTextKey = (el, index) => `dom:${elementPath(el)}::text:${index}`;
+  const legacyAttrKey = (el, attr) => `dom:${elementPath(el)}::attr:${attr}`;
+
+  // #screen 与弹窗按游戏页面隔离；侧栏等公共区域属于全局，避免同构重绘误删别页。
+  function removalPath(el) {
+    const screen = el.closest('#screen, #modal') ? `screen:${document.body.dataset.screen || ''}` : 'global';
+    return `${location.pathname}::${screen}::${elementPath(el, true)}`;
+  }
+
+  function canRemove(el) {
+    return el && el !== document.body && !['app', 'screen', 'side', 'modal', 'toast', 'sa-text-manager'].includes(el.id)
+      && !isUiElement(el) && !el.contains(toolbar);
+  }
+
+  // 元素只隐藏而不移出 DOM，同标签兄弟序号在保存、重绘与恢复时始终一致。
+  function hideElement(el) {
+    if (hiddenElements.has(el)) return;
+    hiddenElements.set(el, { value: el.style.getPropertyValue('display'), priority: el.style.getPropertyPriority('display') });
+    el.style.setProperty('display', 'none', 'important');
+  }
+
+  function restoreElements() {
+    hiddenElements.forEach((display, el) => {
+      if (display.value) el.style.setProperty('display', display.value, display.priority);
+      else el.style.removeProperty('display');
+    });
+    hiddenElements.clear();
+  }
+
+  function applyRemoved() {
+    if (!removedElements.size) return;
+    for (const el of document.body.querySelectorAll('*')) {
+      if (canRemove(el) && removedElements.has(removalPath(el))) hideElement(el);
+    }
   }
 
   function editableAttributes(el) {
     return ['title', 'aria-label', 'alt', 'placeholder'].filter(attr => {
       const value = el.getAttribute && el.getAttribute(attr);
-      return value != null && String(value).trim();
+      return value != null && (String(value).trim() || el.saTextAttrs?.has(attr));
     });
   }
 
@@ -176,21 +226,33 @@ SA.Text = (() => {
         nodes.forEach((node, index) => {
           const key = el.dataset.textKey && index === 0 ? el.dataset.textKey : textKey(el, index);
           const raw = node.data;
-          const prefix = (raw.match(/^\s*/) || [''])[0];
-          const suffix = (raw.match(/\s*$/) || [''])[0];
+          node.saTextManaged = true;
+          if (!nodeDefaults.has(node)) nodeDefaults.set(node, {
+            fallback: raw.trim(), prefix: (raw.match(/^\s*/) || [''])[0], suffix: (raw.match(/\s*$/) || [''])[0],
+          });
+          const original = nodeDefaults.get(node);
           // 扫描得到的绑定每次重绘都重新建立；显式 bindText 保留自己的语义 key。
-          addEntry({ key, kind: 'text', target: el, nodeIndex: index, fallback: raw.trim(), prefix, suffix, auto: true });
-          if (key in values) applyKey(key);
+          addEntry({ key, legacyKey: el.dataset.textKey && index === 0 ? null : legacyTextKey(el, index), semantic: !!(el.dataset.textKey && index === 0),
+            kind: 'text', target: el, textNode: node, nodeIndex: index, fallback: original.fallback,
+            prefix: original.prefix, suffix: original.suffix, auto: true });
         });
       }
       editableAttributes(el).forEach(attr => {
-        const key = attr === 'title' && el.dataset.textKey ? `${el.dataset.textKey}.${attr}` : attrKey(el, attr);
+        const manual = manualBindings.get(el)?.get(attr);
+        const semantic = !!manual || (attr === 'title' && !!el.dataset.textKey);
+        const key = manual || (attr === 'title' && el.dataset.textKey ? `${el.dataset.textKey}.${attr}` : attrKey(el, attr));
+        if (!el.saTextAttrs) el.saTextAttrs = new Set();
+        el.saTextAttrs.add(attr);
+        if (!attrDefaults.has(el)) attrDefaults.set(el, new Map());
+        const originals = attrDefaults.get(el);
+        if (!originals.has(attr)) originals.set(attr, el.getAttribute(attr));
         el.dataset.saTextEditable = '1';
-        addEntry({ key, kind: 'attr', attr, target: el, fallback: el.getAttribute(attr), auto: true });
-        if (key in values) applyKey(key);
+        addEntry({ key, legacyKey: semantic ? null : legacyAttrKey(el, attr), semantic,
+          kind: 'attr', attr, target: el, fallback: originals.get(attr), auto: true });
       });
     });
     applyAll();
+    applyRemoved();
   }
 
   function applyAll() {
@@ -204,7 +266,7 @@ SA.Text = (() => {
     const nodes = directTextNodes(el);
     if (!nodes.length && !el.children.length) el.append(document.createTextNode(String(fallback)));
     const nextNodes = directTextNodes(el);
-    nextNodes.forEach((node, index) => addEntry({ key: index === 0 ? key : `${key}.${index}`, kind: 'text', target: el, nodeIndex: index, fallback: node.data.trim(), prefix: (node.data.match(/^\s*/) || [''])[0], suffix: (node.data.match(/\s*$/) || [''])[0], explicit: true }));
+    nextNodes.forEach((node, index) => { node.saTextManaged = true; addEntry({ key: index === 0 ? key : `${key}.${index}`, kind: 'text', target: el, textNode: node, nodeIndex: index, fallback: node.data.trim(), prefix: (node.data.match(/^\s*/) || [''])[0], suffix: (node.data.match(/\s*$/) || [''])[0], explicit: true }); });
     el.dataset.saTextEditable = '1';
     applyKey(key);
     return el;
@@ -245,9 +307,9 @@ SA.Text = (() => {
       const direct = directTextNodes(node);
       const attributeEntry = () => {
         for (const attr of editableAttributes(node)) {
-          const key = attr === 'title' && node.dataset.textKey ? `${node.dataset.textKey}.${attr}` : attrKey(node, attr);
+          const key = attr === 'title' && node.dataset.textKey ? `${node.dataset.textKey}.${attr}` : manualBindings.get(node)?.get(attr) || attrKey(node, attr);
           const setOfEntries = keyEntries.get(key);
-          if (setOfEntries && setOfEntries.size) return Array.from(setOfEntries)[0];
+          if (setOfEntries && setOfEntries.size) return Array.from(setOfEntries).find(entry => entry.target === node) || Array.from(setOfEntries)[0];
         }
         return null;
       };
@@ -258,7 +320,7 @@ SA.Text = (() => {
       if (direct.length) {
         const key = node.dataset.textKey || textKey(node, 0);
         const setOfEntries = keyEntries.get(key);
-        if (setOfEntries && setOfEntries.size) return Array.from(setOfEntries)[0];
+        if (setOfEntries && setOfEntries.size) return Array.from(setOfEntries).find(entry => entry.target === node) || Array.from(setOfEntries)[0];
       }
       if (!preferAttribute) {
         const entry = attributeEntry();
@@ -286,7 +348,7 @@ SA.Text = (() => {
       return button;
     };
     const head = document.createElement('div'); head.className = 'sa-text-head';
-    const title = document.createElement('b'); title.textContent = '文本管理';
+    const title = document.createElement('b'); title.textContent = '页面管理';
     const status = document.createElement('span'); status.className = 'sa-text-status';
     head.append(title, status);
     const actions = document.createElement('div'); actions.className = 'sa-text-actions';
@@ -297,6 +359,10 @@ SA.Text = (() => {
     editorInput = document.createElement('textarea'); editorInput.rows = 2;
     const keyHint = document.createElement('small');
     label.append(editorInput); editorBox.append(label, keyHint);
+    const selection = document.createElement('small'); selection.dataset.textSelection = '1';
+    const editActions = document.createElement('div'); editActions.className = 'sa-text-actions';
+    editActions.append(makeButton('parent', '选中父元素'), makeButton('remove-element', '删除所选元素'), makeButton('remove-text', '删除当前文字'));
+    editorBox.append(selection, editActions);
     toolbar.append(head, actions, editorBox);
     document.body.append(toolbar);
     statusEl = status;
@@ -309,6 +375,9 @@ SA.Text = (() => {
       if (name === 'save') save();
       if (name === 'export') exportJson();
       if (name === 'reset') reset();
+      if (name === 'parent') selectParent();
+      if (name === 'remove-element') removeSelectedElement();
+      if (name === 'remove-text') removeSelectedText();
     });
     editorInput.addEventListener('input', () => {
       if (activeEntry) set(activeEntry.key, editorInput.value);
@@ -318,29 +387,62 @@ SA.Text = (() => {
 
   function openEditor(entry) {
     activeEntry = entry;
-    editorBox.hidden = false;
-    editorInput.value = get(entry.key, entry.fallback);
+    editorBox.querySelector('label').hidden = !entry;
+    if (!entry) { editorBox.querySelector('small').textContent = '此元素没有可编辑文字'; return; }
+    editorInput.value = entryValue(entry);
     editorBox.querySelector('small').textContent = `${entry.key}${entry.kind === 'attr' ? `（${entry.attr}）` : ''}`;
-    editorInput.focus();
-    editorInput.select();
+    editorInput.focus(); editorInput.select();
+  }
+
+  // 选择真实 DOM 元素；无文字的图标、容器也可选，父级按钮用于删除整个区块。
+  function selectElement(el, preferAttribute = false) {
+    if (!el || el === document.body || isUiElement(el) || el.contains(toolbar)) return;
+    activeElement = el;
+    editorBox.hidden = false;
+    editorBox.querySelector('[data-text-selection]').textContent = `所选元素：${elementPath(el)}`;
+    const entry = findEntry(el, preferAttribute);
+    openEditor(entry && entry.target === el ? entry : null);
+    updateToolbar();
+  }
+
+  function selectParent() {
+    if (activeElement) selectElement(activeElement.parentElement);
+  }
+
+  function removeSelectedElement() {
+    if (!canRemove(activeElement)) return;
+    removedElements.add(removalPath(activeElement));
+    hideElement(activeElement);
+    activeElement = null; activeEntry = null; editorBox.hidden = true;
+    dirty = true; persistLocal(); updateToolbar('元素已隐藏；点击保存写入文件');
+  }
+
+  function removeSelectedText() {
+    if (!activeEntry) return;
+    set(activeEntry.key, '');
+    editorInput.value = '';
+    updateToolbar('文字已删除；点击保存写入文件');
   }
 
   function onPointerDown(event) {
     if (!editing || isUiElement(event.target)) return;
-    const entry = findEntry(event.target, event.altKey || event.shiftKey);
-    if (!entry) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    openEditor(entry);
+    selectElement(event.target, event.altKey || event.shiftKey);
+  }
+
+  // 捕获编辑时的后续鼠标事件，避免页面原有拖放、松手动作被触发。
+  function suppressPageEvent(event) {
+    if (!editing || isUiElement(event.target)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }
 
   function onClick(event) {
     if (!editing || isUiElement(event.target)) return;
-    const entry = findEntry(event.target, event.altKey || event.shiftKey);
-    if (!entry) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    openEditor(entry);
+    selectElement(event.target, event.altKey || event.shiftKey);
   }
 
   function toggle(force) {
@@ -348,6 +450,7 @@ SA.Text = (() => {
     document.body.classList.toggle('sa-text-editing', editing);
     if (!editing) {
       activeEntry = null;
+      activeElement = null;
       if (editorBox) editorBox.hidden = true;
     }
     updateToolbar();
@@ -363,12 +466,17 @@ SA.Text = (() => {
     const saveButton = toolbar.querySelector('[data-text-action="save"]');
     toggleButton.textContent = editing ? '完成编辑' : '开启编辑';
     saveButton.disabled = !dirty;
+    if (editorBox) {
+      editorBox.querySelector('[data-text-action="parent"]').disabled = !activeElement || !activeElement.parentElement || activeElement.parentElement === document.body;
+      editorBox.querySelector('[data-text-action="remove-element"]').disabled = !canRemove(activeElement);
+      editorBox.querySelector('[data-text-action="remove-text"]').disabled = !activeEntry;
+    }
     statusEl.textContent = message || (dirty ? '有未保存修改' : (loaded ? '已同步' : '正在加载…'));
   }
 
   function persistLocal() {
     try {
-      localStorage.setItem(storageKey(), JSON.stringify({ version: 1, game: config.game, locale: config.locale, dirty, values }));
+      localStorage.setItem(storageKey(), JSON.stringify({ version: 1, game: config.game, locale: config.locale, dirty, values, removedElements: [...removedElements] }));
     } catch (e) {
       updateToolbar('浏览器存储不可用');
     }
@@ -378,6 +486,7 @@ SA.Text = (() => {
     let local = null;
     try { local = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (e) { local = null; }
     if (local && local.values && typeof local.values === 'object') Object.assign(values, local.values);
+    if (local && Array.isArray(local.removedElements)) local.removedElements.forEach(path => removedElements.add(path));
     dirty = !!(local && local.dirty);
     let serverLoaded = false;
     try {
@@ -388,6 +497,8 @@ SA.Text = (() => {
         if (!dirty && data.values && typeof data.values === 'object') {
           Object.keys(values).forEach(key => delete values[key]);
           Object.assign(values, data.values);
+          removedElements.clear();
+          if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
         }
         serverLoaded = true;
       }
@@ -406,14 +517,16 @@ SA.Text = (() => {
   async function saveNow() {
     if (!dirty) return { ok: true, local: true };
     persistLocal();
-    const payload = { version: 1, game: config.game, locale: config.locale, values: { ...values } };
+    const payload = { version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] };
     try {
       const response = await fetch(config.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
       // 请求期间若继续编辑，保留新草稿的未保存标记，避免旧响应误报全部已同步。
       dirty = Object.keys(values).some(key => values[key] !== payload.values[key]) ||
-        Object.keys(payload.values).some(key => !(key in values));
+        Object.keys(payload.values).some(key => !(key in values)) ||
+        [...removedElements].some(path => !payload.removedElements.includes(path)) ||
+        payload.removedElements.some(path => !removedElements.has(path));
       persistLocal();
       updateToolbar(dirty ? '部分修改仍待保存' : `已写入 ${fileName()}`);
       return { ok: true, file: fileName(), revision: data.revision, pending: dirty };
@@ -424,7 +537,7 @@ SA.Text = (() => {
   }
 
   function exportJson() {
-    const payload = JSON.stringify({ version: 1, game: config.game, locale: config.locale, values: { ...values } }, null, 2);
+    const payload = JSON.stringify({ version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] }, null, 2);
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([payload], { type: 'application/json;charset=utf-8' }));
     link.download = `${config.game}-${config.locale}.json`;
@@ -435,9 +548,12 @@ SA.Text = (() => {
 
   function reset() {
     Object.keys(values).forEach(key => delete values[key]);
+    removedElements.clear();
+    restoreElements();
     dirty = true;
     persistLocal();
     applyAll();
+    scan();
     notify('*');
     updateToolbar('已恢复默认文案，点击保存写入文件');
   }
@@ -451,6 +567,8 @@ SA.Text = (() => {
     createToolbar();
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('click', onClick, true);
+    for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
+      document.addEventListener(type, suppressPageEvent, true);
     observer = new MutationObserver(() => {
       if (scanTimer) return;
       scanTimer = requestAnimationFrame(() => { scanTimer = 0; scan(); });

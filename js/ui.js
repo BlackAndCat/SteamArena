@@ -114,7 +114,7 @@ SA.UI = (() => {
 
 
   // ---------- 侧边栏：两块铆钉钢板导航（车间 / 出战）+ 资源 ----------
-  // 徽标：车间 = 出战前必须处理的问题数；出战 = 可交付的委托
+  // 徽标：车间显示出战前必须处理的问题数。
   // 函数名沿用 topbar()：各处改完数据都调用它刷新。车间、银行都要战役解锁后才出现
   function topbar() {
     const d = S();
@@ -124,9 +124,8 @@ SA.UI = (() => {
     const s = SA.V.stats(d.vehicle);
     const fix = s.problems.length;
     const has = SA.Camp.has;
-    const ready = has('orders') ? SA.S.readyOrders(s) : 0;
     const st = SA.Camp.current(), ch = SA.CAMPAIGN[SA.Camp.chIndex()];
-    const where = st ? `${ch.name.split(' · ')[0]} · 第 ${st.si + 1}/${ch.stages.length} 场` : `锦标赛第 ${d.round + 1} 轮`;
+    const where = st ? ch.name.split(' · ')[0] : `锦标赛第 ${d.round + 1} 轮`;
     const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0);
     const plate = (key, icon, label, sub, badge, bad) => h('button', { class: `nav-plate ${cur === key ? 'on' : ''}`, 'aria-current': cur === key ? 'page' : null, onclick: () => SA.nav(key) },
       h('span', { class: 'rivets' }),
@@ -138,7 +137,7 @@ SA.UI = (() => {
       h('div', { class: 'side-title' }, '蒸汽', h('br'), '竞技场'),
       h('nav', { class: 'side-nav' },
         has('garage') ? plate('garage', 'wrench', '车间', has('shop') ? '改装 · 商店' : '改装', fix ? `${fix} 项问题` : null, true) : null,
-        plate('arena', 'swords', '出战', where, ready ? `${ready} 份委托` : null)),
+        plate('arena', 'swords', '出战', where, null)),
       h('div', { class: 'side-res' },
         h(has('bank') ? 'button' : 'span', { class: 'res money', title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? openBank : null },
           h('span', { class: 'k' }, '资金'), h('b', {}, money(d.money)),
@@ -147,7 +146,7 @@ SA.UI = (() => {
         ingots.length ? h('span', { class: 'res' }, h('span', { class: 'k' }, '材料'), h('b', {}, ingots.map(([k, n]) => `${SA.INGOTS[k].name}×${n}`).join(' '))) : null,
         h('span', { class: 'res season' }, h('span', { class: 'k' }, SA.Camp.done() ? '赛季' : '战役'), h('b', {}, SA.Camp.done() ? `${d.season} · ${d.round + 1}/6` : ch.place)),
         h('button', { class: 'dev-btn', title: '开发者模式：一键解锁、跳章、加钱', onclick: SA.Camp.dev.panel }, '开发者'),
-        h('button', { class: `dev-btn ${SA.Text && SA.Text.isEditing() ? 'on' : ''}`, title: '一键切换文本编辑模式', onclick: () => { SA.Text.toggle(); topbar(); } }, SA.Text && SA.Text.isEditing() ? '完成文本编辑' : '文本编辑')),
+        h('button', { class: `dev-btn ${SA.Text && SA.Text.isEditing() ? 'on' : ''}`, title: '一键切换页面编辑模式', onclick: () => { SA.Text.toggle(); topbar(); } }, SA.Text && SA.Text.isEditing() ? '完成页面编辑' : '页面管理')),
     );
   }
 

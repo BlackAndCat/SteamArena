@@ -1248,6 +1248,8 @@ SA.Battle = (() => {
   }
 
   function start(opts) {
+    // 已取消的遭遇战不能从旧页面或脚本绕过出战入口启动。
+    if (opts?.mode === 'side') return false;
     if (!view) throw new Error('BattleView 未加载');
     view.start(opts);
   }

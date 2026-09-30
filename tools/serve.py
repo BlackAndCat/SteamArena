@@ -122,12 +122,19 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         game = payload.get('game')
         locale = payload.get('locale')
         values = payload.get('values')
+        removed_elements = payload.get('removedElements', [])
         path = self._text_file(game, locale)
         if not path:
             self._json(400, {'error': 'game 或 locale 不合法'})
             return
         if payload.get('version', 1) != 1 or not isinstance(values, dict) or len(values) > 10000:
             self._json(400, {'error': '文本数据格式不合法'})
+            return
+        # v1 文本文件允许新增元素隐藏清单；旧文件没有该字段时仍按空清单读取。
+        if (not isinstance(removed_elements, list) or len(removed_elements) > 10000
+                or any(not isinstance(item, str) or not item or len(item) > 2048
+                       or any(ord(ch) < 32 for ch in item) for item in removed_elements)):
+            self._json(400, {'error': '元素删除清单格式不合法'})
             return
         for key, value in values.items():
             if not isinstance(key, str) or not key or len(key) > 240 or '..' in key or any(ord(ch) < 32 for ch in key):
@@ -142,6 +149,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             'locale': locale,
             'updatedAt': datetime.now(timezone.utc).isoformat(),
             'values': values,
+            'removedElements': removed_elements,
         }
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)

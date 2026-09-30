@@ -132,6 +132,18 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(self.post('/__stage-cars/save', payloads['/__stage-cars/save'], {'Origin': origin}), 200)
         self.assertIn('SA.STAGE_CARS =', self.stage_file.read_text(encoding='utf-8'))
 
+    def test_element_deletion_round_trip_and_invalid_list(self):
+        """旧版文案协议可附带页面删除清单，非法路径不能覆盖已保存文件。"""
+        payload = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': ''},
+                   'removedElements': ['/index.html::screen:arena::div#screen/div:n1']}
+        self.assertEqual(self.post('/__text/save', payload), 200)
+        saved = json.loads(self.text_file.read_text(encoding='utf-8'))
+        self.assertEqual(saved['values']['title'], '')
+        self.assertEqual(saved['removedElements'], payload['removedElements'])
+        payload['removedElements'] = [42]
+        self.assertEqual(self.post('/__text/save', payload), 400)
+        self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
+
     def test_local_cli_without_origin_can_control_evolution(self):
         """无 Origin 的本机脚本仍可启动、停止任务。"""
         self.assertEqual(self.post('/__evolve/run', {'candidate': 'demo'}), 202)

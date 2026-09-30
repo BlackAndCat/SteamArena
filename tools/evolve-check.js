@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const evolve = require('./evolve');
 const coverage = require('./evolve-coverage');
 const calibration = require('./ai-calibration');
@@ -106,16 +107,33 @@ function uniqueRuleCheck() {
   return { initialClaims, claimed: SA.S.d.uniqueClaims.boss_ram };
 }
 
-function sideRuleCheck() {
-  const { SA } = evolve.loadGame();
+function removedModeCheck() {
+  const { SA, context } = evolve.loadGame();
   const fresh = SA.S.reset();
-  if (SA.Camp.sideEntries().length) throw new Error('第一章提前开放支线');
+  if (fresh.orders.length || fresh.ordersDone.length) throw new Error('新档仍生成委托');
+  if (SA.S.arenaEntries('camp').length !== 1) throw new Error('新档提前显示未来战役场次');
   fresh.camp.ch = 1;
-  const entries = SA.Camp.sideEntries();
-  if (entries.length !== SA.SIDE_ENCOUNTERS.filter(e => (e.chapter || 1) <= 1).length || entries.some(e => e.prize || e.reward == null)) throw new Error('支线数据或奖励错误');
-  if (!entries.every(e => e.settleDamage !== false)) throw new Error('支线战损默认值错误');
-  if (!SA.Camp.sideWin(entries[0].id) || SA.Camp.sideWin(entries[0].id)) throw new Error('支线完成记录不是一次性');
-  return { available: entries.map(e => e.id), firstWin: entries[0].id };
+  if (SA.S.arenaEntries('side').length || SA.Camp.sideEntries || SA.Camp.sideWin) throw new Error('旧遭遇战入口仍可用');
+  if (SA.S.deliverOrder || SA.S.readyOrders) throw new Error('旧委托接口仍可用');
+  fresh.orders = ['farmer']; fresh.ordersDone = ['post']; fresh.camp.sideWins = { dock_patrol: { at: 1 } };
+  const before = JSON.stringify(fresh);
+  const settlement = SA.S.settleBattle({ mode: 'side', win: true, replay: false, enemyName: '旧遭遇战', opts: { sideId: 'factory_escort' } });
+  if (JSON.stringify(fresh) !== before || settlement.lines.length || settlement.pre.length) throw new Error('旧遭遇战请求改变存档或发放奖励');
+  for (const [mode, draw] of [['campaign', false], ['tournament', false], ['tournament', true]]) {
+    SA.S.settleBattle({ mode, win: !draw, draw, replay: false, enemyName: '回归对手',
+      playerVehicle: SA.V.clone(fresh.vehicle), survivors: [], opts: {}, prize: 0 });
+    if (JSON.stringify(fresh.orders) !== '["farmer"]' || JSON.stringify(fresh.ordersDone) !== '["post"]')
+      throw new Error(`${mode} 结算仍生成委托`);
+  }
+  const unlocked = SA.S.arenaEntries('camp');
+  if (unlocked.length !== 5 || unlocked.filter(entry => entry.replay).length !== 4 ||
+      unlocked.filter(entry => entry.next).length !== 1 || unlocked.some(entry => !entry.next && !entry.replay))
+    throw new Error('中途进度泄露未来战役关卡');
+  let started = false;
+  SA.BattleView = { create: () => ({ start: () => { started = true; } }) };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/battle.js'), 'utf8'), context);
+  if (SA.Battle.start({ mode: 'side' }) !== false || started) throw new Error('旧遭遇战仍能启动');
+  return { sideEntries: 0, orders: 0, legacySettlementIgnored: true };
 }
 
 function shareGarageCheck() {
@@ -160,7 +178,7 @@ async function main() {
   const auxiliaryAim = auxiliaryAimCheck();
   const chassis = chassisRuleCheck();
   const unique = uniqueRuleCheck();
-  const side = sideRuleCheck();
+  const removedModes = removedModeCheck();
   const replay = campaignReplay.run();
   const shareGarage = shareGarageCheck();
   const locked = lockedStageCheck();
@@ -171,7 +189,7 @@ async function main() {
   const firstStage = await evolveFirstStage.run();
   const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai, selectedView };
   result.unique = unique;
-  result.side = side;
+  result.removedModes = removedModes;
   result.replay = replay;
   result.shareGarage = shareGarage;
   result.locked = locked;

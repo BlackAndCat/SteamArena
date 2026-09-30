@@ -53,18 +53,15 @@ function run() {
     { name: '刚通过第一关', completed: 1 },
     { name: '已进入后续章节', completed: 7 },
     { name: '全部通关', completed: total },
-    { name: '支线已完成', completed: SA.CAMPAIGN[0].stages.length, side: true },
   ]) {
     SA.S.reset();
     for (let i = 0; i < scenario.completed; i++) SA.Camp.win();
-    if (scenario.side) SA.Camp.sideWin(SA.Camp.sideEntries()[0].id);
     // 未还贷款和已下注也不能被重打计息、兑现或清空。
     SA.S.d.debt = 100;
     SA.S.d.bet = { amount: 10, odds: 2 };
     const before = snapshot(SA);
     for (const outcome of ['win', 'loss', 'draw']) for (let repeat = 0; repeat < 3; repeat++) {
-      const mode = scenario.side ? 'side' : 'camp';
-      const entry = SA.S.arenaEntries(mode)[0];
+      const entry = SA.S.arenaEntries('camp')[0];
       assert(entry.replay && !entry.lock, `${scenario.name} 没有生成可重打入口`);
       const { result, settlement } = play(entry, outcome);
       const after = snapshot(SA), label = `${scenario.name}重打 ${outcome} 第 ${repeat + 1} 次`;
@@ -97,14 +94,7 @@ function run() {
   assert.strictEqual(SA.S.d.camp.ch, 1, '序章通关后没有进入下一章');
   assert.strictEqual(SA.S.d.camp.st, 0, '序章通关后跳过了下一章第一关');
   assert(SA.Camp.has('shop') && SA.Camp.hasMod('mg_s'), '序章通关没有解锁商店与新模块');
-  const side = SA.S.arenaEntries('side')[0], beforeSide = snapshot(SA).camp;
-  const { result, settlement } = play(side, 'win');
-  assert.strictEqual(result.replay, false, '首次支线挑战被标为重打');
-  assert(SA.S.d.camp.sideWins[side.key], '首次支线胜利没有记录完成');
-  assert.strictEqual(SA.S.d.camp.ch, beforeSide.ch, '支线胜利改变了主线章节');
-  assert.strictEqual(SA.S.d.camp.st, beforeSide.st, '支线胜利改变了主线关卡');
-  assert(settlement.pre.some(item => item.kind === 'salvage'), '首次支线胜利没有发放缴获');
-  return { replayCases, firstWins: SA.CAMPAIGN[0].stages.length, lossAndDraw: 2, sideFirstWin: true };
+  return { replayCases, firstWins: SA.CAMPAIGN[0].stages.length, lossAndDraw: 2 };
 }
 
 module.exports = { run };

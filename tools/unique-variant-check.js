@@ -63,32 +63,10 @@ function checkCatalog(SA) {
     assert.strictEqual(SA.V.maxHp(decorated), SA.V.maxHp(base), `${variant.key} 改变了耐久`);
     assert.strictEqual(SA.cellValue(decorated), SA.cellValue(base), `${variant.key} 改变了价值`);
   }
-  for (const side of SA.SIDE_ENCOUNTERS) {
-    SA.S.d.camp.ch = Math.max(1, side.chapter || 1);
-    const entry = SA.Camp.sideEntries().find(x => x.id === side.id);
-    assert(entry, `${side.id} 没有生成遭遇战`);
-    assert.strictEqual(SA.V.issues(entry.vehicle).length, 0, `${side.id} 敌车构筑不合法`);
-    let mounted = false;
-    SA.V.each(entry.vehicle, cell => { if (cell.id === side.reward.id && cell.unique === side.reward.key) mounted = true; });
-    assert(mounted, `${side.id} 的敌车没有装上带奖励身份的模块`);
-    if (side.reward.id === 'quad' || side.reward.id === 'biped') {
-      const plainVehicle = SA.V.clone(entry.vehicle);
-      SA.V.each(plainVehicle, cell => { delete cell.unique; delete cell.look; });
-      const variantStats = SA.V.stats(entry.vehicle), plainStats = SA.V.stats(plainVehicle);
-      for (const field of ['speed', 'accel', 'brake', 'drive', 'weight', 'load', 'hp', 'maxHp', 'rating'])
-        assert.strictEqual(variantStats[field], plainStats[field], `${side.id} 外观改变了数值 ${field}`);
-    }
-  }
   for (const id of ['dock_patrol', 'factory_escort']) {
     const side = SA.SIDE_ENCOUNTERS.find(x => x.id === id);
     assert(side, `旧支线 ${id} 丢失`);
     assert.strictEqual(side.reward.key, `side:${id}`, `旧支线 ${id} 缺少独立奖励 key`);
-    const entry = SA.Camp.sideEntries().find(x => x.id === id);
-    if (entry) {
-      let mounted = false;
-      SA.V.each(entry.vehicle, cell => { if (cell.id === side.reward.id) mounted = true; });
-      assert(mounted, `${id} 的敌车没有实际装上奖励模块`);
-    }
   }
 }
 
@@ -106,61 +84,26 @@ function checkOrdinaryModules(SA) {
   }
 }
 
-/** 保底奖励须在首次胜利发放，失败和平手不发，重打不重复。 */
-function checkSideRewards(SA, play) {
-  let checked = 0;
-  for (const side of SA.SIDE_ENCOUNTERS) {
-    if (!side.reward) continue;
-    SA.S.reset();
-    SA.S.d.camp.ch = Math.max(1, side.chapter || 1);
-    const first = SA.S.arenaEntries('side').find(x => x.key === side.id);
-    assert(first && !first.replay, `${side.id} 首战入口不可用`);
-    const key = side.reward.key;
-    play(first, 'loss');
-    assert.strictEqual(copies(SA, key).length, 0, `${side.id} 失败发奖`);
-    play(SA.S.arenaEntries('side').find(x => x.key === side.id), 'draw');
-    assert.strictEqual(copies(SA, key).length, 0, `${side.id} 平手发奖`);
-    const { result } = play(SA.S.arenaEntries('side').find(x => x.key === side.id), 'win', key);
-    assert.strictEqual(result.replay, false, `${side.id} 首胜被标为重打`);
-    assert.strictEqual(copies(SA, key).length, 1, `${side.id} 首胜没有自动发保底件`);
-    const item = copies(SA, key)[0];
-    assert.strictEqual(item.id, side.reward.id, `${side.id} 入库模块错误`);
-    assert.strictEqual(item.mt, side.reward.mt, `${side.id} 入库材料错误`);
-    if (side.reward.look) assert.strictEqual(item.look, side.reward.look, `${side.id} 入库外观丢失`);
-    const before = plain(SA.S.d);
-    const replay = SA.S.arenaEntries('side').find(x => x.key === side.id);
-    assert(replay.replay, `${side.id} 没有变为重打`);
-    play(replay, 'win');
-    const after = plain(SA.S.d);
-    delete before.news; delete after.news;
-    assert.deepStrictEqual(after, before, `${side.id} 重打重复发奖或修改进度`);
-    for (const outcome of ['loss', 'draw']) {
-      const replayBefore = plain(SA.S.d);
-      play(SA.S.arenaEntries('side').find(x => x.key === side.id), outcome);
-      const replayAfter = plain(SA.S.d);
-      delete replayBefore.news; delete replayAfter.news;
-      assert.deepStrictEqual(replayAfter, replayBefore, `${side.id} 重打 ${outcome} 修改了存档`);
-    }
-    checked++;
-  }
-  return checked;
-}
-
-/** 从旧存档迁移时按支线完成记录补发一次，重复读取保持幂等。 */
-function checkLegacyBackfill(SA, context) {
+/** 取消支线后仍保留旧档的资金、奖励实例和完成记录，但不按旧记录补发。 */
+function checkLegacyPreserved(SA, context) {
   SA.S.reset();
   SA.S.d.camp.sideWins.dock_patrol = { at: 1 };
   SA.S.d.camp.sideWins.factory_escort = { at: 1 };
-  SA.S.d.stockCells = [];
+  SA.S.d.orders = ['farmer'];
+  SA.S.d.ordersDone = ['post'];
+  SA.S.d.money = 777;
+  SA.S.d.stockCells = [{ ...SA.newCell('periscope', 2), unique: 'side:dock_patrol' }];
+  const before = plain(SA.S.d);
   let saved = JSON.stringify(SA.S.d);
   context.localStorage.getItem = () => saved;
   context.localStorage.setItem = (key, value) => { saved = value; };
   SA.S.load(); SA.Camp.backfill(); SA.S.save();
-  for (const key of ['side:dock_patrol', 'side:factory_escort'])
-    assert.strictEqual(copies(SA, key).length, 1, `${key} 旧档未补发`);
-  SA.S.load(); SA.Camp.backfill(); SA.S.save();
-  for (const key of ['side:dock_patrol', 'side:factory_escort'])
-    assert.strictEqual(copies(SA, key).length, 1, `${key} 旧档重复补发`);
+  assert.deepStrictEqual(plain(SA.S.d.camp.sideWins), before.camp.sideWins);
+  assert.deepStrictEqual(plain(SA.S.d.orders), before.orders);
+  assert.deepStrictEqual(plain(SA.S.d.ordersDone), before.ordersDone);
+  assert.strictEqual(SA.S.d.money, before.money);
+  assert.strictEqual(copies(SA, 'side:dock_patrol').length, 1);
+  assert.strictEqual(copies(SA, 'side:factory_escort').length, 0, '旧完成记录不应补发已取消的奖励');
 }
 
 /** 蓝图没有指定唯一实物时必须拒绝组装，不能用普通同类库存顶替。 */
@@ -243,12 +186,11 @@ function run() {
   SA.S.reset();
   checkCatalog(SA);
   checkOrdinaryModules(SA);
-  const sideRewards = checkSideRewards(SA, play);
-  checkLegacyBackfill(SA, context);
+  checkLegacyPreserved(SA, context);
   checkStockMaterialMigration(SA, context);
   checkBlueprintBlock(SA);
   checkIdentityLifecycle(SA);
-  return { variants: SA.LEG_VARIANTS.length, sideRewards, ordinaryBuyable: true, legacyBackfill: true, stockMaterialMigration: true, blueprintBlock: true, identityLifecycle: true };
+  return { variants: SA.LEG_VARIANTS.length, ordinaryBuyable: true, legacyPreserved: true, stockMaterialMigration: true, blueprintBlock: true, identityLifecycle: true };
 }
 
 module.exports = { run };
