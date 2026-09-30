@@ -369,5 +369,66 @@ SA.HomeScene = (() => {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!A(x, y) && (A(x - 1, y) || A(x + 1, y) || A(x, y - 1))) g.fillRect(x, y, 1, 1);
     return c;
   }
-  return { base, layer, yardWall, fx, shadow, carShadow, hero, lift, weather, HERO_PAD, W, H, BASE, FEET, HOR, L, ORDER, NAME, theme: th };
+  // ---------- 雨天 / 夜里人回屋 ----------
+  // 谁在哪：forge = 门里炉子和铁砧之间打铁（被炉火逆光照着，只露出门洞里那一截）；step = 门口台阶上、雨棚底下；
+  // window = 亮着灯的窗后，只剩剪影。晴天、雾天都在院子里（null）
+  const INDOOR = { rain: { tom: 'forge', rel: 'step', tim: 'window' }, night: { tom: 'forge', rel: 'window', tim: 'step' } };
+  const indoor = (wk) => INDOOR[wk] || null;
+  // 站位（原生坐标）：门里的人脚踩 258（门里地面），台阶上的人脚踩 265，窗后的人身子中心对着窗中下部；x 都是身子中心
+  const SPOT = { forge: { x: 206, feet: 258 }, step: { x: 150, feet: 265 }, window: { x: 402, y: 174 }, anvil: [220, 248] };
+  const lookCache = new WeakMap();
+  const once = (src, k, make) => { let m = lookCache.get(src); if (!m) lookCache.set(src, m = {}); return m[k] || (m[k] = make()); };
+  // 逆光：整只压暗，朝炉子那一侧（左边）和头顶描一道炉火色的轮廓光
+  function backlit(src) {
+    return once(src, 'back', () => {
+      const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h).data;
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+      g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(30,14,8,0.5)'; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';
+      const A = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 8;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        if (!A(x, y)) continue;
+        if (!A(x - 1, y)) { g.fillStyle = '#ffb050'; g.fillRect(x, y, 1, 1); if (A(x + 1, y)) { g.fillStyle = 'rgba(255,150,70,0.45)'; g.fillRect(x + 1, y, 1, 1); } }
+        else if (!A(x, y - 1)) { g.fillStyle = 'rgba(240,140,60,0.55)'; g.fillRect(x, y, 1, 1); }
+      }
+      return c;
+    });
+  }
+  // 窗后的剪影：整只填成深色，眼睛那几个最亮的像素留一点暖光（看得出是谁在往外看）
+  function silhouette(src) {
+    return once(src, 'sil', () => {
+      const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h).data;
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d');
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] <= 8) continue;
+        g.fillStyle = d[i] + d[i + 1] + d[i + 2] > 690 ? '#8a5a30' : '#3a1e12';
+        g.fillRect(x, y, 1, 1);
+      }
+      return c;
+    });
+  }
+  // 画屋里的人：g 的原点对着院子原生坐标 (ox, oy)；who = { forge: 帧, window: 帧 }（scene 尺寸 56×56，身子中心 (28, 34)，脚底 46）
+  // time 用来让窗后的人踱步 / 打盹时点头。门口台阶上的人由调用方自己画（他在屋外，画在雨丝前面）
+  function inside(g, wk, who, time, ox = 0, oy = 0) {
+    const t = th(wk), [dx0, , dx1, dy1] = L.door, [wx0, wy0, wx1, wy1] = L.window;
+    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(ox + x), Math.round(oy + y), w, h); };
+    if (who.forge) {
+      g.save(); g.beginPath(); g.rect(ox + dx0, oy + 150, dx1 - dx0, dy1 - 150 - 1); g.clip();
+      const [ax, ay] = SPOT.anvil;   // 屋里的铁砧（逆光）：木墩 + 砧身，砧面描一道火光
+      R(ax + 4, ay + 2, 10, 9, t.wood[3]); R(ax, ay - 3, 20, 5, t.iron[2]); R(ax - 4, ay - 3, 5, 3, t.iron[2]); R(ax + 5, ay + 1, 9, 2, t.iron[2]); R(ax - 4, ay - 3, 24, 1, '#ffb050');
+      g.drawImage(backlit(who.forge), Math.round(ox + SPOT.forge.x - 28), Math.round(oy + SPOT.forge.feet - 46));
+      g.restore();
+    }
+    if (who.window) {
+      const gx = wx0 + 2, gy = wy0 + 2, gw = wx1 - wx0 - 4, gh = wy1 - wy0 - 4, mx = (wx0 + wx1) / 2, my = (wy0 + wy1) / 2;
+      const walk = who.windowPace ? Math.round(Math.sin(time * 0.5) * 9) : 0, bob = who.windowPace ? 0 : Math.floor(time * 0.7) % 2;
+      g.save(); g.beginPath(); g.rect(ox + gx, oy + gy, gw, gh); g.clip();
+      g.drawImage(silhouette(who.window), Math.round(ox + SPOT.window.x - 28 + walk), Math.round(oy + SPOT.window.y - 34 + bob));
+      g.restore();
+      R(mx - 1, gy, 2, gh, t.wood[3]); R(gx, my - 1, gw, 2, t.wood[3]);   // 窗棂压在剪影前面
+    }
+  }
+  return { base, layer, yardWall, fx, shadow, carShadow, hero, lift, weather, indoor, inside, SPOT, HERO_PAD, W, H, BASE, FEET, HOR, L, ORDER, NAME, theme: th };
 })();

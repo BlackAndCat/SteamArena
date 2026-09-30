@@ -114,27 +114,47 @@ SA.Home = (() => {
     const TOM = '铁匠 老汤姆', REL = '远房亲戚', TIM = '学徒 小提米';
     const F_TOM = { up: coal(TOM, { pose: 'cheer', look: 1 }), hit: coal(TOM, { pose: 'point', look: 1 }), rest: coal(TOM, { pose: 'hold', look: 1 }), talk: coal(TOM, { pose: 'hold', look: -1, expr: 'happy' }), blink: coal(TOM, { pose: 'hold', look: 1, expr: 'blink' }) };
     const F_REL = { idle: coal(REL, { pose: 'idle', look: 1 }), blink: coal(REL, { pose: 'idle', look: 1, expr: 'blink' }), talk: coal(REL, { pose: 'salute', look: 1, expr: 'happy' }), sleep: coal(REL, { pose: 'idle', look: 1, expr: 'sleepy' }), jolt: coal(REL, { pose: 'cheer', look: 1, expr: 'surprise' }) };
-    const F_TIM = { work: coal(TIM, { pose: 'point', look: 1 }), rest: coal(TIM, { pose: 'hold', look: 1 }), talk: coal(TIM, { pose: 'wave', look: -1, expr: 'happy' }), yelp: coal(TIM, { pose: 'cheer', look: -1, expr: 'surprise' }) };
+    // 雨天 / 夜里人回屋（home-scene.js 的 indoor）：老汤姆在门里打铁，一个人在门口台阶上、雨棚底下，一个人在窗后只剩剪影；晴天、雾天都在院子里
+    const IN = HS.indoor(WX) || {}, at = (k) => IN[k] || 'yard', SP = HS.SPOT;
+    const lant = at('tim') === 'step' ? { item: 'lantern' } : {};   // 夜里小提米提着马灯守在门口
+    const F_TIM = { work: coal(TIM, { pose: 'point', look: 1, ...lant }), rest: coal(TIM, { pose: 'hold', look: 1, ...lant }), talk: coal(TIM, { pose: 'wave', look: -1, expr: 'happy', ...lant }), yelp: coal(TIM, { pose: 'cheer', look: -1, expr: 'surprise', ...lant }) };
+    // 屋里的人画在 inCv 上（在雨丝后面），这里只放一块透明的点击区；门口台阶上的人照常是院子里那种小人
+    const inCv = document.createElement('canvas'); inCv.width = HS.W; inCv.height = HS.H; inCv.className = 'px-img'; inCv.style.cssText = 'position:absolute;left:0;top:0;width:1280px;height:720px;pointer-events:none';
+    const inG = inCv.getContext('2d');
+    const place = (key, frame, yx, yfeet, flip) => {
+      const w = at(key);
+      if (w === 'yard') return actor(key, yx, yfeet, frame, flip);
+      if (w === 'step') return actor(key, SP.step.x * 2 - 56, SP.step.feet * 2, frame, false);
+      const [x0, y0, bw, bh] = w === 'forge' ? [SP.forge.x * 2 - 40, SP.forge.feet * 2 - 80, 80, 80]
+        : [HS.L.window[0] * 2, HS.L.window[1] * 2, (HS.L.window[2] - HS.L.window[0]) * 2, (HS.L.window[3] - HS.L.window[1]) * 2];
+      const el = h('div', { class: 'ab px-hot', style: `left:${x0}px;top:${y0}px;width:${bw}px;height:${bh}px` });
+      who[key] = { box: el, frame, inside: w, set(f) { this.frame = f; } };
+      return el;
+    };
     // 左边：亲戚坐在木箱上（木箱落地，亲戚坐进箱面 3 像素），水桶（画在底图里），老汤姆 + 铁砧挡在门左边；右边：小提米在车右边
     const CRATE_X = 26, crateTop = FEET - 44, TOM_X = 150, ANVIL_X = 246, timX = Math.min(860, Math.max(720, cx + cw + 8));
     stage.append(...[
-      UI.img(backdrop(WX), 2, 'position:absolute;left:0;top:0'), fxCv,
+      UI.img(backdrop(WX), 2, 'position:absolute;left:0;top:0'), inCv, fxCv,
       ab(18, 186, news), vaneEl,
-      sh(CRATE_X - 4, FEET - 6, 44), sh(TOM_X + 20, FEET - 6, 38), sh(ANVIL_X - 2, FEET - 6, 36), sh(timX + 14, FEET - 6, 38), sh(PX - 16, POST_FOOT - 6, 26),
+      sh(CRATE_X - 4, FEET - 6, 44), at('tom') === 'yard' ? sh(TOM_X + 20, FEET - 6, 38) : null, sh(ANVIL_X - 2, FEET - 6, 36), at('tim') === 'yard' ? sh(timX + 14, FEET - 6, 38) : null, sh(PX - 16, POST_FOOT - 6, 26),
+      Object.values(IN).includes('step') ? sh(SP.step.x * 2 - 38, SP.step.feet * 2 - 6, 38) : null,
       ab(CRATE_X, crateTop, UI.img(X.crate())), ab(ANVIL_X, FEET - 60, UI.img(anvil)),
-      actor('rel', CRATE_X - 6, crateTop + 6, F_REL.idle), actor('tom', TOM_X, FEET, F_TOM.rest), actor('tim', timX, FEET, F_TIM.work, true),
+      place('rel', F_REL.idle, CRATE_X - 6, crateTop + 6), place('tom', F_TOM.rest, TOM_X, FEET), place('tim', F_TIM.work, timX, FEET, true),
       ab(PX, POST_TOP, UI.img(X.post((POST_FOOT - POST_TOP) / 2))), ab(PX - 4, POST_TOP - 34, UI.img(lamp)),
       signs,
       carShadow, carEl, carPlate,
     ].flat(Infinity).filter(Boolean));
     const sparks = [...Array(6)].map((_, i) => h('i', { class: 'px-spark', style: `background:${i % 2 ? P.fire[3] : P.fire[2]}` }));
-    const zz = ab(96, crateTop - 70, UI.num('z z Z', '#e4e0d6', P.dark[0])); zz.style.opacity = '0';
+    const zz = at('rel') === 'window' ? ab(HS.L.window[2] * 2 + 6, HS.L.window[1] * 2 - 18, UI.num('z z Z', '#e4e0d6', P.dark[0])) : ab(96, crateTop - 70, UI.num('z z Z', '#e4e0d6', P.dark[0])); zz.style.opacity = '0';
     const relTop = parseInt(who.rel.box.style.top), tomTop = parseInt(who.tom.box.style.top), timTop = parseInt(who.tim.box.style.top);
-    const bubbles = { rel: UI.bubble(30, relTop - 84, 30), tom: UI.bubble(TOM_X + 30, tomTop - 60, 30), tim: UI.bubble(timX - 120, timTop - 84, 150) };
+    // 气泡跟着人走：院子里用原来的位置；屋里 / 台阶上的按那块点击区摆
+    const bubbleAt = (key, yard) => { const w = at(key); if (w === 'yard') return yard(); const b = who[key].box, x0 = parseInt(b.style.left), y0 = parseInt(b.style.top);
+      return w === 'window' ? UI.bubble(x0 - 20, y0 - 80, 40) : UI.bubble(x0 + 10, y0 - (w === 'forge' ? 60 : 84), 30); };
+    const bubbles = { rel: bubbleAt('rel', () => UI.bubble(30, relTop - 84, 30)), tom: bubbleAt('tom', () => UI.bubble(TOM_X + 30, tomTop - 60, 30)), tim: bubbleAt('tim', () => UI.bubble(timX - 120, timTop - 84, 150)) };
     const gearBtn = UI.btn(null, { title: '设置', icon: UI.img(X.gear(6, 8, X.RAMP.brass, 0.1)), onclick: () => SA.UI.settings() }); gearBtn.style.padding = '0 2px';
     const ingots = Object.entries(D.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     stage.append(...[
-      sparks.map(s => ab(ANVIL_X + 24, FEET - 58, s)), zz,
+      sparks.map(s => (at('tom') === 'forge' ? ab(SP.anvil[0] * 2 + 16, SP.anvil[1] * 2 - 10, s) : ab(ANVIL_X + 24, FEET - 58, s))), zz,
       bubbles.rel, bubbles.tom, bubbles.tim,
       ab(300, 14, h('div', { title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? () => SA.UI.openBank() : null }, UI.counter({ money: D.money, rep: D.rep, ingotList: ingots, onclick: has('bank') })),
         D.debt ? h('div', { style: 'margin:6px 0 0 8px' }, UI.tag([h('span', {}, '欠银行'), UI.num(SA.UI.money(D.debt), X.RED)])) : null),
@@ -146,6 +166,12 @@ SA.Home = (() => {
       ['rel', '想当年在孟买，我们的蒸汽车能拖动一整个炮兵连！', 'talk'], ['tom', '你那台车？早锈成门把手了。', 'talk'], ['tim', '师傅！锅炉又在漏气！', 'yelp'], ['tom', '拿扳手拧紧，别拿脑袋顶着。', 'talk'],
       ['rel', '……', 'sleep'], ['rel', '谁？！谁在开炮？！', 'jolt'], ['tom', foeLine, 'talk'], ['tim', '我在锅炉上画了个笑脸！', 'talk'],
     ];
+    // 雨天 / 夜里多几句应景的，穿插进去
+    const EXTRA = {
+      rain: [['rel', '下雨天我这老寒腿就知道——要打仗了！', 'talk'], ['tim', '师傅，雨什么时候停呀？', 'talk'], ['tom', '雨天淬火，连水都不用挑。', 'talk']],
+      night: [['tim', '我来守夜！……就是院子有点黑。', 'talk'], ['tom', '夜里看火色最准。', 'talk'], ['rel', '……呼……', 'sleep']],
+    }[WX] || [];
+    EXTRA.forEach((l, k) => LINES.splice(1 + k * 3, 0, l));
     const NAME = { rel: REL, tom: TOM, tim: TIM };
     const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const TIP = {
@@ -165,11 +191,18 @@ SA.Home = (() => {
       if (!cur || tick - t0 > 32) { if (forced) { cur = forced; forced = null; } else { cur = LINES[i % LINES.length]; i++; } t0 = tick; say(cur[0], cur[1]); }
       const [spk, , act] = cur;
       if (spk === 'tom') who.tom.set(F_TOM.talk); else { const ph = tick % 8; who.tom.set(ph < 3 ? F_TOM.up : ph < 5 ? F_TOM.hit : (tick % 40 === 7 ? F_TOM.blink : F_TOM.rest)); if (ph === 3) burst(); }
-      who.rel.set(spk === 'rel' ? F_REL[act] || F_REL.talk : (tick % 30 === 5 ? F_REL.blink : F_REL.idle));
-      zz.style.opacity = spk === 'rel' && act === 'sleep' ? '1' : '0';
+      const dozing = at('rel') === 'window';   // 夜里亲戚在窗后打盹，没轮到他说话就一直点头
+      who.rel.set(spk === 'rel' ? F_REL[act] || F_REL.talk : dozing ? F_REL.sleep : (tick % 30 === 5 ? F_REL.blink : F_REL.idle));
+      zz.style.opacity = (spk === 'rel' && act === 'sleep') || (dozing && spk !== 'rel') ? '1' : '0';
       who.rel.box.style.translate = spk === 'rel' && act === 'jolt' ? '0 -8px' : '0 0';
       who.tim.set(spk === 'tim' ? F_TIM[act] || F_TIM.talk : (tick % 6 < 3 ? F_TIM.work : F_TIM.rest));
       who.tim.box.style.translate = spk === 'tim' && act === 'yelp' ? '0 -6px' : '0 0';
+      if (Object.keys(IN).length) {   // 屋里的人：老汤姆在门里逆光打铁，窗后剪影（小提米来回踱步 / 亲戚打盹点头）
+        inG.clearRect(0, 0, HS.W, HS.H);
+        const f = { windowPace: at('tim') === 'window' };
+        for (const k of ['tom', 'rel', 'tim']) if (who[k].inside) f[who[k].inside] = who[k].frame;
+        HS.inside(inG, WX, f, (performance.now() - t0fx) / 1000);
+      }
     };
     for (const k of ['tom', 'rel', 'tim']) who[k].box.addEventListener('click', () => { forced = [k, TIP[k], 'talk']; cur = null; });
     if (timer) clearInterval(timer);

@@ -205,6 +205,7 @@ SA.Scenes = (() => {
       S.anvil = [ax + 6, y0 + ay - 17];
       S.hearth = [X0 + HS.L.hearth[0], HS.L.hearth[1] + DY, HS.L.hearth[2] - HS.L.hearth[0], HS.L.hearth[3] - HS.L.hearth[1]];
       S.chimney = [X0 + (HS.L.chimney[0] + HS.L.chimney[2]) / 2, HS.L.chimney[1] + DY - 6];
+      S.houseX = X0;
       S.mid = c; S.midY = y0;
     }
     // 地面（世界坐标 1:1）：院子那种平的夯土，稀疏石子；雨天几个映着天色的水洼
@@ -228,6 +229,10 @@ SA.Scenes = (() => {
     }, [g1, shade(g1, 0.7)]);
     // ---- 每帧 ----
     const tom = (pose) => coalSprite('铁匠 老汤姆', pose, 'normal', 1), uncle = (pose, expr = 'normal') => coalSprite('远房亲戚', pose, expr, -1);
+    // 雨天 / 夜里人回屋（和主页面同一套：home-scene.js 的 indoor / inside）：老汤姆在门里打铁，亲戚雨天站门口雨棚下、夜里在窗后打盹。
+    // 屋里 / 门口的人和铁匠铺同一个比例（scene 尺寸），套上天气的轮廓光
+    const IN = HS.indoor(wk), homeCache = {};
+    const homeCoal = (name, pose, expr, look) => { const k = `${name}|${pose}|${expr}|${look}`; return homeCache[k] || (homeCache[k] = HS.lift(SA.Coal.draw(SA.Coal.byName[name], { size: 'scene', pose, expr, look }), wk)); };
     S.back = (g, vw, vh, oy, camx, tt, opts) => {
       paintSky(g, S, vw, vh, oy);
       if (t.stars) for (let i = 0; i < 40; i++) { const x = Math.round(hash(i, 1) * vw), y = Math.round(-300 + hash(i, 2) * (DY + 150 + 300) - oy); if (Math.sin(tt * (1 + hash(i, 3) * 2) + i) > -0.4) R(g, x, y, 1, 1, i % 3 ? '#6a7498' : '#e8ecf8'); }
@@ -248,7 +253,14 @@ SA.Scenes = (() => {
       if (S.lamp) spots(S.lamp[0], rot, MW, vw, 40, (x) => { R(g, x + 2, S.lamp[1] + 2 - oy, 3, 4 + (Math.sin(tt * 11) > 0 ? 1 : 0), '#fff1b8'); g.globalAlpha = 0.1; blob(g, x + 3, S.lamp[1] + 4 - oy, 22, '#ffc060'); g.globalAlpha = 1; });
       // 老汤姆打铁 + 远房亲戚（和老汤姆对打的那一关，他在对面车里，这里只剩亲戚）；脚下平涂影子
       const tomHere = !(opts && opts.storyKey === '0,2');
-      spots(S.anvil[0], rot, MW, vw, 80, (x) => {
+      if (IN) spots(S.houseX, rot, MW, vw, 460, (x) => {
+        const oy2 = DY - oy, relAt = IN.rel;
+        HS.inside(g, wk, { forge: tomHere ? homeCoal('铁匠 老汤姆', strike < 0.55 ? 'cheer' : 'point', 'normal', 1) : null, window: relAt === 'window' ? homeCoal('远房亲戚', 'idle', 'sleepy', 1) : null }, tt, x, oy2);
+        if (tomHere && strike > 0.55 && strike < 0.8) { const [ax, ay] = HS.SPOT.anvil; for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.4, k = (strike - 0.55) / 0.25, d = 2 + k * (8 + (i % 3) * 4); R(g, x + ax + 8 + Math.cos(a) * d, oy2 + ay - 4 + Math.sin(a) * d + k * k * 5, 1, 1, k < 0.5 ? P.fire[3] : P.fire[2]); } }
+        if (relAt === 'step') { const cheer = !tomHere && Math.floor(tt / 1.6) % 3 === 0; g.drawImage(homeCoal('远房亲戚', cheer ? 'cheer' : Math.floor(tt / 5) % 4 === 3 ? 'salute' : 'idle', cheer ? 'happy' : 'normal', 1), Math.round(x + HS.SPOT.step.x - 28), Math.round(oy2 + HS.SPOT.step.feet - 46)); }
+        if (relAt === 'window') for (let i = 0; i < 3; i++) { const f = (tt * 0.4 + i / 3) % 1; g.globalAlpha = 1 - f; R(g, x + HS.L.window[2] + 3 + f * 10 + i, oy2 + HS.L.window[1] + 4 - f * 16 - i * 4, 3 + i, 1, '#e4e0d6'); } g.globalAlpha = 1;   // 窗边飘出的 z
+      });
+      if (!IN) spots(S.anvil[0], rot, MW, vw, 80, (x) => {
         const ay = S.anvil[1] - oy, foot = ay + 17 - 34;
         g.fillStyle = SH;
         if (tomHere) g.fillRect(Math.round(x - 36), Math.round(ay + 15), 26, 2);
