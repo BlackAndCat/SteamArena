@@ -17,7 +17,7 @@ SA.Editor = (() => {
   // 商店分组的折叠状态记在本机
   function loadFold() { try { return new Set(JSON.parse(localStorage.getItem('steam_arena_fold_v1')) || []); } catch (e) { return new Set(); } }
   function saveFold() { try { localStorage.setItem('steam_arena_fold_v1', JSON.stringify([...st.fold])); } catch (e) { /* ignore */ } }   // shop：「商店」开关，打开后列表里也显示没有库存的模块
-  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro;
+  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro, frame = null;
 
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
@@ -33,6 +33,8 @@ SA.Editor = (() => {
   const issueAt = (layer, r, c) => st.stats.issues.find(x => x.layer === layer && x.r === r && x.c === c);
 
   function open(dock) {
+    // 重开车间先取消上一帧（包括首次 fit 回调），始终只保留一条绘制循环。
+    if (frame !== null) cancelAnimationFrame(frame);
     if (dock) st.dock = dock;
     SA.go('garage');
     const screen = document.querySelector('#screen');
@@ -67,7 +69,7 @@ SA.Editor = (() => {
     ro = new ResizeObserver(fit);
     ro.observe(stage);
     renderAll();
-    requestAnimationFrame(() => { fit(); loop(); });
+    frame = requestAnimationFrame(() => { fit(); loop(); });
   }
 
   // 弹窗关闭后由 SA.UI.refresh 调用：钱、库存可能变了
@@ -906,9 +908,10 @@ ${SA.UI.repairBrief(hurtList)}`, onclick: () => repair(hurtList) }, `修理 ${hu
   }
 
   function loop() {
+    frame = null;
     if (SA.current !== 'garage') return;
     draw(performance.now() / 1000);
-    requestAnimationFrame(loop);
+    frame = requestAnimationFrame(loop);
   }
 
   return { open, refresh };

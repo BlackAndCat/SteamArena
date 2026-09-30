@@ -27,6 +27,9 @@ const pressureChamber = require('./pressure-chamber-check');
 const uniqueVariants = require('./unique-variant-check');
 const storyDev = require('./story-dev-check');
 const specialWeapons = require('./special-weapons-check');
+const auditBattle = require('./battle-audit-check');
+const auditShare = require('./share-audit-check');
+const auditVisual = require('./visual-audit-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -144,6 +147,8 @@ function lockedStageCheck() {
 }
 
 async function main() {
+  // 先跑精确边界，数值错误或坏分享码不能被后面的批量模拟“正常结束”掩盖。
+  const audit = { battle: auditBattle.run(), share: auditShare.run(), visual: auditVisual.run() };
   const constraints = stageRules.run(), tracks = trackChain.run();
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
@@ -185,6 +190,7 @@ async function main() {
   result.uniqueVariants = uniqueVariants.run();
   result.storyDev = await storyDev.run();
   result.specialWeapons = specialWeapons.run();
+  result.audit = audit;
   console.log(JSON.stringify(result, null, 2));
 }
 

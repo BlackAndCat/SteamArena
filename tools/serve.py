@@ -23,6 +23,26 @@ EVOLUTION = EvolutionService(ROOT)
 class NoCache(http.server.SimpleHTTPRequestHandler):
     """静态预览服务器，为文本、手工关卡车和进化任务提供受限 JSON 接口。"""
 
+    def _allow_local_write(self):
+        """写接口仅接受回环客户端、本机 Host 和同源页面；无 Origin 的本机命令行仍可用。"""
+        host = self.headers.get('Host', '')
+        try:
+            host_url = urlparse('http://' + host)
+            valid_host = (len(self.headers.get_all('Host', [])) == 1
+                          and host_url.hostname in ('localhost', '127.0.0.1', '::1')
+                          and host_url.port == self.server.server_port
+                          and host_url.netloc == host and not host_url.username
+                          and not host_url.password and not host_url.path)
+            origin = self.headers.get('Origin')
+            valid_origin = (len(self.headers.get_all('Origin', [])) <= 1
+                            and (origin is None or origin == f'http://{host}'))
+        except ValueError:
+            valid_host = valid_origin = False
+        if self.client_address[0] not in ('127.0.0.1', '::1') or not valid_host or not valid_origin:
+            self._json(403, {'error': '写入接口只能由本机同源页面访问'})
+            return False
+        return True
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, must-revalidate')
         self.send_header('Expires', '0')
@@ -73,6 +93,8 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__evolve/run', '/__evolve/stop') and not self._allow_local_write():
+            return
         if parsed.path in ('/__evolve/run', '/__evolve/stop'):
             self._evolve_request(parsed.path)
             return
@@ -141,10 +163,6 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def _evolve_request(self, endpoint):
         """仅允许本机同源页面启动固定的模拟程序，不提供通用命令执行接口。"""
-        origin = self.headers.get('Origin')
-        if self.client_address[0] not in ('127.0.0.1', '::1') or (origin and urlparse(origin).netloc != self.headers.get('Host')):
-            self._json(403, {'error': '进化模拟只能由本机同源页面启动'})
-            return
         try:
             length = int(self.headers.get('Content-Length', '0'))
             if length <= 0 or length > MAX_BODY:
@@ -294,4 +312,4 @@ if __name__ == '__main__':
     os.chdir(ROOT)
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5173
     print(f'SteamArena: http://localhost:{port}  (no-cache)')
-    http.server.ThreadingHTTPServer(('', port), NoCache).serve_forever()
+    http.server.ThreadingHTTPServer(('127.0.0.1', port), NoCache).serve_forever()

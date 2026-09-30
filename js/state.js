@@ -201,7 +201,13 @@ SA.S = (() => {
 
   const official = () => SA.OFFICIAL_BLUEPRINTS.map(b => ({ official: true, name: b.name, desc: b.desc, ...SA.V.layout(SA.V.fromAscii(b.name, b.rows, b.sides || [])) }));
   function mine() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; }
+    try {
+      const list = JSON.parse(localStorage.getItem(KEY));
+      if (!Array.isArray(list)) return [];
+      // 旧存档可能已导入坏迁移退库项；读时隔离污染，不因单张坏蓝图卡住整个列表。
+      return list.filter(bp => bp && typeof bp === 'object' && !Array.isArray(bp) && SA.V.validLayout({ ...bp, ms: [] }))
+        .map(bp => ({ ...bp, ms: (Array.isArray(bp.ms) ? bp.ms : []).filter(SA.V.validStockCell) }));
+    } catch (e) { return []; }
   }
   function store(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { /* 隐私模式 */ } }
 

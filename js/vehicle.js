@@ -509,9 +509,6 @@ SA.V = (() => {
       s.store += m.store || 0;
       s.dryCool += m.dryCool || 0;
       if (m.waterSave) s.waterSave = Math.max(K.WATER_SAVE_MIN, s.waterSave * m.waterSave);
-      if (m.reloadMul) s.reloadMul = Math.min(s.reloadMul || 1, m.reloadMul);
-      if (m.spreadMul) s.spreadMul = Math.min(s.spreadMul || 1, m.spreadMul);
-      if (m.swayMul) s.swayMul = Math.min(s.swayMul || 1, m.swayMul);
       if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
       if (SA.isCockpit(cell.id)) s.cockpits++;
@@ -532,7 +529,6 @@ SA.V = (() => {
     s.aimSpeed = K.AIM_SPEED + Math.max(aimSpeedBonus, ax.aimSpeed);
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     s.sway *= ax.sway;
-    s.sway *= s.swayMul || 1;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.drive = Math.round(s.weight / 1000 * K.DRIVE_PER_T * 10) / 10;
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
@@ -548,11 +544,12 @@ SA.V = (() => {
       if (!alive(cell) || !m.dmg) return;
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
-      const reload = m.reload * ax.reload * (s.reloadMul || 1);
+      // 与战斗共用辅助件汇总倍率，纸面输出不再重复应用装弹、散布和晃动收益。
+      const reload = m.reload * ax.reload;
       const salvo = m.salvo || 1;
       const shotDps = m.dmgPerSec ? m.dmgPerSec * salvo : m.dmg * salvo / reload;
       const splash = m.splash ? (m.splash.k * Math.PI * m.splash.r * m.splash.r / (K.CELL * K.CELL)) : 0;
-      s.dps += (shotDps * Math.max(0.4, 0.95 - (m.spread || 0) * ax.spread * (s.spreadMul || 1) * 0.03 + s.acc)) * s.power;
+      s.dps += (shotDps * Math.max(0.4, 0.95 - (m.spread || 0) * ax.spread * 0.03 + s.acc)) * s.power;
       s.salvoDps += shotDps * s.power;
       s.splashDps += shotDps * splash * 0.08 * s.power;
       s.heatDps += (m.heatPerSec || m.heat / reload) * s.power;
@@ -620,6 +617,43 @@ SA.V = (() => {
     each(v, (cell, r, c, layer) => (layer === 'body' ? b : s).push(cell.look || cell.unique ? [r, c, cell.id, { look: cell.look, unique: cell.unique }] : [r, c, cell.id]));
     return { b, s, g: 2, a: ARMOR_VER, pv: PRESSURE_VER, ms: v.migrationStock || [] };
   }
+  // 迁移退库也是外部蓝图的一部分：未知模块或非法数值不能进入后续补购规划。
+  function validStockCell(cell) {
+    const valid = !!cell && typeof cell === 'object' && !Array.isArray(cell)
+      && typeof cell.id === 'string' && Object.hasOwn(M, SA.liveId(cell.id))
+      && (cell.mt == null || (Number.isInteger(cell.mt) && cell.mt >= 1 && cell.mt <= SA.MAT_MAX))
+      && (cell.lv == null || (Number.isInteger(cell.lv) && cell.lv >= 0 && cell.lv <= K.UP_MAX))
+      && Number.isFinite(cell.hp) && cell.hp >= 0
+      && (cell.max == null || (Number.isFinite(cell.max) && cell.max > 0));
+    if (!valid) return false;
+    // max 只允许记录规范耐久，不能由分享码放大。先验原材料，再沿用旧件比例迁移。
+    const id = Object.hasOwn(M, cell.id) ? cell.id : SA.liveId(cell.id);
+    const max = Math.round(SA.mod(id, cell.mt || 1).hp * (1 + SA.upHp(id) * (cell.lv || 0)));
+    return cell.hp <= max && (cell.max == null || cell.max === max);
+  }
+  // 只验证数据结构，不拿当前摆放规则拒绝旧码或车间自由摆放；尺寸迁移仍走原来的流程。
+  // indexed 表示分享码使用 MODULE_ORDER 的索引，本地蓝图则直接记录模块 id。
+  function validLayout(L, indexed = false) {
+    if (!L || typeof L !== 'object' || Array.isArray(L)) return false;
+    const k = L.g === 2 ? 1 : 2;
+    for (const [layer, list] of [['body', L.b ?? []], ['side', L.s ?? []]]) {
+      if (!Array.isArray(list) || list.length > K.ROWS * K.COLS) return false;
+      const anchors = new Set();
+      for (const item of list) {
+        if (!Array.isArray(item) || item.length < 3 || item.length > 4) return false;
+        const [r, c, key, variant] = item;
+        const id = indexed ? (Number.isInteger(key) && SA.MODULE_ORDER[key]) : key;
+        if (typeof id !== 'string' || !Object.hasOwn(M, SA.liveId(id))
+          || !Number.isInteger(r) || !Number.isInteger(c) || !inGrid(r * k, c * k)
+          || layerOf(SA.liveId(id)) !== layer || anchors.has(`${r},${c}`)) return false;
+        if (variant != null && (typeof variant !== 'object' || Array.isArray(variant)
+          || (variant.look != null && typeof variant.look !== 'string')
+          || (variant.unique != null && typeof variant.unique !== 'string'))) return false;
+        anchors.add(`${r},${c}`);
+      }
+    }
+    return L.ms == null || (Array.isArray(L.ms) && L.ms.length <= K.ROWS * K.COLS && L.ms.every(validStockCell));
+  }
   function fromLayout(name, L) {
     const v = create(name), k = L.g === 2 ? 1 : 2;
     for (const [layer, list] of [['body', L.b || []], ['side', L.s || []]])
@@ -630,7 +664,8 @@ SA.V = (() => {
           v[layer][r * k][c * k] = SA.fixCell(cell);
         }
     v.pv = L.pv;
-    v.migrationStock = JSON.parse(JSON.stringify(L.ms || []));
+    // 兼容曾经保存的污染蓝图：保留正常构筑，只过滤无法规划的迁移退库项。
+    v.migrationStock = (Array.isArray(L.ms) ? L.ms : []).filter(validStockCell).map(cell => SA.fixCell(JSON.parse(JSON.stringify(cell))));
     return migratePressure(normalizeChassis(L.a === ARMOR_VER ? v : widenArmor(v)));
   }
   // 完整模块清单 [层(0 主体 / 1 侧挂), 行, 列, id, 材料, 改装等级] → 载具（进化报告用；分享码不记材料和改装）
@@ -668,9 +703,11 @@ SA.V = (() => {
       if (!ver) return null;
       const k = ver === 1 ? 2 : 1;
       const d = JSON.parse(decodeURIComponent(escape(atob(raw.slice(4)))));
+      // 必须先验完整包，再创建车辆；不能静默丢掉损坏记录后仍把分享码当成成功导入。
+      if (!d || typeof d !== 'object' || Array.isArray(d) || !validLayout({ ...d, g: ver }, true)) return null;
       const v = create(String(d.n || '无名载具').slice(0, 20));
       v.pv = d.pv;
-      v.migrationStock = d.ms || [];
+      v.migrationStock = (d.ms || []).map(cell => SA.fixCell(JSON.parse(JSON.stringify(cell))));
       // 自下而上摆放，保证规则合法；侧炮最后挂
       let list = [...(d.b || []), ...(d.s || [])].map(([r, c, i, variant]) => [r * k, c * k, i, variant]);
       // 旧分享码（没有 a）里的铁装甲是 2×2：右边补一块，拼回原来的大小
@@ -764,5 +801,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

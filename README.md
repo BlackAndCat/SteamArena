@@ -10,6 +10,8 @@
 python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏览器缓存（git pull 后刷新即是新代码）
 ```
 
+本地预览服务默认只监听 `127.0.0.1`。文本、关卡车与进化任务的写入接口只接受本机同源页面；本机命令行请求没有 `Origin` 时仍可使用。服务写入校验可运行 `python -m unittest tools/test_serve_security.py`。
+
 需要让 AI 快速操作或批量测试 HTML5 游戏时，可启动零依赖的本地 MCP：`python tools/html5_game_mcp.py`。它通过 Chrome DevTools Protocol 提供脚本执行、键鼠输入、固定步长推进和蒸汽竞技场无画面模拟；完整工具说明见 [docs/html5-game-mcp.md](docs/html5-game-mcp.md)。
 
 然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；悬挂与爬坡样机：http://localhost:5173/tools/suspension-lab.html ；进化擂台与数值自测：http://localhost:5173/tools/evolve.html（旧 `tools/sim.html` 入口自动跳转到自测页签）；关卡车工作台：http://localhost:5173/tools/stage-editor.html
@@ -19,6 +21,8 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、进化报告、关卡车工作台、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp-ui.js` 的 `DEV_TOOLS` 就会出现在面板上。关卡车工作台也可从这里直接打开。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱；`SA.dev.designMode()` 开启隔离设计存档，`SA.dev.loadStageCar(ch, st)` 把关卡车送进车间，`SA.dev.saveStageCar(ch, st)` 保存，`SA.dev.exitDesign()` 恢复正式存档。
 
 进化任务开始前会预检所选全部关卡的标尺构筑，失败提示对应章节、关卡、奖励和预算。`node tools/evolve-chapters-check.js` 用小种群检查第一至第五章共 15 关的奖励保底、90 台标尺及完整生成流程，已接入 `node tools/evolve-check.js`；生成成功与胜率 / 地形 / 奖励效果达标分别报告。
+
+审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。
 
 新档初始车为黄铜四件车：履带、小锅炉、小机枪、头盔驾驶舱。已有档保持原车；控制台 `SA.dev.resetVehicle()` 可主动换回这台车，原件保留耐久、改装和唯一身份退库，资金与战役进度不变。换车按钮待 Opus 接入。剧情后台为 `SA.StoryData.list/get/set/save/point`，沿用文本文件与本机草稿保存；剧情编辑器、Ctrl+S、战前 / 接受投降后的插入提示，以及 3.5 秒升白旗演出仍待画面接入，接口约定见 [astra 看板](docs/board-astra.md)。专项检查：`node tools/story-dev-check.js`，已纳入完整后台检查。
 

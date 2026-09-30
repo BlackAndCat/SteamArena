@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-30-special-weapons';
+SA.RULES_VERSION = '2026-09-30-special-weapons-audit-damage';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -41,7 +41,7 @@ SA.Battle = (() => {
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
-      focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: 0, bipedHipHp: 0, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0,
+      focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: null, bipedHipHp: null, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0,
       holdSeconds: 0, fireHeldSeconds: 0, ventCount: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
     s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
@@ -56,7 +56,7 @@ SA.Battle = (() => {
   }
 
   function refresh(s) {
-    let supply = 0, equip = 0, heatRate = 0, heatMul = 1, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, moduleReload = 1, moduleSpread = 1, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1, prism = false;
+    let supply = 0, equip = 0, heatRate = 0, heatMul = 1, cool = 0, dryCool = 0, waterSave = 1, storeMax = 0, waterMax = 0, ev = 0, acc = 0, ch = 0, sp = 0, cock = 0, kg = 0, rams = 0, minCol = K.COLS, frontCol = -1, prism = false;
     let ak = 0, bk = 0, sw = 0, spk = 0, cop = 0, aimSh = 0, aimSp = 0;
     const chIds = {};
     const live = [];
@@ -70,8 +70,6 @@ SA.Battle = (() => {
       supply += m.supply || 0; equip += m.power || 0; heatRate += m.heatRate || 0; heatMul = Math.min(heatMul, m.heatMul || 1);
       cool += m.cool || 0; dryCool += m.dryCool || 0; if (m.waterSave) waterSave = Math.max(K.WATER_SAVE_MIN, waterSave * m.waterSave);
       storeMax += m.store || 0; waterMax += m.water || 0; kg += SA.weightOf(cell);
-      if (m.reloadMul) moduleReload = Math.min(moduleReload, m.reloadMul);
-      if (m.spreadMul) moduleSpread = Math.min(moduleSpread, m.spreadMul);
       if (m.layer === 'chassis') { chIds[cell.id] = (chIds[cell.id] || 0) + 1; ch++; ev += m.evade || 0; acc += m.acc || 0; sp += m.speed; ak += m.accel; bk += m.brake; sw += m.sway; spk += m.spool; }
       if (m.layer === 'ram') rams++;
       if (SA.isCockpit(cell.id)) { cock++; cop += SA.driversOf(cell.id); }
@@ -98,7 +96,8 @@ SA.Battle = (() => {
     if (s.chassisId === 'biped') {
       SA.V.each(s.v, (cell) => { if (!bipedCell && cell.id === 'biped') bipedCell = cell; });
       const hp = bipedCell ? SA.V.maxHp(bipedCell) : 0;
-      if (!s.bipedHipHp && !s.bipedLegHp) s.bipedHipHp = s.bipedLegHp = hp / 2;
+      // 分区只在入战时初始化，均分当前耐久；零耐久表示损毁，刷新不能当成尚未初始化。
+      if (s.bipedHipHp === null) s.bipedHipHp = s.bipedLegHp = bipedCell ? clamp(bipedCell.hp, 0, hp) / 2 : 0;
       if (bipedCell) bipedCell.bipedZones = { hip: Math.max(0, s.bipedHipHp), leg: Math.max(0, s.bipedLegHp), max: hp };
     }
     const vehicleStats = SA.V.stats(s.v);
@@ -109,7 +108,7 @@ SA.Battle = (() => {
       s.bipedLegDead = s.bipedLegHp <= 0;
       s.bipedHipDead = s.bipedHipHp <= 0;
     }
-    Object.assign(s, { supply, demand, heatRate, heatMul, cool, dryCool, waterSave, storeMax, moduleReload, moduleSpread, waterMax, minCol, frontCol, rams, mass, thrown, prism,
+    Object.assign(s, { supply, demand, heatRate, heatMul, cool, dryCool, waterSave, storeMax, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
     if (s.chassisId === 'biped') {
       if (s.bipedLegDead || s.balance === '失衡') s.speed = 0;
@@ -123,7 +122,8 @@ SA.Battle = (() => {
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
       const m = SA.mod(cell);
-      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 && moduleReload === 1 && moduleSpread === 1 ? m : { ...m, reload: m.reload * ax.reload * moduleReload, spread: m.spread * ax.spread * moduleSpread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
+      // 实体辅助件由 auxEffect 统一汇总，每件倍率只应用一次。
+      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * ax.reload, spread: m.spread * ax.spread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
     s.groups = GROUP_ORDER.filter(id => s.weapons.some(w => w.cell.id === id));
@@ -455,17 +455,20 @@ SA.Battle = (() => {
     if (!(dmg > 0)) return;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return;
+    const before = cell.hp;
     const zone = imp.zone || (cell.id === 'biped' && imp.layer === 'body' ? (imp.hitR >= bipedLegStart(def) ? 'leg' : 'hip') : null);
     if (cell.id === 'biped' && zone) {
-      if (zone === 'leg') def.bipedLegHp -= dmg;
-      else def.bipedHipHp -= dmg;
-      cell.hp -= dmg;
+      // 分区各自承受伤害：超出该区的部分不扣另一分区，也不计入伤害账本。
+      if (zone === 'leg') def.bipedLegHp = Math.max(0, def.bipedLegHp - dmg);
+      else def.bipedHipHp = Math.max(0, def.bipedHipHp - dmg);
       def.bipedLegDead = def.bipedLegHp <= 0;
       def.bipedHipDead = def.bipedHipHp <= 0;
       cell.bipedZones = { hip: Math.max(0, def.bipedHipHp), leg: Math.max(0, def.bipedLegHp), max: SA.V.maxHp(cell) };
-      cell.hp = def.bipedLegDead && def.bipedHipDead ? 0 : Math.max(1, def.bipedHipHp + def.bipedLegHp);
+      cell.hp = def.bipedHipHp + def.bipedLegHp;
       refresh(def);
-    } else cell.hp -= dmg;
+    } else cell.hp = Math.max(0, cell.hp - dmg);
+    // 超时评分、结算统计和受击数字共用实际扣掉的耐久，避免巨炮超额伤害改变胜负。
+    dmg = before - cell.hp;
     def.taken += dmg; if (att) att.dealt += dmg;
     const [x, y0] = modCenter(def, imp.layer, imp.r, imp.c), y = y0 - 6;
     emit('text', { str: String(Math.round(dmg)), x: x + rnd(-9, 9), y: y - 18, col: imp.layer === 'side' ? P.magenta : P.white });

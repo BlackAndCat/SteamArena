@@ -534,7 +534,8 @@ SA.INGOTS = {
   wootz: { name: '乌兹钢锭', desc: '印度坩埚钢，花纹像流水。把镀镍模块升到史诗级「乌兹钢」要用 1 块。' },
   aether: { name: '以太结晶', desc: '女王号锅炉里取出的发光结晶。把乌兹钢模块升到传奇级「以太合金」要用 1 块。' },
 };
-const MAT_SCALED = ['hp', 'dmg', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor'];
+// 持续伤害率和单发伤害同样随材料放大；产热、耗水和射速仍沿用模块原值。
+const MAT_SCALED = ['hp', 'dmg', 'dmgPerSec', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor'];
 const modCache = new Map();
 // 某一格模块按材料放大后的定义：SA.mod(cell) 或 SA.mod(id, mt)
 SA.mod = (x, mt) => {
