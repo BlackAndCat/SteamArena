@@ -98,6 +98,34 @@ SA.Text = (() => {
     return key in defaults ? defaults[key] : String(fallback == null ? '' : fallback);
   }
 
+  // Home 每次重建都可能产生新的敌手或车况文案，因此仅刷新本接口注册的默认值。
+  // 已保存的自定义值仍由 get 优先读取；更新默认值本身不产生草稿或保存请求。
+  function homeValue(key, fallback) {
+    register(key, fallback);
+    defaults[key] = String(fallback == null ? '' : fallback);
+    return get(key);
+  }
+
+  // 院子闲谈沿用 Home 的 [说话者, 文案, 动作] 元组和稳定的 0 基位置。
+  // 只替换第二项，复制数组与每个元组，避免编辑覆盖改动说话者、动作或输入数据。
+  function homeLines(lines) {
+    return lines.map((line, index) => {
+      const result = line.slice();
+      result[1] = homeValue(`home:chatter:${index}`, line[1]);
+      return result;
+    });
+  }
+
+  // 院子提示以人物 key 作为稳定位置；每次读取刷新动态默认文案，覆盖值优先。
+  // 只返回文案字符串，Home 原有的 HTML 拼接和显示方式由 Home 自己处理。
+  function homeTips(tips) {
+    return {
+      tom: homeValue('home:tip:tom', tips.tom),
+      rel: homeValue('home:tip:rel', tips.rel),
+      tim: homeValue('home:tip:tim', tips.tim),
+    };
+  }
+
   function set(key, value, options = {}) {
     if (!safeKey(key)) throw new Error('SA.Text.set 需要非空且不超过 240 字符的 key');
     const next = String(value == null ? '' : value);
@@ -769,7 +797,7 @@ SA.Text = (() => {
   }
 
   const api = {
-    init, ready, get, t: get, set, register, bindText, bindAttr, canvas, draw,
+    init, ready, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
     isEditing: () => editing,
     file: fileName,

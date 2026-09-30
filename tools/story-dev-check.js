@@ -284,7 +284,55 @@ async function storyCheck() {
   return { sceneCount: D.list().length, metadataPreserved: true, reload: true, offlineDraft: true, sequentialSaves: true };
 }
 
-async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck(), directFile: await directFileSaveCheck() }; }
+/** 检查院子文案的动态默认值只更新自身，固定键覆盖可保存，且不会改动 Home 的元组数据。 */
+async function homeTextCheck() {
+  const memory = new Map(); let server = { values: {} }, posts = 0;
+  const fetch = async (url, opts) => {
+    if (!opts?.method) return { ok: true, json: async () => copy(server) };
+    posts++;
+    server = JSON.parse(opts.body);
+    return { ok: true, json: async () => ({ revision: String(posts) }) };
+  };
+  let SA = await textContext(memory, fetch);
+  SA.Text.register('other:fixed', '原默认');
+  const draftBeforeRead = copy([...memory]);
+  const lines = [['rel', '旧对手', 'talk'], ['tom', '先休息', 'sleep']];
+  const tips = { tom: '给水尚足', rel: '<b>下一场</b>', tim: '车况良好' };
+  const linesBefore = copy(lines), tipsBefore = copy(tips);
+  const initial = SA.Text.homeLines(lines), initialTips = SA.Text.homeTips(tips);
+  assert.deepStrictEqual(copy(initial), linesBefore, '无覆盖时闲谈原文未保持');
+  assert.deepStrictEqual(copy(initialTips), tipsBefore, '无覆盖时提示原文未保持');
+  assert.notStrictEqual(initial, lines); assert.notStrictEqual(initial[0], lines[0]);
+  assert.notStrictEqual(initial[1], lines[1]); assert.notStrictEqual(initialTips, tips);
+  initial[0][0] = '改动副本'; initial[1][2] = '改动动作'; initialTips.tom = '改动提示';
+  assert.deepStrictEqual(copy(lines), linesBefore, '返回值污染了闲谈输入');
+  assert.deepStrictEqual(copy(tips), tipsBefore, '返回值污染了提示输入');
+  const newerLines = [['rel', '新对手', 'jolt'], ['tom', '已醒来', 'yelp']];
+  const newerTips = { tom: '给水不足', rel: '<i>下一场</i>', tim: '车况变化' };
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][1], '新对手', '重复读取未刷新动态默认值');
+  assert.strictEqual(SA.Text.homeTips(newerTips).tom, '给水不足');
+  assert.strictEqual(SA.Text.get('other:fixed'), '原默认', '院子接口影响了其他默认值');
+  assert.strictEqual(posts, 0, '只读取默认文案却发起保存');
+  assert.deepStrictEqual(copy([...memory]), draftBeforeRead, '只读取默认文案却改动本地草稿');
+  SA.Text.set('home:chatter:0', '自定义闲谈');
+  SA.Text.set('home:tip:tom', '自定义提示');
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][1], '自定义闲谈');
+  assert.strictEqual(SA.Text.homeTips(newerTips).tom, '自定义提示');
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][0], 'rel');
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][2], 'jolt');
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(server.values['home:chatter:0'], '自定义闲谈');
+  assert.strictEqual(server.values['home:tip:tom'], '自定义提示');
+  SA = await textContext(new Map(), fetch);
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][1], '自定义闲谈', '刷新后闲谈覆盖丢失');
+  assert.strictEqual(SA.Text.homeTips(newerTips).tom, '自定义提示', '刷新后提示覆盖丢失');
+  SA.Text.reset();
+  assert.strictEqual(SA.Text.homeLines(newerLines)[0][1], '新对手', '清除覆盖后未读取最新闲谈默认值');
+  assert.strictEqual(SA.Text.homeTips(newerTips).tom, '给水不足', '清除覆盖后未读取最新提示默认值');
+  return { stableKeys: true, dynamicDefaults: true, preservedTuples: true, reload: true, reset: true };
+}
+
+async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck(), homeText: await homeTextCheck(), directFile: await directFileSaveCheck() }; }
 if (require.main === module) run().then(result => console.log(JSON.stringify(result, null, 2))).catch(error => {
   console.error(error.stack || error.message); process.exitCode = 1;
 });

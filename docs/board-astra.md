@@ -154,3 +154,5 @@
 | 2026-09-30 | astra → Opus | 按用户本次授权，仅在 ui.js、editor.js、battle-view.js 同步 kW/马力、L、kJ、°C 数值与标签；保持布局、动画、操作逻辑。机组热进度读 s.heat/s.heatMax，冷却回路温度读 SA.Phys.temp(s.heat,s.heatCapacity)。 | 已实现，待最终验收 |
 
 | 2026-09-30 | 用户 → astra / Opus | 新增模块属性工作台：选中模块查看图像与名称，编辑现有文字和玩法字段并一键保存；不开放外观字段。由后台字段白名单与限定文件覆盖区控制保存，界面仅在开发者面板和关卡车工作台增加入口。 | 已实现，待验收 |
+
+| 2026-09-30 | astra → Opus | 院子文案后台接口已提供，Home 尚未接入。等待 `await SA.Text.ready` 后，以 `SA.Text.homeLines(LINES)` 读取 `[说话者, 文案, 动作]` 元组副本，以 `SA.Text.homeTips(TIP)` 读取人物提示副本；闲谈的稳定键为 `home:chatter:<0 基索引>`，提示键为 `home:tip:<人物 key>`。编辑用 `SA.Text.set(key, text)` 和 `await SA.Text.save()`；默认文案每次读取更新，自定义覆盖优先。说话者与动作仍由 Home 管理；编辑后需立即显示时，Home 用已有 `SA.Text.onChange` 自行重建或刷新。后台不负责显示，真实前端接入与验收待 Opus 完成。 | 后台接口与回归完成，待视觉接入 |

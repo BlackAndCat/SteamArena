@@ -75,7 +75,9 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 | 文件 | 内容 |
 |---|---|
 | `js/main.js` | 游戏启动入口，拼接 `SA.BUILD_SYS` / `SA.BUILD_VIS`；由 Opus 维护 |
+| `js/home.js` | 铁匠铺后院主页面：院子场景、人物闲谈与点击交互（`SA.Home`），由 Opus 维护 |
 | `js/palette.js` | 锁定调色板 + 语义分类（颜色由 category 推导） |
+| `js/ui-px.js` | 像素画法与界面件：提供 `SA.PX.ui`，由 Opus 维护 |
 | `js/modules.js` | 模块注册表（含重量、承重、护甲）、全局常量、重量 / 改装辅助函数、材料表 `SA.MATS` 与按材料放大的 `SA.mod(cell)` |
 | `js/module-art.js` | 模块外观字段与外观字段合并；由 Opus 维护 |
 | `js/dynamics.js` | 动态处理模块：阻尼弹簧（车身晃动）、后坐曲线（制退 / 复进）、相位与量化（履带、腿、供弹链），每辆车一个动画器 |
