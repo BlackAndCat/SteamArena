@@ -5,3 +5,4 @@ SA.BUILD_SYS += '+engineering-units-v1'; // 马力、质量、给水与机组热
 SA.BUILD_SYS += '+module-property-workbench'; // 模块文字与玩法属性工作台。
 SA.BUILD_SYS += '+home-text-api'; // 院子闲谈与人物提示的动态默认文案接口。
 SA.BUILD_SYS += '+explicit-water-only'; // 开局储水只取模块明确配置的容量。
+SA.BUILD_SYS += '+cooling-water-final'; // 锅炉供能独立于储水，储水只用于冷却。

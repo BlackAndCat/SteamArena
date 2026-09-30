@@ -7,12 +7,9 @@ const { SA } = loadGame();
 const P = SA.Phys;
 const near = (a, b, eps = 1e-6) => assert(Math.abs(a - b) <= eps, `${a} 与 ${b} 不符`);
 
-// 标准锅炉 500 kW 蒸汽热功率 × 12% = 60 kW 轴功率。
+// 标准锅炉额定轴功率 60 kW，约 81.6 公制马力。
 near(SA.MODULES.boiler.supply, 60);
 near(P.kwToPs(60), 81.57729703823426);
-near(P.boilerEnergy(60, 75).steamKw, 500);
-near(P.boilerEnergy(60, 75).exhaustKw, 365);
-near(P.boilerEnergy(60, 75).combustionLossKw, 125);
 
 // 开局车只有锅炉、武器、驾驶舱和底盘：供汽不应凭空生成储水。
 const dryStarter = SA.V.fromAscii('无储水检查', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs);
@@ -39,9 +36,9 @@ const startFight = (player, enemy) => {
 const checkSideWater = (side, expected) => { near(side.waterMax, expected); near(side.water, expected); };
 let fight = startFight(dryStarter, dryStarter);
 checkSideWater(fight.p, 0); checkSideWater(fight.e, 0);
-fight.p.sel = 'mg_s'; fight.aim = SA.Battle.debug.cellCenter('e', 9, 10); fight.keys.fire = true;
-SA.Battle.debug.step(1);
-assert(fight.p.power > 0 && fight.p.events.fire > 0, '零储水开战仍须供能并开火');
+fight.p.isAI = true;
+SA.Battle.debug.step(2);
+assert(fight.p.power > 0 && fight.p.events.fire > 0, `零储水开战仍须供能并开火：供能 ${fight.p.power}、发射 ${fight.p.events.fire}`);
 near(fight.p.water, 0);
 fight = startFight(starter, dryStarter);
 checkSideWater(fight.p, SA.MODULES.tank_s.water); checkSideWater(fight.e, 0);
@@ -125,4 +122,6 @@ const firstStage = stageFor(SA, 0, 0);
 assert(firstStage?.vehicle, '战役第一关未能加载');
 const firstFight = SA.Battle.simulate({ p: starter, e: firstStage.vehicle, terrain: firstStage.terrain || 'flat', dt: 1 / 60, seed: 8 });
 assert(firstFight.events.p.fire > 0 || firstFight.events.e.fire > 0, '战役第一关未能开火');
+const dryFirstFight = SA.Battle.simulate({ p: dryStarter, e: firstStage.vehicle, terrain: firstStage.terrain || 'flat', dt: 1 / 60, seed: 8 });
+assert(dryFirstFight.events.p.fire > 0 && dryFirstFight.events.e.fire > 0, '双方零储水的战役第一关未能交火');
 console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS；无储水仍可开火，18 关初始水量正确；样车满水 ${SA.tons(stats.weight)}。`);

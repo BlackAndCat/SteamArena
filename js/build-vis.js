@@ -6,3 +6,4 @@ SA.BUILD_VIS += '+home-car-hero'; // 院子：车挪到中间前景当主角（�
 SA.BUILD_VIS += '+home-weather'; // 院子重画：晴 / 雨 / 夜 / 雾四种天气（风向标切换）、平涂少杂点、勒脚接缝、石拱门 + 石板路、所有东西按脚落地 + 接触影子；路标只留出战 / 车间 / 银行
 SA.BUILD_VIS += '+prologue-yard'; // 序章战斗的铁匠铺后院改用主页面院子的画（同一座铁匠铺、院墙、院门、天气）
 SA.BUILD_VIS += '+workshop-pan-zoom'; // 车间蓝图横向拖动与滚轮缩放。
+SA.BUILD_VIS += '+cooling-water-labels'; // 水量提示只描述冷却耗水。

@@ -5,10 +5,16 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
 const { loadGame } = require('./evolve');
 
 async function run() {
   const { SA, context } = loadGame();
+  // 无界面夹具要载入真实像素 UI 依赖，才能覆盖退出关卡车设计模式的完整路径。
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/ui-px.js'), 'utf8'), context, { filename: 'js/ui-px.js' });
+  context.document.documentElement.style.setProperty = () => {};
   context.location.protocol = 'file:'; // 回归只写虚拟浏览器存档，不发文件保存请求。
   SA.S.reset();
   const ci = SA.CAMPAIGN.length - 1, si = SA.CAMPAIGN[ci].stages.length - 1;

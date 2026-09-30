@@ -629,7 +629,7 @@ SA.BattleView.create = function createBattleView(api) {
     else {
       if (s.power < 1) st.push(`动力 ${Math.round(s.power * 100)}%`);
       if (s.heat / s.heatMax > T.HEAT_ALERT) st.push(`机组 ${SA.Phys.fmtTemp(SA.Phys.temp(s.heat, s.heatCapacity))}，即将过热`);
-      else if (s.water <= 0) st.push('水已耗尽');
+      else if (s.waterMax > 0 && s.water <= 0) st.push('水已耗尽');
       if (s.hold) st.push('停火降温中');
       if (s.thrown) st.push('履带掉链，无法移动');
       if (s.spooling) st.push('锅炉加压中…');

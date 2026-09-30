@@ -266,7 +266,7 @@ SA.MODULES = {
   condenser: {
     name: '冷凝器', cat: 'cooling', layer: 'body', w: 1, h: 2,
     price: 105, hp: 78, cool: 3, waterSave: 0.7, kg: 180, q: 1,
-    get desc() { return `冷凝器：回收闭式产汽及冷却用水（多个按乘积叠加，耗水最低 ×${SA.K.WATER_SAVE_MIN}）；开放式蒸汽喷射不回收，本身不储水。`; },
+    get desc() { return `冷凝器：全车冷却耗水 ×0.7（多个按乘积叠加，最低 ×${SA.K.WATER_SAVE_MIN}）；本身不储水。`; },
   },
   rocket_rack: {
     name: '抛射架', cat: 'firepower', layer: 'body',
@@ -591,7 +591,7 @@ SA.INGOTS = {
   wootz: { name: '乌兹钢锭', desc: '印度坩埚钢，花纹像流水。把镀镍模块升到史诗级「乌兹钢」要用 1 块。' },
   aether: { name: '以太结晶', desc: '女王号锅炉里取出的发光结晶。把乌兹钢模块升到传奇级「以太合金」要用 1 块。' },
 };
-// 持续伤害率和单发伤害同样随材料放大；产热、耗水和射速仍沿用模块原值。
+// 持续伤害率和单发伤害同样随材料放大；产热和射速仍沿用模块原值。
 const MAT_SCALED = ['hp', 'dmg', 'dmgPerSec', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor'];
 const modCache = new Map();
 // 某一格模块按材料放大后的定义：SA.mod(cell) 或 SA.mod(id, mt)

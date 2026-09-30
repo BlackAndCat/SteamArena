@@ -161,7 +161,7 @@ SA.UI = (() => {
       { k: 'weight', name: '重量', pct: x.weight / Math.max(x.load, x.weight, 1e-6), val: SA.tons(x.weight), bad: x.weight > x.load, note: `满水 ${SA.tons(x.weight)}（干重 ${SA.tons(x.dryWeight)}）· 底盘承重 ${SA.tons(x.load)}（红线）· 撞击伤害 ×${SA.ramMul(x.weight).toFixed(2)}` },
       { k: 'speed', name: '速度', pct: x.topSpeed / 100, val: SA.kmh(x.topSpeed), note: `最高 ${SA.kmh(x.topSpeed)}（底盘 ${SA.kmh(x.speed)} × 动力 ${Math.round((x.speedMul || 0) * 100)}%）· 刹车 ×${(x.brake || 0).toFixed(2)} · 晃动 ×${(x.sway || 0).toFixed(2)}` },
       { k: 'heat', name: '热量', pct: heatOf(x), val: `${Math.round(heatOf(x) * 100)}%`, bad: heatOf(x) >= 1, note: `产热 ${SA.Phys.fmtKw(x.heatGen + SA.K.IDLE_HEAT)} · 水冷 ${SA.Phys.fmtKw(x.cool)}${x.dryCool ? ` + 散热片 ${SA.Phys.fmtKw(x.dryCool)}` : ''} · ${x.overheat === Infinity ? '预计不达过热阈值' : `全力开火约 ${Math.round(x.overheat)} 秒后过热`}` },
-      { k: 'water', name: '水', pct: effW(x) / wScale, val: SA.Phys.fmtWater(x.water), note: `${x.tanks} 只水箱 · ${SA.Phys.fmtWater(x.water)}${x.waterSave < 1 ? ` · 冷凝回收后耗水 ×${f1(x.waterSave)}` : ''}` },
+      { k: 'water', name: '水', pct: effW(x) / wScale, val: SA.Phys.fmtWater(x.water), note: `${x.tanks} 只水箱 · ${SA.Phys.fmtWater(x.water)}${x.waterSave < 1 ? ` · 冷却耗水 ×${f1(x.waterSave)}` : ''}` },
       { k: 'hp', name: '耐久', pct: x.hp / Math.max(x.maxHp, 1), val: `${x.hp}`, note: `${x.hp}/${x.maxHp} · 火力 ${x.dps.toFixed(1)}/秒 · 综合评分 ${x.rating}` },
     ];
     const now = rows(s), nxt = preview ? rows(preview) : null;
@@ -213,8 +213,8 @@ SA.UI = (() => {
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '水'),
         h('div', { class: 'bar water' }, h('i', { style: `width:${pct(s.water, wScale)}` }),
           effWater > s.water ? h('b', { class: 'eff', style: `left:${pct(s.water, wScale)};width:${pct(effWater - s.water, wScale)}`, title: '省水：冷却耗水打折后等于多出来的水' }) : null)),
-      h('div', { class: 'bar-note' }, `${s.tanks} 只水箱 · ${SA.Phys.fmtWater(s.water)} · 额定产汽耗水 ${SA.Phys.fmtWater(s.steamWaterPerSec)}/s`,
-        s.waterSave < 1 ? h('span', { class: 'na-inline na-省水' }, ` · 冷凝回收后耗水 ×${f1(s.waterSave)}，等效约 ${SA.Phys.fmtWater(effWater)}（斜纹）`) : null),
+      h('div', { class: 'bar-note' }, `${s.tanks} 只水箱 · ${SA.Phys.fmtWater(s.water)}`,
+        s.waterSave < 1 ? h('span', { class: 'na-inline na-省水' }, ` · 冷却耗水 ×${f1(s.waterSave)}，等效约 ${SA.Phys.fmtWater(effWater)}（斜纹）`) : null),
       h('div', { class: 'bar-row' }, h('span', { class: 'name' }, '耐久'),
         h('div', { class: 'bar hp' }, h('i', { style: `width:${pct(s.hp, Math.max(s.maxHp, 1))}` }))),
       h('div', { class: 'bar-note' }, `${s.hp}/${s.maxHp} · 火力 ${s.dps.toFixed(1)}/秒 · 综合评分 ${s.rating}`,
@@ -426,7 +426,7 @@ SA.UI = (() => {
   function newAttrInfo(id, mt, v) {
     const m = SA.mod(id, mt), out = [];
     if (m.store) out.push(['储能', `蓄压容量 ${SA.Phys.fmtHeat(m.store)}：锅炉有富余时储存蒸汽能量，动力不够时最多补 ${SA.Phys.fmtKw(SA.K.BATTLE.STORE_RELEASE_PER_SEC)}。存量过半时被打爆会爆炸。`]);
-    if (m.waterSave) out.push(['省水', `全车闭式产汽与冷却耗水 ×${m.waterSave}（多个按乘积叠加，最低 ×${SA.K.WATER_SAVE_MIN}）；开放蒸汽喷射不回收。本身不储水。`]);
+    if (m.waterSave) out.push(['省水', `全车冷却耗水 ×${m.waterSave}（多个按乘积叠加，最低 ×${SA.K.WATER_SAVE_MIN}）；本身不储水。`]);
     if (m.dryCool) out.push(['不耗水散热', `温差达到 30°C 时额外散热 ${SA.Phys.fmtKw(m.dryCool)}，不用水。`]);
     if (m.tether) out.push(['牵引', `命中后挂上绳索，把对手往自己这边拉（收绳 ${m.tether}）；被拉过来撞上时反震从 ${Math.round(SA.K.RAM_SELF * 100)}% 降到 ${Math.round(SA.K.RAM_TETHER_SELF * 100)}%。绳子挂着时不能再发射。`]);
     if (!out.length) return null;

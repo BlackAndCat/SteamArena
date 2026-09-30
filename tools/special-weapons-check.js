@@ -9,6 +9,9 @@ const evolve = require('./evolve');
 /** 捕获生产画面接口，所有战斗状态仍由正式 battle.js 更新。 */
 function runtime() {
   const { SA, context } = evolve.loadGame();
+  // 无界面夹具仍使用真实像素 UI，供材料回归的设计模式退出路径调用。
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/ui-px.js'), 'utf8'), context, { filename: 'js/ui-px.js' });
+  context.document.documentElement.style.setProperty = () => {};
   const memory = new Map();
   context.localStorage = { getItem: key => memory.get(key) || null, setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) };
   let api;
