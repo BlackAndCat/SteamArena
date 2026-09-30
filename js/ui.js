@@ -136,6 +136,7 @@ SA.UI = (() => {
     bar.append(
       h('div', { class: 'side-title' }, '蒸汽', h('br'), '竞技场'),
       h('nav', { class: 'side-nav' },
+        has('garage') ? plate('home', 'flag', '院子', '铁匠铺', null) : null,
         has('garage') ? plate('garage', 'wrench', '车间', has('shop') ? '改装 · 商店' : '改装', fix ? `${fix} 项问题` : null, true) : null,
         plate('arena', 'swords', '出战', where, null)),
       h('div', { class: 'side-res' },

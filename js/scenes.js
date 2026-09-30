@@ -358,6 +358,7 @@ SA.Scenes = (() => {
       // 老汤姆打铁 + 远房亲戚在门口（和老汤姆对打的那一关，他在对面车里，这里只剩亲戚）
       const tomHere = !(opts && opts.storyKey === '0,2');
       spots(S.anvil[0], rot, MW, vw, 80, (x) => {
+        if (opts && opts.noCast) return;   // 主页面（js/home.js）用这张底图，人物由它自己画
         const ay = S.anvil[1] - oy, foot = ay + 17 - 34;   // 小人 40×40，身子底边在第 34 行，踩在地面 GE 上
         if (tomHere) {
           const up = strike < 0.55;

@@ -31,9 +31,7 @@ body.uilab { padding: 16px 20px 80px; overflow-y: auto; }
 
 /* ============ v3 像素件 ============ */
 .v3 { color: #2a1a05; font: 14px/1.5 SimSun, NSimSun, "Songti SC", serif; }
-.v3 canvas, .v3 .sk, .v3 i.g { image-rendering: pixelated; image-rendering: crisp-edges; }
-.v3 canvas { display: block; }
-.v3 canvas.n { display: inline-block; vertical-align: middle; }
+.v3 canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 .v3.sheet { padding: 22px 24px 30px; background: var(--px-desk) 0 0 / 256px 64px, #2e1b0f; }
 .v3 .h1 { font: 900 26px "Microsoft YaHei", sans-serif; letter-spacing: .15em; color: #2a1a05; }
 .v3 .h2 { font: 900 18px "Microsoft YaHei", sans-serif; letter-spacing: .15em; }
@@ -45,56 +43,4 @@ body.uilab { padding: 16px 20px 80px; overflow-y: auto; }
 .v3 .cap { display: block; font-size: 12px; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; margin-bottom: 8px; }
 .v3 .sec-t { display: flex; align-items: baseline; gap: 14px; margin: 26px 0 12px; }
 
-/* 九宫格皮肤：图在 ui-lab-px.js 里画好挂到 CSS 变量上 */
-.sk { border-style: solid; border-color: transparent; }
-.sk-iron { border-width: 12px; border-image: var(--sk-iron) 6 fill / 12px repeat; }
-.sk-ironIn { border-width: 8px; border-image: var(--sk-ironIn) 4 fill / 8px repeat; }
-.sk-brass { border-width: 8px; border-image: var(--sk-brass) 4 fill / 8px repeat; }
-.sk-brassDn { border-width: 8px; border-image: var(--sk-brassDn) 4 fill / 8px repeat; }
-.sk-ironBtn { border-width: 8px; border-image: var(--sk-ironBtn) 4 fill / 8px repeat; }
-.sk-ironBtnDn { border-width: 8px; border-image: var(--sk-ironBtnDn) 4 fill / 8px repeat; }
-.sk-fire { border-width: 8px; border-image: var(--sk-fire) 4 fill / 8px repeat; }
-.sk-flat { border-width: 8px; border-image: var(--sk-flat) 4 fill / 8px repeat; }
-.sk-paper { border-width: 12px; border-image: var(--sk-paper) 6 fill / 12px repeat; }
-.sk-paperOld { border-width: 12px; border-image: var(--sk-paperOld) 6 fill / 12px repeat; }
-.sk-kraft { border-width: 8px; border-image: var(--sk-kraft) 4 fill / 8px repeat; }
-.sk-green { border-width: 8px; border-image: var(--sk-green) 4 fill / 8px repeat; }
-.sk-wood { border-width: 10px; border-image: var(--sk-wood) 5 fill / 10px repeat; }
-.sk-board { border-width: 16px; border-image: var(--sk-board) 8 fill / 16px repeat; }
-.sk-stamp { border-width: 6px; border-image: var(--sk-stamp) 3 / 6px repeat; }
-.drop { filter: drop-shadow(4px 4px 0 rgba(7, 8, 12, .55)); }
-
-/* 按钮：主 = 黄铜 + 会转的齿轮；次 = 铁板 + 四颗黄铜铆钉；危险 = 炉火红；禁用 = 暗铁 */
-.pxb { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 1px 8px; min-height: 38px; font: bold 16px/1 SimSun, NSimSun, serif; letter-spacing: .1em; white-space: nowrap; background: none; }
-.pxb.pri { border-style: solid; border-color: transparent; border-width: 8px; border-image: var(--sk-brass) 4 fill / 8px repeat; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; }
-.pxb.sec { border-style: solid; border-color: transparent; border-width: 8px; border-image: var(--sk-ironBtn) 4 fill / 8px repeat; color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; }
-.pxb.dng { border-style: solid; border-color: transparent; border-width: 8px; border-image: var(--sk-fire) 4 fill / 8px repeat; color: #fff4e0; text-shadow: 2px 2px 0 #5c1a0e; }
-.pxb.off { border-style: solid; border-color: transparent; border-width: 8px; border-image: var(--sk-flat) 4 fill / 8px repeat; color: #6f7a8e; cursor: not-allowed; }
-.pxb.pri:active, .pxb.pri.dn { border-image: var(--sk-brassDn) 4 fill / 8px repeat; transform: translateY(2px); }
-.pxb.sec:active, .pxb.sec.dn { border-image: var(--sk-ironBtnDn) 4 fill / 8px repeat; transform: translateY(2px); }
-.pxb.sm { min-height: 30px; font-size: 12px; padding: 0 5px; gap: 5px; letter-spacing: .05em; }
-.pxb.big { min-height: 52px; font-size: 22px; padding: 2px 16px; letter-spacing: .25em; }
-.pxb i.g { width: 26px; height: 26px; flex: none; background: var(--gear-btn) 0 0 / 78px 26px no-repeat; }
-.pxb.sm i.g { width: 18px; height: 18px; background: var(--gear-small) 0 0 / 54px 18px no-repeat; }
-.pxb:hover i.g, .pxb.spin i.g { animation: gear3 .36s steps(3) infinite; }
-.pxb.sm:hover i.g, .pxb.sm.spin i.g { animation: gear3s .36s steps(3) infinite; }
-@keyframes gear3 { to { background-position: -78px 0; } }
-@keyframes gear3s { to { background-position: -54px 0; } }
-
-/* 小件 */
-.plate { display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; min-height: 30px; font: bold 16px SimSun, serif; letter-spacing: .15em; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; white-space: nowrap; }
-.ptag { display: inline-flex; align-items: stretch; height: 30px; white-space: nowrap; }
-.ptag > canvas { flex: none; }
-.ptag > .body { display: inline-flex; align-items: center; gap: 5px; padding: 0 2px; font-size: 12px; line-height: 1; margin-left: -8px; }
-.pstamp { display: inline-flex; align-items: center; gap: 4px; padding: 0 3px; color: #b8391b; font: bold 14px SimSun, serif; letter-spacing: .15em; white-space: nowrap; }
-.prow { display: grid; grid-template-columns: 44px auto 1fr; gap: 8px; align-items: center; }
-.prow .nm { font: bold 14px SimSun, serif; letter-spacing: .1em; }
-.bubble { position: absolute; z-index: 6; padding: 0 2px; font-size: 14px; line-height: 1.5; opacity: 0; transition: opacity .2s steps(2); pointer-events: none; max-width: 260px; }
-.bubble.on { opacity: 1; }
-.bubble .who { display: block; font: bold 12px SimSun, serif; color: #7a6448; letter-spacing: .15em; }
-.bubble b { color: #b8391b; }
-.bubble canvas.tl { position: absolute; bottom: -10px; }
-.hot { cursor: pointer; }
-.hot:hover { filter: brightness(1.18); }
-.chalk { color: #e8e3d2; font: 18px/1.5 KaiTi, STKaiti, serif; }
-.px-spark { position: absolute; width: 4px; height: 4px; opacity: 0; pointer-events: none; }
+/* 像素件（.px-*）的样式在 css/style.css「像素界面件」一节，和游戏共用 */

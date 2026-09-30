@@ -30,6 +30,14 @@ SA.PAL = {
   black: '#07080c',
 };
 
+// 界面专用色阶（界面重建 v3，2026-09-30 用户通过；只用在界面件上，场景和载具精灵不用）：
+// 纸 / 牛皮纸 = [描边, 暗, 旧黄, 固有, 亮]，黑板 = [暗, 固有, 亮]，蓝图纸 = [描边, 纸, 细格, 粗格, 线]
+SA.PAL.paper = ['#4a3a28', '#b59c6c', '#cdb887', '#decda3', '#efe4c6'];
+SA.PAL.kraft = ['#3b2418', '#8e6238', '#a97f4c', '#c09560', '#d8b27c'];
+SA.PAL.board = ['#161f1b', '#1d2823', '#25322c'];
+SA.PAL.blueprint = ['#0c2340', '#18406e', '#2d5c92', '#4a7cb4', '#dcecfb'];
+SA.PAL.ink = '#2a1a05';   // 纸上的墨字、黄铜上的刻字
+
 // 语义分类：UI 卡片/蓝图用的类别色；场景里模块靠自身造型辨认
 SA.CAT = {
   firepower: { name: '火力', plate: SA.PAL.brass[2], ink: SA.PAL.brass[0], ui: SA.PAL.brass[2] },

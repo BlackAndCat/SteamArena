@@ -1,4 +1,4 @@
-// 入口与页面切换：两个主页面 车间（garage）/ 出战（arena），外加战斗（battle）
+// 入口与页面切换：主页面 铁匠铺院子（home）+ 车间（garage）/ 出战（arena），外加战斗（battle）
 window.SA = window.SA || {};
 
 // 文本管理使用独立 locale JSON，其他 HTML5 游戏只需把 game 改成自己的标识即可复用。
@@ -17,17 +17,19 @@ SA.go = (name) => {
   SA.UI.topbar();
 };
 // 主导航：车间 / 出战。车间要打完第一场练习赛才开放；quiet：出战页先不弹章节开场（战后结算还要弹窗）
+// 主页面（院子）和车间一起开放：打完第一场练习赛以前只有出战页
 SA.nav = (name, arg, quiet) => {
   document.querySelector('#modal').hidden = true;
-  if (name === 'garage' && !SA.Camp.has('garage')) name = 'arena';
+  if ((name === 'garage' || name === 'home') && !SA.Camp.has('garage')) name = 'arena';
   if (name === 'arena') SA.Arena.open(arg, quiet);
+  else if (name === 'home') SA.Home.open();
   else SA.Editor.open(arg);
 };
 
 window.addEventListener('DOMContentLoaded', () => {
   SA.S.load();
   SA.Camp.backfill();
-  SA.nav(SA.Camp.has('garage') ? 'garage' : 'arena');
+  SA.nav(SA.Camp.has('garage') ? 'home' : 'arena');
   document.querySelector('#modal').addEventListener('pointerdown', (e) => {
     if (e.target.id === 'modal') SA.UI.closeModal();
   });
@@ -41,4 +43,4 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // 调试用：控制台输入 SA.reset() 重开存档
-SA.reset = () => { SA.S.reset(); SA.Story.reset(); SA.nav('garage'); };
+SA.reset = () => { SA.S.reset(); SA.Story.reset(); SA.nav('home'); };

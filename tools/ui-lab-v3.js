@@ -4,10 +4,10 @@
   const U = SA.UILAB, X = SA.PX, { h, D, money } = U, M = SA.MODULES, P = SA.PAL;
   X.init();
   const ab = (x, y, w, hh, ...kids) => h('div', { class: 'ab', style: `left:${x}px;top:${y}px;${w ? `width:${w}px;` : ''}${hh ? `height:${hh}px;` : ''}` }, ...kids);
-  const img = (cv, s = 2, style = '') => { const c = U.show(cv, s); if (style) c.style.cssText += style; return c; };
-  const num = (str, col = X.INK, sh) => { const c = img(X.num(str, col, { shadow: sh })); c.classList.add('n'); return c; };
-  const sk = (name, kids, style = '', cls = '') => h('div', { class: `sk sk-${name} ${cls}`, style }, kids);
-
+  const { img, num, sk, btn, plate, tag, matTag, stamp, rack, toggle, card, brackets, loop, underline, hand, dial } = X.ui;
+  const bubbleEl = (x, y, tailX) => X.ui.bubble(x, y, tailX);
+  const leverEl = (label, sub) => X.ui.lever(label, { sub });
+  const counter = () => X.ui.counter({ money: D.money, rep: D.rep, ingots: D.ingots[0][1] });
   // ---------- 桌面、砖墙：像素平铺底纹 ----------
   (() => {
     document.documentElement.style.setProperty('--px-desk', `url(${X.planks().toDataURL()})`);
@@ -16,102 +16,18 @@
     document.documentElement.style.setProperty('--px-brick', `url(${b.c.toDataURL()})`);
   })();
 
-  // ---------- 组件 ----------
-  function btn(label, o = {}) {
-    const kind = o.kind || 'sec';
-    return h('button', { class: `pxb ${kind} ${o.sm ? 'sm' : ''} ${o.big ? 'big' : ''} ${o.dn ? 'dn' : ''} ${o.spin ? 'spin' : ''}` }, kind === 'pri' && o.gear !== false ? h('i', { class: 'g' }) : null, h('span', {}, label));
-  }
-  const plate = (text, style = '') => h('span', { class: 'sk sk-brass plate', style }, text);
-  function tag(kids, color) {
-    return h('span', { class: 'ptag' }, img(X.tagHead()), h('span', { class: 'sk sk-kraft body' }, color ? h('i', { style: `width:6px;height:14px;background:${color};display:block` }) : null, kids));
-  }
-  const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
-  const matTag = (mt) => { const m = SA.MATS[mt]; return tag([num(ROMAN[mt]), h('span', {}, m.name), m.rank ? h('b', { class: 'red' }, m.rank) : null], m.chip); };
-  const stamp = (kids, style = '') => h('span', { class: 'sk sk-stamp pstamp', style }, kids);
-  // 齿条表：左边一只小齿轮推着一根带齿的条；棋盘点 = 装上以后多出来 / 少掉的部分；红竖线 = 上限
-  const RAMPS = { power: P.gauge, weight: P.iron.slice(1), speed: P.glass, heat: P.fire, water: P.water, hp: P.brass };
-  function rack(pct, o = {}) {
-    const W = o.w || 70, k = X.C(W, 11), L = W - 10, len = Math.round(Math.min(1, pct) * L), over = o.over;
-    const R4 = over ? P.fire : (RAMPS[o.k] || P.brass);
-    X.box(k, 6, 1, W - 6, 9, { o: P.dark[0], b: P.dark[1], l: P.iron[0], d: P.dark[0] }, true);
-    for (let x = 0; x < len; x++) { const xx = 8 + x; k.p(xx, 4, R4[3]); k.p(xx, 5, R4[2]); k.p(xx, 6, R4[1]); if (x % 3 === 1) k.p(xx, 3, R4[2]); }
-    if (len) { k.r(8 + len, 3, 1, 4, R4[0]); }
-    if (o.d) { const a = Math.round(Math.min(1, pct + Math.min(0, o.d)) * L), b = Math.round(Math.min(1, pct + Math.max(0, o.d)) * L), col = o.good === false ? P.fire[2] : P.gauge[2]; for (let x = a; x < b; x++) for (let y = 3; y < 7; y++) if ((x + y) % 2 === 0) k.p(8 + x, y, col); }
-    if (o.lim != null) { const lx = 8 + Math.round(o.lim * L); k.r(lx, 0, 1, 11, P.fire[1]); k.p(lx - 1, 0, P.fire[1]); k.p(lx + 1, 0, P.fire[1]); }
-    k.g.drawImage(X.gear(5, 7, X.RAMP.brass, len * 0.35), 0, 0);
-    return k.c;
-  }
+  // ---------- 组件：大部分在 js/ui-px.js（SA.PX.ui）；样机页只补读样例数据的 ----------
   function meter(g, o = {}) {
-    const bad = g.pct >= 1 && ['power', 'weight', 'heat'].includes(g.k);
-    const lim = g.k === 'power' ? U.facts().supply / Math.max(U.facts().demand, U.facts().supply) : null;
-    const good = g.delta ? (g.k === 'weight' || g.k === 'heat' ? g.delta < 0 : g.delta > 0) : true;
-    const val = String(g.val).replace(/\s/g, '').replace('km/h', 'km/h');
-    return h('div', { class: 'prow', style: `grid-template-columns:44px ${(o.w || 70) * 2}px 1fr;${o.light ? 'color:#e4e0d6;text-shadow:2px 2px 0 #0b0e15' : ''}` }, h('span', { class: 'nm' }, g.name),
-      img(rack(g.pct, { k: g.k, over: bad, d: g.delta, good, lim, w: o.w })),
-      h('span', { style: 'display:flex;gap:4px;align-items:center;justify-content:flex-end' }, num(val, bad ? X.RED : o.light ? '#e4e0d6' : X.INK, o.light ? P.dark[0] : undefined), g.delta ? num(g.delta > 0 ? '▲' : '▼', good ? P.gauge[1] : X.RED) : null));
+    const F = U.facts(), lim = g.k === 'power' ? F.supply / Math.max(F.demand, F.supply) : null;
+    return X.ui.meter(g, { ...o, lim });
   }
-  function counter() {
-    const s = String(D.money).padStart(5, '0'), N = s.length + 1, W = 9 + N * 8 + 4, k = X.C(W, 15);
-    X.box(k, 6, 0, W - 6, 15, X.RAMP.iron);
-    X.box(k, 9, 2, N * 8 + 1, 11, { o: P.dark[0], b: P.dark[0], l: P.dark[0], d: P.dark[0] });
-    ['£', ...s].forEach((ch, i) => {
-      const x = 10 + i * 8; const PR = X.RAMP.paper;
-      for (let y = 3; y < 12; y++) k.r(x, y, 7, 1, y === 3 || y === 11 ? PR.d : y === 4 || y === 10 ? PR.a : PR.l);
-      k.g.drawImage(X.num(ch, i ? X.INK : X.RED), x + 1, 4);
-    });
-    k.g.drawImage(X.gear(6, 8, X.RAMP.brass, 0.2), 0, 1);
-    const stars = h('span', { style: 'display:flex;gap:2px' }, [0, 1, 2, 3, 4].map(i => img(X.star(i < D.rep))));
-    return sk('iron', [img(k.c), stars, h('span', { style: 'display:flex;gap:4px;align-items:center' }, img(X.ingot()), num(`×${D.ingots[0][1]}`, '#e4e0d6', P.dark[0]))], 'display:inline-flex;gap:12px;align-items:center;padding:0 4px', 'drop');
-  }
-  // 换层旋钮：黄铜齿轮上一根指针，指向哪边就是哪层
-  function toggle(a, b, right) {
-    const k = X.C(15, 15); k.g.drawImage(X.gear(7, 9, X.RAMP.brass, 0.1), 0, 0);
-    const ex = right ? 13 : 1; X.line(k, 7, 7, ex, 3, P.dark[0]); X.line(k, 7, 8, ex, 4, P.dark[0]); k.r(6, 6, 3, 3, P.dark[0]); k.p(6, 6, P.iron[3]);
-    const lab = (t, on) => sk('paper', t, `padding:0 2px;font:bold 14px SimSun,serif;white-space:nowrap;${on ? '' : 'color:#9a845f'}`);
-    return sk('iron', [lab(a, !right), img(k.c, 2, 'cursor:pointer'), lab(b, right)], 'display:inline-flex;gap:6px;align-items:center;padding:0 2px');
-  }
-  function card(kids, style = '') { return h('div', { style: `position:relative;${style}` }, img(X.clip(), 2, 'position:absolute;left:14px;top:-12px;z-index:2'), sk('paper', kids, 'padding:4px 6px', 'drop')); }
   function part([id, mt, n, price], sel) {
     return h('div', { style: 'position:relative;width:112px' }, sk(sel ? 'paperOld' : 'paper', [
       h('div', { style: 'height:62px;display:grid;place-items:center' }, (() => { const c = U.show(U.mod(id, mt), 1); c.style.maxHeight = '60px'; c.style.maxWidth = '84px'; c.style.width = 'auto'; c.style.height = 'auto'; if (!n) c.style.opacity = '.55'; return c; })()),
-      h('div', { style: 'font:bold 12px SimSun,serif;text-align:center' }, (mt > 1 ? SA.MATS[mt].name : '') + M[id].name)], 'padding:2px 2px', 'drop'),
+      h('div', { style: 'font:bold 12px SimSun,serif;text-align:center' }, (mt > 1 ? SA.MATS[mt].name : '') + M[id].name)], 'padding:2px 2px', 'px-drop'),
     h('div', { style: 'position:absolute;right:-6px;top:-8px' }, n ? stamp(num(`×${n}`, X.RED), 'background:#efe4c6') : tag(num(money(price)))),
     sel ? brackets(112, 100) : null);
   }
-  // 黄铜角框：可以点 / 选中（四个角，像素）
-  function brackets(w, hh, col = P.brass[2]) {
-    const k = X.C(Math.round(w / 2), Math.round(hh / 2)), L = 5;
-    for (const [x, y, sx, sy] of [[0, 0, 1, 1], [k.w - 1, 0, -1, 1], [0, k.h - 1, 1, -1], [k.w - 1, k.h - 1, -1, -1]]) for (let i = 0; i < L; i++) { k.p(x + sx * i, y, col); k.p(x, y + sy * i, col); k.p(x + sx * i, y + sy, P.brass[0]); k.p(x + sx, y + sy * i, P.brass[0]); }
-    return img(k.c, 2, 'position:absolute;left:0;top:0;pointer-events:none');
-  }
-  function bubbleEl(x, y, tailX) {
-    const inner = h('span', {});
-    const b = h('div', { class: 'bubble', style: `left:${x}px;top:${y}px` }, sk('paper', inner, 'padding:2px 6px', 'drop'), img(X.tail(), 2, `left:${tailX}px`));
-    b.lastChild.classList.add('tl');
-    b.set = (who, html) => { inner.innerHTML = `<span class="who">${who}</span>${html}`; };
-    return b;
-  }
-  function leverEl(label, sub, pos = 0) {
-    const lv = img(X.lever(pos));
-    const box = h('div', { class: 'hot', style: 'display:flex;flex-direction:column;align-items:center;gap:4px' }, lv, plate(label, 'font-size:18px'), sub ? h('span', { class: 'cap', style: 'margin:0' }, sub) : null);
-    // 悬停：杆往前推（三帧）
-    const fr = [0, 0.5, 1].map(p => X.lever(p)); let t = null;
-    box.addEventListener('mouseenter', () => { let i = 0; clearInterval(t); t = setInterval(() => { i = Math.min(2, i + 1); lv.getContext('2d').clearRect(0, 0, 50, 58); lv.getContext('2d').drawImage(fr[i], 0, 0); if (i === 2) clearInterval(t); }, 70); });
-    box.addEventListener('mouseleave', () => { clearInterval(t); lv.getContext('2d').clearRect(0, 0, 50, 58); lv.getContext('2d').drawImage(fr[0], 0, 0); });
-    return box;
-  }
-  // 纸上的笔迹：红笔圈住 / 波浪下划线 / 注释箭头（都是像素）
-  const loop = (kids, w, hh, seed = 5, style = '') => h('span', { style: `position:relative;display:inline-block;${style}` }, kids, img(X.penLoop(w, hh, X.PEN, seed), 2, `position:absolute;left:50%;top:50%;margin-left:-${w}px;margin-top:-${hh}px;pointer-events:none`));
-  const underline = (kids, w, seed = 3) => h('span', { style: 'position:relative;display:inline-block' }, kids, img(X.penUnder(w, X.PEN, seed), 2, 'position:absolute;left:-4px;bottom:-9px;pointer-events:none'));
-  const hand = (text, size = 17, style = '') => h('span', { style: `font:${size}px/1.35 KaiTi,STKaiti,serif;color:${X.PEN};white-space:nowrap;${style}` }, text);
-  function dial(pct, label) {
-    const k = X.C(23, 23), c = 11.5;
-    for (let y = 0; y < 23; y++) for (let x = 0; x < 23; x++) { const d = Math.hypot(x + 0.5 - c, y + 0.5 - c); if (d > 11.3) continue; k.p(x, y, d > 10.3 ? P.brass[0] : d > 8.6 ? (x + y < 20 ? P.brass[3] : P.brass[1]) : d > 7.8 ? P.brass[0] : X.RAMP.paper.l); }
-    for (let i = 0; i <= 6; i++) { const a = (-135 + 270 * i / 6) * Math.PI / 180; k.p(Math.round(c - 0.5 + Math.sin(a) * 6.5), Math.round(c - 0.5 - Math.cos(a) * 6.5), X.INK); }
-    const a = (-135 + 270 * pct) * Math.PI / 180; X.line(k, 11, 11, 11 + Math.sin(a) * 6, 11 - Math.cos(a) * 6, X.RED); k.r(10, 10, 3, 3, P.brass[1]); k.p(10, 10, P.brass[3]);
-    return h('div', { style: 'display:grid;justify-items:center;gap:2px' }, img(k.c), label ? h('span', { class: 'small', style: 'font-weight:bold' }, label) : null);
-  }
-
   // ---------- 设计语言 + 小组件 ----------
   function lang() {
     const g6 = U.gauges('me'), F = U.facts();
@@ -121,7 +37,7 @@
     return h('div', { class: 'v3 sheet' },
       h('div', { class: 'row', style: 'align-items:stretch' },
         sk('paper', [h('div', { class: 'h1' }, '铁做底 · 铜能动 · 纸写字'),
-          h('div', { style: 'margin-top:6px;max-width:560px' }, '每样东西都是一张像素图：2 倍放大，一种像素大小；四阶色、左上光，没有渐变、圆角、模糊阴影，也不斜着放。', h('br'), h('b', { class: 'red' }, '黄铜 + 齿轮 = 能动手'), '：按钮里的齿轮、表上推齿条的小齿轮、钱数的计数器、换层旋钮、拉杆的扇形齿板。')], 'width:560px;padding:6px 10px', 'drop'),
+          h('div', { style: 'margin-top:6px;max-width:560px' }, '每样东西都是一张像素图：2 倍放大，一种像素大小；四阶色、左上光，没有渐变、圆角、模糊阴影，也不斜着放。', h('br'), h('b', { class: 'red' }, '黄铜 + 齿轮 = 能动手'), '：按钮里的齿轮、表上推齿条的小齿轮、钱数的计数器、换层旋钮、拉杆的扇形齿板。')], 'width:560px;padding:6px 10px', 'px-drop'),
         h('div', { style: 'display:grid;grid-template-columns:repeat(3,auto);gap:10px' },
           col('铁（底板）', sk('iron', '', 'width:96px;height:56px')), col('黄铜（能按）', sk('brass', '', 'width:96px;height:56px')), col('纸（写字）', sk('paper', '', 'width:96px;height:56px')),
           col('旧纸 / 海报', sk('paperOld', '', 'width:96px;height:56px')), col('牛皮纸（吊牌、档案夹）', sk('kraft', '', 'width:96px;height:56px')), col('黑板', sk('board', '', 'width:96px;height:56px')))),
@@ -143,26 +59,26 @@
         col('木箱 / 木柱', h('div', { style: 'display:flex;gap:18px;align-items:flex-end' }, img(X.crate()), img(X.post(60))))),
       h('div', { class: 'sec-t' }, h('span', { class: 'h2 onDark' }, '表'), h('span', { class: 'cap', style: 'margin:0' }, '小齿轮推齿条；棋盘点 = 装上以后（绿变好、红变差）；红竖线 = 上限；超了整条变红')),
       h('div', { class: 'row' },
-        sk('paper', h('div', { style: 'display:grid;gap:6px' }, g6.map(g => meter(g))), 'padding:4px 8px;width:340px', 'drop'),
+        sk('paper', h('div', { style: 'display:grid;gap:6px' }, g6.map(g => meter(g))), 'padding:4px 8px;width:340px', 'px-drop'),
         col('小表盘（战斗顶条用）', h('div', { style: 'display:flex;gap:16px' }, dial(0.82, '耐久'), dial(0.46, '热量'), dial(0.7, '水')))),
       h('div', { class: 'sec-t' }, h('span', { class: 'h2 onDark' }, '其余')),
       h('div', { class: 'row' },
         col('材料吊牌', h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;max-width:520px' }, [1, 2, 3, 4, 5, 6].map(matTag))),
         col('纸上的笔迹：红笔圈 / 下划线 / 注释箭头 + 手写字（替代纸上的红块和按钮）', sk('paper', h('div', { style: 'display:flex;gap:26px;align-items:center;padding:8px 6px' }, loop(h('b', { style: 'font-size:16px' }, '锅炉在车尾'), 54, 20, 11), underline(num('£220'), 30, 4),
-          h('span', { style: 'position:relative;display:inline-block;width:150px;height:40px' }, img(X.penArrow(30, 18, [[4, 1], [6, 14], [26, 14]]), 2, 'position:absolute;left:0;top:0'), h('span', { style: 'position:absolute;left:62px;top:14px' }, hand('能赢 £100！')))), '', 'drop')),
+          h('span', { style: 'position:relative;display:inline-block;width:150px;height:40px' }, img(X.penArrow(30, 18, [[4, 1], [6, 14], [26, 14]]), 2, 'position:absolute;left:0;top:0'), h('span', { style: 'position:absolute;left:62px;top:14px' }, hand('能赢 £100！')))), '', 'px-drop')),
         col('铁上的印章（车上、零件上）', h('div', { style: 'display:flex;gap:10px' }, stamp('待修', 'background:#efe4c6'), stamp('已胜', 'background:#efe4c6'))),
         col('零件卡：有货 / 选中（黄铜角框）/ 没货挂价签', h('div', { style: 'display:flex;gap:14px' }, part(['boiler_s', 1, 1, 90]), part(['armor', 2, 1, 29], true), part(['mortar_s', 1, 0, 140])))),
       h('div', { class: 'row' },
         col('提示卡（回形针）', card([h('b', {}, '小臼炮'), ' ', num('£140'), h('div', {}, '高抛，越过货箱砸顶。'), h('div', {}, '装上：', h('b', { style: 'color:#3f8f48' }, '火力▲'), ' ', h('b', { class: 'red' }, '动力▼'))], 'width:220px')),
-        col('提示条', sk('paper', [stamp('入库'), ' 缴获 熟铁锅炉'], 'display:inline-flex;align-items:center;gap:6px;padding:0 6px', 'drop'), sk('paper', [stamp('不行'), ' 这里悬空：下面要有车体'], 'display:inline-flex;align-items:center;gap:6px;padding:0 6px', 'drop')),
+        col('提示条', sk('paper', [stamp('入库'), ' 缴获 熟铁锅炉'], 'display:inline-flex;align-items:center;gap:6px;padding:0 6px', 'px-drop'), sk('paper', [stamp('不行'), ' 这里悬空：下面要有车体'], 'display:inline-flex;align-items:center;gap:6px;padding:0 6px', 'px-drop')),
         col('对话气泡', h('div', { style: 'position:relative;height:70px;width:230px' }, (() => { const b = bubbleEl(0, 0, 20); b.classList.add('on'); b.set('铁匠 老汤姆', '顶上<b>压块甲</b>再去。'); return b; })()))),
       h('div', { class: 'row' },
         col('确认 / 资金不足', sk('iron', [h('div', { style: 'display:flex;justify-content:center;margin-top:-4px' }, plate('伦敦蒸汽银行')), sk('paper', [h('div', {}, '升级要 ', num('£430'), ' 你有 ', num('£240'), ' 还差 ', num('£190', X.RED)), h('div', { class: 'small dim' }, '可以借 £200，每场锦标赛利息 10%')], 'margin-top:6px;padding:2px 6px'),
-          h('div', { style: 'display:flex;gap:10px;justify-content:flex-end;margin-top:8px' }, btn('算了', { sm: true }), btn('借钱升级', { kind: 'pri', sm: true }))], 'width:380px;padding:0 4px', 'drop')),
+          h('div', { style: 'display:flex;gap:10px;justify-content:flex-end;margin-top:8px' }, btn('算了', { sm: true }), btn('借钱升级', { kind: 'pri', sm: true }))], 'width:380px;padding:0 4px', 'px-drop')),
         col('缴获战利品：挑一件', sk('iron', [h('div', { style: 'display:flex;justify-content:center;margin-top:-4px' }, plate('战利品')), h('div', { style: 'display:flex;gap:14px;margin:12px 0 8px' }, part(['mortar_s', 1, 1, 0], true), part(['boiler_s', 2, 1, 0]), part(['armor', 2, 1, 0])),
-          h('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, stamp('唯一件', 'background:#efe4c6'), btn('拿走 小臼炮', { kind: 'pri', sm: true }))], 'padding:0 6px', 'drop')),
+          h('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, stamp('唯一件', 'background:#efe4c6'), btn('拿走 小臼炮', { kind: 'pri', sm: true }))], 'padding:0 6px', 'px-drop')),
         col('战斗顶条', sk('iron', [h('div', { style: 'display:grid;gap:4px' }, sk('paper', '你', 'padding:0 4px;justify-self:start;font-weight:bold;color:#2a1a05'), meter({ k: 'hp', name: '耐久', val: '1170', pct: .82 }, { w: 60, light: true }), meter({ k: 'heat', name: '热量', val: '46%', pct: .46 }, { w: 60, light: true })),
-          dial(0.4), h('div', { style: 'display:grid;gap:4px' }, sk('paper', '煤灰寡妇', 'padding:0 4px;justify-self:end;font-weight:bold;color:#2a1a05'), meter({ k: 'hp', name: '耐久', val: '880', pct: .64 }, { w: 60, light: true }), meter({ k: 'heat', name: '热量', val: '30%', pct: .3 }, { w: 60, light: true }))], 'display:flex;gap:14px;align-items:center;padding:0 6px;color:#e4e0d6', 'drop'))));
+          dial(0.4), h('div', { style: 'display:grid;gap:4px' }, sk('paper', '煤灰寡妇', 'padding:0 4px;justify-self:end;font-weight:bold;color:#2a1a05'), meter({ k: 'hp', name: '耐久', val: '880', pct: .64 }, { w: 60, light: true }), meter({ k: 'heat', name: '热量', val: '30%', pct: .3 }, { w: 60, light: true }))], 'display:flex;gap:14px;align-items:center;padding:0 6px;color:#e4e0d6', 'px-drop'))));
   }
 
   // ---------- 主页面：铁匠铺院子 ----------
@@ -177,7 +93,7 @@
     const who = {};
     const actor = (key, x, y, frame, flip) => {
       const cv = document.createElement('canvas'); cv.width = 56; cv.height = 56; cv.style.cssText = 'width:112px;height:112px;image-rendering:pixelated';
-      const box = h('div', { class: 'ab hot', style: `left:${x}px;top:${y}px;${flip ? 'transform:scaleX(-1)' : ''}` }, cv);
+      const box = h('div', { class: 'ab px-hot', style: `left:${x}px;top:${y}px;${flip ? 'transform:scaleX(-1)' : ''}` }, cv);
       who[key] = { box, set(f) { const g = cv.getContext('2d'); g.clearRect(0, 0, 56, 56); g.drawImage(f, 0, 0); } }; who[key].set(frame); return box;
     };
     const F_TOM = { up: C('铁匠 老汤姆', { pose: 'cheer', look: 1 }), hit: C('铁匠 老汤姆', { pose: 'point', look: 1 }), rest: C('铁匠 老汤姆', { pose: 'hold', look: 1 }), talk: C('铁匠 老汤姆', { pose: 'hold', look: -1, expr: 'happy' }), blink: C('铁匠 老汤姆', { pose: 'hold', look: 1, expr: 'blink' }) };
@@ -192,29 +108,29 @@
     const root = U.screen('v3',
       img(bgc, 2, 'position:absolute;left:-330px;top:-690px'),
       // 墙上的公报（点 = 看赛程）
-      ab(28, 96, 250, null, h('div', { class: 'hot' }, sk('paperOld', [
+      ab(28, 96, 250, null, h('div', { class: 'px-hot' }, sk('paperOld', [
         h('div', { class: 'h2', style: 'text-align:center;letter-spacing:.4em;border-bottom:2px solid #2a1a05;padding-bottom:2px' }, '蒸汽公报'),
         h('div', { class: 'red small', style: 'margin-top:4px;font-weight:bold' }, '今晚 · 白教堂后巷'),
         h('div', { style: 'font:bold 16px/1.35 SimSun,serif;margin:2px 0 6px' }, '后巷女王「煤灰寡妇」', h('br'), '迎战铁匠铺新人！'),
-        h('div', { style: 'display:flex;gap:8px;align-items:flex-end' }, sk('paper', U.show(U.engrave(U.coal(foe.pilot, { size: 'scene' }), [42, 26, 5], [184, 57, 27]), 2), 'padding:0;flex:none'), h('span', { class: 'small' }, '她专砸车顶，锅炉挂在车尾。', h('br'), h('b', { class: 'red' }, '→ 看赛程')))], 'padding:4px 8px', 'drop'))),
+        h('div', { style: 'display:flex;gap:8px;align-items:flex-end' }, sk('paper', U.show(U.engrave(U.coal(foe.pilot, { size: 'scene' }), [42, 26, 5], [184, 57, 27]), 2), 'padding:0;flex:none'), h('span', { class: 'small' }, '她专砸车顶，锅炉挂在车尾。', h('br'), h('b', { class: 'red' }, '→ 看赛程')))], 'padding:4px 8px', 'px-drop'))),
       // 道具
       ab(52, 562, null, null, img(X.crate())),
       ab(356, 546, null, null, U.show((() => { const k = X.C(34, 30); X.box(k, 10, 16, 14, 14, X.RAMP.wood); k.r(8, 13, 18, 4, P.dark[0]); k.r(9, 13, 16, 3, P.iron[2]); k.r(12, 9, 10, 5, P.dark[0]); k.r(13, 9, 8, 4, P.iron[1]); k.r(0, 4, 34, 6, P.dark[0]); k.r(1, 4, 32, 5, P.iron[2]); k.r(1, 4, 32, 1, P.iron[4]); k.r(27, 5, 6, 3, P.iron[3]); return k.c; })(), 2)),
       // 车（点 = 进改装台，2 倍 = 和人物、场景同一种像素大小）：黄铜角框 = 能点
-      ab(430, 606 - U.car('me').height * 2 - 10, U.car('me').width * 2 + 20, U.car('me').height * 2 + 20, h('div', { class: 'hot', style: 'position:relative;width:100%;height:100%;padding:10px' }, U.show(U.car('me'), 2), brackets(U.car('me').width * 2 + 20, U.car('me').height * 2 + 20), h('div', { style: 'position:absolute;left:24px;top:258px' }, stamp('动力不足', 'background:#efe4c6')))),
+      ab(430, 606 - U.car('me').height * 2 - 10, U.car('me').width * 2 + 20, U.car('me').height * 2 + 20, h('div', { class: 'px-hot', style: 'position:relative;width:100%;height:100%;padding:10px' }, U.show(U.car('me'), 2), brackets(U.car('me').width * 2 + 20, U.car('me').height * 2 + 20), h('div', { style: 'position:absolute;left:24px;top:258px' }, stamp('动力不足', 'background:#efe4c6')))),
       // 人物
       actor('rel', 40, 472, F_REL.idle), actor('tom', 250, 514, F_TOM.rest), actor('tim', 770, 514, F_TIM.work, true),
       sparks.map(s => ab(422, 552, null, null, s)), zz,
       bubbles.rel, bubbles.tom, bubbles.tim,
       // 顶上：计数器 + 设置
       ab(300, 14, null, null, counter()),
-      ab(1206, 14, null, null, h('button', { class: 'pxb sec', style: 'padding:0 2px', title: '设置' }, img(X.gear(6, 8, X.RAMP.brass, 0.1)))),
+      ab(1206, 14, null, null, h('button', { class: 'px-btn sec', style: 'padding:0 2px', title: '设置' }, img(X.gear(6, 8, X.RAMP.brass, 0.1)))),
       // 路标
       ab(PX, 150, null, null, img(post.c)), ab(PX - 4, 116, null, null, img(lamp.c)),
       signs.map(([t, dir, w, go], i) => { const y = 170 + i * 84, x = dir > 0 ? PX + 2 : PX - w * 2 + 18;
         const cv = X.sign(w, dir, go ? { o: '#2a0e06', d: P.fire[0], b: '#7e2a12', l: '#a8421c' } : X.RAMP.wood, 3 + i * 7);
         const lw = t.length * 11 + 14, lab = X.paperLabel(lw, 17, 5 + i);
-        return ab(x, y, w * 2, 52, h('div', { class: 'hot', style: 'position:relative;width:100%;height:100%' }, img(cv),
+        return ab(x, y, w * 2, 52, h('div', { class: 'px-hot', style: 'position:relative;width:100%;height:100%' }, img(cv),
           h('div', { style: `position:absolute;top:9px;${dir > 0 ? 'left:26px' : 'right:26px'};width:${lw * 2}px;height:34px` }, img(lab, 2, 'position:absolute;left:0;top:0'),
             h('span', { style: `position:absolute;inset:0;display:grid;place-items:center;font:900 19px "Microsoft YaHei",sans-serif;letter-spacing:.12em;color:${go ? X.PEN : '#2a1a05'}` }, t)))); }),
     );
@@ -266,7 +182,7 @@
       ab(346, 14, 600, null, h('div', { style: 'display:flex;gap:12px;align-items:center' }, plate('一号原型机'), toggle('主体', '侧挂'), btn('撤销', { sm: true }), btn('重做', { sm: true }), btn('蓝图柜', { sm: true }))),
       ab(958, 12, null, null, counter()),
       // 中：铁图板 + 蓝图 + 车
-      ab(bx - 32, by - 64, BW * 2 + 32, BH * 2 + 38, sk('iron', '', 'width:100%;height:100%', 'drop')),
+      ab(bx - 32, by - 64, BW * 2 + 32, BH * 2 + 38, sk('iron', '', 'width:100%;height:100%', 'px-drop')),
       ab(bx - 16, by - 44, null, null, img(bp.c)),
       ab(bx, by, null, null, U.show(cv, 2)),
       ab(bx + 90, by - 34, null, null, h('span', { style: 'font:bold 14px SimSun,serif;color:#dcecfb' }, `一号原型机 · 侧视 · 评分 ${F.rating}`)),
@@ -277,20 +193,20 @@
       ab(bx - 20, by + BH * 2 - 18, 360, null, h('div', { style: 'display:flex;align-items:stretch' }, img(X.tagHead(), 2, 'height:auto;align-self:flex-start;margin-top:8px'), sk('kraft', [
         h('div', { style: 'display:flex;gap:8px;align-items:center;font:bold 14px SimSun,serif' }, '工单 · 燃煤锅炉', matTag(1)),
         h('div', { class: 'small', style: 'margin:2px 0 6px' }, `耐久 ${M.boiler.hp}/${M.boiler.hp} · 供给 ${M.boiler.supply} · ${SA.tons ? SA.tons(M.boiler.kg) : ''}`),
-        h('div', { style: 'display:flex;gap:8px' }, btn('升熟铁 £78', { kind: 'pri', sm: true }), btn('加甲 £18', { sm: true }), btn('拆下', { kind: 'dng', sm: true }))], 'padding:0 6px;margin-left:-2px', 'drop'))),
+        h('div', { style: 'display:flex;gap:8px' }, btn('升熟铁 £78', { kind: 'pri', sm: true }), btn('加甲 £18', { sm: true }), btn('拆下', { kind: 'dng', sm: true }))], 'padding:0 6px;margin-left:-2px', 'px-drop'))),
       // 左：夹板上的性能单
       ab(16, 70, 296, null, h('div', { style: 'position:relative' }, sk('iron', sk('paper', [
         h('div', { class: 'h2', style: 'text-align:center;border-bottom:2px solid #2a1a05;margin-bottom:6px' }, '性能单'),
         h('div', { style: 'display:grid;gap:6px' }, g6.map(g => meter(g, { w: 44 }))),
         h('div', { class: 'small dim', style: 'margin-top:4px' }, '棋盘点 = 悬停的「竖式锅炉」装上以后'),
-        h('div', { style: 'border-top:2px solid #b8391b;margin-top:8px;padding-top:4px;display:flex;align-items:center;justify-content:space-between' }, h('b', { class: 'red' }, `动力不足 ${F.demand} > ${F.supply}`), btn('找到它', { sm: true }))], 'padding:4px 6px'), 'padding:14px 2px 0', 'drop'),
+        h('div', { style: 'border-top:2px solid #b8391b;margin-top:8px;padding-top:4px;display:flex;align-items:center;justify-content:space-between' }, h('b', { class: 'red' }, `动力不足 ${F.demand} > ${F.supply}`), btn('找到它', { sm: true }))], 'padding:4px 6px'), 'padding:14px 2px 0', 'px-drop'),
         img(X.bigClip(34), 2, 'position:absolute;left:114px;top:-6px'))),
       // 右：邮购目录 + 纸页签
       ab(1226, 88, 46, null, h('div', { style: 'display:grid;gap:6px' }, U.CATS.map(k => sk('paper', h('div', { style: `writing-mode:vertical-rl;font:bold 14px SimSun,serif;letter-spacing:.3em;display:flex;align-items:center;gap:4px;${k === 'energy' ? 'color:#b8391b' : ''}` }, h('i', { style: `width:8px;height:8px;background:${SA.CAT[k].plate}` }), SA.CAT[k].name), `padding:2px 0;${k === 'energy' ? 'margin-left:-8px' : ''}`)))),
       ab(962, 74, 264, null, sk('paper', [
         h('div', { style: 'display:flex;align-items:baseline;gap:8px' }, h('span', { class: 'h2', style: 'white-space:nowrap' }, '能源'), h('span', { class: 'small dim', style: 'white-space:nowrap' }, '邮购目录')),
         h('div', { style: 'display:flex;justify-content:flex-end;border-bottom:2px solid #2a1a05;padding-bottom:4px' }, toggle('有货', '全部', true)),
-        U.catItems('energy').map(x => row(x, x[0] === 'boiler_s'))], 'padding:2px 6px', 'drop')),
+        U.catItems('energy').map(x => row(x, x[0] === 'boiler_s'))], 'padding:2px 6px', 'px-drop')),
       // 悬停提示：指着目录里的竖式锅炉
       ab(760, 356, 190, null, card([h('b', {}, '竖式锅炉'), ' ', num('×1', X.RED), h('div', { class: 'small' }, `小锅炉，提供 ${M.boiler_s.supply} 点动力`), h('div', { class: 'small' }, h('b', { style: 'color:#3f8f48' }, `供给 ${F.supply}→${F.supply + M.boiler_s.supply}`), ' ', h('b', { class: 'red' }, `重 +${SA.tons ? SA.tons(M.boiler_s.kg) : ''}`))])),
       // 右下：拉杆
@@ -337,14 +253,14 @@
       h('div', { class: 'ab', style: 'inset:0;background:var(--px-brick) 0 0/64px 32px' }),
       h('div', { class: 'ab', style: 'left:0;right:0;bottom:0;height:34px;background:var(--px-desk) 0 0/256px 64px;border-top:4px solid #120a05' }),
       // 左：黑板
-      ab(18, 30, 316, 540, sk('board', h('div', { class: 'chalk', style: 'padding:2px 8px' },
+      ab(18, 30, 316, 540, sk('board', h('div', { class: 'px-chalk', style: 'padding:2px 8px' },
         h('div', { style: 'display:flex;gap:18px;font-size:16px;margin-bottom:10px' }, h('span', { style: 'border-bottom:2px solid #e8e3d2' }, '战役'), h('span', { style: 'opacity:.55' }, '街头赛')),
         h('div', { style: 'font-size:22px;border-bottom:2px solid rgba(232,227,210,.45);padding-bottom:2px;margin-bottom:6px' }, D.chapter),
         stages,
         h('div', { style: 'margin-top:16px;opacity:.4;font-size:16px' }, '下一章：码头区'),
         h('div', { style: 'margin-top:26px;font-size:18px;border-bottom:2px solid rgba(232,227,210,.45);padding-bottom:2px' }, '场地：货箱'),
         img(sketch.c, 2, 'margin-top:8px'),
-        h('div', { style: 'font-size:15px;margin-top:4px' }, h('span', { style: `color:${P.fire[2]}` }, '直射被挡'), '　', h('span', { style: `color:${P.fire[3]}` }, '高抛能过'))), 'height:100%', 'drop')),
+        h('div', { style: 'font-size:15px;margin-top:4px' }, h('span', { style: `color:${P.fire[2]}` }, '直射被挡'), '　', h('span', { style: `color:${P.fire[3]}` }, '高抛能过'))), 'height:100%', 'px-drop')),
       ab(18, 592, null, null, btn('← 回车间对症改装', { sm: true })),
       // 中：海报
       ab(356, 14, null, null, img(pk.c, 2, 'filter:drop-shadow(4px 4px 0 rgba(7,8,12,.55))')),
@@ -358,7 +274,7 @@
       ab(700, 616 - U.car('foe').height, null, null, (() => { const c = U.show(U.engrave(U.car('foe'), [42, 26, 5], [184, 57, 27]), 1); c.style.transform = 'scaleX(-1)'; return c; })()),
       ab(396, 624, 480, 30, h('div', { style: 'height:100%;display:flex;align-items:center;justify-content:center;gap:10px;color:#2a1a05;font:bold 16px SimSun,serif;letter-spacing:.1em' }, '奖金', underline(num(money(foe.prize)), 30, 4), '· 声望 +1 · 缴获一件')),
       // 右上：对手档案
-      ab(940, 22, 320, 262, sk('kraft', '', 'width:100%;height:100%', 'drop')),
+      ab(940, 22, 320, 262, sk('kraft', '', 'width:100%;height:100%', 'px-drop')),
       ab(952, 34, 296, null, sk('paper', [
         h('div', { style: 'display:flex;align-items:center;gap:8px;border-bottom:2px solid #2a1a05;padding-bottom:2px;margin-bottom:6px' }, h('span', { class: 'h2' }, '对手档案'), h('span', { style: 'margin-left:auto' }), underline(hand('Boss！', 20), 26, 6)),
         h('div', { style: 'display:grid;grid-template-columns:1fr 92px;gap:10px' },
@@ -376,8 +292,8 @@
         sk('green', [
           h('div', { style: 'text-align:center;font:bold 14px SimSun,serif;letter-spacing:.15em;border-bottom:2px solid #2e3a26;padding-bottom:2px' }, '伦敦蒸汽赛会 · 下注凭单'),
           h('div', { style: 'display:flex;align-items:center;gap:6px;margin:6px 0' }, '押 铁匠铺新人 · 赔率', num('2:1')),
-          h('div', { style: 'display:flex;gap:22px;align-items:center;font:bold 16px SimSun,serif;margin:8px 0 2px 6px' }, h('span', { class: 'hot' }, '□ 不下'), h('span', { class: 'hot' }, loop(['■ ', num('£50')], 42, 21, 13)), h('span', { class: 'hot' }, '□ ', num('£100'))),
-          h('div', { style: 'position:relative;height:40px' }, img(X.penArrow(30, 18, [[4, 1], [6, 14], [26, 14]]), 2, 'position:absolute;left:64px;top:-2px'), h('span', { style: 'position:absolute;left:128px;top:12px' }, hand('能赢 £100！', 17)))], 'flex:1;padding:2px 4px', 'drop'))),
+          h('div', { style: 'display:flex;gap:22px;align-items:center;font:bold 16px SimSun,serif;margin:8px 0 2px 6px' }, h('span', { class: 'px-hot' }, '□ 不下'), h('span', { class: 'px-hot' }, loop(['■ ', num('£50')], 42, 21, 13)), h('span', { class: 'px-hot' }, '□ ', num('£100'))),
+          h('div', { style: 'position:relative;height:40px' }, img(X.penArrow(30, 18, [[4, 1], [6, 14], [26, 14]]), 2, 'position:absolute;left:64px;top:-2px'), h('span', { style: 'position:absolute;left:128px;top:12px' }, hand('能赢 £100！', 17)))], 'flex:1;padding:2px 4px', 'px-drop'))),
       // 拉杆
       ab(1070, 516, null, null, leverEl('拉闸出战')),
     );

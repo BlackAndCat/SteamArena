@@ -1,6 +1,6 @@
-// 界面像素件（tools/ui-lab.html v3）：所有框、按钮、齿轮、数字都用代码逐像素画，放大 2 倍显示（全界面一种像素大小）。
+// 界面像素件（界面重建 v3，2026-09-30 用户通过；样机见 tools/ui-lab.html）：框、按钮、齿轮、数字、笔迹都用代码逐像素画，放大 2 倍显示（全界面一种像素大小）。
 // 规矩同 docs/art-style.md：四阶色 [描边, 暗, 固有, 亮]，左上光，不抗锯齿，不旋转，渐变用 Bayer 抖动。
-// 调色板用 SA.PAL；纸 / 牛皮纸 / 黑板 / 蓝图四组是界面新加的色阶（定了以后写进 js/palette.js）。
+// SA.PX = 画法（九宫格皮肤挂到 CSS 变量 --sk-*、齿轮、像素数字、木纹、笔迹……）；SA.PX.ui = 界面件（DOM，类名带 px- 前缀，样式在 css/style.css）。
 window.SA = window.SA || {};
 
 SA.PX = (() => {
@@ -8,15 +8,15 @@ SA.PX = (() => {
   const RAMP = {
     iron: { o: P.dark[0], d: P.iron[0], b: P.iron[1], l: P.iron[2], h: P.iron[3], hh: P.iron[4] },
     brass: { o: P.brass[0], d: P.brass[1], b: P.brass[2], l: P.brass[3] },
-    paper: { o: '#4a3a28', d: '#b59c6c', a: '#cdb887', b: '#decda3', l: '#efe4c6', s: '#c9b387' },
-    kraft: { o: P.leather[0], d: '#8e6238', b: '#c09560', l: '#d8b27c', s: '#a97f4c' },
+    paper: { o: P.paper[0], d: P.paper[1], a: P.paper[2], b: P.paper[3], l: P.paper[4], s: P.paper[2] },
+    kraft: { o: P.kraft[0], d: P.kraft[1], b: P.kraft[3], l: P.kraft[4], s: P.kraft[2] },
     wood: { o: '#1e120a', d: P.leather[0], b: P.leather[1], l: P.leather[2] },
     fire: { o: P.fire[0], d: '#8c2a14', b: P.fire[1], l: P.fire[2] },
     flat: { o: P.dark[0], d: P.dark[1], b: P.dark[2], l: P.dark[3] },
-    board: { o: P.dark[0], b: '#1d2823', l: '#25322c', d: '#161f1b' },
-    blue: { o: '#0c2340', b: '#18406e', m: '#1f4b7e', g: '#2d5c92', G: '#4a7cb4', ink: '#dcecfb' },
+    board: { o: P.dark[0], b: P.board[1], l: P.board[2], d: P.board[0] },
+    blue: { o: P.blueprint[0], b: P.blueprint[1], g: P.blueprint[2], G: P.blueprint[3], ink: P.blueprint[4] },
   };
-  const INK = '#2a1a05', RED = P.fire[1], CHALK = '#e8e3d2';
+  const INK = P.ink, RED = P.fire[1], CHALK = '#e8e3d2';
   const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const bay = (x, y) => (BAY[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
   const hash = (x, y, s = 1) => { let v = (x * 374761393 + y * 668265263 + s * 982451653) | 0; v = Math.imul(v ^ (v >>> 13), 1274126177); return ((v ^ (v >>> 16)) >>> 0) / 4294967296; };
@@ -199,8 +199,38 @@ SA.PX = (() => {
   // 五角星（声望）
   const STAR = ['...o...', '..ooo..', 'ooooooo', '.ooooo.', '..ooo..', '.oo.oo.', 'o.....o'];
   function star(on = true) { const k = C(7, 7); STAR.forEach((r, y) => { for (let x = 0; x < 7; x++) if (r[x] === 'o') k.p(x, y, on ? (y < 3 ? P.brass[3] : y < 5 ? P.brass[2] : P.brass[1]) : P.dark[2]); }); return k.c; }
-  // 乌兹钢锭
-  function ingot(col = '#8f55d6') { const k = C(11, 6); k.r(1, 0, 9, 1, P.dark[0]); k.r(0, 1, 11, 5, P.dark[0]); k.r(1, 1, 9, 4, col); k.r(2, 1, 7, 1, '#c8a4f0'); k.r(1, 4, 9, 1, '#5a2e96'); return k.c; }
+  // 材料锭：wootz = 乌兹钢锭（紫）/ aether = 以太结晶（青）
+  const INGOT = { wootz: ['#8f55d6', '#c8a4f0', '#5a2e96'], aether: ['#2fd6c4', '#a8f0ee', '#1f7a86'] };
+  function ingot(kind = 'wootz') { const [col, hi, lo] = INGOT[kind] || INGOT.wootz, k = C(11, 6); k.r(1, 0, 9, 1, P.dark[0]); k.r(0, 1, 11, 5, P.dark[0]); k.r(1, 1, 9, 4, col); k.r(2, 1, 7, 1, hi); k.r(1, 4, 9, 1, lo); return k.c; }
+  // 裁掉透明边
+  function trim(src) {
+    const g0 = src.getContext('2d', { willReadFrequently: true }), dd = g0.getImageData(0, 0, src.width, src.height).data;
+    let x0 = src.width, y0 = src.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (dd[(y * src.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) return src;
+    const k = C(x1 - x0 + 1, y1 - y0 + 1); k.g.drawImage(src, x0, y0, k.w, k.h, 0, 0, k.w, k.h); return k.c;
+  }
+  // 铜版画（报纸上的图）：明度拉伸后按档排横线，外轮廓和明暗交界描实线，火光套一点朱红
+  function engrave(src, ink = [42, 26, 5], accent = null) {
+    const w = src.width, hh = src.height, dd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, hh).data;
+    const k = C(w, hh), out = k.g.createImageData(w, hh), o = out.data;
+    const A = (x, y) => (x < 0 || y < 0 || x >= w || y >= hh) ? 0 : dd[(y * w + x) * 4 + 3] > 8;
+    const lum = (i) => (dd[i] * 0.3 + dd[i + 1] * 0.59 + dd[i + 2] * 0.11) / 255;
+    let lo = 1, hi = 0;
+    for (let i = 0; i < dd.length; i += 4) if (dd[i + 3] > 8) { const l = lum(i); if (l < lo) lo = l; if (l > hi) hi = l; }
+    const L = (x, y) => Math.pow((lum((y * w + x) * 4) - lo) / Math.max(0.05, hi - lo), 0.7);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4; if (!A(x, y)) continue;
+      const put = (col) => { o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = 255; };
+      if (accent && dd[i] > 200 && dd[i + 1] < 140 && dd[i + 2] < 90) { if ((x + y) % 2 === 0) put(accent); continue; }
+      const edge = !A(x - 1, y) || !A(x + 1, y) || !A(x, y - 1) || !A(x, y + 1);
+      const l = L(x, y), e = x + 1 < w && y + 1 < hh && A(x + 1, y) && A(x, y + 1) ? Math.max(Math.abs(l - L(x + 1, y)), Math.abs(l - L(x, y + 1))) : 0;
+      let on = edge || e > 0.28;
+      if (!on) { if (l < 0.18) on = y % 2 === 0 || x % 3 === 0; else if (l < 0.38) on = y % 2 === 0; else if (l < 0.6) on = y % 3 === 0; else if (l < 0.8) on = y % 4 === 0 && x % 2 === 0; }
+      if (on) put(ink);
+    }
+    k.g.putImageData(out, 0, 0); return k.c;
+  }
   // 回形针（黄铜丝）
   function clip() { const k = C(6, 15), B = RAMP.brass; const pts = ['.oooo.', 'o....o', 'o.oo.o', 'o.o..o', 'o.o..o', 'o.o..o', 'o.o..o', 'o.o..o', 'o.o..o', 'o.o..o', 'o.oo.o', 'o....o', 'o....o', '.o..o.', '..oo..']; pts.forEach((r, y) => { for (let x = 0; x < 6; x++) if (r[x] === 'o') k.p(x, y, x < 2 ? B.l : B.b); }); return k.c; }
   // 夹板的黄铜夹子
@@ -302,5 +332,138 @@ SA.PX = (() => {
     GEARS.small = gearStrip(4, 6, RAMP.brass, 3);
     root.style.setProperty('--gear-btn', `url(${GEARS.btn.url})`); root.style.setProperty('--gear-small', `url(${GEARS.small.url})`);
   }
-  return { S, RAMP, INK, RED, CHALK, PEN, P, C, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
+  return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
+})();
+
+// ---------- 界面件（DOM）：游戏和样机页共用。类名都带 px- 前缀，样式在 css/style.css「像素界面件」一节 ----------
+SA.PX.ui = (() => {
+  const X = SA.PX, P = SA.PAL;
+  // SA.h 在 js/ui.js 里；样机页不加载 ui.js，用这里的同款
+  const hh = (tag, props, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v; else if (k === 'style') el.style.cssText = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v);
+    }
+    for (const kid of kids.flat(Infinity)) { if (kid == null || kid === false) continue; el.append(kid instanceof Node ? kid : document.createTextNode(String(kid))); }
+    return el;
+  };
+  const h = (...a) => (SA.h || hh)(...a);
+  // 画布按 s 倍（默认 2）最近邻显示
+  function img(src, s = X.S, style = '') {
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    c.getContext('2d').drawImage(src, 0, 0);
+    c.className = 'px-img'; c.style.width = `${src.width * s}px`; c.style.height = `${src.height * s}px`;
+    if (style) c.style.cssText += style;
+    return c;
+  }
+  const num = (str, col = X.INK, sh) => { const c = img(X.num(str, col, { shadow: sh })); c.classList.add('px-n'); return c; };
+  const sk = (name, kids, style = '', cls = '') => h('div', { class: `px-sk px-sk-${name} ${cls}`, style }, kids);
+  // 按钮：pri = 黄铜 + 会转的齿轮；sec = 铁板 + 四颗黄铜铆钉；dng = 炉火红；off = 暗铁
+  function btn(label, o = {}) {
+    const kind = o.kind || 'sec';
+    return h('button', { type: 'button', class: `px-btn ${kind} ${o.sm ? 'sm' : ''} ${o.big ? 'big' : ''} ${o.dn ? 'dn' : ''} ${o.spin ? 'spin' : ''}`, onclick: o.onclick || null, title: o.title || null, disabled: kind === 'off' || null },
+      kind === 'pri' && o.gear !== false ? h('i', { class: 'g' }) : null, o.icon || null, label != null ? h('span', {}, label) : null);
+  }
+  const plate = (text, style = '') => h('span', { class: 'px-sk px-sk-brass px-plate', style }, text);
+  function tag(kids, color) {
+    return h('span', { class: 'px-tag' }, img(X.tagHead()), h('span', { class: 'px-sk px-sk-kraft body' }, color ? h('i', { style: `width:6px;height:14px;background:${color};display:block` }) : null, kids));
+  }
+  const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
+  const matTag = (mt) => { const m = SA.MATS[mt]; return tag([num(ROMAN[mt]), h('span', {}, m.name), m.rank ? h('b', { style: `color:${X.PEN}` }, m.rank) : null], m.chip); };
+  const stamp = (kids, style = '') => h('span', { class: 'px-sk px-sk-stamp px-stamp', style }, kids);
+  // 齿条表：小齿轮推着带齿的条；棋盘点 = 装上以后多出来 / 少掉的；红竖线 = 上限；超了整条变红
+  const RAMPS = { power: P.gauge, weight: P.iron.slice(1), speed: P.glass, heat: P.fire, water: P.water, hp: P.brass };
+  function rack(pct, o = {}) {
+    const W = o.w || 70, k = X.C(W, 11), L = W - 10, len = Math.round(Math.max(0, Math.min(1, pct)) * L);
+    const R4 = o.over ? P.fire : (RAMPS[o.k] || P.brass);
+    X.box(k, 6, 1, W - 6, 9, { o: P.dark[0], b: P.dark[1], l: P.iron[0], d: P.dark[0] }, true);
+    for (let x = 0; x < len; x++) { const xx = 8 + x; k.p(xx, 4, R4[3]); k.p(xx, 5, R4[2]); k.p(xx, 6, R4[1]); if (x % 3 === 1) k.p(xx, 3, R4[2]); }
+    if (len) k.r(8 + len, 3, 1, 4, R4[0]);
+    if (o.d) { const a = Math.round(Math.min(1, pct + Math.min(0, o.d)) * L), b = Math.round(Math.min(1, pct + Math.max(0, o.d)) * L), col = o.good === false ? P.fire[2] : P.gauge[2]; for (let x = a; x < b; x++) for (let y = 3; y < 7; y++) if ((x + y) % 2 === 0) k.p(8 + x, y, col); }
+    if (o.lim != null) { const lx = 8 + Math.round(o.lim * L); k.r(lx, 0, 1, 11, P.fire[1]); k.p(lx - 1, 0, P.fire[1]); k.p(lx + 1, 0, P.fire[1]); }
+    k.g.drawImage(X.gear(5, 7, X.RAMP.brass, len * 0.35), 0, 0);
+    return k.c;
+  }
+  // g = { k, name, val, pct, delta }；o = { w, lim, light }
+  function meter(g, o = {}) {
+    const bad = g.pct >= 1 && ['power', 'weight', 'heat'].includes(g.k);
+    const good = g.delta ? (g.k === 'weight' || g.k === 'heat' ? g.delta < 0 : g.delta > 0) : true;
+    const val = String(g.val).replace(/\s/g, '');
+    return h('div', { class: 'px-row', style: `grid-template-columns:44px ${(o.w || 70) * 2}px 1fr;${o.light ? 'color:#e4e0d6;text-shadow:2px 2px 0 #0b0e15' : ''}` }, h('span', { class: 'nm' }, g.name),
+      img(rack(g.pct, { k: g.k, over: bad, d: g.delta, good, lim: o.lim, w: o.w })),
+      h('span', { style: 'display:flex;gap:4px;align-items:center;justify-content:flex-end' }, num(val, bad ? X.RED : o.light ? '#e4e0d6' : X.INK, o.light ? P.dark[0] : undefined), g.delta ? num(g.delta > 0 ? '▲' : '▼', good ? P.gauge[1] : X.RED) : null));
+  }
+  // 计数器：齿轮带着纸字轮（钱）+ 声望星 + 材料锭；o = { money, rep, ingots（乌兹钢锭数）或 ingotList [[wootz|aether, 数]], onclick }
+  function counter(o) {
+    const s = String(Math.max(0, Math.round(o.money))).padStart(5, '0'), N = s.length + 1, W = 9 + N * 8 + 4, k = X.C(W, 15);
+    X.box(k, 6, 0, W - 6, 15, X.RAMP.iron);
+    X.box(k, 9, 2, N * 8 + 1, 11, { o: P.dark[0], b: P.dark[0], l: P.dark[0], d: P.dark[0] });
+    ['£', ...s].forEach((ch, i) => {
+      const x = 10 + i * 8, PR = X.RAMP.paper;
+      for (let y = 3; y < 12; y++) k.r(x, y, 7, 1, y === 3 || y === 11 ? PR.d : y === 4 || y === 10 ? PR.a : PR.l);
+      k.g.drawImage(X.num(ch, i ? X.INK : X.RED), x + 1, 4);
+    });
+    k.g.drawImage(X.gear(6, 8, X.RAMP.brass, 0.2), 0, 1);
+    const stars = h('span', { style: 'display:flex;gap:2px' }, [0, 1, 2, 3, 4].map(i => img(X.star(i < o.rep))));
+    const list = o.ingotList || (o.ingots ? [['wootz', o.ingots]] : []);
+    return sk('iron', [img(k.c), stars, list.map(([kind, n]) => h('span', { style: 'display:flex;gap:4px;align-items:center' }, img(X.ingot(kind)), num(`×${n}`, '#e4e0d6', P.dark[0])))],
+      `display:inline-flex;gap:12px;align-items:center;padding:0 4px;${o.onclick ? 'cursor:pointer' : ''}`, 'px-drop');
+  }
+  // 换层旋钮：黄铜齿轮上一根指针，指向哪边就是哪边
+  function toggle(a, b, right, onclick) {
+    const k = X.C(15, 15); k.g.drawImage(X.gear(7, 9, X.RAMP.brass, 0.1), 0, 0);
+    const ex = right ? 13 : 1; X.line(k, 7, 7, ex, 3, P.dark[0]); X.line(k, 7, 8, ex, 4, P.dark[0]); k.r(6, 6, 3, 3, P.dark[0]); k.p(6, 6, P.iron[3]);
+    const lab = (t, on) => sk('paper', t, `padding:0 2px;font:bold 14px SimSun,serif;white-space:nowrap;${on ? '' : 'color:#9a845f'}`);
+    const el = sk('iron', [lab(a, !right), img(k.c, X.S, 'cursor:pointer'), lab(b, right)], 'display:inline-flex;gap:6px;align-items:center;padding:0 2px');
+    if (onclick) { el.style.cursor = 'pointer'; el.addEventListener('click', onclick); }
+    return el;
+  }
+  const card = (kids, style = '') => h('div', { style: `position:relative;${style}` }, img(X.clip(), X.S, 'position:absolute;left:14px;top:-12px;z-index:2'), sk('paper', kids, 'padding:4px 6px', 'px-drop'));
+  // 黄铜角框：能点 / 选中
+  function brackets(w, hh2, col = P.brass[2]) {
+    const k = X.C(Math.round(w / 2), Math.round(hh2 / 2)), L = 5;
+    for (const [x, y, sx, sy] of [[0, 0, 1, 1], [k.w - 1, 0, -1, 1], [0, k.h - 1, 1, -1], [k.w - 1, k.h - 1, -1, -1]]) for (let i = 0; i < L; i++) { k.p(x + sx * i, y, col); k.p(x, y + sy * i, col); k.p(x + sx * i, y + sy, P.brass[0]); k.p(x + sx, y + sy * i, P.brass[0]); }
+    return img(k.c, X.S, 'position:absolute;left:0;top:0;pointer-events:none');
+  }
+  // 对话气泡（纸 + 尾巴）：b.set(说话人, html)，加 .on 显示
+  function bubble(x, y, tailX) {
+    const inner = h('span', {});
+    const b = h('div', { class: 'px-bubble', style: `left:${x}px;top:${y}px` }, sk('paper', inner, 'padding:2px 6px', 'px-drop'), img(X.tail(), X.S, `left:${tailX}px`));
+    b.lastChild.classList.add('tl');
+    b.set = (who, html) => { inner.innerHTML = `<span class="who">${who}</span>${html}`; };
+    return b;
+  }
+  // 调速杆：悬停往前推（三帧）
+  function lever(label, o = {}) {
+    const lv = img(X.lever(0));
+    const box = h('div', { class: 'px-hot', style: 'display:flex;flex-direction:column;align-items:center;gap:4px', onclick: o.onclick || null, title: o.title || null }, lv, plate(label, 'font-size:18px'), o.sub ? h('span', { class: 'px-cap' }, o.sub) : null);
+    const fr = [0, 0.5, 1].map(p => X.lever(p)); let t = null;
+    const draw = (f) => { const g = lv.getContext('2d'); g.clearRect(0, 0, lv.width, lv.height); g.drawImage(f, 0, 0); };
+    box.addEventListener('mouseenter', () => { let i = 0; clearInterval(t); t = setInterval(() => { i = Math.min(2, i + 1); draw(fr[i]); if (i === 2) clearInterval(t); }, 70); });
+    box.addEventListener('mouseleave', () => { clearInterval(t); draw(fr[0]); });
+    return box;
+  }
+  // 纸上的笔迹：红笔圈 / 波浪下划线 / 手写字
+  const loop = (kids, w, hh2, seed = 5, style = '') => h('span', { style: `position:relative;display:inline-block;${style}` }, kids, img(X.penLoop(w, hh2, X.PEN, seed), X.S, `position:absolute;left:50%;top:50%;margin-left:-${w}px;margin-top:-${hh2}px;pointer-events:none`));
+  const underline = (kids, w, seed = 3) => h('span', { style: 'position:relative;display:inline-block' }, kids, img(X.penUnder(w, X.PEN, seed), X.S, 'position:absolute;left:-4px;bottom:-9px;pointer-events:none'));
+  const hand = (text, size = 17, style = '') => h('span', { class: 'px-hand', style: `font-size:${size}px;${style}` }, text);
+  function dial(pct, label) {
+    const k = X.C(23, 23), c = 11.5;
+    for (let y = 0; y < 23; y++) for (let x = 0; x < 23; x++) { const d = Math.hypot(x + 0.5 - c, y + 0.5 - c); if (d > 11.3) continue; k.p(x, y, d > 10.3 ? P.brass[0] : d > 8.6 ? (x + y < 20 ? P.brass[3] : P.brass[1]) : d > 7.8 ? P.brass[0] : X.RAMP.paper.l); }
+    for (let i = 0; i <= 6; i++) { const a = (-135 + 270 * i / 6) * Math.PI / 180; k.p(Math.round(c - 0.5 + Math.sin(a) * 6.5), Math.round(c - 0.5 - Math.cos(a) * 6.5), X.INK); }
+    const a = (-135 + 270 * pct) * Math.PI / 180; X.line(k, 11, 11, 11 + Math.sin(a) * 6, 11 - Math.cos(a) * 6, X.RED); k.r(10, 10, 3, 3, P.brass[1]); k.p(10, 10, P.brass[3]);
+    return h('div', { style: 'display:grid;justify-items:center;gap:2px' }, img(k.c), label ? h('span', { style: 'font:bold 12px SimSun,serif' }, label) : null);
+  }
+  // 路标：木牌（go = 刷红漆）+ 贴一张纸条写字；dir = 1 朝右 / -1 朝左
+  const RED_WOOD = { o: '#2a0e06', d: P.fire[0], b: '#7e2a12', l: '#a8421c' };
+  function sign(text, dir, w, o = {}) {
+    const lw = [...text].length * 11 + 14;
+    return h('div', { class: 'px-hot', style: `position:relative;width:${w * 2}px;height:52px`, onclick: o.onclick || null, title: o.title || null },
+      img(X.sign(w, dir, o.go ? RED_WOOD : X.RAMP.wood, o.seed || 3)),
+      h('div', { style: `position:absolute;top:9px;${dir > 0 ? 'left:26px' : 'right:26px'};width:${lw * 2}px;height:34px` }, img(X.paperLabel(lw, 17, (o.seed || 3) + 2), X.S, 'position:absolute;left:0;top:0'),
+        h('span', { class: 'px-sign-t', style: o.go ? `color:${X.PEN}` : '' }, text)));
+  }
+  return { h, img, num, sk, btn, plate, tag, matTag, stamp, rack, meter, counter, toggle, card, brackets, bubble, lever, loop, underline, hand, dial, sign, RED_WOOD };
 })();
