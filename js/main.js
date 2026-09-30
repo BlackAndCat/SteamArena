@@ -2,7 +2,7 @@
 window.SA = window.SA || {};
 
 // 文本管理使用独立 locale JSON，其他 HTML5 游戏只需把 game 改成自己的标识即可复用。
-SA.Text.init({ game: 'steam-arena', locale: 'zh-CN' });
+SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', page: 'main' });
 
 // 版本标记：系统和视觉分别维护，控制台输入 SA.BUILD 可同时核对两条基线。
 SA.BUILD = [SA.BUILD_SYS, SA.BUILD_VIS].filter(Boolean).join(' / ');

@@ -91,15 +91,148 @@ function surrenderCheck() {
 }
 
 /** 文本管理的真实客户端加载到无 DOM 的环境，HTTP 替身模拟刷新、错误与请求延迟。 */
-async function textContext(memory, fetch) {
+async function textContext(memory, fetch, capabilities = {}) {
   const game = evolve.loadGame();
   Object.assign(game.context, { fetch, localStorage: { getItem: key => memory.get(key) || null,
-    setItem: (key, value) => memory.set(key, value) } });
+    setItem: (key, value) => memory.set(key, value) }, ...capabilities });
   game.context.document.readyState = 'loading'; game.context.document.body = null;
   vm.runInContext(source('text-manager.js'), game.context);
   vm.runInContext(source('story.js'), game.context);
   game.SA.Text.init(); await game.SA.Text.ready;
   return game.SA;
+}
+
+/** 模拟真实文件句柄协议与 IndexedDB，检查选择一次、自动保存、刷新及失败草稿。 */
+async function directFileSaveCheck() {
+  const memory = new Map(), handles = new Map();
+  let content = JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN', values: { 'file-probe': '文件原稿', 'file-only': '应保留' }, removedElements: [] });
+  let permission = 'granted', permissionOnRequest = null, writeFails = false, release = null, pickerCalls = 0, abortNextPut = false;
+  const handle = {
+    name: 'zh-CN.json',
+    async queryPermission() { return permission; },
+    async requestPermission() { return permissionOnRequest || permission; },
+    async getFile() { return { text: async () => content }; },
+    async createWritable() {
+      if (writeFails) throw new Error('磁盘写入失败');
+      let pending;
+      return { async write(text) { pending = text; }, async close() {
+        if (release) await release.promise;
+        content = pending;
+      } };
+    },
+  };
+  const indexedDB = { open() {
+    const request = { result: { createObjectStore() {}, close() {}, transaction() {
+      const tx = { objectStore() { return {
+        get(key) { const item = { result: handles.get(key) }; queueMicrotask(() => { item.onsuccess(); tx.oncomplete(); }); return item; },
+        put(value, key) { const item = { result: key }; queueMicrotask(() => {
+          item.onsuccess();
+          if (abortNextPut) { abortNextPut = false; tx.onabort(); }
+          else { handles.set(key, value); tx.oncomplete(); }
+        }); return item; },
+      }; } }; return tx;
+    } } };
+    queueMicrotask(() => { request.onupgradeneeded?.(); request.onsuccess(); });
+    return request;
+  } };
+  const capabilities = { indexedDB, showSaveFilePicker: async () => { pickerCalls++; return handle; } };
+  const fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+  let SA = await textContext(memory, fetch, capabilities);
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '文件原稿', '首次选择覆盖了既有文件');
+  SA.Text.set('file-probe', '首次直写');
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '首次直写');
+  assert.strictEqual(JSON.parse(content).values['file-only'], '应保留');
+  assert.strictEqual(pickerCalls, 1);
+  SA.Text.set('file-probe', '自动写入');
+  await new Promise(resolve => setTimeout(resolve, 350));
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '自动写入');
+  assert.strictEqual(pickerCalls, 1, '后续编辑重新打开了文件选择器');
+  const refreshedMemory = new Map();
+  SA = await textContext(refreshedMemory, fetch, capabilities);
+  assert.strictEqual(SA.Text.get('file-probe'), '自动写入', '刷新未优先读取文件句柄');
+  SA.Text.set('file-probe', '旧请求');
+  release = {}; release.promise = new Promise(resolve => { release.resolve = resolve; });
+  const first = SA.Text.save(); await new Promise(resolve => setImmediate(resolve));
+  SA.Text.set('file-probe', '新请求'); const second = SA.Text.save();
+  release.resolve(); release = null;
+  assert.strictEqual((await first).pending, true);
+  assert.strictEqual((await second).pending, false);
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '新请求');
+  SA.Text.reset();
+  assert((await SA.Text.save()).ok);
+  assert.deepStrictEqual(JSON.parse(content).values, {}, '清除覆盖没有写入空文件覆盖');
+  writeFails = true; SA.Text.set('file-probe', '失败草稿');
+  assert.strictEqual((await SA.Text.save()).ok, false);
+  assert.strictEqual(JSON.parse(refreshedMemory.get('sa-text-steam-arena-zh-CN')).values['file-probe'], '失败草稿');
+  writeFails = false; permission = 'denied';
+  SA = await textContext(refreshedMemory, fetch, capabilities);
+  assert.strictEqual(SA.Text.get('file-probe'), '失败草稿', '无权限时丢失草稿');
+  assert.strictEqual((await SA.Text.save()).ok, false);
+  assert.deepStrictEqual(JSON.parse(content).values, {}, '拒绝授权后仍写入文件');
+  permission = 'prompt'; permissionOnRequest = 'granted';
+  content = JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN', values: { 'file-probe': '待授权文件' }, removedElements: [] });
+  SA = await textContext(new Map(), fetch, capabilities);
+  assert.strictEqual(SA.Text.get('file-probe'), '', '刷新时未经用户操作读取了待授权文件');
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(SA.Text.get('file-probe'), '待授权文件', '重新授权后空草稿覆盖了文件');
+  assert.strictEqual(pickerCalls, 1, '重新授权时不应重新选择文件');
+  permission = 'granted'; permissionOnRequest = null; content = '{无效 JSON';
+  SA = await textContext(new Map(), fetch, capabilities);
+  assert.strictEqual(SA.Text.get('file-probe'), '', '损坏文件不应覆盖本机草稿');
+  SA.Text.set('file-probe', '重选后的内容');
+  assert.strictEqual((await SA.Text.save()).ok, false, '损坏文件被直接覆盖');
+  assert.strictEqual(content, '{无效 JSON');
+  content = JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN', values: {}, removedElements: [] });
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '重选后的内容');
+  assert.strictEqual(pickerCalls, 3, '损坏文件未允许重新选择');
+  handles.clear(); abortNextPut = true;
+  SA = await textContext(new Map(), fetch, capabilities);
+  SA.Text.set('file-probe', '事务中止仍写文件');
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(handles.size, 0, '中止的 IndexedDB 事务被误认为已经提交');
+  assert.strictEqual(JSON.parse(content).values['file-probe'], '事务中止仍写文件');
+  content = JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN',
+    values: { draft: '文件旧值', keep: '文件独有' }, removedElements: ['旧元素'] });
+  SA = await textContext(new Map(), fetch, capabilities);
+  SA.Text.set('draft', '草稿优先');
+  assert((await SA.Text.save()).ok);
+  assert.deepStrictEqual(JSON.parse(content).values, { draft: '草稿优先', keep: '文件独有' });
+  assert.deepStrictEqual(JSON.parse(content).removedElements, ['旧元素']);
+  handles.clear();
+  SA = await textContext(new Map(), fetch, capabilities);
+  SA.Text.reset(); SA.Text.set('only', '清除后的新字');
+  assert((await SA.Text.save()).ok);
+  assert.deepStrictEqual(JSON.parse(content).values, { only: '清除后的新字' }, '清除后编辑又复活旧文件');
+  assert.deepStrictEqual(JSON.parse(content).removedElements, []);
+  handles.clear(); content = '{损坏 JSON';
+  const badMemory = new Map(); SA = await textContext(badMemory, fetch, capabilities);
+  SA.Text.set('draft', '坏文件前草稿');
+  assert.strictEqual((await SA.Text.save()).ok, false);
+  assert.strictEqual(content, '{损坏 JSON', '损坏文件被覆盖');
+  assert.strictEqual(JSON.parse(badMemory.get('sa-text-steam-arena-zh-CN')).dirty, true);
+  handles.clear(); content = '';
+  SA = await textContext(new Map(), fetch, capabilities);
+  SA.Text.set('new', '空文件正常');
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(JSON.parse(content).values.new, '空文件正常');
+  handles.clear();
+  content = JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN', values: { legacy: '旧 v1 文件' } });
+  SA = await textContext(new Map(), fetch, capabilities);
+  assert((await SA.Text.save()).ok);
+  assert.strictEqual(JSON.parse(content).values.legacy, '旧 v1 文件', '缺少 removedElements 的 v1 文件被拒绝');
+  handles.clear(); content = 'null';
+  const nullMemory = new Map(); SA = await textContext(nullMemory, fetch, capabilities);
+  SA.Text.set('draft', '非对象文件前草稿');
+  assert.strictEqual((await SA.Text.save()).ok, false);
+  assert.strictEqual(content, 'null', '非空 JSON null 被误当成空新文件');
+  assert.strictEqual(JSON.parse(nullMemory.get('sa-text-steam-arena-zh-CN')).dirty, true);
+  return { oneSelection: true, autoSave: true, reload: true, sequentialSaves: true, clearOverlays: true, failedDraft: true,
+    deniedPermission: true, reauthorizedRead: true, brokenFileReselect: true, abortedHandleTransaction: true,
+    existingFilePreserved: true, dirtyDraftMerged: true, resetIntentPreserved: true, badFileBlocked: true,
+    emptyFileCreated: true, legacyFileAccepted: true, nonObjectBlocked: true };
 }
 
 /** 验证结构化文案不污染默认剧情；文件加载、离线草稿、保存失败和连续 Ctrl+S 共用同一协议。 */
@@ -151,7 +284,7 @@ async function storyCheck() {
   return { sceneCount: D.list().length, metadataPreserved: true, reload: true, offlineDraft: true, sequentialSaves: true };
 }
 
-async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck() }; }
+async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck(), directFile: await directFileSaveCheck() }; }
 if (require.main === module) run().then(result => console.log(JSON.stringify(result, null, 2))).catch(error => {
   console.error(error.stack || error.message); process.exitCode = 1;
 });

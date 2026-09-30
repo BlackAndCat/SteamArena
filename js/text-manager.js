@@ -33,6 +33,7 @@ SA.Text = (() => {
   const listeners = new Set();
   let editing = false;
   let dirty = false;
+  let resetPending = false;
   let started = false;
   let loaded = false;
   let scanTimer = 0;
@@ -46,7 +47,8 @@ SA.Text = (() => {
   let saves = Promise.resolve(); // 同页的连续保存按顺序写入，防止旧请求覆盖新稿。
   let fileHandle = null;
   let filePermission = false;
-  let fileLoadPending = null;
+  let fileReadPending = false;
+  let fileLoadError = '';
   let autoSaveTimer = 0;
   let changeRevision = 0;
   let readyResolve;
@@ -113,8 +115,10 @@ SA.Text = (() => {
   }
 
   function entryValue(entry) {
+    const oldPathKey = entry.auto && !entry.semantic ? uniqueOldPathKey(entry.key, Object.keys(values), 'dom:') : null;
     return entry.key in values ? values[entry.key]
-      : entry.legacyKey && entry.legacyKey in values ? values[entry.legacyKey]
+      : oldPathKey ? values[oldPathKey]
+        : entry.legacyKey && entry.legacyKey in values ? values[entry.legacyKey]
         : entry.semantic && keyEntries.get(entry.key)?.size && Array.from(keyEntries.get(entry.key)).some(item => item.explicit)
           ? get(entry.key, entry.fallback) : entry.fallback;
   }
@@ -182,10 +186,22 @@ SA.Text = (() => {
   const legacyTextKey = (el, index) => `dom:${elementPath(el)}::text:${index}`;
   const legacyAttrKey = (el, attr) => `dom:${elementPath(el)}::attr:${attr}`;
 
+  // 稳定页面 ID 只用于覆盖路径；旧入口路径仅在相同画面和元素后缀唯一时读取，避免误套其他页面。
+  function uniqueOldPathKey(current, candidates, prefix = '') {
+    if (!config.page) return null;
+    const scoped = current.slice(prefix.length);
+    const marker = scoped.indexOf('::screen:') >= 0 ? scoped.indexOf('::screen:') : scoped.indexOf('::global::');
+    if (marker < 0) return null;
+    const suffix = scoped.slice(marker);
+    const matches = candidates.filter(candidate => candidate.startsWith(prefix) && candidate !== current
+      && candidate.slice(prefix.length, candidate.length - suffix.length).startsWith('/') && candidate.endsWith(suffix));
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   // #screen 与弹窗按游戏页面隔离；侧栏等公共区域属于全局，避免同构重绘误删别页。
   function removalPath(el) {
     const screen = el.closest('#screen, #modal') ? `screen:${document.body.dataset.screen || ''}` : 'global';
-    return `${location.pathname}::${screen}::${elementPath(el, true)}`;
+    return `${config.page || location.pathname}::${screen}::${elementPath(el, true)}`;
   }
 
   function canRemove(el) {
@@ -211,7 +227,9 @@ SA.Text = (() => {
   function applyRemoved() {
     if (!removedElements.size) return;
     for (const el of document.body.querySelectorAll('*')) {
-      if (canRemove(el) && removedElements.has(removalPath(el))) hideElement(el);
+      if (!canRemove(el)) continue;
+      const path = removalPath(el);
+      if (removedElements.has(path) || uniqueOldPathKey(path, [...removedElements])) hideElement(el);
     }
   }
 
@@ -473,20 +491,112 @@ SA.Text = (() => {
     const saveButton = toolbar.querySelector('[data-text-action="save"]');
     toggleButton.textContent = editing ? '完成编辑' : '开启编辑';
     saveButton.disabled = !dirty && !!fileHandle && filePermission;
-    saveButton.textContent = fileHandle ? '保存到已选文件' : '选择保存文件';
+    saveButton.textContent = !window.showSaveFilePicker ? '保存到本机服务' : fileHandle ? '保存到已选文件' : '选择保存文件';
     if (editorBox) {
       editorBox.querySelector('[data-text-action="parent"]').disabled = !activeElement || !activeElement.parentElement || activeElement.parentElement === document.body;
       editorBox.querySelector('[data-text-action="remove-element"]').disabled = !canRemove(activeElement);
       editorBox.querySelector('[data-text-action="remove-text"]').disabled = !activeEntry;
     }
-    statusEl.textContent = message || (dirty ? (filePermission ? '正在自动保存到文件…' : '草稿已保存；点击选择 text/steam-arena/zh-CN.json') : (loaded ? (filePermission ? '文件已同步' : '本机草稿已保存') : '正在加载…'));
+    statusEl.textContent = message || fileLoadError || (dirty
+      ? filePermission ? '正在自动保存到文件…' : window.showSaveFilePicker ? fileHandle ? '草稿已保存；点击保存重新授权' : `草稿已保存；点击选择 ${fileName()}` : '草稿已保存；可通过本机服务保存或导出 JSON'
+      : loaded ? filePermission ? '文件已同步' : '本机草稿已保存' : '正在加载…');
   }
 
   function persistLocal() {
     try {
-      localStorage.setItem(storageKey(), JSON.stringify({ version: 1, game: config.game, locale: config.locale, dirty, values, removedElements: [...removedElements] }));
+      localStorage.setItem(storageKey(), JSON.stringify({ version: 1, game: config.game, locale: config.locale, dirty, resetPending, values, removedElements: [...removedElements] }));
     } catch (e) {
       updateToolbar('浏览器存储不可用');
+    }
+  }
+
+  // 文件句柄只保存于同源 IndexedDB；读写权限每次重新检查，不把上次授权当作永久授权。
+  function handleStore(mode, value) {
+    if (!window.indexedDB) return Promise.resolve(null);
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open('sa-text-files', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('handles');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('handles', mode === 'read' ? 'readonly' : 'readwrite');
+        const request = mode === 'read' ? tx.objectStore('handles').get(handleKey()) : tx.objectStore('handles').put(value, handleKey());
+        let result = null;
+        request.onsuccess = () => { result = request.result || null; };
+        request.onerror = () => reject(request.error);
+        tx.oncomplete = () => { db.close(); resolve(result); };
+        tx.onabort = tx.onerror = () => { db.close(); reject(tx.error || new Error('文件句柄保存失败')); };
+      };
+    });
+  }
+
+  function payloadNow() {
+    return { version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] };
+  }
+
+  // 首次选文件先读现有覆盖；有草稿时只补文件独有的键，显式“清除覆盖”则保持全清意图。
+  function mergeFile(data, empty = false) {
+    if (empty) return;
+    if (!data || typeof data !== 'object' || Array.isArray(data)
+      || data.version !== 1 || data.game !== config.game || data.locale !== config.locale
+      || !data.values || typeof data.values !== 'object' || Array.isArray(data.values)
+      || (Object.hasOwn(data, 'removedElements') && !Array.isArray(data.removedElements)))
+      throw new Error('所选文件不是当前游戏的页面管理 JSON');
+    const removed = data.removedElements || [];
+    if (!dirty) {
+      Object.keys(values).forEach(key => delete values[key]);
+      Object.assign(values, data.values);
+      removedElements.clear();
+      removed.forEach(path => removedElements.add(path));
+    } else if (!resetPending) {
+      Object.entries(data.values).forEach(([key, value]) => { if (!(key in values)) values[key] = value; });
+      removed.forEach(path => removedElements.add(path));
+      changeRevision++;
+    }
+    persistLocal();
+    scan();
+    notify('*');
+  }
+
+  function scheduleAutoSave() {
+    if (!fileHandle || !filePermission) return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => { autoSaveTimer = 0; save(); }, 250);
+  }
+
+  // 文件选择与重新授权必须在按钮点击的用户手势内开始；取消时只保留本机草稿。
+  async function prepareFile() {
+    let newSelection = false;
+    try {
+      if (!fileHandle) {
+        fileHandle = await window.showSaveFilePicker({ suggestedName: `${config.locale}.json`,
+          types: [{ description: '页面管理 JSON', accept: { 'application/json': ['.json'] } }] });
+        newSelection = true;
+        if (fileHandle.name !== `${config.locale}.json`) {
+          fileHandle = null;
+          throw new Error(`请选择 ${fileName()}`);
+        }
+      }
+      filePermission = await fileHandle.queryPermission({ mode: 'readwrite' }) === 'granted';
+      if (!filePermission) filePermission = await fileHandle.requestPermission({ mode: 'readwrite' }) === 'granted';
+      if (!filePermission) throw new Error('未获得文本文件写入权限');
+      if (newSelection || fileReadPending) {
+        const contents = await (await fileHandle.getFile()).text();
+        mergeFile(contents.trim() ? JSON.parse(contents) : null, !contents.trim());
+        fileReadPending = false;
+      }
+      if (newSelection) await handleStore('write', fileHandle).catch(() => {});
+      fileLoadError = '';
+      updateToolbar();
+      return true;
+    } catch (error) {
+      filePermission = false;
+      if ((newSelection || fileReadPending) && error.name !== 'NotAllowedError' && error.message !== '未获得文本文件写入权限') {
+        fileHandle = null;
+        fileReadPending = false;
+      }
+      updateToolbar(error.name === 'AbortError' ? '已取消选择；草稿仍在浏览器' : `草稿仍在浏览器：${error.message}`);
+      return false;
     }
   }
 
@@ -496,50 +606,110 @@ SA.Text = (() => {
     if (local && local.values && typeof local.values === 'object') Object.assign(values, local.values);
     if (local && Array.isArray(local.removedElements)) local.removedElements.forEach(path => removedElements.add(path));
     dirty = !!(local && local.dirty);
-    let serverLoaded = false;
+    resetPending = !!(local && local.resetPending && dirty);
+    let sourceLoaded = false;
+    let fileRestoreFailed = false;
+    if (window.showSaveFilePicker) {
+      try {
+        fileHandle = await handleStore('read');
+        if (fileHandle) {
+          filePermission = await fileHandle.queryPermission({ mode: 'readwrite' }) === 'granted';
+          if (filePermission) {
+            const data = JSON.parse(await (await fileHandle.getFile()).text());
+            if (!dirty && data.values && typeof data.values === 'object') {
+              Object.keys(values).forEach(key => delete values[key]);
+              Object.assign(values, data.values);
+              removedElements.clear();
+              if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
+            }
+            sourceLoaded = true;
+          } else {
+            fileReadPending = true;
+            fileLoadError = '已找到保存文件；点击保存重新授权读取和写入';
+          }
+        }
+      } catch (error) {
+        fileRestoreFailed = true;
+        fileLoadError = `文件读取失败，草稿仍在浏览器；点击重新选择 ${fileName()}`;
+        fileHandle = null;
+        filePermission = false;
+      }
+    }
     try {
       const query = `?game=${encodeURIComponent(config.game)}&locale=${encodeURIComponent(config.locale)}`;
       const response = await fetch(`${config.loadUrl}${query}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
-        if (!dirty && data.values && typeof data.values === 'object') {
+        if (!dirty && !fileHandle && !fileRestoreFailed && data.values && typeof data.values === 'object') {
           Object.keys(values).forEach(key => delete values[key]);
           Object.assign(values, data.values);
           removedElements.clear();
           if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
         }
-        serverLoaded = true;
+        sourceLoaded = true;
       }
     } catch (e) {
-      // file:// 或静态托管环境没有 API 时，继续使用 localStorage，不阻塞游戏启动。
+      // 普通静态托管没有服务接口时，尝试读取同路径下的 JSON 文件。
+    }
+    if (!sourceLoaded && !fileHandle && !fileRestoreFailed) {
+      try {
+        const response = await fetch(fileName(), { cache: 'no-store' });
+        if (response.ok) {
+          const data = await response.json();
+          if (!dirty && data.values && typeof data.values === 'object') {
+            Object.keys(values).forEach(key => delete values[key]);
+            Object.assign(values, data.values);
+            removedElements.clear();
+            if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
+          }
+          sourceLoaded = true;
+        }
+      } catch (error) { /* 草稿足以继续启动游戏。 */ }
     }
     loaded = true;
-    if (serverLoaded && !dirty) persistLocal();
+    if (sourceLoaded && !dirty) persistLocal();
     if (readyResolve) readyResolve(api);
-    updateToolbar(serverLoaded ? null : (dirty ? '本地草稿，保存后可写入文件' : '本地模式：请使用 localhost 保存文件'));
+    updateToolbar();
     scan();
+    if (dirty) scheduleAutoSave();
   }
 
-  function save() { saves = saves.then(saveNow, saveNow); return saves; }
+  function save() {
+    clearTimeout(autoSaveTimer);
+    // prepareFile 立即调用文件选择器，避免排队的 Promise 丢失浏览器用户手势。
+    const prepared = window.showSaveFilePicker && (!fileHandle || !filePermission) ? prepareFile() : Promise.resolve(true);
+    saves = saves.then(async () => (await prepared) ? saveNow() : { ok: false, cancelled: true },
+      async () => (await prepared) ? saveNow() : { ok: false, cancelled: true });
+    return saves;
+  }
 
   async function saveNow() {
-    if (!dirty) return { ok: true, local: true };
+    if (!dirty && !fileHandle) return { ok: true, local: true };
     persistLocal();
-    const payload = { version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] };
+    const payload = payloadNow();
+    const revision = changeRevision;
     try {
-      const response = await fetch(config.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      // 请求期间若继续编辑，保留新草稿的未保存标记，避免旧响应误报全部已同步。
-      dirty = Object.keys(values).some(key => values[key] !== payload.values[key]) ||
-        Object.keys(payload.values).some(key => !(key in values)) ||
-        [...removedElements].some(path => !payload.removedElements.includes(path)) ||
-        payload.removedElements.some(path => !removedElements.has(path));
+      let serverRevision;
+      if (fileHandle && filePermission) {
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(payload, null, 2) + '\n');
+        await writable.close();
+      } else {
+        const response = await fetch(config.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        serverRevision = data.revision;
+      }
+      // 写入过程中产生的新稿由修订号保护，下一次自动写入最新完整内容。
+      dirty = changeRevision !== revision;
+      if (!dirty) resetPending = false;
       persistLocal();
       updateToolbar(dirty ? '部分修改仍待保存' : `已写入 ${fileName()}`);
-      return { ok: true, file: fileName(), revision: data.revision, pending: dirty };
+      if (dirty) scheduleAutoSave();
+      return { ok: true, file: fileName(), revision: serverRevision, pending: dirty };
     } catch (error) {
-      updateToolbar('本地已保存；请用 tools/serve.py 后再点保存写入文件');
+      if (fileHandle) filePermission = false;
+      updateToolbar(`写入失败，草稿仍在浏览器：${error.message}`);
       return { ok: false, error };
     }
   }
@@ -559,11 +729,14 @@ SA.Text = (() => {
     removedElements.clear();
     restoreElements();
     dirty = true;
+    resetPending = true;
+    changeRevision++;
     persistLocal();
     applyAll();
     scan();
     notify('*');
-    updateToolbar('已恢复默认文案，点击保存写入文件');
+    scheduleAutoSave();
+    updateToolbar('已恢复默认文案；草稿已保存');
   }
 
   function onChange(fn) {
