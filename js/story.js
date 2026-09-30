@@ -485,36 +485,41 @@ SA.Story = (() => {
   }
 
   // ---------- 流程 ----------
+  // 台词一律经 SA.StoryData.get 读（开发者编辑过的覆盖值优先，SA.STORY 是默认值）；取不到就用默认
+  const lines = (id, fb) => { try { return SA.StoryData ? SA.StoryData.get(id) : fb; } catch (e) { return fb; } };
   // 开始游戏：全新存档先演开场，演完直接进第一场战斗；否则回到正常的页面
   function begin() {
     if (!isFresh() || seen('opening')) return;
-    talk(SA.STORY.opening, { scene: openingScene(), cls: 'vn-opening', onDone: () => { mark('opening'); firstBattle(); } });
+    talk(lines('opening', SA.STORY.opening), { scene: openingScene(), cls: 'vn-opening', onDone: () => { mark('opening'); firstBattle(); } });
   }
   function firstBattle() {
     const e = SA.S.arenaEntries('camp').find(x => x.next);
     if (!e || !SA.V.stats(SA.S.d.vehicle).canDeploy) return;
     document.querySelector('#modal').hidden = true;
-    e.start();
+    const go = () => e.start();
+    if (SA.StoryDev) SA.StoryDev.before({ key: e.key, replay: e.replay }, go); else go();
   }
   // 战斗教程台词：只在第一关第一次开打时有；返回 null 就不演
   function tutorial(opts) {
     if (seen('tutorial') || opts.mode !== 'campaign' || opts.replay) return null;
     const st = SA.Camp.current();
     if (!st || st.ci !== 0 || st.si !== 0) return null;
-    return SA.STORY.tutorial;
+    // 编辑后的台词按原格式还原：intro 是一句字符串、每个部件 lines 是字符串数组
+    const T0 = SA.STORY.tutorial, text = (id, fb) => lines(id, fb).map(l => (typeof l === 'string' ? l : l.text));
+    return { intro: text('tutorial.intro', [T0.intro])[0] || '', parts: T0.parts.map((p, i) => ({ ...p, lines: text(`tutorial.parts.${i}`, p.lines) })) };
   }
   // 过关提示：at = 打的是哪一场（战役），newFeat = 这一场新开放的功能。每条只说一次
   function afterBattle({ key, win, newFeat = [] }, next) {
-    const out = [];
-    const S0 = key && SA.STORY.stage[key];
-    const sk = `after:${key}:${win ? 'win' : 'lose'}`;
-    if (S0 && S0[win ? 'win' : 'lose'] && !seen(sk)) { out.push(...S0[win ? 'win' : 'lose']); mark(sk); }
+    const out = [], uncle = (arr) => arr.map(text => ({ who: 'uncle', text }));
+    const S0 = key && SA.STORY.stage[key], outcome = win ? 'win' : 'lose';
+    const sk = `after:${key}:${outcome}`;
+    if (S0 && S0[outcome] && !seen(sk)) { out.push(...lines(`stage.${key}.${outcome}`, uncle(S0[outcome]))); mark(sk); }
     for (const f of newFeat) {
       if (!SA.STORY.feat[f] || seen(`feat:${f}`)) continue;
-      out.push(...SA.STORY.feat[f]); mark(`feat:${f}`);
+      out.push(...lines(`feat.${f}`, uncle(SA.STORY.feat[f]))); mark(`feat:${f}`);
     }
     if (!out.length) { next(); return; }
-    talk(out.map(text => ({ who: 'uncle', text })), { onDone: next, cls: 'vn-hint' });
+    talk(out, { onDone: next, cls: 'vn-hint' });
   }
 
   return { title, begin, talk, tutorial, afterBattle, emblem, portrait, seen, mark, reset, isFresh };

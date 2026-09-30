@@ -74,6 +74,14 @@ SA.CampUI = (() => {
         act('+£1000', () => dev.money(1000)),
         act('乌兹钢锭 / 以太结晶 +3', () => dev.ingots(3))),
       row(sel, act('跳到这一章', () => dev.goto(+sel.value)), act('清空存档重来', () => SA.reset())),
+      row(h('button', { class: 'btn', onclick: () => SA.UI.dialog('换成简陋初始车', [
+        h('p', { style: 'margin-top:0' }, '把现在这台车整台换成黄铜四件车（履带 / 小锅炉 / 小机枪 / 头盔舱）。'),
+        h('p', { class: 'muted' }, '原车每一件都退回库存，耐久、改装和唯一身份照旧；资金和战役进度不变。'),
+      ], [{ label: '换车', primary: true, onClick: () => { SA.dev.resetVehicle(); SA.UI.refresh(); SA.UI.toast('已换成简陋初始车，原车零件在库存里'); } }]) }, '换成简陋初始车'),
+      h('span', { class: 'muted' }, '原车零件全部退库，不清存档')),
+      SA.StoryDev ? h('h3', { class: 'help-h' }, '剧情 · 编辑与插入') : null,
+      SA.StoryDev && row(h('button', { class: 'btn primary', onclick: () => { SA.UI.closeModal(); SA.StoryDev.browser(); } }, '打开剧情编辑器'),
+        h('label', { class: 'dev-check' }, h('input', { type: 'checkbox', checked: SA.StoryDev.enabled(), onchange: (e) => SA.StoryDev.setEnabled(e.target.checked) }), '出战前 / 战后询问是否插入剧情')) || null,
       h('h3', { class: 'help-h' }, '试驾场 · 不结算、不留损伤'),
       row(h('button', { class: 'btn primary', onclick: sandbox }, '打开试驾场'), h('span', { class: 'muted' }, '任选场地、对手、对手材料 / 性格 / 枪法，用你现在的车打一场'))));
   }

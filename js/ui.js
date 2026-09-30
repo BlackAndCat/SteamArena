@@ -280,7 +280,9 @@ SA.UI = (() => {
     // 过关提示（SA.Story）：记下打的是哪一场、结算前开放了哪些功能，结算弹窗之后由亲戚补一句
     const at = res.mode === 'campaign' && !res.replay ? SA.Camp.current() : null;
     const feat0 = d.camp.feat.slice();
-    const story = (next) => (SA.Story ? SA.Story.afterBattle({ key: at && `${at.ci},${at.si}`, win: res.win, newFeat: d.camp.feat.filter(f => !feat0.includes(f)) }, next) : next());
+    // 战后剧情插入点（SA.StoryDev）：按开战时记下的关卡 key，不读胜利推进后的新当前关；写好的段落先演，再是亲戚的提示
+    const inserted = (next) => (SA.StoryDev ? SA.StoryDev.after({ key: res.opts && res.opts.storyKey, replay: res.replay }, next) : next());
+    const story = (next) => inserted(() => (SA.Story ? SA.Story.afterBattle({ key: at && `${at.ci},${at.si}`, win: res.win, newFeat: d.camp.feat.filter(f => !feat0.includes(f)) }, next) : next()));
     const { lines, pre: pending, money0 } = SA.S.settleBattle(res);
     const pre = pending.map(p => p.kind === 'salvage'
       ? (next) => SA.Camp.salvageDialog(p.survivors, next)
@@ -293,7 +295,7 @@ SA.UI = (() => {
         h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
         h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, '重打不发奖励、不计声望，也不留下战损。'),
         feedbackRow(res.humanId),
-      ], [], '继续', () => { refresh(); SA.Camp.introIfNew(); });
+      ], [], '继续', () => { refresh(); inserted(() => SA.Camp.introIfNew()); });
       return;
     }
     SA.nav('arena', null, true);

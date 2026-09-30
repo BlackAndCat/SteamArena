@@ -162,12 +162,14 @@ SA.Coal = (() => {
     if (c.mini) {
       // 驾驶舱尺寸：和原来一样，两只 2×2 白眼、中间隔 1 像素、右下角 1 像素瞳孔；一只 = 3×2 + 瞳孔 1×2；三只 = 两只 + 额头 1 像素
       const cx = Math.round(c.cx), cy = Math.round(c.cy);
-      const eye = (x, y, w2, h2) => {
-        for (let yy = 0; yy < h2; yy++) for (let xx = 0; xx < w2; xx++) c.put(x + xx, y + yy, expr === 'blink' ? (yy === h2 - 1 ? C.eyeS : null) : C.white);
-        if (expr !== 'blink') for (let yy = h2 - (w2 > 2 ? 2 : 1); yy < h2; yy++) c.put(x + w2 - 1, y + yy, pc);
+      // 难过（side：-1 左眼 / 1 右眼 / 0 独眼）：外侧上角不画，眼角往下耷拉
+      const droop = (xx, yy, w2, side) => expr === 'sad' && yy === 0 && (side <= 0 && xx === 0 || side >= 0 && xx === w2 - 1);
+      const eye = (x, y, w2, h2, side) => {
+        for (let yy = 0; yy < h2; yy++) for (let xx = 0; xx < w2; xx++) if (!droop(xx, yy, w2, side)) c.put(x + xx, y + yy, expr === 'blink' ? (yy === h2 - 1 ? C.eyeS : null) : C.white);
+        if (expr !== 'blink') for (let yy = h2 - (w2 > 2 ? 2 : 1); yy < h2; yy++) if (!droop(w2 - 1, yy, w2, side)) c.put(x + w2 - 1, y + yy, pc);
       };
-      if (n === 1) eye(cx - 1, cy - 1, 3, 2);
-      if (n >= 2) { eye(cx - 2, cy - 1, 2, 2); eye(cx + 1, cy - 1, 2, 2); }
+      if (n === 1) eye(cx - 1, cy - 1, 3, 2, 0);
+      if (n >= 2) { eye(cx - 2, cy - 1, 2, 2, -1); eye(cx + 1, cy - 1, 2, 2, 1); }
       if (n === 3) c.put(cx, cy - 3, C.white);
       return;
     }
@@ -552,14 +554,16 @@ SA.Coal = (() => {
     const hit = pools.find(x => x && x.name === name);
     return (hit && byName[hit.pilot]) || crew(name || 'x');
   }
-  // 驾驶舱尺寸的画，按 [角色, 眨眼, 飞行帽] 缓存；st ≥ 2（史诗起）没戴帽子的车手换上飞行帽
+  // 驾驶舱尺寸的画，按 [角色, 表情, 飞行帽] 缓存；st ≥ 2（史诗起）没戴帽子的车手换上飞行帽
+  // o.expr 覆盖表情（投降时全员 sad）；眨眼优先
   const miniCache = new Map();
   function mini(ch, o = {}) {
     const aviator = o.st >= 2 && !(ch.acc || []).some(([id]) => ACC[id] && ACC[id].layer === 'hat');
-    const key = `${ch.id}|${o.blink ? 1 : 0}|${aviator ? 1 : 0}`;
+    const expr = o.blink ? 'blink' : o.expr && EXPR[o.expr] ? o.expr : 'normal';
+    const key = `${ch.id}|${expr}|${aviator ? 1 : 0}`;
     if (!miniCache.has(key)) {
       if (miniCache.size > 400) miniCache.clear();
-      miniCache.set(key, draw(ch, { size: 'mini', expr: o.blink ? 'blink' : 'normal', acc: [...(ch.acc || []), ...(aviator ? [['aviator']] : [])] }));
+      miniCache.set(key, draw(ch, { size: 'mini', expr, acc: [...(ch.acc || []), ...(aviator ? [['aviator']] : [])] }));
     }
     return miniCache.get(key);
   }

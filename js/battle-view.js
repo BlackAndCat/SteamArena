@@ -45,7 +45,9 @@ SA.BattleView.create = function createBattleView(api) {
     else if (type === 'texts') for (const t of data.items || []) B.texts.push({ ...t, life: t.life == null ? 0.9 : t.life });
     else if (type === 'ricochet') ricochetFx(data.x, data.y, data.back);
     else if (type === 'shatter') shatterFx(data.x, data.y, data.cell);
+    else if (type === 'surrender-start') surrenderHint(true);
     else if (type === 'surrender') {
+      surrenderHint(false);
       const e = B.e, why = data.why;
       SA.UI.dialog(`「${e.name}」挂出了白旗`, [
         h('p', { style: 'margin-top:0' }, `对手${why}，已经没法再打，请求投降。`),
@@ -237,7 +239,8 @@ SA.BattleView.create = function createBattleView(api) {
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const opts = (s, key, extra) => ({ key, t, heat: s.heat / 100, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp'));
-    const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be'));
+    const sur = api.surrenderState();
+    const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', sur ? { crewExpr: sur.crewExpression } : null));
     dg.setTransform(Z, 0, 0, Z, (shx - cam.x) * Z, (shy - cam.y) * Z);
     g = dg;
     drawVehicle(B.p, pc, null, Z); drawVehicle(B.e, ec, aimT, Z);
@@ -248,6 +251,7 @@ SA.BattleView.create = function createBattleView(api) {
     g.clearRect(0, 0, vw, vh);
     g.save();
     g.translate(shx - ox, shy - oy);
+    if (sur) drawWhiteFlag(sur);
     // 准星停在模块上：显示它的改装军衔杠
     if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
 
@@ -535,6 +539,48 @@ SA.BattleView.create = function createBattleView(api) {
     g.drawImage(upscaled(key, src, n), dx, dy, src.width, src.height);
   }
 
+  // ---------- 投降：车顶伸出旗杆、升起白旗 ----------
+  // 规则层给出锚点（残存模块最高顶边中点，世界坐标）和两段进度；画面只读不写。
+  // 旗杆 2px 暗铁 + 黄铜杆头，底下一块卡座；白旗朝车尾方向飘（敌车车尾在右），逐列正弦起伏，暗列做褶皱
+  const easeOut = (k) => 1 - (1 - k) * (1 - k);
+  function drawWhiteFlag(sur) {
+    const a = sur.anchor;
+    if (!a || !Number.isFinite(a.x) || !Number.isFinite(a.y)) return;
+    if (B.flagX0 == null) B.flagX0 = B.e.x;
+    const x = Math.round(a.x + (B.e.x - B.flagX0)), y0 = Math.round(a.y);
+    const POLE = 58, len = Math.round(POLE * easeOut(sur.poleProgress));
+    if (len <= 0) return;
+    const top = y0 - len, wall = performance.now() / 1000;
+    g.fillStyle = P.black; g.fillRect(x - 4, y0 - 4, 9, 5);                 // 卡座
+    g.fillStyle = P.iron[2]; g.fillRect(x - 3, y0 - 3, 7, 3);
+    g.fillStyle = P.black; g.fillRect(x - 1, top, 4, len);                  // 旗杆（黑边）
+    g.fillStyle = P.iron[3]; g.fillRect(x, top, 1, len - 3);
+    g.fillStyle = P.iron[1]; g.fillRect(x + 1, top, 1, len - 3);
+    g.fillStyle = P.black; g.fillRect(x - 2, top - 4, 6, 5);                // 黄铜杆头
+    g.fillStyle = P.brass[2]; g.fillRect(x - 1, top - 3, 4, 3);
+    g.fillStyle = P.brass[3]; g.fillRect(x - 1, top - 3, 2, 1);
+    const fk = easeOut(sur.flagProgress);
+    if (fk <= 0) return;
+    const FW = Math.round(14 + 12 * fk), FH = 15;
+    const fy = Math.round((y0 - 6 - FH) + ((top + 1) - (y0 - 6 - FH)) * fk);   // 从杆底升到杆顶
+    const amp = 0.6 + 1.6 * fk;
+    for (let i = 0; i < FW; i++) {
+      const k = i / FW, dy = Math.round(Math.sin(wall * 7 - i * 0.45) * amp * k);
+      const hgt = FH - Math.round(k * 3);                                  // 旗尾略收
+      const shade = Math.sin(wall * 7 - i * 0.45 + 1.2) > 0.55;
+      g.fillStyle = P.black; g.fillRect(x + 2 + i, fy + dy - 1, 1, hgt + 2);
+      g.fillStyle = shade ? P.iron[4] : P.white; g.fillRect(x + 2 + i, fy + dy, 1, hgt);
+    }
+    g.fillStyle = P.black; g.fillRect(x + 2 + FW, fy + Math.round(Math.sin(wall * 7 - FW * 0.45) * amp) - 1, 1, FH - 1);
+  }
+  // 升旗时画面上方的小提示：谁挂了白旗 + 可以点击跳过
+  function surrenderHint(on) {
+    if (hud.sur) { hud.sur.remove(); hud.sur = null; }
+    if (!on || !wrap) return;
+    hud.sur = h('div', { class: 'bt-sur' }, h('b', {}, `「${B.e.name}」挂白旗了`), h('span', {}, '点击画面跳过'));
+    wrap.append(hud.sur);
+  }
+
   function drawVehicle(s, cvs, hl, Z) {
     const w = s.anim.body.x;                        // 后坐：本地坐标里往后挪（负 = 被往后推）
     const py = K.ROWS * C;                          // 车身画布底边 = 车底
@@ -738,6 +784,10 @@ SA.BattleView.create = function createBattleView(api) {
     // 开场期间不接操作；开战动画可以用空格 / 回车 / Esc 跳过（教程对话框自己处理按键）
     if (B.intro) {
       if (B.intro.mode === 'cine' && e.type === 'keydown' && /^(Space|Enter|NumpadEnter|Escape)$/.test(e.code)) { e.preventDefault(); endIntro(); }
+      return;
+    }
+    if (B.surrender === 'raising') {
+      if (e.type === 'keydown' && /^(Space|Enter|NumpadEnter|Escape)$/.test(e.code)) { e.preventDefault(); api.skipSurrenderAnimation(); }
       return;
     }
     const k = KEYMAP[e.code];
@@ -1063,6 +1113,7 @@ SA.BattleView.create = function createBattleView(api) {
     cv.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (B.intro) { if (B.intro.mode === 'cine') endIntro(); return; }
+      if (B.surrender === 'raising') { api.skipSurrenderAnimation(); return; }   // 点击跳过升旗，只打开确认框
       B.aimScreen = toNative(e);
       if (e.button !== 0) return;
       B.keys.fire = true;
@@ -1082,7 +1133,10 @@ SA.BattleView.create = function createBattleView(api) {
       if (SA.current !== 'battle' || B !== mine || B.done) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (B.intro) introStep(dt);
-      else if (!B.frozen) step(dt * B.speed);   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
+      else {
+        api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
+        if (!B.frozen) step(dt * B.speed);
+      }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
       draw();
       introDraw();
       hudTick(dt);
@@ -1115,6 +1169,7 @@ SA.BattleView.create = function createBattleView(api) {
   }
 
   return {
+    supportsSurrenderAnimation: true,   // battle.js 据此先演升白旗（surrender-start → advanceSurrender → surrender）
     start,
     draw: () => { sync(); draw(); },
     hudTick: (dt) => { sync(); hudTick(dt); },

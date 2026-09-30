@@ -3215,7 +3215,7 @@ SA.SPR = (() => {
       for (const [sx, sy] of seats) {
         const ch = i === 0 ? main : SA.Coal.crew(`${veh && veh.name}-${i}`);
         const f = ((Math.floor((o.t || 0) * 1.5 + seed + i) % 4) + 4) % 4, bob = f === 1 || f === 2 ? 1 : 0;
-        g.drawImage(SA.Coal.mini(ch, { blink: f === 3 && (seed + i) % 2 === 0, st }), x + sx - 5, y + sy - 6 + bob);
+        g.drawImage(SA.Coal.mini(ch, { blink: !o.crewExpr && f === 3 && (seed + i) % 2 === 0, expr: o.crewExpr, st }), x + sx - 5, y + sy - 6 + (o.crewExpr === 'sad' ? 1 : bob));
         i++;
       }
       g.restore();

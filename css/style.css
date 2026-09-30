@@ -753,3 +753,41 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
   .vn-text { font-size: 16px; }
   .vn-in { padding-right: 32px; gap: 10px; }
 }
+
+/* 投降：升白旗时画面上方的提示条（点击画面跳过） */
+.bt-sur { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 12px; align-items: baseline; padding: 6px 16px 8px;
+  background: rgba(7, 8, 12, .78); border: 2px solid var(--brass1); box-shadow: 4px 4px 0 rgba(7, 8, 12, .5); pointer-events: none; white-space: nowrap; animation: bt-sur-in .25s steps(3); }
+.bt-sur b { color: var(--text); font-size: 15px; letter-spacing: .06em; }
+.bt-sur span { color: var(--muted); font-size: 12px; }
+@keyframes bt-sur-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+
+/* 剧情编辑器（开发者，js/story-dev.js） */
+.dev-check { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text); cursor: pointer; }
+.sd { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(7, 8, 12, .6); }
+.sd-panel { width: min(820px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+.sd-panel .panel-body { overflow: auto; min-height: 0; }
+.sd-id { font-size: 11px; margin-left: auto; }
+.sd-rows { display: grid; gap: 6px; }
+.sd-row { display: grid; grid-template-columns: 22px 108px 1fr auto; gap: 8px; align-items: start; padding: 6px; background: var(--dark1); border: 1px solid var(--dark3); }
+.sd-n { color: var(--muted); font-size: 12px; text-align: right; padding-top: 6px; }
+.sd-meta { display: grid; gap: 4px; }
+.sd-meta select, .sd-q { background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; font-size: 13px; }
+.sd-text { width: 100%; min-height: 44px; resize: vertical; background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 6px 8px; font: inherit; font-size: 14px; line-height: 1.5; }
+.sd-text:focus, .sd-meta select:focus, .sd-q:focus { outline: 2px solid var(--brass1); outline-offset: -1px; }
+.sd-ops { display: flex; gap: 4px; }
+.sd-add { margin-top: 8px; }
+.sd-empty { margin: 4px 0; }
+.sd-foot { padding-top: 10px; align-items: center; }
+.sd-foot kbd { margin-left: 6px; font-size: 10px; opacity: .7; }
+.sd-status { margin-right: auto; font-size: 12px; }
+.sd-status.ok { color: var(--brass3); }
+.sd-status.warn, .sd-status.bad { color: var(--fire2); }
+.sd-browser { display: grid; gap: 6px; min-width: min(720px, 86vw); }
+.sd-q { width: 100%; }
+.sd-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.sd-item { display: grid; gap: 2px; text-align: left; padding: 6px 8px; background: var(--dark1); border: 1px solid var(--dark3); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.sd-item:hover { border-color: var(--brass1); }
+.sd-item.empty b { color: var(--muted); font-weight: 400; }
+.sd-item span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-peek { display: grid; gap: 4px; padding: 8px 10px; margin-bottom: 8px; background: var(--dark1); border-left: 3px solid var(--brass1); font-size: 13px; }
+@media (max-width: 640px) { .sd-row { grid-template-columns: 1fr; } .sd-n { text-align: left; padding: 0; } .sd-ops { justify-content: flex-end; } }
