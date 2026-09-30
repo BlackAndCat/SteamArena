@@ -308,20 +308,75 @@ SA.CUR = (() => {
       fx(x, y, o) { if (o.p > 0.7) { px(x + 48 + o.p * 8, y + 23, P.white); px(x + 49 + o.p * 8, y + 25, P.fire[3]); } } },
   ];
 
+
+  // ================= v2（2026-09-29 用户：水箱选 A 但箍带改纵向；铲斗 D 犁铧；撞角 B 舰艏；撞锤 B 双缸，改成「蒸汽缸蓄力 → 一下释放」）=================
+  const TANK2 = {
+    key: 'A2', name: '纵向箍带加固', ref: 'v1 选定 A，箍带全部改成竖着的（从顶上翻过去、贴着窗两边往下，不挡水）',
+    idea: '（v2）箍带都竖着走：T2 左右两道竖钢箍从箱顶翻下来、贴着大水窗两边 → T3 顶沿和底沿各加一道压边 → T4 四角三角包角板 → T5 竖箍加粗、半腰各一只拉紧螺栓 → T6 每边两道竖箍 + 上下螺栓法兰。窗里的蓝水一整块，一点不挡。',
+    draw(x, y, o) {
+      const T = tierOf(o);
+      box(x + 19, y + 2, 10, 5, BRASS); box(x + 4, y + 6, 40, 39, IRONL); R(x + 8, y + 10, 32, 31, P.iron[0]); waterBody(x + 9, y + 11, 30, 29, o.water, o.t);
+      for (const [rx, ry] of [[6, 8], [41, 8], [6, 42], [41, 42]]) bolt(x + rx, y + ry);
+      const strap = (u, w) => { R(x + u, y + 4, w, 43, P.iron[0]); R(x + u + 1, y + 4, w - 2, 43, P.iron[3]); R(x + u + 1, y + 4, 1, 43, P.iron[4]); R(x + u, y + 4, w, 2, P.iron[1]); R(x + u, y + 45, w, 2, P.iron[1]); for (let v = 10; v < 44; v += 8) px(x + u + Math.floor(w / 2), y + v, P.iron[1]); };
+      if (T >= 2) { const w = T >= 5 ? 5 : 4; strap(4, w); strap(44 - w, w); }
+      if (T >= 6) { strap(1, 3); strap(44, 3); }
+      if (T >= 3) { R(x + 8, y + 5, 32, 3, P.iron[0]); R(x + 8, y + 6, 32, 1, P.iron[3]); R(x + 8, y + 43, 32, 3, P.iron[0]); R(x + 8, y + 44, 32, 1, P.iron[3]); }
+      if (T >= 4) for (const [cx, cy, sx, sy] of [[8, 8, 1, 1], [40, 8, -1, 1], [8, 43, 1, -1], [40, 43, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 6, y + cy], [x + cx, y + cy + sy * 6]], IRON); bolt(x + cx + sx * 1.5, y + cy + sy * 1.5); }
+      if (T >= 5) for (const u of [4, 39]) { R(x + u - 1, y + 22, 7, 7, P.iron[0]); R(x + u, y + 23, 5, 5, P.iron[2]); R(x + u + 2, y + 21, 1, 9, P.iron[4]); px(x + u + 2, y + 25, P.iron[0]); }
+      if (T >= 6) for (let u = 8; u < 42; u += 4) { bolt(x + u, y + 5); bolt(x + u, y + 44); }
+    } };
+
+  // 双缸蓄力撞锤：两只蒸汽缸一直往复（活塞杆推棘爪、棘轮齿条一格格往后退），把锤头往后拉、压紧中间的大弹簧；
+  // 蓄满时一只挂钩扣住锤头；打击 = 挂钩一松，弹簧把锤头猛地弹出去（冲击波 + 两缸泄一口汽），然后两缸重新蓄力。
+  // o.c = 蓄力 0～1（1 = 满、锤头最靠后）；o.hit = 刚释放的那几帧（冲击效果）
+  const PISTON2 = {
+    key: 'B2', name: '双缸蓄力撞锤', ref: 'v1 选定 B 双缸撞锤 + 用户要求的「蒸汽缸蓄力 → 一下释放」',
+    idea: '（v2）上下两只蒸汽缸一直在往复：活塞杆推着棘爪，一格格把中间的棘轮齿条往后拽，锤头被往后拉、压紧它身后的一根粗弹簧；蓄满时上方一只挂钩「咔」地扣住锤头，压力表指针打到头。攻击时挂钩一松，弹簧把锤头猛地弹出去——锤面前一圈冲击波、两缸同时泄一口白汽；然后两缸又开始一下下蓄力。精英档弹簧外加黄铜护罩、锤面换成带尖的破甲面。',
+    draw(x, y, o) {
+      const st = tierOf(o) >= 5, c = Math.max(0, Math.min(1, o.c == null ? 1 : o.c));
+      flange2(x, y, 4, 44);
+      const pump = c < 1 ? Math.sin(o.t * 0.9) : 0;   // 蓄力时两缸往复；满了就停
+      for (const [v, s] of [[4, 1], [34, -1]]) {
+        box(x + 6, y + v, 18, 10, IRONL); R(x + 11, y + v, 2, 10, P.brass[1]); R(x + 19, y + v, 2, 10, P.brass[1]);
+        const e = 3 + pump * s * 2.5; R(x + 24, y + v + 4, e, 2, P.iron[4]);
+      }
+      const L = 18 - c * 11, hx = x + 12 + L + 6;   // 弹簧长度：满蓄 7、放开 18；锤头跟着弹簧前端
+      R(x + 6, y + 17, 6, 14, P.iron[1]); R(x + 6, y + 17, 6, 1, P.iron[3]);   // 弹簧后座
+      R(x + 12, y + 23, hx - x - 12, 2, P.iron[0]);                                // 导杆
+      const n = 6, sp = L / n;   // 螺旋弹簧：每圈一道亮的前笔（竖）+ 一道暗的后笔（斜），压紧时圈挨圈
+      for (let k = 0; k < n; k++) { const u = x + 12 + k * sp; line(u + sp, y + 18, u, y + 30, 1, P.iron[1]); }
+      for (let k = 0; k <= n; k++) { const u = Math.round(x + 12 + k * sp); R(u, y + 18, 1, 13, P.iron[4]); px(u, y + 18, P.iron[2]); px(u, y + 30, P.iron[2]); }
+      if (st) { R(x + 11, y + 16, L + 2, 1, P.brass[2]); R(x + 11, y + 31, L + 2, 1, P.brass[1]); }
+      R(x + 24, y + 14, hx - x - 24 + 1, 2, P.iron[1]); for (let u = x + 24; u < hx; u += 3) px(u, y + 15, P.iron[4]);   // 上方的棘轮齿条（跟锤头滑座连着）
+      R(x + 24, y + 32, hx - x - 24 + 1, 2, P.iron[1]); for (let u = x + 24; u < hx; u += 3) px(u, y + 32, P.iron[4]);
+      const pw = c < 1 ? Math.round(Math.sin(o.t * 0.9) * 1.5) : 0;   // 两只棘爪：跟着活塞杆一推一推
+      for (const [v, d] of [[12, 1], [35, -1]]) { R(x + 27 + pw, y + v, 3, 2, P.brass[1]); px(x + 29 + pw, y + v + d, P.brass[3]); }
+      box(hx, y + 15, 6, 18, IRONL);                                                     // 锤头滑座
+      box(hx + 6, y + 6, 8, 36, RUSTR); R(hx + 7, y + 23, 6, 2, P.rust[3]);              // 锤面
+      if (st) poly([[hx + 14, y + 8], [hx + 20, y + 24], [hx + 14, y + 40]], RUSTR);
+      const locked = c >= 0.99; R(x + 27, y + 14, 2, 3, P.iron[1]); line(x + 28, y + 16, locked ? hx + 1 : x + 31, locked ? y + 16 : y + 12, 1, locked ? P.brass[2] : P.iron[3]);   // 挂钩
+      gauge(x + 15, y + 2, 2.6, 0.15 + c * 0.8);
+    },
+    fx(x, y, o) {
+      const c = o.c == null ? 1 : o.c;
+      if (o.hit) {
+        const k = o.hit, hx = x + 12 + (18 - c * 11) + 6 + 14;
+        for (let r = 0; r < 3; r++) { const rr = 3 + (1 - k) * 10 + r * 3; for (let a = -1.1; a <= 1.1; a += 0.12) px(hx + Math.cos(a) * rr, y + 24 + Math.sin(a) * rr * 1.6, r === 0 ? P.white : P.steam[2]); }
+        puff(x + 24, y + 5, o.t, 3, 6); puff(x + 24, y + 44, o.t + 10, 3, 6);
+      }
+    } };
   const MODS = [
-    { id: 'water', name: '水箱 · 按档加固', w: 2, h: 2, tiers: [1, 2, 3, 4, 5, 6], perTier: true, SET: TANK,
-      rule: '2×2 · 开局 · 冷却 · 用户：主要是加固（加强铁箍或别的办法），让水箱更结实；黄铜的（T1）不用加；越高档越结实；但一定保住整个大窗里的蓝色水体 · 三种加固思路，下面材质条就是这一种从 T1 到 T6 的样子 · 页面上水位慢慢降再补满',
+    { id: 'water', name: '水箱 · 纵向箍带加固', w: 2, h: 2, tiers: [1, 2, 3, 4, 5, 6], SET: [TANK2],
+      rule: '2×2 · 冷却 · 选定 A 箍带加固，箍带改成纵向（贴着窗两边，不挡水）· T1 黄铜不加，越往上越结实 · 大窗蓝水始终是主体 · 页面上水位慢慢降再补满',
       state: (t) => ({ t, water: 1 - ((t % 400) / 400) * 0.9 }), poses: [{ water: 1, label: '满' }, { water: 0.6, label: '六成' }, { water: 0.25, label: '两成半' }, { water: 0.05, label: '快干' }] },
-    { id: 'bucket', name: '铲斗', w: 2, h: 2, tiers: [1, 5], SET: BUCKET,
-      rule: '2×2 撞击层 · 开局 · 装在底盘正前方（履带 / 四足 / 双足）· 撞击件一律锈钢色，左边法兰贴车头、工作面朝右 · 结实、能把对手铲退很远 · 两个阶段：普通 / 精英（T5 起多一样东西）',
-      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 20, label: '' }, { t: 40, label: '' }, { t: 60, label: '' }] },
-    { id: 'spike', name: '撞角', w: 2, h: 2, tiers: [1, 5], SET: SPIKE,
-      rule: '2×2 撞击层 · 第三章 · 装在装甲或底盘正前方 · 实心、很重，伤害随撞击速度和车重暴涨 · 锈钢色，左边法兰贴车头、尖朝右 · 两个阶段：普通 / 精英',
-      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 5, label: '' }, { t: 10, label: '' }, { t: 15, label: '' }] },
-    { id: 'piston', name: '蒸汽撞锤', w: 2, h: 2, tiers: [1, 5], SET: RAMH,
-      rule: '2×2 撞击层 · 第三章 · 贴身时每 1.5 秒用蒸汽活塞猛击一次 · 锈钢色锤头，左边法兰贴车头、往右打 · 页面循环：待机 → 猛地打出 → 收回 · 两个阶段：普通 / 精英',
-      state: (t) => { const c = t % 40; return { t, p: c < 4 ? c / 4 : c < 14 ? 1 - (c - 4) / 10 : 0 }; },
-      poses: [{ p: 0, label: '收' }, { p: 0.5, label: '半伸' }, { p: 1, label: '打出' }, { p: 1, t: 20, label: '打出（另一帧）' }] },
+    { id: 'bucket', name: '铲斗 · 犁铧', w: 2, h: 2, tiers: [1, 5], SET: BUCKET.filter(e => e.key === 'D'),
+      rule: '2×2 撞击层 · 选定 D 犁铧，不改 · 普通 / 精英（双铧）', state: (t) => ({ t }), poses: [{ t: 0, label: '' }] },
+    { id: 'spike', name: '撞角 · 舰艏撞角', w: 2, h: 2, tiers: [1, 5], SET: SPIKE.filter(e => e.key === 'B'),
+      rule: '2×2 撞击层 · 选定 B 舰艏撞角，不改 · 普通 / 精英（亮钢嘴尖 + 第二排铆钉）', state: (t) => ({ t }), poses: [{ t: 0, label: '' }] },
+    { id: 'piston', name: '蒸汽撞锤 · 双缸蓄力', w: 2, h: 2, tiers: [1, 5], SET: [PISTON2],
+      rule: '2×2 撞击层 · 选定 B 双缸，按你说的改成「蒸汽缸蓄力 → 一下释放」· 页面循环：两缸一下下蓄力（棘轮后退、弹簧压紧、表针上升）→ 挂钩扣住 → 释放（锤头弹出 + 冲击波 + 泄汽）→ 重新蓄力 · 游戏里：没贴身时保持满蓄，每次打击后从零重新蓄（1.5 秒一次）',
+      state: (t) => { const cy = t % 80; if (cy < 50) return { t, c: cy / 50 }; if (cy < 64) return { t, c: 1 }; const k = (cy - 64) / 16; return { t, c: 0, hit: k < 0.35 ? 1 - k / 0.35 : 0 }; },
+      poses: [{ c: 0, label: '刚释放' }, { c: 0.5, t: 7, label: '蓄力中' }, { c: 1, label: '满蓄扣住' }, { c: 0, hit: 1, label: '释放瞬间' }] },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   function over(ctx, x, y, e, o = {}, m) { g = ctx; if (e.fx) e.fx(x, y, o); else if (m && m.fx) m.fx(x, y, o); }

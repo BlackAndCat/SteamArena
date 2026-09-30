@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '水箱加固 + 撞击件 v1', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：水箱按档加固（箍带 / 护笼 / 装甲窗框，各 T1～T6）+ 铲斗、撞角、蒸汽撞锤各 6 种（A 现役重画，B～F 新方向）', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '水箱加固 + 撞击件 v2', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期 v2（待审查）：水箱纵向箍带加固（T1～T6）、铲斗 D 犁铧、撞角 B 舰艏撞角、蒸汽撞锤 B 双缸蓄力（两缸蓄力压弹簧 → 挂钩一松锤头弹出 + 冲击波）', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'boss-uniques', group: 'module', url: 'archive/boss-uniques.html', name: 'Boss 唯一件', ver: 'v1', date: '2026-09-29', status: 'shipped',
       desc: '已进游戏：圣堂压力核心 E 圣杯炉（煤在呼吸 + 白汽）、寡妇液压撞头 C 三联活塞锤（锤头改成锻工锤：竖锤身 + 收尖的锤嘴，轮流打出）、公爵测距棱镜 F 旋转棱镜鼓（正对的面亮一下、射出分光）。另外 15 种方案留在这页', docs: ['docs/art-plan.md'] },
     { id: 'aux-modules', group: 'module', url: 'archive/aux-modules.html', name: '辅助四件', ver: 'v1', date: '2026-09-29', status: 'shipped',
