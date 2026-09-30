@@ -28,9 +28,9 @@ SA.MODULE_ART = {
   harpoon: { vis: [1], piv: [18, 13], blen: 34, barrel: 22, rcPx: 5, back: 0.04, ret: 2.8 },
   flamer: { vis: [1], piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
   steamjet: { vis: [1], piv: [18, 13], blen: 30, barrel: 18, rcPx: 3, back: 0.02, ret: 5 },
-  boss_core: { art: 'boiler', placeholder: '核心' },
-  boss_lens: { art: 'helmet', placeholder: '棱镜' },
-  boss_ram: { art: 'piston', placeholder: '撞头' },
+  boss_core: {},   // 2026-09-29 专用造型：圣杯炉
+  boss_lens: {},   // 2026-09-29 专用造型：旋转棱镜鼓
+  boss_ram: {},   // 2026-09-29 专用造型：三联活塞锤（锻工锤头）
   boiler: { vis: [1, 5] },
   bucket: { vis: [1, 5] },
   spike: { vis: [1, 5] },

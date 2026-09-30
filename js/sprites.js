@@ -2021,7 +2021,66 @@ SA.SPR = (() => {
         for (const u of [8, 14, 20]) { R(x + u, y + 7, 2, 34, P.iron[2]); R(x + u, y + 7, 1, 34, P.iron[4]); for (let v = 9; v < 40; v += 2) { R(x + u - 2, y + v, 6, 1, P.iron[3]); px(x + u + 3, y + v, P.iron[1]); } }
       } },
   };
+
+  // ---------- Boss 唯一件（2026-09-29 定稿，样机 tools/archive/boss-uniques.html）：圣堂压力核心 E 圣杯炉、寡妇液压撞头 C 三联活塞锤（锻工锤头）、公爵测距棱镜 F 旋转棱镜鼓 ----------
+  const RUSTR = [P.rust[0], P.rust[1], P.rust[2], P.rust[3]];
+  const GLASSR = [P.glass[0], P.glass[1], P.glass[2], P.glass[3]];
+  const BLK = [P.black, P.dark[0], P.dark[1], P.dark[3]];
+  const pulse = (t, per = 60) => 0.5 + 0.5 * Math.sin(t / per * TAU);
+  const ember = (cx, cy, r, t) => { const k = pulse(t, 50); disc(cx, cy, r + 0.6, P.fire[0]); disc(cx, cy, r, k > 0.5 ? P.fire[1] : P.fire[0]); disc(cx, cy, Math.max(0.6, r * 0.5), k > 0.3 ? P.fire[2] : P.fire[1]); if (k > 0.75) px(cx - 0.5, cy - 0.5, P.fire[3]); };
+  // 哥特尖拱：x0～x1、起拱线 ys、底 yb、两段圆弧半径 r（r 越大越尖）
+  const inArch = (x0, x1, ys, yb, r) => (xx, yy) => xx >= x0 && xx <= x1 && yy <= yb && (yy >= ys || ((xx - (x0 + r)) ** 2 + (yy - ys) ** 2 <= r * r && (xx - (x1 - r)) ** 2 + (yy - ys) ** 2 <= r * r));
+  const arch = (x0, x1, ys, yb, r, ramp) => shape(inArch(x0, x1, ys, yb, r), x0 - 1, ys - r, x1 + 1, yb + 1, ramp);
+  const cross = (cx, cy, c = P.brass[2]) => { R(cx, cy - 2, 1, 5, c); R(cx - 1, cy - 1, 3, 1, c); };
+  // 红沙漏：上下两个尖对尖的三角（5-3-1-3-5 像素），s ≥ 1 时整体放大一档
+  const hourglass = (cx, cy, s = 1, c = P.fire[1]) => {
+    const rows = s >= 1 ? [5, 3, 1, 3, 5] : [3, 1, 3], x0 = Math.round(cx), y0 = Math.round(cy) - Math.floor(rows.length / 2);
+    rows.forEach((w, i) => { R(x0 - Math.floor(w / 2), y0 + i, w, 1, c); if (w > 1) px(x0 - Math.floor(w / 2), y0 + i, P.fire[0]); });
+  };
+  const spectrum = (x0, y0, len, t, ang = 0) => { const cols = [P.fire[1], P.fire[3], P.gauge[2], P.water[2]], c = Math.cos(ang), s = Math.sin(ang); if (saw(t, 40) > 0.7) return; cols.forEach((col, k) => { for (let i = 0; i < len; i++) px(x0 + c * i - s * (k - 1.5) * (0.3 + i * 0.12), y0 + s * i + c * (k - 1.5) * (0.3 + i * 0.12), col); }); };
+
+  const mount = (x, y) => { R(x, y + 1, 4, 22, P.iron[0]); R(x + 1, y + 2, 2, 20, P.iron[2]); for (const v of [4, 11, 18]) px(x + 2, y + v, P.iron[4]); };
+  const BOSS = {
+    boss_core: { key: 'E', name: '圣杯炉', draw(x, y, o) {
+        box(x + 4, y + 21, 16, 3, IRON); R(x + 6, y + 19, 12, 2, P.brass[0]); R(x + 6, y + 19, 12, 1, P.brass[2]);
+        R(x + 10, y + 13, 4, 6, P.brass[1]); R(x + 10, y + 13, 1, 6, P.brass[3]); disc(x + 12, y + 16, 2.2, P.brass[1]); px(x + 11, y + 15, P.brass[3]);
+        shape((xx, yy) => yy >= y + 5 && ((xx - x - 12) / 9) ** 2 + ((yy - y - 5) / 8.5) ** 2 <= 1, x + 2, y + 4, x + 22, y + 14, BRASS);
+        R(x + 3, y + 5, 18, 1, P.brass[3]); for (const u of [6, 12, 18]) px(x + u, y + 9, P.fire[0]);
+        const k = pulse(o.t, 45);
+        shape((xx, yy) => yy <= y + 5 && ((xx - x - 12) / 8) ** 2 + ((yy - y - 5) / 3) ** 2 <= 1, x + 3, y + 1, x + 21, y + 6, [P.fire[0], P.fire[1], k > 0.5 ? P.fire[2] : P.fire[1], P.fire[3]]);
+        for (const u of [8, 13, 16]) px(x + u, y + 4, P.dark[0]);
+      },
+      fx(x, y, o) { puff(x + 12, y + 1, o.t, 3, 8); } },
+    boss_ram: { key: 'C', name: '三联活塞锤', draw(x, y, o) {
+        mount(x, y);
+        for (let k = 0; k < 3; k++) {
+          const v = y + 2 + k * 7, ph = o.act != null ? (k === o.act ? o.p : o.p * 0.25) : Math.max(0, Math.sin((o.p * 3 - k) * Math.PI)) * (o.p > 0 ? 1 : 0), e = ph * 10;
+          htube(x + 3, v, 18, 6, IRONL); band(x + 8, v, 2, 6);
+          R(x + 21, v + 2, 7 + e, 2, P.iron[4]);
+          const X = x + 28 + e;   // 锤头 v2：一块竖着的锤身 + 朝前收尖的锤嘴（像把锻工锤），后面一道黄铜夹箍
+          poly([[X, v - 1], [X + 5, v - 1], [X + 10, v + 3], [X + 5, v + 7], [X, v + 7]], RUSTR);
+          R(X - 1, v + 1, 2, 4, P.brass[1]); px(X - 1, v + 1, P.brass[3]); line(X + 5, v, X + 9, v + 3, 1, P.rust[3]); px(X + 10, v + 3, P.iron[4]);
+        }
+        hourglass(x + 15, y + 12, 1);
+      } },
+    boss_lens: { key: 'F', name: '旋转棱镜鼓', draw(x, y, o) {
+        box(x + 2, y + 20, 20, 4, IRON);
+        for (const u of [2, 19]) { R(x + u, y + 5, 3, 15, P.brass[1]); R(x + u, y + 5, 1, 15, P.brass[3]); disc(x + u + 1.5, y + 5, 2, P.brass[2]); px(x + u + 1, y + 13, P.brass[0]); }
+        const rot = o.t * 0.06, faces = 6;
+        for (let k = 0; k < faces; k++) {
+          const a0 = rot + k / faces * TAU, a1 = a0 + TAU / faces, y0 = Math.sin(a0) * 6, y1 = Math.sin(a1) * 6;
+          if (Math.cos((a0 + a1) / 2) < 0) continue;
+          const lit = Math.cos((a0 + a1) / 2) > 0.92, lo = Math.min(y0, y1), hi = Math.max(y0, y1);
+          R(x + 5, y + 12 + lo, 14, Math.max(1, hi - lo), lit ? P.glass[3] : [P.glass[1], P.glass[0], P.glass[1]][k % 3]);
+          R(x + 5, y + 12 + lo, 14, 1, P.brass[0]); if (!lit && hi - lo > 2) px(x + 7, y + 13 + lo, P.glass[2]);
+        }
+        R(x + 5, y + 5, 1, 14, P.brass[0]); R(x + 18, y + 5, 1, 14, P.brass[0]);
+      },
+      fx(x, y, o) { const rot = o.t * 0.06; for (let k = 0; k < 6; k++) { const a = rot + (k + 0.5) / 6 * TAU; if (Math.cos(a) > 0.92) spectrum(x + 19, y + 12, 6, 0, 0); } } },
+  };
   return {
+    boss(c, id, x, y, o) { g = c; BOSS[id].draw(x, y, o); },
+    bossFx(c, id, x, y, o) { g = c; if (BOSS[id].fx) BOSS[id].fx(x, y, o); },
     aux(c, id, x, y, o) { g = c; AUX[id].draw(x, y, o); },
     auxFx(c, id, x, y, o) { g = c; if (AUX[id].fx) AUX[id].fx(x, y, o); },
     harpoon(c, x, y, o) { g = c; HARPOON2[0].draw(x, y, o); },
@@ -2521,6 +2580,10 @@ SA.SPR = (() => {
     water_l(x, y, q) { BIG.tank(ctx, x, y, { t: q.fr * 9, water: q.lv / 29 }); },
     // 特殊武器（2026-09-29 定稿）：转动部分按 module-art 的耳轴 / 炮口几何；汽、火、飞出去的烟在 weaponFx 里逐帧画（材质处理之后）
     // 辅助四件（2026-09-29 定稿）：蓄压罐的液柱跟存量走，六分仪的指标臂慢慢扫，万向环一直翻，散热片的冷却液随车温流
+    // Boss 唯一件（2026-09-29 定稿）：圣杯里的煤在呼吸（8 帧），三联活塞锤轮流打出（q.a3 = 这一下是哪根），棱镜鼓一直转（8 帧）
+    boss_core(x, y, q) { BIG.boss(ctx, 'boss_core', x, y, { t: q.fr * 45 / 8 }); },
+    boss_ram(x, y, q) { BIG.boss(ctx, 'boss_ram', x, y, { p: q.p / 3, act: q.a3 || 0, t: 0 }); },
+    boss_lens(x, y, q) { BIG.boss(ctx, 'boss_lens', x, y, { t: q.fr * 17.45 / 8 }); },
     pressure_tank(x, y, q) { BIG.aux(ctx, 'pressure_tank', x, y, { lv: q.lv / 16, t: 0 }); },
     rangefinder(x, y, q) { BIG.aux(ctx, 'rangefinder', x, y, { t: q.fr * 6 }); },
     gyroscope(x, y, q) { BIG.aux(ctx, 'gyroscope', x, y, { t: q.fr * 3.27 }); },
@@ -2767,6 +2830,8 @@ SA.SPR = (() => {
     const q = {};
     switch (id) {
       case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
+      case 'boss_core': case 'boss_lens': q.fr = Math.floor((o.t || 0) * 8) % 8; break;
+      case 'boss_ram': q.p = Math.round((o.punch || 0) * 3); if (q.p) q.a3 = Math.floor((o.t || 0) * 5) % 3; break;
       case 'pressure_tank': q.lv = Math.round(16 * Math.max(0, Math.min(1, o.store == null ? 0.6 : o.store))); break;   // 存量 17 档（车间 / 图标按六成画）
       case 'rangefinder': q.fr = Math.floor((o.t || 0) * 5) % 26; break;
       case 'gyroscope': q.fr = Math.floor((o.t || 0) * 10) % 12; break;
@@ -2867,7 +2932,9 @@ SA.SPR = (() => {
   // 这些区域里的暗铁色像素不参与材质处理（模块内坐标 [x, y, w, h]）：炉膛里的煤是煤，不是金属；炉栅、炉门照常换材料
   const DECOR_SKIP = { boiler: [[11, 19, 26, 21]], boiler_s: [[5, 21, 14, 20]] };
   let matPass = null;   // 样机页可以换一套材质处理（setMatPass），游戏里始终是 decorate
-  function decorate(cv, mat, ox, oy, skip = []) {
+  // tdy：纹理的竖向锚点偏移（整数或逐像素 Int8Array）。精灵内部会上下起伏的部件（四足 / 双足机身随步态下沉 bd）
+  // 按它把纹理坐标跟着部件一起挪，花纹和反光点才粘在部件身上，不会像贴在镜头上一样原地不动
+  function decorate(cv, mat, ox, oy, skip = [], tdy = 0) {
     const M = matOf(mat.key);
     if (!M) return;
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
@@ -2904,7 +2971,7 @@ SA.SPR = (() => {
     const flat = (x, y) => isM(x - 1, y) && isM(x + 1, y) && isM(x, y - 1) && isM(x, y + 1) && isM(x - 1, y - 1) && isM(x + 1, y + 1);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, c = src[i]; if (!c || c.kind !== 'iron') continue;
-      const lx = x - ox, ly = y - oy, face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
+      const lx = x - ox, ly = y - oy - (typeof tdy === 'number' ? tdy : tdy[i]), face = c.lv === 2 || c.lv === 3, fl = flat(x, y);
       if (M.spec === 'matte' && c.lv === 4) out[i] = M.ironC[3];   // 哑光：亮边压一阶
       else if (M.spec === 'crisp' && c.lv === 4 && !isM(x, y - 1) && !isM(x - 1, y)) out[i] = mixC(M.ironC[4], [255, 255, 255], 0.45);   // 受光角一个亮点
       else if (M.spec === 'soft' && c.lv === 4 && (lx + ly) % 2) out[i] = mixC(M.ironC[3], M.ironC[4], 0.5);   // 柔和：亮边隔一个像素压半阶
@@ -2948,12 +3015,28 @@ SA.SPR = (() => {
       ctx = cv.getContext('2d');
       DRAW[id](pd.l, pd.t, q);
       attach(id, q, f, pd.l, pd.t);
-      (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id]);   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
+      (matPass || decorate)(cv, SA.MATS[q.mt || 1], pd.l, pd.t, DECOR_SKIP[id], bobAnchor(id, q, f, pd, cv));   // 每个材料（包括 T1 黄铜）都按 SA.PAL.mat 处理
       if (OVER[id]) { ctx = cv.getContext('2d'); OVER[id](pd.l, pd.t, q); }        // 身份件（铆钉、铭牌、压力表）最后画，颜色不被材质换掉
       if (UNDER[id]) { ctx = cv.getContext('2d'); ctx.globalCompositeOperation = 'destination-over'; UNDER[id](pd.l, pd.t, q); ctx.globalCompositeOperation = 'source-over'; }   // 背景齿轮：垫在最后面
       cache.set(key, cv);
     }
     return cv;
+  }
+  // 腿式底盘的机身（甲壳 / 胯）在精灵里随步态下沉 bd 像素，腿脚不跟着沉：单独画一遍只有机身的 shell，
+  // 和整张比对，同位置同颜色的像素算机身，纹理锚点下移 bd；其余（腿）不动。远侧腿那一层没有机身，直接 0
+  function bobAnchor(id, q, f, pd, cv) {
+    if ((id !== 'quad' && id !== 'biped') || !q.bd || q.part === 'far' || q.part === 'legs') return 0;
+    const sh = document.createElement('canvas'); sh.width = cv.width; sh.height = cv.height;
+    const keep = ctx; ctx = sh.getContext('2d');
+    DRAW[id](pd.l, pd.t, { ...q, part: 'shell' });
+    ctx = keep;
+    const a = sh.getContext('2d').getImageData(0, 0, sh.width, sh.height).data, b = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    const out = new Int8Array(cv.width * cv.height);
+    for (let i = 0; i < out.length; i++) {
+      const j = i * 4;
+      if (a[j + 3] > 8 && a[j] === b[j] && a[j + 1] === b[j + 1] && a[j + 2] === b[j + 2]) out[i] = q.bd;
+    }
+    return out;
   }
   // 模块的精灵：量化状态 + 外观阶段。art 字段 = 暂时借用别的（2×2）模块的画
   function modSprite(id, o) {
@@ -3247,7 +3330,8 @@ SA.SPR = (() => {
   // 特殊武器的汽 / 火（材质处理之后逐帧画，颜色不被换掉）
   function weaponFx(g, id, x, y, mo) {
     const T = (mo.t || 0) * 16.7, a = mo.a == null ? 0 : mo.a;
-    if (id === 'pressure_tank' || id === 'rangefinder') BIG.auxFx(g, id, x, y, { t: T, lv: mo.store == null ? 0.6 : mo.store });
+    if (id === 'boss_core' || id === 'boss_lens') BIG.bossFx(g, id, x, y, { t: T });
+    else if (id === 'pressure_tank' || id === 'rangefinder') BIG.auxFx(g, id, x, y, { t: T, lv: mo.store == null ? 0.6 : mo.store });
     else if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'flamer') BIG.flamerFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'rocket_rack') BIG.rocketFx(g, x, y, { a: mo.a == null ? 20 : mo.a, t: T, n: mo.rn == null ? 4 : mo.rn, s: mo.rs || 0 }, SA.stageOf('rocket_rack', mo.mt || 1));

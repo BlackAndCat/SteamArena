@@ -32,6 +32,8 @@ SA.LABS = {
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: 'Boss 唯一件 v1', date: '2026-09-29', status: 'explore',
       desc: '只放正在开发、等开发者确认的东西（不复用）。本期：圣堂压力核心、寡妇液压撞头、公爵测距棱镜各 6 种（A～C 为 09-27 夜间候选重画，D～F 新方向）', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'boss-uniques', group: 'module', url: 'archive/boss-uniques.html', name: 'Boss 唯一件', ver: 'v1', date: '2026-09-29', status: 'shipped',
+      desc: '已进游戏：圣堂压力核心 E 圣杯炉（煤在呼吸 + 白汽）、寡妇液压撞头 C 三联活塞锤（锤头改成锻工锤：竖锤身 + 收尖的锤嘴，轮流打出）、公爵测距棱镜 F 旋转棱镜鼓（正对的面亮一下、射出分光）。另外 15 种方案留在这页', docs: ['docs/art-plan.md'] },
     { id: 'aux-modules', group: 'module', url: 'archive/aux-modules.html', name: '辅助四件', ver: 'v1', date: '2026-09-29', status: 'shipped',
       desc: '已进游戏：蓄压罐 C 储气球 + 液柱表（液柱跟全车存量走）、测距仪 F 六分仪（指标臂慢慢扫、镜面闪光）、陀螺仪 A 万向环（内环一直翻）、散热片 B 翅片管排（侧挂，镂空真透，冷却液随车温流）。另外 20 种方案留在这页', docs: ['docs/art-plan.md'] },
     { id: 'special-weapons', group: 'module', url: 'archive/special-weapons.html', name: '特殊武器', ver: 'v5', date: '2026-09-29', status: 'shipped',

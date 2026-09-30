@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boss 唯一件</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 0 16px 64px; }
+  .wrap { max-width: 1500px; margin: 0 auto; }
+  header.hero { padding: 22px 0 12px; border-bottom: 3px solid var(--dark0); box-shadow: 0 2px 0 var(--dark3); }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: 4px; color: var(--brass2); text-shadow: 2px 2px 0 var(--brass0); }
+  .hero p { margin: 8px 0 0; line-height: 1.75; max-width: 90em; font-size: 13.5px; }
+  .cbar { position: sticky; top: 0; z-index: 5; background: var(--bg0); display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--dark2); }
+  .cbar .lbl { font-size: 12px; color: var(--muted); }
+  section { padding: 22px 0 4px; }
+  h2.sec { margin: 0 0 4px; font-size: 19px; font-weight: 900; letter-spacing: 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h2.sec small { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
+  p.lead { margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .cards { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { background: var(--bg1, #1d1b1a); border: 2px solid var(--dark2); padding: 12px; width: 720px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; color: var(--brass2); }
+  .card p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .tiers { display: flex; gap: 4px; margin-top: 8px; }
+  .tiers div { text-align: center; font-size: 10.5px; color: var(--muted); }
+  nav.jump a { margin-right: 12px; font-size: 13px; }
+</style></head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Boss 唯一件 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29 定稿进游戏：圣堂压力核心 E 圣杯炉 · 寡妇液压撞头 C 三联活塞锤（锻工锤头）· 公爵测距棱镜 F 旋转棱镜鼓</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（辅助四件：蓄压罐 C、测距仪 F、陀螺仪 A、散热片 B）已进游戏，归档在 <a href="aux-modules.html">archive/aux-modules.html</a>。</p>
+    <p><b>本期 v1</b>：三件 Boss 唯一件各 6 种——<b>A～C 是 2026-09-27 的夜间候选</b>按现在的画法重画，<b>D～F 是新方向</b>。每件都带着 Boss 的身份：圣堂 = 哥特尖拱 / 玫瑰窗 / 十字 / 尖塔 + 呼吸的炉火余烬；寡妇 = 锈钢撞击件 + 黑寡妇的红沙漏；公爵 = 黄铜、贵族、单片眼镜 + 四色分光。撞头和棱镜是乌兹钢档的唯一件，材质条先给 T5，再给 T1 / T3 / T6 对照。<b>请每件挑一个</b>（可以组合）。</p>
+    <nav class="jump" id="jump" style="margin-top:8px"></nav>
+  </header>
+  <div class="cbar">
+    <span class="lbl">大图材质</span><span class="seg" id="mat"></span>
+    <span class="lbl">动画</span><span class="seg" id="play"><button class="btn small on" data-v="1">播放</button><button class="btn small" data-v="0">静止</button></span>
+    <span class="lbl">显示</span><span class="seg" id="mode"><button class="btn small on" data-v="color">原色</button><button class="btn small" data-v="gray">灰度</button></span>
+  </div>
+  <div id="mods"></div>
+</div>
+
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="boss-uniques.js"></script>
+<script src="../labs.js"></script>
+<script>
+(() => {
+  const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids.filter(k => k != null && k !== '')); return e; };
+  const st = { mt: 0, run: 1, t: 0, mode: 'color' };
+  const KEYS = [null, 'brass', 'iron', 'steel', 'nickel', 'wootz', 'aether'];
+  const applyMat = (cv, mt, ox, oy) => { L.setOverride(L.FINAL[KEYS[mt]]); L.pass(cv, SA.MATS[mt], ox, oy, []); L.setOverride(null); return cv; };
+  function gray(src) {
+    if (st.mode !== 'gray') return src;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const g = c.getContext('2d'); g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = Math.round(0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = l; }
+    g.putImageData(img, 0, 0); return c;
+  }
+  const show = (src, z) => { const s = gray(src), c = document.createElement('canvas'); c.width = s.width; c.height = s.height; c.getContext('2d').drawImage(s, 0, 0); c.style.width = s.width * z + 'px'; c.style.height = s.height * z + 'px'; return c; };
+  const BG = P.bg[2];
+  const mtOf = (m, e) => { const ts = e && e.tier ? [e.tier] : m.tiers; return st.mt && ts.includes(st.mt) ? st.mt : ts[0]; };
+  // 一件武器：模块本体过材质层，汽 / 火 / 烟画在材质层之后；四周留出炮口和特效伸出去的地方
+  function one(e, m, mt, o, pad = 6) {
+    const W = m.w * 24 + pad + 56, H = m.h * 24 + pad * 2 + 18, ox = pad, oy = pad + 18, lay = document.createElement('canvas'); lay.width = W; lay.height = H;
+    Q.figure(lay.getContext('2d'), ox, oy, e, o); applyMat(lay, mt, ox, oy); Q.over(lay.getContext('2d'), ox, oy, e, o, m);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H); g.drawImage(lay, 0, 0); return c;
+  }
+  // 装在车上：左边一块装甲、下面一排装甲，武器贴在车体右上角
+  function onCar(e, m, mt, o) {
+    const ox = 4, oy = 22, W = 48 + m.w * 24 + 60, H = oy + 48 + 48 + 4, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.fillStyle = BG; g.fillRect(0, 0, W, H);
+    const mx = ox + 48, my = oy + 48 - m.h * 24;
+    try { for (let u = 0; u < 2; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy, { mt }); for (let u = 0; u < 2 + m.w; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy + 48, { mt }); } catch (err) {}
+    const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
+    const sx = m.side ? ox + 24 : mx, sy = m.side ? oy + 24 : my;
+    Q.figure(lay.getContext('2d'), sx, sy, e, o); applyMat(lay, mt, sx, sy); Q.over(lay.getContext('2d'), sx, sy, e, o, m);
+    if (m.side) { g.save(); g.filter = 'brightness(0) opacity(0.55)'; g.drawImage(lay, 3, 3); g.restore(); }
+    g.drawImage(lay, 0, 0); return c;
+  }
+  const live = [];
+  function render() {
+    const box = $('mods'); box.replaceChildren(); live.length = 0; $('jump').replaceChildren();
+    for (const m of Q.MODS) {
+      $('jump').append(el('a', { href: '#' + m.id, textContent: `${m.name}（${m.SET.length}）` }));
+      const cards = el('div', { className: 'cards' });
+      for (const e of m.SET) {
+        const big = el('div'), car = el('div'), tiers = el('div', { className: 'tiers' }), poses = el('div', { className: 'tiers' });
+        live.push(() => { const o = m.state(st.t), mt = mtOf(m, e); big.replaceChildren(show(one(e, m, mt, o), 3)); car.replaceChildren(show(onCar(e, m, mt, o), 1.5)); });
+        for (const mt of (e.tier ? [e.tier] : m.tiers)) tiers.append(el('div', {}, show(one(e, m, mt, { ...m.state(40), a: 6, k: 0, out: false, on: false, fire: false, n: 4 }, 2), 1), `T${mt} ${SA.MATS[mt].name}`));
+        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m, e), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label != null ? ps.label : (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
+        cards.append(el('div', { className: 'card' }, el('h3', {}, `${e.key} ${e.name}`), el('div', { className: 'row' }, big, car), tiers, poses,
+          el('p', {}, e.idea), el('p', { style: 'font-size:11.5px;opacity:.8' }, '参考：' + e.ref)));
+      }
+      let line6 = null;
+      if (m.lineup) {   // 推荐的六档一排：每档按自己的材质画，一起动
+        line6 = el('div', { className: 'tiers', style: 'margin:4px 0 14px;gap:10px' });
+        Q.LINEUP.forEach((e, i) => { const box6 = el('div'); line6.append(el('div', {}, box6, `T${i + 1} ${SA.MATS[i + 1].name} · ${e.name}`)); live.push(() => box6.replaceChildren(show(one(e, m, i + 1, m.state(st.t), 2), 2))); });
+      }
+      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, m.name, el('small', {}, `${m.id} · ${m.SET.length} 种 · 材质 ${m.tiers.map(k => 'T' + k).join(' / ')}`)), el('p', { className: 'lead' }, m.rule), m.lineup ? el('p', { className: 'lead' }, el('b', {}, '选定的六档一排（一起动）：')) : null, line6, cards));
+    }
+    tick(true);
+  }
+  function tick(force) { if (st.run && !force) st.t++; for (const f of live) f(); }
+  const seg = (bx, fn) => bx.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; bx.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); fn(b.dataset.v); render(); });
+  const mb = $('mat'); { const b = el('button', { className: 'btn small on', textContent: '各自最低档' }); b.dataset.v = 0; mb.append(b); }
+  for (let mt = 1; mt <= 6; mt++) { const b = el('button', { className: 'btn small', textContent: `T${mt} ${SA.MATS[mt].name}` }); b.dataset.v = mt; mb.append(b); }
+  seg(mb, v => st.mt = +v);
+  seg($('play'), v => st.run = +v);
+  seg($('mode'), v => st.mode = v);
+  render();
+  setInterval(() => tick(false), 60);
+  window.__curReady = true;
+})();
+</script></body></html>
