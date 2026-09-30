@@ -14,16 +14,7 @@ SA.Home = (() => {
   // 场景：专门给主页面画的铁匠铺院子（js/home-scene.js），底图静态 + 一层动效（炉火、窗光、烟）
   const backdrop = (wk) => SA.HomeScene.base(wk);
   const rawCoal = (name, o) => SA.Coal.draw(SA.Coal.byName[name] || SA.Coal.crew(name), Object.assign({ size: 'scene' }, o));
-  // 天气：这次打开游戏第一次进院子时随机一种，之后记住（sessionStorage，只是看的偏好，不进存档）；风向标点一下换下一种
-  const WKEY = 'steam_arena_home_weather';
-  function weather(force) {
-    const ORDER = SA.HomeScene.ORDER;
-    let v = force;
-    if (!ORDER.includes(v)) { try { v = sessionStorage.getItem(WKEY); } catch (e) { v = null; } }
-    if (!ORDER.includes(v)) v = ORDER[Math.floor(Math.random() * ORDER.length)];
-    try { sessionStorage.setItem(WKEY, v); } catch (e) { /* 隐私模式等：不记也行 */ }
-    return v;
-  }
+  const weather = (wk) => SA.HomeScene.weather(wk);
 
   function open(wk) {
     X.init();

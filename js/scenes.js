@@ -1,4 +1,4 @@
-// 战斗场景：铁匠铺后院（序章）、野地（竞技场外遭遇战）、预选赛（其余竞技场比赛）。
+// 战斗场景：铁匠铺后院（序章，就是主页面的院子，画法在 js/home-scene.js）、野地（竞技场外遭遇战）、预选赛（其余竞技场比赛）。
 // 每个场景分五层，从远到近：天空（不跟镜头）→ 远景（×0.05）→ 中远景（×0.15～0.2）→ 中景（×0.45）→ 地面（1:1，世界坐标）→ 近景（×1.4，压在车前面的画面最下沿）。
 // 规则同 docs/art-style.md：硬像素、左上光、渐变用 4×4 Bayer 抖动；背景只用中低明度、低饱和，只有炉火、灯这类发光物可以亮。
 // 纹理一次画好（按场景缓存），每帧只做平铺 / 圆筒采样，再叠一点程序化的小动效（烟、火星、风车、火车、人群、草）。
@@ -149,255 +149,139 @@ SA.Scenes = (() => {
   }
 
   // =====================================================================
-  // 铁匠铺后院：黄昏。远处伦敦屋顶和烟囱，中景是铁匠铺（敞开的炉门、火光、打铁的火星、冒烟的砖烟囱），
-  // 老汤姆在铁砧前抡锤、远房亲戚站在门口（成双入对）；近景是废料堆和铁砧剪影，空气里飘着火星
+  // 铁匠铺后院（序章）：就是主页面那个院子（js/home-scene.js 画的同一座铁匠铺、同一种天气）。
+  // 院子的 1 个原生像素 = 世界 1 像素；院子墙根（y 272）对上中景底 GE。中景是一整圈院墙，铁匠铺和院门嵌在里面；
+  // 远景是城市剪影，天空是院子的色带；地面是同一种夯土。老汤姆在门口铁砧前打铁、亲戚在旁边看（和老汤姆对打的那一关只剩亲戚）。
   // =====================================================================
   function buildForge() {
-    const S = { id: 'forge' };
-    const C = {
-      sky: [[SKY0, '#140f17'], [40, '#1b1420'], [170, '#2a1a25'], [270, '#3f2229'], [340, '#58292a'], [392, '#723827'], [440, '#84452a'], [HZ + 160, '#84452a']],
-      far: '#35222a', farD: '#2c1c22', farWin: '#8a5a2e',
-      mid2: '#24171b', mid2D: '#1d1216', mid2L: '#3a2326',
-      brick: ['#2c1a17', '#3b231e', '#4a2c24', '#5a372b'], slate: ['#1a1418', '#231b20', '#2e242a'], wood: ['#241710', '#352216', '#4a3020'],
-      iron: ['#161314', '#241f20', '#3a3232'], soot: '#120d0d', glow: ['#5c1a0e', '#8a3414', '#b8561e', '#e08a32'],
-      gnd: ['#1a1413', '#241c1a', '#2e2522', '#3a2f2a', '#4a3d35'], near: '#0e0a0a', rim: ['#7a3a20', '#3a1c12'],
-    };
-    S.skyTop = C.sky[0][1];
-    S.sky = skyTex(C.sky);
-    S.clouds = [0, 1, 2, 3].map(i => ({ img: cloud(150 + i * 40, 22 + (i % 2) * 8, ['#3a2128', '#4c2a2e', '#6e3a2c'], 11 + i), x: i * 470, y: 120 + (i % 3) * 58, v: 3 + i * 0.8, par: 0.02 }));
-    // 远景：伦敦屋顶、烟囱帽、储气罐框架、教堂尖塔、钟楼，零星亮着的窗
+    const HS = SA.HomeScene, wk = HS.weather(), t = HS.theme(wk);
+    const S = { id: 'forge', wk };
+    const DY = GE - HS.BASE;   // 院子的 y + DY = 世界 y
+    const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = (v) => Math.max(0, Math.min(255, Math.round(v * k))).toString(16).padStart(2, '0'); return '#' + f(n >> 16) + f((n >> 8) & 255) + f(n & 255); };
+    const [g0, g1, g2] = t.ground, SH = `rgba(${t.sh.join(',')})`;
+    // 天空：院子的几条色带（往上一直是最顶那一色）
+    const bh = HS.HOR / t.sky.length, stops = [[SKY0, t.sky[0]]];
+    t.sky.forEach((c, i) => { if (i) stops.push([Math.round(DY + i * bh), c]); });
+    stops.push([HZ + 160, t.sky[t.sky.length - 1]]);
+    S.skyTop = t.sky[0];
+    S.sky = skyTex(stops);
+    // 云：晴天几朵平涂的白云，雨天一排压低的乌云；夜里、雾天没有
+    const flatCloud = (w, c0, c1) => { const [c, x] = mk(w, 12); const r = (a, b, ww, hh, col) => { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(b), Math.round(ww), Math.round(hh)); };
+      r(0, 6, w, 5, c0); r(5, 3, w * 0.45, 3, c0); r(w * 0.4, 0, w * 0.34, 6, c0); r(2, 11, w - 4, 1, c1); return c; };
+    S.clouds = t.rain ? [0, 1, 2, 3, 4].map(i => ({ img: flatCloud(260 + i * 30, t.cloud[1], shade(t.cloud[1], 0.8)), x: i * 330, y: DY + 18 + (i % 2) * 14, v: 6 + i, par: 0.02 }))
+      : t.cloud ? [0, 1, 2].map(i => ({ img: flatCloud(52 + i * 14, t.cloud[0], t.cloud[1]), x: i * 520, y: DY + 14 + (i % 3) * 22, v: 3 + i * 0.8, par: 0.02 })) : [];
+    // 远景：城市剪影（最低对比），亮窗排成行
     {
-      const y0 = 250, p = Pix(TW, F0 - y0, true), r = rng(5), chim = [];
+      const y0 = 380, p = Pix(TW, F0 - y0, true), r = rng(5), far = t.far[0], win = t.far[1], chim = [];
       for (let x = 0; x < TW;) {
-        const w = 26 + Math.floor(r() * 44), top = 150 - Math.floor(r() * 36) + (r() < 0.2 ? 18 : 0);
-        p.rect(x, top, w, F0 - y0 - top, C.far);
-        if (r() < 0.5) p.line(x, top, x + w / 2, top - 10, C.far, 2), p.line(x + w / 2, top - 10, x + w, top, C.far, 2), p.rect(x + 2, top - 9 + 5, w - 4, 10, C.far);
-        for (let k = 0; k < 2; k++) if (r() < 0.6) { const cx = x + 4 + Math.floor(r() * (w - 10)), ch = 10 + Math.floor(r() * 14); p.rect(cx, top - ch, 5, ch, C.far); p.rect(cx - 1, top - ch, 7, 2, C.farD); if (r() < 0.45) chim.push([cx + 2, top - ch + y0]); }
-        for (let wy = top + 8; wy < 175; wy += 10) for (let wx = x + 4; wx < x + w - 4; wx += 8) if (r() < 0.07) p.rect(wx, wy, 2, 3, C.farWin);
-        x += w + (r() < 0.2 ? 6 : 0);
+        const w = 20 + Math.floor(r() * 30), top = 30 + Math.floor(r() * 40);
+        p.rect(x, top, w, F0 - y0 - top, far);
+        if (win) for (let wy = top + 5; wy < 110; wy += 9) for (let wx = x + 3; wx < x + w - 4; wx += 7) if (r() < 0.22) p.rect(wx, wy, 2, 3, win);
+        if (r() < 0.3) { const cx = x + 3 + Math.floor(r() * (w - 8)); p.rect(cx, top - 26, 5, 26, far); chim.push([cx + 2, y0 + top - 28]); }
+        x += w + (r() < 0.25 ? 8 : 0);
       }
-      // 储气罐：圆柱罐体 + 三层导轨框架
-      const gx = 300; p.rect(gx, 110, 90, 90, C.farD);
-      for (const yy of [104, 128, 152]) p.rect(gx - 4, yy, 98, 2, C.far);
-      for (let k = 0; k <= 6; k++) p.rect(gx - 4 + k * 16, 100, 2, 100, C.far);
-      // 教堂尖塔 + 钟楼
-      p.rect(760, 60, 14, 120, C.far); for (let k = 0; k < 34; k++) p.rect(767 - k / 5, 26 + k, 1 + (k / 5) * 2, 1, C.far);
-      p.rect(1010, 70, 22, 110, C.far); p.rect(1006, 64, 30, 8, C.farD); p.rect(1014, 44, 14, 20, C.far); p.rect(1020, 36, 2, 8, C.far);
-      p.disc(1021, 88, 6, C.farWin); p.rect(1021, 84, 1, 4, C.far); p.rect(1021, 88, 3, 1, C.far);
-      S.far = p.done(); S.farY = y0; S.farChim = chim;
+      p.rect(640, 4, 12, 120, far); p.rect(638, 0, 16, 5, far); p.rect(642, -8, 8, 8, far); p.rect(643, 10, 6, 6, win || t.sky[3]);   // 钟塔
+      p.rect(1000, 10, 10, 120, far); for (let k = 0; k < 24; k++) p.rect(1005 - k / 5, -14 + k, 1 + (k / 5) * 2, 1, far);   // 教堂尖塔
+      S.far = p.done(); S.farY = y0; S.farChim = chim.slice(0, 4);
     }
-    // 中远景：隔壁作坊和工人住宅的背面，晾衣绳，水塔
+    // 中景：一整圈院墙；铁匠铺（院子里那座，只要建筑层）嵌在 X0，院门在它右边；墙根前一条夯土
     {
-      const y0 = 360, p = Pix(TW, F0 - y0, true), r = rng(9);
-      for (let x = 0; x < TW;) {
-        const w = 60 + Math.floor(r() * 80), top = 60 + Math.floor(r() * 40);
-        p.rect(x, top, w, F0 - y0 - top, C.mid2);
-        for (let k = 0; k < w; k++) p.put(x + k, top + Math.floor(Math.abs(k - w / 2) * 0.35) - Math.floor(w * 0.17), C.mid2D);   // 坡屋顶
-        for (let k = 0; k < w; k++) for (let yy = top + Math.floor(Math.abs(k - w / 2) * 0.35) - Math.floor(w * 0.17) + 1; yy < top; yy++) p.put(x + k, yy, C.mid2);
-        if (r() < 0.6) { const wx = x + 10 + Math.floor(r() * (w - 26)); p.rect(wx, top + 16, 10, 12, C.mid2D); if (r() < 0.5) p.rect(wx + 2, top + 18, 6, 8, '#5a3424'); }
-        x += w + 2;
-      }
-      // 水塔：四条腿 + 木桶
-      p.rect(840, 10, 46, 30, C.mid2D); for (let k = 0; k < 46; k += 6) p.rect(840 + k, 10, 1, 30, C.mid2); p.rect(836, 6, 54, 5, C.mid2D);
-      for (const lx of [842, 882]) p.rect(lx, 40, 3, 60, C.mid2D); p.line(845, 50, 882, 90, C.mid2D); p.line(882, 50, 845, 90, C.mid2D);
-      S.mid2 = p.done(); S.mid2Y = y0;
-    }
-    // 中景：铁匠铺本体 + 院子
-    {
-      const y0 = 190, MW = TW * 2, p = Pix(MW, F0 - y0, true), r = rng(21);   // 两屏宽：拉到最远也只看到一座铁匠铺
-      const Y = (wy) => wy - y0;   // 世界 y → 纹理 y
-      const B = C.brick;
-      // 背后的木板围栏（整圈都有，挡住远处的缝）
-      for (let x = 0; x < MW; x += 7) { const top = Y(462) - (Math.floor(x / 7) % 3); p.rect(x, top, 6, Y(GE) - top, (x / 7) % 2 ? C.wood[1] : C.wood[0]); p.put(x + 2, top + 4, C.wood[0]); p.put(x + 2, Y(GE) - 8, C.wood[0]); }
-      p.rect(0, Y(474), MW, 2, C.wood[0]); p.rect(0, Y(516), MW, 2, C.wood[0]);
-      for (let x = 30; x < MW; x += 97) { p.disc(x, Y(490), 4, C.iron[2], 4); p.disc(x, Y(491), 2, C.wood[1], 2); p.rect(x - 3, Y(492), 7, 3, C.wood[1]); }   // 钉在围栏上的马蹄铁
-      // 铁匠铺：砖墙 x 300..760，屋顶、烟囱
-      const bx0 = 300, bx1 = 760, wallTop = Y(352);
-      for (let yy = wallTop; yy < Y(GE); yy++) {
-        const row = Math.floor((yy - wallTop) / 5), mortar = (yy - wallTop) % 5 === 4;
-        for (let x = bx0; x < bx1; x++) {
-          const joint = ((x + (row % 2 ? 6 : 0)) % 12) === 0;
-          const light = 1 - (yy - wallTop) / (Y(GE) - wallTop);
-          p.put(x, yy, mortar || joint ? B[0] : hash(Math.floor((x + (row % 2 ? 6 : 0)) / 12), row) < 0.15 ? B[2] : bayer(x, yy) < light * 0.35 ? B[2] : B[1]);
-        }
-      }
-      // 坡屋顶（石板瓦）
-      for (let x = bx0 - 16; x < bx1 + 16; x++) {
-        const k = Math.abs(x - (bx0 + bx1) / 2) / ((bx1 - bx0) / 2 + 16), top = Math.round(Y(300) + k * 52);
-        for (let yy = top; yy < wallTop + 2; yy++) p.put(x, yy, (yy - top) % 6 === 5 || ((x + Math.floor((yy - top) / 6) * 5) % 10 === 0) ? C.slate[0] : yy - top < 2 ? C.slate[2] : C.slate[1]);
-      }
-      // 屋顶上的天窗（亮着）
-      p.rect(430, Y(318), 26, 14, C.slate[0]); p.rect(433, Y(321), 20, 9, C.glow[1]); p.rect(442, Y(321), 1, 9, C.slate[0]);
-      // 大烟囱：砖砌，顶上铁帽
-      const cx0 = 640, cTop = Y(204);
-      for (let yy = cTop; yy < Y(330); yy++) for (let x = cx0; x < cx0 + 30; x++) p.put(x, yy, (yy - cTop) % 5 === 4 || (x + ((Math.floor((yy - cTop) / 5) % 2) ? 5 : 0)) % 10 === 0 ? B[0] : x < cx0 + 5 ? B[2] : B[1]);
-      p.rect(cx0 - 3, cTop - 4, 36, 5, C.iron[1]); p.rect(cx0 - 3, cTop - 4, 36, 1, C.iron[2]);
-      S.chimney = [cx0 + 15, y0 + cTop - 6];
-      // 大门洞：里面暗、炉膛发光（动效另画），门框木头
-      const dx0 = 420, dx1 = 548, dTop = Y(420);
-      p.rect(dx0 - 5, dTop - 6, dx1 - dx0 + 10, 6, C.wood[2]); p.rect(dx0 - 5, dTop - 6, 5, Y(GE) - dTop + 6, C.wood[1]); p.rect(dx1, dTop - 6, 5, Y(GE) - dTop + 6, C.wood[1]);
-      p.rect(dx0, dTop, dx1 - dx0, Y(GE) - dTop, '#150d0b');
-      // 炉膛：砖砌炉台 + 炉口（炉火动效画在炉口上）
-      p.rect(492, Y(470), 44, Y(GE) - Y(470), B[1]); p.rect(490, Y(468), 48, 4, B[2]); p.rect(500, Y(486), 28, 18, '#0b0707');
-      S.hearth = [500, y0 + Y(486), 28, 18];
-      p.rect(506, Y(430), 16, 38, B[0]); p.rect(502, Y(426), 24, 5, C.iron[1]);   // 炉罩
-      // 屋里挂着的工具剪影
-      for (let k = 0; k < 5; k++) { const tx = 430 + k * 11; p.rect(tx, dTop + 6, 1, 14 + (k % 2) * 6, C.iron[1]); p.rect(tx - 2, dTop + 20 + (k % 2) * 6, 5, 3, C.iron[1]); }
-      // 铁砧（门口外面，老汤姆就在这儿打铁）
-      const ax = 572, ay = Y(GE);
-      p.rect(ax, ay - 9, 12, 9, C.wood[1]); p.rect(ax - 1, ay - 9, 14, 1, C.wood[2]);   // 木墩
-      p.rect(ax - 4, ay - 16, 22, 5, C.iron[2]); p.rect(ax - 8, ay - 16, 6, 3, C.iron[2]); p.rect(ax + 2, ay - 11, 10, 2, C.iron[1]); p.rect(ax - 4, ay - 16, 22, 1, '#5a4a48');
+      const y0 = 190, MW = TW * 2, X0 = 300, [c, g] = mk(MW, F0 - y0), ty = (hy) => hy + DY - y0;   // 院子 y → 纹理 y
+      const R2 = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+      g.drawImage(HS.yardWall(wk, MW), 0, ty(222));
+      g.clearRect(X0 + HS.L.gate[0], ty(222), HS.L.gate[1] - HS.L.gate[0], 50);
+      R2(0, ty(HS.BASE), MW, F0 - GE, g0); R2(0, ty(HS.BASE), MW, 2, g1);
+      if (t.spill) { g.fillStyle = `rgba(255,176,80,${t.spill})`; g.fillRect(X0 + 150, ty(HS.BASE) + 2, 90, F0 - GE - 2); }
+      g.drawImage(HS.layer(wk, { build: true }), X0, ty(0));
+      // 院墙边的两只木桶、一座煤气路灯（亮不亮看天气）
+      for (const bx of [980, 1002]) { R2(bx, ty(252), 18, 22, t.wood[1]); R2(bx, ty(252), 18, 1, t.wood[0]); R2(bx, ty(258), 18, 2, t.iron[2]); R2(bx, ty(268), 18, 2, t.iron[2]); R2(bx + 1, ty(274), 16, 2, SH); }
+      const lx = 1500; R2(lx, ty(196), 3, 80, t.iron[2]); R2(lx - 5, ty(194), 13, 3, t.iron[2]); R2(lx - 3, ty(182), 9, 12, t.iron[2]); R2(lx - 2, ty(184), 7, 8, t.lit ? '#ffd070' : t.iron[1]); R2(lx - 3, ty(276), 9, 2, SH);
+      S.lamp = t.lit ? [lx - 2, y0 + ty(184)] : null;
+      // 铁砧：门左边、墙根前一点点（老汤姆就在这儿打铁）
+      const ax = X0 + 112, ay = F0 - y0 - 3;
+      R2(ax - 10, ay - 1, 36, 3, SH);
+      R2(ax, ay - 9, 12, 9, t.wood[1]); R2(ax - 1, ay - 9, 14, 1, t.wood[0]);
+      R2(ax - 4, ay - 16, 22, 5, t.iron[2]); R2(ax - 8, ay - 16, 6, 3, t.iron[2]); R2(ax + 2, ay - 11, 10, 2, t.iron[1]); R2(ax - 4, ay - 16, 22, 1, t.iron[0]);
       S.anvil = [ax + 6, y0 + ay - 17];
-      // 窗：暖光 + 十字窗棂
-      p.rect(336, Y(420), 40, 30, C.wood[1]); p.rect(339, Y(423), 34, 24, C.glow[1]); p.rect(339, Y(423), 34, 10, C.glow[2]); p.rect(355, Y(423), 2, 24, C.wood[0]); p.rect(339, Y(434), 34, 2, C.wood[0]);
-      S.window = [339, y0 + Y(423), 34, 24];
-      // 挂招牌的铁架（招牌本身画成动效，会晃）
-      p.rect(556, Y(400), 30, 2, C.iron[2]); p.line(556, Y(412), 570, Y(401), C.iron[2]);
-      S.sign = [580, y0 + Y(402)];
-      // 风箱：靠墙的大皮风箱
-      p.rect(390, Y(508), 26, 18, C.wood[1]); for (let k = 0; k < 4; k++) p.rect(390, Y(510) + k * 4, 26, 1, C.wood[0]); p.rect(386, Y(514), 4, 3, C.iron[2]);
-      // 棚子 + 废料：车轮、齿轮、管子、旧锅炉壳
-      for (let x = 770; x < 920; x++) { const top = Y(446) + Math.floor((x - 770) * 0.12); p.rect(x, top, 1, 3, C.iron[1]); }
-      for (const px of [772, 916]) p.rect(px, Y(448), 3, Y(GE) - Y(448), C.wood[1]);
-      p.disc(812, Y(512), 22, (x, y, ddx, ddy) => { const rr = Math.hypot(ddx, ddy); return rr > 0.8 || rr < 0.18 || Math.abs(Math.atan2(ddy, ddx) % (Math.PI / 3)) < 0.14 ? C.iron[2] : null; });
-      p.disc(862, Y(522), 16, (x, y, ddx, ddy) => { const rr = Math.hypot(ddx, ddy), a = Math.atan2(ddy, ddx); return (rr > 0.72 && (rr < 0.86 || Math.abs(((a / (TAU / 10)) % 1 + 1) % 1 - 0.5) < 0.22)) || rr < 0.25 ? C.iron[1] : null; });
-      p.rect(840, Y(528), 70, 10, C.iron[1]); p.rect(840, Y(528), 70, 1, C.iron[2]); for (let k = 0; k < 70; k += 9) p.rect(840 + k, Y(528), 1, 10, C.iron[0]);
-      // 煤堆 + 水槽 + 木桶
-      for (let k = -30; k <= 30; k++) { const hh = Math.round(18 * (1 - (k / 30) ** 2)); p.rect(250 + k, Y(GE) - hh, 1, hh, (k + hh) % 3 ? '#161213' : '#221c1d'); }
-      p.rect(610, Y(522), 40, 16, C.wood[1]); p.rect(612, Y(524), 36, 3, '#2e3a44'); p.rect(610, Y(522), 40, 2, C.wood[2]);
-      for (const bx of [960, 986]) { p.rect(bx, Y(512), 22, 26, C.wood[1]); p.rect(bx, Y(518), 22, 2, C.iron[1]); p.rect(bx, Y(530), 22, 2, C.iron[1]); p.rect(bx, Y(512), 22, 1, C.wood[2]); }
-      // 煤气路灯（灯罩亮暖黄，火苗动效另画）
-      const lx = 1100; p.rect(lx, Y(420), 3, Y(GE) - Y(420), C.iron[1]); p.rect(lx - 5, Y(418), 13, 3, C.iron[2]); p.rect(lx - 3, Y(404), 9, 14, C.iron[1]);
-      S.lamp = [lx - 2, y0 + Y(406)];
-      // 砂轮
-      p.disc(1180, Y(520), 12, (x, y, ddx, ddy) => (Math.hypot(ddx, ddy) > 0.8 ? '#3a3232' : '#4a4040')); p.rect(1170, Y(530), 20, 8, C.wood[1]);
-      S.wheel = [1180, y0 + Y(520)];
-      // 地面边：院子里的煤渣
-      p.rect(0, Y(GE), MW, F0 - GE, C.gnd[1]);
-      for (let x = 0; x < MW; x++) if (hash(x, 3) < 0.3) p.put(x, Y(GE) + Math.floor(hash(x, 5) * 14), C.gnd[2]);
-      // 后半圈：煤棚、木吊杆（吊着一只旧锅炉壳，动效另画）、一摞车轮、架在木马上造了一半的锅炉、第二盏路灯
-      const sx0 = 1420;
-      p.rect(sx0, Y(452), 170, 4, C.wood[2]); p.rect(sx0, Y(452), 170, 1, '#5a3c28');
-      for (const px of [sx0 + 2, sx0 + 84, sx0 + 164]) p.rect(px, Y(456), 4, Y(GE) - Y(456), C.wood[1]);
-      p.rect(sx0 + 6, Y(460), 158, Y(GE) - Y(460), '#140e0c');
-      for (let k = -70; k <= 70; k++) { const hh = Math.round(34 * (1 - (k / 70) ** 2)); p.rect(sx0 + 84 + k, Y(GE) - hh, 1, hh, (k + hh) % 3 ? '#1a1516' : '#2a2224'); }
-      p.rect(sx0 + 20, Y(GE) - 22, 14, 22, C.wood[1]); p.rect(sx0 + 18, Y(GE) - 24, 18, 3, C.iron[1]);   // 煤桶
-      const cx = 1760;   // 木吊杆：立柱 + 斜撑 + 往右伸的吊臂
-      p.rect(cx, Y(350), 6, Y(GE) - Y(350), C.wood[1]); p.rect(cx, Y(350), 2, Y(GE) - Y(350), C.wood[2]);
-      p.line(cx - 34, Y(GE), cx, Y(430), C.wood[1], 3); p.line(cx + 40, Y(GE), cx + 6, Y(430), C.wood[1], 3);
-      p.line(cx + 3, Y(356), cx + 110, Y(372), C.wood[1], 4); p.line(cx + 3, Y(352), cx + 110, Y(370), C.wood[2]);
-      p.line(cx + 3, Y(340), cx + 104, Y(370), C.iron[1]); p.rect(cx - 1, Y(340), 8, 4, C.iron[2]);
-      p.disc(cx + 12, Y(470), 7, (x, y, a, b) => (Math.hypot(a, b) > 0.6 ? C.iron[2] : C.iron[0]));   // 绞盘
-      S.hook = [cx + 106, y0 + Y(372)];
-      for (let i = 0; i < 4; i++) p.disc(1960 + i * 9, Y(GE) - 18, 17, (x, y, a, b) => { const rr = Math.hypot(a, b); return rr > 0.78 || rr < 0.2 || Math.abs(a) < 0.1 ? (i % 2 ? C.wood[2] : C.wood[1]) : null; }, 18);   // 靠着围栏的一摞车轮
-      const bx = 2150;   // 造了一半的锅炉：铆钉圆筒 + 两个木马 + 散着的铆钉
-      for (const tx of [bx + 8, bx + 92]) { p.line(tx - 10, Y(GE), tx, Y(508), C.wood[1], 3); p.line(tx + 10, Y(GE), tx, Y(508), C.wood[1], 3); p.rect(tx - 12, Y(508), 24, 3, C.wood[2]); }
-      p.rect(bx - 6, Y(478), 112, 30, C.iron[1]); p.rect(bx - 6, Y(478), 112, 4, C.iron[2]); p.rect(bx - 6, Y(504), 112, 4, C.iron[0]);
-      for (let k = 0; k < 112; k += 8) { p.put(bx - 4 + k, Y(481), '#6a5a52'); p.put(bx - 4 + k, Y(502), C.iron[2]); }
-      for (const k of [30, 64]) p.rect(bx - 6 + k, Y(478), 2, 30, C.iron[0]);
-      p.disc(bx - 6, Y(493), 5, C.iron[2], 15); p.rect(bx + 104, Y(480), 6, 26, C.iron[0]);   // 封头 + 没装好的一头
-      const lx2 = 2380; p.rect(lx2, Y(420), 3, Y(GE) - Y(420), C.iron[1]); p.rect(lx2 - 5, Y(418), 13, 3, C.iron[2]); p.rect(lx2 - 3, Y(404), 9, 14, C.iron[1]);
-      S.lamp2 = [lx2 - 2, y0 + Y(406)];
-      S.mid = p.done(); S.midY = y0;
+      S.hearth = [X0 + HS.L.hearth[0], HS.L.hearth[1] + DY, HS.L.hearth[2] - HS.L.hearth[0], HS.L.hearth[3] - HS.L.hearth[1]];
+      S.chimney = [X0 + (HS.L.chimney[0] + HS.L.chimney[2]) / 2, HS.L.chimney[1] + DY - 6];
+      S.mid = c; S.midY = y0;
     }
-    // 地面（世界坐标 1:1）：煤渣院子 + 截面
-    S.floor = floorTex(C.gnd, (p, x, y) => {
-      const d = y + F0;
-      if (d < GROUND) { const k = (d - F0) / (GROUND - F0); return bayer(x, y) < k * 0.6 ? C.gnd[2] : C.gnd[1]; }
-      return null;
-    }, [['#141011', 0.05], ['#3a2f2a', 0.03]], (p, r, Y) => {
-      // 几片旧鹅卵石路面、煤块、两个映着晚霞的水洼、车辙、散落的螺栓
-      for (let i = 0; i < 9; i++) { const cx = r() * TW, cy = Y(572 + r() * 56), n = 6 + r() * 8; for (let k = 0; k < n; k++) { const sx = cx + (r() - 0.5) * 70, sy = cy + (r() - 0.5) * 20, sw = 6 + Math.floor(r() * 4); p.rect(sx, sy, sw, 4, C.gnd[3]); p.rect(sx, sy, sw, 1, C.gnd[4]); p.rect(sx, sy + 4, sw, 1, C.gnd[0]); } }
-      for (let i = 0; i < 140; i++) { const x = r() * TW, y = Y(556 + r() * 88); p.rect(x, y, r() < 0.3 ? 3 : 2, 2, '#121011'); p.put(x, y, '#2e2a2c'); }
-      for (const px of [260, 900]) { const py = Y(604); p.disc(px, py, 34, (x, y, aa, bb) => (bb < -0.1 ? '#3f2229' : '#2c1c22'), 5); p.rect(px - 20, py - 2, 16, 1, '#723827'); p.rect(px + 6, py + 1, 9, 1, '#58292a'); }
-      for (let x = 0; x < TW; x++) { if (hash(x >> 3, 7) < 0.8) p.put(x, Y(634), C.gnd[0]); if (hash(x >> 3, 9) < 0.8) p.put(x, Y(641), C.gnd[0]); }
-      for (let i = 0; i < 16; i++) { const x = r() * TW, y = Y(560 + r() * 80); p.rect(x, y, 3, 2, '#3a3232'); p.put(x, y, '#6a5a50'); }
+    // 地面（世界坐标 1:1）：院子那种平的夯土，稀疏石子；雨天几个映着天色的水洼
+    const G = [shade(g1, 0.7), g1, g0, g2, shade(g2, 1.12)];
+    S.floor = floorTex(G, (p, x, y) => {
+      const d = y + F0, k = d - GROUND;
+      if (d < GROUND) return g0;
+      return k < 2 ? G[3] : k < 4 ? G[2] : (k - 8) % 14 === 0 && hash(x >> 3, k) < 0.6 ? G[0] : G[1];
+    }, [], (p, r, Y) => {
+      for (let i = 0; i < 90; i++) { const x = r() * TW, y = Y(556 + r() * 88), w = 1 + Math.floor(r() * 3); p.rect(x, y, w + 1, 1, g1); p.rect(x, y - 1, w, 1, g2); }
+      if (t.rain) for (const px of [200, 640, 1010]) { const py = Y(600 + (px % 3) * 12); p.disc(px, py, 30, t.water, 3); p.rect(px - 14, py, 14, 1, t.sky[3]); }
     });
-    // 近景：废料堆、铁砧、木桶、野草剪影（最暗），顶边被炉火映红
+    // 近景：废料堆、半埋的车轮和齿轮剪影（地面最暗色），顶边描一道受光
     S.near = nearTex(1680, 64, (p, r) => {
-      const heap = (cx, w, hh) => { for (let k = -w; k <= w; k++) { const t = Math.round(hh * (1 - (k / w) ** 2) + (hash(cx + k, 1) - 0.5) * 3); p.rect(cx + k, 64 - t, 1, t, C.near); } };
-      heap(140, 90, 34); heap(760, 70, 26); heap(1300, 110, 40);
-      p.disc(120, 32, 18, (x, y, a, b) => (Math.hypot(a, b) > 0.7 || Math.abs(a) < 0.12 || Math.abs(b) < 0.12 ? C.near : null));   // 半埋的车轮
-      p.rect(1270, 12, 44, 8, C.near); p.rect(1262, 12, 10, 4, C.near); p.rect(1282, 20, 20, 44, C.near);   // 铁砧 + 墩子
-      p.disc(500, 58, 26, (x, y, a, b) => { const rr = Math.hypot(a, b), an = Math.atan2(b, a); return rr > 0.78 && Math.abs(((an / (TAU / 12)) % 1 + 1) % 1 - 0.5) > 0.22 ? null : rr < 0.3 && rr > 0.15 ? null : C.near; });   // 半埋的大齿轮
-      for (let k = 0; k < 9; k++) p.rect(560 + k * 7, 40 + Math.round(Math.sin(k * 0.7) * 4), 6, 3, C.near);   // 一截铁链
-      for (let k = 0; k < 40; k++) { const x = Math.floor(r() * 1680), hh = 6 + Math.floor(r() * 12); p.line(x, 64, x + (r() - 0.5) * 6, 64 - hh, C.near); }
-      p.line(900, 64, 960, 20, C.near, 3); p.line(960, 20, 1000, 64, C.near, 3);   // 斜靠的管子
-    }, C.rim);
+      const N = shade(g1, 0.45);
+      const heap = (cx, w, hh) => { for (let k = -w; k <= w; k++) { const tt = Math.round(hh * (1 - (k / w) ** 2) + (hash(cx + k, 1) - 0.5) * 3); p.rect(cx + k, 64 - tt, 1, tt, N); } };
+      heap(140, 90, 30); heap(760, 70, 22); heap(1300, 110, 34);
+      p.disc(120, 32, 18, (x, y, a, b) => (Math.hypot(a, b) > 0.7 || Math.abs(a) < 0.12 || Math.abs(b) < 0.12 ? N : null));
+      p.disc(500, 58, 26, (x, y, a, b) => { const rr = Math.hypot(a, b), an = Math.atan2(b, a); return rr > 0.78 && Math.abs(((an / (TAU / 12)) % 1 + 1) % 1 - 0.5) > 0.22 ? null : rr < 0.3 && rr > 0.15 ? null : N; });
+      for (let k = 0; k < 30; k++) { const x = Math.floor(r() * 1680), hh = 5 + Math.floor(r() * 9); p.line(x, 64, x + (r() - 0.5) * 6, 64 - hh, N); }
+    }, [g1, shade(g1, 0.7)]);
     // ---- 每帧 ----
     const tom = (pose) => coalSprite('铁匠 老汤姆', pose, 'normal', 1), uncle = (pose, expr = 'normal') => coalSprite('远房亲戚', pose, expr, -1);
-    S.back = (g, vw, vh, oy, camx, t, opts) => {
+    S.back = (g, vw, vh, oy, camx, tt, opts) => {
       paintSky(g, S, vw, vh, oy);
-      // 月牙 + 金星
-      const mx = Math.round(vw * 0.2), my = Math.round(80 - oy);
-      blob(g, mx, my, 9, '#a07860'); blob(g, mx + 4, my - 2, 8, '#1d1521');
-      R(g, Math.round(vw * 0.62), Math.round(40 - oy), 1, 1, '#c89a70');
-      for (let i = 0; i < 26; i++) { const x = Math.round(hash(i, 1) * vw), y = Math.round(-260 + hash(i, 2) * 300 - oy); if (Math.sin(t * (1 + hash(i, 3) * 2) + i) > -0.3) R(g, x, y, 1, 1, i % 3 ? '#6a5060' : '#8a6a70'); }   // 早出的星星，一闪一闪
-      clouds(g, S, vw, oy, camx, t);
-      birds(g, vw, oy, t, 250, 38, '#1a1014');
+      if (t.stars) for (let i = 0; i < 40; i++) { const x = Math.round(hash(i, 1) * vw), y = Math.round(-300 + hash(i, 2) * (DY + 150 + 300) - oy); if (Math.sin(tt * (1 + hash(i, 3) * 2) + i) > -0.4) R(g, x, y, 1, 1, i % 3 ? '#6a7498' : '#e8ecf8'); }
+      if (t.orb) { const [ox, oyy, r, col, ring] = t.orb, x = Math.round(ox < 320 ? vw * 0.12 : vw * 0.86), y = Math.round(oyy + DY - oy); if (ring) blob(g, x, y, r + 3, ring); blob(g, x, y, r, col); }
+      clouds(g, S, vw, oy, camx, tt);
+      if (wk === 'sun') birds(g, vw, oy, tt, DY + 40, 38, t.iron[2]);
       strip(g, S.far, S.farY, camx * 0.05, vw, oy);
-      for (const [u, y] of S.farChim) spots(u, camx * 0.05, TW, vw, 60, (x) => smoke(g, x, y - oy, t, u, ['#40303a', '#523a3e'], 0.6, 50, 20));
-      strip(g, S.mid2, S.mid2Y, camx * 0.18, vw, oy);
+      for (const [u, y] of S.farChim) spots(u, camx * 0.05, TW, vw, 60, (x) => smoke(g, x, y - oy, tt, u, [t.smoke, t.smoke], 0.6, 50, 20));
       strip(g, S.mid, S.midY, camx * 0.45, vw, oy);
-      const rot = camx * 0.45, MW = S.mid.width;
-      const flick = 0.75 + 0.25 * Math.sin(t * 17) * Math.sin(t * 7.3), strike = (t % 0.9) / 0.9;
-      // 炉膛：火苗 + 门口地上的光斑
-      spots(S.hearth[0], rot, MW, vw, 200, (x) => {
-        const [, hy, hw, hh] = S.hearth, y = hy - oy;
-        R(g, x, y + hh - 8, hw, 8, P.fire[1]); R(g, x + 2, y + hh - 12, hw - 4, 6, P.fire[2]);
-        for (let i = 0; i < 5; i++) { const fh = 4 + ((Math.sin(t * 13 + i * 2.1) + 1) * 3) | 0; R(g, x + 3 + i * 5, y + hh - 10 - fh, 3, fh, i % 2 ? P.fire[2] : P.fire[3]); }
-        g.globalAlpha = 0.16 * flick; R(g, x - 90, GE - 8 - oy, 150, 22, P.fire[2]); g.globalAlpha = 0.1 * flick; R(g, x - 76, S.hearth[1] - 50 - oy, 104, 60, P.fire[2]); g.globalAlpha = 1;
+      const rot = camx * 0.45, MW = S.mid.width, strike = (tt % 0.9) / 0.9;
+      // 炉口的火（和主页面同一种画法）
+      spots(S.hearth[0], rot, MW, vw, 120, (x) => {
+        const [, hy, hw, hh] = S.hearth, y = hy - oy, f = Math.floor(tt * 10);
+        for (let i = 0; i < hw; i++) { const h1 = 4 + Math.floor(hash(i, f) * 6 + Math.sin(i * 0.7 + tt * 5) * 1.5); for (let k = 0; k < Math.min(hh, h1); k++) R(g, x + i, y + hh - 1 - k, 1, 1, k < 2 ? '#b8391b' : k < h1 - 2 ? '#ef7a21' : '#ffd166'); }
+        R(g, x, y + hh - 2, hw, 2, '#ffd166');
       });
-      // 窗里的炉光一明一暗
-      spots(S.window[0], rot, MW, vw, 60, (x) => { g.globalAlpha = 0.3 * flick; R(g, x, S.window[1] - oy, S.window[2], S.window[3], P.fire[3]); g.globalAlpha = 1; });
-      // 烟囱：粗烟 + 偶尔窜出的火星
-      spots(S.chimney[0], rot, MW, vw, 120, (x) => {
-        smoke(g, x, S.chimney[1] - oy, t, 3, ['#3e3036', '#5a4644'], 1.5, 110, 50);
-        for (let i = 0; i < 4; i++) { const f = (t * 0.7 + i / 4) % 1; if (f < 0.5) R(g, x - 4 + i * 3 + Math.sin(f * 9 + i) * 5, S.chimney[1] - oy - f * 60, 1, 1, f < 0.25 ? P.fire[3] : P.fire[2]); }
-      });
-      // 老汤姆打铁 + 远房亲戚在门口（和老汤姆对打的那一关，他在对面车里，这里只剩亲戚）
+      spots(S.chimney[0], rot, MW, vw, 120, (x) => smoke(g, x, S.chimney[1] - oy, tt, 3, [t.smoke, t.smoke], 1.2, t.rain ? 40 : 90, t.rain ? 60 : 40));
+      if (S.lamp) spots(S.lamp[0], rot, MW, vw, 40, (x) => { R(g, x + 2, S.lamp[1] + 2 - oy, 3, 4 + (Math.sin(tt * 11) > 0 ? 1 : 0), '#fff1b8'); g.globalAlpha = 0.1; blob(g, x + 3, S.lamp[1] + 4 - oy, 22, '#ffc060'); g.globalAlpha = 1; });
+      // 老汤姆打铁 + 远房亲戚（和老汤姆对打的那一关，他在对面车里，这里只剩亲戚）；脚下平涂影子
       const tomHere = !(opts && opts.storyKey === '0,2');
       spots(S.anvil[0], rot, MW, vw, 80, (x) => {
-        if (opts && opts.noCast) return;   // 主页面（js/home.js）用这张底图，人物由它自己画
-        const ay = S.anvil[1] - oy, foot = ay + 17 - 34;   // 小人 40×40，身子底边在第 34 行，踩在地面 GE 上
+        const ay = S.anvil[1] - oy, foot = ay + 17 - 34;
+        g.fillStyle = SH;
+        if (tomHere) g.fillRect(Math.round(x - 36), Math.round(ay + 15), 26, 2);
+        g.fillRect(Math.round(x + 12), Math.round(ay + 15), 26, 2);
         if (tomHere) {
           const up = strike < 0.55;
-          g.drawImage(tom(up ? 'cheer' : 'hold'), x - 42, foot + (up ? 0 : 1));   // 铁砧左边，面朝铁砧抡锤
+          g.drawImage(tom(up ? 'cheer' : 'hold'), x - 42, foot + (up ? 0 : 1));
           if (strike > 0.55 && strike < 0.8) for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.33, k = (strike - 0.55) / 0.25, d = 3 + k * (10 + (i % 3) * 5); R(g, x + Math.cos(a) * d, ay + Math.sin(a) * d + k * k * 6, 1, 1, k < 0.5 ? P.fire[3] : P.fire[2]); }
         }
-        const cheer = !tomHere && Math.floor(t / 1.6) % 3 === 0, bob = Math.floor(t * 2) % 2;
-        g.drawImage(uncle(cheer ? 'cheer' : Math.floor(t / 5) % 4 === 3 ? 'salute' : 'idle', cheer ? 'happy' : 'normal'), x + 6, foot - bob);   // 铁砧右边，看着老汤姆
+        const cheer = !tomHere && Math.floor(tt / 1.6) % 3 === 0, bob = Math.floor(tt * 2) % 2;
+        g.drawImage(uncle(cheer ? 'cheer' : Math.floor(tt / 5) % 4 === 3 ? 'salute' : 'idle', cheer ? 'happy' : 'normal'), x + 6, foot - bob);
       });
-      // 招牌（铁砧形）在风里慢慢晃
-      spots(S.sign[0], rot, MW, vw, 40, (x) => {
-        const a = Math.sin(t * 1.3) * 0.12, y = S.sign[1] - oy;
-        g.save(); g.translate(x, y); g.rotate(a);
-        R(g, -1, 0, 1, 6, '#3a3232'); R(g, -9, 6, 18, 12, C.wood[1]); R(g, -9, 6, 18, 1, C.wood[2]);
-        R(g, -6, 9, 12, 3, '#8a7a70'); R(g, -3, 12, 6, 3, '#8a7a70'); R(g, -8, 9, 3, 2, '#8a7a70');
-        g.restore();
+      // 雾：几条横雾慢慢飘（不跟镜头，像空气）
+      if (t.fog) [[DY + 96, 14, 0.18, 4], [DY + 138, 18, 0.18, -3], [DY + 182, 14, 0.2, 5], [DY + 226, 20, 0.24, -4], [DY + 262, 16, 0.28, 3]].forEach(([y, hh, a, sp], i) => {
+        g.fillStyle = `rgba(228,229,230,${a})`;
+        const len = 420 + i * 60, period = len + 240, off = ((tt * sp * 6) % period + period) % period;
+        for (let x = -period + off; x < vw; x += period) { g.fillRect(Math.round(x), Math.round(y - oy), len, hh); g.fillRect(Math.round(x) + 12, Math.round(y - oy) - 2, len - 24, 2); g.fillRect(Math.round(x) + 12, Math.round(y - oy) + hh, len - 24, 2); }
       });
-      spots(S.lamp[0], rot, MW, vw, 40, (x) => { R(g, x, S.lamp[1] - oy, 7, 10, P.fire[2]); R(g, x + 2, S.lamp[1] + 2 - oy, 3, 5 + (Math.sin(t * 11) > 0 ? 1 : 0), P.fire[3]); g.globalAlpha = 0.08; blob(g, x + 3, S.lamp[1] + 5 - oy, 26, P.fire[2]); g.globalAlpha = 1; });
-      spots(S.lamp2[0], rot, MW, vw, 40, (x) => { R(g, x, S.lamp2[1] - oy, 7, 10, P.fire[2]); R(g, x + 2, S.lamp2[1] + 2 - oy, 3, 5 + (Math.sin(t * 9 + 1) > 0 ? 1 : 0), P.fire[3]); g.globalAlpha = 0.08; blob(g, x + 3, S.lamp2[1] + 5 - oy, 26, P.fire[2]); g.globalAlpha = 1; });
-      // 吊杆上吊着的旧锅炉壳，慢慢打转摆动
-      spots(S.hook[0], rot, MW, vw, 60, (x) => {
-        const y = S.hook[1] - oy, sw = Math.sin(t * 0.9) * 4, L = 70, ex = x + sw, ey = y + L;
-        g.fillStyle = '#1e1a1a'; for (let k = 0; k <= L; k += 1) g.fillRect(Math.round(x + sw * k / L), y + k, 1, 1);
-        R(g, ex - 2, ey, 5, 4, '#3a3232');
-        const w = 26 + Math.round(Math.cos(t * 0.6) * 6);   // 转动时宽窄变化
-        R(g, ex - w / 2, ey + 4, w, 22, C.iron[1]); R(g, ex - w / 2, ey + 4, w, 3, C.iron[2]); R(g, ex - w / 2, ey + 23, w, 3, C.iron[0]);
-        R(g, ex - w / 2 + 3, ey + 12, 1, 1, '#6a5a52'); R(g, ex + w / 2 - 4, ey + 12, 1, 1, '#6a5a52');
-      });
-      // 砂轮在转（辐条）
-      spots(S.wheel[0], rot, MW, vw, 30, (x) => { const a = t * 3; for (let k = 0; k < 3; k++) { const b = a + k * TAU / 3; R(g, x + Math.cos(b) * 7, S.wheel[1] - oy + Math.sin(b) * 7, 2, 2, '#2a2424'); } });
+      // 雨丝：1 像素宽、2:1 斜率（画在背景上，不挡车）
+      if (t.rain) {
+        g.fillStyle = 'rgba(196,212,232,.45)';
+        const Pp = vh + 20, Q = vw + 60, f = Math.floor(tt * 12);
+        for (let i = 0; i < 160; i++) { const u = (hash(i, 2) * Pp + f * 9) % Pp, y = u - 10, x = ((hash(i, 1) * Q - u / 2) % Q + Q) % Q - 30; for (let k = 0; k < 8; k++) g.fillRect(Math.round(x - (k >> 1)), Math.round(y + k), 1, 1); }
+      }
     };
-    S.front = (g, vw, vh, oy, camx, t) => {
+    S.front = (g, vw, vh, oy, camx, tt) => {
       nearLayer(g, S.near, vw, vh, camx);
-      // 空气里飘的火星（近处，最亮但很小）
-      for (let i = 0; i < 14; i++) {
-        const f = (t * (0.06 + (i % 5) * 0.012) + i * 0.137) % 1, x = ((i * 211 + t * 12 - camx * 1.2) % (vw + 80) + vw + 80) % (vw + 80) - 40 + Math.sin(t * 1.7 + i) * 10;
-        const y = vh - f * vh * 0.85;
+      if (t.rain || t.fog) return;
+      // 空气里飘的火星（从炉子那边来，很小）
+      for (let i = 0; i < 8; i++) {
+        const f = (tt * (0.06 + (i % 5) * 0.012) + i * 0.137) % 1, x = ((i * 211 + tt * 12 - camx * 1.2) % (vw + 80) + vw + 80) % (vw + 80) - 40 + Math.sin(tt * 1.7 + i) * 10;
         g.globalAlpha = f < 0.1 ? f * 10 : f > 0.8 ? (1 - f) * 5 : 1;
-        R(g, x, y, i % 4 ? 1 : 2, 1, i % 3 ? P.fire[2] : P.fire[3]);
+        R(g, x, vh - f * vh * 0.85, 1, 1, i % 3 ? P.fire[2] : P.fire[3]);
       }
       g.globalAlpha = 1;
     };
@@ -838,8 +722,9 @@ SA.Scenes = (() => {
 
   const built = {};
   function get(id) {
-    if (!built[id]) built[id] = id === 'forge' ? buildForge() : id === 'wild' ? buildWild() : buildQual();
-    return built[id];
+    const key = id === 'forge' && SA.HomeScene ? `forge:${SA.HomeScene.weather()}` : id;   // 铁匠铺后院跟着院子的天气，每种天气各建一次
+    if (!built[key]) built[key] = id === 'forge' ? buildForge() : id === 'wild' ? buildWild() : buildQual();
+    return built[key];
   }
   // 画背景（天空 → 中景）：画在世界画布的视口像素里；t = 秒（场景自己的时钟，不跟战斗暂停）
   function back(id, g, vw, vh, oy, camx, t, opts) { get(id).back(g, vw, vh, oy, camx, t, opts); }
