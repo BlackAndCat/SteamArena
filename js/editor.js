@@ -13,11 +13,12 @@ SA.Editor = (() => {
   // sel：准备连续放置的库存 / 商店键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
-    dock: 'mods', bp: null, bpFilter: 'all', shop: false, fold: loadFold() };
+    dock: 'mods', bp: null, bpFilter: 'all', shop: false, cat: loadCat() };
   // 商店分组的折叠状态记在本机
-  function loadFold() { try { return new Set(JSON.parse(localStorage.getItem('steam_arena_fold_v1')) || []); } catch (e) { return new Set(); } }
-  function saveFold() { try { localStorage.setItem('steam_arena_fold_v1', JSON.stringify([...st.fold])); } catch (e) { /* ignore */ } }   // shop：「商店」开关，打开后列表里也显示没有库存的模块
-  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, plateEl, ghost, ro, frame = null, sheetEl = null, leverEl = null;
+  // 模块清单的纸页签：一次只看一类（界面重建 v3，替换原来的折叠条）；记住上次看的是哪一类
+  function loadCat() { try { return localStorage.getItem('steam_arena_cat_v1') || null; } catch (e) { return null; } }
+  function saveCat() { try { localStorage.setItem('steam_arena_cat_v1', st.cat || ''); } catch (e) { /* ignore */ } }
+  let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, tabsEl, plateEl, ghost, ro, frame = null, sheetEl = null, leverEl = null;
 
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
@@ -57,7 +58,8 @@ SA.Editor = (() => {
     toolsEl = h('div', { class: 'panel-tools' });
     invEl = h('div', { class: 'panel-list' });
     dockEl = h('aside', { class: 'ed-panel' }, toolsEl, invEl);
-    screen.append(h('div', { class: 'ed' }, sheetEl, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), dockEl));
+    tabsEl = h('nav', { class: 'ed-tabs' });
+    screen.append(h('div', { class: 'ed' }, sheetEl, h('div', { class: 'ed-main' }, stage, h('div', { class: 'ed-dock' }, ctxEl)), h('div', { class: 'ed-cat' }, dockEl, tabsEl)));
 
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
@@ -495,32 +497,34 @@ SA.Editor = (() => {
   function renderInv() {
     const keep = invEl.scrollTop;
     invEl.innerHTML = '';
-    if (st.dock === 'bps') { renderBps(); invEl.scrollTop = keep; return; }
+    if (st.dock === 'bps') { tabsEl.innerHTML = ''; renderBps(); invEl.scrollTop = keep; return; }
     const inv = d().inv;
     const shop = st.shop && has('shop');
     let shown = 0;
-    for (const cat of CAT_ORDER) {
-      // 每种模块按材料分行：库存里有的都列，材料好的排前面；商店打开时补上能买的黄铜款
+    // 每一类要列的模块（按材料分行：库存里有的都列，材料好的排前面；商店打开时补上能买的黄铜款）
+    const keysOf = (cat) => {
       const keys = [];
       for (const id of SA.MODULE_ORDER) {
         if (M[id].cat !== cat) continue;
-        for (let mt = SA.MAT_MAX; mt >= 1; mt--) {
-          const k = SA.invKey(id, mt);
-          if (inv[k] > 0 || (mt === SA.buyMt(id) && shop && buyable(id))) keys.push(k);
-        }
+        for (let mt = SA.MAT_MAX; mt >= 1; mt--) { const k = SA.invKey(id, mt); if (inv[k] > 0 || (mt === SA.buyMt(id) && shop && buyable(id))) keys.push(k); }
       }
-      if (!keys.length) continue;
-      // 折叠条：齿轮 + 铆钉钢条 + 铜色描边；折起来齿轮转半圈
-      const folded = st.fold.has(cat);
+      return keys;
+    };
+    const cats = CAT_ORDER.map(cat => ({ cat, keys: keysOf(cat) }));
+    if (!cats.some(c => c.cat === st.cat && c.keys.length)) { const first = cats.find(c => c.keys.length); st.cat = first ? first.cat : CAT_ORDER[0]; }
+    // 右边一列纸页签：类别色条 + 名字 + 件数；空的类别变淡
+    tabsEl.innerHTML = '';
+    for (const { cat, keys } of cats) {
       const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
-      invEl.append(h('button', { class: `grp cat-${cat} ${folded ? 'folded' : ''}`, 'aria-expanded': String(!folded),
-        onclick: () => { if (folded) st.fold.delete(cat); else st.fold.add(cat); saveFold(); renderInv(); } },
-        h('span', { class: 'gear l' }, SA.SPR.iconCanvas('gear', '#c8834a', 3)),
-        h('i', { style: `background:${SA.CAT[cat].plate}` }),
-        h('span', { class: 'gname' }, SA.CAT[cat].name),
-        h('span', { class: 'gcnt' }, shop ? `${keys.length} 种` : `${have} 件`),
-        h('span', { class: 'gear r' }, SA.SPR.iconCanvas('gear', '#c8834a', 3))));
-      if (folded) { shown += keys.length; continue; }
+      tabsEl.append(h('button', { class: `ed-tab ${st.cat === cat ? 'on' : ''} ${keys.length ? '' : 'none'}`, style: `--c:${SA.CAT[cat].plate}`, title: keys.length ? `${SA.CAT[cat].name}：${shop ? `${keys.length} 种` : `${have} 件`}` : `${SA.CAT[cat].name}：没有`,
+        onclick: () => { if (!keys.length) return; st.cat = cat; saveCat(); renderInv(); invEl.scrollTop = 0; } },
+        h('i', {}), h('span', { class: 'nm' }, SA.CAT[cat].name), keys.length ? h('b', {}, shop ? keys.length : have) : null));
+    }
+    const curCat = cats.find(c => c.cat === st.cat);
+    if (curCat && curCat.keys.length) {
+      const cat = curCat.cat, keys = curCat.keys;
+      const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
+      invEl.append(h('div', { class: 'cat-head', style: `--c:${SA.CAT[cat].plate}` }, h('span', { class: 'px-h2' }, SA.CAT[cat].name), h('span', { class: 'px-small' }, shop ? `${keys.length} 种` : `${have} 件`)));
       for (const key of keys) {
         shown++;
         const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
@@ -811,32 +815,109 @@ SA.Editor = (() => {
     return (hatchPat = g.createPattern(c, 'repeat'));
   }
 
+
+  // ---------- 蓝图纸（界面重建 v3 · 手绘晒图）：古旧的普鲁士蓝，墨线是手画的 ----------
+  // 格子只在车周围一圈画全（车占的子格外扩 2 格），再往外每根线伸出去一截、越来越断，像没画完的笔迹；车变大，画全的范围跟着变。
+  // 左上角压一把黄杨木尺，右上角放一块印度橡皮、一支蘸水笔和一滴墨——纯装饰，不能点。整张按「车占的范围 + 可建造区」缓存。
+  let bpKey = '', bpCv = null;
+  const BPC = { deep: '#1c3550', base: '#26435f', lite: '#2d4d6b', faint: 'rgba(176,200,222,', ink: 'rgba(214,226,236,' };
+  function hsh(x, y, s = 1) { let v = (x * 374761393 + y * 668265263 + s * 982451653) | 0; v = Math.imul(v ^ (v >>> 13), 1274126177); return ((v ^ (v >>> 16)) >>> 0) / 4294967296; }
+  const BAY4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const bay4 = (x, y) => (BAY4[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+  // 低频斑驳（8 像素一格的值噪声，双线性）
+  function wash(x, y, s) { const gx = x / 22, gy = y / 22, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
+    const a = hsh(x0, y0, s), b = hsh(x0 + 1, y0, s), c = hsh(x0, y0 + 1, s), d2 = hsh(x0 + 1, y0 + 1, s);
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d2 * fx) * fy; }
+  function occBox(v) {
+    let c0 = K.COLS, c1 = -1, r0 = K.ROWS, r1 = -1;
+    SA.V.each(v, (cell, r, c) => { const f = SA.fp(cell.id); c0 = Math.min(c0, c); c1 = Math.max(c1, c + f.w - 1); r0 = Math.min(r0, r); r1 = Math.max(r1, r + f.h - 1); });
+    if (c1 < 0) { c0 = Math.floor(K.COLS / 2) - 2; c1 = c0 + 3; r0 = K.ROWS - 4; r1 = K.ROWS - 1; }
+    return { c0: Math.max(0, c0 - 2), c1: Math.min(K.COLS - 1, c1 + 2), r0: Math.max(0, r0 - 2), r1: K.ROWS - 1 };
+  }
+  function blueprint(v) {
+    const box = occBox(v), reg = SA.V.region(v);
+    const key = `${box.c0},${box.c1},${box.r0}|${reg.r0},${reg.c0},${reg.c1}`;
+    if (key === bpKey && bpCv) return bpCv;
+    bpKey = key;
+    bpCv = bpCv || document.createElement('canvas'); bpCv.width = W; bpCv.height = H;
+    const k = bpCv.getContext('2d'), img = k.createImageData(W, H), px = img.data;
+    const hex = (hx) => [parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)];
+    const T = [hex(BPC.deep), hex(BPC.base), hex(BPC.lite)];
+    // 纸：斑驳三阶抖动 + 边缘压暗 + 两圈淡淡的水渍
+    const rings = [[W * 0.18, H * 0.72, 34], [W * 0.83, H * 0.3, 22]];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let n = wash(x, y, 3) * 0.75 + wash(x * 3, y * 3, 9) * 0.25;
+      const e = Math.min(x, y, W - 1 - x, H - 1 - y); if (e < 14) n -= (14 - e) / 14 * 0.55;
+      for (const [rx, ry, rr] of rings) { const dd = Math.abs(Math.hypot(x - rx, y - ry) - rr); if (dd < 1.5) n -= 0.35; }
+      const t = Math.max(0, Math.min(2, Math.floor(n * 2.2 + bay4(x, y) - 0.35)));
+      const i = (y * W + x) * 4, c = T[t];
+      px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+      if (hsh(x, y, 5) > 0.996) { px[i] = c[0] + 22; px[i + 1] = c[1] + 26; px[i + 2] = c[2] + 30; }   // 纸纤维亮点
+    }
+    k.putImageData(img, 0, 0);
+    // 手画的线：每 ~26 像素抖一下，笔压不匀（偶尔断一个像素），画全区之外伸出去一截渐渐断掉
+    const dot = (x, y, a, strong) => { k.fillStyle = `${strong ? BPC.ink : BPC.faint}${a})`; k.fillRect(x, y, 1, 1); };
+    const X0 = PADX + box.c0 * C, X1 = PADX + (box.c1 + 1) * C, Y0 = box.r0 * C, Y1 = K.ROWS * C;
+    function stroke(vertical, pos, from, to, strong, seed) {
+      const tailA = 14 + Math.floor(hsh(pos, 1, seed) * 60), tailB = 14 + Math.floor(hsh(pos, 2, seed) * 60);   // 两头伸出去多长
+      const lo = Math.max(vertical ? 0 : PADX - 20, from - tailA), hi = Math.min(vertical ? H - 13 : W - PADX + 20, to + tailB);
+      let wob = 0;
+      for (let t = lo; t <= hi; t++) {
+        if (t % 26 === 0) wob = hsh(pos, t, seed) < 0.3 ? (hsh(t, pos, seed) < 0.5 ? -1 : 1) : 0;
+        const out = t < from ? (from - t) / tailA : t > to ? (t - to) / tailB : 0;   // 伸出去的那截：0 → 1
+        if (out > 0 && hsh(t, pos, seed + 7) < out * 1.1) continue;                 // 越往外越断
+        if (!strong && t % 2) continue;                                               // 细线是虚的
+        if (hsh(t, pos, seed + 3) < 0.06) continue;                                   // 笔压不匀
+        const a = (strong ? 0.85 : 0.5) * (1 - out * 0.7) * (0.8 + hsh(t, pos, seed + 11) * 0.2);
+        if (vertical) dot(pos + wob, t, a.toFixed(2), strong); else dot(t, pos + wob, a.toFixed(2), strong);
+      }
+    }
+    for (let c = box.c0; c <= box.c1 + 1; c++) stroke(true, PADX + c * C, Y0, Y1, c % 2 === 0, 13);
+    for (let r = box.r0; r <= K.ROWS; r++) stroke(false, r * C, X0, X1, r % 2 === 0, 29);
+    // 地面：一道粗墨线 + 下面几笔斜线
+    for (let x = PADX - 10; x < W - PADX + 10; x++) { if (hsh(x, 3, 41) > 0.05) dot(x, H - 12, 0.7, true); if (hsh(x, 4, 41) > 0.35) dot(x, H - 10, 0.35, true); if (x % 7 === 0) for (let j = 0; j < 4; j++) dot(x - j, H - 8 + j, 0.28, false); }
+    // 还没扩建的格子：一层暗蓝 + 斜线（铅笔打的阴影）
+    for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) {
+      if (r >= reg.r0 && c >= reg.c0 && c <= reg.c1) continue;
+      const x = PADX + c * C, y = r * C;
+      k.fillStyle = 'rgba(12,26,42,0.35)'; k.fillRect(x, y, C, C);
+      k.fillStyle = `${BPC.faint}0.12)`; for (let j = 0; j < C; j++) if (((x + j) % 8) === 0 || true) { const q = (x + y + j) % 8; if (q === 0) k.fillRect(x + j, y + C - 1 - j, 1, 1); }
+    }
+    decorate(k);
+    return bpCv;
+  }
+  // 桌上的小物件（画在车下面，纯装饰）
+  function decorate(k) {
+    const R = (x, y, w, hh, col) => { k.fillStyle = col; k.fillRect(x, y, w, hh); };
+    // 黄杨木尺：左上角，两头黄铜包角，刻度 2 / 10 / 20
+    const rx = 8, ry = 6, rw = 132;
+    R(rx + 2, ry + 3, rw, 12, 'rgba(8,18,30,.45)');   // 影子
+    R(rx, ry, rw, 12, '#6b4a24'); R(rx + 1, ry + 1, rw - 2, 10, '#c9a36a'); R(rx + 1, ry + 1, rw - 2, 1, '#e3c48c'); R(rx + 1, ry + 10, rw - 2, 1, '#9a7442');
+    for (let i = 6; i < rw - 6; i += 2) { const len = (i - 6) % 20 === 0 ? 5 : (i - 6) % 10 === 0 ? 4 : 2; R(rx + i, ry + 1, 1, len, '#5a3a18'); }
+    for (const ex of [rx, rx + rw - 5]) { R(ex, ry, 5, 12, '#4e3510'); R(ex + 1, ry + 1, 3, 10, '#d9a441'); R(ex + 1, ry + 1, 3, 1, '#f5d77a'); }
+    // 右上角：印度橡皮（旧红褐，一角磨圆）+ 几粒橡皮屑
+    const ex = W - 52, ey = 10;
+    R(ex + 2, ey + 3, 24, 12, 'rgba(8,18,30,.45)');
+    R(ex, ey, 24, 12, '#4a2418'); R(ex + 1, ey + 1, 22, 10, '#8a4a3a'); R(ex + 1, ey + 1, 22, 2, '#a86454'); R(ex + 1, ey + 9, 22, 2, '#6e3628');
+    k.clearRect(ex, ey, 1, 1); R(ex + 1, ey + 1, 1, 1, '#4a2418'); R(ex + 3, ey + 4, 16, 1, '#7a3e30');
+    for (const [dx, dy] of [[-4, 14], [-7, 11], [28, 16], [30, 12], [-2, 17]]) R(ex + dx, ey + dy, 1, 1, '#b07a68');
+    // 蘸水笔：深色木杆 + 黄铜箍 + 钢笔尖，斜放；笔尖旁一滴墨
+    const x0 = W - 110, y0 = 44, len = 58;
+    for (let t = 0; t < len; t++) {
+      const x = x0 + t, y = y0 - Math.round(t * 0.42);
+      const col = t < 8 ? (t < 4 ? '#8a939c' : '#5a646e') : t < 12 ? '#d9a441' : '#3b2418';
+      R(x + 1, y + 3, 1, 2, 'rgba(8,18,30,.4)');
+      R(x, y, 1, 2, col); if (t >= 12) R(x, y, 1, 1, '#6b4128');
+    }
+    for (const [dx, dy, a] of [[-4, 2, 1], [-5, 3, 1], [-4, 3, 1], [-3, 3, 1], [-4, 4, 1], [-6, 1, .5]]) R(x0 + dx, y0 + dy, 1, 1, `rgba(10,20,34,${a})`);
+  }
+
   function draw(t) {
     const v = veh();
-    // 蓝图纸（界面重建 v3）：底色 + 6 像素一个的小点 + 子格细线 + 大格粗线；最底下一条是地面
-    const BP = P.blueprint;
-    g.fillStyle = BP[1]; g.fillRect(0, 0, W, H);
-    g.fillStyle = BP[2];
-    for (let y = 0; y < K.ROWS * C; y += 6) for (let x = PADX; x < PADX + K.COLS * C; x += 6) g.fillRect(x, y, 1, 1);
-    for (let c = 0; c <= K.COLS; c++) if (c % 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
-    for (let r = 0; r <= K.ROWS; r++) if (r % 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
-    g.fillStyle = BP[3];
-    for (let c = 0; c <= K.COLS; c += 2) g.fillRect(PADX + c * C, 0, 1, K.ROWS * C);
-    for (let r = 0; r <= K.ROWS; r += 2) g.fillRect(PADX, r * C, K.COLS * C, 1);
-    g.fillStyle = BP[0]; g.fillRect(0, H - 12, W, 12);
-    g.fillStyle = BP[3]; g.fillRect(0, H - 12, W, 1);
+    g.drawImage(blueprint(v), 0, 0);
     const O = SA.V.occ(v, 'body');
     g.fillStyle = 'rgba(111,207,106,0.06)';
     for (let c = 0; c < K.COLS; c++) if (O[K.ROWS - 1][c]) g.fillRect(PADX + c * C, 0, C, K.ROWS * C);
-    // 还没扩建的格子：压暗 + 斜线
-    const reg = SA.V.region(v);
-    for (let r = 0; r < K.ROWS; r++)
-      for (let c = 0; c < K.COLS; c++) {
-        if (r >= reg.r0 && c >= reg.c0 && c <= reg.c1) continue;
-        const x = PADX + c * C, y = r * C;
-        g.fillStyle = 'rgba(8,24,46,0.7)'; g.fillRect(x, y, C, C);
-        g.fillStyle = hatch(); g.fillRect(x, y, C, C);
-      }
     const drag = st.drag && st.drag.kind === 'cell' ? st.drag : null;
     const vc = SA.SPR.renderVehicle(v, {
       key: 'editor', t, heat: 0.35, water: 1, showWrecks: true, showBlocked: true,

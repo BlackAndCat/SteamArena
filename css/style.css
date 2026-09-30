@@ -938,8 +938,8 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 .ed-sheet .plate-name { width: 100%; box-sizing: border-box; background: none; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; font: bold 16px SimSun, serif; letter-spacing: .12em; padding: 0 4px; outline: none; }
 .ed-main { display: flex; flex-direction: column; gap: 10px; min-height: 0; background: none; }
 .ed-stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; padding: 12px; background: none; border: 12px solid transparent; border-image: var(--sk-iron) 6 fill / 12px repeat; image-rendering: pixelated; }
-.ed-stage > canvas { box-shadow: 0 0 0 2px #0c2340, 0 0 0 4px #4a7cb4; }
-.ed-view { top: 6px; right: 8px; display: flex; gap: 8px; align-items: center; }
+.ed-stage > canvas { box-shadow: 0 0 0 2px #10233a, 0 0 0 4px #3a5875; }
+.ed-view { top: 6px; right: auto; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
 .ed-help { border-radius: 0; background: none; border: 8px solid transparent; border-image: var(--sk-ironBtn) 4 fill / 8px repeat; color: #e4e0d6; }
 .ed-tip { background: none; border: 12px solid transparent; border-image: var(--sk-paper) 6 fill / 12px repeat; color: #2a1a05; font: 13px SimSun, serif; padding: 0 6px; box-shadow: none; }
 .ed-tip.err { color: #b8391b; border-color: transparent; }
@@ -1052,3 +1052,17 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 .bt-side .bar::before { left: -8px; } .bt-side .bar::after { right: -8px; }
 .bt-timer { border: 8px solid transparent; border-image: var(--sk-brass) 4 fill / 8px repeat; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; padding: 0 10px; }
 .bt-timer small { color: #4e3510; }
+
+/* ---- 改装台 · 邮购目录的纸页签（一次只看一类；替换折叠条）---- */
+.ed-cat { display: flex; min-height: 0; min-width: 0; }
+.ed-cat .ed-panel { flex: 1; min-width: 0; }
+.ed-tabs { display: flex; flex-direction: column; gap: 4px; padding-top: 16px; margin-left: 2px; z-index: 1; }
+.ed-tab { all: unset; cursor: pointer; position: relative; box-sizing: border-box; width: 40px; padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 8px solid transparent; border-left-width: 4px; border-image: var(--sk-paper) 6 fill / 8px 8px 8px 4px repeat; color: #5b4a37; image-rendering: pixelated; filter: drop-shadow(3px 3px 0 rgba(7, 8, 12, .5)); }
+.ed-tab i { width: 12px; height: 6px; background: var(--c); box-shadow: 0 0 0 2px #2a1a05; }
+.ed-tab .nm { writing-mode: vertical-rl; font: bold 14px SimSun, serif; letter-spacing: .3em; }
+.ed-tab b { font: 700 12px Georgia, serif; color: #b8391b; }
+.ed-tab:hover { filter: brightness(1.08) drop-shadow(3px 3px 0 rgba(7, 8, 12, .5)); }
+.ed-tab.on { margin-left: -8px; width: 48px; color: #2a1a05; box-shadow: inset 4px 0 0 var(--c); }
+.ed-tab.none { opacity: .45; cursor: default; }
+.cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 4px 4px; border-bottom: 3px double #2a1a05; box-shadow: inset 6px 0 0 var(--c); padding-left: 12px; margin-bottom: 2px; }

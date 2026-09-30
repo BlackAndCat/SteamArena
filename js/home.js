@@ -8,20 +8,10 @@ SA.Home = (() => {
   const h = (...a) => SA.h(...a);
   const d = () => SA.S.d;
   const ab = (x, y, ...kids) => h('div', { class: 'ab', style: `left:${x}px;top:${y}px` }, ...kids);
-  let timer = null, ro = null, bgCache = null;
+  let timer = null, ro = null;
 
-  // 场景底图：不画场景自带的小老汤姆和亲戚（院子里有大的，会聊天）
-  function backdrop() {
-    if (bgCache) return bgCache;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d'), opts = { noCast: true };
-    try {
-      SA.Scenes.back('forge', g, W, H, 0, 0, 3, opts);
-      g.save(); SA.Scenes.floor('forge', g, { x: 0, y: 0, w: W, h: H }); g.restore();
-      SA.Scenes.front('forge', g, W, H, 0, 0, 3);
-    } catch (e) { g.fillStyle = P.bg[1]; g.fillRect(0, 0, W, H); }
-    return (bgCache = c);
-  }
+  // 场景：专门给主页面画的铁匠铺院子（js/home-scene.js），底图静态 + 一层动效（炉火、窗光、烟）
+  const backdrop = () => SA.HomeScene.base();
   const coal = (name, o) => SA.Coal.draw(SA.Coal.byName[name] || SA.Coal.crew(name), Object.assign({ size: 'scene' }, o));
 
   function open() {
@@ -77,6 +67,8 @@ SA.Home = (() => {
     const lamp = (() => { const k = X.C(14, 18); X.box(k, 0, 2, 14, 16, X.RAMP.iron); k.r(5, 0, 4, 2, P.iron[0]); k.r(3, 5, 8, 10, P.fire[2]); k.r(4, 6, 6, 8, P.fire[3]); k.r(3, 9, 8, 1, P.iron[0]); k.r(6, 5, 1, 10, P.iron[0]); return k.c; })();
     const anvil = (() => { const k = X.C(34, 30); X.box(k, 10, 16, 14, 14, X.RAMP.wood); k.r(8, 13, 18, 4, P.dark[0]); k.r(9, 13, 16, 3, P.iron[2]); k.r(12, 9, 10, 5, P.dark[0]); k.r(13, 9, 8, 4, P.iron[1]); k.r(0, 4, 34, 6, P.dark[0]); k.r(1, 4, 32, 5, P.iron[2]); k.r(1, 4, 32, 1, P.iron[4]); k.r(27, 5, 6, 3, P.iron[3]); return k.c; })();
     // ---------- 人物 ----------
+    const fxCv = document.createElement('canvas'); fxCv.width = SA.HomeScene.W; fxCv.height = SA.HomeScene.H; fxCv.className = 'px-img'; fxCv.style.cssText = 'position:absolute;left:0;top:0;width:1280px;height:720px;pointer-events:none';
+    const fxG = fxCv.getContext('2d'), t0fx = performance.now();
     const who = {};
     const actor = (key, x, y, frame, flip) => {
       const cv = document.createElement('canvas'); cv.width = 56; cv.height = 56; cv.className = 'px-img'; cv.style.cssText = 'width:112px;height:112px';
@@ -89,14 +81,14 @@ SA.Home = (() => {
     const F_REL = { idle: coal(REL, { pose: 'idle', look: 1 }), blink: coal(REL, { pose: 'idle', look: 1, expr: 'blink' }), talk: coal(REL, { pose: 'salute', look: 1, expr: 'happy' }), sleep: coal(REL, { pose: 'idle', look: 1, expr: 'sleepy' }), jolt: coal(REL, { pose: 'cheer', look: 1, expr: 'surprise' }) };
     const F_TIM = { work: coal(TIM, { pose: 'point', look: 1 }), rest: coal(TIM, { pose: 'hold', look: 1 }), talk: coal(TIM, { pose: 'wave', look: -1, expr: 'happy' }), yelp: coal(TIM, { pose: 'cheer', look: -1, expr: 'surprise' }) };
     const timX = Math.max(770, cx + cw + 12);
-    const bubbles = { rel: UI.bubble(34, 386, 30), tom: UI.bubble(196, 420, 80), tim: UI.bubble(timX - 120, 418, 150) };
+    const bubbles = { rel: UI.bubble(34, 386, 30), tom: UI.bubble(300, 452, 20), tim: UI.bubble(timX - 120, 418, 150) };
     const sparks = [...Array(6)].map((_, i) => h('i', { class: 'px-spark', style: `background:${i % 2 ? P.fire[3] : P.fire[2]}` }));
     const zz = ab(124, 450, UI.num('z z Z', '#e4e0d6', P.dark[0])); zz.style.opacity = '0';
     const gearBtn = UI.btn(null, { title: '设置', icon: UI.img(X.gear(6, 8, X.RAMP.brass, 0.1)), onclick: () => SA.UI.settings() }); gearBtn.style.padding = '0 2px';
     const ingots = Object.entries(D.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     stage.append(...[
-      UI.img(backdrop(), 2, 'position:absolute;left:-330px;top:-690px'),
-      ab(28, 96, news),
+      UI.img(backdrop(), 2, 'position:absolute;left:0;top:0'), fxCv,
+      ab(20, 196, news),
       ab(52, 562, UI.img(X.crate())), ab(356, 546, UI.img(anvil)),
       carEl,
       actor('rel', 40, 472, F_REL.idle), actor('tom', 250, 514, F_TOM.rest), actor('tim', timX, 514, F_TIM.work, true),
@@ -128,6 +120,7 @@ SA.Home = (() => {
     const step = () => {
       if (root.isConnected) mounted = true; else if (mounted) { clearInterval(timer); timer = null; if (ro) ro.disconnect(); return; }
       tick++;
+      SA.HomeScene.fx(fxG, (performance.now() - t0fx) / 1000);
       if (!cur || tick - t0 > 32) { if (forced) { cur = forced; forced = null; } else { cur = LINES[i % LINES.length]; i++; } t0 = tick; say(cur[0], cur[1]); }
       const [spk, , act] = cur;
       if (spk === 'tom') who.tom.set(F_TOM.talk); else { const ph = tick % 8; who.tom.set(ph < 3 ? F_TOM.up : ph < 5 ? F_TOM.hit : (tick % 40 === 7 ? F_TOM.blink : F_TOM.rest)); if (ph === 3) burst(); }
