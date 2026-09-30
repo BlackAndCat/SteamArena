@@ -134,7 +134,7 @@ function workshopRuntime() {
     cv._draws.length = 0;
     const pending = [...frames]; frames.clear();
     for (const [, fn] of pending) fn();
-    const backdrop = cv._draws.find(x => x.image && x.image.width === cv.width && x.image.height === cv.height);
+    const backdrop = cv._draws.find(x => x.image && x.image.width >= cv.width && x.image.height === cv.height);   // 蓝图纸比画布左右宽（平移不露底）
     assert(backdrop, '车间没有绘制蓝图背景');
     return backdrop.matrix;
   };
@@ -183,19 +183,19 @@ function workshopPanZoom() {
   };
   next = wheel(-120);
   assert(next[0] > m[0], '向上滚轮没有放大蓝图');
-  near(next[0] * logicalAnchor + next[4], anchor.clientX, '缩放后鼠标横向锚点');
+  assert(Math.abs(next[0] * logicalAnchor + next[4] - anchor.clientX) <= 1, '缩放后鼠标横向锚点');   // 平移取整到像素，允许 1 像素误差
   near(next[5] + next[3] * ROWS * C, m[5] + m[3] * ROWS * C, '缩放后底线');
   m = next;
   next = wheel(120);
   assert(next[0] < m[0], '向下滚轮没有缩小蓝图');
   for (let i = 0; i < 30; i++) cv.dispatch('wheel', { ...anchor, deltaY: -120, preventDefault() { this.defaultPrevented = true; } });
-  m = tick(); near(m[0], 2, '放大上限');
+  m = tick(); near(m[0], 3, '放大上限');   // 只用整数倍 1 / 2 / 3
   for (let i = 0; i < 60; i++) cv.dispatch('wheel', { ...anchor, deltaY: 120, preventDefault() { this.defaultPrevented = true; } });
-  m = tick(); near(m[0], 0.5, '缩小下限');
+  m = tick(); near(m[0], 1, '缩小下限');
   assert.strictEqual(snapshot(), before, '滚轮缩放修改了车辆或库存');
 
   // 回到适于点选的倍率，点击位置由绘制矩阵生成，不借助编辑器内部状态。
-  for (let i = 0; i < 6; i++) cv.dispatch('wheel', { ...anchor, deltaY: -120 });
+  // 缩小到底就是 1 倍（原来连续缩放时这里要滚回约 1 倍）；平移仍在，点选走的是变换后的矩阵
   m = tick();
   const src = { layer: 'body', r: 8, c: 10 }, part = v.body[src.r][src.c];
   assert(part, '起始载具缺少用于交互回归的模块');
