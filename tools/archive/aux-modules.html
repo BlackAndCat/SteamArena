@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>辅助四件</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -28,9 +28,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：Boss 唯一件 · 圣堂压力核心 · 寡妇液压撞头 · 公爵测距棱镜 · v1 · 2026-09-29</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（辅助四件：蓄压罐 C、测距仪 F、陀螺仪 A、散热片 B）已进游戏，归档在 <a href="archive/aux-modules.html">archive/aux-modules.html</a>。</p>
-    <p><b>本期 v1</b>：三件 Boss 唯一件各 6 种——<b>A～C 是 2026-09-27 的夜间候选</b>按现在的画法重画，<b>D～F 是新方向</b>。每件都带着 Boss 的身份：圣堂 = 哥特尖拱 / 玫瑰窗 / 十字 / 尖塔 + 呼吸的炉火余烬；寡妇 = 锈钢撞击件 + 黑寡妇的红沙漏；公爵 = 黄铜、贵族、单片眼镜 + 四色分光。撞头和棱镜是乌兹钢档的唯一件，材质条先给 T5，再给 T1 / T3 / T6 对照。<b>请每件挑一个</b>（可以组合）。</p>
+    <h1>辅助四件 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29 定稿进游戏：蓄压罐 C 储气球 + 液柱表 · 测距仪 F 六分仪 · 陀螺仪 A 万向环 · 散热片 B 翅片管排</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（特殊武器：鱼叉、蒸汽喷射器、喷火器、火箭架六档）已进游戏，归档在 <a href="special-weapons.html">archive/special-weapons.html</a>。</p>
+    <p><b>本期 v1</b>：蓄压罐、测距仪、陀螺仪、散热片各 6 种——<b>A～C 是 2026-09-27 的夜间候选</b>按现在的画法重画，<b>D～F 是新方向</b>。大图一直在动：蓄压罐的存量涨落（涨的时候阀口冒汽）、测距仪镜片闪光 / 指针找距离、陀螺仪转子一直转、散热片随车温变化（冷却液流速、百叶开合）。散热片是侧挂层：右边「装在车上」那张挂在装甲外面，镂空处能看到后面的车体。<b>请每种挑一个</b>（可以组合）。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -41,10 +41,10 @@
   <div id="mods"></div>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/coal.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="aux-modules.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
   const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);

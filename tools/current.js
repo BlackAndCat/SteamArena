@@ -1,8 +1,8 @@
 // 「当前开发」页的绘制代码（tools/current.html 专用）。这一页不复用：只放正在开发、等开发者确认的东西；
 // 确认后把 current.html / current.js 复制到 tools/archive/<名字>.*，在 labs.js 登记成历史存档，再把这里换成下一项。
 //
-// 本期（2026-09-29）：蓄压罐 pressure_tank（1×2）、测距仪 rangefinder（1×1）、陀螺仪 gyroscope（1×1）、散热片 radiator（1×2 侧挂）。
-// 每种 6 个：A～C 是 2026-09-27 夜间候选 v1（tools/cand-early.js / cand-mid.js）按现在的画法重画，D～F 是新方向。
+// 本期（2026-09-29）：三件 Boss 唯一件——圣堂压力核心 boss_core（1×1）、寡妇液压撞头 boss_ram（2×1 撞击层）、公爵测距棱镜 boss_lens（1×1）。
+// 每种 6 个：A～C 是 2026-09-27 夜间候选 v1（tools/cand-late.js）按现在的画法重画，D～F 是新方向。
 window.SA = window.SA || {};
 
 SA.CUR = (() => {
@@ -67,286 +67,236 @@ SA.CUR = (() => {
   const cyanPipe = (x, y, w, t) => { R(x, y, w, 4, P.water[0]); R(x, y + 1, w, 2, P.water[1]); R(x, y + 1, w, 1, P.water[2]); for (let u = 0; u < w; u++) if (saw(t * 0.6 + u * 4, 60) < 0.08) px(x + u, y + 1, P.water[3]); };   // 冷却液集管：只有这里用青色，亮点在流
   const bracket = (x, y) => { R(x, y, 5, 5, P.iron[0]); R(x + 1, y + 1, 3, 3, P.iron[2]); px(x + 1, y + 1, P.iron[4]); px(x + 3, y + 3, P.iron[1]); };
 
-  // ================= 蓄压罐 pressure_tank（1×2 = 24×48，能源）：存量看得见（o.lv 0～1），没有青色 =================
-  const PTANK = [
-    { key: 'A', name: '立式气瓶', ref: '（v1 候选 A 重画）',
-      idea: '一只高高的铆接气瓶，上下圆顶、两道黄铜箍，腰上一只大压力表显示存量，瓶顶一只阀门。充气时阀门口冒一丝白汽。最直观。',
-      draw(x, y, o) {
-        R(x + 3, y + 45, 18, 3, P.iron[0]); R(x + 4, y + 45, 16, 1, P.iron[3]);
-        bottle(x + 4, y + 3, 16, 43); band(x + 4, y + 14, 16); band(x + 4, y + 36, 16);
-        for (let yy = y + 18; yy < y + 35; yy += 3) px(x + 6, yy, P.iron[4]);
-        R(x + 10, y + 0, 4, 4, P.brass[1]); R(x + 8, y + 0, 8, 1, P.brass[2]);
-        gauge(x + 12, y + 25, 5, o.lv); disc(x + 12, y + 25, 0.9, P.brass[2]);
-      },
-      fx(x, y, o) { if (o.chg) puff(x + 12, y, o.t, 2, 6); } },
-    { key: 'B', name: '双瓶组', ref: '（v1 候选 B 重画）',
-      idea: '两只细长气瓶并排，顶上一根黄铜汇流管把它们接在一起，汇流管正中一只压力表；两道皮带把两只瓶捆在底座上。「成组储备」，剪影是两根竖条。',
-      draw(x, y, o) {
-        R(x + 1, y + 45, 22, 3, P.iron[0]); R(x + 2, y + 45, 20, 1, P.iron[3]);
-        for (const u of [2, 13]) { bottle(x + u, y + 10, 9, 36); }
-        for (const v of [22, 36]) { R(x + 1, y + v, 22, 2, P.leather[1]); R(x + 1, y + v, 22, 1, P.leather[2]); R(x + 11, y + v - 1, 2, 4, P.brass[2]); }
-        R(x + 3, y + 7, 18, 3, P.brass[0]); R(x + 3, y + 7, 18, 2, P.brass[1]); R(x + 3, y + 7, 18, 1, P.brass[3]);
-        for (const u of [6, 17]) R(x + u, y + 9, 2, 3, P.brass[1]);
-        R(x + 11, y + 4, 2, 4, P.brass[1]); gauge(x + 12, y + 4, 3.6, o.lv);
-      },
-      fx(x, y, o) { if (o.chg) puff(x + 20, y + 7, o.t, 2, 5); } },
-    { key: 'C', name: '储气球 + 液柱表', ref: '（v1 候选 C 重画）',
-      idea: '顶上一只铆接储气球（黄铜赤道箍），下面的立管上开一道竖窗，窗里的绿色液柱就是存量——高低一眼可见；底座一只安全阀。存量表达最清楚。',
-      draw(x, y, o) {
-        R(x + 3, y + 44, 18, 4, P.iron[0]); R(x + 4, y + 44, 16, 1, P.iron[3]);
-        vtube(x + 7, y + 20, 10, 25, IRONL); R(x + 9, y + 23, 6, 19, P.dark[0]); const h = Math.round(17 * o.lv); R(x + 10, y + 41 - h, 4, h, P.gauge[1]); R(x + 10, y + 41 - h, 4, 1, P.gauge[3]); R(x + 10, y + 41 - h, 1, h, P.gauge[2]);
-        for (let v = 24; v <= 40; v += 4) px(x + 15, y + v, P.brass[2]);
-        ball(x + 12, y + 12, 10, IRONL); R(x + 2, y + 12, 20, 2, P.brass[1]); R(x + 2, y + 12, 20, 1, P.brass[3]); px(x + 8, y + 6, P.iron[4]); px(x + 9, y + 5, P.iron[4]);
-        R(x + 17, y + 38, 5, 3, P.brass[1]); R(x + 20, y + 35, 2, 3, P.brass[2]);
-      },
-      fx(x, y, o) { if (o.lv > 0.92) puff(x + 21, y + 34, o.t, 2, 5); } },
-    { key: 'D', name: '杠杆安全阀储汽罐', ref: '新：维多利亚锅炉的杠杆安全阀（长杠杆 + 铁球配重）+ 外挂刻度尺',
-      idea: '一只铆接储汽罐，顶上一只杠杆安全阀：长长的杠杆一头压着阀门、一头挂一只铁球；存满时杠杆被顶起、阀口喷汽。罐身左边一根外挂黄铜刻度尺，指针跟着存量上下走。最维多利亚。',
-      draw(x, y, o) {
-        R(x + 4, y + 45, 18, 3, P.iron[0]); R(x + 5, y + 45, 16, 1, P.iron[3]);
-        bottle(x + 6, y + 8, 15, 38); for (const u of [10, 16]) for (let v = 16; v < 42; v += 3) px(x + u, y + v, P.iron[4]); band(x + 6, y + 20, 15);
-        R(x + 1, y + 12, 3, 32, P.brass[0]); R(x + 2, y + 12, 1, 32, P.brass[2]); for (let v = 13; v < 44; v += 5) px(x + 3, y + v, P.brass[3]);
-        const py = y + 42 - Math.round(o.lv * 28); R(x, py, 5, 2, P.fire[2]); px(x + 4, py, P.fire[3]);
-        R(x + 12, y + 3, 4, 6, P.brass[1]); R(x + 12, y + 3, 4, 1, P.brass[3]);
-        const up = o.lv > 0.92 ? 2 : 0; R(x + 9, y + 3, 2, 3, P.iron[1]);
-        line(x + 9, y + 3, x + 22, y + 3 - up, 1, P.iron[3]); disc(x + 21, y + 5 - up, 2.4, P.iron[0]); disc(x + 21, y + 5 - up, 1.6, P.iron[2]); px(x + 20, y + 4 - up, P.iron[4]);
-      },
-      fx(x, y, o) { if (o.lv > 0.92) puff(x + 14, y + 2, o.t, 3, 7); } },
-    { key: 'E', name: '伸缩储气柜', ref: '新：维多利亚城市的伸缩储气柜（格构导轨架 + 升降的钟罩）',
-      idea: '四根格构立柱围成导轨架，中间一只铆接钟罩：存得越多，钟罩升得越高（罩顶的导轮沿立柱滚）；下半截坐在一只矮水槽里。存量就是钟罩的高度，一眼能从剪影上看出来。',
-      draw(x, y, o) {
-        for (const u of [1, 20]) { R(x + u, y + 4, 3, 40, P.iron[0]); R(x + u + 1, y + 4, 1, 40, P.iron[3]); }
-        for (let v = 6; v < 40; v += 9) { line(x + 3, y + v, x + 20, y + v + 8, 1, P.iron[1]); line(x + 20, y + v, x + 3, y + v + 8, 1, P.iron[1]); }
-        R(x + 1, y + 3, 22, 2, P.iron[0]); R(x + 1, y + 3, 22, 1, P.iron[3]);
-        const top = y + 36 - Math.round(o.lv * 26);
-        shape((xx, yy) => yy >= top + 2 || ((xx - x - 12) / 7.5) ** 2 + ((yy - top - 2) / 3) ** 2 <= 1, x + 4, top - 2, x + 20, y + 40, IRONL);
-        for (let v = top + 5; v < y + 39; v += 4) for (let u = 6; u < 19; u += 3) px(x + u, v, P.iron[4]);
-        R(x + 3, top + 3, 2, 2, P.brass[2]); R(x + 19, top + 3, 2, 2, P.brass[2]);
-        box(x + 2, y + 38, 20, 10, IRON); R(x + 3, y + 39, 18, 1, P.iron[3]); for (const u of [5, 12, 18]) px(x + u, y + 42, P.iron[4]);
-      } },
-    { key: 'F', name: '双球储罐', ref: '新：工厂里一上一下叠着的铆接球罐（赤道箍 + 连通管 + 表盘）',
-      idea: '两只铆接球罐一上一下叠着，每只一道黄铜赤道箍，右边一根连通管带一只截止阀；上球正面一只大表盘显示存量，下球坐在四条短腿的座圈上。圆滚滚的剪影，和方块车体最不一样。',
-      draw(x, y, o) {
-        for (const u of [4, 9, 15, 20]) R(x + u - 1, y + 40, 2, 8, P.iron[1]); R(x + 3, y + 41, 18, 2, P.iron[0]); R(x + 3, y + 41, 18, 1, P.iron[3]);
-        ball(x + 12, y + 31, 9.5, IRONL); R(x + 2, y + 31, 20, 2, P.brass[1]); R(x + 2, y + 31, 20, 1, P.brass[3]);
-        ball(x + 12, y + 11, 9.5, IRONL); R(x + 2, y + 11, 20, 2, P.brass[1]); R(x + 2, y + 11, 20, 1, P.brass[3]);
-        R(x + 20, y + 13, 3, 16, P.iron[0]); R(x + 21, y + 13, 1, 16, P.iron[3]); R(x + 19, y + 19, 5, 3, P.brass[1]);
-        gauge(x + 11, y + 10, 5, o.lv); disc(x + 11, y + 10, 0.9, P.brass[2]); px(x + 6, y + 5, P.iron[4]); px(x + 6, y + 25, P.iron[4]);
-      },
-      fx(x, y, o) { if (o.chg) puff(x + 12, y + 1, o.t, 2, 5); } },
-  ];
 
-  // ================= 测距仪 rangefinder（1×1 = 24×24，控制）：直射散布更小 =================
-  const RANGE = [
-    { key: 'A', name: '合像测距仪', ref: '（v1 候选 A 重画）一战的合像测距仪：两头带镜片的长横管',
-      idea: '一根横贯整格的测距管（两道黄铜箍），两头各一块玻璃镜片，中间朝下一只目镜；架在车体上的铆接托座里。镜片时不时闪一下光。「一根横杆两头发亮」在 1× 下也认得出。',
-      draw(x, y, o) {
-        box(x + 7, y + 14, 10, 10, IRON); R(x + 8, y + 14, 8, 1, P.iron[3]); rivet(x + 9, y + 18); rivet(x + 13, y + 18);
-        htube(x, y + 7, 24, 6, IRONL); band(x + 4, y + 7, 2, 6); band(x + 18, y + 7, 2, 6);
-        R(x, y + 8, 2, 4, P.glass[1]); R(x + 22, y + 8, 2, 4, P.glass[1]); px(x, y + 8, P.glass[3]); px(x + 22, y + 8, P.glass[3]);
-        R(x + 10, y + 12, 4, 3, P.brass[1]); R(x + 11, y + 12, 2, 3, P.dark[0]);
-      },
-      fx(x, y, o) { glint(x + 1, y + 9, o.t); glint(x + 23, y + 9, o.t + 30); } },
-    { key: 'B', name: '刻度表盘', ref: '（v1 候选 B 重画）铁箱 + 大刻度盘 + 小镜筒',
-      idea: '一只铆接铁箱，正面一只大刻度盘（一圈刻度、指针随瞄准来回找距离），左上角一支小镜筒。读起来更像「仪表」，靠镜筒和压力表区分。',
-      draw(x, y, o) {
-        box(x + 1, y + 6, 22, 18, IRONL); rivet(x + 3, y + 8); rivet(x + 19, y + 8); rivet(x + 3, y + 20); rivet(x + 19, y + 20);
-        disc(x + 12, y + 15, 7, P.brass[0]); disc(x + 12, y + 15, 6, P.steam[2]);
-        for (let k = 0; k <= 10; k++) { const a = Math.PI * (0.8 + k * 0.14); px(x + 12 + Math.cos(a) * 5, y + 15 + Math.sin(a) * 5, k % 5 ? P.dark[2] : P.dark[0]); }
-        const a = Math.PI * (1.1 + 0.5 * (0.5 + 0.5 * Math.sin(o.t * 0.05))); line(x + 12, y + 15, x + 12 + Math.cos(a) * 4.5, y + 15 + Math.sin(a) * 4.5, 1, P.fire[1]); px(x + 12, y + 15, P.dark[0]);
-        htube(x + 2, y + 1, 12, 4, IRONL); R(x + 13, y + 1, 2, 4, P.glass[1]); R(x + 6, y + 4, 2, 3, P.iron[1]);
-      },
-      fx(x, y, o) { glint(x + 14, y + 2, o.t, 70); } },
-    { key: 'C', name: '双筒测距镜', ref: '（v1 候选 C 重画）一对上下叠放的镜筒',
-      idea: '一对上下叠放的镜筒架在转轴上（中间一块黄铜连接板），前端两块镜片；转轴托架贴在车体上。像双筒望远镜，友好好认。',
-      draw(x, y, o) {
-        box(x + 5, y + 17, 12, 7, IRON); R(x + 9, y + 12, 4, 6, P.iron[1]);
-        htube(x + 2, y + 3, 19, 5, IRONL); htube(x + 2, y + 9, 19, 5, IRONL); R(x + 8, y + 5, 6, 7, P.brass[1]); R(x + 8, y + 5, 6, 1, P.brass[3]);
-        for (const v of [4, 10]) { R(x + 20, y + v, 3, 3, P.glass[1]); px(x + 21, y + v, P.glass[3]); R(x, y + v, 2, 3, P.dark[1]); }
-        disc(x + 11, y + 13, 1.6, P.brass[2]);
-      },
-      fx(x, y, o) { glint(x + 22, y + 4, o.t); glint(x + 22, y + 10, o.t + 8); } },
-    { key: 'D', name: '双耳测距塔', ref: '新：战列舰炮塔顶上的测距仪「耳朵」——圆顶小塔 + 贯穿两侧伸出的长测距管',
-      idea: '一只铆接圆顶小塔，一根长测距管从塔身里横穿过去、两头伸出来像一对耳朵，耳朵末端是带遮光罩的镜窗；塔正面一道观察缝。剪影是「圆顶 + 两只耳朵」，一眼认出。',
-      draw(x, y, o) {
-        box(x + 3, y + 16, 18, 8, IRON); R(x + 4, y + 16, 16, 1, P.iron[3]);
-        shape((xx, yy) => ((xx - x - 12) / 8.5) ** 2 + ((yy - y - 16) / 9) ** 2 <= 1 && yy <= y + 16.5, x + 3, y + 6, x + 21, y + 17, IRONL);
-        for (let k = 1; k < 6; k++) { const a = Math.PI * (1 + k / 6); px(x + 12 + Math.cos(a) * 7, y + 16 + Math.sin(a) * 7.5, P.iron[4]); }
-        htube(x, y + 10, 24, 4, IRONL); for (const u of [0, 21]) { R(x + u, y + 8, 3, 8, P.iron[0]); R(x + u + (u ? 0 : 2), y + 10, 1, 4, P.glass[1]); }
-        R(x + 8, y + 15, 8, 1, P.dark[0]);
-      },
-      fx(x, y, o) { glint(x + 2, y + 11, o.t, 80); glint(x + 21, y + 11, o.t + 40, 80); } },
-    { key: 'E', name: '经纬仪', ref: '新：测量用的经纬仪（U 形支架 + 竖直刻度圈 + 横穿的望远镜 + 调平螺钉）',
-      idea: '一只带三颗调平螺钉的底盘上立着 U 形支架，中间一只黄铜竖直刻度圈（一圈刻度），一支小望远镜从圈心横穿过去、慢慢上下点头找目标；底盘上一只水准泡。最「精密仪器」。',
-      draw(x, y, o) {
-        box(x + 3, y + 19, 18, 5, IRON); for (const u of [5, 12, 19]) { R(x + u - 1, y + 22, 2, 2, P.brass[1]); }
-        R(x + 9, y + 20, 6, 2, P.glass[1]); px(x + 11 + Math.round(Math.sin(o.t * 0.05)), y + 20, P.white);
-        for (const u of [5, 17]) { R(x + u, y + 7, 2, 12, P.iron[0]); R(x + u, y + 7, 1, 12, P.iron[3]); }
-        disc(x + 12, y + 11, 6.5, P.brass[0]); disc(x + 12, y + 11, 5.5, P.brass[2]); disc(x + 12, y + 11, 3.8, P.brass[1]);
-        for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; px(x + 12 + Math.cos(a) * 5.2, y + 11 + Math.sin(a) * 5.2, P.brass[0]); }
-        const a = Math.sin(o.t * 0.04) * 0.25, dx = Math.cos(a), dy = -Math.sin(a);
-        line(x + 12 - dx * 9, y + 11 - dy * 9, x + 12 + dx * 9, y + 11 + dy * 9, 3, P.iron[0]); line(x + 12 - dx * 9, y + 11 - dy * 9, x + 12 + dx * 9, y + 11 + dy * 9, 1, P.iron[3]);
-        px(x + 12 + dx * 9, y + 11 + dy * 9, P.glass[2]); disc(x + 12, y + 11, 1.2, P.brass[3]);
-      } },
-    { key: 'F', name: '六分仪', ref: '新：航海六分仪放大装在车上（扇形刻度弧 + 指标臂 + 小望远镜 + 反射镜）',
-      idea: '一只黄铜扇形框：底边一道弧形刻度尺，顶点一面小反射镜，一根指标臂从顶点垂下来沿刻度弧慢慢扫；顶上横着一支小望远镜。扇形剪影在方块车里最特别。',
-      draw(x, y, o) {
-        box(x + 3, y + 19, 18, 5, IRON);
-        const A0 = Math.PI * 0.32, A1 = Math.PI * 0.68, C = [x + 12, y + 3], r = 15;
-        for (const a of [A0, A1]) line(C[0], C[1], C[0] + Math.cos(a) * r, C[1] + Math.sin(a) * r, 2, P.brass[1]);
-        for (let k = 0; k <= 24; k++) { const a = A0 + (A1 - A0) * k / 24; px(C[0] + Math.cos(a) * r, C[1] + Math.sin(a) * r, P.brass[2]); px(C[0] + Math.cos(a) * (r - 1), C[1] + Math.sin(a) * (r - 1), P.brass[0]); if (k % 4 === 0) px(C[0] + Math.cos(a) * (r - 2), C[1] + Math.sin(a) * (r - 2), P.dark[0]); }
-        const ai = A0 + (A1 - A0) * (0.5 + 0.4 * Math.sin(o.t * 0.04)); line(C[0], C[1], C[0] + Math.cos(ai) * (r + 1), C[1] + Math.sin(ai) * (r + 1), 1, P.iron[4]);
-        R(x + 12, y + 18, 2, 2, P.iron[1]);
-        htube(x + 4, y + 1, 15, 3, IRONL); R(x + 18, y + 1, 2, 3, P.glass[1]); R(x + 11, y + 3, 3, 3, P.glass[2]); disc(C[0], C[1] + 1, 1.2, P.brass[3]);
-      },
-      fx(x, y, o) { glint(x + 12, y + 4, o.t, 50); } },
-  ];
+  // ================= 小工具 =================
+  const RUSTR = [P.rust[0], P.rust[1], P.rust[2], P.rust[3]];
+  const GLASSR = [P.glass[0], P.glass[1], P.glass[2], P.glass[3]];
+  const BLK = [P.black, P.dark[0], P.dark[1], P.dark[3]];
+  const pulse = (t, per = 60) => 0.5 + 0.5 * Math.sin(t / per * TAU);
+  const ember = (cx, cy, r, t) => { const k = pulse(t, 50); disc(cx, cy, r + 0.6, P.fire[0]); disc(cx, cy, r, k > 0.5 ? P.fire[1] : P.fire[0]); disc(cx, cy, Math.max(0.6, r * 0.5), k > 0.3 ? P.fire[2] : P.fire[1]); if (k > 0.75) px(cx - 0.5, cy - 0.5, P.fire[3]); };
+  // 哥特尖拱：x0～x1、起拱线 ys、底 yb、两段圆弧半径 r（r 越大越尖）
+  const inArch = (x0, x1, ys, yb, r) => (xx, yy) => xx >= x0 && xx <= x1 && yy <= yb && (yy >= ys || ((xx - (x0 + r)) ** 2 + (yy - ys) ** 2 <= r * r && (xx - (x1 - r)) ** 2 + (yy - ys) ** 2 <= r * r));
+  const arch = (x0, x1, ys, yb, r, ramp) => shape(inArch(x0, x1, ys, yb, r), x0 - 1, ys - r, x1 + 1, yb + 1, ramp);
+  const cross = (cx, cy, c = P.brass[2]) => { R(cx, cy - 2, 1, 5, c); R(cx - 1, cy - 1, 3, 1, c); };
+  // 红沙漏：上下两个尖对尖的三角（5-3-1-3-5 像素），s ≥ 1 时整体放大一档
+  const hourglass = (cx, cy, s = 1, c = P.fire[1]) => {
+    const rows = s >= 1 ? [5, 3, 1, 3, 5] : [3, 1, 3], x0 = Math.round(cx), y0 = Math.round(cy) - Math.floor(rows.length / 2);
+    rows.forEach((w, i) => { R(x0 - Math.floor(w / 2), y0 + i, w, 1, c); if (w > 1) px(x0 - Math.floor(w / 2), y0 + i, P.fire[0]); });
+  };
+  const spectrum = (x0, y0, len, t, ang = 0) => { const cols = [P.fire[1], P.fire[3], P.gauge[2], P.water[2]], c = Math.cos(ang), s = Math.sin(ang); if (saw(t, 40) > 0.7) return; cols.forEach((col, k) => { for (let i = 0; i < len; i++) px(x0 + c * i - s * (k - 1.5) * (0.3 + i * 0.12), y0 + s * i + c * (k - 1.5) * (0.3 + i * 0.12), col); }); };
 
-  // ================= 陀螺仪 gyroscope（1×1，控制）：车身晃动更小；和双足胯里的黄铜陀螺仪同一语言，转子一直在转 =================
-  const GYRO = [
-    { key: 'A', name: '万向环', ref: '（v1 候选 A 重画）',
-      idea: '两根短立柱夹着一只黄铜外环，里面的内环不停翻转（宽窄变化表示在转），中心是转子；底座贴车体。剪影是一个圆环，在方块堆里最显眼。',
-      draw(x, y, o) {
-        box(x + 3, y + 19, 18, 5, IRON);
-        for (const u of [2, 20]) { R(x + u, y + 9, 2, 11, P.iron[0]); R(x + u, y + 9, 1, 11, P.iron[3]); }
-        ellRing(x + 12, y + 11, 8.5, 8.5, P.brass[1], P.brass[0]); ellRing(x + 12, y + 11, 7.8, 7.8, P.brass[2]);
-        const w = Math.abs(Math.cos(o.t * 0.08)) * 6 + 0.6; ellRing(x + 12, y + 11, w, 6, P.brass[3], P.brass[0]);
-        disc(x + 12, y + 11, 2.6, P.iron[2]); const s = o.t * 0.4; line(x + 12 - Math.cos(s) * 2.4, y + 11 - Math.sin(s) * 2.4, x + 12 + Math.cos(s) * 2.4, y + 11 + Math.sin(s) * 2.4, 1, P.iron[4]);
-        R(x + 3, y + 10, 2, 2, P.brass[2]); R(x + 19, y + 10, 2, 2, P.brass[2]);
-      } },
-    { key: 'B', name: '陀螺舱窗', ref: '（v1 候选 B 重画）和双足胯上的陀螺窗同一语言',
-      idea: '一只铆接铁箱，正面一扇圆玻璃窗，窗里是侧看成扁椭圆的黄铜转子，一道高光带一直从左扫到右（高速旋转）。',
-      draw(x, y, o) {
-        box(x + 1, y + 2, 22, 22, IRONL); rivet(x + 3, y + 4); rivet(x + 19, y + 4); rivet(x + 3, y + 20); rivet(x + 19, y + 20);
-        disc(x + 12, y + 13, 8, P.brass[0]); disc(x + 12, y + 13, 7, P.glass[0]);
-        shape((xx, yy) => ((xx - x - 12) / 6) ** 2 + ((yy - y - 13) / 2.4) ** 2 <= 1, x + 5, y + 10, x + 19, y + 16, BRASS);
-        const p = saw(o.t * 3, 100), hx = x + 7 + p * 10; R(hx, y + 11, 1, 5, P.brass[3]); R(hx + 4 > x + 17 ? hx - 6 : hx + 4, y + 11, 1, 5, P.brass[2]);
-        R(x + 11, y + 6, 2, 14, P.iron[3]); px(x + 8, y + 8, P.glass[3]);
-      } },
-    { key: 'C', name: '飞轮笼', ref: '（v1 候选 C 重画）',
-      idea: '上下两块黄铜轴承板、四根笼条，中间一只侧看成扁椭圆的重飞轮绕竖轴转（轮缘上的刻痕一直在移），竖轴贯穿上下。更「重工业」，强调「稳」。',
-      draw(x, y, o) {
-        R(x + 2, y + 21, 20, 3, P.iron[0]); R(x + 2, y + 21, 20, 1, P.iron[3]);
-        band(x + 3, y + 2, 18, 3); band(x + 3, y + 18, 18, 3);
-        for (const u of [3, 20]) R(x + u, y + 5, 1, 13, P.iron[3]);
-        R(x + 11, y + 2, 2, 19, P.iron[4]); R(x + 12, y + 2, 1, 19, P.iron[2]);
-        shape((xx, yy) => ((xx - x - 12) / 8) ** 2 + ((yy - y - 12) / 3.4) ** 2 <= 1, x + 3, y + 8, x + 21, y + 16, IRONL);
-        for (let k = 0; k < 4; k++) { const a = o.t * 0.25 + k * Math.PI / 2, cx = Math.cos(a); if (Math.sin(a) > 0) R(x + 12 + cx * 7, y + 13, 1, 2, P.iron[0]); }
-      } },
-    { key: 'D', name: '陀螺罗经', ref: '新：安许茨陀螺罗经（万向环吊着的黄铜碗 + 转子壳 + 罗经盘）',
-      idea: '两根支柱挑着一只外环，外环里吊着一只黄铜半球碗（随车身晃动轻轻摆），碗口一面罗经盘在转（盘上一个红色北针点），碗底伸出转子壳。像船上的罗经台，一看就是「稳定 / 定向」。',
-      draw(x, y, o) {
-        box(x + 3, y + 20, 18, 4, IRON);
-        for (const u of [2, 20]) { R(x + u, y + 4, 2, 17, P.iron[0]); R(x + u, y + 4, 1, 17, P.iron[3]); }
-        R(x + 3, y + 7, 18, 2, P.brass[1]); R(x + 3, y + 7, 18, 1, P.brass[3]);
-        const sw = Math.round(Math.sin(o.t * 0.05) * 1.5);
-        shape((xx, yy) => ((xx - x - 12 - sw) / 7) ** 2 + ((yy - y - 9) / 8) ** 2 <= 1 && yy >= y + 9, x + 4, y + 8, x + 20, y + 18, BRASS);
-        R(x + 10 + sw, y + 17, 4, 3, P.iron[1]);
-        shape((xx, yy) => ((xx - x - 12 - sw) / 6.5) ** 2 + ((yy - y - 9) / 1.8) ** 2 <= 1, x + 4, y + 7, x + 20, y + 11, [P.dark[0], P.steam[1], P.steam[2], P.white]);
-        const a = o.t * 0.08; px(x + 12 + sw + Math.cos(a) * 5, y + 9 + Math.sin(a) * 1.3, P.fire[1]);
-      } },
-    { key: 'E', name: '双转子对转', ref: '新：两只对着转的陀螺转子（齿轮咬合，互相抵消晃动）',
-      idea: '一块铆接背板上并排两只转子，轮缘上的齿互相咬着、一只顺转一只逆转，中间一只小轴承；背板底下一只驱动小蒸汽缸。「两个对着转的稳定器」，动起来最热闹。',
-      draw(x, y, o) {
-        box(x + 1, y + 3, 22, 21, IRON); rivet(x + 3, y + 5); rivet(x + 19, y + 5);
-        gear(x + 7, y + 12, 5.2, 10, o.t * 0.2); gear(x + 17, y + 12, 5.2, 10, -o.t * 0.2 + 0.31);
-        for (const [cx, s] of [[7, 1], [17, -1]]) { const a = s * o.t * 0.2; line(x + cx, y + 12, x + cx + Math.cos(a) * 3, y + 12 + Math.sin(a) * 3, 1, P.brass[3]); }
-        htube(x + 5, y + 19, 14, 4, IRONL); R(x + 11, y + 18, 2, 2, P.brass[2]);
-      } },
-    { key: 'F', name: '船用减摇陀螺', ref: '新：施利克的船用减摇陀螺（沉重的转子筒 + 横向耳轴，整只筒前后摇摆）',
-      idea: '一副 A 形支架托着一只又粗又重的转子筒（上下圆盖、一圈铆钉），筒绕横向耳轴前后慢慢摇（进动），底下一只刹车油缸跟着伸缩。最重、最有「压住晃动」的分量感。',
+  // ================= 圣堂压力核心 boss_core（1×1，能源：动力 + 蓄压 + 储水 + 冷却，一身四用）：铁甲圣堂的哥特语言，核心一点炉火余烬 =================
+  const CORE = [
+    { key: 'A', name: '圣骨匣', ref: '（v1 候选 A 重画）',
+      idea: '一座黄铜尖拱小龛（顶上一只小十字），龛里供着一颗铆接压力球，球心一点暗红余烬在呼吸；龛下一只压力表。「供奉起来的心脏」。',
       draw(x, y, o) {
         box(x + 2, y + 20, 20, 4, IRON);
-        for (const [a, b] of [[3, 12], [21, 12]]) { line(x + a, y + 20, x + b, y + 12, 2, P.iron[1]); }
-        const th = Math.sin(o.t * 0.04) * 0.22, c = Math.cos(th), s = Math.sin(th), C = [x + 12, y + 11];
-        const inside = (xx, yy) => { const dx = xx - C[0], dy = yy - C[1], u = dx * c + dy * s, v = -dx * s + dy * c; return Math.abs(u) <= 8 && Math.abs(v) <= 7 - (Math.abs(u) > 6.5 ? (Math.abs(u) - 6.5) * 2 : 0); };
-        shape(inside, x + 3, y + 1, x + 21, y + 21, IRONL);
-        for (const v of [-5, 5]) { const px0 = C[0] - s * v, py0 = C[1] + c * v; line(px0 - c * 7, py0 - s * 7, px0 + c * 7, py0 + s * 7, 2, P.brass[1]); line(px0 - c * 7, py0 - s * 7, px0 + c * 7, py0 + s * 7, 1, P.brass[3]); }
-        for (let k = -2; k <= 2; k++) { const u = k * 3; px(C[0] + c * u + s * 2.5, C[1] + s * u - c * 2.5 + 5, P.iron[4]); }
-        disc(C[0], C[1], 1.8, P.brass[1]); px(C[0], C[1], P.brass[3]);
-        const ey = y + 16 + s * 6; R(x + 17, ey, 3, y + 20 - ey, P.brass[1]); R(x + 16, y + 17, 5, 3, P.iron[1]);
+        arch(x + 2, x + 22, y + 12, y + 20, 13, BRASS); arch(x + 4, x + 20, y + 12, y + 20, 11, [P.dark[0], P.dark[0], P.dark[1], P.dark[2]]);
+        ball(x + 12, y + 13, 5, IRONL); for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; px(x + 12 + Math.cos(a) * 3.8, y + 13 + Math.sin(a) * 3.8, P.iron[4]); }
+        ember(x + 12, y + 13, 1.6, o.t); cross(x + 12, y + 1); gauge(x + 12, y + 21, 2.2, 0.7);
       } },
+    { key: 'B', name: '玫瑰窗', ref: '（v1 候选 B 重画）',
+      idea: '整格是一扇圆形玫瑰窗：黄铜窗花分出八瓣，瓣里是玻璃蓝、苔绿、水青、炉红四色「彩窗」（正好对应它的四种功能），正中一颗压力核心在呼吸；外圈一圈铜钉。最华丽、最像教堂。',
+      draw(x, y, o) {
+        disc(x + 12, y + 12, 11.5, P.brass[0]); disc(x + 12, y + 12, 10.5, P.brass[1]); disc(x + 12, y + 12, 9.5, P.dark[0]);
+        const cols = [P.glass[1], P.gauge[1], P.water[1], P.fire[0]];
+        for (let k = 0; k < 8; k++) { const a = k / 8 * TAU; disc(x + 12 + Math.cos(a) * 6, y + 12 + Math.sin(a) * 6, 2.6, cols[k % 4]); px(x + 12 + Math.cos(a) * 6 - 1, y + 12 + Math.sin(a) * 6 - 1, P.white); }
+        for (let k = 0; k < 8; k++) { const a = (k + 0.5) / 8 * TAU; line(x + 12 + Math.cos(a) * 3, y + 12 + Math.sin(a) * 3, x + 12 + Math.cos(a) * 9.5, y + 12 + Math.sin(a) * 9.5, 1, P.brass[2]); }
+        ellRing(x + 12, y + 12, 3.2, 3.2, P.brass[2]); ember(x + 12, y + 12, 1.8, o.t);
+        for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; px(x + 12 + Math.cos(a) * 10.8, y + 12 + Math.sin(a) * 10.8, P.brass[3]); }
+      } },
+    { key: 'C', name: '三联压力球', ref: '（v1 候选 C 重画）',
+      idea: '三只小压力球排成三角，黄铜管两两相连，背后一圈带齿的黄铜光环慢慢转；每只球心一点余烬，轮流亮。读起来是「好几件东西合成的一件」，对应它一身四用。',
+      draw(x, y, o) {
+        gear(x + 12, y + 12, 10.5, 18, o.t * 0.01); disc(x + 12, y + 12, 8, P.dark[1]);
+        const pts = [[12, 6], [6, 16], [18, 16]];
+        for (let i = 0; i < 3; i++) { const [a, b] = pts[i], [c2, d2] = pts[(i + 1) % 3]; line(x + a, y + b, x + c2, y + d2, 2, P.brass[1]); }
+        pts.forEach(([a, b], i) => { ball(x + a, y + b, 4, IRONL); if (Math.floor(o.t / 20) % 3 === i) ember(x + a, y + b, 1, o.t); else px(x + a, y + b, P.fire[0]); });
+      } },
+    { key: 'D', name: '双塔立面', ref: '新：一座缩小的哥特教堂立面（双尖塔 + 山墙 + 尖拱长窗）',
+      idea: '整格是一座小教堂的正面：左右两座尖塔（塔尖一只小十字），中间山墙下一扇高高的尖拱长窗，窗里透出炉火（核心在里面呼吸），山墙上一只小圆玫瑰窗。剪影是「两座尖塔」，Boss 件一眼不同。',
+      draw(x, y, o) {
+        box(x + 2, y + 13, 20, 11, IRONL);
+        for (const u of [2, 16]) { poly([[x + u, y + 13], [x + u + 3, y + 3], [x + u + 6, y + 13]], IRONL); cross(x + u + 3, y + 1, P.brass[3]); R(x + u + 2, y + 9, 2, 3, P.dark[0]); }
+        poly([[x + 7, y + 13], [x + 12, y + 5], [x + 17, y + 13]], BRASS);
+        disc(x + 12, y + 10, 1.8, P.dark[0]); px(x + 12, y + 10, P.glass[2]);
+        arch(x + 9, x + 15, y + 17, y + 23, 5, [P.dark[0], P.fire[0], P.fire[0], P.fire[0]]);
+        const k = pulse(o.t, 50); R(x + 11, y + 17, 2, 6, k > 0.5 ? P.fire[2] : P.fire[1]); if (k > 0.7) px(x + 11, y + 18, P.fire[3]);
+        for (const u of [4, 19]) R(x + u, y + 17, 1, 5, P.dark[0]);
+      } },
+    { key: 'E', name: '圣杯炉', ref: '新：圣杯形的铜炉（盛着烧红的煤，升起白汽）',
+      idea: '一只黄铜圣杯：台阶底座、带结的杯脚、宽口的杯身，杯口盛着一堆烧红的煤（一直在呼吸），上面升起一缕白汽。「圣堂的圣火」，最有 Boss 战利品的仪式感。',
+      draw(x, y, o) {
+        box(x + 4, y + 21, 16, 3, IRON); R(x + 6, y + 19, 12, 2, P.brass[0]); R(x + 6, y + 19, 12, 1, P.brass[2]);
+        R(x + 10, y + 13, 4, 6, P.brass[1]); R(x + 10, y + 13, 1, 6, P.brass[3]); disc(x + 12, y + 16, 2.2, P.brass[1]); px(x + 11, y + 15, P.brass[3]);
+        shape((xx, yy) => yy >= y + 5 && ((xx - x - 12) / 9) ** 2 + ((yy - y - 5) / 8.5) ** 2 <= 1, x + 2, y + 4, x + 22, y + 14, BRASS);
+        R(x + 3, y + 5, 18, 1, P.brass[3]); for (const u of [6, 12, 18]) px(x + u, y + 9, P.fire[0]);
+        const k = pulse(o.t, 45);
+        shape((xx, yy) => yy <= y + 5 && ((xx - x - 12) / 8) ** 2 + ((yy - y - 5) / 3) ** 2 <= 1, x + 3, y + 1, x + 21, y + 6, [P.fire[0], P.fire[1], k > 0.5 ? P.fire[2] : P.fire[1], P.fire[3]]);
+        for (const u of [8, 13, 16]) px(x + u, y + 4, P.dark[0]);
+      },
+      fx(x, y, o) { puff(x + 12, y + 1, o.t, 3, 8); } },
+    { key: 'F', name: '骑士团盾徽', ref: '新：圣殿骑士的鸢尾盾（红十字）钉在一只压力鼓上',
+      idea: '一只铆接压力鼓，正面钉着一面骑士团的尖底盾，盾上一个红十字；盾两边各露出一只小压力表，盾后的泄压口时不时喷一口白汽。最「铁甲圣堂」的身份标记。',
+      draw(x, y, o) {
+        ball(x + 12, y + 12, 11, IRONL); for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; px(x + 12 + Math.cos(a) * 9.5, y + 12 + Math.sin(a) * 9.5, P.iron[4]); }
+        gauge(x + 3.5, y + 7, 2.4, 0.6); gauge(x + 20.5, y + 7, 2.4, 0.4 + 0.3 * pulse(o.t));
+        poly([[x + 6, y + 3], [x + 18, y + 3], [x + 18, y + 12], [x + 12, y + 22], [x + 6, y + 12]], IRONL);
+        R(x + 11, y + 5, 2, 13, P.fire[0]); R(x + 8, y + 9, 8, 2, P.fire[0]); R(x + 11, y + 5, 1, 13, P.fire[1]); R(x + 8, y + 9, 8, 1, P.fire[1]);
+        R(x + 6, y + 3, 12, 1, P.brass[2]);
+      },
+      fx(x, y, o) { if (saw(o.t, 90) < 0.35) { puff(x + 2, y + 18, o.t, 2, 5); puff(x + 22, y + 18, o.t + 20, 2, 5); } } },
   ];
 
-  // ================= 散热片 radiator（1×2 侧挂 = 24×48，冷却）：左边铆接支架挂在车体外；镂空要真的透；青色只在集管上 =================
-  // o.heat 0～1：车越热，冷却液流得越快（集管上的亮点），百叶窗开得越大
-  const RAD = [
-    { key: 'A', name: '横格栅', ref: '（v1 候选 A 重画）汽车散热器式',
-      idea: '一片铁框里排满横向散热片，片与片之间是空的（透出后面的车体）；上下两根青色集管，冷却液的亮点在里面流；左边两只铆接支架挂在车体上。',
+  // ================= 公爵测距棱镜 boss_lens（1×1，控制：瞄准更快更稳）：「黄铜公爵」沃德豪斯——黄铜、贵族、单片眼镜；控制类用玻璃色 =================
+  const LENS = [
+    { key: 'A', name: '棱镜王冠', ref: '（v1 候选 A 重画）',
+      idea: '一块三角玻璃棱镜嵌在带尖齿的黄铜冠座上，右边射出一小束分光（红、黄、绿、青四色，时不时闪一下）。最「棱镜」，冠座交代了「公爵」。',
       draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36);
-        R(x + 4, y + 2, 20, 2, P.iron[0]); R(x + 4, y + 44, 20, 2, P.iron[0]); R(x + 4, y + 2, 2, 44, P.iron[0]); R(x + 22, y + 2, 2, 44, P.iron[0]); R(x + 5, y + 2, 1, 44, P.iron[3]);
-        cyanPipe(x + 6, y + 4, 16, o.t * (1 + o.heat * 2)); cyanPipe(x + 6, y + 40, 16, o.t * (1 + o.heat * 2) + 30);
-        for (let v = 10; v < 39; v += 3) { R(x + 6, y + v, 16, 1, P.iron[3]); px(x + 6, y + v, P.iron[1]); }
+        box(x + 3, y + 18, 18, 6, BRASS.map((c, i) => [P.brass[0], P.brass[0], P.brass[1], P.brass[3]][i])); for (const u of [6, 12, 18]) { disc(x + u, y + 20.5, 1, P.fire[0]); }
+        for (let k = 0; k < 5; k++) poly([[x + 3 + k * 4, y + 18], [x + 5 + k * 4, y + 14], [x + 7 + k * 4, y + 18]], BRASS);
+        poly([[x + 6, y + 17], [x + 12, y + 3], [x + 18, y + 17]], GLASSR); line(x + 12, y + 4, x + 15, y + 15, 1, P.glass[3]);
+      },
+      fx(x, y, o) { spectrum(x + 16, y + 10, 8, o.t, -0.15); } },
+    { key: 'B', name: '公爵单片眼镜', ref: '（v1 候选 B 重画）',
+      idea: '一只巨大的黄铜框单片眼镜立在小座上，镜片时不时闪光，一条黄铜细链从镜框垂下来绕到底座。很有角色感（一眼想到那位公爵），也最幽默。',
+      draw(x, y, o) {
+        box(x + 7, y + 20, 10, 4, IRON); R(x + 11, y + 15, 2, 5, P.brass[1]);
+        disc(x + 12, y + 9, 7.5, P.brass[0]); disc(x + 12, y + 9, 6.6, P.brass[2]); disc(x + 12, y + 9, 5.6, P.glass[1]); disc(x + 11, y + 8, 3.5, P.glass[2]);
+        px(x + 9, y + 6, P.white); px(x + 10, y + 5, P.glass[3]);
+        for (let k = 0; k <= 10; k++) { const u = k / 10; if (k % 2 === 0) px(x + 18 + u * 3, y + 13 + u * 8 + Math.sin(u * Math.PI) * 2, P.brass[3]); }
+      },
+      fx(x, y, o) { glint(x + 9, y + 6, o.t, 55); } },
+    { key: 'C', name: '光学塔', ref: '（v1 候选 C 重画）',
+      idea: '一根黄铜长镜筒竖着，筒上三道镜片环（环上各一点玻璃亮），顶上一块斜放的棱镜头朝前；底座贴车体。像天文台的测距塔，精密。',
+      draw(x, y, o) {
+        box(x + 5, y + 20, 14, 4, IRON);
+        vtube(x + 9, y + 6, 6, 15, BRASS);
+        for (const v of [9, 13, 17]) { R(x + 7, y + v, 10, 2, P.brass[2]); R(x + 7, y + v, 10, 1, P.brass[3]); px(x + 16, y + v, P.glass[2]); }
+        poly([[x + 7, y + 6], [x + 9, y + 1], [x + 19, y + 3], [x + 17, y + 7]], GLASSR); line(x + 9, y + 1, x + 19, y + 3, 1, P.brass[2]);
+      },
+      fx(x, y, o) { spectrum(x + 19, y + 4, 5, o.t + 10, 0.1); } },
+    { key: 'D', name: '纹章棱镜', ref: '新：公爵家的纹章（月桂花环 + 小冠 + 红色绶带）框着一只圆镜',
+      idea: '一只圆镜被一圈黄铜月桂花环围着，顶上一顶小公爵冠，底下一条红色绶带打着结；镜片上一道分光在转。像挂在公爵府大门上的纹章，Boss 身份最强。',
+      draw(x, y, o) {
+        for (const s of [-1, 1]) for (let k = 0; k < 7; k++) { const a = Math.PI / 2 + s * (0.4 + k * 0.33), cx = x + 12 + Math.cos(a) * 8.5, cy = y + 12 + Math.sin(a) * 8.5; R(cx - 1, cy - 1, 2, 2, k % 2 ? P.brass[1] : P.brass[2]); px(cx + s, cy, P.brass[0]); }
+        disc(x + 12, y + 12, 6, P.brass[0]); disc(x + 12, y + 12, 5, P.glass[1]); disc(x + 11, y + 11, 3, P.glass[2]); px(x + 10, y + 9, P.white);
+        const a = o.t * 0.05; line(x + 12 - Math.cos(a) * 4, y + 12 - Math.sin(a) * 4, x + 12 + Math.cos(a) * 4, y + 12 + Math.sin(a) * 4, 1, P.glass[3]);
+        R(x + 9, y + 3, 7, 2, P.brass[1]); for (const u of [9, 12, 15]) R(x + u, y + 1, 1, 2, P.brass[3]); px(x + 12, y, P.fire[1]);
+        R(x + 5, y + 20, 14, 3, P.fire[0]); R(x + 5, y + 20, 14, 1, P.fire[1]); R(x + 3, y + 21, 2, 3, P.fire[0]); R(x + 19, y + 21, 2, 3, P.fire[0]);
       } },
-    { key: 'B', name: '翅片管排', ref: '（v1 候选 B 重画）蒸汽机车上的散热管排',
-      idea: '三根竖直的冷却管，每根套着一圈圈短翅片，管与管之间镂空；上下两根青色集管把三根管接起来；左边铆接支架。',
+    { key: 'E', name: '礼帽棱镜', ref: '新：双棱镜的测距镜身，戴一顶小礼帽、夹一只单片眼镜',
+      idea: '一只黄铜双棱镜镜身（两个台阶形的棱镜包 + 右边两只物镜），顶上戴一顶黑色小礼帽（红帽带），正面夹一只单片眼镜、垂一截细链。「公爵本人」被画成了一件仪器，最幽默、最好记。',
       draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36); R(x + 4, y + 6, 2, 36, P.iron[0]); R(x + 5, y + 6, 1, 36, P.iron[3]);
-        cyanPipe(x + 5, y + 3, 19, o.t * (1 + o.heat * 2)); cyanPipe(x + 5, y + 41, 19, o.t * (1 + o.heat * 2) + 30);
-        for (const u of [8, 14, 20]) { R(x + u, y + 7, 2, 34, P.iron[2]); R(x + u, y + 7, 1, 34, P.iron[4]); for (let v = 9; v < 40; v += 2) { R(x + u - 2, y + v, 6, 1, P.iron[3]); px(x + u + 3, y + v, P.iron[1]); } }
-      } },
-    { key: 'C', name: '蜂窝芯', ref: '（v1 候选 C 重画）孔改大，1× 下不再糊成灰面',
-      idea: '铁框里是一整块蜂窝散热芯：一格一格 3×3 的孔都是透的（能看见后面的车体），孔壁是细铁条；右上角一只温度表，上下青色集管。最「精密」。',
+        box(x + 2, y + 12, 20, 10, BRASS); R(x + 3, y + 12, 18, 1, P.brass[3]);
+        for (const u of [3, 12]) { R(x + u, y + 9, 8, 4, P.brass[1]); R(x + u, y + 9, 8, 1, P.brass[3]); }
+        for (const v of [14, 18]) { R(x + 21, y + v, 3, 3, P.glass[1]); px(x + 22, y + v, P.glass[3]); }
+        R(x + 5, y + 8, 12, 1, P.black); R(x + 7, y + 2, 8, 6, P.black); R(x + 7, y + 6, 8, 1, P.fire[0]); px(x + 8, y + 3, P.dark[3]);
+        disc(x + 8, y + 17, 2.6, P.brass[2]); disc(x + 8, y + 17, 1.6, P.glass[2]); px(x + 7, y + 16, P.white);
+        for (let k = 0; k < 4; k++) px(x + 10 + k, y + 19 + (k % 2), P.brass[3]);
+        box(x + 4, y + 22, 16, 2, IRON);
+      },
+      fx(x, y, o) { glint(x + 7, y + 16, o.t, 60); } },
+    { key: 'F', name: '旋转棱镜鼓', ref: '新：一只慢慢转的多面棱镜鼓（花饰黄铜耳架）',
+      idea: '两只花饰黄铜耳架托着一只横放的多面棱镜鼓，鼓一直慢慢转，每一面转到正面时亮一下、向右射出一小束分光。「一直在找距离」的感觉最强，动起来也最漂亮。',
       draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36);
-        box(x + 4, y + 2, 20, 44, IRON);
-        cyanPipe(x + 6, y + 4, 16, o.t * (1 + o.heat * 2)); cyanPipe(x + 6, y + 40, 16, o.t * (1 + o.heat * 2) + 30);
-        g.clearRect(x + 6, y + 9, 16, 30);
-        for (let v = 9; v <= 39; v += 4) R(x + 6, y + v, 16, 1, P.iron[3]);
-        for (let r = 0; r < 8; r++) for (let u = (r % 2) * 2 + 6; u <= 22; u += 4) R(x + u, y + 9 + r * 4, 1, 4, P.iron[2]);
-        disc(x + 20, y + 9, 2.8, P.brass[0]); disc(x + 20, y + 9, 2, P.steam[2]); line(x + 20, y + 9, x + 20 - 1.5 + o.heat * 3, y + 7.5, 1, P.fire[1]);
-      } },
-    { key: 'D', name: '蛇形管排', ref: '新：一根来回折返的蛇形冷却管（U 形弯头）挂在一根竖脊梁上',
-      idea: '一根冷却管在格子里来回折返七八次（每个折返是一个 U 形弯头），管子之间全是空的；左边一根竖脊梁用卡箍把每一道管卡住，脊梁再用支架挂到车体上；青色只在上面的进口和下面的出口。',
-      draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36); R(x + 4, y + 3, 3, 42, P.iron[0]); R(x + 5, y + 3, 1, 42, P.iron[3]);
-        const runs = 8;
-        for (let k = 0; k < runs; k++) {
-          const v = y + 6 + k * 5; R(x + 7, v, 15, 3, P.iron[1]); R(x + 7, v, 15, 1, P.iron[4]);
-          if (k < runs - 1) { const ex = k % 2 ? x + 7 : x + 21; R(ex, v, 3, 8, P.iron[1]); R(ex + (k % 2 ? 0 : 2), v + 1, 1, 6, P.iron[4]); }
-          R(x + 6, v - 1, 3, 5, P.brass[1]);
+        box(x + 2, y + 20, 20, 4, IRON);
+        for (const u of [2, 19]) { R(x + u, y + 5, 3, 15, P.brass[1]); R(x + u, y + 5, 1, 15, P.brass[3]); disc(x + u + 1.5, y + 5, 2, P.brass[2]); px(x + u + 1, y + 13, P.brass[0]); }
+        const rot = o.t * 0.06, faces = 6;
+        for (let k = 0; k < faces; k++) {
+          const a0 = rot + k / faces * TAU, a1 = a0 + TAU / faces, y0 = Math.sin(a0) * 6, y1 = Math.sin(a1) * 6;
+          if (Math.cos((a0 + a1) / 2) < 0) continue;
+          const lit = Math.cos((a0 + a1) / 2) > 0.92, lo = Math.min(y0, y1), hi = Math.max(y0, y1);
+          R(x + 5, y + 12 + lo, 14, Math.max(1, hi - lo), lit ? P.glass[3] : [P.glass[1], P.glass[0], P.glass[1]][k % 3]);
+          R(x + 5, y + 12 + lo, 14, 1, P.brass[0]); if (!lit && hi - lo > 2) px(x + 7, y + 13 + lo, P.glass[2]);
         }
-        R(x + 7, y + 2, 4, 5, P.water[1]); R(x + 7, y + 2, 4, 1, P.water[2]); R(x + 7, y + 43, 4, 4, P.water[1]); R(x + 7, y + 43, 4, 1, P.water[2]);
-        if (saw(o.t * (1 + o.heat * 2), 30) < 0.3) px(x + 8, y + 3, P.water[3]);
-      } },
-    { key: 'E', name: '百叶窗散热器', ref: '新：机车 / 飞艇发动机的百叶窗（温控，越热开得越大）',
-      idea: '一只铁框里横着九片百叶，右边一根联动杆把它们串起来，底下一只小恒温缸推着联动杆：车冷时百叶关成一整面（不透），车越热百叶转得越平、缝越大（透出后面的车体）。温度就是百叶开合，一眼能看出来。',
+        R(x + 5, y + 5, 1, 14, P.brass[0]); R(x + 18, y + 5, 1, 14, P.brass[0]);
+      },
+      fx(x, y, o) { const rot = o.t * 0.06; for (let k = 0; k < 6; k++) { const a = rot + (k + 0.5) / 6 * TAU; if (Math.cos(a) > 0.92) spectrum(x + 19, y + 12, 6, 0, 0); } } },
+  ];
+
+  // ================= 寡妇液压撞头 boss_ram（2×1 = 48×24，撞击层，装在车头最前、朝右打）：撞击件一律锈钢色；黑寡妇的红沙漏记号 =================
+  // o.p = 活塞打击的伸出量 0～1
+  const mount = (x, y) => { R(x, y + 1, 4, 22, P.iron[0]); R(x + 1, y + 2, 2, 20, P.iron[2]); for (const v of [4, 11, 18]) px(x + 2, y + v, P.iron[4]); };
+  const RAM = [
+    { key: 'A', name: '沙漏液压锤', ref: '（v1 候选 A 重画）',
+      idea: '一只黄铜箍的液压缸，活塞杆一伸一缩，锤头是锈钢的沙漏形（上下宽、腰细），锤面上一只红沙漏——黑寡妇的记号。',
       draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36);
-        R(x + 4, y + 2, 20, 2, P.iron[0]); R(x + 4, y + 44, 20, 2, P.iron[0]); R(x + 4, y + 2, 2, 44, P.iron[0]); R(x + 22, y + 2, 2, 44, P.iron[0]); R(x + 5, y + 2, 1, 44, P.iron[3]);
-        cyanPipe(x + 6, y + 4, 16, o.t * (1 + o.heat * 2));
-        const hgt = Math.max(1, Math.round(1 + (1 - o.heat) * 3.4));
-        for (let k = 0; k < 8; k++) { const v = y + 9 + k * 4.25; R(x + 6, v, 15, hgt, P.iron[2]); R(x + 6, v, 15, 1, P.iron[4]); if (hgt > 1) R(x + 6, v + hgt - 1, 15, 1, P.iron[1]); px(x + 21, v, P.brass[2]); }
-        const lift = Math.round(o.heat * 3); R(x + 20, y + 8 - lift, 2, 34, P.brass[0]); R(x + 20, y + 8 - lift, 1, 34, P.brass[2]);
-        box(x + 16, y + 40, 6, 4, IRONL);
+        mount(x, y); htube(x + 3, y + 6, 20, 12, IRONL); band(x + 7, y + 6, 2, 12); band(x + 17, y + 6, 2, 12);
+        const e = o.p * 12, X = x + 29 + e; R(x + 23, y + 10, 6 + e, 4, P.iron[0]); R(x + 23, y + 11, 6 + e, 1, P.iron[4]);
+        poly([[X, y + 2], [X + 10, y + 2], [X + 7, y + 12], [X + 10, y + 22], [X, y + 22], [X + 3, y + 12]], RUSTR);
+        hourglass(X + 5, y + 12, 1);
       } },
-    { key: 'F', name: '鳍柱', ref: '新：摩托车缸头式的一叠大散热鳍（中间一根冷却管柱）',
-      idea: '中间一根竖直的冷却管柱，套着一叠又宽又薄的横散热鳍（像一摞薄钢盘），鳍与鳍之间全是空的；两根拉杆把整叠鳍夹紧；上下管口是青色的。剪影是一排横条纹的柱子，和格栅框不一样。',
+    { key: 'B', name: '蛛颚', ref: '（v1 候选 B 重画）',
+      idea: '两片弯曲的锈钢颚像蜘蛛的螯肢，根部各一只小液压缸；平时张开，打击时猛地合上（内沿一排齿）。最凶、最像「寡妇」，剪影独一无二。',
       draw(x, y, o) {
-        bracket(x, y + 8); bracket(x, y + 36); R(x + 4, y + 9, 10, 2, P.iron[1]); R(x + 4, y + 37, 10, 2, P.iron[1]);
-        R(x + 13, y + 1, 4, 5, P.water[1]); R(x + 13, y + 1, 4, 1, P.water[2]); R(x + 13, y + 43, 4, 4, P.water[1]); R(x + 13, y + 43, 4, 1, P.water[2]);
-        for (let v = 6; v < 43; v += 3) { R(x + 6, y + v, 18, 1, P.iron[3]); px(x + 6, y + v, P.iron[1]); px(x + 23, y + v, P.iron[1]); }
-        R(x + 13, y + 5, 4, 38, P.iron[1]); R(x + 13, y + 5, 1, 38, P.iron[4]);
-        for (const u of [7, 22]) R(x + u, y + 5, 1, 38, P.iron[0]);
-        if (saw(o.t * (1 + o.heat * 2), 30) < 0.3) px(x + 14, y + 2, P.water[3]);
+        mount(x, y); box(x + 3, y + 4, 12, 16, IRONL); hourglass(x + 9, y + 12, 1);
+        const open = (1 - o.p) * 5;
+        for (const sd of [-1, 1]) {
+          R(x + 14, y + 12 + sd * 5 - 2, 7, 4, P.brass[1]); R(x + 14, y + 12 + sd * 5 - 2, 7, 1, P.brass[3]);
+          const P0 = [x + 20, y + 12 + sd * 5], mid = [x + 30, y + 12 + sd * (8 + open)], tip = [x + 40, y + 12 + sd * (1 + open * 0.3)];
+          const outer = [], inner = [];
+          for (let k = 0; k <= 8; k++) { const u = k / 8, bx = (1 - u) ** 2 * P0[0] + 2 * (1 - u) * u * mid[0] + u * u * tip[0], by = (1 - u) ** 2 * P0[1] + 2 * (1 - u) * u * mid[1] + u * u * tip[1], w = 2.5 * (1 - u) + 0.6; outer.push([bx, by + sd * w]); inner.unshift([bx, by - sd * w]); }
+          poly(outer.concat(inner), RUSTR);
+          for (let k = 2; k < 8; k += 2) { const u = k / 8, bx = (1 - u) ** 2 * P0[0] + 2 * (1 - u) * u * mid[0] + u * u * tip[0], by = (1 - u) ** 2 * P0[1] + 2 * (1 - u) * u * mid[1] + u * u * tip[1]; px(bx, by - sd * 3, P.rust[3]); }
+        }
+      } },
+    { key: 'C', name: '三联活塞锤', ref: '（v1 候选 C 重画）',
+      idea: '三根并排的活塞锤轮流敲出（上、中、下），每根一只锈钢小锤面，气缸上一排黄铜箍。把「短周期活塞打击」直接画出来。',
+      draw(x, y, o) {
+        mount(x, y);
+        for (let k = 0; k < 3; k++) {
+          const v = y + 2 + k * 7, ph = Math.max(0, Math.sin((o.p * 3 - k) * Math.PI)) * (o.p > 0 ? 1 : 0), e = ph * 10;
+          htube(x + 3, v, 18, 6, IRONL); band(x + 8, v, 2, 6);
+          R(x + 21, v + 2, 8 + e, 2, P.iron[4]); box(x + 29 + e, v - 1, 6, 8, RUSTR);
+        }
+        hourglass(x + 15, y + 12, 1);
+      } },
+    { key: 'D', name: '蛛腿夹钳', ref: '新：一根锈钢撞角，四条分节的黑色蛛腿收在它四周',
+      idea: '正中一根锈钢撞角朝前，根部一只红沙漏；四条分节的黑色蛛腿（黄铜关节）上下各两条收在撞角四周，打击时蛛腿猛地往前伸直、腿尖扎向前方，像蜘蛛扑咬。',
+      draw(x, y, o) {
+        mount(x, y); box(x + 3, y + 7, 12, 10, IRONL);
+        poly([[x + 14, y + 8], [x + 40 + o.p * 6, y + 12], [x + 14, y + 16]], RUSTR); hourglass(x + 18, y + 12, 1);
+        for (const s of [-1, 1]) for (const k of [0, 1]) {
+          const root = [x + 12 + k * 3, y + 12 + s * 4], kx = x + 20 + k * 6 + o.p * 4, ky = y + 12 + s * (11 - o.p * 3), tx = x + 30 + k * 7 + o.p * 10, ty = y + 12 + s * (6 - o.p * 3);
+          line(root[0], root[1], kx, ky, 2, P.black); line(kx, ky, tx, ty, 2, P.dark[0]); line(kx, ky, tx, ty, 1, P.dark[2]);
+          R(kx - 1, ky - 1, 2, 2, P.brass[2]); px(tx, ty, P.rust[3]);
+        }
+      } },
+    { key: 'E', name: '寡妇面纱撞角', ref: '新：寡妇的黑面纱（铁网罩）罩着液压缸 + 胸针（红沙漏）+ 长撞角',
+      idea: '液压缸外罩着一片垂下来的黑色铁网「面纱」，网上别着一只椭圆黄铜胸针，胸针里是红沙漏；缸前伸出一根长长的锈钢撞角，打击时猛地往前捅。黑色 + 黄铜 + 一点红，最有「寡妇」的哀悼感。',
+      draw(x, y, o) {
+        mount(x, y); htube(x + 3, y + 5, 20, 14, IRONL);
+        for (let yy = 3; yy < 21; yy++) for (let xx = 3; xx < 23; xx++) if ((xx + yy) % 3 === 0 || (xx - yy + 30) % 3 === 0) { if (yy > 14 && ((xx * 7 + yy) % 5 < 2)) continue; px(x + xx, y + yy, P.black); }
+        R(x + 3, y + 3, 20, 1, P.dark[2]);
+        shape((xx, yy) => ((xx - x - 13) / 3.6) ** 2 + ((yy - y - 11) / 4.6) ** 2 <= 1, x + 9, y + 6, x + 17, y + 16, BRASS); hourglass(x + 13, y + 11, 0.7);
+        const e = o.p * 10; R(x + 23, y + 9, 4 + e, 6, P.iron[1]); R(x + 23, y + 10, 4 + e, 1, P.iron[4]);
+        poly([[x + 27 + e, y + 7], [x + 45 + e, y + 12], [x + 27 + e, y + 17]], RUSTR);
+      } },
+    { key: 'F', name: '纺锤腹液压头', ref: '新：黑寡妇的腹部——又大又亮的黑色储油腹（腹下红沙漏）+ 前面的液压撞头',
+      idea: '后半截是一只又大又亮的黑色储油「腹」（像黑寡妇的腹部，一道高光），腹下一只大红沙漏；两根油管从腹里接到前面的液压缸，缸前一只带齿的锈钢撞头，打击时往前猛冲。整件就是一只趴着的黑寡妇，最独特。',
+      draw(x, y, o) {
+        mount(x, y);
+        shape((xx, yy) => ((xx - x - 14) / 11) ** 2 + ((yy - y - 11) / 9.5) ** 2 <= 1, x + 3, y + 1, x + 25, y + 21, BLK);
+        R(x + 8, y + 5, 6, 1, P.dark[3]); px(x + 9, y + 4, P.steam[2]); hourglass(x + 14, y + 17, 0.9);
+        for (const v of [8, 14]) { line(x + 24, y + v, x + 28, y + v, 1, P.brass[2]); }
+        htube(x + 27, y + 7, 8, 10, IRONL); band(x + 30, y + 7, 2, 10);
+        const e = o.p * 10; R(x + 35, y + 10, 3 + e, 4, P.iron[4]);
+        box(x + 38 + e, y + 5, 6, 14, RUSTR); for (let v = 6; v < 19; v += 3) R(x + 44 + e, y + v, 2, 2, P.rust[2]);
       } },
   ];
 
   const MODS = [
-    { id: 'pressure_tank', name: '蓄压罐', w: 1, h: 2, tiers: [1, 2, 3, 4, 5, 6], SET: PTANK,
-      rule: '1×2 · 第四章 · 能源：动力富余时存蒸汽，不够时往外补 · 存量要看得见（页面上存量来回变：涨的时候阀口冒汽）· 用「动力」语义（压力表 + 蒸汽白），没有青色（和水罐分开）',
-      state: (t) => ({ t, lv: 0.5 + 0.5 * Math.sin(t * 0.03), chg: Math.cos(t * 0.03) > 0 }),
-      poses: [{ lv: 1, label: '满' }, { lv: 0.6, label: '六成' }, { lv: 0.25, label: '两成半' }, { lv: 0, label: '空' }] },
-    { id: 'rangefinder', name: '测距仪', w: 1, h: 1, tiers: [1, 2, 3, 4, 5, 6], SET: RANGE,
-      rule: '1×1 · 第四章 · 控制：直射武器散布更小 · 要一眼认出是「光学测距」，和观察镜（轭架望远镜）、压力表区分开 · 镜片偶尔闪光',
-      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 25, label: '' }, { t: 50, label: '' }, { t: 75, label: '' }] },
-    { id: 'gyroscope', name: '陀螺仪', w: 1, h: 1, tiers: [1, 2, 3, 4, 5, 6], SET: GYRO,
-      rule: '1×1 · 第四章 · 控制：全车晃动更小 · 和双足胯里的黄铜陀螺仪同一语言（黄铜环 + 转子），转子一直在转',
-      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 7, label: '' }, { t: 14, label: '' }, { t: 21, label: '' }] },
-    { id: 'radiator', name: '散热片（侧挂）', w: 1, h: 2, side: true, tiers: [1, 2, 3, 4, 5, 6], SET: RAD,
-      rule: '1×2 侧挂层 · 第四章 · 冷却：不储水，提高持续散热 · 左边铆接支架挂在车体外，镂空要真的透出后面的车体（右边「装在车上」那张能看出来）· 青色只在进出水的集管上 · 页面上车温来回变：越热冷却液流得越快，百叶窗开得越大',
-      state: (t) => ({ t, heat: 0.5 + 0.5 * Math.sin(t * 0.02) }), poses: [{ heat: 0, label: '冷' }, { heat: 0.5, label: '温' }, { heat: 1, label: '热' }, { heat: 1, t: 30, label: '热（换一帧）' }] },
+    { id: 'boss_core', name: '圣堂压力核心', w: 1, h: 1, tiers: [1, 2, 3, 4, 5, 6], SET: CORE,
+      rule: '1×1 · Boss「铁甲圣堂」的战利品 · 能源：动力 + 蓄压 + 储水 + 冷却，一身四用 · 用圣堂的哥特元素（尖拱、玫瑰窗、十字、尖塔）让它一眼和普通件不同 · 核心一点炉火余烬在呼吸（只有几个像素，不算大面积发光）',
+      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 12, label: '' }, { t: 25, label: '' }, { t: 37, label: '' }] },
+    { id: 'boss_ram', name: '寡妇液压撞头', w: 2, h: 1, tiers: [5, 1, 3, 6], SET: RAM,
+      rule: '2×1 撞击层 · Boss「煤灰寡妇」玛莎·布莱克的战利品（唯一件，乌兹钢档）· 冲撞 + 短周期活塞打击 · 撞击件一律锈钢色，左边法兰贴车头、往右打 · 黑寡妇的红沙漏记号 · 页面循环：待机 → 猛地打出 → 收回',
+      state: (t) => { const c = t % 50; return { t, p: c < 5 ? c / 5 : c < 14 ? 1 - (c - 5) / 9 : 0 }; },
+      poses: [{ p: 0, label: '收' }, { p: 0.5, label: '半伸' }, { p: 1, label: '打出' }, { p: 0.33, label: '（三联：第二根）' }] },
+    { id: 'boss_lens', name: '公爵测距棱镜', w: 1, h: 1, tiers: [5, 1, 3, 6], SET: LENS,
+      rule: '1×1 · Boss「黄铜公爵」沃德豪斯的战利品（唯一件，乌兹钢档）· 控制：全车瞄准更快更稳 · 公爵 = 黄铜、贵族、单片眼镜；控制类用玻璃色 · 分光（红黄绿青四色）时不时闪一下',
+      state: (t) => ({ t }), poses: [{ t: 0, label: '' }, { t: 14, label: '' }, { t: 28, label: '' }, { t: 42, label: '' }] },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   function over(ctx, x, y, e, o = {}, m) { g = ctx; if (e.fx) e.fx(x, y, o); else if (m && m.fx) m.fx(x, y, o); }

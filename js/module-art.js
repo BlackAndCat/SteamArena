@@ -20,9 +20,9 @@ SA.MODULE_ART = {
   mortar: { piv: [24, 30], blen: 24, barrel: 0, rcPx: 6, back: 0.06, ret: 2.5 },
   mg: { piv: [29, 20], blen: 22, barrel: 13, rcPx: 2, back: 0, ret: 14 },   // 2026-09-28 蒸汽离心炮：耳轴 = 离心鼓轴心，只有炮管后坐
   side_cannon: { vis: [1, 3, 5], piv: [18, 34], blen: 48, barrel: 18, rcPx: 7, back: 0.04, ret: 2.6 },
-  pressure_tank: { art: 'boiler', placeholder: '蓄压' },
+  pressure_tank: {},   // 2026-09-29 专用造型：储气球 + 液柱表
   pressure_chamber: {},   // 2026-09-29 专用造型：风箱增压器（用户定以后是 1×2，数据改动交接 astra；1×1 时画同一套造型的小版）
-  radiator: { art: 'water', placeholder: '散热' },
+  radiator: {},   // 2026-09-29 专用造型：翅片管排（侧挂）
   condenser: {},   // 2026-09-29 专用造型：盘管冷凝柱（各档只换颜色）
   rocket_rack: { vis: [1, 2, 3, 4, 5, 6], piv: [24, 28], blen: 34, barrel: 22, rcPx: 7, back: 0.05, ret: 2.2 },
   harpoon: { vis: [1], piv: [18, 13], blen: 34, barrel: 22, rcPx: 5, back: 0.04, ret: 2.8 },
@@ -39,8 +39,8 @@ SA.MODULE_ART = {
   mg2: { piv: [20, 20], blen: 25, barrel: 15, rcPx: 2, back: 0, ret: 14 },  // 2026-09-28 双嘴汽转球：耳轴 = 球心，两根喷嘴交替后坐
   periscope: {},   // 2026-09-29 专用造型（轭架望远镜），各档只换颜色
   autoloader: {},   // 2026-09-29 专用造型：链式扬弹机（各档只换颜色）
-  rangefinder: { art: 'plate', placeholder: '测距仪' },
-  gyroscope: { art: 'plate', placeholder: '陀螺仪' },
+  rangefinder: {},   // 2026-09-29 专用造型：六分仪
+  gyroscope: {},   // 2026-09-29 专用造型：万向环
   // 新尺寸模块的专用造型尚未定稿，先按实际占格显示文字，保证库存和候选画廊能完整打开。
   mg_s: { piv: [15, 11], blen: 19, barrel: 10, rcPx: 2, back: 0, ret: 14 },       // 2026-09-28 专用造型：侧舷枪座
   mg_heavy: { piv: [12, 12], blen: 22, barrel: 12, rcPx: 3, back: 0, ret: 14 },   // 2026-09-28 专用造型：蒸汽加特林

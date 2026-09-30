@@ -1974,7 +1974,55 @@ SA.SPR = (() => {
         flameJet2(tx, ty, o.a + 180, 9, o.t); line(tx, ty, hx, hy, 2, P.dark[2]); px(hx, hy, P.fire[1]);
       } },
   ];
+
+  // ---------- 辅助四件（2026-09-29 定稿，样机 tools/archive/aux-modules.html）：蓄压罐 C 储气球 + 液柱表、测距仪 F 六分仪、陀螺仪 A 万向环、散热片 B 翅片管排 ----------
+  const bottle = (x, y, w, h, r = IRONL) => {   // 竖放的铆接气瓶：上下圆顶 + 竖缝铆钉
+    vtube(x, y + w / 2, w, h - w, r);
+    shape((xx, yy) => ((xx - x - w / 2) / (w / 2)) ** 2 + ((yy - y - w / 2) / (w / 2)) ** 2 <= 1 && yy <= y + w / 2 + 0.5, x, y, x + w, y + w / 2 + 1, r);
+    shape((xx, yy) => ((xx - x - w / 2) / (w / 2)) ** 2 + ((yy - y - h + w / 2) / (w / 2)) ** 2 <= 1 && yy >= y + h - w / 2 - 0.5, x, y + h - w / 2 - 1, x + w, y + h, r);
+  };
+  const band = (x, y, w, h = 2) => { R(x, y, w, h, P.brass[1]); R(x, y, w, 1, P.brass[3]); if (h > 2) R(x, y + h - 1, w, 1, P.brass[0]); };
+  const glint = (x, y, t, per = 60) => { const p = saw(t, per); if (p < 0.12) { px(x, y, P.white); px(x + 1, y - 1, P.glass[3]); } };
+  const ellRing = (cx, cy, rx, ry, c, c2) => { const n = Math.ceil(Math.max(rx, ry) * 7) + 4; for (let i = 0; i < n; i++) { const a = i / n * TAU; px(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, c2 && Math.sin(a) > 0 ? c2 : c); } };
+  const cyanPipe = (x, y, w, t) => { R(x, y, w, 4, P.water[0]); R(x, y + 1, w, 2, P.water[1]); R(x, y + 1, w, 1, P.water[2]); for (let u = 0; u < w; u++) if (saw(t * 0.6 + u * 4, 60) < 0.08) px(x + u, y + 1, P.water[3]); };   // 冷却液集管：只有这里用青色，亮点在流
+  const bracket = (x, y) => { R(x, y, 5, 5, P.iron[0]); R(x + 1, y + 1, 3, 3, P.iron[2]); px(x + 1, y + 1, P.iron[4]); px(x + 3, y + 3, P.iron[1]); };
+
+  const AUX = {
+    pressure_tank: { key: 'C', name: '储气球 + 液柱表', draw(x, y, o) {
+        R(x + 3, y + 44, 18, 4, P.iron[0]); R(x + 4, y + 44, 16, 1, P.iron[3]);
+        vtube(x + 7, y + 20, 10, 25, IRONL); R(x + 9, y + 23, 6, 19, P.dark[0]); const h = Math.round(17 * o.lv); R(x + 10, y + 41 - h, 4, h, P.gauge[1]); R(x + 10, y + 41 - h, 4, 1, P.gauge[3]); R(x + 10, y + 41 - h, 1, h, P.gauge[2]);
+        for (let v = 24; v <= 40; v += 4) px(x + 15, y + v, P.brass[2]);
+        ball(x + 12, y + 12, 10, IRONL); R(x + 2, y + 12, 20, 2, P.brass[1]); R(x + 2, y + 12, 20, 1, P.brass[3]); px(x + 8, y + 6, P.iron[4]); px(x + 9, y + 5, P.iron[4]);
+        R(x + 17, y + 38, 5, 3, P.brass[1]); R(x + 20, y + 35, 2, 3, P.brass[2]);
+      },
+      fx(x, y, o) { if (o.lv > 0.92) puff(x + 21, y + 34, o.t, 2, 5); } },
+    rangefinder: { key: 'F', name: '六分仪', draw(x, y, o) {
+        box(x + 3, y + 19, 18, 5, IRON);
+        const A0 = Math.PI * 0.32, A1 = Math.PI * 0.68, C = [x + 12, y + 3], r = 15;
+        for (const a of [A0, A1]) line(C[0], C[1], C[0] + Math.cos(a) * r, C[1] + Math.sin(a) * r, 2, P.brass[1]);
+        for (let k = 0; k <= 24; k++) { const a = A0 + (A1 - A0) * k / 24; px(C[0] + Math.cos(a) * r, C[1] + Math.sin(a) * r, P.brass[2]); px(C[0] + Math.cos(a) * (r - 1), C[1] + Math.sin(a) * (r - 1), P.brass[0]); if (k % 4 === 0) px(C[0] + Math.cos(a) * (r - 2), C[1] + Math.sin(a) * (r - 2), P.dark[0]); }
+        const ai = A0 + (A1 - A0) * (0.5 + 0.4 * Math.sin(o.t * 0.04)); line(C[0], C[1], C[0] + Math.cos(ai) * (r + 1), C[1] + Math.sin(ai) * (r + 1), 1, P.iron[4]);
+        R(x + 12, y + 18, 2, 2, P.iron[1]);
+        htube(x + 4, y + 1, 15, 3, IRONL); R(x + 18, y + 1, 2, 3, P.glass[1]); R(x + 11, y + 3, 3, 3, P.glass[2]); disc(C[0], C[1] + 1, 1.2, P.brass[3]);
+      },
+      fx(x, y, o) { glint(x + 12, y + 4, o.t, 50); } },
+    gyroscope: { key: 'A', name: '万向环', draw(x, y, o) {
+        box(x + 3, y + 19, 18, 5, IRON);
+        for (const u of [2, 20]) { R(x + u, y + 9, 2, 11, P.iron[0]); R(x + u, y + 9, 1, 11, P.iron[3]); }
+        ellRing(x + 12, y + 11, 8.5, 8.5, P.brass[1], P.brass[0]); ellRing(x + 12, y + 11, 7.8, 7.8, P.brass[2]);
+        const w = Math.abs(Math.cos(o.t * 0.08)) * 6 + 0.6; ellRing(x + 12, y + 11, w, 6, P.brass[3], P.brass[0]);
+        disc(x + 12, y + 11, 2.6, P.iron[2]); const s = o.t * 0.4; line(x + 12 - Math.cos(s) * 2.4, y + 11 - Math.sin(s) * 2.4, x + 12 + Math.cos(s) * 2.4, y + 11 + Math.sin(s) * 2.4, 1, P.iron[4]);
+        R(x + 3, y + 10, 2, 2, P.brass[2]); R(x + 19, y + 10, 2, 2, P.brass[2]);
+      } },
+    radiator: { key: 'B', name: '翅片管排', draw(x, y, o) {
+        bracket(x, y + 8); bracket(x, y + 36); R(x + 4, y + 6, 2, 36, P.iron[0]); R(x + 5, y + 6, 1, 36, P.iron[3]);
+        cyanPipe(x + 5, y + 3, 19, o.t * (1 + o.heat * 2)); cyanPipe(x + 5, y + 41, 19, o.t * (1 + o.heat * 2) + 30);
+        for (const u of [8, 14, 20]) { R(x + u, y + 7, 2, 34, P.iron[2]); R(x + u, y + 7, 1, 34, P.iron[4]); for (let v = 9; v < 40; v += 2) { R(x + u - 2, y + v, 6, 1, P.iron[3]); px(x + u + 3, y + v, P.iron[1]); } }
+      } },
+  };
   return {
+    aux(c, id, x, y, o) { g = c; AUX[id].draw(x, y, o); },
+    auxFx(c, id, x, y, o) { g = c; if (AUX[id].fx) AUX[id].fx(x, y, o); },
     harpoon(c, x, y, o) { g = c; HARPOON2[0].draw(x, y, o); },
     steamjet(c, x, y, o) { g = c; STEAM[0].draw(x, y, o); },
     steamjetFx(c, x, y, o) { g = c; STEAM[0].fx(x, y, o); },
@@ -2471,6 +2519,11 @@ SA.SPR = (() => {
     boiler_l(x, y, q) { BIG.boiler(ctx, x, y, { t: q.fr * 8, heat: q.ht / 2 }); },   // 炉火 3 档 × 13 帧（链节、煤块刚好循环）
     water_l(x, y, q) { BIG.tank(ctx, x, y, { t: q.fr * 9, water: q.lv / 29 }); },
     // 特殊武器（2026-09-29 定稿）：转动部分按 module-art 的耳轴 / 炮口几何；汽、火、飞出去的烟在 weaponFx 里逐帧画（材质处理之后）
+    // 辅助四件（2026-09-29 定稿）：蓄压罐的液柱跟存量走，六分仪的指标臂慢慢扫，万向环一直翻，散热片的冷却液随车温流
+    pressure_tank(x, y, q) { BIG.aux(ctx, 'pressure_tank', x, y, { lv: q.lv / 16, t: 0 }); },
+    rangefinder(x, y, q) { BIG.aux(ctx, 'rangefinder', x, y, { t: q.fr * 6 }); },
+    gyroscope(x, y, q) { BIG.aux(ctx, 'gyroscope', x, y, { t: q.fr * 3.27 }); },
+    radiator(x, y, q) { BIG.aux(ctx, 'radiator', x, y, { t: q.fr * 10, heat: q.ht / 2 }); },
     harpoon(x, y, q) { BIG.harpoon(ctx, x, y, { a: q.a, k: (q.k || 0) / 8, out: !!q.out, t: (q.fr || 0) * 4 }); },
     steamjet(x, y, q) { BIG.steamjet(ctx, x, y, { a: q.a, on: !!q.on, t: 0 }); },
     flamer(x, y, q) { BIG.flamer(ctx, x, y, { a: q.a, t: 0 }); },
@@ -2713,6 +2766,10 @@ SA.SPR = (() => {
     const q = {};
     switch (id) {
       case 'boiler': case 'boiler_s': { const fl = Math.floor((o.t || 0) * 8 + (o.seed || 0)) % 4; q.fr = fl; q.lv = Math.max(1, Math.min(3, Math.floor(1 + (o.heat || 0) * 2.2 + (fl % 2) * 0.6))); break; }
+      case 'pressure_tank': q.lv = Math.round(16 * Math.max(0, Math.min(1, o.store == null ? 0.6 : o.store))); break;   // 存量 17 档（车间 / 图标按六成画）
+      case 'rangefinder': q.fr = Math.floor((o.t || 0) * 5) % 26; break;
+      case 'gyroscope': q.fr = Math.floor((o.t || 0) * 10) % 12; break;
+      case 'radiator': q.fr = Math.floor((o.t || 0) * 6) % 10; q.ht = Math.max(0, Math.min(2, Math.round((o.heat || 0) * 2))); break;
       case 'harpoon': q.a = angQ(o.a, 0); q.k = SA.Dyn.quant(o.recoil, 8); if (o.out) { q.out = 1; q.fr = Math.floor((o.t || 0) * 8) % 8; } break;   // 射出后绞盘放缆：8 帧
       case 'steamjet': q.a = angQ(o.a, 0); if (o.flash > 0) q.on = 1; break;
       case 'flamer': q.a = angQ(o.a, 0); break;
@@ -3050,6 +3107,7 @@ SA.SPR = (() => {
         feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
         flash: dyn ? dyn.flashOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,   // 喷射器 / 喷火器：正在喷
         out: !!(o.tetherCell && o.tetherCell === cell),   // 鱼叉：已射出、绳子拴着对手
+        store: o.store,   // 蓄压罐：全车存量 0～1
         a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
         punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
         phase, gait: phase, stride,
@@ -3188,7 +3246,8 @@ SA.SPR = (() => {
   // 特殊武器的汽 / 火（材质处理之后逐帧画，颜色不被换掉）
   function weaponFx(g, id, x, y, mo) {
     const T = (mo.t || 0) * 16.7, a = mo.a == null ? 0 : mo.a;
-    if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
+    if (id === 'pressure_tank' || id === 'rangefinder') BIG.auxFx(g, id, x, y, { t: T, lv: mo.store == null ? 0.6 : mo.store });
+    else if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'flamer') BIG.flamerFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'rocket_rack') BIG.rocketFx(g, x, y, { a: mo.a == null ? 20 : mo.a, t: T, n: mo.rn == null ? 4 : mo.rn, s: mo.rs || 0 }, SA.stageOf('rocket_rack', mo.mt || 1));
     else return;
