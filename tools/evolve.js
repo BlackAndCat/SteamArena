@@ -104,6 +104,7 @@ function loadGame({ contextify = false } = {}) {
 
 // 取得一关实际会使用的车辆：手工记录优先，原始内容作为回退。
 function stageFor(SA, chapter, stage) {
+  if (SA.Camp?.stage) return SA.Camp.stage(chapter, stage);
   const base = SA.CAMPAIGN[chapter]?.stages?.[stage];
   if (!base) return null;
   const merged = SA.StageCars ? SA.StageCars.merge(base, chapter, stage) : { ...base, source: 'original', locked: false };
@@ -1239,8 +1240,8 @@ function check() {
   let previousVehicle = SA.V.fromAscii('起始车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
-      const item = SA.CAMPAIGN[chapter].stages[stage];
-      const v = SA.V.fromAscii(item.name, item.rows, item.sides || [], item.mt || 1, item.elite || [], item.subs || []);
+      const item = stageFor(SA, chapter, stage);
+      const v = item.vehicle;
       const result = SA.Battle.simulate({ p: previousVehicle, e: v, terrain: item.terrain || 'flat', pStyle: 'wander', eStyle: item.style || 'wander', eBoss: !!item.boss, seed: chapter * 100 + stage });
       if (!Number.isFinite(result.t) || !Number.isFinite(result.pDealt) || !Number.isFinite(result.eDealt)) throw new Error(`战役第 ${chapter + 1} 章第 ${stage + 1} 关出现非有限模拟结果`);
       stages.push({ chapter, stage, t: result.t, winner: result.winner });

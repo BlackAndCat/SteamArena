@@ -939,6 +939,27 @@ SA.Battle = (() => {
         if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect && !x.blocked));
       }
     }
+    if (s.style === 'rookie') {
+      // 序章学徒会迟疑、点射后忘记扣扳机；每辆车独立计时，沿用战斗随机源以保持回放可复现。
+      if (!s.rookie) s.rookie = { fireT: rnd(1.4, 2.5), firing: false, driveT: rnd(0.8, 1.6) };
+      const novice = s.rookie;
+      novice.fireT -= dt;
+      if (novice.fireT <= 0) {
+        novice.firing = !novice.firing;
+        novice.fireT = novice.firing ? rnd(0.55, 0.9) : rnd(1.6, 3);
+      }
+      s.fireHeld = !!s.target && novice.firing;
+      novice.driveT -= dt;
+      if (novice.driveT <= 0) {
+        // 远处会慌忙追近；贴近后乱踩油门和倒车，避免退远后把教学战拖到锅炉烧干。
+        const fwd = isP(s) ? 1 : -1;
+        const gap = fwd * (frontEdge(o) - frontEdge(s));
+        const choices = gap > 580 ? [fwd, fwd, fwd, fwd, 0, -fwd] : [0, 0, fwd, fwd, fwd, -fwd];
+        s.dir = choices[Math.floor(random() * choices.length)];
+        novice.driveT = s.dir === -fwd ? rnd(0.2, 0.45) : rnd(0.6, 1.25);
+      }
+      return;
+    }
     s.fireHeld = !!s.target;
     // 移动：按性格来。默认 = 有撞击武器就周期性冲撞，否则在交战距离内游走；
     // rush 冲锋：几乎一直在冲，退也只退一小段助跑；kite 放风筝：保持远距离，很少冲撞；turtle 龟缩：守在出发点附近

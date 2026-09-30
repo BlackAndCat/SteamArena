@@ -144,6 +144,8 @@ SA.Camp = (() => {
     if (!o) return null;
     const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
     if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
+    // 序章第一关是教学战：保留手工关卡车，但驾驶行为不被历史车记录覆盖。
+    if (ci === 0 && si === 0) { merged.style = 'rookie'; merged.aim = 0.18; }
     return { ...merged, ci, si, chapter: ch };
   }
   const current = () => (done() ? null : stage());
