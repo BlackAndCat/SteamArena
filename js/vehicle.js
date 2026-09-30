@@ -253,7 +253,7 @@ SA.V = (() => {
     return { ok: true };
   }
 
-  function place(v, id, r, c, mt = 1) {
+  function place(v, id, r, c, mt = SA.minMt(SA.liveId(id))) {
     const chk = canPlace(v, id, r, c);
     if (chk.ok) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     return chk;
@@ -274,7 +274,7 @@ SA.V = (() => {
     return { ok: true, fit: chk.ok, reason: chk.reason };
   }
 
-  function put(v, id, r, c, mt = 1) {
+  function put(v, id, r, c, mt = SA.minMt(SA.liveId(id))) {
     const chk = canPut(v, id, r, c);
     if (chk.ok) v[layerOf(id)][r][c] = SA.newCell(id, mt);
     return chk;

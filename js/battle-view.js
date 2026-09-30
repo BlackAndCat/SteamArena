@@ -255,6 +255,13 @@ SA.BattleView.create = function createBattleView(api) {
     // 准星停在模块上：显示它的改装军衔杠
     if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
 
+    // 战斗侧给出两端世界坐标，缆绳随双方移动和倾斜，失效后同帧停止绘制。
+    for (const s of [B.p, B.e]) {
+      const tether = api.tetherState(s);
+      if (!tether) continue;
+      SA.SPR.useCtx(g);
+      SA.SPR.line(...tether.from.map(Math.round), ...tether.to.map(Math.round), 2, P.leather[1]);
+    }
     for (const sh of B.shots) {
       const tr = sh.trail || [];
       if (sh.big) {
@@ -607,7 +614,7 @@ SA.BattleView.create = function createBattleView(api) {
   const sameCell = (a, b) => a && b && a.layer === b.layer && a.r === b.r && a.c === b.c;
 
   // 当前武器组的弹道预览：按炮管「当前」仰角画（炮管转动有延迟）。
-  // 直射：中心点线 + 散布扇区 + 命中率；高抛：点线 + 落点 ×（指哪打哪）
+  // 中心点线与落点共用真实弹道；有散布的武器（含抛射架）另画扇区和命中率。
   function drawPreview(aimT) {
     const side = aimT && aimT.layer === 'side';
     const info = { hit: null, reach: true, blocked: false };
@@ -616,7 +623,7 @@ SA.BattleView.create = function createBattleView(api) {
     const w = p.weapons.find(x => x.cell.id === p.sel && !x.blocked);
     if (!w) { info.blocked = p.weapons.some(x => x.cell.id === p.sel); return; }
     const want = aimAngle(p, w, B.aim[0], B.aim[1]), cur = barrel(p, w);
-    info.reach = want.reach || w.m.g < 1;
+    info.reach = want.reach || (!w.m.indirect && w.m.g < 1);
     info.over = want.over;
     info.slewing = Math.abs(want.a - cur) > 1;
     info.windup = p.fireHeld && p.heldT < w.m.windup;
@@ -772,7 +779,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) parts.push(`弹道中心先打到 <b>「${M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name}」</b>（橙色角框）${alt}`);
     if (aimT && pi && pi.cover && !pi.hit) parts.push(pi.cover === 'crate' ? '弹道被<b>货箱</b>挡住：打烂它、绕过去，或者换高抛' : `弹道打在<b>土坡</b>上：靠近一些${alt || '，或者换高抛'}`);
     if (aimT && pi && pi.chance != null) parts.push(`命中率约 <b>${pi.chance}%</b>（扇区 = 散布范围）`);
-    else if (aimT && pi && M[p.sel].indirect) parts.push('高抛：指哪打哪（对方移动会躲开）');
+    else if (aimT && pi && M[p.sel].indirect) parts.push(M[p.sel].spread ? '高抛齐射：保留散布（对方移动会躲开）' : '高抛：指哪打哪（对方移动会躲开）');
     if (p.fireHeld) parts.push(p.focus >= 1 ? `<b style="color:#6fcf6a">准星稳住了！</b>散布 -${Math.round(p.aimShrink * 100)}%` : `瞄准 ${Math.round(p.focus * 100)}%（散布 -${Math.round(p.aimShrink * p.focus * 100)}%）${shakeOf(p) > 0.4 ? ' · 车身在晃，停稳更快' : ''}`);
     return parts.join(' · ');
   }

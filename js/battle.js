@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-28-giant-indirect-module-family';
+SA.RULES_VERSION = '2026-09-30-special-weapons';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -318,9 +318,10 @@ SA.Battle = (() => {
   const shakeOf = (s) => s.sway * (Math.min(1, Math.abs(s.vx) / T.AIM_SPEED_REFERENCE) * T.AIM_SPEED_SPREAD + Math.min(T.AIM_JOLT_MAX, s.jolt) * T.AIM_JOLT_SPREAD);
   // 拆分兼容：旧的 battle-view.js 仍从全局读取这个 HUD 辅助函数；显式 API 同时在下方传给新视图。
   if (typeof window !== 'undefined') window.shakeOf = shakeOf;
-  // 散布（最大偏角，度）：只有直射武器有；高抛指哪打哪。边走边打、刹车时散布更大；按住蓄力（focus）能把散布缩到 30%
+  // 散布由模块决定：臼炮 / 巨炮的 spread 为 0，抛射架保留齐射散布。
+  // 边走边打、刹车时散布更大；按住蓄力（focus）能缩圈。
   const spreadDeg = (s, o, w, focus = s.focus) => {
-    if (w.m.indirect || (s.prism && focus >= 1)) return 0;
+    if ((w.m.indirect && !w.m.spread) || (s.prism && focus >= 1)) return 0;
     return (w.m.spread * (1 - s.acc * T.AIM_ACCEL_SPREAD) + shakeOf(s) * T.AIM_SHAKE_SPREAD) * (1 - s.aimShrink * focus) + o.evade * T.AIM_EVADE_SPREAD;
   };
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
@@ -350,7 +351,9 @@ SA.Battle = (() => {
   }
   function launch(s, w, deg, jitter) {
     const [x0, y0] = muzzle(s, w, deg);
-    const a = (deg + jitter) * Math.PI / 180;
+    // 有散布的抛射件限制偏弹射界；预览和实射共用，避免平射、反向射击或预览扇区越界。
+    const shotDeg = w.m.indirect ? clamp(deg + jitter, w.m.elev[0], w.m.elev[1]) : deg + jitter;
+    const a = shotDeg * Math.PI / 180;
     const dir = isP(s) ? 1 : -1;
     const wa = a + pitchOf(s) * Math.PI / 180;   // 炮管仰角（相对车身）+ 车身抬头 = 世界里的仰角
     return { x: x0, y: y0, vx: dir * w.m.v * Math.cos(wa), vy: -w.m.v * Math.sin(wa), g: K.GRAVITY * w.m.g };
@@ -983,6 +986,21 @@ SA.Battle = (() => {
     return null;
   }
 
+  // 鱼叉缆绳两端的实时世界坐标；目标模块中心随镜像、移动和坡地倾斜更新。
+  // 查询不修改牵引状态、不消耗随机数，画面和检查脚本可在任意帧重复读取。
+  function tetherState(s) {
+    if (!B) return null;
+    if (typeof s === 'string') s = s === 'e' ? B.e : B.p;
+    s = s || B.p;
+    const t = s.tether, o = t && t.target;
+    if (!t || !o || s.dead || o.dead || t.time <= 0 || Math.abs(o.x - s.x) > T.TETHER_MAX_DISTANCE) return null;
+    const target = o.v[t.layer] && o.v[t.layer][t.r] && o.v[t.layer][t.r][t.c];
+    const w = s.weapons.find(item => item.cell === t.cell);
+    if (!w || !alive(t.cell) || !alive(target)) return null;
+    return { cell: t.cell, from: muzzle(s, w), to: modCenter(o, t.layer, t.r, t.c), remaining: t.time,
+      target: { layer: t.layer, r: t.r, c: t.c } };
+  }
+
   // 在残存模块的顶边中点中取最高处；敌车镜像和坡角都沿用真实战斗坐标。
   // 锚点同时保留模块位置，画面层可按造型补充像素偏移，不必改变规则状态。
   function surrenderAnchor(s) {
@@ -1137,7 +1155,7 @@ SA.Battle = (() => {
           if (sh.focusAtFire) sh.from.events.chargedHit++;
           if (sh.weapon && sh.weapon.arc === 'high') sh.from.events.highHit++;
           damage(sh.to, sh.from, res, projectileDamage(sh.to, sh.from, res, sh.dmg, sh.weapon));
-          // 火箭架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
+          // 抛射架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
           if (sh.weapon && sh.weapon.splash) {
             const hitBox = modCenter(sh.to, res.layer, res.r, res.c);
             const seen = new Set([tc]);
@@ -1340,9 +1358,9 @@ SA.Battle = (() => {
   if (SA.BattleView && SA.BattleView.create) view = SA.BattleView.create({
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
     getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt,
-    muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh,
+    muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh, tetherState,
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });
-  return { start, startState, simulate, debug, ricochetChance, emit, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
+  return { start, startState, simulate, debug, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
 })();

@@ -11,7 +11,7 @@ SA.Street = (() => {
 
   // 街头赛只能调用玩家已经解锁、且当前材料能够承受的模块。
   // 这样随机车不会提前展示后续章节的大件，也避免生成低材料无法合法存在的模块。
-  const unlocked = (id, mt) => !!M[id] && SA.Camp.hasMod(id) && SA.minMt(id) <= mt;
+  const unlocked = (id, mt) => !!M[id] && SA.Camp.hasMod(id) && SA.minMt(id) <= mt && mt <= SA.maxMt(id);
   const pool = (ids, mt) => ids.filter(id => unlocked(id, mt));
 
   // 随手拼一台小车：底盘 2~4 格，上面 1~3 层逐层变窄；直射武器只放在每行最前端，不会被己方挡住
@@ -34,7 +34,7 @@ SA.Street = (() => {
         const front = c === c0 + width - 1;
         const structural = pool(['armor', 'armor', 'armor', 'water', 'boiler', 'armor_heavy', 'plate'], maxMt);
         let id = pick(structural.length ? structural : ['plate']);
-        const weapons = pool(['mg', 'mg', 'cannon', 'cannon_m', 'mortar', 'flamer', 'harpoon', 'rocket_rack'], maxMt);
+        const weapons = pool(['mg', 'mg', 'cannon', 'cannon_m', 'mortar', 'steamjet', 'flamer', 'harpoon', 'rocket_rack'], maxMt);
         const indirect = pool(['mortar'], maxMt);
         if (front && weapons.length && Math.random() < 0.65) id = pick(weapons);
         else if (!front && indirect.length && Math.random() < 0.1) id = pick(indirect);

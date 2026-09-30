@@ -204,7 +204,8 @@ function stageSpec(SA, chapter, stage) {
     uniqueLoot: (actual.uniqueLoot || []).map(item => ({ ...item })),
     chapterHasBoss: ch.stages.some((row, index) => !!(stageFor(SA, chapter, index)?.boss || row.boss)),
     boss: !!actual.boss, rewardModule: reward, grid: progress.grid, mat: progress.mat, budget: rule.budget, baseBudget: rule.budget, budgetStatus: rule.status,
-    availableMods: available,
+    // 喷射武器只进入对应材料池；其他 Boss 奖励仍沿用原先允许提前展示的规则。
+    availableMods: available.filter(id => !['steamjet', 'flamer'].includes(id) || (SA.minMt(id) <= progress.mat && progress.mat <= SA.maxMt(id))),
     target: { bossWinRate: design.targetStrength || (actual.boss ? [0.6, 0.7] : [0.65, 0.8]) },
   };
 }

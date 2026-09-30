@@ -207,7 +207,7 @@ SA.UI = (() => {
     if (m.supply) parts.push(`动力 +${m.supply}`, `产热 ≤${m.heatRate}/秒`);
     if (m.load) parts.push(`承重 ${SA.tons(m.load)}`, `速度 ${SA.kmh(m.speed)}`, `起步 ×${m.accel}`, `刹车 ×${m.brake}`, `晃动 ×${m.sway}`);
     parts.push(`重量 ${SA.tons(SA.weightOf({ id }))}`);
-    if (m.dmg) parts.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? '高抛 · 指哪打哪' : `直射 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°`, `热 +${m.heat}/发`);
+    if (m.dmg) parts.push(`伤害 ${m.dmg}`, `装填 ${m.reload}s`, m.indirect ? (m.spread ? `高抛 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°` : '高抛 · 指哪打哪') : `直射 · 散布 ±${m.spread}° · 仰角 ${m.elev[0]}~${m.elev[1]}°`, `热 +${m.heat}/发`);
     if (m.penetration) parts.push(m.penetration >= 99 ? '不会弹开' : `穿深 ${m.penetration}${m.ricochet ? `（易弹开 +${Math.round(m.ricochet * 100)}%）` : ''}`);
     if (m.tether) parts.push(`牵引 ${m.tether}`);
     if (m.store) parts.push(`储能 ${f1(m.store)}`);

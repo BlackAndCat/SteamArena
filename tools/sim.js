@@ -231,7 +231,7 @@
   // ---------- 3. 模块性价比 ----------
   function value() {
     const mt = +$('#mat').value;
-    const rows = SA.MODULE_ORDER.filter(id => !SA.MODULES[id].retired).map(id => {
+    const rows = SA.MODULE_ORDER.filter(id => !SA.MODULES[id].retired && (!['steamjet', 'flamer'].includes(id) || (SA.minMt(id) <= mt && mt <= SA.maxMt(id)))).map(id => {
       const m = SA.mod(id, mt), price = SA.cellValue({ id, mt }), t = SA.weightOf({ id }) / 1000;
       const dps = m.dmg ? (m.dmg * Math.max(0.4, 0.95 - m.spread * 0.03)) / m.reload : 0;
       return { id, m, price, t, dps, effect: mechanismValue(m), v: {
@@ -263,7 +263,7 @@
     const base = REF[ci] || REF[REF.length - 1];
     // 每章至少尝试一次已解锁的武器；没有对应大格时替换第一处武器位，避免新模块永远不进入测试池。
     const weapon = ['C', 'M', 'P', 'L', 'R', 'G', 'J', 'F'];
-    const weaponName = { C: '直射炮', M: '机炮', P: '高抛炮', L: '小炮', R: '重炮', G: '火箭架', J: '鱼叉', F: '喷火器' };
+    const weaponName = { C: '直射炮', M: '机炮', P: '高抛炮', L: '小炮', R: '重炮', G: '抛射架', J: '鱼叉', F: '喷火器' };
     const weaponId = { C: 'cannon', M: 'mg', P: 'mortar', L: 'cannon_s', R: 'cannon_heavy', G: 'rocket_rack', J: 'harpoon', F: 'flamer' };
     const available = availableMods(ci, 0);
     const out = [];

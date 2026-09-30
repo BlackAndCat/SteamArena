@@ -151,7 +151,7 @@ SA.Camp = (() => {
   // 试驾场临时换材料仍由规则层重算耐久；界面只传入材料等级，不直接改车格。
   function prepareTrialVehicle(v, mt) {
     if (!v || !mt) return v;
-    SA.V.each(v, (cell) => { cell.mt = mt; cell.hp = SA.mod(cell).hp; });
+    SA.V.each(v, (cell) => { cell.mt = mt; cell.hp = SA.mod(cell).hp; SA.fixCell(cell); cell.hp = SA.V.maxHp(cell); });
     return v;
   }
 
@@ -318,7 +318,7 @@ SA.Camp = (() => {
     D.inv = {};
     for (const id of Object.keys(M)) {
       if (M[id].retired) continue;
-      for (let mt = 1; mt <= (SA.MAT_MAX || 1); mt++) D.inv[SA.invKey(id, mt)] = 99;
+      for (let mt = SA.minMt(id); mt <= SA.maxMt(id); mt++) D.inv[SA.invKey(id, mt)] = 99;
     }
     D.ingots = { wootz: 999999, aether: 999999 };
     if (D.vehicle) D.vehicle.lim = { ...C.grid };

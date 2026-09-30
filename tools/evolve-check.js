@@ -26,6 +26,7 @@ const evolveChapters = require('./evolve-chapters-check');
 const pressureChamber = require('./pressure-chamber-check');
 const uniqueVariants = require('./unique-variant-check');
 const storyDev = require('./story-dev-check');
+const specialWeapons = require('./special-weapons-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -183,6 +184,7 @@ async function main() {
   result.pressureChamber = pressureChamber.run();
   result.uniqueVariants = uniqueVariants.run();
   result.storyDev = await storyDev.run();
+  result.specialWeapons = specialWeapons.run();
   console.log(JSON.stringify(result, null, 2));
 }
 

@@ -3,6 +3,7 @@
 // tether=牵引收绳速度；range=持续喷射射程，cone=半角；heatPerSec/dmgPerSec=持续喷射速率；
 // store=蓄压容量，dryCool=不耗水散热，waterSave=冷却耗水倍率；reloadMul/spreadMul=实体辅助效果。
 // 格子 unique=独立奖励身份，look=固定外观 key；它们不改变模块 id 或战斗数值。库存、分享码与战斗副本均保留身份。
+// minMt / maxMt=可用材料范围；喷射武器按材料对应蒸汽（T1～T3）或喷火（T4～T6），旧件转换时保留材料与耐久比例。
 // 底盘 susp：悬挂。pts 每格两个接地点（48px 格内的 x，近侧脚在前、远侧脚在后），up / down 上收 / 下伸行程（px），follow 车身跟坡的比例（其余交给悬挂）。
 // 蜘蛛四足的脚往外张：splay = 脚离胯多远，hips = 近侧 / 远侧的胯；同一段四足的前半格往前张、后半格往后张（SA.suspPts 算）
 window.SA = window.SA || {};
@@ -271,12 +272,12 @@ SA.MODULES = {
     get desc() { return `冷凝器：降低全车冷却耗水（多个按乘积叠加，最低 ${SA.K.WATER_SAVE_MIN}），本身不储水。`; },
   },
   rocket_rack: {
-    name: '火箭架', cat: 'firepower', layer: 'body',
+    name: '抛射架', cat: 'firepower', layer: 'body',
     price: 230, hp: 150, power: 4, kg: 430, q: 3,
-    dmg: 14, reload: 6, heat: 10, salvo: 4, salvoGap: 0.12, splash: { r: 24, k: 0.5 }, explode: 22, proj: 'shell', v: 760, g: 0.65, spread: 20, arc: 'low', kick: 58,
-    elev: [-8, 38], slew: 22, windup: 0.4, wild: 0.2, rest: 0, aimT: 1.3,
+    dmg: 14, reload: 6, heat: 10, salvo: 4, salvoGap: 0.12, splash: { r: 24, k: 0.5 }, explode: 22, proj: 'shell', v: 760, g: 0.65, spread: 20, arc: 'high', indirect: true, kick: 58,
+    elev: [18, 85], slew: 22, windup: 0.4, wild: 0.2, rest: 55, aimT: 1.3,   // 六档抛射造型：管口至少抬起 18°，高角射界保留近距离盲区。
 
-    desc: '四发齐射火箭架：每发 14 点伤害，命中点 24px 内溅射，装填 6 秒；装填中的火箭架被击毁会殉爆。',
+    desc: '四发齐射抛射架：低档投掷炸弹，高档采用气压与火箭助推发射，均沿高抛弹道越过正面遮挡；每发 14 点伤害，命中点 24px 内溅射，装填 6 秒；装填中的抛射架被击毁会殉爆。',
   },
   harpoon: {
     name: '鱼叉', cat: 'firepower', layer: 'body', w: 2, h: 1,
@@ -287,20 +288,20 @@ SA.MODULES = {
     desc: '命中后以 80px/s 收绳牵引敌车，最多持续 4 秒；绳索断开前不能再次发射。',
   },
   flamer: {
-    name: '喷火器', cat: 'firepower', layer: 'body', w: 2, h: 1,
+    name: '喷火器', cat: 'firepower', layer: 'body', w: 2, h: 1, minMt: 4, lowAlt: 'steamjet',
     price: 155, hp: 110, power: 2, kg: 240, q: 2,
     dmg: 4, reload: 0.1, heat: 3, heatToEnemy: 6, heatPerSec: 3, dmgPerSec: 4, range: 170, cone: 10, proj: 'flame', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 18,
     elev: [-12, 25], slew: 30, windup: 0.2, wild: 0.05, rest: 0, aimT: 0.7,
 
-    desc: '射程 170px、±10° 锥形持续喷火：每秒给对手加热 6、对命中模块造成 4 点伤害，自身每秒产热 3。',
+    desc: 'T4～T6 喷火器：射程 170px、±10° 锥形持续喷火；每秒给对手加热 6、对命中模块造成 4 点伤害，自身每秒产热 3。',
   },
   steamjet: {
-    name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1,
+    name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1, maxMt: 3,
     price: 170, hp: 105, power: 2, kg: 230, q: 2,
     dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 1.5, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 16,
     elev: [-12, 25], slew: 30, windup: 0.1, wild: 0.05, rest: 0, aimT: 0.1,
 
-    desc: '喷出短距离蒸汽锥：射程 170px、±10°，每秒给对手加热 4 并小幅击退，模块伤害 3；自身每秒产热 1.5、耗水 0.5。',
+    desc: 'T1～T3 蒸汽喷射器：射程 170px、±10° 蒸汽锥，每秒给对手加热 4 并小幅击退，模块伤害 3；自身每秒产热 1.5、耗水 0.5。钢材料为上限。',
   },
   // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
   boss_core: {
@@ -455,6 +456,9 @@ SA.driversOf = (id) => SA.MODULES[id].drivers || 0;
 SA.RETIRED = { copilot: 'cockpit' };
 SA.liveId = (id) => SA.RETIRED[id] || id;
 SA.minMt = (id) => SA.MODULES[id].minMt || 1;
+SA.maxMt = (id) => SA.MODULES[id].maxMt || SA.MAT_MAX;
+// 指定材料的旧件、敌车和库存统一到对应喷射武器；无材料的蓝图仍按原 id 创建最低合法档。
+SA.materialId = (id, mt) => id === 'flamer' && mt < 4 ? 'steamjet' : id === 'steamjet' && mt > 3 ? 'flamer' : id;
 // 模块重量（kg）：基础重量（按面积折算）+ 自身重量 + 改装加重
 SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.w * f.h / 4 + (SA.MODULES[cell.id].kg || 0) + (cell.lv || 0) * SA.K.UP_KG; };
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
@@ -546,24 +550,27 @@ SA.mod = (x, mt) => {
   }
   return m;
 };
-SA.newCell = (id, mt = 1) => {
-  id = SA.liveId(id); mt = Math.max(mt, SA.minMt(id));
+SA.newCell = (id, mt = SA.minMt(SA.liveId(id))) => {
+  id = SA.materialId(SA.liveId(id), mt); mt = Math.max(mt, SA.minMt(id));
   return mt > 1 ? { id, mt, hp: SA.mod(id, mt).hp } : { id, hp: SA.MODULES[id].hp };
 };
-// 旧数据修正：已取消的模块换成替代品，材料不够最低要求的补到最低（耐久按比例保留）
+// 旧数据修正：退役件替代、喷射器按原材料换种类，其余模块补最低材料；保留含改装的耐久比例。
 SA.fixCell = (cell) => {
   if (!cell) return cell;
   const unique = SA.fixIdentity(cell);
-  const id = SA.liveId(cell.id), mt = unique ? unique.mt : Math.max(cell.mt || 1, SA.minMt(id));
+  const id = SA.materialId(SA.liveId(cell.id), cell.mt || 1), mt = unique ? unique.mt : Math.max(cell.mt || 1, SA.minMt(id));
   if (id === cell.id && mt === (cell.mt || 1)) return cell;
-  const ratio = Math.max(0, Math.min(1, cell.hp / SA.mod(cell).hp));
+  const before = cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
+  const ratio = Math.max(0, Math.min(1, cell.hp / before));
   cell.id = id; if (mt > 1) cell.mt = mt;
-  cell.hp = Math.round(SA.mod(cell).hp * ratio);
+  const after = Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
+  cell.hp = Math.round(after * ratio);
+  if (cell.max != null) cell.max = after;
   if (cell.aux && !SA.isCockpit(id)) delete cell.aux;
   return cell;
 };
 // 库存键修正：同上
-SA.fixKey = (k) => { const p = SA.parseKey(k), id = SA.liveId(p.id); return SA.invKey(id, Math.max(p.mt, SA.minMt(id))); };
+SA.fixKey = (k) => { const p = SA.parseKey(k), id = SA.materialId(SA.liveId(p.id), p.mt); return SA.invKey(id, Math.max(p.mt, SA.minMt(id))); };
 // 买一个新模块：材料至少是它的最低材料，价格按那一级的总价值算
 SA.buyMt = (id) => SA.minMt(id);
 SA.buyPrice = (id) => SA.cellValue({ id, mt: SA.buyMt(id) });

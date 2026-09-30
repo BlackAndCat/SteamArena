@@ -215,10 +215,10 @@ SA.CAMPAIGN = [
       },
       {
         name: '齐射', pilot: '钟表匠 老维克', prize: 300, terrain: 'hills', aim: 0.75, style: 'kite', mt: 3,
-        blurb: '四足炮台装上鱼叉和喷火器，先用山坡拉开距离，再把你拽回火焰和撞角的有效范围。',
+        blurb: '四足炮台装上鱼叉和蒸汽喷射器，先用山坡拉开距离，再把你拽回蒸汽锥和撞角的有效范围。',
         rows: ['........', '........', '..P.....', '..KAC...', '..OWAA..', '..Q.....'], subs: [[0, 14, 'harpoon'], [4, 10, 'flamer']],
-        spec: { terrain: 'hills', reward: 'harpoon', lesson: '缠斗的距离控制：鱼叉把风筝车拉回近战距离，喷火器和撞角在坡地上形成连续压力。', targetStrength: [0.65, 0.8], performanceMin: 35 },
-        unlock: { mods: ['harpoon', 'flamer'], note: '鱼叉和喷火器开放：把距离问题变成命中问题，贴身后用持续火焰逼出破绽。' },
+        spec: { terrain: 'hills', reward: 'harpoon', lesson: '缠斗的距离控制：鱼叉把风筝车拉回近战距离，蒸汽喷射器和撞角在坡地上形成连续压力。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+        unlock: { mods: ['harpoon', 'flamer'], note: '鱼叉开放，喷火器图纸获得：第三章通关开放镀镍（T4）后可购买喷火器；蒸汽喷射器最高为钢（T3）。' },
       },
       {
         name: '工厂缠斗王', pilot: '车间领班 沃德豪斯', prize: 400, terrain: 'hills', aim: 0.85, boss: true, mt: 3,
@@ -233,7 +233,7 @@ SA.CAMPAIGN = [
   },
   {
     name: '第四章 · 北方矿区', place: '约克郡煤矿',
-    blurb: '第四章先按下主题：矿区把前几章的构筑混在一起，先学会管理重炮、储压和火箭的空间，Boss 后开放大部分剩余装备。',
+    blurb: '第四章先按下主题：矿区把前几章的构筑混在一起，先学会管理重炮、储压和抛射架的空间，Boss 后开放大部分剩余装备。',
     stages: [
       {
         name: '矿车', pilot: '矿工头 霍布斯', prize: 380, terrain: 'mine', aim: 0.75, style: 'rush', mt: 3,
@@ -246,8 +246,8 @@ SA.CAMPAIGN = [
         name: '夜枭', pilot: '猎场看守 格雷', prize: 420, terrain: 'hills', aim: 0.85, style: 'kite', mt: 3,
         blurb: '两门侧炮躲在装甲后面，四足平台稳得像块石头，一直往后退。冲上去撞它，或者先敲掉侧炮。',
         rows: ['........', '........', '...K....', '..OAM...', '..WOAC..', '..Q.U...'], sides: [[3, 3], [4, 3]], subs: [[0, 14, 'harpoon']],
-        spec: { terrain: 'hills', reward: 'rocket_rack', lesson: '综合压力二：土坡和侧炮迫使你选择接近路线，火箭架用散布换取中距离压制。', targetStrength: [0.65, 0.8], performanceMin: 35 },
-        unlock: { mods: ['rocket_rack', 'rangefinder'], note: '火箭架和测距仪开放：散布换来中距离压制，测距仪让直射火力更稳定。' },
+        spec: { terrain: 'hills', reward: 'rocket_rack', lesson: '综合压力二：土坡和侧炮迫使你选择接近路线，抛射架用高抛齐射和散布换取中距离压制。', targetStrength: [0.65, 0.8], performanceMin: 35 },
+        unlock: { mods: ['rocket_rack', 'rangefinder'], note: '抛射架和测距仪开放：高抛齐射越过正面遮挡，散布换来中距离压制，测距仪让直射火力更稳定。' },
       },
       {
         name: '铁甲圣堂', pilot: '圣殿骑士团', prize: 550, terrain: 'mine', aim: 0.88, boss: true, mt: 4,

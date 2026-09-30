@@ -100,11 +100,14 @@ SA.S = (() => {
   }
 
   // 库存按「模块 + 材料」分开记：黄铜的键就是 id，其余是 id@材料（SA.invKey）
-  function addInv(id, n = 1, mt = 1, cell = null) {
+  function addInv(id, n = 1, mt = SA.buyMt(id), cell = null) {
+    // 聚合数量与完整实例必须用同一合法键，旧高档蒸汽 / 低档喷火不能留下可重复取出的旧行。
+    const item = cell ? SA.fixCell(JSON.parse(JSON.stringify(cell))) : SA.newCell(id, mt);
+    id = item.id; mt = item.mt || 1;
     if (n < 0) { for (let i = 0; i < -n; i++) takeStock(id, mt); return; }
     const k = SA.invKey(id, mt);
     d.inv[k] = (d.inv[k] || 0) + n;
-    if (cell) for (let i = 0; i < n; i++) d.stockCells.push(SA.fixCell(JSON.parse(JSON.stringify(cell))));
+    if (cell) for (let i = 0; i < n; i++) d.stockCells.push(JSON.parse(JSON.stringify(item)));
   }
   // 库存选择接口：不改现有按种类/材料分行的 UI。默认按入库顺序先装唯一件；Opus 可传 key 精确选择，null 指普通件。
   function stockOptions(id, mt) {
@@ -149,7 +152,7 @@ SA.S = (() => {
   }
   // 买下 n 个模块进库存
   function buy(id, n = 1) {
-    if (SA.isUnique(id)) return false;
+    if (SA.isUnique(id) || SA.minMt(id) > SA.Camp.maxMat()) return false;
     const cost = SA.buyPrice(id) * n;
     if (d.money < cost) return false;
     d.money -= cost; addInv(id, n, SA.buyMt(id));
@@ -242,6 +245,7 @@ SA.S = (() => {
       for (let mt = SA.MAT_MAX; mt >= 1; mt--) stock[key].push(...stockOptions(id, mt).filter(x => identity(x) === key));
       const miss = Math.max(0, need[key] - (pool[key] || []).length - stock[key].length);
       if (miss && SA.isUnique(cell)) blocked.push(`${SA.uniqueRule(cell).name || M[id].name}是唯一件，只能通过缴获获得`);
+      else if (miss && ['steamjet', 'flamer'].includes(id) && !SA.S.buyable(id)) blocked.push(`${M[id].name}还没解锁或材料尚未开放`);
       else if (miss) { buy[id] = (buy[id] || 0) + miss; buyCost += miss * SA.buyPrice(id); }
     }
     // 用不上的受损模块要修好才能放回库存
@@ -251,7 +255,7 @@ SA.S = (() => {
 
   // 付款确认后按原计划组装，库存、回收款与车辆变更统一在逻辑层处理。
   function applyPlan(p) {
-      if (p.blocked.length) return false;
+      if (p.blocked.length || Object.keys(p.buy).some(id => ['steamjet', 'flamer'].includes(id) && !SA.S.buyable(id))) return false;
       for (const id in p.buy) SA.S.addInv(id, p.buy[id], SA.buyMt(id));
       for (const { cell, r, c, layer, stock } of p.requests) {
         const key = p.identity(cell), reuse = p.pool[key] && p.pool[key].shift();
@@ -502,7 +506,7 @@ SA.S = (() => {
   function matUpInfo(cell) {
     if (SA.isUnique(cell)) return { max: true, why: '唯一件材料固定' };
     const to = (cell.mt || 1) + 1;
-    if (to > SA.MAT_MAX) return { max: true };
+    if (to > SA.maxMt(cell.id)) return { max: true, why: cell.id === 'steamjet' ? '蒸汽喷射器最高为钢材料（T3）；喷火器从镀镍（T4）起另行获得' : '' };
     const mat = SA.MATS[to], cost = SA.matUpCost(cell.id, to);
     if (mat.ingot) {
       const n = d.ingots[mat.ingot] || 0;
@@ -529,16 +533,19 @@ SA.S = (() => {
   }
 
   // 编辑器操作：付款在原确认入口扣除，其余模块变更在此执行。
-  const buyable = (id) => SA.Camp.has('shop') && SA.Camp.hasMod(id) && !SA.isUnique(id);
+  const buyable = (id) => SA.Camp.has('shop') && SA.Camp.hasMod(id) && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
   function payAmount(amount) { d.money -= amount; save(); }
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }
   function repairCells(cells) { for (const c of cells) c.hp = SA.V.maxHp(c); }
   function upgradeMaterial(cell, u) {
-    if (SA.isUnique(cell)) return false;
-    if (u.mat.ingot) d.ingots[u.mat.ingot]--;
+    // 执行时重读规则，拒绝过期提示或直接调用绕过蒸汽 T3 上限；不额外扣除界面已经支付的费用。
+    const current = matUpInfo(cell);
+    if (!current.ok || !u || u.to !== current.to) return false;
+    if (current.mat.ingot) d.ingots[current.mat.ingot]--;
     const before = SA.V.maxHp(cell);
     cell.mt = u.to;
     if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+    return true;
   }
   function upgradeCell(cell, lv) {
     const before = SA.V.maxHp(cell);
