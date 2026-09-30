@@ -15,6 +15,7 @@ const calibration = require('./ai-calibration');
 const battleConstants = require('./battle-constants-check');
 const evolveCandidates = require('./evolve-candidates-check');
 const campaignReplay = require('./campaign-replay-check');
+const stageMetadata = require('./stage-metadata-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
 const evolveFirstStage = require('./evolve-first-stage-check');
@@ -191,6 +192,7 @@ async function main() {
   result.unique = unique;
   result.removedModes = removedModes;
   result.replay = replay;
+  result.stageMetadata = await stageMetadata.run();
   result.shareGarage = shareGarage;
   result.locked = locked;
   result.cache = cache;

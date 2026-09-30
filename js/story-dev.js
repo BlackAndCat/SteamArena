@@ -19,7 +19,7 @@ SA.StoryDev = (() => {
 
   // ---------- 场景名 ----------
   function stageName(key) {
-    const [ci, si] = key.split(',').map(Number), ch = SA.CAMPAIGN[ci], st = ch && ch.stages[si];
+    const [ci, si] = key.split(',').map(Number), ch = SA.CAMPAIGN[ci], st = ch && (SA.Camp?.stage(ci, si) || ch.stages[si]);
     return st ? `${ch.name.split(' · ')[0]} · 第 ${si + 1} 场 · ${st.name}` : key;
   }
   const FEAT = { garage: '车间', shop: '商店', street: '街头赛', bank: '银行', side: '侧挂层', upgrade: '改装', orders: '委托', bet: '赌注', blueprints: '蓝图库', friendly: '云车库', season: '大奖赛' };
@@ -148,6 +148,17 @@ SA.StoryDev = (() => {
   // ---------- 战前 / 战后插入 ----------
   const played = (k) => SA.Story.seen(`insert:${k}`);
   // at = { key: '章,关' | 'current' | undefined, replay }；phase = before / after
+  function workshopKey(at) {
+    const match = /^(\d+),(\d+)$/.exec(at?.key || '');
+    if (!match) return null;
+    const ci = Number(match[1]), si = Number(match[2]);
+    return Number.isSafeInteger(ci) && Number.isSafeInteger(si) && SA.CAMPAIGN[ci]?.stages?.[si] ? `${ci},${si}` : null;
+  }
+  function openWorkshop(at) {
+    const key = workshopKey(at);
+    // 独立窗口编辑关卡车，当前战前控制台和继续开战的回调保持原位。
+    window.open(`tools/stage-editor.html${key ? `?stage=${key}` : ''}`, '_blank');
+  }
   function hook(phase, at, next) {
     let id;
     try { id = D().point(phase, at && at.key && /^\d+,\d+$/.test(at.key) ? at.key : 'current'); } catch (e) { next(); return; }
@@ -160,19 +171,26 @@ SA.StoryDev = (() => {
       return;
     }
     const what = phase === 'before' ? '战前' : '战后';
-    SA.UI.dialog(`${what}剧情 · 开发者`, [
-      h('p', { style: 'margin-top:0' }, h('b', {}, label(id))),
+    SA.UI.dialog(phase === 'before' ? '战前控制台' : `${what}剧情 · 开发者`, [
+      h('p', { style: 'margin-top:0' }, h('b', { 'data-story-stage-label': id }, label(id))),
       L.length
         ? h('div', { class: 'sd-peek' }, L.slice(0, 3).map(l => h('div', {}, h('span', { class: 'muted' }, l.who ? `${(SA.STORY.cast[l.who] || {}).name || l.who}：` : '旁白：'), l.text)), L.length > 3 ? h('div', { class: 'muted' }, `……共 ${L.length} 句`) : null)
         : h('p', { class: 'muted' }, `这里还没有${what}剧情。要插入一段吗？`),
       h('p', { class: 'muted', style: 'font-size:12px' }, '开发者模式才会问；普通玩家只会在第一次打这一关时看到写好的剧情。'),
+      phase === 'before' ? h('button', { class: 'btn', onclick: () => openWorkshop(at) }, '关卡车工作台') : null,
     ], [
       { label: L.length ? '编辑' : '插入剧情', primary: true, onClick: () => editor(id, { cont: next }) },
       L.length ? { label: '播放', onClick: () => play(id, next) } : null,
-    ].filter(Boolean), phase === 'before' ? '不插入，直接开战' : '不插入，继续', next);
+    ].filter(Boolean), phase === 'before' ? '直接开战' : '不插入，继续', next);
   }
   const before = (at, go) => hook('before', at, go);
   const after = (at, next) => hook('after', at, next);
 
-  return { enabled, setEnabled, editor, browser, play, before, after, label };
+  // 工作台跨窗口保存后只刷新控制台的关卡名，不触碰剧情预览或继续开战回调。
+  function refreshConsoleLabel() {
+    const title = document.querySelector('#modal [data-story-stage-label]');
+    if (title) title.textContent = label(title.dataset.storyStageLabel);
+  }
+  window.addEventListener('focus', refreshConsoleLabel);
+  return { enabled, setEnabled, editor, browser, play, before, after, label, refreshConsoleLabel };
 })();

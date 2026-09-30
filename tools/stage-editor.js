@@ -5,8 +5,7 @@
   const state = { ci: 0, si: 0, vehicle: null, base: null, record: null, tests: {} };
   let arenaId = null;
   const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' };
-  const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || ['0:0', '0:1', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'];
-  const [chapterCount] = [3];
+  const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
   let assemblyOpen = false;
   let shopObserver = null;
   let toastTimer = null;
@@ -434,7 +433,7 @@
     if (!assemblyOpen || !SA.Camp?.dev?.saveStageCar) throw new Error('车间尚未打开，无法保存关卡车');
     const vehicle = syncAssemblyVehicle(), meta = readFields(); if (lockValue !== undefined) meta.locked = lockValue;
     const preview = SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta);
-    const check = SA.StageCars.validate(preview, state.ci, state.si, vehicle);
+    const check = SA.Camp.dev.checkStageCar(state.ci, state.si, preview, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
 
     // 统一走规则层保存接口：先写浏览器本机存档并广播给正式游戏页，再尽力同步 js/stage-cars.js。
@@ -531,8 +530,19 @@
   };
   renderTerrain();
   try { SA.S.load(); SA.Camp.backfill(); } catch (error) { console.warn('工具页没有正式存档，继续使用原始关卡数据', error); }
-  const requestedArena = new URLSearchParams(location.search).get('arena');
+  const params = new URLSearchParams(location.search);
+  const requestedStage = params.get('stage');
+  const requestedArena = params.get('arena');
   try {
+    // 关卡直达优先于候选车；非法参数回退默认关卡，不调用候选车加载或正式保存。
+    if (requestedStage !== null) {
+      const match = /^(\d+),(\d+)$/.exec(requestedStage);
+      const ci = match && Number(match[1]), si = match && Number(match[2]);
+      if (!Number.isSafeInteger(ci) || !Number.isSafeInteger(si) || !stageAt(ci, si)) throw new Error('关卡地址无效，已打开默认关卡');
+      selectStage(ci, si);
+      setTab('fields');
+      return;
+    }
     const row = requestedArena && SA.EvolveArena.get(requestedArena);
     if (requestedArena && !row) throw new Error('找不到这台擂台候选，请从进化报告重新打开');
     const sp = row?.record.spec;

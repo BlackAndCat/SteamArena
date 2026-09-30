@@ -200,13 +200,14 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         if not isinstance(payload, dict) or payload.get('version', 1) != 1 or not isinstance(records, dict) or len(records) > 32:
             self._json(400, {'error': '关卡车数据格式不合法'})
             return
-        allowed_keys = {'0:0', '0:1', '0:2', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'}
+        # 六章各三关均可由工作台保存，键仍需经过下方格式与范围双重校验。
+        allowed_keys = {f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)}
         for key, record in records.items():
             if not isinstance(key, str) or not re.fullmatch(r'\d{1,2}:\d{1,2}', key):
                 self._json(400, {'error': '关卡键不合法'})
                 return
             if key not in allowed_keys:
-                self._json(400, {'error': f'{key} 不在序章至第二章范围内'})
+                self._json(400, {'error': f'{key} 不在战役六章范围内'})
                 return
             if record is not None:
                 if not isinstance(record, dict) or record.get('source') != 'manual' or not isinstance(record.get('cells'), list):
@@ -220,7 +221,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             records = dict(records)
             old = records.pop('0:1')
             records['0:2'] = dict(old, id='0:2') if old else old
-        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': ['0:0', '0:1', '0:2', '1:0', '1:1', '1:2', '2:0', '2:1', '2:2'], 'records': records}, ensure_ascii=False, indent=2)
+        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': sorted(allowed_keys), 'records': records}, ensure_ascii=False, indent=2)
         helper = r'''SA.StageCars = (() => {
   const data = SA.STAGE_CARS;
   const keyOf = (chapter, stage) => `${chapter}:${stage}`;

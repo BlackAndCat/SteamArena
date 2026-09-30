@@ -132,6 +132,27 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(self.post('/__stage-cars/save', payloads['/__stage-cars/save'], {'Origin': origin}), 200)
         self.assertIn('SA.STAGE_CARS =', self.stage_file.read_text(encoding='utf-8'))
 
+    def test_all_campaign_stages_can_be_saved(self):
+        """末章末关与旧序章记录同源保存，并写出完整的六章目标表。"""
+        origin = f'http://127.0.0.1:{self.server.server_port}'
+        records = {key: {'source': 'manual', 'cells': []} for key in ('0:0', '5:2')}
+        payload = {'version': 1, 'campaignLayout': 2, 'records': records}
+        self.assertEqual(self.post('/__stage-cars/save', payload, {'Origin': origin}), 200)
+        content = self.stage_file.read_text(encoding='utf-8')
+        saved = json.loads(content.split('SA.STAGE_CARS = ', 1)[1].split(';\n', 1)[0])
+        self.assertEqual(saved['records'], records)
+        self.assertEqual(saved['targets'], [f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)])
+
+    def test_stage_keys_outside_campaign_leave_file_unchanged(self):
+        """拒绝越界与异常键，失败请求不得触碰已保存的关卡文件。"""
+        origin = f'http://127.0.0.1:{self.server.server_port}'
+        for key in ('6:0', '5:3', '../5:2', '05:2', '__proto__'):
+            with self.subTest(key=key):
+                payload = {'version': 1, 'campaignLayout': 2,
+                           'records': {key: {'source': 'manual', 'cells': []}}}
+                self.assertEqual(self.post('/__stage-cars/save', payload, {'Origin': origin}), 400)
+                self.assertEqual(self.stage_file.read_text(encoding='utf-8'), '原关卡')
+
     def test_element_deletion_round_trip_and_invalid_list(self):
         """旧版文案协议可附带页面删除清单，非法路径不能覆盖已保存文件。"""
         payload = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': ''},

@@ -26,7 +26,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。
 
-新档初始车为黄铜四件车：履带、小锅炉、小机枪、头盔驾驶舱。已有档保持原车；控制台 `SA.dev.resetVehicle()` 可主动换回这台车，原件保留耐久、改装和唯一身份退库，资金与战役进度不变。换车按钮待 Opus 接入。剧情后台为 `SA.StoryData.list/get/set/save/point`，沿用文本文件与本机草稿保存；剧情编辑器、Ctrl+S、战前 / 接受投降后的插入提示，以及 3.5 秒升白旗演出仍待画面接入，接口约定见 [astra 看板](docs/board-astra.md)。专项检查：`node tools/story-dev-check.js`，已纳入完整后台检查。
+新档初始车为黄铜四件车：履带、小锅炉、小机枪、头盔驾驶舱。已有档保持原车；控制台 `SA.dev.resetVehicle()` 可主动换回这台车，原件保留耐久、改装和唯一身份退库，资金与战役进度不变。剧情数据由 `SA.StoryData.list/get/set/save/point` 管理；开发者模式下的战前控制台保留剧情编辑、播放与继续开战，并可在新窗口直达当前关卡车工作台。工作台的关卡文字页可编辑名称、驾驶员、赛前介绍和弱点提示；所有现有章节均可手工保存，保存后已打开的游戏页会同步，正式开战时读取最新关卡车。非战役对战打开普通工作台。专项检查：`node tools/story-dev-check.js`，已纳入完整后台检查。
 
 多人 / 多代理协作的规则、分工、Git 流程见 [docs/collab.md](docs/collab.md)；后台和视觉工作清单分别见 [astra 看板](docs/board-astra.md) 和 [Opus 看板](docs/board-opus.md)。
 

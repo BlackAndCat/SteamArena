@@ -59,7 +59,8 @@ function applyLocalStageCars(payload) {
       SA.CAMPAIGN[0].stages[1] = { ...SA.PROLOGUE_PLATE_STAGE };
     SA.__STAGE_CARS_FILE_RECORDS = migrateStageRecords(SA.STAGE_CARS.records, SA.STAGE_CARS.campaignLayout);
     SA.STAGE_CARS.campaignLayout = SA.CAMPAIGN_LAYOUT;
-    SA.STAGE_CARS.targets = SA.CAMPAIGN.slice(0, 3).flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
+    // 手工关卡车的目标随现有战役章节生成，工作台可编辑全部已定义关卡。
+    SA.STAGE_CARS.targets = SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
   }
   const local = arguments.length ? payload : readLocalStageCars();
   SA.STAGE_CARS.records = { ...SA.__STAGE_CARS_FILE_RECORDS, ...migrateStageRecords(local?.records, local?.campaignLayout) };
@@ -72,6 +73,7 @@ function refreshStageCarsScreen() {
   if (SA.current === 'arena' && SA.Arena?.open) SA.Arena.open(undefined, true);
   else if (SA.current === 'garage' && SA.Editor?.open) SA.Editor.open();
   if (SA.UI?.topbar) SA.UI.topbar();
+  if (SA.StoryDev?.refreshConsoleLabel) SA.StoryDev.refreshConsoleLabel();
 }
 
 function openStageCarsChannel() {
@@ -324,13 +326,27 @@ SA.Camp = (() => {
     if (typeof SA.nav === 'function' && SA.Editor) SA.nav('garage');
     return { ...st, vehicle: v, design: true };
   }
+  function checkStageCar(chapter, stageIndex, record, vehicle) {
+    const check = SA.StageCars.validate(record, chapter, stageIndex, vehicle);
+    if (check.ok) return check;
+    const current = stage(chapter, stageIndex);
+    if (!current?.vehicle) return check;
+    const baseline = SA.StageCars.makeRecord(chapter, stageIndex, current, current.vehicle, record);
+    const original = SA.StageCars.validate(baseline, chapter, stageIndex, current.vehicle);
+    // 原关卡车自身不合规时，仅允许模块清单完全不变、错误也完全相同的资料修改。
+    if (!original.ok && JSON.stringify(record.cells) === JSON.stringify(baseline.cells)
+        && JSON.stringify(check.errors) === JSON.stringify(original.errors)) {
+      return { ...check, ok: true, warnings: [...check.warnings, `沿用原关卡车已有问题：${check.errors.join('；')}`] };
+    }
+    return check;
+  }
   async function saveStageCar(chapter, stageIndex, meta = {}) {
     if (!designSnapshot) throw new Error('请先调用 SA.dev.designMode()');
     const st = stage(chapter, stageIndex);
     if (!st) throw new Error(`找不到第 ${chapter + 1} 章第 ${stageIndex + 1} 关`);
     const v = SA.V.clone(SA.S.d.vehicle);
     const record = SA.StageCars.makeRecord(chapter, stageIndex, st, v, meta);
-    const check = SA.StageCars.validate(record, chapter, stageIndex, v);
+    const check = checkStageCar(chapter, stageIndex, record, v);
     if (!check.ok) throw new Error(`关卡车不能保存：${check.errors.join('；')}`);
     if (check.warnings.length) console.warn(`关卡车保存警告（允许保存）：${check.warnings.join('；')}`);
     const payload = { version: 1, campaignLayout: SA.CAMPAIGN_LAYOUT, records: { ...(SA.STAGE_CARS.records || {}), [record.id]: record } };
@@ -375,6 +391,7 @@ SA.Camp = (() => {
     designMode,
     exitDesign,
     loadStageCar,
+    checkStageCar,
     saveStageCar,
     resetVehicle: () => SA.S.replaceWithStarter(),
   };

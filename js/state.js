@@ -330,8 +330,11 @@ SA.S = (() => {
         return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
           tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
-          // 剧情编号在开战时固定，战后即使进度已经推进，也能定位原来打的关卡。
-          start: () => SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: stage.vehicle, enemyName: stage.name, aim: stage.aim, style: stage.style, terrain: stage.terrain, boss: stage.boss, hpMul: 1, prize: replay ? 0 : stage.prize, uniqueLoot: stage.uniqueLoot || [] }) }];
+          // 战前控制台可修改当前关卡；真正开战时再取一次最新数据，剧情编号和重打规则仍固定。
+          start: () => {
+            const latest = SA.Camp.stage(chapterIndex, i);
+            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
+          } }];
       }));
     }
     if (mode === 'tour') return SA.OPPONENTS.map((o, i) => {
