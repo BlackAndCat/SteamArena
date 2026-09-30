@@ -3379,23 +3379,6 @@ SA.SPR = (() => {
     R(x - 2, y - 2, 2, h + 4, inner); R(x + w, y - 2, 2, h + 4, inner);
   }
 
-  // ---------- 改装军衔杠：lv 条实心黄铜 V 字，其余空槽（最多 max 条），画在格子左上角 ----------
-  function chevrons(c2d, x, y, lv, max = 3) {
-    ctx = c2d;
-    R(x + 2, y + 2, 16, 5 + max * 6, 'rgba(7,8,12,0.75)');
-    for (let i = 0; i < max; i++) {
-      const on = i < lv, yy = y + 4 + (max - 1 - i) * 6;
-      const col = on ? P.brass[3] : P.iron[1], edge = on ? P.brass[0] : P.dark[0];
-      // V 字：左右两条斜杠，3 像素厚
-      for (let k = 0; k < 6; k++) {
-        R(x + 4 + k, yy + Math.floor(k / 2), 2, 3, edge); R(x + 16 - k - 2, yy + Math.floor(k / 2), 2, 3, edge);
-      }
-      for (let k = 0; k < 6; k++) {
-        R(x + 4 + k, yy + Math.floor(k / 2), 1, 2, col); R(x + 16 - k - 1, yy + Math.floor(k / 2), 1, 2, col);
-      }
-    }
-  }
-
   // ---------- UI 图标（9×9，顶栏导航等）----------
   const ICONS = {
     coin: ['..#####..', '.#.....#.', '#...##..#', '#..#....#', '#.####..#', '#..#....#', '#.#####.#', '.#.....#.', '..#####..'],
@@ -3465,7 +3448,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, cockpitCrew, bigStoker, weaponFx, renderVehicle, outline, iconCanvas, moduleCanvas, text, chevrons, decorate,
+    PADX, drawModule, cockpitCrew, bigStoker, weaponFx, renderVehicle, outline, iconCanvas, moduleCanvas, text, decorate,
     setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };

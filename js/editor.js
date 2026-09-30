@@ -853,9 +853,8 @@ SA.Editor = (() => {
     const cell = o.cell, m = M[cell.id], layer = o === so ? 'side' : 'body';
     const iss = issueAt(layer, o.r, o.c);
     if (iss) return { text: `${m.name}：${iss.reason}`, err: true };
-    const up = cell.lv ? ` · ${SA.upName(cell.id)} ${cell.lv} 级` : '';
-    const fixTxt = cell.hp < SA.V.maxHp(cell) ? ` · 修理 ${money(SA.S.repairCost(cell))}（${SA.UI.repairTier(cell.id).name}）` : '';
-    return { text: `${SA.isUnique(cell.id) ? '★唯一件 · ' : ''}${fullName(cell.id, cell.mt || 1)}（${SA.CAT[m.cat].name}）· 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}${fixTxt}${up} · ${SA.tons(SA.weightOf(cell))} · ${SA.UI.statLine(cell.id, cell.mt || 1).split(' · ').slice(1).join(' · ')}` };
+    // 底部纸条只说三件事：名字 · 材质 · 耐久（其余属性看悬浮纸条和性能单）
+    return { text: `${m.name} · ${matName(cell.mt || 1)} · 耐久 ${Math.max(0, cell.hp)}/${SA.V.maxHp(cell)}` };
   }
 
   // 未扩建格子的斜线纹理（8×8 平铺）
@@ -1053,13 +1052,6 @@ SA.Editor = (() => {
     if (st.pick && !drag && v[st.pick.layer][st.pick.r][st.pick.c]) {
       const [x, y, w, h] = boxOf(v, st.pick.layer, st.pick.r, st.pick.c);
       tint(fromVeh(vc, x, y, w, h), x, y, w, h, GREEN, pulse(t, 0.25, 0.6));
-    }
-    // 鼠标停在模块上（或选中它）：显示改装军衔杠
-    const rankAt = (o, layer) => { if (o && o.cell) SA.SPR.chevrons(g, ...cellXY(o.r, o.c), o.cell.lv || 0, K.UP_MAX); };
-    if (!drag && !st.sel && has('upgrade')) {
-      const ho = hv && (SA.V.at(v, st.layer, hv.r, hv.c) || SA.V.at(v, 'body', hv.r, hv.c));
-      rankAt(ho);
-      if (st.pick && !(ho && ho.r === st.pick.r && ho.c === st.pick.c)) rankAt({ cell: v[st.pick.layer][st.pick.r][st.pick.c], r: st.pick.r, c: st.pick.c });
     }
 
     g.restore();

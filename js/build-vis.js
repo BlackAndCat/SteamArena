@@ -22,3 +22,4 @@ SA.BUILD_VIS += '+battle-hud-a-cab'; // 战斗界面 A 驾驶台：战场不挂�
 SA.BUILD_VIS += '+first-stage-own-car-guide'; // 车间三步提示与首关己方部件箭头。
 SA.BUILD_VIS += '+stage-workbench-larger-canvas'; // 关卡车工具页扩大拼装画布和操作区域。
 
+SA.BUILD_VIS += '+no-rank-chevrons'; // 模块上的改装军衔杠取消（车间悬停 / 战斗瞄准都不再画）；车间底部纸条只写 名字 · 材质 · 耐久

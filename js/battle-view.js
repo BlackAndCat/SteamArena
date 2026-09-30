@@ -147,8 +147,6 @@ SA.BattleView.create = function createBattleView(api) {
     g.clearRect(0, 0, vw, vh);
     g.save();
     g.translate(shx - ox, shy - oy);
-    // 准星停在模块上：显示它的改装军衔杠
-    if (aimT) { const t0 = B.e.v[aimT.layer][aimT.r][aimT.c]; const b0 = modBox(B.e, aimT.r, aimT.c, t0.id); SA.SPR.chevrons(g, Math.round(b0.x0), b0.y0, t0.lv || 0, K.UP_MAX); }
 
     // 战斗侧给出两端世界坐标，缆绳随双方移动和倾斜，失效后同帧停止绘制。
     for (const s of [B.p, B.e]) {
@@ -565,7 +563,7 @@ SA.BattleView.create = function createBattleView(api) {
   function surrenderHint(on) {
     if (hud.sur) { hud.sur.remove(); hud.sur = null; }
     if (!on || !wrap) return;
-    hud.sur = h('div', { class: 'bt-sur px-sk px-sk-kraft px-drop' }, SA.PX.ui.img(SA.PX.pin(), 2, 'position:absolute;left:50%;top:-14px;margin-left:-8px'),
+    hud.sur = h('div', { class: 'bt-sur px-sk px-sk-kraft px-drop' }, SA.PX && SA.PX.ui ? SA.PX.ui.img(SA.PX.pin(), 2, 'position:absolute;left:50%;top:-14px;margin-left:-8px') : '',
       h('i', {}, '电 报'), h('b', {}, `「${B.e.name}」挂白旗了`), h('span', {}, '点击画面跳过'));
     hud.stage.append(hud.sur);
   }
@@ -893,6 +891,7 @@ SA.BattleView.create = function createBattleView(api) {
     return ['info', parts.join(' · ')];
   }
   function updDash() {
+    if (!hud.dash) return;
     const p = B.p, X = SA.PX, blink = Math.floor(performance.now() / 300) % 2 === 0;
     const heat = p.heat / p.heatMax, hot = heat > T.HEAT_ALERT;
     paint(hud.gauge, `${Math.round(heat * 60)}|${hot && blink}`, () => X.gauge(22, heat, T.HEAT_ALERT, hot && blink));
@@ -1268,7 +1267,9 @@ SA.BattleView.create = function createBattleView(api) {
     dg = cv.getContext('2d');
     wc = document.createElement('canvas'); wc.width = Math.ceil(W / ZMIN) + 4; wc.height = Math.ceil(H / ZMIN) + 4;   // 镜头拉到最远时也装得下
     g = wc.getContext('2d');
-    SA.PX.init();
+    // 像素件（js/ui-px.js）没加载时（检查脚本的沙盒只跑战斗逻辑）不搭仪表台，其余照常
+    const hasPX = !!(SA.PX && SA.PX.ui);
+    if (hasPX) SA.PX.init();
     hud.drum = pxCanvas();
     const where = `${B.opts.mode === 'side' ? '竞技场外 · ' : B.opts.replay ? '重打 · ' : ''}${B.ter.def.name}`;
     // 上方压在画面上：左右两块铁名牌（只有名字）+ 正中计时鼓
@@ -1278,8 +1279,8 @@ SA.BattleView.create = function createBattleView(api) {
       h('span', { class: 'bt-plate px-sk px-sk-iron' }, B.e.name));
     hud.stage = h('div', { class: 'bt-stage' }, cv, hud.top);
     wrap = h('div', { class: 'bt-canvas-wrap' }, hud.stage);
-    hud.dash = dashboard();
-    screen.append(h('div', { class: 'bt' }, wrap, hud.dash));
+    hud.dash = hasPX ? dashboard() : null;
+    screen.append(h('div', { class: 'bt' }, wrap, hud.dash || ''));
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();
