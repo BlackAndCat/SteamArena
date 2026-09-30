@@ -5,3 +5,4 @@ SA.BUILD_VIS += '+module-property-workbench-entry'; // 开发者面板和关卡�
 SA.BUILD_VIS += '+home-car-hero'; // 院子：车挪到中间前景当主角（暗描边 + 炉光轮廓 + 暖光晕、影子、薄暮压背景、工作灯光锥、铭牌、悬停提示）
 SA.BUILD_VIS += '+home-weather'; // 院子重画：晴 / 雨 / 夜 / 雾四种天气（风向标切换）、平涂少杂点、勒脚接缝、石拱门 + 石板路、所有东西按脚落地 + 接触影子；路标只留出战 / 车间 / 银行
 SA.BUILD_VIS += '+prologue-yard'; // 序章战斗的铁匠铺后院改用主页面院子的画（同一座铁匠铺、院墙、院门、天气）
+SA.BUILD_VIS += '+workshop-pan-zoom'; // 车间蓝图横向拖动与滚轮缩放。

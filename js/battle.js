@@ -791,12 +791,11 @@ SA.Battle = (() => {
     if (s.fireHeld) s.fireHeldSeconds += dt;
     updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时按 STORE_RELEASE_PER_SEC 限制释放。
-    // 每帧按剩水重算质量；锅炉能输出多少还受本帧可蒸发给水限制。
+    // 每帧按剩水重算质量；锅炉供能不受冷却储水限制。
     s.mass = Math.max(T.MASS_MIN_TONS, (s.dryKg + s.water) / 1000);
     s.driveKw = SA.Phys.driveKw(s.mass * 1000, s.speed);
     s.demand = s.equip + s.driveKw;
-    const openKw = s.fireHeld ? s.weapons.filter(w => w.cell.id === s.sel && w.m.waterPerSec).reduce((n, w) => n + w.m.power, 0) : 0;
-    const baseSupply = Math.min(s.supply, SA.Phys.waterLimitedKw(s.water, dt, s.waterSave, openKw));
+    const baseSupply = s.supply;
     const surplus = Math.max(0, baseSupply - s.demand);
     let chargeKw = 0;
     if (s.storeMax > 0) {
@@ -819,8 +818,6 @@ SA.Battle = (() => {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
       heatKw: s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util), weaponKw: 0,
       cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave, capacity: s.heatCapacity,
-      steamRecovery: s.waterSave,
-      openKw,
     });
     s.heat = result.heat; s.water = result.water;
     const saved = result.cooled / SA.Phys.LATENT_KJ_L * (1 - s.waterSave);

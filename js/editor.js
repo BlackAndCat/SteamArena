@@ -13,7 +13,7 @@ SA.Editor = (() => {
   // sel：准备连续放置的库存 / 商店键（id 或 id@材料，见 SA.invKey）；pick：车上选中的格子 { layer, r, c }
   // dock：底部操作栏显示「模块」还是「蓝图库」；bp：蓝图库里选中的蓝图 key；bpFilter：蓝图来源筛选
   const st = { layer: 'body', sel: null, pick: null, hover: null, stats: null, tab: 'all', plateOpen: null, press: null, drag: null, msg: null, noClick: false,
-    dock: 'mods', bp: null, bpFilter: 'all', shop: false, cat: loadCat() };
+    dock: 'mods', bp: null, bpFilter: 'all', shop: false, cat: loadCat(), zoom: 1, panX: 0 };
   // 商店分组的折叠状态记在本机
   // 模块清单的纸页签：一次只看一类（界面重建 v3，替换原来的折叠条）；记住上次看的是哪一类
   function loadCat() { try { return localStorage.getItem('steam_arena_cat_v1') || null; } catch (e) { return null; } }
@@ -40,7 +40,7 @@ SA.Editor = (() => {
     SA.go('garage');
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
-    Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null });
+    Object.assign(st, { sel: null, pick: null, hover: null, press: null, drag: null, msg: null, zoom: 1, panX: 0 });
     if (st.plateOpen == null) st.plateOpen = window.innerWidth >= 1700;   // 展开的铭牌会盖住格子，默认收成一行
     st.stats = SA.V.stats(veh());
 
@@ -64,6 +64,7 @@ SA.Editor = (() => {
     cv.addEventListener('pointerdown', onCanvasDown);
     cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointercancel', cancelPress);
+    cv.addEventListener('wheel', onWheel, { passive: false });
     cv.addEventListener('pointerleave', () => { if (!st.press) st.hover = null; });
     // 取消拖动会释放指针捕获；松手可能落在画布外，统一接收才能拦住随后合成的点击。
     document.addEventListener('pointerup', onUp);
@@ -99,13 +100,27 @@ SA.Editor = (() => {
     cv.style.height = `${Math.round(H * s)}px`;
   }
 
-  // 鼠标 → 子格；fr / fc 是带小数的子格坐标（摆放时让模块中心对准鼠标）
+  // 鼠标先按画布的 CSS 大小换算，再逆向还原平移与缩放；fr / fc 用于模块中心对准鼠标。
   function cellAtXY(x0, y0) {
     const rc = cv.getBoundingClientRect();
     if (x0 < rc.left || x0 > rc.right || y0 < rc.top || y0 > rc.bottom) return null;
-    const x = (x0 - rc.left) / rc.width * W, y = (y0 - rc.top) / rc.height * H;
+    const x = ((x0 - rc.left) / rc.width * W - st.panX) / st.zoom;
+    const y = ((y0 - rc.top) / rc.height * H - K.ROWS * C * (1 - st.zoom)) / st.zoom;
     const fc = (x - PADX) / C, fr = y / C, c = Math.floor(fc), r = Math.floor(fr);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c, fr, fc } : null;
+  }
+  function onWheel(e) {
+    e.preventDefault();
+    // 模块按压或拖动期间固定落点；deltaMode 换算后各设备的滚轮幅度一致。
+    if (st.press || st.drag) return;
+    const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cv.clientHeight : 1);
+    const zoom = Math.max(0.5, Math.min(2, st.zoom * Math.exp(-delta * 0.001)));
+    const rc = cv.getBoundingClientRect();
+    const x = (e.clientX - rc.left) / rc.width * W;
+    // 鼠标下的蓝图横坐标不变；纵向始终以地面底线为缩放锚点。
+    st.panX = x - (x - st.panX) * zoom / st.zoom;
+    st.zoom = zoom;
+    st.hover = cellAtXY(e.clientX, e.clientY);
   }
   // 把模块 id 摆到鼠标位置：模块中心对准鼠标（底盘自动贴到最底两行），返回锚点和会压到的模块（ignore 的锚点除外）
   const overCanvas = (x, y) => { const rc = cv.getBoundingClientRect(); return x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom; };
@@ -143,14 +158,19 @@ SA.Editor = (() => {
     e.preventDefault();
     const cell = cellAtXY(e.clientX, e.clientY);
     st.hover = cell;
-    if (!cell) { if (st.pick) { st.pick = null; renderDock(); } return; }
+    if (!cell) { if (st.sel) { emptyTap(null); return; } beginPress(e, { kind: 'pan', cell: null, panX: st.panX }); return; }
     const v = veh();
     if (st.sel) { placeAt(st.sel, cell); return; }
     const here = SA.V.at(v, st.layer, cell.r, cell.c);
     if (here) { beginPress(e, { kind: 'cell', layer: st.layer, r: here.r, c: here.c, id: here.cell.id, key: SA.invKey(here.cell.id, here.cell.mt) }); return; }
-    // 空格子：已选中车上的模块 → 移过来
+    // 空白按压暂不执行点击：超过阈值平移蓝图，否则松手时仍执行原来的空格操作。
+    beginPress(e, { kind: 'pan', cell, panX: st.panX });
+  }
+
+  function emptyTap(cell) {
+    if (!cell) { if (st.pick) { st.pick = null; renderDock(); } return; }
     if (st.pick) moveTo(st.pick, cell);
-    else if (st.layer === 'side' && SA.V.at(v, 'body', cell.r, cell.c)) say('侧挂层这里没有侧炮。切回「主体层」才能选中主体模块');
+    else if (st.layer === 'side' && SA.V.at(veh(), 'body', cell.r, cell.c)) say('侧挂层这里没有侧炮。切回「主体层」才能选中主体模块');
   }
 
   function beginPress(e, src) {
@@ -162,6 +182,12 @@ SA.Editor = (() => {
     const p = st.press;
     if (!p || p.pid !== e.pointerId) {
       if (e.currentTarget === cv) st.hover = cellAtXY(e.clientX, e.clientY);
+      return;
+    }
+    if (p.src.kind === 'pan') {
+      if (!st.drag && Math.hypot(e.clientX - p.x, e.clientY - p.y) > DRAG_PX) st.drag = p.src;
+      if (st.drag) st.panX = p.src.panX + (e.clientX - p.x) / cv.getBoundingClientRect().width * W;
+      st.hover = cellAtXY(e.clientX, e.clientY);
       return;
     }
     if (!st.drag && Math.hypot(e.clientX - p.x, e.clientY - p.y) > DRAG_PX) {
@@ -185,6 +211,12 @@ SA.Editor = (() => {
     const target = cellAtXY(e.clientX, e.clientY);
     const inside = overCanvas(e.clientX, e.clientY);
     cancelPress();
+    if (src.kind === 'pan') {
+      st.hover = target;
+      if (drag) { st.noClick = true; setTimeout(() => { st.noClick = false; }, 0); }
+      else emptyTap(src.cell);
+      return;
+    }
     if (!drag) { if (src.kind === 'cell') tapCell(src); return; }
     st.noClick = true;   // 拖完松手不再触发库存按钮的 click
     setTimeout(() => { st.noClick = false; }, 0);
@@ -203,7 +235,7 @@ SA.Editor = (() => {
 
   function makeGhost(key) {
     dropGhost();
-    const s = cv.getBoundingClientRect().width / W;
+    const s = cv.getBoundingClientRect().width / W * st.zoom;
     const id = kid(key), f = SA.fp(id);
     const img = SA.SPR.moduleCanvas(id, s, kmt(key));
     ghost = h('div', { class: 'ed-ghost' }, img);
@@ -914,6 +946,13 @@ SA.Editor = (() => {
 
   function draw(t) {
     const v = veh();
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = BPC.deep;
+    g.fillRect(0, 0, W, H);
+    // 蓝图、车辆、标记和预览使用同一变换；底线固定，平移只作用于横轴。
+    g.save();
+    g.translate(st.panX, K.ROWS * C * (1 - st.zoom));
+    g.scale(st.zoom, st.zoom);
     g.drawImage(blueprint(v), 0, 0);
     const O = SA.V.occ(v, 'body');
     g.fillStyle = 'rgba(111,207,106,0.06)';
@@ -984,6 +1023,7 @@ SA.Editor = (() => {
       if (st.pick && !(ho && ho.r === st.pick.r && ho.c === st.pick.c)) rankAt({ cell: v[st.pick.layer][st.pick.r][st.pick.c], r: st.pick.r, c: st.pick.c });
     }
 
+    g.restore();
     const tip = tipText();
     const text = tip ? tip.text : '';
     if (tipEl._t !== text) { tipEl._t = text; tipEl.textContent = text; tipEl.hidden = !text; }

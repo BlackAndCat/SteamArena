@@ -13,30 +13,77 @@ near(P.kwToPs(60), 81.57729703823426);
 near(P.boilerEnergy(60, 75).steamKw, 500);
 near(P.boilerEnergy(60, 75).exhaustKw, 365);
 near(P.boilerEnergy(60, 75).combustionLossKw, 125);
-near(P.steamWater(60), 500 / 2680);
 
-const starter = SA.V.fromAscii('单位检查', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs);
+// 开局车只有锅炉、武器、驾驶舱和底盘：供汽不应凭空生成储水。
+const dryStarter = SA.V.fromAscii('无储水检查', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs);
+near(SA.V.stats(dryStarter).water, 0);
+for (const id of ['boiler_s', 'boiler', 'boiler_l']) near(SA.MODULES[id].water || 0, 0);
+near(SA.MODULES.pressure_chamber.water, 8);
+const starter = SA.V.clone(dryStarter);
+const placed = SA.V.place(starter, 'tank_s', 8, 8, 1);
+assert(placed.ok, `检查车无法安装小水罐：${placed.reason || ''}`);
 const stats = SA.V.stats(starter);
+near(stats.water, SA.MODULES.tank_s.water);
 near(stats.weight, stats.dryWeight + stats.water);
 assert(stats.weight > stats.dryWeight && stats.heatCapacity > 0);
 near(P.temp(stats.heatCapacity * 45, stats.heatCapacity), 65);
 near(stats.heatCapacity * 45 / stats.heatMax, 0.45);
 
-// 低水量时产汽受焓限制；冷凝只回收闭式流，喷射口的开式流不能回收。
+// 用真实开战入口核对双方初始储水，并确认连续开战不会沿用上辆车的水量。
+const startFight = (player, enemy) => {
+  SA.go = () => {};
+  SA.S.reset(); SA.S.d.vehicle = player;
+  SA.Battle.startState({ mode: 'friendly', enemyVehicle: enemy, enemyName: '检查目标', terrain: 'flat', hpMul: 1 });
+  return SA.Battle.debug.B;
+};
+const checkSideWater = (side, expected) => { near(side.waterMax, expected); near(side.water, expected); };
+let fight = startFight(dryStarter, dryStarter);
+checkSideWater(fight.p, 0); checkSideWater(fight.e, 0);
+fight.p.sel = 'mg_s'; fight.aim = SA.Battle.debug.cellCenter('e', 9, 10); fight.keys.fire = true;
+SA.Battle.debug.step(1);
+assert(fight.p.power > 0 && fight.p.events.fire > 0, '零储水开战仍须供能并开火');
+near(fight.p.water, 0);
+fight = startFight(starter, dryStarter);
+checkSideWater(fight.p, SA.MODULES.tank_s.water); checkSideWater(fight.e, 0);
+fight = startFight(dryStarter, starter);
+checkSideWater(fight.p, 0); checkSideWater(fight.e, SA.MODULES.tank_s.water);
+for (const [id, mt] of [['boiler_s', 1], ['boiler', 3], ['boiler_l', 6]]) {
+  const boilerCar = SA.V.fromCells('无储水锅炉车', [[0, 7, 7, id, mt, 0], [0, 9, 11, 'helmet', mt, 0], [0, 10, 11, 'track', mt, 0]]);
+  near(SA.V.stats(boilerCar).water, 0);
+  fight = startFight(boilerCar, dryStarter);
+  checkSideWater(fight.p, 0); checkSideWater(fight.e, 0);
+}
+const tankCar = SA.V.clone(dryStarter);
+assert(SA.V.place(tankCar, 'water', 6, 8, 1).ok, '检查车无法安装水箱');
+fight = startFight(tankCar, dryStarter);
+checkSideWater(fight.p, SA.MODULES.water.water);
+let stageCount = 0;
+for (let ci = 0; ci < SA.CAMPAIGN.length; ci++) for (let si = 0; si < SA.CAMPAIGN[ci].stages.length; si++) {
+  const stage = stageFor(SA, ci, si);
+  assert(stage?.vehicle, `关卡 ${ci}:${si} 未能加载`);
+  let explicitWater = 0;
+  SA.V.each(stage.vehicle, cell => { if (SA.V.alive(cell)) explicitWater += SA.mod(cell).water || 0; });
+  near(SA.V.stats(stage.vehicle).water, explicitWater);
+  fight = startFight(dryStarter, stage.vehicle);
+  checkSideWater(fight.p, 0); checkSideWater(fight.e, explicitWater);
+  if (ci === 0 && si === 0) near(explicitWater, 0);
+  stageCount++;
+}
+assert.strictEqual(stageCount, 18, '战役关卡数量变化，需要更新水量检查范围');
+
+// 锅炉供能不消耗储水，冷却蒸发才消耗储水。
 const base = { shaftKw: 60, heatKw: 75, weaponKw: 0, cool: 0, dryCool: 0, waterSave: 1, capacity: 50 };
 const dry = P.thermalStep(100, 0, 1 / 60, base);
-near(dry.shaftKw, 0); near(dry.water, 0);
+near(dry.shaftKw, 60); near(dry.water, 0);
 const last = P.thermalStep(100, 0.001, 1 / 60, { ...base, cool: 200 });
-assert(last.water >= 0 && last.steamUsed <= 0.001 + 1e-9);
+assert(last.water >= 0 && last.water <= 0.001);
 const cooled = P.thermalStep(100, 0.001, 1 / 60, { ...base, shaftKw: 0, cool: 200 });
 assert(cooled.cooled <= 0.001 * P.LATENT_KJ_L + 1e-9);
 near(cooled.water, 0.001 - cooled.cooled / P.LATENT_KJ_L);
-const condensed = P.thermalStep(0, 1, 1, { ...base, steamRecovery: 0.7 });
-const open = P.thermalStep(0, 1, 1, { ...base, steamRecovery: 0.7, openKw: 20 });
-near(condensed.steamUsed, P.steamWater(60) * 0.7);
-near(open.steamUsed, P.steamWater(40) * 0.7 + P.steamWater(20));
-assert(open.steamUsed > condensed.steamUsed);
-near(P.waterLimitedKw(0.001, 1 / 60, 0.7), 0.001 * 0.12 * 2680 * 60 / 0.7);
+const running = P.thermalStep(0, 1, 1, base);
+near(running.water, 1);
+const wetCooling = P.thermalStep(100, 1, 1, { ...base, shaftKw: 0, cool: 200 });
+assert(wetCooling.water < 1 && wetCooling.cooled > 0);
 
 // 同质量下高坡在指定速度所需功率更大；6 PS 牵引四吨车不能免费获得额定加速度。
 const sixPsKw = 6 * P.PS_KW, kg = 4000, v = 48 * P.PX_M;
@@ -46,17 +93,14 @@ assert(sixPsKw > flatKw && sixPsKw < hillKw);
 assert(P.driveKw(kg, 48) > sixPsKw);
 
 // 真正开一局：纸面满水质量、蒸汽耗水、回路升温及水重变化进入战斗状态。
-SA.go = () => {};
-SA.S.reset(); SA.S.d.vehicle = starter;
-SA.Battle.startState({ mode: 'friendly', enemyVehicle: starter, enemyName: '检查目标', terrain: 'flat', hpMul: 1 });
-const side = SA.Battle.debug.B.p;
+const side = startFight(starter, starter).p;
 near(side.mass * 1000, stats.weight);
 near(side.supply, stats.supply);
 near(side.heatCapacity, stats.heatCapacity);
 side.dir = 1; side.spool = 0; side.spoolDir = 1;
 const startWater = side.water;
 SA.Battle.debug.step(1);
-assert(side.water < startWater && side.water >= 0);
+assert(side.water <= startWater && side.water >= 0);
 near(side.mass * 1000, side.dryKg + side.water, 0.1);
 assert(Number.isFinite(side.heat) && Number.isFinite(side.vx));
 // 真实受击损毁会移走该模块的参与换热质量，回路温度不能凭空跳升。
@@ -81,4 +125,4 @@ const firstStage = stageFor(SA, 0, 0);
 assert(firstStage?.vehicle, '战役第一关未能加载');
 const firstFight = SA.Battle.simulate({ p: starter, e: firstStage.vehicle, terrain: firstStage.terrain || 'flat', dt: 1 / 60, seed: 8 });
 assert(firstFight.events.p.fire > 0 || firstFight.events.e.fire > 0, '战役第一关未能开火');
-console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS，满载 ${P.steamWater(60).toFixed(3)} L/s；样车满水 ${SA.tons(stats.weight)}。`);
+console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS；无储水仍可开火，18 关初始水量正确；样车满水 ${SA.tons(stats.weight)}。`);

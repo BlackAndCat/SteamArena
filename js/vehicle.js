@@ -463,10 +463,10 @@ SA.V = (() => {
     return out;
   }
 
-  function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw, openKw) {
+  function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw) {
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
-      const next = SA.Phys.thermalStep(heat, water, 0.5, { shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity, steamRecovery: waterSave, openKw });
+      const next = SA.Phys.thermalStep(heat, water, 0.5, { shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity });
       heat = next.heat; water = next.water;
       if (heat >= (120 - 20) * capacity) return t + 0.5;
     }
@@ -556,11 +556,7 @@ SA.V = (() => {
     s.heatMax = SA.Phys.heatMax(s.dryWeight);
     s.boilerHeat = s.heatRate * s.heatMul * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
-    s.steamWaterPerSec = SA.Phys.steamWater(Math.min(s.supply, s.demand));
-    // 持续开火预测把开放式蒸汽喷射列为不可冷凝的流量。
-    let steamJetKw = 0;
-    each(v, cell => { if (alive(cell) && SA.mod(cell).waterPerSec) steamJetKw += SA.mod(cell).power || 0; });
-    s.overheat = overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, Math.min(s.supply, s.demand), s.boilerHeat, steamJetKw);
+    s.overheat = overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, Math.min(s.supply, s.demand), s.boilerHeat);
     s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps / 25 + s.tether + s.store * 0.014 + s.dryCool * 0.16 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
 
     s.problems = [];

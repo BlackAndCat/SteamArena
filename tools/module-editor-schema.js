@@ -514,12 +514,6 @@ SA.MODULE_EDITOR_SCHEMA = {
       "type": "number",
       "min": 0
     },
-    "waterPerSec": {
-      "label": "每秒耗水",
-      "group": "武器与撞击",
-      "type": "number",
-      "min": 0
-    },
     "knock": {
       "label": "击退",
       "group": "武器与撞击",

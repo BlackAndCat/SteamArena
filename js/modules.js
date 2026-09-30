@@ -255,8 +255,8 @@ SA.MODULES = {
   },
   pressure_chamber: {
     name: '加压舱', cat: 'energy', layer: 'body', w: 1, h: 2,
-    price: 64, hp: 58, supply: 2, power: 0, heatRate: 1.1, kg: 95, q: 1,
-    desc: '小格加压单元，提供 20 kW 轴功率，约 27.2 公制马力；自带 8 L 给水，额定回路余热 55 kW。',
+    price: 64, hp: 58, supply: 2, power: 0, water: 8, heatRate: 1.1, kg: 95, q: 1,
+    desc: '小格加压单元，提供 20 kW 轴功率，约 27.2 公制马力；自带 8 L 冷却储水，额定回路余热 55 kW。',
   },
   radiator: {
     name: '散热片', cat: 'cooling', layer: 'side', w: 1, h: 2,
@@ -295,10 +295,10 @@ SA.MODULES = {
   steamjet: {
     name: '蒸汽喷射器', cat: 'firepower', layer: 'body', w: 2, h: 1, maxMt: 3,
     price: 170, hp: 105, power: 2, kg: 230, q: 2,
-    dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 1.5, dmgPerSec: 3, range: 170, cone: 10, waterPerSec: 0.5, knock: 0.35, proj: 'steam', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 16,
+    dmg: 3, reload: 0.1, heat: 1.5, heatToEnemy: 4, heatPerSec: 1.5, dmgPerSec: 3, range: 170, cone: 10, knock: 0.35, proj: 'steam', v: 540, g: 0.1, spread: 10, arc: 'low', kick: 16,
     elev: [-12, 25], slew: 30, windup: 0.1, wild: 0.05, rest: 0, aimT: 0.1,
 
-    desc: 'T1～T3 蒸汽喷射器：射程 170px、±10° 蒸汽锥，额定轴功率 20 kW；连续喷射向对手传热 200 kW，自身产热 75 kW，开式排汽不回收，实际耗水受锅炉产汽限制。钢材料为上限。',
+    desc: 'T1～T3 蒸汽喷射器：射程 170px、±10° 蒸汽锥，额定轴功率 20 kW；连续喷射向对手传热 200 kW，自身产热 75 kW，储水仅用于冷却。钢材料为上限。',
   },
   // 三件 Boss 专属件：先以普通属性接入战斗，特殊被动由 special 字段保留给后续战斗迭代。
   boss_core: {
@@ -319,7 +319,7 @@ SA.MODULES = {
   boiler: {
     name: '燃煤锅炉', cat: 'energy', layer: 'body',
     price: 130, hp: 120, power: 0, supply: 6, q: 1, heatRate: 1.5, explode: 40, kg: 550,
-    desc: '额定供给 60 kW 轴功率，约 81.6 公制马力；自带 24 L 给水，满载蒸汽热功率 500 kW、耗水约 0.187 L/s。被击毁会爆炸波及相邻模块。',
+    desc: '额定供给 60 kW 轴功率，约 81.6 公制马力；满载蒸汽热功率 500 kW，不消耗储水供能，储水仅用于冷却。被击毁会爆炸波及相邻模块。',
   },
   water: {
     name: '水箱', cat: 'cooling', layer: 'body',
@@ -391,12 +391,12 @@ SA.MODULES = {
   boiler_s: {
     name: '竖式锅炉', cat: 'energy', layer: 'body', w: 1, h: 2,
     price: 72, hp: 70, power: 0, supply: 3, heatRate: 0.8, explode: 22, kg: 240, q: 1,
-    desc: '占 1×2 小格的小型锅炉，供给 30 kW 轴功率，约 40.8 公制马力；自带 12 L 给水，满载耗水约 0.093 L/s。被击毁会爆炸。',
+    desc: '占 1×2 小格的小型锅炉，供给 30 kW 轴功率，约 40.8 公制马力；不消耗储水供能，储水仅用于冷却。被击毁会爆炸。',
   },
   boiler_l: {
     name: '大型锅炉', cat: 'energy', layer: 'body', w: 3, h: 3,
     price: 290, hp: 250, power: 0, supply: 13.5, heatRate: 3.4, explode: 80, kg: 1235, q: 3,
-    desc: '占 3×3 小格的大型锅炉，供给 135 kW 轴功率，约 183.5 公制马力；自带 54 L 给水，满载耗水约 0.420 L/s，重量、余热和殉爆风险都高。',
+    desc: '占 3×3 小格的大型锅炉，供给 135 kW 轴功率，约 183.5 公制马力；不消耗储水供能，储水仅用于冷却，重量、余热和殉爆风险都高。',
   },
   water_l: {
     name: '大水箱', cat: 'cooling', layer: 'body', w: 3, h: 3,
@@ -408,13 +408,10 @@ SA.MODULES = {
 // 旧配置数值一次性迁移到工程单位；模块 ID 与分享码顺序不变。
 // power 为设备工作额定轴功率 kW，supply 为锅炉轴功率 kW；热字段为 kJ 或 kW。
 for (const m of Object.values(SA.MODULES)) {
-  // 小型初始车没有外接水箱；锅炉自带按原额定档位配置的给水箱。
-  if (m.supply && !m.water) m.water = m.supply * 4;
+  // 储水只来自模块显式 water 字段；供汽额定值不再附赠开局给水。
   if (m.power) m.power *= 10;
   if (m.supply) m.supply *= 10;
   for (const key of ['heat', 'heatRate', 'heatPerSec', 'heatToEnemy', 'cool', 'dryCool', 'store']) if (m[key]) m[key] *= 50;
-  // 蒸汽喷射流量要与锅炉额定产汽共享预算；流量由负载功率决定，不再直接从此字段扣储水。
-  if (m.waterPerSec) m.waterPerSec = Math.min(m.waterPerSec, m.power / 0.12 / 2680);
 }
 
 SA.MODULE_ORDER = ['track', 'quad', 'biped', 'cockpit', 'boiler', 'water',
@@ -498,12 +495,11 @@ SA.weightOf = (cell) => { const f = SA.fp(cell.id); return SA.K.WEIGHT_BASE * f.
 const fmtT = (kg) => `${(kg / 1000).toFixed(kg < 10000 ? 2 : 1)} t`;
 SA.tons = fmtT;
 SA.kmh = (pxs) => `${(pxs * SA.K.KMH).toFixed(1)} km/h`;
-// 蒸汽与牵引的统一量纲：锅炉标称轴功率 kW，显示为公制马力 PS；1 L 给水约为 1 kg。
+// 动力与牵引的统一量纲：锅炉标称轴功率 kW，显示为公制马力 PS；1 L 冷却储水约为 1 kg。
 SA.Phys = {
-  PS_KW: 0.73549875, STEAM_KJ_L: 2680, LATENT_KJ_L: 2257, STEAM_EFF: 0.12,
+  PS_KW: 0.73549875, LATENT_KJ_L: 2257,
   PX_M: 1.5 / 48, GRAVITY: 9.81, ROLL: 0.025, TRANSMISSION: 0.8,
   kwToPs: kw => kw / 0.73549875,
-  steamWater: (shaftKw, seconds = 1) => shaftKw / 0.12 / 2680 * seconds,
   // 目标速度下预留 0.7 m/s² 起步牵引力；实战每帧再按 P=Fv 限制。
   driveKw: (kg, pxs) => kg * (0.7 + 9.81 * 0.025) * Math.max(0, pxs) * (1.5 / 48) / 0.8 / 1000,
   heatCapacity: kg => 8 * 4.18 + Math.max(0, kg) * 0.02 * 0.5, // 8 L 循环水及参与换热的 2% 金属（0.5 kJ/kg/K）
@@ -514,31 +510,15 @@ SA.Phys = {
   fmtWater: l => `${l.toFixed(1)} L`,
   fmtHeat: kj => `${kj.toFixed(0)} kJ`,
   fmtTemp: c => `${c.toFixed(0)} °C`,
-  // 180°C 工作蒸汽与 20°C 起始给水的焓差取 2680 kJ/L；冷却回路温度另算。
-  // 燃烧效率按 80%：燃烧损失散向环境；蒸汽余热中只有 coolingKw 进入本车回路。
-  boilerEnergy: (shaftKw, coolingKw = 0) => {
-    const steamKw = shaftKw / 0.12;
-    const combustionKw = steamKw / 0.8;
-    return { steamKw, shaftKw, coolingKw, exhaustKw: Math.max(0, steamKw - shaftKw - coolingKw),
-      combustionKw, combustionLossKw: combustionKw - steamKw };
-  },
-  waterLimitedKw: (water, dt, recovery = 1, openKw = 0) => {
-    const budget = water * 0.12 * 2680 / Math.max(dt, 1e-9);
-    return budget <= openKw ? budget : openKw + (budget - openKw) / Math.max(recovery, 0.01);
-  },
-  // 机组/冷却回路按能量守恒积分：蒸汽给水与蒸发冷却共用储水，但各只扣一次。
+  // 储水只参与冷却蒸发；锅炉轴功率及其产热不受储水量限制。
   thermalStep: (heat, water, dt, p) => {
-    const recovery = p.steamRecovery == null ? 1 : p.steamRecovery;
-    const waterFactor = (kw) => (kw - Math.min(kw, p.openKw || 0)) * recovery + Math.min(kw, p.openKw || 0);
-    const shaftKw = Math.min(p.shaftKw, SA.Phys.waterLimitedKw(water, dt, recovery, p.openKw || 0));
-    const steamUsed = SA.Phys.boilerEnergy(waterFactor(shaftKw)).steamKw / 2680 * dt;
-    water = Math.max(0, water - steamUsed);
+    const shaftKw = p.shaftKw;
     heat = Math.max(0, heat + (p.heatKw * (p.shaftKw ? shaftKw / p.shaftKw : 0) + p.weaponKw + (shaftKw ? SA.K.IDLE_HEAT : 0)) * dt);
     const passive = Math.min(heat, (SA.K.DISSIPATE + p.dryCool) * Math.max(0, (SA.Phys.temp(heat, p.capacity) - 20) / 30) * dt);
     heat -= passive;
     const cooled = Math.min(heat, SA.coolRate(p.cool, heat, p.capacity) * dt, water * 2257 / p.waterSave);
     heat -= cooled; water -= cooled / 2257 * p.waterSave;
-    return { heat: Math.max(0, heat), water: Math.max(0, water), shaftKw, cooled, passive, steamUsed };
+    return { heat: Math.max(0, heat), water: Math.max(0, water), shaftKw, cooled, passive };
   },
 };
 // 撞击伤害倍率：跟车重成正比（6 t 为 ×1），0.5 ~ 3 倍
