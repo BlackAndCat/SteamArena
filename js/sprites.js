@@ -98,16 +98,13 @@ SA.SPR = (() => {
       return;
     }
     if (m.layer === 'ram') {
-      if (id === 'bucket') {   // 斗板前沿再贴一条耐磨板，一级比一级厚
-        for (let yy = 6; yy <= 44; yy++) {
-          const x0 = x + 39 - Math.round(6 * Math.sin(Math.PI * (yy - 4) / 42));
-          R(x0, y + yy, lv + 1, 1, P.iron[0]); R(x0, y + yy, lv, 1, yy % 8 === 0 ? P.iron[4] : P.iron[3]);
-        }
-      } else if (id === 'spike') {   // 锥身套上加强箍
-        for (let i = 0; i < lv; i++) { const ii = 5 + i * 7, hh = Math.round(13 * (1 - ii / 33)) + 1; box(x + 15 + ii, y + 24 - hh, 3, hh * 2 + 1, IRONL); }
-      } else if (id === 'piston') {   // 锤面加厚
-        const e = 4 + (q.p || 0) * 5, st = q.st || 1;
-        box(x + 24 + e + (st === 2 ? 12 : 11), y + (st === 2 ? 5 : 8), 1 + lv * 2, st === 2 ? 38 : 32, IRONL);
+      if (id === 'bucket') {   // 犁壁前沿再贴一条耐磨板，一级比一级厚（犁壁前沿：(24,5) → (41,41)）
+        for (let yy = 6; yy <= 41; yy++) { const x0 = x + 24 + Math.round((yy - 5) * 17 / 36); R(x0, y + yy, lv + 1, 1, P.iron[0]); R(x0, y + yy, lv, 1, yy % 8 === 0 ? P.iron[4] : P.iron[3]); }
+      } else if (id === 'spike') {   // 舰艏撞角身上套竖加强箍（上沿斜坡、下沿平直之间）
+        for (let i = 0; i < lv; i++) { const u = 14 + i * 8, top = u < 20 ? 6 + (u - 6) * 2 / 14 : 8 + (u - 20) * 22 / 26, bot = 42 - (u - 6) * 4 / 34; box(x + u, y + Math.round(top), 3, Math.round(bot - top), IRONL); }
+      } else if (id === 'piston') {   // 锤面加厚（锤面跟着蓄力位置走）
+        const cc = (q.c == null ? 10 : q.c) / 10, hx = x + 12 + 19 - cc * 14.5 + 6;
+        box(Math.round(hx + 14), y + 6, 1 + lv * 2, 36, IRONL);
       }
       return;
     }
@@ -2078,7 +2075,103 @@ SA.SPR = (() => {
       },
       fx(x, y, o) { const rot = o.t * 0.06; for (let k = 0; k < 6; k++) { const a = rot + (k + 0.5) / 6 * TAU; if (Math.cos(a) > 0.92) spectrum(x + 19, y + 12, 6, 0, 0); } } },
   };
+
+  // ---------- 水箱 + 撞击件（2026-09-29 定稿，样机 tools/archive/tank-rams.html）：水箱纵向箍带加固（按档 1～6）、铲斗 D 犁铧、撞角 B 舰艏撞角、蒸汽撞锤 B 双缸蓄力 ----------
+  const tierOf = (o) => Math.max(1, Math.min(6, o.mt || 1));
+  const bolt = (x, y) => { px(x, y, P.iron[4]); px(x + 1, y + 1, P.iron[0]); };
+  // 水体：大窗里的水（水位 lv 0～1，波纹 + 气泡），青色只在水上
+  function waterBody(x0, y0, w, h, lv, t) {
+    R(x0, y0, w, h, P.glass[0]);
+    const lh = Math.round(h * lv), top = y0 + h - lh;
+    if (lh > 0) {
+      R(x0, top, w, lh, P.water[1]); R(x0, top, w, 1, P.water[3]);
+      for (let i = 0; i < w; i += 7) R(x0 + ((i + Math.floor(t / 4) * 2) % (w - 2)), top + 1, 3, 1, P.water[2]);
+      if (lh > 4) R(x0 + 2, top + 3, 2, lh - 5, P.water[2]);
+      for (let k = 0; k < 4; k++) { const p = saw(t + k * 17, 60), by = y0 + h - 2 - p * (lh - 3); if (by > top + 1) px(x0 + 5 + k * 7, by, P.water[3]); }
+    }
+    px(x0 + w - 5, y0 + 3, P.glass[3]); px(x0 + w - 4, y0 + 2, P.glass[3]);
+  }
+  // 撞击件的车头法兰（2×2 左边贴车体）
+  const flange2 = (x, y, h0 = 6, h1 = 42) => { R(x, y + h0, 6, h1 - h0, P.iron[0]); R(x + 1, y + h0 + 1, 4, h1 - h0 - 2, P.iron[2]); R(x + 1, y + h0 + 1, 1, h1 - h0 - 2, P.iron[3]); for (let v = h0 + 4; v < h1 - 2; v += 8) bolt(x + 2, y + v); };
+
+  const TANK2 = {
+    key: 'A2', name: '纵向箍带加固', draw(x, y, o) {
+      const T = tierOf(o);
+      box(x + 19, y + 2, 10, 5, BRASS); box(x + 4, y + 6, 40, 39, IRONL); R(x + 8, y + 10, 32, 31, P.iron[0]); waterBody(x + 9, y + 11, 30, 29, o.water, o.t);
+      for (const [rx, ry] of [[6, 8], [41, 8], [6, 42], [41, 42]]) bolt(x + rx, y + ry);
+      const strap = (u, w) => { R(x + u, y + 4, w, 43, P.iron[0]); R(x + u + 1, y + 4, w - 2, 43, P.iron[3]); R(x + u + 1, y + 4, 1, 43, P.iron[4]); R(x + u, y + 4, w, 2, P.iron[1]); R(x + u, y + 45, w, 2, P.iron[1]); for (let v = 10; v < 44; v += 8) px(x + u + Math.floor(w / 2), y + v, P.iron[1]); };
+      if (T >= 2) { const w = T >= 5 ? 5 : 4; strap(4, w); strap(44 - w, w); }
+      if (T >= 6) { strap(1, 3); strap(44, 3); }
+      if (T >= 3) { R(x + 8, y + 5, 32, 3, P.iron[0]); R(x + 8, y + 6, 32, 1, P.iron[3]); R(x + 8, y + 43, 32, 3, P.iron[0]); R(x + 8, y + 44, 32, 1, P.iron[3]); }
+      if (T >= 4) for (const [cx, cy, sx, sy] of [[8, 8, 1, 1], [40, 8, -1, 1], [8, 43, 1, -1], [40, 43, -1, -1]]) { poly([[x + cx, y + cy], [x + cx + sx * 6, y + cy], [x + cx, y + cy + sy * 6]], IRON); bolt(x + cx + sx * 1.5, y + cy + sy * 1.5); }
+      if (T >= 5) for (const u of [4, 39]) { R(x + u - 1, y + 22, 7, 7, P.iron[0]); R(x + u, y + 23, 5, 5, P.iron[2]); R(x + u + 2, y + 21, 1, 9, P.iron[4]); px(x + u + 2, y + 25, P.iron[0]); }
+      if (T >= 6) for (let u = 8; u < 42; u += 4) { bolt(x + u, y + 5); bolt(x + u, y + 44); }
+    } };
+
+  const PISTON2 = {
+    key: 'B2', name: '双缸蓄力撞锤', draw(x, y, o) {
+      const st = tierOf(o) >= 5, c = Math.max(0, Math.min(1, o.c == null ? 1 : o.c));
+      flange2(x, y, 4, 44);
+      const pump = c < 1 ? Math.sin(o.t * 0.9) : 0;   // 蓄力时两缸往复；满了就停
+      for (const [v, s] of [[4, 1], [34, -1]]) {
+        box(x + 6, y + v, 18, 10, IRONL); R(x + 11, y + v, 2, 10, P.brass[1]); R(x + 19, y + v, 2, 10, P.brass[1]);
+        const e = 3 + pump * s * 2.5; R(x + 24, y + v + 4, e, 2, P.iron[4]);
+      }
+      // v3：行程加长约 30%（弹簧满蓄 4.5 → 放开 19，原来 7 → 18）；释放瞬间锤头多冲出去 3px 再回弹；整只锤子在释放后抖（hit 从 1 衰减到 0）
+      const hit = o.hit || 0, jx = hit ? Math.round(Math.sin(o.t * 3.3) * 1.6 * hit) : 0, jy = hit ? Math.round(Math.cos(o.t * 2.7) * 1.2 * hit) : 0;
+      const L = 19 - c * 14.5 + Math.round(hit * hit * 3), hx = x + 12 + L + 6 + jx;
+      R(x + 6, y + 17, 6, 14, P.iron[1]); R(x + 6, y + 17, 6, 1, P.iron[3]);   // 弹簧后座
+      R(x + 12, y + 23, hx - x - 12, 2, P.iron[0]);                                // 导杆
+      const n = 6, sp = L / n;   // 螺旋弹簧：每圈一道亮的前笔（竖）+ 一道暗的后笔（斜），压紧时圈挨圈
+      for (let k = 0; k < n; k++) { const u = x + 12 + k * sp; line(u + sp, y + 18, u, y + 30, 1, P.iron[1]); }
+      for (let k = 0; k <= n; k++) { const u = Math.round(x + 12 + k * sp); R(u, y + 18, 1, 13, P.iron[4]); px(u, y + 18, P.iron[2]); px(u, y + 30, P.iron[2]); }
+      if (st) { R(x + 11, y + 16, L + 2, 1, P.brass[2]); R(x + 11, y + 31, L + 2, 1, P.brass[1]); }
+      R(x + 24, y + 14, hx - x - 24 + 1, 2, P.iron[1]); for (let u = x + 24; u < hx; u += 3) px(u, y + 15, P.iron[4]);   // 上方的棘轮齿条（跟锤头滑座连着）
+      R(x + 24, y + 32, hx - x - 24 + 1, 2, P.iron[1]); for (let u = x + 24; u < hx; u += 3) px(u, y + 32, P.iron[4]);
+      const pw = c < 1 ? Math.round(Math.sin(o.t * 0.9) * 1.5) : 0;   // 两只棘爪：跟着活塞杆一推一推
+      for (const [v, d] of [[12, 1], [35, -1]]) { R(x + 27 + pw, y + v, 3, 2, P.brass[1]); px(x + 29 + pw, y + v + d, P.brass[3]); }
+      box(hx, y + 15 + jy, 6, 18, IRONL);                                                     // 锤头滑座
+      box(hx + 6, y + 6 + jy, 8, 36, RUSTR); R(hx + 7, y + 23 + jy, 6, 2, P.rust[3]);         // 锤面
+      if (st) poly([[hx + 14, y + 8 + jy], [hx + 20, y + 24 + jy], [hx + 14, y + 40 + jy]], RUSTR);
+      if (hit > 0.3) for (const v of [7, 40]) { px(hx + 15, y + v + jy, P.iron[4]); px(hx + 5, y + v + jy, P.iron[4]); }   // 抖动时锤面四角的亮边
+      const locked = c >= 0.99; R(x + 27, y + 14, 2, 3, P.iron[1]); line(x + 28, y + 16, locked ? hx + 1 : x + 31, locked ? y + 16 : y + 12, 1, locked ? P.brass[2] : P.iron[3]);   // 挂钩
+      gauge(x + 15, y + 2, 2.6, 0.15 + c * 0.8);
+    },
+    fx(x, y, o) {
+      const c = o.c == null ? 1 : o.c, hit = o.hit || 0;
+      if (!hit) return;
+      const L = 19 - c * 14.5 + Math.round(hit * hit * 3), hx = x + 12 + L + 6 + 14, k = 1 - hit;   // k：释放后过了多久（0 → 1）
+      // 冲击波：锤面前三道弧往外扩
+      for (let r = 0; r < 3; r++) { const rr = 3 + k * 12 + r * 3; if (rr > 20) continue; for (let a = -1.15; a <= 1.15; a += 0.1) px(hx + Math.cos(a) * rr, y + 24 + Math.sin(a) * rr * 1.7, r === 0 ? P.white : P.steam[2]); }
+      // 强烈的蒸汽：两缸的排汽口往上 / 往下猛喷一大团，锤面上下沿也往外炸出两股；一松开就是一大团白汽，之后往外涨、慢慢变灰
+      const burst = (cx, cy, dx, dy, n, len) => { for (let i = 0; i < n; i++) { const u = (i + 1) / n, d = (0.6 + k * 0.7) * len * u, wob = Math.sin(i * 2.3 + o.t * 0.3) * u * 3, w = k < 0.35 ? 0.1 : k < 0.7 ? 0.45 : 0.75; disc(cx + dx * d - dy * wob, cy + dy * d + dx * wob, 1.8 + u * 3.6 * (0.9 + k * 0.4), u < w ? P.steam[2] : k > 0.7 && u > 0.6 ? P.steam[1] : P.white); } };
+      burst(x + 10, y + 4, -0.3, -1, 5, 14); burst(x + 20, y + 4, 0.3, -1, 5, 16);
+      burst(x + 10, y + 44, -0.3, 1, 5, 14); burst(x + 20, y + 44, 0.3, 1, 5, 16);
+      burst(hx - 6, y + 6, 0.5, -1, 4, 12); burst(hx - 6, y + 42, 0.5, 1, 4, 12);
+      if (hit > 0.7) for (let i = 0; i < 6; i++) { const a = -0.9 + i * 0.36; px(hx + 3 + Math.cos(a) * 5, y + 24 + Math.sin(a) * 9, P.fire[3]); }   // 撞击一瞬间的火星
+    } };
+  const RAMS = {
+    bucket: { key: 'D', name: '犁铧', draw(x, y, o) {
+        const st = tierOf(o) >= 5; flange2(x, y, 6, 44);
+        const share = (dx) => { poly([[x + 14 + dx, y + 4], [x + 24 + dx, y + 4], [x + 42 + dx, y + 42], [x + 30 + dx, y + 44], [x + 20 + dx, y + 30]], RUSTR); line(x + 24 + dx, y + 5, x + 41 + dx, y + 41, 1, P.rust[3]); };
+        if (st) share(-8);
+        share(0);
+        poly([[x + 28, y + 40], [x + 46, y + 44], [x + 30, y + 46]], IRONL); R(x + 14, y + 44, 16, 3, P.iron[1]); R(x + 14, y + 44, 16, 1, P.iron[3]);
+        line(x + 6, y + 20, x + 20, y + 20, 3, P.iron[0]); line(x + 6, y + 20, x + 20, y + 20, 1, P.iron[3]);
+      } },
+    spike: { key: 'B', name: '舰艏撞角', draw(x, y, o) {
+        const st = tierOf(o) >= 5; flange2(x, y, 4, 44);
+        poly([[x + 6, y + 6], [x + 20, y + 8], [x + 46, y + 30], [x + 47, y + 34], [x + 40, y + 38], [x + 6, y + 42]], RUSTR);
+        line(x + 8, y + 26, x + 42, y + 34, 1, P.rust[3]); line(x + 8, y + 27, x + 42, y + 35, 1, P.rust[0]);
+        for (let u = 10; u < 40; u += 4) { const yy = y + 8 + (u - 6) * 0.62 + 3; px(x + u, yy, P.rust[3]); if (st) px(x + u, y + 38, P.rust[3]); }
+        if (st) poly([[x + 40, y + 29], [x + 47, y + 32], [x + 47, y + 34], [x + 41, y + 37]], IRONL);
+      } },
+    piston: PISTON2,
+  };
   return {
+    tank2(c, x, y, o) { g = c; TANK2.draw(x, y, o); },
+    ram(c, id, x, y, o) { g = c; RAMS[id].draw(x, y, o); },
+    ramFx(c, id, x, y, o) { g = c; if (RAMS[id].fx) RAMS[id].fx(x, y, o); },
     boss(c, id, x, y, o) { g = c; BOSS[id].draw(x, y, o); },
     bossFx(c, id, x, y, o) { g = c; if (BOSS[id].fx) BOSS[id].fx(x, y, o); },
     aux(c, id, x, y, o) { g = c; AUX[id].draw(x, y, o); },
@@ -2366,29 +2459,6 @@ SA.SPR = (() => {
       disc(x + 32, y + 38, 3, P.brass[2]); disc(x + 32, y + 38, 2, P.steam[2]); R(x + 32, y + 37, 1, 2, P.dark[0]);
       rivet(x + 6, y + 6); rivet(x + 40, y + 6); rivet(x + 6, y + 40); rivet(x + 40, y + 40);
     },
-    water(x, y, o) {
-      // 带水位的方块水箱
-      box(x + 19, y + 2, 10, 6, BRASS);
-      box(x + 4, y + 6, 40, 39, IRONL);
-      R(x + 8, y + 10, 32, 31, P.iron[0]);
-      R(x + 9, y + 11, 30, 29, P.glass[0]);
-      const lh = o.lv == null ? 29 : o.lv, fr = o.fr || 0;
-      if (lh > 0) {
-        const top = y + 40 - lh;
-        R(x + 9, top, 30, lh, P.water[1]);
-        R(x + 9, top, 30, 1, P.water[3]);
-        for (let i = 0; i < 30; i += 7) R(x + 9 + ((i + fr * 2) % 28), top + 1, 3, 1, P.water[2]);
-        if (lh > 4) R(x + 11, top + 3, 2, lh - 5, P.water[2]);
-        for (const [bx, by] of [[18, 5], [27, 12], [33, 8]]) {
-          const yy = y + 39 - ((by + fr * 3) % Math.max(1, lh - 2));
-          if (yy > top + 1) R(x + bx, yy, 1, 1, P.water[3]);
-        }
-      }
-      R(x + 35, y + 13, 2, 7, P.glass[2]); R(x + 33, y + 15, 1, 3, P.glass[2]);
-      for (let k = 0; k < 4; k++) R(x + 41, y + 14 + k * 7, 2, 1, P.iron[4]);
-      for (const [rx, ry] of [[6, 8], [40, 8], [6, 42], [40, 42]]) rivet(x + rx - 1, y + ry - 1);
-      R(x + 4, y + 43, 5, 2, P.brass[2]);
-    },
     boiler(x, y, o) {
       // 大燃煤窗口：唯一的发光体。外观阶段 ②（史诗起）：高烟囱 + 防火星罩、双压力表、圆形炉门 + 辐射炉栅
       const st = o.st || 1;
@@ -2581,6 +2651,11 @@ SA.SPR = (() => {
     // 特殊武器（2026-09-29 定稿）：转动部分按 module-art 的耳轴 / 炮口几何；汽、火、飞出去的烟在 weaponFx 里逐帧画（材质处理之后）
     // 辅助四件（2026-09-29 定稿）：蓄压罐的液柱跟存量走，六分仪的指标臂慢慢扫，万向环一直翻，散热片的冷却液随车温流
     // Boss 唯一件（2026-09-29 定稿）：圣杯里的煤在呼吸（8 帧），三联活塞锤轮流打出（q.a3 = 这一下是哪根），棱镜鼓一直转（8 帧）
+    // 水箱 + 撞击件（2026-09-29 定稿）：水箱按材质档 1～6 加固（q.st），撞击件普通 / 精英（q.st = 2 → 按 T5 画）
+    water(x, y, q) { BIG.tank2(ctx, x, y, { water: (q.lv == null ? 29 : q.lv) / 29, t: (q.fr || 0) * 15, mt: q.st || 1 }); },
+    bucket(x, y, q) { BIG.ram(ctx, 'bucket', x, y, { mt: (q.st || 1) >= 2 ? 5 : 1, t: 0 }); },
+    spike(x, y, q) { BIG.ram(ctx, 'spike', x, y, { mt: (q.st || 1) >= 2 ? 5 : 1, t: 0 }); },
+    piston(x, y, q) { BIG.ram(ctx, 'piston', x, y, { mt: (q.st || 1) >= 2 ? 5 : 1, c: (q.c == null ? 10 : q.c) / 10, hit: (q.h || 0) / 4, t: (q.fr || 0) * 2 }); },   // 蓄力 11 档 × 震颤 5 档
     boss_core(x, y, q) { BIG.boss(ctx, 'boss_core', x, y, { t: q.fr * 45 / 8 }); },
     boss_ram(x, y, q) { BIG.boss(ctx, 'boss_ram', x, y, { p: q.p / 3, act: q.a3 || 0, t: 0 }); },
     boss_lens(x, y, q) { BIG.boss(ctx, 'boss_lens', x, y, { t: q.fr * 17.45 / 8 }); },
@@ -2686,75 +2761,6 @@ SA.SPR = (() => {
       });
       trunnionBolt(x + 18, y + 34);
     },
-    bucket(x, y, o = {}) {
-      // 铲斗：装在底盘前方，弧形推土板 + 齿。阶段 ②（史诗起）：斗板加三道黄铜箍、四颗齿、上臂加液压缸
-      line(x + 1, y + 12, x + 28, y + 18, 5, P.dark[0]); line(x + 1, y + 12, x + 28, y + 18, 3, P.dark[3]);
-      line(x + 1, y + 34, x + 28, y + 34, 5, P.dark[0]); line(x + 1, y + 34, x + 28, y + 34, 3, P.dark[3]);
-      box(x + 6, y + 9, 12, 6, IRON);
-      for (let yy = 4; yy <= 46; yy++) {
-        const t = (yy - 4) / 42, off = Math.round(6 * Math.sin(Math.PI * t));
-        const x0 = x + 33 - off;
-        R(x0 - 1, y + yy, 8, 1, P.rust[0]);
-        R(x0, y + yy, 6, 1, P.rust[2]);
-        R(x0, y + yy, 1, 1, P.rust[3]);
-        R(x0 + 5, y + yy, 1, 1, P.rust[1]);
-      }
-      R(x + 28, y + 4, 12, 1, P.rust[3]);
-      if ((o.st || 1) === 2) {
-        for (const ry of [12, 24, 36]) { const bx0 = x + 32 - Math.round(6 * Math.sin(Math.PI * (ry - 4) / 42)); R(bx0 - 1, y + ry, 9, 2, P.brass[1]); R(bx0 - 1, y + ry, 9, 1, P.brass[3]); }
-        line(x + 3, y + 7, x + 18, y + 11, 4, P.brass[0]); line(x + 3, y + 7, x + 18, y + 11, 2, P.brass[2]);   // 液压缸
-        line(x + 18, y + 11, x + 27, y + 13, 2, P.iron[4]);
-        for (const ty of [22, 30, 37, 43]) { R(x + 38, y + ty, 8, 3, P.iron[0]); R(x + 38, y + ty, 7, 2, P.iron[4]); R(x + 45, y + ty + 1, 2, 1, P.iron[3]); }
-        return;
-      }
-      for (const ry of [12, 24, 36]) rivet(x + 31 - Math.round(6 * Math.sin(Math.PI * (ry - 4) / 42)), y + ry, P.rust[3], P.rust[0]);
-      for (const ty of [39, 43]) { R(x + 39, y + ty, 7, 3, P.iron[0]); R(x + 39, y + ty, 6, 2, P.iron[4]); R(x + 45, y + ty + 1, 2, 1, P.iron[3]); }
-    },
-    spike(x, y, o = {}) {
-      // 撞角：锥形尖刺。阶段 ②（史诗起）：螺旋刻槽的钻矛 + 双黄铜箍 + 淬硬的亮钢尖
-      box(x, y + 6, 10, 36, IRON);
-      rivet(x + 3, y + 10); rivet(x + 3, y + 36);
-      box(x + 9, y + 10, 6, 28, BRASS);
-      for (let i = 0; i <= 32; i++) {
-        const hh = Math.round(13 * (1 - i / 33)), cx = x + 15 + i;
-        R(cx, y + 24 - hh, 1, hh * 2 + 1, P.rust[0]);
-        if (hh > 0) {
-          R(cx, y + 25 - hh, 1, hh, P.rust[2]);
-          R(cx, y + 25, 1, hh - 1, P.rust[1]);
-          R(cx, y + 25 - hh, 1, 1, P.rust[3]);
-        }
-        if (i % 7 === 3 && hh > 2) R(cx, y + 25 - hh, 1, hh * 2 - 1, P.rust[1]);
-      }
-      line(x + 17, y + 17, x + 40, y + 23, 1, P.rust[3]);
-      R(x + 47, y + 24, 1, 1, P.iron[4]);
-      if ((o.st || 1) === 2) {
-        for (let i = 2; i <= 26; i += 5) { const hh = Math.round(13 * (1 - i / 33)); line(x + 15 + i, y + 25 - hh + 1, x + 15 + i + Math.round(hh * 0.5), y + 24 + hh - 1, 1, P.rust[0]); }
-        for (let i = 27; i <= 32; i++) { const hh = Math.round(13 * (1 - i / 33)); R(x + 15 + i, y + 25 - hh, 1, Math.max(1, hh * 2 - 1), P.iron[4]); }
-        box(x + 13, y + 8, 4, 32, BRASS); R(x + 14, y + 9, 1, 30, P.brass[3]);
-      }
-    },
-    piston(x, y, o) {
-      // 蒸汽撞锤：气缸 + 活塞杆 + 锤头。阶段 ②（史诗起）：带散热片的大气缸 + 压力表、双活塞杆、镶钉锤面 + 黄铜包边
-      if ((o.st || 1) === 2) {
-        box(x, y + 9, 24, 30, IRON);
-        for (let fy = 12; fy <= 35; fy += 4) { R(x + 2, y + fy, 20, 1, P.iron[1]); R(x + 2, y + fy + 1, 20, 1, P.iron[4]); }
-        disc(x + 12, y + 7, 4, P.brass[0]); disc(x + 12, y + 7, 3, P.brass[2]); disc(x + 12, y + 7, 2, P.steam[2]); R(x + 12, y + 6, 1, 2, P.dark[0]);
-        const e = 4 + (o.p || 0) * 5;
-        for (const ry of [15, 29]) { R(x + 24, y + ry, e, 4, P.iron[0]); R(x + 24, y + ry + 1, e, 2, P.iron[4]); }
-        box(x + 24 + e, y + 5, 12, 38, RUST);
-        R(x + 25 + e, y + 5, 10, 1, P.brass[2]); R(x + 25 + e, y + 42, 10, 1, P.brass[1]); R(x + 35 + e, y + 6, 1, 36, P.brass[1]);
-        for (const ry of [10, 18, 26, 34]) { disc(x + 31 + e, y + ry, 1.8, P.iron[0]); disc(x + 30.5 + e, y + ry - 0.5, 1.1, P.iron[4]); }
-        return;
-      }
-      box(x, y + 12, 24, 24, IRON);
-      R(x + 6, y + 13, 2, 22, P.brass[2]); R(x + 16, y + 13, 2, 22, P.brass[2]);
-      disc(x + 12, y + 11, 3, P.brass[1]); disc(x + 12, y + 11, 2, P.brass[2]);
-      const e = 4 + (o.p || 0) * 5;
-      R(x + 24, y + 21, e, 6, P.iron[0]); R(x + 24, y + 22, e, 4, P.iron[4]); R(x + 24, y + 22, e, 1, P.steam[2]);
-      box(x + 24 + e, y + 8, 11, 32, RUST);
-      for (const ry of [12, 22, 32]) rivet(x + 27 + e, y + ry, P.rust[3], P.rust[0]);
-      for (const ry of [11, 19, 27, 35]) R(x + 34 + e, y + ry, 2, 3, P.iron[3]);
-    },
     track(x, y, o) {
       // 履带六档（2026-09-29 用户定：全部采用；样机 tools/archive/track-tiers.html）。档位 = 材料 1～6（module-art 的 vis），每档一个真实的历史节点：
       // ① 博伊德尔铰接脚板轮（1846，无履带）② 熟铁板条链带（隆巴德 / 霍恩斯比）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
@@ -2826,6 +2832,9 @@ SA.SPR = (() => {
     if (l) q.gL = l;
     if (r) q.gR = r;
   }
+  // 双缸蓄力撞锤：punch 1 = 刚打出 → 0 = 已经蓄满（没贴身时一直是 0）
+  const pistonHit = (pu) => (pu > 0.6 ? (pu - 0.6) / 0.4 : 0);
+  const pistonCharge = (pu) => (pu > 0.6 ? 0 : 1 - pu / 0.6);
   function quant(id, o) {
     const q = {};
     switch (id) {
@@ -2870,7 +2879,7 @@ SA.SPR = (() => {
         if (o.g2 && o.g2.some(v => v)) q.g2 = o.g2.map(v => Math.round((v || 0) / 2) * 2);
         break;
       }
-      case 'piston': q.p = Math.round((o.punch || 0) * 3); break;
+      case 'piston': { const pu = o.punch || 0; q.c = Math.round(pistonCharge(pu) * 10); q.h = Math.round(pistonHit(pu) * 4); if (q.c < 10 || q.h) q.fr = Math.floor((o.t || 0) * 12) % 8; break; }   // 打击后 punch 从 1 衰减：前 40% 是释放震颤，之后重新蓄力
       case 'periscope': q.fr = Math.floor((o.t || 0) * 2.2) % 24; break;   // 望远镜俯仰：24 帧一轮（约 11 秒）
       case 'mortar_s': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'autoloader': q.fr = Math.floor((o.t || 0) * 3.3) % 18; break;          // 扬弹链：18 帧一轮（约 5.5 秒）
@@ -3332,7 +3341,8 @@ SA.SPR = (() => {
   // 特殊武器的汽 / 火（材质处理之后逐帧画，颜色不被换掉）
   function weaponFx(g, id, x, y, mo) {
     const T = (mo.t || 0) * 16.7, a = mo.a == null ? 0 : mo.a;
-    if (id === 'boss_core' || id === 'boss_lens') BIG.bossFx(g, id, x, y, { t: T });
+    if (id === 'piston') BIG.ramFx(g, id, x, y, { mt: SA.stageOf('piston', mo.mt || 1) >= 2 ? 5 : 1, c: pistonCharge(mo.punch || 0), hit: pistonHit(mo.punch || 0), t: T });
+    else if (id === 'boss_core' || id === 'boss_lens') BIG.bossFx(g, id, x, y, { t: T });
     else if (id === 'pressure_tank' || id === 'rangefinder') BIG.auxFx(g, id, x, y, { t: T, lv: mo.store == null ? 0.6 : mo.store });
     else if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'flamer') BIG.flamerFx(g, x, y, { a, t: T, on: mo.flash > 0 });

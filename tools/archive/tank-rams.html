@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>当前开发</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>水箱 + 撞击件</title>
+<link rel="stylesheet" href="../../css/style.css">
 <style>
   html, body { height: auto; }
   body { padding: 0 16px 64px; }
@@ -28,8 +28,12 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：暂无</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。目前没有进行中的项目。上一期（水箱纵向箍带加固、犁铧、舰艏撞角、双缸蓄力撞锤）已进游戏，归档在 <a href="archive/tank-rams.html">archive/tank-rams.html</a>。</p>
+    <h1>水箱 + 撞击件 <small style="font-size:13px;color:var(--muted);letter-spacing:0">历史存档 · 2026-09-29 定稿进游戏：水箱纵向箍带加固（T1～T6）· 铲斗 D 犁铧 · 撞角 B 舰艏撞角 · 蒸汽撞锤 B 双缸蓄力</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（Boss 唯一件：圣杯炉 / 三联活塞锤 / 旋转棱镜鼓）已进游戏，归档在 <a href="boss-uniques.html">archive/boss-uniques.html</a>；燃煤锅炉、铁装甲、重装甲、甲片按你的意思视作通过。</p>
+    <p><b>v1</b>：水箱三种加固 × 六档；铲斗、撞角、蒸汽撞锤各 6 种。</p>
+    <p><b>你的选择</b>：水箱 A 箍带加固（箍带改纵向）· 铲斗 D 犁铧 · 撞角 B 舰艏撞角 · 撞锤 B 双缸，再加一种效果：蒸汽缸其实在给一个蓄力装置蓄能，攻击 = 一下释放它（瞬间强烈冲击），然后蒸汽缸继续蓄能。</p>
+    <p><b>v2（请审查）</b>：水箱的箍带全部改成竖着走（贴着窗两边，不挡水）；撞锤改成「双缸蓄力」：两缸往复推棘爪，把锤头一格格往后拉、压紧弹簧，满了挂钩扣住；释放时弹簧把锤头弹出去 + 冲击波 + 两缸泄汽。犁铧、舰艏撞角不改。<b>确认后四样一起进游戏。</b></p>
+    <p><b>v3（撞锤）</b>：蓄力和冲击的行程加长约 30%，释放时锤头多冲出去一点再回弹；释放瞬间两缸和锤面猛喷一大团白汽；整只锤子震颤、撞击点一圈火星。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -40,10 +44,10 @@
   <div id="mods"></div>
 </div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script><script src="../js/coal.js"></script>
-<script src="material-lab.js"></script>
-<script src="current.js"></script>
-<script src="labs.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script><script src="../../js/legs.js"></script><script src="../../js/coal.js"></script>
+<script src="../material-lab.js"></script>
+<script src="tank-rams.js"></script>
+<script src="../labs.js"></script>
 <script>
 (() => {
   const L = SA.MATLAB, Q = SA.CUR, P = SA.PAL, $ = (id) => document.getElementById(id);
