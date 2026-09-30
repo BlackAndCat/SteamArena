@@ -1,285 +1,496 @@
-// 「当前开发」页的绘制代码（tools/current.html 专用）。这一页不复用：只放正在开发、等开发者确认的东西；
-// 确认后把 current.html / current.js 复制到 tools/archive/<名字>.*，在 labs.js 登记成历史存档，再把这里换成下一项。
-//
-// 本期（2026-09-29）：机甲套件核心六件——头盔驾驶舱 / 肩甲 / 背负锅炉是现有模块（驾驶舱、甲片、竖式锅炉）装在双足上的机甲外观；
-// 盾臂 / 格斗臂 / 锤剑臂 / 臂炮是全新的手臂模块（别的底盘也能装）。每种 6 个，A 多为 09-25 机甲套件（tools/mech-kit.js）的草图重画。
+// 「当前开发」页：全局子格套件（机甲套件）v4——从 tools/mech-kit.js（2026-09-25 v3）原样继承，接着开发。
+// v4（2026-09-30）：补上之前计划里有、套件里没有的零件：肩甲、背负锅炉、背水罐、喷汽背包（都是现有模块的子格外观）+ 腕枪臂（新的手臂）
+// 原说明：
+// 所有模块缩小到 1/4：24px 子格，一个旧格 = 2×2 子格，像素大小不变。零件是公共的，双足 / 履带 / 蜘蛛共用；
+// 同一零件有两种品质外观（铁制 / 钢制）。两层：
+//   车体层 —— 驾驶舱、燃炉、水罐、甲片：占格、连成车体框架；
+//   附加层 —— 机械臂（肩膀属于手臂）、盾臂、巨炮臂、剑、锤、侧炮、重炮：画在车体前面，可以盖住车体格、武器可以伸出格外。
+//   附加层规则对所有底盘一样：必须压在或贴着车体零件上；附加层之间不重叠；瞄准它时只打它（沿用侧炮规则）。
+// 只做视觉，不涉及数值。
 window.SA = window.SA || {};
 
-SA.CUR = (() => {
-  const P = SA.PAL, TAU = Math.PI * 2;
-  let g = null;
-  const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
-  const px = (x, y, c) => R(x, y, 1, 1, c);
-  const disc = (cx, cy, r, c) => {
-    g.fillStyle = c;
-    for (let yy = Math.floor(cy - r); yy <= Math.ceil(cy + r); yy++) for (let xx = Math.floor(cx - r); xx <= Math.ceil(cx + r); xx++) {
-      const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy; if (dx * dx + dy * dy <= r * r) g.fillRect(xx, yy, 1, 1);
-    }
+SA.MECHKIT = (() => {
+  const P = SA.PAL, S = 24, PADX = SA.SPR.PADX, TAU = Math.PI * 2;
+  const { Pen, U } = SA.LEGLAB;
+  const { NEAR, FAR, bone, gear, rivet } = U;
+  const B2 = SA.BIPED2;
+
+  const LOOK = {
+    L: { name: '铁制', hull: (M) => [M.iron[0], M.iron[1], M.iron[1], M.iron[2]] },
+    K: { name: '钢制', hull: (M) => [M.iron[0], M.iron[1], M.iron[2], M.iron[3]] },
   };
-  const line = (x0, y0, x1, y1, w, c) => {
-    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1, o = Math.floor(w / 2); g.fillStyle = c;
-    for (let i = 0; i <= n; i++) g.fillRect(Math.round(x0 + (x1 - x0) * i / n) - o, Math.round(y0 + (y1 - y0) * i / n) - o, w, w);
+  const SOOT = ['#141824', '#2f3850', '#6a7a9c'];
+  const shell = (s, M) => (s === 'L' ? M.iron : M.steel);
+  const flatGauge = (M) => [M.gauge[1], M.gauge[1], P.steam[2], P.steam[2]];
+
+  // ---------- 车体层零件（坐标：块的左上角） ----------
+  const PARTS = {
+    helm: {
+      name: '头盔驾驶舱', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        if (s === 'L') {
+          pn.disc(x + 12, y + 12, 10).rect(x + 2, y + 12, 20, 10).paint(M.iron);
+          pn.rect(x + 1, y + 19, 22, 4).paint(M.brass);
+          pn.disc(x + 14, y + 11, 6.2).paint(M.brass);
+          pn.disc(x + 14, y + 11, 4.6).paint([M.glass[0], M.glass[0], M.glass[0], M.glass[1]], { outline: false });
+          pn.disc(x + 14, y + 12, 3.6).paint([SOOT[0], SOOT[1], SOOT[1], SOOT[2]], { outline: false });
+          for (const ex of [x + 13, x + 16]) {
+            if (o.blink) { pn.fill(ex, y + 11, 2, 1, P.steam[2]); continue; }
+            pn.fill(ex, y + 10, 2, 2, P.white); pn.fill(ex + 1, y + 11, 1, 1, P.black);
+          }
+          pn.dot(x + 11, y + 8, M.glass[3]);
+          pn.rect(x + 7, y + 1, 4, 3).paint(M.brass, { bevel: 'l' });
+          rivet(pn, x + 4, y + 14);
+        } else {
+          pn.poly([[x + 7, y + 3], [x + 12, y], [x + 17, y + 3]]).paint(M.brass);
+          pn.poly([[x + 3, y + 5], [x + 8, y + 2], [x + 18, y + 2], [x + 22, y + 5], [x + 22, y + 22], [x + 2, y + 22], [x + 2, y + 8]]).paint(M.steel);
+          pn.fill(x + 10, y + 9, 12, 3, P.black);
+          if (!o.blink) { pn.dot(x + 15, y + 10, P.white); pn.dot(x + 19, y + 10, P.white); }
+          pn.fill(x + 10, y + 8, 12, 1, P.brass[2]); pn.fill(x + 16, y + 12, 2, 10, P.brass[2]); pn.fill(x + 17, y + 12, 1, 10, P.brass[1]);
+          for (const [dx, dy] of [[12, 15], [20, 15], [13, 18], [20, 18]]) pn.dot(x + dx, y + dy, P.iron[0]);
+          pn.fill(x + 3, y + 20, 19, 1, P.brass[2]);
+          pn.ln(x + 5, y + 7, x + 5, y + 18, M.steel[3]);
+        }
+      },
+    },
+    furnace: {
+      name: '燃炉', w: 2, h: 2, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        const ember = (k) => ((k + o.fl) % 4 === 0 ? M.fire[3] : (k + o.fl) % 2 ? M.fire[2] : M.fire[1]);
+        if (s === 'L') {
+          pn.poly([[x + 3, y + 8], [x + 8, y + 3], [x + 40, y + 3], [x + 45, y + 8], [x + 45, y + 45], [x + 3, y + 45]]).paint(M.iron);
+          for (const yy of [9, 40]) pn.rect(x + 3, y + yy, 42, 3).paint(M.brass, { outline: false });
+          pn.disc(x + 24, y + 26, 11.5).paint(M.brass);
+          pn.disc(x + 24, y + 26, 9.5).paint([P.black, M.fire[0], M.fire[0], M.fire[0]], { outline: false, bevel: '' });
+          for (let k = 0; k < 9; k++) { const a = k * 2.4, rr = (k % 3 + 1) / 3.4 * 9.5; pn.dot(x + 24 + Math.cos(a) * rr, y + 26 + Math.sin(a) * rr, ember(k)); }
+          for (let k = -2; k <= 2; k++) pn.fill(x + 23 + k * 4, y + 17, 1, 19, P.dark[0]);
+          pn.disc(x + 39, y + 20, 3.4).paint(M.brass); pn.disc(x + 39, y + 20, 2.3).paint(flatGauge(M), { outline: false, bevel: '' });
+          pn.ln(x + 39, y + 20, x + 40, y + 18, P.dark[0]);
+          rivet(pn, x + 6, y + 16); rivet(pn, x + 6, y + 33);
+        } else {
+          pn.poly([[x + 3, y + 3], [x + 45, y + 3], [x + 45, y + 30], [x + 36, y + 45], [x + 12, y + 45], [x + 3, y + 30]]).paint(M.steel);
+          pn.fill(x + 4, y + 4, 40, 2, P.brass[2]);
+          pn.ln(x + 5, y + 8, x + 17, y + 20, M.steel[3]); pn.ln(x + 43, y + 8, x + 31, y + 20, M.steel[1]);
+          pn.poly([[x + 16, y + 40], [x + 16, y + 22], [x + 24, y + 12], [x + 32, y + 22], [x + 32, y + 40]]).paint(M.brass);
+          pn.poly([[x + 18, y + 39], [x + 18, y + 23], [x + 24, y + 15], [x + 30, y + 23], [x + 30, y + 39]]).paint([P.black, M.fire[0], M.fire[0], M.fire[0]], { outline: false, bevel: '' });
+          for (let k = 0; k < 12; k++) pn.dot(x + 19 + (k * 5) % 11, y + 20 + (k * 7) % 18, ember(k));
+          for (const xx of [21, 24, 27]) pn.fill(x + xx, y + 16, 1, 24, P.dark[0]);
+          rivet(pn, x + 7, y + 10); rivet(pn, x + 39, y + 10);
+        }
+      },
+    },
+    tank: {
+      name: '水罐', w: 1, h: 2, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        pn.cap(x + 12, y + 12, x + 12, y + 37, 9).paint(shell(s, M));
+        for (const yy of [8, 39]) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
+        pn.rect(x + 9, y + 13, 7, 23).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
+        const lv = 15;
+        pn.fill(x + 10, y + 35 - lv, 5, lv, M.water[2]); pn.fill(x + 10, y + 35 - lv, 5, 1, M.water[3]);
+        pn.dot(x + 12, y + 33 - ((o.fl * 3) % lv), M.water[3]);
+        pn.rect(x + 9, y + 1, 6, 4).paint(M.brass, { bevel: 'l' });
+        if (s === 'K') { pn.ln(x + 5, y + 12, x + 5, y + 36, M.steel[3]); pn.ln(x + 19, y + 12, x + 19, y + 36, M.steel[1]); }
+      },
+    },
+    jar: {
+      name: '小水罐', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M) {
+        pn.cap(x + 12, y + 10, x + 12, y + 15, 8).paint(shell(s, M));
+        pn.rect(x + 9, y + 8, 6, 10).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
+        pn.fill(x + 10, y + 12, 4, 5, M.water[2]); pn.fill(x + 10, y + 12, 4, 1, M.water[3]);
+        pn.rect(x + 4, y + 20, 16, 2).paint(M.brass, { outline: false });
+        pn.rect(x + 10, y, 4, 3).paint(M.brass, { bevel: 'l' });
+      },
+    },
+    plate: {
+      name: '甲片', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M) {
+        if (s === 'L') {
+          pn.rect(x + 2, y + 2, 20, 20).paint(M.iron);
+          for (const [a, b] of [[4, 4], [17, 4], [4, 17], [17, 17]]) rivet(pn, x + a, y + b);
+          pn.fill(x + 3, y + 11, 18, 1, P.iron[0]); pn.fill(x + 3, y + 12, 18, 1, P.iron[3]);
+        } else {
+          pn.rect(x + 2, y + 2, 20, 20).paint(M.steel);
+          pn.fill(x + 3, y + 19, 18, 2, P.brass[2]);
+          pn.ln(x + 5, y + 5, x + 12, y + 16, M.steel[3]); pn.ln(x + 19, y + 5, x + 12, y + 16, M.steel[1]);
+          rivet(pn, x + 4, y + 4); rivet(pn, x + 17, y + 4);
+        }
+      },
+    },
+
+
+    // ---------- v4 新增（2026-09-30）：之前计划里有、套件里还没有的零件 ----------
+    // 这些都不是新模块，是现有模块的子格外观：肩甲 = 甲片、背负锅炉 = 竖式锅炉、背水罐 = 小水罐、喷汽背包 = 加压舱；手臂系列才是新模块
+    pauldron: {
+      name: '肩甲（甲片）', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        const sw = Math.round((o.swing || 0) * 1);
+        if (s === 'L') {
+          // 三片弧形甲片一层压一层，下面两片随步伐轻晃
+          for (let k = 2; k >= 0; k--) {
+            const v = y + 3 + k * 6, dx = k === 0 ? 0 : sw * (k === 2 ? 1 : 0.5), pts = [];
+            for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 + i / 10); pts.push([x + 12 + dx + Math.cos(a) * 11, v + 9 + Math.sin(a) * 7]); }
+            pts.push([x + 23 + dx, v + 11], [x + 1 + dx, v + 11]);
+            pn.poly(pts).paint(M.iron);
+            rivet(pn, x + 3 + dx, v + 5); rivet(pn, x + 19 + dx, v + 5);
+          }
+        } else {
+          // 一整片圆鼓的钢肩甲 + 高高翻起的护颈 + 黄铜包边
+          pn.poly([[x + 1, y + 9], [x + 3, y + 1], [x + 8, y + 1], [x + 9, y + 8]]).paint(M.steel);
+          const pts = [];
+          for (let i = 0; i <= 12; i++) { const a = Math.PI * (1 + i / 12); pts.push([x + 12 + Math.cos(a) * 11.5, y + 16 + Math.sin(a) * 10]); }
+          pts.push([x + 23.5, y + 21], [x + 0.5, y + 21]);
+          pn.poly(pts).paint(M.steel);
+          pn.rect(x + 1, y + 18, 22, 3).paint(M.brass, { outline: false });
+          pn.ln(x + 4, y + 11, x + 11, y + 7, M.steel[3]); pn.fill(x + 4, y + 2, 3, 1, P.brass[2]);
+          rivet(pn, x + 17, y + 11);
+        }
+      },
+    },
+    backboiler: {
+      name: '背负锅炉（竖式锅炉）', w: 1, h: 2, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        // 烟囱从肩后伸出来：机甲剪影最重要的一笔；顶上冒烟
+        pn.rect(x + 5, y - 17, 6, 22).paint(M.dark);
+        if (s === 'K') pn.rect(x + 3, y - 20, 10, 4).paint(M.brass); else pn.rect(x + 4, y - 19, 8, 3).paint(M.dark);
+        for (let k = 0; k < 3; k++) { const p = ((o.t || 0) * 0.9 + k / 3) % 1; pn.disc(x + 8 - p * 5 + Math.sin(k * 2 + p * 6), y - 22 - p * 14, 1.3 + p * 2.6).paint(p < 0.5 ? [P.steam[1], P.steam[2], P.steam[2], P.white] : M.steam, { outline: false }); }
+        pn.cap(x + 12, y + 10, x + 12, y + 38, 9.5).paint(shell(s, M));
+        const bands = s === 'K' ? [8, 22, 37] : [9, 35];
+        for (const yy of bands) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
+        if (s === 'K') { pn.disc(x + 15, y + 16, 3.2).paint(M.brass); pn.disc(x + 15, y + 16, 2.2).paint(flatGauge(M), { outline: false, bevel: '' }); pn.ln(x + 15, y + 16, x + 16, y + 14, P.dark[0]); }
+        else { rivet(pn, x + 5, y + 14); rivet(pn, x + 5, y + 26); }
+        // 炉门：透出炉火
+        pn.rect(x + 6, y + 27, 11, 8).paint(M.dark);
+        for (let k = 0; k < 6; k++) pn.dot(x + 8 + (k * 3) % 8, y + 29 + (k % 3) * 2, (k + o.fl) % 3 ? M.fire[2] : M.fire[3]);
+        // 背带勒到躯干上
+        for (const yy of [12, 30]) pn.rect(x + 19, y + yy, 6, 3).paint(M.leather, { bevel: 'l' });
+      },
+    },
+    backjar: {
+      name: '背水罐（小水罐）', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        for (const cx of [7, 17]) {
+          pn.cap(x + cx, y + 6, x + cx, y + 17, 5).paint(shell(s, M));
+          pn.rect(x + cx - 2, y + 6, 4, 10).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
+          pn.fill(x + cx - 1, y + 10, 2, 5, M.water[2]); pn.fill(x + cx - 1, y + 10, 2, 1, M.water[3]);
+          pn.rect(x + cx - 2, y, 4, 3).paint(M.brass, { bevel: 'l' });
+        }
+        pn.rect(x + 1, y + 12, 22, 3).paint(s === 'K' ? M.brass : M.leather, { bevel: 'l' });
+        pn.cap(x + 7, y + 2, x + 17, y + 2, 0.9).paint(M.brass, { outline: false });
+      },
+    },
+    jetpack: {
+      name: '喷汽背包（加压舱）', w: 1, h: 1, layer: 'body',
+      draw(pn, x, y, s, M, o) {
+        // 背后一只加压箱 + 两只朝下的喷口；走起来喷口一直往下冒一点汽，站定时只剩一丝
+        pn.rect(x + 3, y + 1, 18, 14).paint(shell(s, M));
+        pn.rect(x + 3, y + 6, 18, 2).paint(M.brass, { outline: false });
+        if (s === 'K') { pn.disc(x + 12, y + 4, 2.4).paint(M.brass); pn.dot(x + 12, y + 4, P.dark[0]); } else { rivet(pn, x + 5, y + 10); rivet(pn, x + 17, y + 10); }
+        for (const cx of [7, 17]) pn.poly([[x + cx - 2, y + 15], [x + cx + 2, y + 15], [x + cx + 4, y + 22], [x + cx - 4, y + 22]]).paint(M.brass);
+        const n = o.mv ? 4 : 1;
+        for (const cx of [7, 17]) for (let k = 0; k < n; k++) { const p = ((o.t || 0) * 1.6 + k / n + cx * 0.07) % 1; pn.disc(x + cx + Math.sin(k * 3 + p * 5), y + 24 + p * (o.mv ? 12 : 5), 1 + p * (o.mv ? 3 : 1.4)).paint(p < 0.4 ? [P.steam[1], P.steam[2], P.white, P.white] : M.steam, { outline: false }); }
+      },
+    },
+
+    // ---------- 附加层 ----------
+    arm_fist: { name: '格斗臂', w: 2, h: 3, layer: 'add', arm: 'fist', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'fist') },
+    arm_sword: { name: '剑臂', w: 2, h: 3, layer: 'add', arm: 'sword', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'sword') },
+    arm_hammer: { name: '锤臂', w: 2, h: 3, layer: 'add', arm: 'hammer', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'hammer') },
+    arm_cannon: { name: '巨炮臂', w: 2, h: 3, layer: 'add', arm: 'cannon', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'cannon') },
+    arm_shield: { name: '盾臂', w: 2, h: 3, layer: 'add', arm: 'shield', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'shield') },
+    arm_mg: { name: '腕枪臂', w: 2, h: 3, layer: 'add', arm: 'mg', draw: (pn, x, y, s, M, o) => arm(pn, x, y, s, M, o, 'mg') },   // v4 新增：护手拳 + 小臂上一挺短机枪
+    heavy: {
+      name: '重炮', w: 2, h: 2, layer: 'add',
+      draw(pn, x, y, s, M, o) {
+        // 炮座压在车体上，耳轴架起一根长炮管（伸出块外一格），炮管下两根复进气缸
+        const k = Math.round((o.recoil || 0) * 5), py = y + 30;
+        pn.poly([[x + 6, y + 48], [x + 10, y + 36], [x + 26, y + 36], [x + 30, y + 48]]).paint(M.iron);
+        pn.rect(x + 7, y + 44, 22, 2).paint(M.brass, { outline: false });
+        pn.cap(x + 14 - k, py + 7, x + 44 - k, py + 7, 1.6).paint(M.steam, { bevel: 'l' });
+        pn.poly([[x + 2 - k, py - 7], [x + 26 - k, py - 7], [x + 26 - k, py + 7], [x + 2 - k, py + 7]]).paint(shell(s, M));
+        pn.poly([[x + 24 - k, py - 5], [x + 66 - k, py - 4], [x + 66 - k, py + 4], [x + 24 - k, py + 5]]).paint(shell(s, M));
+        pn.rect(x + 64 - k, py - 6, 7, 12).paint(M.brass);
+        pn.fill(x + 70 - k, py - 2, 1, 4, P.black);
+        for (const xx of [30, 44, 56]) pn.fill(x + xx - k, py - 5, 2, 10, P.brass[2]);
+        pn.ln(x + 26 - k, py - 3, x + 62 - k, py - 2, s === 'L' ? M.iron[3] : M.steel[3]);
+        pn.disc(x + 18, py + 3, 4.2).paint(M.brass); pn.dot(x + 18, py + 3, P.brass[0]);
+        rivet(pn, x + 5 - k, py - 4);
+      },
+    },
+    sidegun: {
+      name: '侧炮', w: 2, h: 1, layer: 'add',
+      draw(pn, x, y, s, M) {
+        // 铆接悬臂从车体伸出来，托着一门中口径炮
+        pn.poly([[x - 2, y + 9], [x + 16, y + 11], [x + 16, y + 17], [x - 2, y + 19]]).paint(M.dark);
+        rivet(pn, x + 1, y + 13); rivet(pn, x + 10, y + 13);
+        pn.rect(x + 12, y + 6, 18, 12).paint(shell(s, M));
+        pn.rect(x + 28, y + 9, 24, 6).paint(shell(s, M));
+        pn.rect(x + 50, y + 8, 4, 8).paint(M.brass);
+        pn.fill(x + 36, y + 9, 2, 6, P.brass[2]);
+        pn.disc(x + 18, y + 12, 2.6).paint(M.brass);
+      },
+    },
   };
-  const ring = (cx, cy, r, c) => { const n = Math.ceil(r * 7); for (let i = 0; i < n; i++) { const a = i / n * TAU; px(Math.floor(cx + Math.cos(a) * r), Math.floor(cy + Math.sin(a) * r), c); } };
-  const IRON = [P.iron[0], P.iron[1], P.iron[2], P.iron[3]], IRONL = [P.iron[0], P.iron[2], P.iron[3], P.iron[4]], BRASS = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]], DARK = [P.dark[0], P.dark[1], P.dark[2], P.dark[3]];
-  const LEATHER = [P.black, P.leather[0], P.leather[1], P.leather[2]], WATER = [P.water[0], P.water[1], P.water[2], P.water[3]];
-  const box = (x, y, w, h, r) => { R(x, y, w, h, r[0]); R(x + 1, y + 1, w - 2, h - 2, r[2]); R(x + 1, y + h - 2, w - 2, 1, r[1]); R(x + w - 2, y + 1, 1, h - 2, r[1]); R(x + 1, y + 1, w - 2, 1, r[3]); R(x + 1, y + 1, 1, h - 2, r[3]); };
-  const rivet = (x, y) => { R(x, y, 2, 2, P.iron[4]); px(x + 1, y + 1, P.iron[2]); };
-  // 任意形状按像素判定上色：外沿描边、左上两像素亮、右下两像素暗
-  function shape(test, x0, y0, x1, y1, r = IRONL) {
-    const inn = (xx, yy) => test(xx + 0.5, yy + 0.5);
-    for (let yy = Math.floor(y0); yy <= Math.ceil(y1); yy++) for (let xx = Math.floor(x0); xx <= Math.ceil(x1); xx++) {
-      if (!inn(xx, yy)) continue;
-      if (!inn(xx - 1, yy) || !inn(xx + 1, yy) || !inn(xx, yy - 1) || !inn(xx, yy + 1)) { px(xx, yy, r[0]); continue; }
-      px(xx, yy, !inn(xx - 2, yy) || !inn(xx, yy - 2) ? r[3] : !inn(xx + 2, yy) || !inn(xx, yy + 2) ? r[1] : r[2]);
+
+  // 机械臂：肩膀属于手臂模块。肩关节 + 肩甲 → 大臂 → 肘 → 小臂 → 手 / 武器；随步伐反向摆
+  function arm(pn, x, y, s, M, o, end) {
+    const R = shell(s, M), sw = o.swing || 0;
+    const sx = x + 14, sy = y + 12;
+    const ex = sx + 2 + sw * 4, ey = sy + 26;
+    const W = { mg: [ex + 13, ey + 13], fist: [ex + 13, ey + 16], sword: [ex + 13, ey + 10], hammer: [ex + 12, ey + 12], cannon: [ex + 4, ey + 2], shield: [ex + 14, ey + 4] }[end];
+    const [wx, wy] = W;
+    // 武器在手后面先画
+    if (end === 'sword') sword(pn, wx, wy, -0.62 + sw * 0.08, s, M);
+    if (end === 'hammer') hammer(pn, wx, wy, 0.55 + sw * 0.1, s, M);
+    // 大臂
+    const UA = bone(sx, sy, ex, ey);
+    pn.poly(UA.pts([[0, -6], [0, 6], [UA.len, 5], [UA.len, -5]])).paint(R);
+    if (s === 'L') pn.ln(...UA.p(3, -6.2), ...UA.p(UA.len - 3, -5), M.steam[3]);
+    else pn.ln(...UA.p(2, 2.4), ...UA.p(UA.len - 2, 2), M.steel[3]);
+    // 小臂 / 炮
+    if (end === 'cannon') bigGun(pn, ex, ey, s, M, o);
+    else {
+      const FA = bone(ex, ey, wx, wy);
+      pn.poly(FA.pts([[0, -5], [0, 5], [FA.len, 6.4], [FA.len, -6]])).paint(R);
+      if (s === 'K') { pn.ln(...FA.p(2, 2.4), ...FA.p(FA.len - 1, 3), M.steel[3]); pn.fill(...FA.p(FA.len - 3, -5), 1, 1, P.brass[2]); }
+      else pn.ln(...FA.p(2, -5), ...FA.p(FA.len - 2, -6), M.steam[3]);
+      if (end === 'shield') shieldOn(pn, wx + 4, wy - 4, s, M);
+      else hand(pn, FA, s, M, end === 'mg' ? 'fist' : end);
+      if (end === 'mg') wristGun(pn, FA, s, M, o);
+    }
+    // 肘
+    if (s === 'L') { pn.disc(ex, ey, 4.4).paint(M.brass); pn.dot(ex, ey, P.brass[0]); }
+    else {
+      pn.disc(ex - 2.5, ey + 0.5, 5.2).paint(M.brass);
+      for (let k = 0; k < 5; k++) { const a = Math.PI * (0.55 + k / 4 * 0.9); pn.ln(ex - 2.5 + Math.cos(a) * 1.4, ey + 0.5 + Math.sin(a) * 1.4, ex - 2.5 + Math.cos(a) * 4.5, ey + 0.5 + Math.sin(a) * 4.5, M.brass[1]); }
+      pn.disc(ex + 0.5, ey, 3).paint(M.steel);
+    }
+    // 肩：关节轴套 + 肩甲（不大于大臂的两倍宽，不抢戏）
+    pn.disc(sx, sy, 6.5).paint(M.dark);
+    if (s === 'L') {
+      pn.poly([[sx - 9, sy - 1], [sx - 6, sy - 8], [sx + 5, sy - 9], [sx + 10, sy - 3], [sx + 8, sy + 3], [sx - 8, sy + 3]]).paint(M.iron);
+      pn.disc(sx, sy - 2, 2.6).paint(M.brass);
+      rivet(pn, sx - 6, sy - 4); rivet(pn, sx + 5, sy - 5);
+    } else {
+      pn.poly([[sx - 10, sy + 1], [sx - 8, sy - 7], [sx - 1, sy - 11], [sx + 8, sy - 9], [sx + 12, sy - 2], [sx + 11, sy + 4], [sx - 9, sy + 5]]).paint(M.steel);
+      pn.poly([[sx - 9, sy + 4], [sx + 11, sy + 3], [sx + 10, sy + 8], [sx - 8, sy + 9]]).paint(M.steel);
+      pn.ln(sx - 9, sy + 3, sx + 11, sy + 2, P.brass[2]); pn.ln(sx - 8, sy + 8, sx + 10, sy + 7, P.brass[2]);
+      pn.ln(sx - 7, sy - 6, sx - 1, sy - 10, M.steel[3]);
+      rivet(pn, sx + 5, sy - 6);
     }
   }
-  const inPoly = (pts) => (x, y) => { let s = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) s = !s; } return s; };
-  const poly = (pts, r) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); shape(inPoly(pts), Math.min(...xs) - 1, Math.min(...ys) - 1, Math.max(...xs) + 1, Math.max(...ys) + 1, r); };
-  const ball = (cx, cy, rr, r) => shape((x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= rr * rr, cx - rr - 1, cy - rr - 1, cx + rr + 1, cy + rr + 1, r);
-  const vtube = (x, y, w, h, r = IRONL) => { R(x, y, w, h, r[0]); R(x + 1, y, w - 2, h, r[2]); R(x + 1, y, 1, h, r[3]); if (w > 3) R(x + w - 2, y, 1, h, r[1]); };
-  const htube = (x, y, w, h, r = IRONL) => { R(x, y, w, h, r[0]); R(x, y + 1, w, h - 2, r[2]); R(x, y + 1, w, 1, r[3]); if (h > 3) R(x, y + h - 2, w, 1, r[1]); };
-  const lens = (x, y, w, h, glint) => { R(x, y, w, h, P.glass[0]); if (w > 2 && h > 2) R(x + 1, y + 1, w - 2, h - 2, P.glass[2]); px(x + (w > 2 ? 1 : 0), y + (h > 2 ? 1 : 0), glint ? P.white : P.glass[3]); };
-  const puff = (x, y, t, n = 3, rise = 8) => { for (let k = 0; k < n; k++) { const p = ((t * 0.04 + k / n) % 1); disc(x + Math.sin(p * 6 + k) * 1.5, y - p * rise, 0.8 + p * 1.6, p < 0.5 ? P.steam[2] : P.steam[1]); } };
-  // 黄铜炮弹：横放（弹壳 + 铁弹头 + 底火）/ 竖放
-  const shellH = (x, y, l = 9) => { R(x, y, l - 3, 3, P.brass[1]); R(x, y, l - 3, 1, P.brass[3]); R(x, y + 2, l - 3, 1, P.brass[0]); R(x + l - 3, y, 2, 3, P.iron[3]); px(x + l - 1, y + 1, P.iron[3]); px(x + l - 3, y, P.iron[4]); px(x, y + 1, P.brass[0]); };
-  const shellV = (x, y, l = 9) => { R(x, y + 3, 3, l - 3, P.brass[1]); R(x, y + 3, 1, l - 3, P.brass[3]); R(x + 2, y + 3, 1, l - 3, P.brass[0]); R(x, y + 1, 3, 2, P.iron[3]); px(x + 1, y, P.iron[3]); px(x, y + 1, P.iron[4]); px(x + 1, y + l - 1, P.brass[0]); };
-  const gear = (cx, cy, r, n, rot, ramp = BRASS) => { shape((x, y) => { const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx) - rot; return d <= r - 1 || (d <= r + 0.6 && Math.cos(a * n) > 0.2); }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2, ramp); disc(cx, cy, Math.max(0.8, r * 0.3), P.iron[0]); };
-  function gauge(cx, cy, r, v = 0.6) {
-    disc(cx, cy, r, P.brass[0]); disc(cx, cy, r - 1, P.steam[2]);
-    const a = Math.PI * (0.75 + 1.5 * v), L = Math.max(1.5, r - 1.5);
-    line(Math.round(cx - 0.5), Math.round(cy - 0.5), Math.round(cx - 0.5 + Math.cos(a) * L), Math.round(cy - 0.5 + Math.sin(a) * L), 1, P.dark[0]);
+  function hand(pn, FA, s, M, end) {
+    if (end === 'fist' && s === 'L') {
+      // 三指液压爪
+      for (const [f, bend] of [[4, 3], [0, 4], [-4, 2]]) { const b = FA.p(FA.len + 5, f), t = FA.p(FA.len + 8, f + bend); pn.cap(...FA.p(FA.len, f * 0.8), ...b, 1.4).cap(...b, ...t, 1.1); }
+      pn.paint(M.brass, { bevel: 'l' });
+      pn.poly(FA.pts([[FA.len - 2, -6], [FA.len - 2, 6], [FA.len + 3, 6], [FA.len + 3, -6]])).paint(M.iron);
+      return;
+    }
+    // 护手拳：握着武器时小一点
+    const big = end === 'fist' ? 1 : 0.8;
+    pn.poly(FA.pts([[FA.len - 2, -6 * big], [FA.len - 2, 6.5 * big], [FA.len + 8 * big, 6 * big], [FA.len + 9 * big, -5 * big]])).paint(shell(s, M));
+    pn.ln(...FA.p(FA.len + 5 * big, -5 * big), ...FA.p(FA.len + 5 * big, 6 * big), (s === 'L' ? M.iron : M.steel)[1]);
+    if (s === 'K') pn.ln(...FA.p(FA.len - 1, -5), ...FA.p(FA.len - 1, 6), P.brass[2]);
   }
-  const plinth = (x, y, x0, x1, top, bot = 24) => { box(x + x0, y + top, x1 - x0, bot - top, IRON); if (x1 - x0 > 8) { rivet(x + x0 + 2, y + top + 2); rivet(x + x1 - 4, y + top + 2); } };
-  const saw = (t, per) => ((t % per) + per) % per / per;   // 0～1 锯齿
-
-
-
-
-
-  // ================= 共用 =================
-  const bolt = (x, y) => { px(x, y, P.iron[4]); px(x + 1, y + 1, P.iron[0]); };
-  const band = (x, y, w, h = 2) => { R(x, y, w, h, P.brass[1]); R(x, y, w, 1, P.brass[3]); };
-  // 沿 a → b 的一段「骨头」：两头宽度 w0 / w1 的四边形
-  function quad(ax, ay, bx, by, w0, w1, ramp = IRONL) {
-    const L = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / L, ny = (bx - ax) / L;
-    poly([[ax + nx * w0, ay + ny * w0], [bx + nx * w1, by + ny * w1], [bx - nx * w1, by - ny * w1], [ax - nx * w0, ay - ny * w0]], ramp);
+  // 腕枪：绑在小臂外侧的一挺短机枪（弹鼓在下），枪口伸过拳头；开火时枪口一闪
+  function wristGun(pn, FA, s, M, o) {
+    // 暗色机匣贴在小臂外侧 → 一根亮钢枪管伸过拳头 → 黄铜枪口；机匣上顶一只黄铜弹鼓；两道箍把机匣绑在小臂上
+    const k = Math.round((o.recoil || 0) * 2), L = FA.len;
+    pn.poly(FA.pts([[1 - k, -13], [L + 1 - k, -13], [L + 1 - k, -6], [1 - k, -6]])).paint(M.dark);
+    pn.poly(FA.pts([[L - k, -11], [L + 18 - k, -11], [L + 18 - k, -8], [L - k, -8]])).paint(M.steel);
+    pn.poly(FA.pts([[L + 15 - k, -12.5], [L + 19 - k, -12.5], [L + 19 - k, -6.5], [L + 15 - k, -6.5]])).paint(M.brass);
+    pn.disc(...FA.p(8 - k, -15.5), 4).paint(M.brass); pn.disc(...FA.p(8 - k, -15.5), 1.6).paint(M.dark, { outline: false });
+    for (const u of [4, L - 4]) pn.poly(FA.pts([[u, -13.5], [u + 2, -13.5], [u + 2, 5.5], [u, 5.5]])).paint(s === 'K' ? M.brass : M.leather, { outline: false });
+    if ((o.fl || 0) % 2 === 0 && o.mv) { const [mx, my] = FA.p(L + 21 - k, -9.5); pn.disc(mx, my, 1.6).paint([P.fire[1], P.fire[2], P.fire[3], P.white], { outline: false }); }
   }
-  const STEEL = [P.iron[0], P.iron[2], P.iron[3], P.iron[4]];
-  const KEEL = [P.black, P.iron[0], P.iron[1], P.iron[3]];
-
-  // ================= 机械臂的公共骨架（新模块，2×3 子格 = 48×72；肩膀属于手臂）=================
-  // 肩在 (14,12)（装到机甲上正好在胸口正中），肘在下方，手腕按姿势走。o.sw = 走路摆臂 -1～1，o.atk = 出招 0～1
-  // style：'iron' 铁条臂 · 'steel' 钢臂 + 黄铜肘 · 'hyd' 大臂外挂液压缸 · 'cage' 桁架臂（镂空）
-  function armFrame(x, y, style, o, wrist) {
-    const sx = x + 14, sy = y + 12, ex = sx + 2 + (o.sw || 0) * 3, ey = sy + 24, [wx, wy] = wrist(ex, ey);
-    if (style === 'cage') {
-      for (const s of [-3.5, 3.5]) { line(sx + s * 0.3, sy + s, ex + s * 0.3, ey + s * 0.2, 2, P.iron[0]); line(sx + s * 0.3, sy + s, ex + s * 0.3, ey + s * 0.2, 1, P.iron[3]); }
-      for (let k = 1; k < 4; k++) { const u = k / 4; line(sx + (ex - sx) * u - 3, sy + (ey - sy) * u - 3, sx + (ex - sx) * (u + 0.2) + 3, sy + (ey - sy) * (u + 0.2) + 3, 1, P.iron[2]); }
-    } else quad(sx, sy, ex, ey, 6, 5, style === 'steel' ? STEEL : IRONL);
-    if (style === 'hyd') { line(sx - 5, sy + 3, (ex + wx) / 2 - 3, (ey + wy) / 2 + 3, 3, P.iron[0]); line(sx - 5, sy + 3, sx + (ex - sx) * 0.6 - 4, sy + (ey - sy) * 0.6 + 3, 2, P.brass[1]); line(sx + (ex - sx) * 0.6 - 4, sy + (ey - sy) * 0.6 + 3, (ex + wx) / 2 - 3, (ey + wy) / 2 + 3, 1, P.iron[4]); }
-    quad(ex, ey, wx, wy, 5, 6, style === 'steel' ? STEEL : IRONL);
-    disc(ex, ey, style === 'steel' ? 5 : 4.2, P.brass[0]); disc(ex, ey, style === 'steel' ? 4 : 3.2, P.brass[1]); px(ex - 1, ey - 1, P.brass[3]);
-    disc(sx, sy, 6.5, P.dark[1]); disc(sx, sy, 3, P.dark[0]);
-    // 肩甲（不超过大臂两倍宽）
-    poly([[sx - 9, sy - 1], [sx - 6, sy - 8], [sx + 5, sy - 9], [sx + 10, sy - 3], [sx + 8, sy + 3], [sx - 8, sy + 3]], style === 'steel' ? STEEL : IRONL);
-    if (style === 'steel') { R(sx - 8, sy + 2, 17, 1, P.brass[2]); } else { bolt(sx - 6, sy - 4); bolt(sx + 5, sy - 5); }
-    return { sx, sy, ex, ey, wx, wy, a: Math.atan2(wy - ey, wx - ex) };
+  function sword(pn, wx, wy, a, s, M) {
+    const B = bone(wx, wy, wx + Math.cos(a) * 50, wy + Math.sin(a) * 50);
+    pn.poly(B.pts([[-7, -1.6], [-7, 1.6], [0, 1.6], [0, -1.6]])).paint(M.leather);
+    pn.disc(...B.p(-8, 0), 2).paint(M.brass);
+    pn.poly(B.pts([[5, -3], [5, 3], [48, 0.8], [52, 0], [48, -0.8]])).paint([P.iron[0], P.iron[3], P.iron[4], P.white]);
+    pn.ln(...B.p(7, 0), ...B.p(44, 0), P.iron[2]);
+    pn.poly(B.pts([[2, -8], [5, -8], [5, 8], [2, 8]])).paint(M.brass);
   }
-  const idleWrist = (o) => (ex, ey) => [ex + 12 + (o.atk || 0) * 9, ey + 14 - (o.atk || 0) * 10];   // 默认：小臂朝前下；出招时往前平伸
-  // 在手腕处按小臂方向画东西：f(u, v) → 世界坐标（u 沿小臂向前，v 垂直向下）
-  const along = (F) => { const c = Math.cos(F.a), s = Math.sin(F.a); return (u, v) => [F.wx + c * u - s * v, F.wy + s * u + c * v]; };
-  const polyA = (at, pts, ramp) => poly(pts.map(([u, v]) => at(u, v)), ramp);
-  const fist = (F, ramp = IRONL) => { const at = along(F); polyA(at, [[-2, -6], [8, -5], [9, 5], [-2, 6]], ramp); line(...at(5, -5), ...at(5, 5), 1, P.iron[1]); };
-
-  // ================= 盾臂 arm_shield（新：机械臂 + 盾，挡正面）=================
-  const SHIELD = [
-    { key: 'A', name: '鸢形铁盾', ref: '（09-25 机甲套件 · 铁制盾臂重画）', style: 'iron',
-      idea: '铁条手臂端着一面尖底的鸢形铁盾挡在胸前，盾上一道观察缝、中间一只黄铜盾钉、两排铆钉。出招时盾往前一顶。',
-      shield(cx, cy) { poly([[cx - 11, cy - 20], [cx + 11, cy - 20], [cx + 11, cy + 14], [cx, cy + 22], [cx - 11, cy + 14]], IRONL); R(cx - 7, cy - 14, 14, 2, P.black); disc(cx, cy + 1, 4, P.brass[1]); px(cx - 1, cy, P.brass[3]); for (const v of [-17, -6, 9]) { bolt(cx - 10, cy + v); bolt(cx + 8, cy + v); } } },
-    { key: 'B', name: '齿轮纹盾', ref: '（09-25 机甲套件 · 钢制盾臂重画）', style: 'steel',
-      idea: '钢臂（黄铜肘）端着一面黄铜包边的尖底盾，盾心一只大齿轮纹章，下面一道黄铜竖筋。钢制的「骑士」感。',
-      shield(cx, cy) { poly([[cx - 13, cy - 21], [cx + 13, cy - 21], [cx + 13, cy + 3], [cx, cy + 24], [cx - 13, cy + 3]], BRASS); poly([[cx - 11, cy - 19], [cx + 11, cy - 19], [cx + 11, cy + 2], [cx, cy + 21], [cx - 11, cy + 2]], STEEL); gear(cx, cy - 5, 6, 10, 0.2); R(cx - 1, cy + 4, 2, 12, P.brass[2]); } },
-    { key: 'C', name: '塔盾', ref: '新：又高又直的长方塔盾（观察窗 + 支脚）',
-      idea: '一面又高又直的长方形塔盾，几乎和躯干一样高，上面一扇带铁条的小观察窗，盾底一只可以撑地的支脚；最「挡」，正面几乎全盖住。', style: 'hyd',
-      shield(cx, cy) { box(cx - 10, cy - 26, 20, 50, IRONL); R(cx - 6, cy - 20, 12, 5, P.dark[0]); for (const u of [-3, 0, 3]) R(cx + u, cy - 20, 1, 5, P.iron[3]); for (let v = -12; v < 22; v += 8) { R(cx - 9, cy + v, 18, 1, P.iron[1]); bolt(cx - 8, cy + v + 2); bolt(cx + 7, cy + v + 2); } R(cx - 2, cy + 24, 4, 5, P.iron[1]); } },
-    { key: 'D', name: '锅炉门盾', ref: '新：一扇铆接锅炉门当盾（铰链 + 门闩 + 观火孔）',
-      idea: '一扇厚厚的铆接锅炉门被当成了盾：左边两只大铰链、右边一根门闩、正中一只带盖的圆形观火孔，门边一圈铆钉。最蒸汽、最有「随手拿来当盾」的工业感。', style: 'iron',
-      shield(cx, cy) { box(cx - 12, cy - 20, 24, 40, IRONL); for (let v = -18; v < 20; v += 4) { bolt(cx - 11, cy + v); bolt(cx + 10, cy + v); } for (const v of [-12, 10]) { R(cx - 15, cy + v, 6, 4, P.iron[0]); R(cx - 14, cy + v + 1, 4, 2, P.iron[3]); } R(cx + 6, cy - 2, 7, 3, P.brass[1]); disc(cx - 1, cy - 5, 4.5, P.iron[0]); disc(cx - 1, cy - 5, 3.2, P.dark[0]); px(cx - 2, cy - 6, P.fire[1]); R(cx - 5, cy - 9, 8, 2, P.iron[3]); } },
-    { key: 'E', name: '折扇盾', ref: '新：几片钢板像折扇一样张开（平时收在小臂上）',
-      idea: '五片弧形钢板叠在小臂上，挡的时候像折扇一样「唰」地张开成一面半圆盾（页面上出招时张开、平时收拢），扇骨根部一只黄铜轴。会动，最有机关感。', style: 'steel',
-      shield(cx, cy, o) { const k = 0.35 + (o.atk || 0) * 0.65; for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.42 * k, a2 = a + 0.36 * k + 0.1; poly([[cx - 8, cy + 10], [cx - 8 + Math.cos(a) * 26, cy + 10 + Math.sin(a) * 26], [cx - 8 + Math.cos(a2) * 26, cy + 10 + Math.sin(a2) * 26]], i % 2 ? STEEL : IRONL); } disc(cx - 8, cy + 10, 3.2, P.brass[1]); px(cx - 9, cy + 9, P.brass[3]); } },
-    { key: 'F', name: '百叶防盾', ref: '新：炮盾式的百叶防盾（一排斜百叶 + 射击孔）',
-      idea: '一面方正的防盾，正面是一排斜着的百叶（子弹打上来往下弹），上沿一道折边、正中一只射击孔；像一战机枪手的炮盾被装到了手臂上。', style: 'hyd',
-      shield(cx, cy) { box(cx - 12, cy - 20, 24, 42, IRONL); for (let v = -15; v < 19; v += 4) { R(cx - 10, cy + v, 20, 2, P.iron[1]); R(cx - 10, cy + v, 20, 1, P.iron[4]); } R(cx - 13, cy - 21, 26, 3, P.iron[0]); R(cx - 12, cy - 21, 24, 1, P.iron[3]); R(cx - 2, cy - 4, 4, 3, P.black); } },
-  ].map((e) => ({ ...e, draw(x, y, o) { const F = armFrame(x, y, e.style, o, (ex, ey) => [ex + 11 + (o.atk || 0) * 5, ey + 4]); e.shield(F.wx + 4, F.wy - 4, o); } }));
-
-  // ================= 格斗臂 arm_fist（新：贴身出拳）=================
-  const FIST = [
-    { key: 'A', name: '三指液压爪', ref: '（09-25 机甲套件 · 铁制格斗臂重画）', style: 'iron',
-      idea: '铁条手臂末端一只三指液压爪（黄铜指节），出招时整条小臂往前平伸、三指张开抓过去。',
-      hand(F, o) { const at = along(F), op = o.atk || 0; polyA(at, [[-2, -6], [3, -6], [3, 6], [-2, 6]], IRONL); for (const [f, b] of [[4, 3], [0, 4], [-4, 2]]) { const k = f + b * (1 - op) + (op * f * 0.5); line(...at(3, f * 0.8), ...at(8, f), 2, P.brass[1]); line(...at(8, f), ...at(11, k), 2, P.brass[2]); } } },
-    { key: 'B', name: '护手铁拳', ref: '（09-25 机甲套件 · 钢制格斗臂重画）', style: 'steel',
-      idea: '钢臂末端一只护手铁拳（一道黄铜指节箍），出招就是一记直拳。最朴素、最好认。',
-      hand(F) { fist(F, STEEL); const at = along(F); line(...at(-1, -5), ...at(-1, 6), 1, P.brass[2]); } },
-    { key: 'C', name: '蒸汽冲拳', ref: '新：拳头后面一只蒸汽活塞，出拳时拳头被活塞「弹」出去',
-      idea: '小臂里藏着一只蒸汽活塞，拳头装在活塞杆上：出拳时手臂先前伸，拳头再被活塞猛地弹出去一截（露出亮钢活塞杆），拳后喷一口白汽。和蒸汽撞锤是一家。', style: 'hyd',
-      hand(F, o) { const at = along(F), e = (o.atk || 0) * 7; line(...at(0, 0), ...at(e, 0), 2, P.iron[4]); const G = { ...F, wx: at(e, 0)[0], wy: at(e, 0)[1] }; fist(G); band(...at(-4, -6).map(Math.round), 3, 3); } ,
-      fx(F, o) { if ((o.atk || 0) > 0.7) puff(...along(F)(-2, -6), o.t, 2, 5); } },
-    { key: 'D', name: '指虎重拳', ref: '新：一只特大的拳头，指节上套一排黄铜指虎（带钉）',
-      idea: '一只特大的铁拳（比别的拳头大一圈），四个指节上套着一排带钉的黄铜指虎；拳头大、手臂细，最有「一拳下去」的分量。', style: 'iron',
-      hand(F) { const at = along(F); polyA(at, [[-2, -8], [11, -7], [12, 7], [-2, 8]], IRONL); for (let k = -6; k <= 6; k += 4) { line(...at(11, k), ...at(12, k + 2), 2, P.brass[1]); px(...at(14, k + 1), P.iron[4]); } line(...at(7, -7), ...at(7, 7), 1, P.iron[1]); } },
-    { key: 'E', name: '虎钳爪', ref: '新：车间的虎钳改成手（两块钳口 + 丝杠）',
-      idea: '手是一台车间虎钳：上下两块带齿的钳口，后面一根丝杠和转柄；出招时钳口「咔」地夹紧。工业味最足，一看就是「抓住就不放」。', style: 'cage',
-      hand(F, o) { const at = along(F), g2 = 5 - (o.atk || 0) * 3; polyA(at, [[-2, -6], [4, -6], [4, 6], [-2, 6]], IRONL); for (const s of [-1, 1]) polyA(at, [[4, s * g2], [14, s * g2], [14, s * (g2 + 4)], [4, s * (g2 + 4)]], IRONL); for (let u = 6; u < 14; u += 2) { px(...at(u, -g2 + 0.5), P.iron[4]); px(...at(u, g2 - 0.5), P.iron[4]); } line(...at(-2, 0), ...at(-8, 0), 1, P.iron[4]); line(...at(-8, -3), ...at(-8, 3), 1, P.brass[2]); } },
-    { key: 'F', name: '钳爪', ref: '新：两根弯曲的钳指（像起重机的抓钩）',
-      idea: '手是两根弯曲的铁钳指，像起重机抓钩一样一张一合（出招时合拢），钳指内侧一排小齿，根部一只黄铜转轴。剪影是一只张开的钳子。', style: 'hyd',
-      hand(F, o) { const at = along(F), op = 1 - (o.atk || 0); disc(...at(1, 0), 3, P.brass[1]); for (const s of [-1, 1]) { const pts = []; for (let k = 0; k <= 6; k++) { const u = k / 6; pts.push(at(2 + u * 12, s * (2 + Math.sin(u * Math.PI) * (3 + op * 4) - u * 3))); } for (let k = 1; k < pts.length; k++) line(...pts[k - 1], ...pts[k], 2, P.iron[3]); px(...pts[6], P.iron[4]); } } },
-  ].map((e) => ({ ...e, draw(x, y, o) { const F = armFrame(x, y, e.style, o, idleWrist(o)); e.hand(F, o); }, fx: e.fx ? function (x, y, o) { const sx = x + 14, sy = y + 12, ex = sx + 2 + (o.sw || 0) * 3, ey = sy + 24, [wx, wy] = idleWrist(o)(ex, ey); e.fx({ wx, wy, a: Math.atan2(wy - ey, wx - ex) }, o); } : undefined }));
-
-  // ================= 锤臂 / 剑臂 arm_blade（新：挥砍 / 砸）=================
-  // o.atk：0 = 举起，1 = 劈到前下方
-  const swingA = (o, lo, hi) => lo + (hi - lo) * (o.atk || 0);
-  const BLADE = [
-    { key: 'A', name: '蒸汽锤', ref: '（09-25 机甲套件 · 锤臂重画）', style: 'iron',
-      idea: '手握一柄长柄蒸汽锤：锤头又宽又厚（两道黄铜箍），锤头背后一根小活塞；举起 → 砸下。',
-      weap(F, o) { const a = swingA(o, -1.3, 0.55), c = Math.cos(a), s = Math.sin(a), at = (u, v) => [F.wx + c * u - s * v, F.wy + s * u + c * v]; line(...at(-6, 0), ...at(28, 0), 3, P.leather[1]); polyA(at, [[24, -12], [40, -13], [40, 13], [24, 12]], IRONL); for (const u of [28, 35]) line(...at(u, -12), ...at(u, 12), 1, P.brass[2]); polyA(at, [[29, -18], [33, -18], [33, -12], [29, -12]], DARK); } },
-    { key: 'B', name: '宽刃大剑', ref: '（09-25 机甲套件 · 剑臂重画）', style: 'steel',
-      idea: '手握一柄宽刃锻铁大剑（黄铜十字护手、皮缠柄），举起 → 横劈。',
-      weap(F, o) { const a = swingA(o, -1.4, 0.35), c = Math.cos(a), s = Math.sin(a), at = (u, v) => [F.wx + c * u - s * v, F.wy + s * u + c * v]; line(...at(-7, 0), ...at(0, 0), 3, P.leather[1]); disc(...at(-8, 0), 2, P.brass[1]); polyA(at, [[4, -3.5], [44, -2], [50, 0], [44, 2], [4, 3.5]], [P.iron[0], P.iron[3], P.iron[4], P.white]); line(...at(6, 0), ...at(42, 0), 1, P.iron[2]); polyA(at, [[1, -8], [4, -8], [4, 8], [1, 8]], BRASS); } },
-    { key: 'C', name: '链锤', ref: '新：短柄 + 一截铁链 + 带钉的铁球（流星锤）',
-      idea: '手握一根短柄，柄头一截铁链拴着一只带钉的铁球；举起时铁球垂在后面晃，劈下时铁链甩直、铁球砸出去。最野蛮、动起来最好看。', style: 'hyd',
-      weap(F, o) { const a = swingA(o, -1.6, 0.2), c = Math.cos(a), s = Math.sin(a), hx = F.wx + c * 10, hy = F.wy + s * 10; line(F.wx, F.wy, hx, hy, 3, P.leather[1]); const k = o.atk || 0, bx = hx + Math.cos(a + (1 - k) * 1.2) * 18, by = hy + Math.sin(a + (1 - k) * 1.2) * 18 + (1 - k) * 6; for (let i = 0; i <= 6; i++) { const u = i / 6; px(hx + (bx - hx) * u, hy + (by - hy) * u + Math.sin(u * Math.PI) * (1 - k) * 3, i % 2 ? P.iron[4] : P.iron[1]); } for (let j = 0; j < 8; j++) { const b = j / 8 * TAU; line(bx, by, bx + Math.cos(b) * 7, by + Math.sin(b) * 7, 1, P.iron[3]); } ball(bx, by, 4.5, IRONL); } },
-    { key: 'D', name: '蒸汽圆锯', ref: '新：小臂末端一片蒸汽驱动的大圆锯（锯齿一直在转）',
-      idea: '小臂末端装着一片大圆锯（外圈一圈锯齿、中间黄铜轮毂），锯片一直在转，出招时往前推过去；锯罩上沿一道铁护罩。车间的蒸汽锯改的，最「工业凶器」。', style: 'cage',
-      weap(F, o) { const at = along(F), [cx, cy] = at(12, 2), r = 10, rot = o.t * 0.4; for (let k = 0; k < 20; k++) { const b = rot + k / 20 * TAU; line(cx + Math.cos(b) * (r - 1), cy + Math.sin(b) * (r - 1), cx + Math.cos(b + 0.12) * (r + 2), cy + Math.sin(b + 0.12) * (r + 2), 1, P.iron[4]); } disc(cx, cy, r, P.iron[2]); disc(cx, cy, r - 1.5, P.iron[3]); for (let k = 0; k < 4; k++) { const b = rot + k / 4 * TAU; line(cx, cy, cx + Math.cos(b) * (r - 2), cy + Math.sin(b) * (r - 2), 1, P.iron[1]); } disc(cx, cy, 3, P.brass[1]); px(cx - 1, cy - 1, P.brass[3]); polyA(at, [[0, -6], [18, -12], [22, -8], [4, -3]], IRONL); } },
-    { key: 'E', name: '战斧', ref: '新：长柄战斧（半月斧刃 + 背后的尖啄）',
-      idea: '手握一柄长柄战斧：一边是半月形的宽斧刃，另一边一只尖啄；举起 → 劈下。剪影是一弯新月，和锤、剑都不一样。', style: 'steel',
-      weap(F, o) { const a = swingA(o, -1.35, 0.5), c = Math.cos(a), s = Math.sin(a), at = (u, v) => [F.wx + c * u - s * v, F.wy + s * u + c * v]; line(...at(-6, 0), ...at(34, 0), 2, P.leather[1]); const pts = []; for (let k = 0; k <= 8; k++) { const b = -1 + k / 8 * 2; pts.push([28 + Math.cos(b) * 3 + 9 * Math.cos(b) , Math.sin(b) * 12]); } polyA(at, [[26, -4], ...pts, [26, 4]], [P.iron[0], P.iron[2], P.iron[3], P.white]); polyA(at, [[26, -2], [26, 2], [18, -9]], IRONL); band(...at(30, -2).map(Math.round), 2, 3); } },
-    { key: 'F', name: '骑兵马刀', ref: '新：一把弯弯的骑兵马刀（黄铜护手弓）',
-      idea: '手握一把长长的弯马刀，刀身弯成一道弧、刃口一道亮光，护手是一只黄铜的护手弓；出招是一记由上往下的斜劈。最「骑兵」，也最轻快。', style: 'iron',
-      weap(F, o) { const a = swingA(o, -1.5, 0.45), c = Math.cos(a), s = Math.sin(a), at = (u, v) => [F.wx + c * u - s * v, F.wy + s * u + c * v]; line(...at(-6, 0), ...at(0, 0), 3, P.leather[1]); for (let k = 0; k < 42; k++) { const bend = (k / 42) ** 2 * 7; line(...at(2 + k, bend - 2), ...at(2 + k, bend + 1.5 - k / 40), 1, k % 3 ? P.iron[3] : P.iron[4]); px(...at(2 + k, bend - 2), P.white); } const [ga, gb] = at(0, 0); for (let k = 0; k < 8; k++) { const b = Math.PI * (0.2 + k / 8 * 0.8); px(...at(-3 + Math.cos(b) * 4, Math.sin(b) * 5), P.brass[2]); } } },
-  ].map((e) => ({ ...e, draw(x, y, o) { const F = armFrame(x, y, e.style, o, (ex, ey) => [ex + 12, ey + 8]); e.weap(F, o); } }));
-
-  // ================= 臂炮 arm_gun（新：小臂就是一门炮）=================
-  const GUN = [
-    { key: 'A', name: '巨炮臂', ref: '（09-25 机甲套件 · 巨炮臂重画）', style: 'iron',
-      idea: '整条小臂换成一门长管炮：粗炮身、三道黄铜箍、炮口一圈黄铜，炮身下一只供弹盒；开火时整门炮往后一坐。',
-      gun(F, o) { const at = along(F), k = (o.atk || 0) * -3; polyA(at, [[-6 + k, -7], [12 + k, -7], [12 + k, 7], [-6 + k, 7]], IRONL); polyA(at, [[12 + k, -5], [36 + k, -4], [36 + k, 4], [12 + k, 5]], IRONL); polyA(at, [[35 + k, -6], [40 + k, -6], [40 + k, 6], [35 + k, 6]], BRASS); for (const u of [18, 25, 31]) line(...at(u + k, -5), ...at(u + k, 5), 1, P.brass[2]); polyA(at, [[0 + k, 7], [6 + k, 7], [6 + k, 12], [0 + k, 12]], DARK); } },
-    { key: 'B', name: '双管臂炮', ref: '新：上下并排两根短炮管（像双管猎枪）',
-      idea: '小臂上并排两根短粗的炮管（上下叠），中间一块黄铜夹板，炮尾一只击锤；像一把放大的双管猎枪装在胳膊上。', style: 'steel',
-      gun(F, o) { const at = along(F), k = (o.atk || 0) * -2; for (const v of [-3.5, 3.5]) polyA(at, [[-2 + k, v - 3], [28 + k, v - 3], [28 + k, v + 3], [-2 + k, v + 3]], STEEL); polyA(at, [[6 + k, -7], [12 + k, -7], [12 + k, 7], [6 + k, 7]], BRASS); for (const v of [-3.5, 3.5]) px(...at(28 + k, v), P.black); line(...at(-4 + k, -6), ...at(-1 + k, -9), 2, P.iron[3]); } },
-    { key: 'C', name: '转管臂炮', ref: '新：小臂上一挺手摇加特林（六根转管 + 弹鼓）',
-      idea: '小臂上装着一挺转管机炮：一束六根枪管（一直在转，亮线在管束上走）、炮身上一只圆弹鼓；出招就是一阵连射。', style: 'hyd',
-      gun(F, o) { const at = along(F); polyA(at, [[-4, -6], [10, -6], [10, 6], [-4, 6]], IRONL); disc(...at(3, -9), 5, P.brass[1]); disc(...at(3, -9), 3, P.brass[0]); const rot = Math.floor(o.t * ((o.atk || 0) > 0.3 ? 1.2 : 0.2)) % 3; for (let k = -2; k <= 2; k++) polyA(at, [[10, k * 2 - 1], [30, k * 2 - 1], [30, k * 2 + 0.5], [10, k * 2 + 0.5]], (k + rot) % 3 === 0 ? STEEL : IRONL); for (const u of [14, 27]) polyA(at, [[u, -6], [u + 2, -6], [u + 2, 6], [u, 6]], BRASS); } },
-    { key: 'D', name: '臼炮臂', ref: '新：小臂上一门朝上的短粗臼炮（抛射）',
-      idea: '小臂末端一门短粗的臼炮，炮口朝前上方翘起，炮口一圈厚黄铜箍；抛射用的，剪影是一只「大口朝上的罐子」。', style: 'cage',
-      gun(F, o) { const at = along(F), [cx, cy] = at(6, -2), a = F.a - 0.9; const c = Math.cos(a), s = Math.sin(a), bt = (u, v) => [cx + c * u - s * v, cy + s * u + c * v]; polyA(bt, [[-4, -7], [14, -9], [14, 9], [-4, 7]], IRONL); polyA(bt, [[12, -10], [16, -10], [16, 10], [12, 10]], BRASS); line(...bt(15, -7), ...bt(15, 7), 1, P.black); disc(cx, cy, 3, P.brass[1]); } },
-    { key: 'E', name: '喇叭口霰弹臂', ref: '新：炮口喇叭形张开的霰弹炮（老式喇叭枪放大）',
-      idea: '小臂上一根炮管，炮口像喇叭一样张开（老式喇叭枪），炮身上两道黄铜箍、一只燧发机；近距离一喷一大片。剪影是一只喇叭，很好认。', style: 'iron',
-      gun(F, o) { const at = along(F); polyA(at, [[-4, -5], [8, -5], [8, 5], [-4, 5]], IRONL); for (let u = 0; u < 22; u++) { const h = 3 + (u > 14 ? (u - 14) * 0.9 : 0); line(...at(8 + u, -h), ...at(8 + u, h), 1, u > 18 ? P.brass[2] : u % 6 === 0 ? P.brass[1] : P.iron[3]); } line(...at(-2, -5), ...at(2, -9), 2, P.iron[3]); } },
-    { key: 'F', name: '左轮臂炮', ref: '新：小臂上一只大转轮（左轮手枪放大）+ 短炮管',
-      idea: '小臂上装着一只大转轮弹巢（侧面五个弹孔，每开一炮转一格），前面一根短炮管；像一把放大的左轮装在胳膊上。', style: 'steel',
-      gun(F, o) { const at = along(F), [cx, cy] = at(4, 0); disc(cx, cy, 7, P.iron[0]); disc(cx, cy, 6, P.iron[3]); const rot = Math.floor(o.t / 20) * 1.256; for (let k = 0; k < 5; k++) { const b = rot + k / 5 * TAU; disc(cx + Math.cos(b) * 3.5, cy + Math.sin(b) * 3.5, 1.2, P.brass[2]); } polyA(at, [[10, -3], [30, -3], [30, 3], [10, 3]], STEEL); polyA(at, [[28, -4], [31, -4], [31, 4], [28, 4]], BRASS); } },
-  ].map((e) => ({ ...e, draw(x, y, o) { const F = armFrame(x, y, e.style, o, (ex, ey) => [ex + 13, ey + 6 - (o.atk || 0) * 2]); e.gun(F, o); },
-    fx(x, y, o) { if ((o.atk || 0) < 0.8) return; const sx = x + 14, sy = y + 12, ex = sx + 2 + (o.sw || 0) * 3, ey = sy + 24, wx = ex + 13, wy = ey + 6 - (o.atk || 0) * 2, a = Math.atan2(wy - ey, wx - ex); puff(wx + Math.cos(a) * 42, wy + Math.sin(a) * 42, o.t, 3, 6); px(wx + Math.cos(a) * 40, wy + Math.sin(a) * 40, P.fire[3]); } }));
-
-  // ================= 头盔驾驶舱（现有 1×1 驾驶舱在双足上的样子）=================
-  // seat = 驾驶员（煤球）坐的位置，win = 露出驾驶员的窗（画在材质层之后，剪在窗里）
-  const HELM = [
-    { key: 'A', name: '圆盔目缝', ref: '（09-25 机甲套件 · 铁制头盔重画）', win: [5, 9, 14, 4], seat: [12, 12],
-      idea: '一只圆顶铁盔，正面一道横目缝（驾驶员的眼睛从缝里露出来），顶上一颗铆钉、下沿一道护颈。最朴素的机甲头。',
-      draw(x, y, o) { shape((xx, yy) => ((xx - x - 12) / 10) ** 2 + ((yy - y - 12) / 11) ** 2 <= 1 && yy <= y + 22, x + 1, y, x + 23, y + 23, IRONL); R(x + 3, y + 19, 18, 3, P.iron[1]); R(x + 5, y + 9, 14, 4, P.black); bolt(x + 11, y + 3); } },
-    { key: 'B', name: '潜水头盔', ref: '新：黄铜潜水头盔（三只圆舷窗 + 领圈螺栓）',
-      idea: '一只黄铜潜水头盔：正面一只大圆舷窗（驾驶员的脸就在窗里）、两侧各一只小舷窗，窗上一道道护栅，领圈一圈大螺栓。最「深海蒸汽朋克」，也最有角色感。', win: [7, 7, 10, 10], seat: [12, 13],
-      draw(x, y, o) { ball(x + 12, y + 11, 10.5, BRASS); R(x + 2, y + 19, 20, 4, P.brass[0]); for (let u = 3; u < 21; u += 4) px(x + u, y + 20, P.brass[3]); disc(x + 12, y + 12, 5.8, P.brass[0]); disc(x + 12, y + 12, 5, P.glass[0]); R(x + 12, y + 7, 1, 10, P.brass[1]); R(x + 7, y + 12, 10, 1, P.brass[1]); disc(x + 3.5, y + 11, 2, P.glass[1]); disc(x + 20.5, y + 11, 2, P.glass[1]); } },
-    { key: 'C', name: '骑士桶盔', ref: '新：中世纪骑士的平顶桶盔（十字目缝 + 透气孔）',
-      idea: '一只平顶的圆桶形大盔，正面一道十字形目缝（横缝里露出驾驶员的眼睛），右下一片透气孔，顶沿一道黄铜箍。和蒸汽圣骑那套双足一眼是一家。', win: [4, 9, 16, 3], seat: [12, 11],
-      draw(x, y, o) { box(x + 2, y + 2, 20, 21, IRONL); band(x + 2, y + 2, 20); R(x + 4, y + 9, 16, 3, P.black); R(x + 11, y + 6, 2, 12, P.black); for (let k = 0; k < 6; k++) px(x + 15 + (k % 3) * 2, y + 15 + Math.floor(k / 3) * 2, P.black); R(x + 2, y + 21, 20, 2, P.iron[0]); } },
-    { key: 'D', name: '一战钢盔舱', ref: '新：英军布罗迪钢盔的宽帽檐盖在一只方驾驶箱上',
-      idea: '一只方方的铆接驾驶箱，头顶扣着一顶宽帽檐的一战钢盔（像英军的「汤盆盔」），帽檐下一扇长观察窗，驾驶员在窗里。最一战。', win: [4, 10, 16, 6], seat: [12, 14],
-      draw(x, y, o) { box(x + 3, y + 8, 18, 15, IRONL); R(x + 4, y + 10, 16, 6, P.dark[0]); shape((xx, yy) => yy <= y + 8 && ((xx - x - 12) / 11.5) ** 2 + ((yy - y - 8) / 6) ** 2 <= 1, x, y + 1, x + 24, y + 9, IRONL); R(x, y + 7, 24, 2, P.iron[1]); R(x, y + 7, 24, 1, P.iron[3]); bolt(x + 5, y + 19); bolt(x + 17, y + 19); } },
-    { key: 'E', name: '独眼瞭望头', ref: '新：一只圆筒瞭望塔，正面一只大透镜「独眼」+ 顶上的潜望镜',
-      idea: '一只圆筒形的瞭望头，正面一只黄铜框的大透镜像独眼（驾驶员就在透镜后面），顶上竖着一根小潜望镜，两侧一对铆接耳罩。像一台会走的测距仪。', win: [8, 9, 8, 8], seat: [12, 13],
-      draw(x, y, o) { box(x + 3, y + 5, 18, 18, IRONL); for (const u of [1, 20]) box(x + u, y + 9, 3, 9, IRON); disc(x + 12, y + 13, 5.5, P.brass[0]); disc(x + 12, y + 13, 4.5, P.glass[0]); R(x + 10, y, 3, 6, P.iron[3]); R(x + 10, y, 5, 2, P.iron[1]); R(x + 14, y, 1, 2, P.glass[1]); } },
-    { key: 'F', name: '尖顶盔', ref: '新：一战德军的尖顶盔（顶上一根黄铜尖刺 + 帽徽）',
-      idea: '一只圆顶盔，顶上一根黄铜尖刺（一战德军的尖顶盔），正面一枚黄铜帽徽，帽徽下一道观察缝（驾驶员的眼睛）、前后一对短帽檐。一眼是「军官」。', win: [5, 13, 14, 3], seat: [12, 16],
-      draw(x, y, o) { shape((xx, yy) => ((xx - x - 12) / 9.5) ** 2 + ((yy - y - 14) / 10) ** 2 <= 1 && yy <= y + 20, x + 2, y + 4, x + 22, y + 21, IRONL); poly([[x + 11, y + 5], [x + 12, y], [x + 13, y + 5]], BRASS); R(x + 10, y + 5, 4, 2, P.brass[1]); disc(x + 12, y + 9, 2, P.brass[2]); R(x + 5, y + 13, 14, 3, P.black); R(x, y + 19, 7, 2, P.iron[1]); R(x + 17, y + 19, 7, 2, P.iron[1]); R(x + 3, y + 20, 18, 3, P.iron[0]); } },
-  ];
-
-  // ================= 肩甲（现有甲片 1×1 在双足上的样子，装在胸口上角 = 肩膀）=================
-  const PAULD = [
-    { key: 'A', name: '叠片肩甲', ref: '新：三片弧形甲片一层压一层（中世纪的叠片肩甲）',
-      idea: '三片弧形的钢甲片从上到下一层压一层，每片边上一道亮边和两颗铆钉；走路时下面两片跟着轻轻晃。最经典的肩甲。',
-      draw(x, y, o) { const sw = Math.round((o.sw || 0) * 1); for (let k = 0; k < 3; k++) { const v = y + 2 + k * 6, dx = k * sw; shape((xx, yy) => yy >= v && yy <= v + 8 && ((xx - x - 12 - dx) / 11.5) ** 2 + ((yy - v - 8) / 8) ** 2 <= 1, x, v, x + 24, v + 9, k === 0 ? IRONL : IRON); bolt(x + 4 + dx, v + 4); bolt(x + 18 + dx, v + 4); } } },
-    { key: 'B', name: '圆顶肩甲', ref: '新：一只圆鼓鼓的肩甲（黄铜包边 + 一圈铆钉）',
-      idea: '一只圆鼓鼓的半球形肩甲扣在肩上，黄铜包边、一圈铆钉，正中一颗大铆钉。结实、厚重，像一只倒扣的锅。',
-      draw(x, y, o) { shape((xx, yy) => yy <= y + 20 && ((xx - x - 12) / 11.5) ** 2 + ((yy - y - 20) / 18) ** 2 <= 1, x, y + 1, x + 24, y + 21, IRONL); R(x + 1, y + 19, 22, 3, P.brass[1]); R(x + 1, y + 19, 22, 1, P.brass[3]); for (let k = 0; k < 7; k++) { const a = Math.PI * (1.08 + k / 6 * 0.84); bolt(x + 12 + Math.cos(a) * 8, y + 20 + Math.sin(a) * 13); } disc(x + 12, y + 11, 1.6, P.iron[4]); } },
-    { key: 'C', name: '护颈高肩', ref: '新：带高高护颈翻边的哥特式肩甲',
-      idea: '一片大肩甲，靠脖子的一侧翻起一道高高的护颈（比肩甲高出一截），翻边上一道黄铜条；剪影是一只翘起的「领子」，护住头盔侧面。',
-      draw(x, y, o) { poly([[x + 1, y + 10], [x + 23, y + 8], [x + 23, y + 22], [x + 1, y + 22]], IRONL); poly([[x + 1, y + 10], [x + 2, y + 1], [x + 7, y + 2], [x + 8, y + 10]], IRONL); R(x + 2, y + 2, 5, 1, P.brass[2]); for (let v = 13; v < 22; v += 4) R(x + 2, y + v, 20, 1, P.iron[1]); bolt(x + 19, y + 11); } },
-    { key: 'D', name: '铆接盒肩', ref: '新：一只方方的铆接铁盒，上面一盏小信号灯',
-      idea: '一只方正的铆接铁盒扣在肩上，四角圆钉、侧面一道加强筋，顶上一盏带护罩的小信号灯（机车前灯缩小）。最「工业车辆」的肩。',
-      draw(x, y, o) { box(x + 1, y + 6, 22, 17, IRONL); for (const [a, b] of [[3, 8], [19, 8], [3, 19], [19, 19]]) bolt(x + a, y + b); R(x + 2, y + 14, 20, 1, P.iron[1]); R(x + 8, y + 2, 7, 5, P.iron[0]); disc(x + 11.5, y + 4.5, 2, P.fire[2]); px(x + 11, y + 4, P.fire[3]); R(x + 8, y + 2, 7, 1, P.iron[3]); } },
-    { key: 'E', name: '弹簧挂甲', ref: '新：一块厚甲板挂在两根减震弹簧上（被打时会缩）',
-      idea: '一块厚厚的弧形甲板用两根粗弹簧挂在肩上，弹簧外露（像火车的缓冲器），甲板被打时会往里一缩再弹回来；走路时甲板轻轻上下颤。',
-      draw(x, y, o) { const b = Math.round(Math.sin((o.t || 0) * 0.2) * 1); box(x + 4, y + 18, 16, 5, IRON); for (const u of [7, 16]) for (let v = 9 + b; v < 18; v += 2) { R(x + u - 1, y + v, 3, 1, v % 4 ? P.iron[4] : P.iron[2]); } shape((xx, yy) => yy >= y + 2 + b && yy <= y + 10 + b && ((xx - x - 12) / 11.5) ** 2 + ((yy - y - 10 - b) / 8) ** 2 <= 1, x, y + 1, x + 24, y + 11 + b, IRONL); bolt(x + 5, y + 6 + b); bolt(x + 18, y + 6 + b); } },
-    { key: 'F', name: '刺钉肩甲', ref: '新：一只圆肩甲上一排短尖钉 + 下垂的锁子甲',
-      idea: '一只圆肩甲上竖着一排短短的尖钉，肩甲下沿垂下一小片锁子甲（一格格的小铁环）；最凶，和寡妇、黑龙这些「狠角色」的车配。',
-      draw(x, y, o) { shape((xx, yy) => yy <= y + 16 && ((xx - x - 12) / 11) ** 2 + ((yy - y - 16) / 12) ** 2 <= 1, x + 1, y + 3, x + 23, y + 17, IRONL); for (let k = 0; k < 5; k++) { const a = Math.PI * (1.15 + k / 4 * 0.7), bx = x + 12 + Math.cos(a) * 10, by = y + 16 + Math.sin(a) * 11; poly([[bx - 1, by], [bx + Math.cos(a) * 4, by + Math.sin(a) * 4], [bx + 1, by]], IRONL); } for (let v = 17; v < 24; v += 2) for (let u = 3 + (v % 4 ? 1 : 0); u < 22; u += 2) px(x + u, y + v, P.iron[3]); } },
-  ];
-
-  // ================= 背负锅炉（现有竖式锅炉 1×2 在双足上的样子，背在躯干后面）=================
-  const PACK = [
-    { key: 'A', name: '立式背锅炉', ref: '新：一只立式小锅炉背在背上，烟囱从肩后伸出来',
-      idea: '一只铆接的立式小锅炉背在躯干后面，两条皮背带勒着，锅炉顶上一根短烟囱越过肩膀往上冒烟，下面一扇小炉门透出火光。机甲剪影最重要的一笔：肩后的烟囱。',
-      draw(x, y, o) { R(x + 6, y - 14, 5, 16, P.dark[0]); R(x + 7, y - 14, 3, 16, P.dark[2]); R(x + 5, y - 15, 7, 2, P.dark[0]); bottle5(x + 2, y + 2, 18, 42); for (const v of [10, 30]) { R(x + 18, y + v, 6, 3, P.leather[1]); R(x + 18, y + v, 6, 1, P.leather[2]); } box(x + 6, y + 30, 10, 8, DARK); }, fx(x, y, o) { puff(x + 8, y - 14, o.t, 3, 9); firebox(x + 7, y + 32, 8, 5, o.t); } },
-    { key: 'B', name: '双烟囱背包', ref: '新：两根并排的细烟囱（像机车的双烟囱）',
-      idea: '背上一只方形锅炉箱，顶上两根并排的细烟囱从肩后伸出、一高一低（像两只竖着的角），箱侧一只压力表；剪影最「机甲」。',
-      draw(x, y, o) { for (const [u, h] of [[4, 18], [12, 12]]) { R(x + u, y - h, 5, h + 3, P.dark[0]); R(x + u + 1, y - h, 3, h + 3, P.dark[2]); R(x + u - 1, y - h - 1, 7, 2, P.dark[0]); } box(x + 1, y + 2, 21, 42, IRONL); for (let v = 8; v < 42; v += 6) { bolt(x + 3, y + v); bolt(x + 18, y + v); } gauge(x + 11, y + 14, 3.5, 0.6); box(x + 6, y + 30, 10, 8, DARK); }, fx(x, y, o) { puff(x + 6, y - 18, o.t, 2, 8); puff(x + 14, y - 12, o.t + 20, 2, 8); firebox(x + 7, y + 32, 8, 5, o.t); } },
-    { key: 'C', name: '球形锅炉背包', ref: '新：一只铆接的圆球锅炉（像潜水员的背罐变大）',
-      idea: '背上一只圆鼓鼓的铆接球形锅炉，一道黄铜赤道箍，球底一扇小炉门透火光，球顶一根弯烟囱往后甩；圆滚滚的剪影和方正的躯干形成对比。',
-      draw(x, y, o) { for (let k = 0; k < 10; k++) { const u = k / 10; R(x + 12 - u * 8, y + 4 - u * 16, 4, 3, P.dark[k % 2 ? 0 : 2]); } ball(x + 12, y + 18, 11, IRONL); R(x + 1, y + 18, 22, 2, P.brass[1]); R(x + 1, y + 18, 22, 1, P.brass[3]); box(x + 5, y + 30, 14, 14, IRONL); box(x + 8, y + 33, 8, 7, DARK); for (const v of [8, 24]) R(x + 18, y + v, 6, 3, P.leather[1]); }, fx(x, y, o) { puff(x + 4, y - 12, o.t, 3, 8); firebox(x + 9, y + 35, 6, 4, o.t); } },
-    { key: 'D', name: '安全阀锅炉', ref: '新：带杠杆安全阀、压力表、水位管的全套小锅炉',
-      idea: '一只立式锅炉，身上挂满锅炉工最熟悉的零件：顶上一只杠杆安全阀（铁球配重）、侧面一只压力表、一根带玻璃的水位管；烟囱在后面。「一台完整的锅炉背在身上」。',
-      draw(x, y, o) { R(x + 3, y - 10, 4, 12, P.dark[0]); R(x + 4, y - 10, 2, 12, P.dark[2]); bottle5(x + 3, y + 2, 17, 42); R(x + 11, y - 1, 3, 4, P.brass[1]); line(x + 10, y - 1, x + 22, y - 2, 1, P.iron[3]); disc(x + 21, y, 2, P.iron[0]); gauge(x + 11, y + 14, 3.2, 0.7); R(x + 16, y + 20, 3, 12, P.brass[0]); R(x + 17, y + 22, 1, 9, P.water[1]); box(x + 6, y + 32, 10, 8, DARK); }, fx(x, y, o) { puff(x + 5, y - 10, o.t, 3, 8); firebox(x + 7, y + 34, 8, 5, o.t); } },
-    { key: 'E', name: '火箱背篓', ref: '新：一只敞着炉门的火箱 + 背后挂的煤篓',
-      idea: '背上一只方形火箱，朝后的炉门敞着（能看见里面烧着的火），火箱外挂一只装满煤块的煤篓，烟囱从火箱顶上伸出。最「一直在烧」的样子。',
-      draw(x, y, o) { R(x + 12, y - 12, 5, 16, P.dark[0]); R(x + 13, y - 12, 3, 16, P.dark[2]); box(x + 3, y + 2, 19, 30, IRONL); R(x + 3, y + 12, 8, 14, P.dark[0]); R(x + 1, y + 10, 3, 18, P.iron[1]); box(x + 3, y + 32, 18, 12, [P.leather[0], P.leather[1], P.leather[1], P.leather[2]]); for (const [a, b] of [[6, 33], [10, 32], [14, 33], [8, 35], [12, 35]]) { R(x + a, y + b, 3, 2, P.black); px(x + a, y + b, P.dark[3]); } }, fx(x, y, o) { puff(x + 14, y - 12, o.t, 3, 9); firebox(x + 4, y + 13, 6, 12, o.t); } },
-    { key: 'F', name: '背负机车锅炉', ref: '新：竖着背的机车火管锅炉（烟箱门朝上 + 圆烟箱门把手）',
-      idea: '一截机车锅炉竖过来背在背上：顶端是机车的圆烟箱门（带中间的门把手和一圈螺栓），烟囱从烟箱侧面伸出，锅炉身上两道黄铜箍。一看就是「把火车头背在身上」。',
-      draw(x, y, o) { R(x + 16, y - 8, 5, 12, P.dark[0]); R(x + 17, y - 8, 3, 12, P.dark[2]); bottle5(x + 2, y + 6, 18, 38); disc(x + 11, y + 6, 8.5, P.iron[0]); disc(x + 11, y + 6, 7.5, P.iron[2]); for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; px(x + 11 + Math.cos(a) * 6.3, y + 6 + Math.sin(a) * 6.3, P.iron[4]); } disc(x + 11, y + 6, 2, P.brass[1]); for (const v of [18, 34]) band(x + 2, y + v, 18); }, fx(x, y, o) { puff(x + 18, y - 8, o.t, 3, 9); } },
-  ];
-  function bottle5(x, y, w, h) { vtube(x, y + w / 2, w, h - w, IRONL); shape((xx, yy) => ((xx - x - w / 2) / (w / 2)) ** 2 + ((yy - y - w / 2) / (w / 2)) ** 2 <= 1 && yy <= y + w / 2 + 0.5, x, y, x + w, y + w / 2 + 1, IRONL); for (let v = y + w / 2 + 3; v < y + h - 2; v += 4) px(x + 3, v, P.iron[4]); }
-  function firebox(x, y, w, h, t) { R(x, y, w, h, P.fire[0]); for (let u = 0; u < w; u++) { const hh = Math.max(1, Math.round(h * (0.5 + 0.4 * Math.sin(u * 1.3 + t * 0.35)))); R(x + u, y + h - hh, 1, hh, P.fire[1]); if (hh > 2) R(x + u, y + h - Math.ceil(hh / 2), 1, Math.ceil(hh / 2), P.fire[2]); } R(x, y + h - 1, w, 1, P.fire[3]); }
-
-  const MODS = [
-    { id: 'helmet', name: '头盔驾驶舱（驾驶舱 1×1 的机甲外观）', w: 1, h: 1, slot: 'head', tiers: [1, 3, 5, 6], SET: HELM,
-      rule: '不是新模块：现有 1×1 驾驶舱装在双足上时换成「头盔」的样子 · 驾驶员（煤球）从窗 / 目缝里露出来 · 右边是装在双足机甲上的效果（机甲是游戏里的真双足）',
-      state: (t) => ({ t, sw: Math.sin(t * 0.08) }), poses: [{ t: 0, label: '' }] },
-    { id: 'plate', name: '肩甲（甲片 1×1 的机甲外观）', w: 1, h: 1, slot: 'shoulder', tiers: [1, 3, 5, 6], SET: PAULD,
-      rule: '不是新模块：现有甲片装在双足躯干的上角（肩膀）时换成肩甲的样子 · 右边机甲上是装在胸口右上角',
-      state: (t) => ({ t, sw: Math.sin(t * 0.08) }), poses: [{ t: 0, label: '' }] },
-    { id: 'boiler_s', name: '背负锅炉（竖式锅炉 1×2 的机甲外观）', w: 1, h: 2, slot: 'back', tiers: [1, 3, 5, 6], SET: PACK,
-      rule: '不是新模块：现有竖式锅炉装在双足躯干后面一列时换成背负的样子 · 烟囱从肩后伸出来，是机甲剪影最重要的一笔 · 火光、烟都画在材质层之后',
-      state: (t) => ({ t, sw: Math.sin(t * 0.08) }), poses: [{ t: 0, label: '' }] },
-    { id: 'arm_shield', name: '盾臂（新）', w: 2, h: 3, slot: 'arm', arm: true, tiers: [1, 3, 5, 6], SET: SHIELD,
-      rule: '新模块：机械臂 + 盾，挡正面 · 2×3 子格，肩膀属于手臂（肩在胸口正中），画在车体前面 · 别的底盘也能装（最下面一张是装在履带车上），只是没有双足好看 · 页面循环：走路摆臂 → 出招（盾往前一顶 / 折扇盾张开）',
-      state: (t) => { const c = t % 90; return { t, sw: Math.sin(t * 0.08), atk: c > 60 ? Math.sin((c - 60) / 30 * Math.PI) : 0 }; }, poses: [{ atk: 0, label: '平时' }, { atk: 1, label: '出招' }] },
-    { id: 'arm_fist', name: '格斗臂（新）', w: 2, h: 3, slot: 'arm', arm: true, tiers: [1, 3, 5, 6], SET: FIST,
-      rule: '新模块：贴身出拳（和踢击交替）· 2×3 子格，肩在胸口正中 · 别的底盘也能装 · 页面循环：走路摆臂 → 出拳',
-      state: (t) => { const c = t % 70; return { t, sw: Math.sin(t * 0.08), atk: c > 50 ? Math.sin((c - 50) / 20 * Math.PI) : 0 }; }, poses: [{ atk: 0, label: '平时' }, { atk: 1, label: '出拳' }] },
-    { id: 'arm_blade', name: '锤臂 / 剑臂（新）', w: 2, h: 3, slot: 'arm', arm: true, tiers: [1, 3, 5, 6], SET: BLADE,
-      rule: '新模块：近战挥砍 / 砸 · 2×3 子格，武器可以伸出格子外 · 别的底盘也能装 · 页面循环：举起 → 劈下 → 收回',
-      state: (t) => { const c = t % 80; return { t, sw: Math.sin(t * 0.08) * 0.4, atk: c < 40 ? 0 : c < 48 ? (c - 40) / 8 : c < 60 ? 1 : 1 - (c - 60) / 20 }; }, poses: [{ atk: 0, label: '举起' }, { atk: 1, label: '劈下' }] },
-    { id: 'arm_gun', name: '臂炮（新）', w: 2, h: 3, slot: 'arm', arm: true, tiers: [1, 3, 5, 6], SET: GUN,
-      rule: '新模块：小臂就是一门炮，跟着手臂抬 · 2×3 子格，炮管伸出格子外 · 别的底盘也能装 · 页面循环：走路 → 开火（后坐 + 炮口烟）',
-      state: (t) => { const c = t % 60; return { t, sw: Math.sin(t * 0.08) * 0.6, atk: c > 50 ? 1 - (c - 50) / 10 : 0 }; }, poses: [{ atk: 0, label: '平时' }, { atk: 1, label: '开火' }] },
-  ];
-  function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
-  function over(ctx, x, y, e, o = {}, m) {
-    g = ctx; if (e.fx) e.fx(x, y, o);
-    if (e.seat && SA.Coal) { const mini = SA.Coal.mini(SA.Coal.crew('你'), { st: 1 }); ctx.save(); ctx.beginPath(); ctx.rect(x + e.win[0], y + e.win[1], e.win[2], e.win[3]); ctx.clip(); ctx.drawImage(mini, x + e.seat[0] - 5, y + e.seat[1] - 6); ctx.restore(); }
+  function hammer(pn, wx, wy, a, s, M) {
+    // 蒸汽锤：长柄 + 锤头，锤头背后一根活塞
+    const B = bone(wx, wy, wx + Math.cos(a) * 34, wy + Math.sin(a) * 34);
+    pn.poly(B.pts([[-8, -1.8], [-8, 1.8], [30, 1.8], [30, -1.8]])).paint(M.leather);
+    pn.poly(B.pts([[33, 12], [42, 13.5], [42, 18], [33, 17]])).paint(M.steam, { bevel: 'l' });
+    pn.poly(B.pts([[26, -13], [26, 13], [44, 15], [44, -15]])).paint(shell(s, M));
+    for (const aa of [29, 38]) pn.poly(B.pts([[aa, -13.5], [aa + 2, -13.5], [aa + 2, 13.5], [aa, 13.5]])).paint(M.brass, { outline: false });
+    pn.poly(B.pts([[34, -20], [38, -20], [38, -14], [34, -14]])).paint(M.dark);
   }
-  return { MODS, figure, over, LINEUP: [] };
+  function bigGun(pn, ex, ey, s, M, o) {
+    const k = Math.round((o.recoil || 0) * 4), R = shell(s, M);
+    pn.disc(ex + 2 - k, ey + 11, 6.5).paint(M.brass); pn.disc(ex + 2 - k, ey + 11, 3).paint(M.dark, { outline: false });
+    pn.rect(ex - 8 - k, ey - 7, 20, 15).paint(R);
+    pn.poly([[ex + 10 - k, ey - 5], [ex + 50 - k, ey - 4], [ex + 50 - k, ey + 4], [ex + 10 - k, ey + 5]]).paint(R);
+    pn.rect(ex + 48 - k, ey - 6, 8, 12).paint(M.brass);
+    pn.fill(ex + 55 - k, ey - 2, 1, 4, P.black);
+    for (const xx of [16, 28, 40]) pn.fill(ex + xx - k, ey - 5, 2, 10, P.brass[2]);
+    pn.ln(ex + 12 - k, ey - 3, ex + 46 - k, ey - 2, R[3]);
+    pn.rect(ex + 12 - k, ey + 5, 5, 7).paint(M.dark);
+    rivet(pn, ex - 6 - k, ey - 5);
+  }
+  function shieldOn(pn, cx, cy, s, M) {
+    if (s === 'L') {
+      pn.poly([[cx - 11, cy - 20], [cx + 11, cy - 20], [cx + 11, cy + 14], [cx, cy + 22], [cx - 11, cy + 14]]).paint(M.iron);
+      pn.ln(cx, cy - 17, cx, cy + 18, M.iron[3]);
+      pn.fill(cx - 7, cy - 14, 14, 2, P.black);
+      pn.disc(cx, cy + 1, 4).paint(M.brass); pn.dot(cx - 1, cy, P.brass[3]);
+      for (const yy of [-17, -6, 9]) { rivet(pn, cx - 10, cy + yy); rivet(pn, cx + 7, cy + yy); }
+    } else {
+      pn.poly([[cx - 13, cy - 21], [cx + 13, cy - 21], [cx + 13, cy + 3], [cx, cy + 24], [cx - 13, cy + 3]]).paint(M.brass);
+      pn.poly([[cx - 11, cy - 19], [cx + 11, cy - 19], [cx + 11, cy + 2], [cx, cy + 21], [cx - 11, cy + 2]]).paint(M.steel, { outline: false });
+      pn.ln(cx - 10, cy - 18, cx - 10, cy + 1, M.steel[3]);
+      gear(pn, cx, cy - 5, 6, 10, 0.2, M.brass, M.steel);
+      pn.fill(cx - 1, cy + 4, 2, 12, P.brass[2]);
+    }
+  }
+
+  // ---------- 车体框架：子格外轮廓，露在外面的角切 4px ----------
+  function hull(pn, cells, M, sty) {
+    const has = (c, r) => cells.has(c + ',' + r);
+    for (const key of cells) {
+      const [c, r] = key.split(',').map(Number), x = PADX + c * S, y = r * S, n = 4;
+      const tl = !has(c - 1, r) && !has(c, r - 1) && !has(c - 1, r - 1);
+      const tr = !has(c + 1, r) && !has(c, r - 1) && !has(c + 1, r - 1);
+      const br = !has(c + 1, r) && !has(c, r + 1) && !has(c + 1, r + 1);
+      const bl = !has(c - 1, r) && !has(c, r + 1) && !has(c - 1, r + 1);
+      pn.poly([
+        [x + (tl ? n : 0), y], [x + S - (tr ? n : 0), y], [x + S, y + (tr ? n : 0)], [x + S, y + S - (br ? n : 0)],
+        [x + S - (br ? n : 0), y + S], [x + (bl ? n : 0), y + S], [x, y + S - (bl ? n : 0)], [x, y + (tl ? n : 0)],
+      ]);
+    }
+    pn.paint(LOOK[sty].hull(M));
+  }
+
+  // ---------- 整机：同一套零件装在三种底盘上 ----------
+  // chassis：biped（胯在子格列 PC，腿区在最底两行子格）/ track / spider（占子格列 c0..c1，最底两行）
+  const PC = 7;
+  const MECHS = [
+    { name: '双足 · 剑士', sty: 'L', chassis: 'biped', legs: 'heron',
+      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['jar', 6, 8], ['arm_sword', 7, 6]],
+      note: '头盔正好在胯的正上方。剑臂的肩膀就在胸口中间，剑斜指前上方，伸出格外。' },
+    { name: '双足 · 圣骑', sty: 'K', chassis: 'biped', legs: 'knight',
+      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['plate', 6, 8], ['plate', 8, 8], ['arm_shield', 7, 6], ['heavy', 6, 3]],
+      note: '盾臂挡在胸前，背上一门重炮越过头顶。重炮和侧炮、手臂是同一层、同一套规则。' },
+    { name: '双足 · 锤', sty: 'K', chassis: 'biped', legs: 'gren',
+      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['jar', 8, 8], ['arm_hammer', 7, 6]],
+      note: '换一双腿（掷弹兵），零件照用。蒸汽锤拖在身前，锤头背后一根活塞。' },
+    { name: '双足 · 巨炮', sty: 'L', chassis: 'biped', legs: 'dragon',
+      parts: [['helm', 7, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['plate', 6, 8], ['arm_cannon', 7, 6]],
+      note: '整条小臂换成一门巨炮，炮管伸出块外一格多，弹鼓挂在炮尾下面。' },
+    { name: '双足 · 轻骑（v4 新件）', sty: 'L', chassis: 'biped', legs: 'heron',
+      parts: [['helm', 7, 5], ['pauldron', 6, 5], ['pauldron', 8, 5], ['plate', 6, 6], ['plate', 8, 6], ['plate', 7, 6], ['jar', 6, 7], ['plate', 7, 7], ['plate', 8, 7], ['backboiler', 5, 6], ['arm_mg', 7, 6]],
+      note: '背负锅炉背在躯干后面一列，烟囱从肩后伸出来冒烟（机甲剪影最重要的一笔）；头盔两边一对叠片肩甲；腕枪臂：护手拳 + 小臂上一挺短机枪。' },
+    { name: '双足 · 突击（v4 新件）', sty: 'K', chassis: 'biped', legs: 'knight',
+      parts: [['helm', 7, 5], ['pauldron', 8, 5], ['plate', 6, 5], ['furnace', 7, 6], ['tank', 6, 6], ['backjar', 5, 6], ['jetpack', 5, 7], ['arm_fist', 7, 6]],
+      note: '钢制：前肩一片带护颈的圆肩甲；背后上面一对背水罐、下面一只喷汽背包（走起来喷口往下冒汽）；格斗臂。' },
+    { name: '双足 · 圣骑 + 背锅炉（v4）', sty: 'K', chassis: 'biped', legs: 'knight',
+      parts: [['helm', 7, 5], ['pauldron', 6, 5], ['pauldron', 8, 5], ['plate', 6, 6], ['plate', 7, 6], ['plate', 8, 6], ['tank', 6, 7], ['plate', 7, 7], ['backboiler', 5, 5], ['arm_shield', 7, 6]],
+      note: '原来的圣骑把燃炉换成背负锅炉：躯干空出来全是甲片，更轻；钢制背锅炉带压力表和黄铜防火星罩。' },
+    { name: '履带 · 腕枪臂也能装（v4）', sty: 'L', chassis: 'track', c0: 4, c1: 9,
+      parts: [['tank', 4, 8], ['furnace', 5, 8], ['plate', 7, 9], ['plate', 8, 9], ['jar', 8, 8], ['helm', 7, 8], ['plate', 6, 7], ['pauldron', 7, 7], ['arm_mg', 6, 7]],
+      note: '手臂是新模块，别的底盘也能装：履带车顶上一条腕枪臂 + 一片肩甲，只是没有双足好看。' },
+    { name: '履带 · 同一套零件', sty: 'L', chassis: 'track', c0: 4, c1: 9,
+      parts: [['tank', 4, 8], ['furnace', 5, 8], ['plate', 7, 9], ['plate', 8, 9], ['jar', 8, 8], ['helm', 7, 8], ['plate', 6, 7], ['heavy', 5, 5], ['sidegun', 8, 7]],
+      note: '履带也用子格零件：燃炉、水罐、头盔驾驶舱照样装，重炮架在顶上，侧炮从车体伸出。' },
+    { name: '蜘蛛 · 同一套零件', sty: 'K', chassis: 'spider', c0: 4, c1: 9,
+      parts: [['tank', 5, 8], ['furnace', 6, 8], ['plate', 8, 9], ['jar', 8, 8], ['helm', 6, 7], ['plate', 4, 9], ['arm_hammer', 7, 7]],
+      note: '蜘蛛背着同一套零件，外加一条锤臂：附加层对所有底盘规则一样。' },
+  ];
+  for (const m of MECHS) {
+    m.body = new Set(); m.add = [];
+    for (const [id, c, r] of m.parts) {
+      const pt = PARTS[id];
+      if (pt.layer === 'add') { m.add.push([id, c, r]); continue; }
+      for (let i = 0; i < pt.w; i++) for (let j = 0; j < pt.h; j++) m.body.add((c + i) + ',' + (r + j));
+    }
+  }
+
+  const MAT = (far) => {
+    const B = far ? FAR : NEAR, dim = (r) => (far ? [P.black, r[0], r[1], r[2]] : r);
+    return { ...B, glass: dim([P.glass[0], P.glass[1], P.glass[2], P.glass[3]]), water: dim([P.water[0], P.water[1], P.water[2], P.water[3]]) };
+  };
+  const VX = PADX + 2 * S, VY = 60, VW = 12 * S, VH = B2.GROUND + 10 - VY;
+
+  const pens = new Map();
+  const penFor = (cv) => { let pn = pens.get(cv); if (!pn) { pn = Pen(cv.width, cv.height); pens.set(cv, pn); } return pn; };
+  function render(cv, m, st) {
+    const g = cv.getContext('2d'), pn = penFor(cv);
+    g.clearRect(0, 0, cv.width, cv.height);
+    const N = 12, gf = st.mv ? SA.Dyn.frame(st.phase, N, 60 / N) : 0, a = gf / N * TAU;
+    const amp = m.chassis === 'biped' ? 4 : m.chassis === 'spider' ? 1 : 0;
+    const bd = amp - Math.round(Math.abs(Math.sin(a)) * amp);
+    const o = { mv: st.mv, a, bd, q: gf * 5, phase: st.phase, t: st.t, fl: Math.floor(st.t * 8) % 4, ri: 0, rn: 1,
+      swing: st.mv && m.chassis === 'biped' ? -Math.sin(a) : 0, blink: Math.floor(st.t * 1.3) % 5 === 0 && (st.t * 1.3) % 1 < 0.25 };
+    const M = MAT(false), MF = MAT(true);
+    pn.at(1, -VX, -VY);
+    pn.fill(VX, B2.GROUND, VW, 10, P.bg[4]).fill(VX, B2.GROUND, VW, 1, P.bg[5]);
+    const cx = PADX + PC * S + 12, D = m.legs ? B2.legDesign(m.legs).d : null;
+    const cells = [];
+    if (m.c0 != null) for (let c = m.c0; c <= m.c1; c += 2) cells.push(c);
+    const H = { up: 22, kx: 12, reach: 26 }, dirOf = (ri) => (ri < cells.length / 2 ? -1 : 1);
+    // 远侧：腿 / 蜘蛛腿 + 手臂（压暗、右上错位，只画空手）
+    if (st.far) {
+      if (m.chassis === 'biped') B2.bipedLeg(pn, D, cx, o, true);
+      if (m.chassis === 'spider') cells.forEach((c, ri) => B2.spiderLeg(pn, FAR, PADX + c * S + 30, 5 * 48 + bd + 7, B2.GROUND - 3, -dirOf(ri), Math.PI, { ...o, a: o.a + ri * Math.PI }, H));
+      pn.at(1, -VX - 6, -VY + bd - 3);
+      for (const [id, c, r] of m.add) if (PARTS[id].arm) arm(pn, PADX + c * S, r * S, m.sty, MF, { ...o, swing: -o.swing }, 'fist');
+    }
+    pn.at(1, -VX, -VY + bd);
+    if (st.hull) hull(pn, m.body, M, m.sty);
+    for (const [id, c, r] of m.parts) if (PARTS[id].layer === 'body') PARTS[id].draw(pn, PADX + c * S, r * S, m.sty, M, o);
+    pn.at(1, -VX, -VY);
+    if (m.chassis === 'biped') {
+      const waist = [...m.body].map(k => k.split(',').map(Number)).filter(([c, r]) => r >= 8 && Math.abs(c - PC) === 1).map(([c]) => ({ r: 4, c: c < PC ? 2 : 4 }));
+      B2.pelvis(pn, { pc: 3, bal: { tone: 'ok', d: 0 }, cells: waist }, m.legs, st, bd, cx);
+      B2.bipedLeg(pn, D, cx, o, false);
+    } else if (m.chassis === 'spider') {
+      cells.forEach((c, ri) => B2.carapace(pn, PADX + c * S, 5 * 48 + bd, ri > 0, ri < cells.length - 1));
+      cells.forEach((c, ri) => B2.spiderLeg(pn, NEAR, PADX + c * S + 22, 5 * 48 + bd + 10, B2.GROUND, dirOf(ri), 0, { ...o, a: o.a + ri * Math.PI }, H));
+    }
+    pn.flush(g);
+    if (m.chassis === 'track') cells.forEach((c, ri) => SA.SPR.drawModule(g, 'track', PADX + c * S - VX, 5 * 48 - VY,
+      { moving: st.mv, phase: st.phase, connL: ri > 0, connR: ri < cells.length - 1, top: true }));
+    // 附加层：画在最前面
+    pn.at(1, -VX, -VY + bd);
+    for (const [id, c, r] of m.add) PARTS[id].draw(pn, PADX + c * S, r * S, m.sty, M, o);
+    pn.flush(g);
+    if (st.grid) subgrid(g, m, bd);
+  }
+  function subgrid(g, m, bd) {
+    g.save();
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(228,224,214,0.16)';
+    for (let c = 0; c <= 16; c++) { const x = PADX + c * S - VX + 0.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, VH); g.stroke(); }
+    for (let r = 0; r <= 12; r++) { const y = r * S - VY + 0.5; g.beginPath(); g.moveTo(0, y); g.lineTo(VW, y); g.stroke(); }
+    g.fillStyle = 'rgba(255,43,214,0.13)'; g.strokeStyle = 'rgba(255,43,214,0.7)'; g.setLineDash([3, 2]);
+    for (const [id, c, r] of m.add) {
+      const x = PADX + c * S - VX, y = r * S - VY + bd, w = PARTS[id].w * S, h = PARTS[id].h * S;
+      g.fillRect(x, y, w, h); g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    }
+    g.restore();
+  }
+
+  // 零件表里的单件：车体层零件带一块车体框架，附加层零件下面垫一块示意用的车体
+  function renderPart(cv, id, sty, st) {
+    const g = cv.getContext('2d'), pn = penFor(cv), pt = PARTS[id];
+    g.clearRect(0, 0, cv.width, cv.height);
+    const o = { mv: false, a: 0, t: st.t, fl: Math.floor(st.t * 8) % 4, swing: 0 };
+    pn.at(1, -PADX + 10 + (id === 'sidegun' ? S : 0), 14 + (id === 'backboiler' ? 34 : 0));
+    const cells = new Set();
+    if (pt.layer === 'body') for (let i = 0; i < pt.w; i++) for (let j = 0; j < pt.h; j++) cells.add(i + ',' + j);
+    else if (pt.arm) for (const k of ['0,0', '0,1', '1,1', '0,2']) cells.add(k);
+    else if (id === 'sidegun') cells.add('-1,0');
+    else for (let i = 0; i < pt.w; i++) cells.add(i + ',' + pt.h);
+    hull(pn, cells, MAT(false), sty);
+    pt.draw(pn, PADX, 0, sty, MAT(false), o);
+    pn.flush(g);
+  }
+  const partBox = (id) => { const pt = PARTS[id]; return { w: pt.w * S + (pt.layer === 'add' ? 48 : 20) + (id === 'sidegun' ? 24 : 0), h: pt.h * S + 30 + (id === 'heavy' ? S : 0) + (id === 'backboiler' ? 34 : id === 'jetpack' ? 14 : 0) }; };
+
+  return { PARTS, LOOK, MECHS, render, renderPart, partBox, VW, VH, S };
 })();
