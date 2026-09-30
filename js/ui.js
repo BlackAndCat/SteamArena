@@ -129,12 +129,12 @@ SA.UI = (() => {
     const counter = UI.counter({ money: d.money, rep: d.rep, ingotList: ingots, onclick: has('bank') });
     if (has('bank')) { counter.title = '银行：借款 / 还款'; counter.addEventListener('click', openBank); }
     const gear = UI.btn(null, { title: '设置', icon: UI.img(SA.PX.gear(6, 8, SA.PX.RAMP.brass, 0.1)), onclick: settings }); gear.style.padding = '0 2px';
+    // 导航（2026-09-30）：院子是中枢，出战也在院子里（拉下黑板）；顶栏只剩「在哪一章」、钱和设置，
+    // 车间里离开的路是改装台右下角的「← 回院子 / 出战 →」
     bar.append(...[
-      has('garage') ? UI.btn('← 院子', { sm: true, onclick: () => SA.nav('home') }) : null,
-      has('garage') ? null : UI.plate('蒸汽竞技场', 'font-size:18px'),
+      has('garage') ? UI.plate('车间', 'font-size:16px') : UI.plate('蒸汽竞技场', 'font-size:18px'),
       h('span', { class: 'top-where' }, where),
       h('span', { class: 'top-gap' }),
-      has('garage') ? h('span', { class: 'top-nav' }, nav('garage', fix ? `车间 · ${fix} 项问题` : '车间'), nav('arena', '出战')) : null,
       counter,
       d.debt ? UI.tag([h('span', {}, '欠银行'), UI.num(money(d.debt), SA.PX.RED)]) : null,
       gear,
@@ -162,15 +162,24 @@ SA.UI = (() => {
       { k: 'speed', name: '速度', pct: x.topSpeed / 100, val: SA.kmh(x.topSpeed), note: `最高 ${SA.kmh(x.topSpeed)}（底盘 ${SA.kmh(x.speed)} × 动力 ${Math.round((x.speedMul || 0) * 100)}%）· 刹车 ×${(x.brake || 0).toFixed(2)} · 晃动 ×${(x.sway || 0).toFixed(2)}` },
       { k: 'heat', name: '热量', pct: heatOf(x), val: `${Math.round(heatOf(x) * 100)}%`, bad: heatOf(x) >= 1, note: `产热 ${SA.Phys.fmtKw(x.heatGen + SA.K.IDLE_HEAT)} · 水冷 ${SA.Phys.fmtKw(x.cool)}${x.dryCool ? ` + 散热片 ${SA.Phys.fmtKw(x.dryCool)}` : ''} · ${x.overheat === Infinity ? '预计不达过热阈值' : `全力开火约 ${Math.round(x.overheat)} 秒后过热`}` },
       { k: 'water', name: '水', pct: effW(x) / wScale, val: SA.Phys.fmtWater(x.water), note: `${x.tanks} 只水箱 · ${SA.Phys.fmtWater(x.water)}${x.waterSave < 1 ? ` · 冷却耗水 ×${f1(x.waterSave)}` : ''}` },
-      { k: 'hp', name: '耐久', pct: x.hp / Math.max(x.maxHp, 1), val: `${x.hp}`, note: `${x.hp}/${x.maxHp} · 火力 ${x.dps.toFixed(1)}/秒 · 综合评分 ${x.rating}` },
     ];
+    // 悬浮说明：这一项是什么、怎么算的、为什么要紧（性能单上只留条和数字）
+    const ABOUT = {
+      power: '锅炉供得上的蒸汽功率，和所有设备 + 行驶要用的功率。条到红线就是吃满了；超过红线，车会跑不动、武器也会变慢。',
+      weight: '整车满水时的重量。底盘承重是红线，超过就开不动。越重撞人越疼，但起步、爬坡越慢。',
+      speed: '平地上能跑到的最快速度：底盘本身的速度，按动力够不够打个折。刹车和晃动影响走位和边走边打。',
+      heat: '全力开火时，产热和冷却能力的比。到 100% 就会越打越烫，过热后锅炉减压、武器停火。',
+      water: '水箱里的冷却水。水冷靠它带走热量，烧干了就只剩散热片。',
+    };
     const now = rows(s), nxt = preview ? rows(preview) : null;
     const lim = { power: s.supply / Math.max(s.supply, s.demand, 1e-6), weight: s.load / Math.max(s.load, s.weight, 1e-6) };
     return h('div', { class: 'px-stats' },
       now.map((g, i) => {
         const d2 = nxt ? nxt[i].pct - g.pct : 0;
         const el = UI.meter({ ...g, pct: Math.min(1, g.pct), delta: Math.abs(d2) > 0.004 ? d2 : 0 }, { w: 50, lim: lim[g.k] });
-        el.title = g.note; return el;
+        return UI.tip(el, () => [h('div', { class: 'tp-nm' }, g.name, ' ', h('span', { class: 'tp-val' }, g.val)),
+          h('div', { class: 'tp-ks' }, g.note.split(' · ').map(t => h('div', {}, t))),
+          h('div', { class: 'tp-note' }, ABOUT[g.k])]);
       }),
       preview ? h('div', { class: 'px-small' }, '棋盘点 = 装上手里的零件以后') : null,
       s.problems.map(p => h('div', { class: 'px-hand px-prob' }, p)),

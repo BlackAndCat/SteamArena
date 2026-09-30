@@ -433,8 +433,11 @@ SA.Editor = (() => {
       hurtList.length ? UI.btn(`修理 ${hurtList.length} 处 · ${money(cost)}`, { sm: true, title: SA.UI.repairBrief(hurtList), onclick: () => repair(hurtList) }) : null,
       SA.UI.pxStats(s, veh(), preview)].filter(Boolean));
     // 右下调速杆：车能出战就推杆去出战页
+    // 车间的出口（拉闸只留给黑板上真正开打那一下）：回院子 / 出战（也是回院子，再把出战黑板拉下来）
     leverEl.innerHTML = '';
-    leverEl.append(UI.lever('出战', { sub: s.canDeploy ? null : `还有 ${s.problems.length} 项问题`, title: s.canDeploy ? '去出战页' : s.problems.join('\n'), onclick: () => SA.nav('arena') }));
+    leverEl.append(UI.btn('← 回院子', { onclick: () => SA.nav('home') }),
+      UI.btn('出战 →', { kind: 'pri', gear: true, title: s.canDeploy ? '回院子，拉下出战黑板' : `还有问题：\n${s.problems.join('\n')}`, onclick: () => SA.nav('arena') }),
+      ...(s.canDeploy ? [] : [h('div', { class: 'px-hand px-prob ed-exit-warn' }, `还有 ${s.problems.length} 项问题`)]));
   }
 
   // 画布右上角：看哪一层 + 蓝图库开关（右侧面板在模块清单和蓝图库之间切换）
@@ -529,6 +532,20 @@ SA.Editor = (() => {
   }
 
     // 模块最关键的两三项数值，做成小标签；跨模块规则从 SA.K 读取。
+  // 清单里的模块图：按整数倍放大（高不超过 96、宽不超过 120 像素）
+  function bigPic(id, mt) {
+    const c1 = SA.PX.trim(SA.SPR.moduleCanvas(id, 1, mt)), s = Math.max(1, Math.min(3, Math.floor(Math.min(96 / c1.height, 120 / c1.width))));
+    return SA.PX.ui.img(c1, s);
+  }
+  // 悬浮纸条：名字（最大）→ 材质 → 各项属性 → 修理难度 → 空一行 → 说明（以后有背景故事就接在后面）
+  function modTip(id, mt) {
+    const m = M[id];
+    return [h('div', { class: 'tp-nm' }, fullName(id, mt)),
+      h('div', { class: 'tp-mt' }, SA.Camp.matChip(mt), ' ', SA.UI.uniqueBadge(id), ' ', h('span', { class: 'px-small' }, SA.CAT[m.cat] ? SA.CAT[m.cat].name : '')),
+      h('div', { class: 'tp-ks' }, SA.UI.statLine(id, mt).split(' · ').map(t => h('div', {}, t)), h('div', {}, SA.UI.repairPips(id, '修理难度'))),
+      h('div', { class: 'tp-note' }, h('b', {}, '说明'), h('br'), m.desc || '—'),
+      m.lore ? h('div', { class: 'tp-note' }, h('b', {}, '背景'), h('br'), m.lore) : null];
+  }
   function keyStats(id, mt = 1) {
     const m = SA.mod(id, mt), out = [];
     if (m.layer === 'chassis') out.push(`承重 ${SA.tons(m.load)}`, SA.kmh(m.speed), m.brake >= 1.5 ? '起步刹车最快' : m.brake < 0.8 ? '刹车慢' : '刹车中等', m.sway < 0.6 ? '移动最稳' : m.sway > 1.2 ? '移动晃' : '移动一般');
@@ -583,14 +600,14 @@ SA.Editor = (() => {
       for (const key of keys) {
         shown++;
         const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
-        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === key ? 'sel' : ''} ${n ? '' : 'unowned'}`, 'data-page-key': `inventory:${key}`,
-          title: `${m.desc}\n${SA.UI.statLine(id, mt)}`, onclick: () => selectInv(key) },
-        h('span', { class: 'pic' }, SA.SPR.moduleCanvas(id, 1, mt)),
+        // 清单只放大图、名字、材质和数量；属性、修理难度、说明都在悬浮纸条里（2026-09-30 用户：要清爽，名字最要紧）
+        const row = h('button', { class: `mrow cat-${m.cat} ${st.sel === key ? 'sel' : ''} ${n ? '' : 'unowned'}`, 'data-page-key': `inventory:${key}`, onclick: () => selectInv(key) },
+        h('span', { class: 'pic' }, bigPic(id, mt)),
         h('span', { class: 'mid' },
-          h('span', { class: 'nm' }, m.name, ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt)),
-          h('span', { class: 'ks' }, keyStats(id, mt).map(t => h('span', {}, t)), SA.UI.repairPips(id, '修'))),
+          h('span', { class: 'nm' }, m.name), h('span', { class: 'mt' }, SA.Camp.matChip(mt), ' ', SA.UI.uniqueBadge(id))),
         n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, '库存'))
           : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, '购买')));
+        SA.PX.ui.tip(row, () => modTip(id, mt));
         row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id, key }); });
         row.addEventListener('pointermove', onMove);
         row.addEventListener('pointercancel', cancelPress);
@@ -948,16 +965,23 @@ SA.Editor = (() => {
   // 桌上的小物件（画在车下面，纯装饰）
   function decorate(k) {
     const R = (x, y, w, hh, col) => { k.fillStyle = col; k.fillRect(x, y, w, hh); };
-    // 黄杨木尺：左上角斜放（每往右 4 像素往下 1 像素，干净的像素斜线），两头黄铜包角，刻度 2 / 10 / 20
-    const rx = 8, ry = 4, rw = 132, TH = 12, dy = (i) => ry + (i >> 2);
-    for (let i = 0; i < rw; i++) R(rx + i + 2, dy(i) + 3, 1, TH, 'rgba(8,18,30,.45)');   // 影子
-    for (let i = 0; i < rw; i++) {
-      const x = rx + i, y = dy(i), cap = i < 5 || i >= rw - 5, edge = i === 0 || i === rw - 1;
-      R(x, y, 1, TH, cap ? '#4e3510' : '#6b4a24');
-      if (edge) continue;
-      R(x, y + 1, 1, TH - 2, cap ? '#d9a441' : '#c9a36a'); R(x, y + 1, 1, 1, cap ? '#f5d77a' : '#e3c48c'); if (!cap) R(x, y + TH - 2, 1, 1, '#9a7442');
-      if (!cap && (i - 6) % 2 === 0 && i < rw - 6) { const len = (i - 6) % 20 === 0 ? 5 : (i - 6) % 10 === 0 ? 4 : 2; R(x, y + 1, 1, len, '#5a3a18'); }
-    }
+    // 黄杨木尺：左上角斜放，用像素画最干净的 2:1 斜率。用整数坐标 w = 2y - x（横穿尺子）、u = 2x + y（顺着尺子）判断每个像素：
+    // 边缘是规整的两格台阶，刻度和端头顺着尺子的垂直方向（1:2），不是竖直的；两头黄铜包角，下面一道影子
+    const RX = 64, RY = 4, TT = 11, UL = 360;   // 往里放一点：打开时为了让车居中会左右平移，别被切掉
+      // 厚 11 行、长 360 个 u 单位（横向约 144 像素）
+    const ruler = (ox, oy, shadow) => {
+      for (let y = -2; y < UL / 2 + TT * 2; y++) for (let x = -TT * 2; x < UL / 2 + 2; x++) {
+        const w = 2 * y - x, u = 2 * x + y;
+        if (w < 0 || w >= TT * 2 || u < 0 || u >= UL) continue;
+        if (shadow) { R(ox + x, oy + y, 1, 1, 'rgba(8,18,30,.45)'); continue; }
+        const j = w >> 1, cap = u < 16 || u >= UL - 16, end = u < 2 || u >= UL - 2;
+        let col = j === 0 || j === TT - 1 || end ? (cap ? '#4e3510' : '#5a3a18') : j === 1 ? (cap ? '#f5d77a' : '#e3c48c') : j === TT - 2 ? (cap ? '#9a6b1d' : '#9a7442') : (cap ? '#d9a441' : '#c9a36a');
+        const t = u - 18;
+        if (!cap && !end && t >= 0 && u < UL - 18 && t % 10 < 2 && j >= 1 && j <= (Math.floor(t / 10) % 5 === 0 ? 5 : 3)) col = '#5a3a18';   // 刻度：每 5 格一根长的
+        R(ox + x, oy + y, 1, 1, col);
+      }
+    };
+    ruler(RX + 2, RY + 3, true); ruler(RX, RY, false);
     // 右上角：印度橡皮（旧红褐，一角磨圆）+ 几粒橡皮屑
     const ex = W - 52, ey = 10;
     R(ex + 2, ey + 3, 24, 12, 'rgba(8,18,30,.45)');

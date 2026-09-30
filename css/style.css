@@ -1116,3 +1116,22 @@ body[data-yard] #screen { min-height: 0; }
 .ar-mid .ar-vs .who b { font-size: 16px; }
 .ar-stick { font-size: 12px; }
 .ar-stick .nb { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; }
+
+/* ---- 悬浮说明纸条 / 车间清单清爽版 / 性能单间距 / 车间出口（2026-09-30）---- */
+.px-tip { position: fixed; z-index: 1000; display: none; pointer-events: none; max-width: 300px; color: #2a1a05; font: 13px/1.6 SimSun, serif; }
+.px-tip .tp-nm { font: 900 18px/1.4 "Microsoft YaHei", sans-serif; letter-spacing: .04em; }
+.px-tip .tp-val { font: 700 14px SimSun, serif; color: #7a6448; }
+.px-tip .tp-mt { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.px-tip .tp-ks { border-top: 2px solid #2a1a05; padding-top: 4px; }
+.px-tip .tp-ks > div { white-space: normal; }
+.px-tip .tp-note { margin-top: 10px; padding-top: 6px; border-top: 2px dashed #b59c6c; white-space: normal; }
+.mrow { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; padding: 8px 6px 8px 4px; }
+.mrow .pic { min-width: 72px; min-height: 72px; display: grid; place-items: center; padding: 2px; box-sizing: border-box; }
+.mrow .pic canvas { max-width: none !important; height: auto !important; image-rendering: pixelated; }
+.mrow .mid { gap: 6px; }
+.mrow .nm { font: 900 17px/1.3 "Microsoft YaHei", sans-serif; letter-spacing: .04em; white-space: normal; }
+.mrow .mt { display: flex; align-items: center; gap: 4px; }
+.px-stats { gap: 14px; }
+.ed-sheet-paper { gap: 14px; }
+.ed-lever { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.ed-exit-warn { text-align: center; font-size: 14px; }

@@ -469,6 +469,32 @@ SA.PX.ui = (() => {
     b.set = (who, html) => { inner.innerHTML = `<span class="who">${who}</span>${html}`; };
     return b;
   }
+  // 悬浮说明：鼠标停 0.2 秒弹出一张纸条（跟着鼠标，贴着窗口边会翻到另一侧）；按下 / 移开就收。build() 每次弹出时现做内容
+  let tipBox = null, tipT = null, tipE = null;
+  function tipPlace() {
+    if (!tipBox || tipBox.style.display !== 'block' || !tipE) return;
+    const r = tipBox.getBoundingClientRect();
+    let x = tipE.clientX + 18, y = tipE.clientY + 16;
+    if (x + r.width > innerWidth - 8) x = tipE.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = innerHeight - 8 - r.height;
+    tipBox.style.left = `${Math.max(8, Math.round(x))}px`; tipBox.style.top = `${Math.max(8, Math.round(y))}px`;
+  }
+  function tipHide() { clearTimeout(tipT); if (tipBox) tipBox.style.display = 'none'; }
+  function tip(el, build) {
+    el.addEventListener('pointerenter', (e) => {
+      tipE = e; clearTimeout(tipT);
+      tipT = setTimeout(() => {
+        if (!el.isConnected) return;
+        if (!tipBox) { tipBox = h('div', { class: 'px-tip px-ui' }); document.body.append(tipBox); }
+        tipBox.innerHTML = ''; tipBox.append(sk('paper', build(), 'padding:2px 8px 4px', 'px-drop'));
+        tipBox.style.display = 'block'; tipPlace();
+      }, 200);
+    });
+    el.addEventListener('pointermove', (e) => { tipE = e; tipPlace(); });
+    el.addEventListener('pointerleave', tipHide);
+    el.addEventListener('pointerdown', tipHide);
+    return el;
+  }
   // 调速杆：悬停往前推（三帧）
   function lever(label, o = {}) {
     const lv = img(X.lever(0));
@@ -499,5 +525,5 @@ SA.PX.ui = (() => {
       h('div', { style: `position:absolute;top:9px;${dir > 0 ? 'left:26px' : 'right:26px'};width:${lw * 2}px;height:34px` }, img(X.paperLabel(lw, 17, (o.seed || 3) + 2), X.S, 'position:absolute;left:0;top:0'),
         h('span', { class: 'px-sign-t', style: o.go ? `color:${X.PEN}` : '' }, text)));
   }
-  return { h, img, num, sk, btn, plate, tag, matTag, stamp, rack, meter, counter, toggle, card, brackets, bubble, lever, loop, underline, hand, dial, sign, RED_WOOD };
+  return { h, img, num, sk, btn, plate, tag, matTag, stamp, rack, meter, counter, toggle, card, brackets, bubble, lever, loop, underline, hand, dial, sign, tip, tipHide, RED_WOOD };
 })();
