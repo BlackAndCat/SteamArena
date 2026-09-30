@@ -34,7 +34,7 @@ body.uilab { padding: 16px 20px 80px; overflow-y: auto; }
 .v3 canvas, .v3 .sk, .v3 i.g { image-rendering: pixelated; image-rendering: crisp-edges; }
 .v3 canvas { display: block; }
 .v3 canvas.n { display: inline-block; vertical-align: middle; }
-.v3.sheet { padding: 22px 24px 30px; background: var(--px-desk) 0 0 / 128px 64px, #2e1b0f; }
+.v3.sheet { padding: 22px 24px 30px; background: var(--px-desk) 0 0 / 256px 64px, #2e1b0f; }
 .v3 .h1 { font: 900 26px "Microsoft YaHei", sans-serif; letter-spacing: .15em; color: #2a1a05; }
 .v3 .h2 { font: 900 18px "Microsoft YaHei", sans-serif; letter-spacing: .15em; }
 .v3 .onDark { color: #e4e0d6; text-shadow: 2px 2px 0 #0b0e15; }

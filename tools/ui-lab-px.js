@@ -33,12 +33,71 @@ SA.PX = (() => {
     k.r(x + 1, y + 1, w - 2, 1, inset ? R.d : R.l); k.r(x + 1, y + 1, 1, h - 2, inset ? R.d : R.l);
     k.r(x + 1, y + h - 2, w - 2, 1, inset ? R.l : R.d); k.r(x + w - 2, y + 1, 1, h - 2, inset ? R.l : R.d);
   }
+  function box0(k, w, h, R) { k.r(0, 0, w, 1, R.o); k.r(0, h - 1, w, 1, R.o); k.r(0, 0, 1, h, R.o); k.r(w - 1, 0, 1, h, R.o); k.r(1, 1, w - 2, 1, R.l); k.r(1, 1, 1, h - 2, R.l); k.r(1, h - 2, w - 2, 1, R.d); k.r(w - 2, 1, 1, h - 2, R.d); }
   const rivet = (k, x, y, R = RAMP.iron) => { k.r(x, y, 2, 2, R.h); k.p(x, y, R.hh || R.l); k.p(x + 2, y + 1, R.o); k.p(x + 1, y + 2, R.o); k.p(x + 2, y + 2, R.d); };
   const brassRivet = (k, x, y) => { k.r(x, y, 2, 2, P.brass[2]); k.p(x, y, P.brass[3]); k.p(x + 2, y + 1, P.brass[0]); k.p(x + 1, y + 2, P.brass[0]); k.p(x + 2, y + 2, P.brass[0]); };
   function line(k, x0, y0, x1, y1, col, gap = 0) {
     x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
     const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy, i = 0;
     for (;;) { if (!gap || hash(x0, y0, 7) > gap) k.p(x0, y0, col); i++; if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+  }
+
+  // ---------- 木纹：一根根长纹线（不要零散杂点），偶尔一个节疤；vertical = 竖纹（柱子）----------
+  function woodGrain(k, x0, y0, w, h, R, seed, mask, vertical) {
+    const put = vertical ? (x, y, c) => k.p(y, x, c) : (x, y, c) => k.p(x, y, c);
+    const inb = (x, y) => x >= x0 && y >= y0 && x < x0 + w && y < y0 + h && (!mask || mask(x, y));
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inb(x, y)) put(x, y, R.b);
+    const n = Math.max(2, Math.round(h / 3.2));
+    for (let i = 0; i < n; i++) {
+      let y = y0 + 1 + Math.floor(hash(i, 1, seed) * Math.max(1, h - 2));
+      const col = hash(i, 2, seed) < 0.72 ? R.d : R.l, step = 14 + Math.floor(hash(i, 5, seed) * 18);
+      const x = x0 + Math.floor(hash(i, 3, seed) * w * 0.6) - Math.floor(w * 0.2), len = Math.floor(w * (0.45 + hash(i, 4, seed) * 0.7));
+      for (let t = 0; t < len; t++) {
+        if (t && t % step === 0) y += hash(i * 31 + t, 6, seed) < 0.5 ? -1 : 1;
+        y = Math.max(y0 + 1, Math.min(y0 + h - 2, y));
+        if (inb(x + t, y)) put(x + t, y, col);
+      }
+    }
+    const knots = Math.floor(w * h / 1100);
+    for (let i = 0; i < knots; i++) {
+      const cx = x0 + 5 + Math.floor(hash(i, 7, seed) * Math.max(1, w - 10)), cy = y0 + 2 + Math.floor(hash(i, 8, seed) * Math.max(1, h - 4));
+      for (const [dx, dy] of [[-2, 0], [-1, -1], [0, -1], [1, -1], [2, 0], [1, 1], [0, 1], [-1, 1]]) if (inb(cx + dx, cy + dy)) put(cx + dx, cy + dy, R.d);
+      if (inb(cx, cy)) put(cx, cy, R.o);
+    }
+  }
+  const nail = (k, x, y) => { k.r(x, y, 2, 2, P.iron[2]); k.p(x, y, P.iron[4]); k.p(x + 1, y + 1, P.dark[0]); };
+  // ---------- 笔迹：红笔手画的圈、波浪下划线、带箭头的注释线（画在纸上）----------
+  const PEN = P.fire[1];
+  function penLoop(w, h, col = PEN, seed = 5) {
+    const k = C(w, h), cx = (w - 1) / 2, cy = (h - 1) / 2, a0 = -2.4 + hash(1, 1, seed) * 0.8, rx = cx - 1.2, ry = cy - 1.2;
+    for (let t = 0; t <= 1.13; t += 0.0015) {
+      const a = a0 + t * Math.PI * 2, wob = 1 + 0.045 * Math.sin(a * 2 + seed) + 0.025 * Math.sin(a * 5 + seed * 2), sh = t > 1 ? (t - 1) * 1.1 : 0;
+      const x = Math.round(cx + Math.cos(a) * rx * (wob - sh * 0.5)), y = Math.round(cy + Math.sin(a) * ry * (wob - sh));
+      k.p(x, y, col); if (t > 0.12 && t < 0.5) k.p(x, y + (Math.sin(a) > 0 ? -1 : 1), col);
+    }
+    return k.c;
+  }
+  function penUnder(w, col = PEN, seed = 3) {
+    const k = C(w, 5);
+    for (let x = 0; x < w; x++) { const y = 2 + Math.round(Math.sin(x / 4.2 + seed) * 1.2); k.p(x, y, col); if (x > 2 && x < w * 0.6) k.p(x, y + 1, col); }
+    return k.c;
+  }
+  // pts = 三个点（起点、弯曲控制点、终点），终点画箭头
+  function penArrow(w, h, pts, col = PEN) {
+    const k = C(w, h), [[x0, y0], [x1, y1], [x2, y2]] = pts;
+    for (let t = 0; t <= 1; t += 0.004) { const u = 1 - t; k.p(Math.round(u * u * x0 + 2 * u * t * x1 + t * t * x2), Math.round(u * u * y0 + 2 * u * t * y1 + t * t * y2), col); }
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    for (const s of [1, -1]) line(k, x2, y2, x2 - ux * 4 + uy * 3 * s, y2 - uy * 4 - ux * 3 * s, col);
+    return k.c;
+  }
+  // 贴在木牌上的纸条：毛边、左边一片浆糊印、右上角翘起
+  function paperLabel(w, h, seed = 3) {
+    const k = C(w, h), R = RAMP.paper;
+    paperFill(k, 0, 0, w, h, R, seed, 2); deckle(k, w, h, R, seed);
+    for (let y = 2; y < h - 2; y++) for (let x = 2; x < Math.min(9, w - 2); x++) if (bay(x, y) < 0.28) k.p(x, y, R.a);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4 - i; j++) k.clr(w - 1 - j, i);
+    for (let i = 0; i < 4; i++) { k.p(w - 4 + i, i, R.o); if (i) k.p(w - 5 + i, i, R.l); }
+    return k.c;
   }
 
   // ---------- 九宫格皮肤：{ url, c }，CSS 用 border-image: url c fill / (c*2)px repeat ----------
@@ -75,9 +134,9 @@ SA.PX = (() => {
     skin('paperOld', 6, 40, (k, w, h) => { paperFill(k, 0, 0, w, h, { ...RAMP.paper, b: '#d4bf92', a: '#bba172', s: '#c2aa7a' }, 13, 5); deckle(k, w, h, RAMP.paper, 13); });
     skin('kraft', 4, 24, (k, w, h) => { paperFill(k, 0, 0, w, h, RAMP.kraft, 17, 2); deckle(k, w, h, RAMP.kraft, 17); });
     skin('green', 4, 24, (k, w, h) => { paperFill(k, 0, 0, w, h, { o: '#2e3a26', b: '#cfdcb8', a: '#b8c89c', l: '#e2ecd0', s: '#bccb9f' }, 19, 3); deckle(k, w, h, { o: '#2e3a26' }, 19); });
-    skin('wood', 5, 18, (k, w, h) => { box(k, 0, 0, w, h, RAMP.wood); for (let y = 6; y < h - 2; y += 7) k.r(1, y, w - 2, 1, RAMP.wood.d); for (let i = 0; i < 12; i++) k.p(2 + Math.floor(hash(i, 1, 23) * (w - 4)), 2 + Math.floor(hash(i, 2, 23) * (h - 4)), RAMP.wood.d); });
+    skin('wood', 5, 18, (k, w, h) => { woodGrain(k, 0, 0, w, h, RAMP.wood, 23); box0(k, w, h, RAMP.wood); });
     skin('board', 8, 32, (k, w, h) => {
-      box(k, 0, 0, w, h, RAMP.wood);
+      woodGrain(k, 0, 0, w, h, RAMP.wood, 29, (x, y) => x < 5 || y < 5 || x >= w - 5 || y >= h - 5); box0(k, w, h, RAMP.wood);
       for (let y = 5; y < h - 5; y++) for (let x = 5; x < w - 5; x++) k.p(x, y, hash(x >> 2, y >> 2, 29) < 0.18 && bay(x, y) < 0.35 ? RAMP.board.l : RAMP.board.b);
       k.r(5, 5, w - 10, 1, RAMP.board.d); k.r(5, 5, 1, h - 10, RAMP.board.d); k.r(4, 4, w - 8, 1, RAMP.wood.o); k.r(4, 4, 1, h - 8, RAMP.wood.o); k.r(4, h - 5, w - 8, 1, RAMP.wood.l); k.r(w - 5, 4, 1, h - 8, RAMP.wood.l);
     });
@@ -187,22 +246,48 @@ SA.PX = (() => {
     k.g.drawImage(gear(5, 7, RAMP.brass, 0.25 + pos), px - 5, py - 5);
     return k.c;
   }
-  // 路标木牌：dir = 1 箭头朝右 / -1 朝左
-  function sign(w, dir = 1, R = RAMP.wood) {
-    const h = 22, k = C(w, h), tip = 10;
-    for (let y = 0; y < h; y++) {
-      const cut = Math.round(Math.abs(y - (h - 1) / 2) * tip / ((h - 1) / 2));
-      for (let x = 0; x < w; x++) {
-        const xx = dir > 0 ? x : w - 1 - x, lim = w - tip + cut;
-        if (xx >= lim) continue;
-        const edge = y === 0 || y === h - 1 || xx === 0 || xx === lim - 1;
-        let col = edge ? R.o : (y % 7 === 0 ? R.d : R.b);
-        if (!edge && (y === 1 || xx === 1)) col = R.l;
-        if (!edge && hash(x, y, 47) < 0.04) col = R.d;
-        k.p(x, y, col);
-      }
-    }
-    const sx = dir > 0 ? 4 : w - 7; brassRivet(k, sx, 10);
+  // 路标木牌：两块木板（长木纹、斜面、中缝）、箭头尖露出端面、靠柱子一头箍一条铁带、两颗铁钉、下沿磕掉两小块
+  // 画的时候都按朝右画，dir = -1 时整张镜像（铁带就到了右边，贴着柱子）
+  function sign(w, dir = 1, R = RAMP.wood, seed = 1) {
+    const h = 26, tip = 12, k = C(w, h);
+    const lim = (y) => w - Math.round(Math.abs(y - (h - 1) / 2) * tip / ((h - 1) / 2));   // 箭头尖：中间最长
+    const put = (x, y, c) => k.p(dir > 0 ? x : w - 1 - x, y, c);
+    const inside = (x, y) => y >= 0 && y < h && x >= 0 && x < lim(y);
+    const kk = { p: put };
+    woodGrain(kk, 0, 0, w, 12, R, seed, inside); woodGrain(kk, 0, 13, w, 13, R, seed + 5, inside);
+    for (let x = 1; x < w; x++) { if (inside(x, 1)) put(x, 1, R.l); if (inside(x, 14)) put(x, 14, R.l); if (inside(x, 11)) put(x, 11, R.d); if (inside(x, 24)) put(x, 24, R.d); if (inside(x, 12)) put(x, 12, R.o); }
+    for (let y = 0; y < h; y++) { const e = lim(y); if (e - 2 >= 0 && y !== 12) put(e - 2, y, R.l); }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inside(x, y) && (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1))) put(x, y, R.o);
+    for (const cx of [Math.round(w * 0.34), Math.round(w * 0.63)]) for (let x = cx; x < cx + 2; x++) { k.clr(dir > 0 ? x : w - 1 - x, h - 1); put(x, h - 2, R.o); }
+    // 铁带（靠柱子一头）+ 两颗螺栓
+    for (let y = 0; y < h; y++) { put(3, y, P.dark[0]); put(4, y, P.iron[3]); put(5, y, P.iron[2]); put(6, y, P.iron[1]); put(7, y, P.dark[0]); }
+    for (const y of [4, 19]) { put(4, y, P.iron[4]); put(5, y, P.iron[3]); put(4, y + 1, P.iron[3]); put(5, y + 1, P.dark[0]); }
+    // 靠箭头一头各钉一颗钉子
+    for (const y of [5, 18]) { const x = lim(y) - 7; put(x, y, P.iron[4]); put(x + 1, y, P.iron[2]); put(x, y + 1, P.iron[2]); put(x + 1, y + 1, P.dark[0]); }
+    return k.c;
+  }
+  // 竖木柱：竖纹 + 顶上一个小尖帽
+  function post(hh = 290) {
+    const w = 10, k = C(w, hh);
+    woodGrain(k, 0, 0, hh, w, RAMP.wood, 61, null, true);
+    k.r(0, 0, 1, hh, RAMP.wood.o); k.r(w - 1, 0, 1, hh, RAMP.wood.o); k.r(1, 0, 1, hh, RAMP.wood.l); k.r(w - 2, 0, 1, hh, RAMP.wood.d);
+    k.r(0, 0, w, 1, RAMP.wood.o); k.r(1, 1, w - 2, 2, RAMP.wood.l);
+    return k.c;
+  }
+  // 木箱：木纹板 + 斜撑 + 四颗钉子
+  function crate(w = 40, h = 22) {
+    const k = C(w, h), R = RAMP.wood;
+    woodGrain(k, 0, 0, w, h, R, 71); box0(k, w, h, R);
+    k.r(1, 7, w - 2, 1, R.o); k.r(1, 14, w - 2, 1, R.o);
+    for (let i = 0; i < w - 4; i++) { const y = 2 + Math.round(i * (h - 5) / (w - 5)); k.p(2 + i, y, R.d); k.p(2 + i, y + 1, R.l); }
+    for (const [x, y] of [[2, 2], [w - 4, 2], [2, h - 4], [w - 4, h - 4]]) nail(k, x, y);
+    return k.c;
+  }
+  // 桌面 / 地板平铺块：两排长木板，接缝错开；只有木纹，没有杂点
+  function planks(w = 128, h = 32) {
+    const k = C(w, h), R = { o: '#1a0f08', d: '#291810', b: '#33200f', l: '#3f2814' };
+    woodGrain(k, 0, 0, w, 15, R, 81); woodGrain(k, 0, 16, w, 16, R, 83);
+    k.r(0, 15, w, 1, R.o); k.r(0, 31, w, 1, R.o); k.r(Math.round(w * 0.3), 0, 1, 15, R.o); k.r(Math.round(w * 0.78), 16, 1, 15, R.o);
     return k.c;
   }
 
@@ -217,5 +302,5 @@ SA.PX = (() => {
     GEARS.small = gearStrip(4, 6, RAMP.brass, 3);
     root.style.setProperty('--gear-btn', `url(${GEARS.btn.url})`); root.style.setProperty('--gear-small', `url(${GEARS.small.url})`);
   }
-  return { S, RAMP, INK, RED, CHALK, P, C, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, init, SKIN, GEARS, hash, bay };
+  return { S, RAMP, INK, RED, CHALK, PEN, P, C, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
 })();
