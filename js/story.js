@@ -4,35 +4,52 @@
 window.SA = window.SA || {};
 
 SA.STORY = {
-  cast: { uncle: { name: '远房亲戚' } },
+  // coal = js/coal.js 阵容里的名字（头像和小人按它画）。铁匠总是和远房亲戚成双入对：只要有他的台词，对话框就同时摆出两个人的头像
+  cast: { uncle: { name: '远房亲戚', coal: '远房亲戚' }, smith: { name: '铁匠 老汤姆', coal: '铁匠 老汤姆' } },
   // 开场：scene 是开场画面的分镜（见 drawScene）
   opening: [
     { text: '你从睡梦中醒来，身无分文。', scene: 'sleep' },
     { text: '你的窝棚突然被掀开了——', scene: 'roof' },
-    { text: '许久未见的远房亲戚骨碌碌滚了进来。', scene: 'roll' },
+    { text: '许久未见的远房亲戚骨碌碌滚了进来，后面还跟着一个独眼铁匠。', scene: 'roll' },
     { who: 'uncle', text: '我老了，现在继承我的战车吧！', scene: 'car' },
+    { who: 'smith', text: '……车是我拿铁匠铺的边角料拼的。锅炉已经给你烧热了。' },
+    { who: 'uncle', text: '这是老汤姆，我的老战友。他说话少，焊得好。' },
   ],
   // 第一关开战前：先旁白，再用箭头逐个指着对手车上的部件讲解。part 对应 battle-view 里找模块的规则
   tutorial: {
-    intro: '我找来了小提米和你对练，作为大英帝国的军人，我相信实战是最好的老师！',
+    // intro / lines 里的字符串默认是远房亲戚说的；{ who: 'smith' } 是老汤姆在旁边补的一句
+    intro: ['我找来了小提米和你对练，作为大英帝国的军人，我相信实战是最好的老师！',
+      { who: 'smith', text: '车是我拼的，小提米是我徒弟。两个都别给我打坏了。' }],
     parts: [
       { part: 'cockpit', label: '驾驶舱', lines: ['驾驶舱：一切的核心，就像心脏。失去了它你就输了。'] },
-      { part: 'track', label: '履带', lines: ['履带：本世纪最好的发明。'] },
-      { part: 'boiler', label: '锅炉', lines: ['锅炉：一切的核心，就像心脏。失去了它你就输了……', '……我刚刚是不是这么说过？'] },
-      { part: 'mg', label: '机枪', lines: ['机枪：对敌的最佳武器，别担心，训练用弹打不死人。只要你还在驾驶舱里。'] },
+      { part: 'track', label: '履带', lines: ['履带：本世纪最好的发明。', { who: 'smith', text: '……上个世纪的。' }] },
+      { part: 'boiler', label: '锅炉', lines: ['锅炉：一切的核心，就像心脏。失去了它你就输了……', '……我刚刚是不是这么说过？', { who: 'smith', text: '说过。锅炉是我烧的，别让它炸了就行。' }] },
+      { part: 'mg', label: '机枪', lines: ['机枪：对敌的最佳武器，别担心，训练用弹打不死人。只要你还在驾驶舱里。', { who: 'smith', text: '训练弹是我拿铆钉磨圆的。打在身上……会有点疼。' }] },
     ],
   },
   // 过关提示：stage 按「章,场」写专属台词；feat 按新开放的功能写（战役顺序调整后也跟着功能走）
   stage: {
     '0,0': {
-      win: ['好！小提米已经哭着跑回铁匠铺了。这才像我们家的人。'],
-      lose: ['训练弹打不死人——你看，你还活着。', '把车修一修，再去和小提米打一场！'],
+      win: ['好！小提米已经哭着跑回铁匠铺了。这才像我们家的人。', { who: 'smith', text: '我徒弟没哭。……他只是眼睛进了煤灰。' }],
+      lose: ['训练弹打不死人——你看，你还活着。', { who: 'smith', text: '车我拖回去了。天亮之前给你焊好。' }, '把车修一修，再去和小提米打一场！'],
     },
-    '0,1': { win: ['连老汤姆都服了你。铁匠铺后院已经装不下你了。'] },
+    '0,1': {
+      win: ['看见没有？甲片挡住的地方打不动，就绕过去打它没挡住的地方。兵法！', { who: 'smith', text: '那块甲片是我给艾达焊的。……焊歪了一点，你打的就是那一点。' }],
+      lose: [{ who: 'smith', text: '甲片是我焊的。驾驶舱上面那块，左边薄。' }, '听见没有？找缝！我当年在克里米亚就是这么……', { who: 'smith', text: '……他在克里米亚管的是伙房。' }],
+    },
+    '0,2': {
+      win: ['连老汤姆都服了你。铁匠铺后院已经装不下你了。', { who: 'smith', text: '……铲斗归你了。别拿它铲我的煤堆。' }, '他的意思是：去后巷吧，那儿才有真正的比赛。'],
+      lose: ['汤姆！对自家孩子也下这么重的手？', { who: 'smith', text: '战场上没有自家孩子。车拖回来，我给你修，不收钱。' }],
+    },
+  },
+  // 战前插入（「章,场」）：和 before.* 剧情插入点对应，只在第一次打这一场时播；开发者模式下可以在剧情编辑器里改。这里的字符串算旁白，角色台词要写 who
+  before: {
+    '0,2': [{ who: 'uncle', text: '最后一场。你的对手是——' }, { who: 'smith', text: '我。' }, { who: 'uncle', text: '……汤姆，你不是说你退休了吗？' }, { who: 'smith', text: '铁匠不退休。上车吧，孩子。我的机炮从不卡壳。' }],
   },
   feat: {
-    garage: ['车间现在归你了。库存里有我攒下的零件，把装甲挡在驾驶舱和锅炉前面——这两样都是心脏。', '……这句我肯定没说过。'],
-    shop: ['商店开张了：库存里没有的零件，直接放上车就是买下来。钱要花在刀刃上！'],
+    garage: ['车间现在归你了。库存里有我攒下的零件，把装甲挡在驾驶舱和锅炉前面——这两样都是心脏。', '……这句我肯定没说过。',
+      { who: 'smith', text: '车间就在我铺子后头。工具随便用，别碰我的铁砧。' }],
+    shop: ['商店开张了：库存里没有的零件，直接放上车就是买下来。钱要花在刀刃上！', { who: 'smith', text: '缺零件先问我。……我这儿也收钱。' }],
     street: ['街头赛开放了：输赢都快，赚点零花钱正好。'],
     bank: ['银行也肯借钱给你了。我年轻时借过一次，还了二十年。你自己掂量。'],
     side: ['侧挂层开放了：车身侧面也能挂零件了。'],
@@ -105,17 +122,21 @@ SA.Story = (() => {
     const k = `${name}|${JSON.stringify(o)}`;
     return coalCache[k] || (coalCache[k] = SA.Coal.draw(SA.Coal.byName[name], o));
   }
-  // 对话框头像（96×96）：talk 时身子往上弹 2 像素；blink 眨眼。亲戚在对话框左边，眼睛朝右看着你
-  function portrait(talk, blink) {
-    return coal('远房亲戚', { size: 'bust', expr: blink ? 'blink' : 'normal', cy: talk ? 60 : 62 });
+  // 对话框头像（96×96）：talk 时身子往上弹 2 像素；blink 眨眼。亲戚在对话框左边，眼睛朝右看着你；
+  // 老汤姆（和亲戚同框时）在右边，眼睛朝左
+  function portrait(talk, blink, who = 'uncle') {
+    const c = SA.STORY.cast[who] || SA.STORY.cast.uncle;
+    return coal(c.coal || '远房亲戚', { size: 'bust', expr: blink ? 'blink' : 'normal', cy: talk ? 60 : 62, look: who === 'smith' ? -1 : 1 });
   }
   // 站着的亲戚（56×56，身子底边在第 46 行）；pose：salute 敬礼 / idle 垂手 / cheer 欢呼
   const uncle = (pose = 'salute', expr = 'normal') => coal('远房亲戚', { size: 'scene', pose, expr, look: -1 });
-  // 滚成一团的亲戚：θ = 转角，按 16 档转，最近邻，不糊
-  function uncleBall(th) {
-    const q = Math.round(th / (Math.PI / 8)), k = `ball|${((q % 16) + 16) % 16}`;
+  // 老汤姆：拿着铁锤站着，看向左边的你
+  const smith = (pose = 'hold', expr = 'normal') => coal('铁匠 老汤姆', { size: 'scene', pose, expr, look: -1 });
+  // 滚成一团的碳球：θ = 转角，按 16 档转，最近邻，不糊
+  function uncleBall(th, name = '远房亲戚') {
+    const q = Math.round(th / (Math.PI / 8)), k = `ball|${name}|${((q % 16) + 16) % 16}`;
     if (coalCache[k]) return coalCache[k];
-    const src = coal('远房亲戚', { size: 'scene', pose: 'idle', expr: 'surprise', look: -1 }), c = document.createElement('canvas');
+    const src = coal(name, { size: 'scene', pose: 'idle', expr: 'surprise', look: -1 }), c = document.createElement('canvas');
     c.width = c.height = 56;
     const g = c.getContext('2d');
     g.imageSmoothingEnabled = false;
@@ -244,7 +265,7 @@ SA.Story = (() => {
     if (idx >= 3) {
       const car = carSprite(gt);
       if (car) {
-        const cx = 400 - car.width / 2, cy = FLOOR - car.height + 24 + Math.round((1 - ease(t / 0.9)) * 90);
+        const cx = 400 - car.width / 2, cy = Math.min(FLOOR - car.height + 24, WALL + 16 - car.height) + Math.round((1 - ease(t / 0.9)) * 90);   // 小车也要整台露出墙头
         g.drawImage(car, Math.round(cx), cy);
         for (let k = 0; k < 3; k++) {
           const f = (gt * 0.6 + k / 3) % 1;
@@ -298,6 +319,23 @@ SA.Story = (() => {
         const bob = idx === 3 ? Math.round(Math.sin(gt * 3) * 1) : 0;
         g.drawImage(u, 262 - 56, FLOOR - 92 - Math.round(pop * 10) + bob, 112, 112);
         if (idx === 2 && t < 1.8) dust(g, 262, FLOOR, (t - 1.35) / 0.45);
+      }
+    }
+    // 老汤姆：跟在亲戚后面晚 0.45 秒滚进来，停在战车前面；之后一直拎着铁锤站着
+    if (idx >= 2) {
+      const t2 = idx === 2 ? t - 0.45 : 9, SX = 356;
+      if (t2 > 0) {
+        const stand = t2 > 1.35;
+        const k = Math.min(1, t2 / 1.2), x = 580 - (580 - SX) * ease(k), bounce = Math.round(Math.abs(Math.sin(t2 * 11 + 1)) * 10 * (1 - k));
+        if (!stand) {
+          g.fillStyle = P.bg[4];
+          for (let i = 1; i <= 3; i++) g.fillRect(Math.round(x + 24 + i * 9), FLOOR - 16 - i * 4 + (i % 2) * 6, 7 - i, 2);
+          g.drawImage(uncleBall(-t2 * 12, '铁匠 老汤姆'), Math.round(x - 56), FLOOR - 92 - bounce, 112, 112);
+        } else {
+          const pop = idx === 2 ? Math.max(0, 1 - (t2 - 1.35) / 0.25) : 0, bob = idx === 3 ? Math.round(Math.sin(gt * 3 + 1.4)) : 0;
+          g.drawImage(smith('hold', idx === 2 && t2 < 1.7 ? 'surprise' : 'normal'), SX - 56, FLOOR - 92 - Math.round(pop * 10) + bob, 112, 112);
+          if (idx === 2 && t2 < 1.8) dust(g, SX, FLOOR, (t2 - 1.35) / 0.45);
+        }
       }
     }
     // 屋顶：掀掉时整片往上飞
@@ -359,17 +397,20 @@ SA.Story = (() => {
   function talk(lines, { host = document.body, scene = null, onDone = null, cls = '' } = {}) {
     const page = host === document.body;
     const face = h('canvas', { class: 'px vn-face', width: 96, height: 96 });
+    // 老汤姆一出场就和远房亲戚同框：左边亲戚、右边老汤姆，谁说话谁亮
+    const duo = lines.some(L => L.who === 'smith');
+    const face2 = duo ? h('canvas', { class: 'px vn-face', width: 96, height: 96 }) : null;
     const name = h('div', { class: 'vn-name' });
     const txt = h('div', { class: 'vn-text' });
     const more = h('i', { class: 'vn-more', 'aria-hidden': 'true' });
     const skip = h('button', { class: 'vn-skip', type: 'button' }, '跳过 ▸▸');
     const dock = h('div', { class: 'vn-dock' }, name,
       h('div', { class: 'vn-box' }, h('div', { class: 'vn-frame' }, h('div', { class: 'vn-in' },
-        h('div', { class: 'vn-portrait' }, face), txt, more))));
-    const root = h('div', { class: `vn ${page ? 'vn-page' : ''} ${cls}`, role: 'dialog', 'aria-live': 'polite' },
+        h('div', { class: 'vn-portrait' }, face), txt, duo ? h('div', { class: 'vn-portrait vn-portrait2' }, face2) : null, more))));
+    const root = h('div', { class: `vn ${page ? 'vn-page' : ''} ${duo ? 'vn-duo' : ''} ${cls}`, role: 'dialog', 'aria-live': 'polite' },
       scene ? scene.el : null, dock, skip);
     host.append(root);
-    const fg = face.getContext('2d');
+    const fg = face.getContext('2d'), fg2 = face2 && face2.getContext('2d');
     let i = -1, shown = 0, full = '', done = false, raf = 0, last = performance.now(), lt = 0, gt = 0;
     function show(k) {
       i = k; const L = lines[k];
@@ -394,9 +435,12 @@ SA.Story = (() => {
       if (done) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now; lt += dt; gt += dt;
       if (shown < full.length) { shown = Math.min(full.length, shown + dt * CPS); render(); }
-      if (root.dataset.who !== 'narr') {
-        const talking = shown < full.length && Math.floor(gt * 9) % 2 === 0, blink = gt % 3.2 < 0.12;
-        fg.clearRect(0, 0, 96, 96); fg.drawImage(portrait(talking, blink), 0, 0);
+      const who = root.dataset.who;
+      if (who !== 'narr') {
+        const talking = shown < full.length && Math.floor(gt * 9) % 2 === 0;
+        const left = duo ? 'uncle' : who;
+        fg.clearRect(0, 0, 96, 96); fg.drawImage(portrait(talking && who === left, gt % 3.2 < 0.12, left), 0, 0);
+        if (fg2) { fg2.clearRect(0, 0, 96, 96); fg2.drawImage(portrait(talking && who === 'smith', (gt + 1.3) % 3.7 < 0.12, 'smith'), 0, 0); }
       }
       if (scene) scene.draw(gt);
       raf = requestAnimationFrame(frame);
@@ -504,13 +548,13 @@ SA.Story = (() => {
     if (seen('tutorial') || opts.mode !== 'campaign' || opts.replay) return null;
     const st = SA.Camp.current();
     if (!st || st.ci !== 0 || st.si !== 0) return null;
-    // 编辑后的台词按原格式还原：intro 是一句字符串、每个部件 lines 是字符串数组
-    const T0 = SA.STORY.tutorial, text = (id, fb) => lines(id, fb).map(l => (typeof l === 'string' ? l : l.text));
-    return { intro: text('tutorial.intro', [T0.intro])[0] || '', parts: T0.parts.map((p, i) => ({ ...p, lines: text(`tutorial.parts.${i}`, p.lines) })) };
+    // 每句还原成 { who, text }：没写 who 的是远房亲戚说的
+    const T0 = SA.STORY.tutorial, rows = (id, fb) => lines(id, fb).map(l => (typeof l === 'string' ? { who: 'uncle', text: l } : { ...l, who: l.who || 'uncle' }));
+    return { intro: rows('tutorial.intro', [].concat(T0.intro)), parts: T0.parts.map((p, i) => ({ ...p, lines: rows(`tutorial.parts.${i}`, p.lines) })) };
   }
   // 过关提示：at = 打的是哪一场（战役），newFeat = 这一场新开放的功能。每条只说一次
   function afterBattle({ key, win, newFeat = [] }, next) {
-    const out = [], uncle = (arr) => arr.map(text => ({ who: 'uncle', text }));
+    const out = [], uncle = (arr) => arr.map(l => (typeof l === 'string' ? { who: 'uncle', text: l } : l));
     const S0 = key && SA.STORY.stage[key], outcome = win ? 'win' : 'lose';
     const sk = `after:${key}:${outcome}`;
     if (S0 && S0[outcome] && !seen(sk)) { out.push(...lines(`stage.${key}.${outcome}`, uncle(S0[outcome]))); mark(sk); }

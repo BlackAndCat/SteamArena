@@ -507,13 +507,15 @@ SA.StoryData = (() => {
   // 默认台词按调用时的 SA.STORY 生成；stage/feat 的纯字符串由远房亲戚讲述。
   function defaults(id) {
     if (id === 'opening') return story().opening;
-    if (id === 'tutorial.intro') return [story().tutorial.intro];
+    if (id === 'tutorial.intro') return [].concat(story().tutorial.intro);
     if (id.startsWith('tutorial.parts.')) return story().tutorial.parts[Number(id.slice(15))].lines;
     if (id.startsWith('stage.')) {
       const match = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
       return story().stage[match[1]][match[2]];
     }
     if (id.startsWith('feat.')) return story().feat[id.slice(5)];
+    const insert = /^(before|after)\.(.+)$/.exec(id);
+    if (insert) return (story()[insert[1]] || {})[insert[2]] || [];
     return [];
   }
 
