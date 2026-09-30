@@ -1075,3 +1075,5 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 .home-car:hover .home-hint { opacity: 1; }
 .home-car:hover canvas.px-img:first-child { filter: brightness(1.08); }
 @keyframes home-br { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.home-vane { cursor: pointer; }
+.home-vane:hover { filter: brightness(1.25); }
