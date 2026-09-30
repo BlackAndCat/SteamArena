@@ -340,7 +340,9 @@ SA.CUR = (() => {
         box(x + 6, y + v, 18, 10, IRONL); R(x + 11, y + v, 2, 10, P.brass[1]); R(x + 19, y + v, 2, 10, P.brass[1]);
         const e = 3 + pump * s * 2.5; R(x + 24, y + v + 4, e, 2, P.iron[4]);
       }
-      const L = 18 - c * 11, hx = x + 12 + L + 6;   // 弹簧长度：满蓄 7、放开 18；锤头跟着弹簧前端
+      // v3：行程加长约 30%（弹簧满蓄 4.5 → 放开 19，原来 7 → 18）；释放瞬间锤头多冲出去 3px 再回弹；整只锤子在释放后抖（hit 从 1 衰减到 0）
+      const hit = o.hit || 0, jx = hit ? Math.round(Math.sin(o.t * 3.3) * 1.6 * hit) : 0, jy = hit ? Math.round(Math.cos(o.t * 2.7) * 1.2 * hit) : 0;
+      const L = 19 - c * 14.5 + Math.round(hit * hit * 3), hx = x + 12 + L + 6 + jx;
       R(x + 6, y + 17, 6, 14, P.iron[1]); R(x + 6, y + 17, 6, 1, P.iron[3]);   // 弹簧后座
       R(x + 12, y + 23, hx - x - 12, 2, P.iron[0]);                                // 导杆
       const n = 6, sp = L / n;   // 螺旋弹簧：每圈一道亮的前笔（竖）+ 一道暗的后笔（斜），压紧时圈挨圈
@@ -351,19 +353,25 @@ SA.CUR = (() => {
       R(x + 24, y + 32, hx - x - 24 + 1, 2, P.iron[1]); for (let u = x + 24; u < hx; u += 3) px(u, y + 32, P.iron[4]);
       const pw = c < 1 ? Math.round(Math.sin(o.t * 0.9) * 1.5) : 0;   // 两只棘爪：跟着活塞杆一推一推
       for (const [v, d] of [[12, 1], [35, -1]]) { R(x + 27 + pw, y + v, 3, 2, P.brass[1]); px(x + 29 + pw, y + v + d, P.brass[3]); }
-      box(hx, y + 15, 6, 18, IRONL);                                                     // 锤头滑座
-      box(hx + 6, y + 6, 8, 36, RUSTR); R(hx + 7, y + 23, 6, 2, P.rust[3]);              // 锤面
-      if (st) poly([[hx + 14, y + 8], [hx + 20, y + 24], [hx + 14, y + 40]], RUSTR);
+      box(hx, y + 15 + jy, 6, 18, IRONL);                                                     // 锤头滑座
+      box(hx + 6, y + 6 + jy, 8, 36, RUSTR); R(hx + 7, y + 23 + jy, 6, 2, P.rust[3]);         // 锤面
+      if (st) poly([[hx + 14, y + 8 + jy], [hx + 20, y + 24 + jy], [hx + 14, y + 40 + jy]], RUSTR);
+      if (hit > 0.3) for (const v of [7, 40]) { px(hx + 15, y + v + jy, P.iron[4]); px(hx + 5, y + v + jy, P.iron[4]); }   // 抖动时锤面四角的亮边
       const locked = c >= 0.99; R(x + 27, y + 14, 2, 3, P.iron[1]); line(x + 28, y + 16, locked ? hx + 1 : x + 31, locked ? y + 16 : y + 12, 1, locked ? P.brass[2] : P.iron[3]);   // 挂钩
       gauge(x + 15, y + 2, 2.6, 0.15 + c * 0.8);
     },
     fx(x, y, o) {
-      const c = o.c == null ? 1 : o.c;
-      if (o.hit) {
-        const k = o.hit, hx = x + 12 + (18 - c * 11) + 6 + 14;
-        for (let r = 0; r < 3; r++) { const rr = 3 + (1 - k) * 10 + r * 3; for (let a = -1.1; a <= 1.1; a += 0.12) px(hx + Math.cos(a) * rr, y + 24 + Math.sin(a) * rr * 1.6, r === 0 ? P.white : P.steam[2]); }
-        puff(x + 24, y + 5, o.t, 3, 6); puff(x + 24, y + 44, o.t + 10, 3, 6);
-      }
+      const c = o.c == null ? 1 : o.c, hit = o.hit || 0;
+      if (!hit) return;
+      const L = 19 - c * 14.5 + Math.round(hit * hit * 3), hx = x + 12 + L + 6 + 14, k = 1 - hit;   // k：释放后过了多久（0 → 1）
+      // 冲击波：锤面前三道弧往外扩
+      for (let r = 0; r < 3; r++) { const rr = 3 + k * 12 + r * 3; if (rr > 20) continue; for (let a = -1.15; a <= 1.15; a += 0.1) px(hx + Math.cos(a) * rr, y + 24 + Math.sin(a) * rr * 1.7, r === 0 ? P.white : P.steam[2]); }
+      // 强烈的蒸汽：两缸的排汽口往上 / 往下猛喷一大团，锤面上下沿也往外炸出两股；一松开就是一大团白汽，之后往外涨、慢慢变灰
+      const burst = (cx, cy, dx, dy, n, len) => { for (let i = 0; i < n; i++) { const u = (i + 1) / n, d = (0.6 + k * 0.7) * len * u, wob = Math.sin(i * 2.3 + o.t * 0.3) * u * 3, w = k < 0.35 ? 0.1 : k < 0.7 ? 0.45 : 0.75; disc(cx + dx * d - dy * wob, cy + dy * d + dx * wob, 1.8 + u * 3.6 * (0.9 + k * 0.4), u < w ? P.steam[2] : k > 0.7 && u > 0.6 ? P.steam[1] : P.white); } };
+      burst(x + 10, y + 4, -0.3, -1, 5, 14); burst(x + 20, y + 4, 0.3, -1, 5, 16);
+      burst(x + 10, y + 44, -0.3, 1, 5, 14); burst(x + 20, y + 44, 0.3, 1, 5, 16);
+      burst(hx - 6, y + 6, 0.5, -1, 4, 12); burst(hx - 6, y + 42, 0.5, 1, 4, 12);
+      if (hit > 0.7) for (let i = 0; i < 6; i++) { const a = -0.9 + i * 0.36; px(hx + 3 + Math.cos(a) * 5, y + 24 + Math.sin(a) * 9, P.fire[3]); }   // 撞击一瞬间的火星
     } };
   const MODS = [
     { id: 'water', name: '水箱 · 纵向箍带加固', w: 2, h: 2, tiers: [1, 2, 3, 4, 5, 6], SET: [TANK2],
@@ -374,9 +382,9 @@ SA.CUR = (() => {
     { id: 'spike', name: '撞角 · 舰艏撞角', w: 2, h: 2, tiers: [1, 5], SET: SPIKE.filter(e => e.key === 'B'),
       rule: '2×2 撞击层 · 选定 B 舰艏撞角，不改 · 普通 / 精英（亮钢嘴尖 + 第二排铆钉）', state: (t) => ({ t }), poses: [{ t: 0, label: '' }] },
     { id: 'piston', name: '蒸汽撞锤 · 双缸蓄力', w: 2, h: 2, tiers: [1, 5], SET: [PISTON2],
-      rule: '2×2 撞击层 · 选定 B 双缸，按你说的改成「蒸汽缸蓄力 → 一下释放」· 页面循环：两缸一下下蓄力（棘轮后退、弹簧压紧、表针上升）→ 挂钩扣住 → 释放（锤头弹出 + 冲击波 + 泄汽）→ 重新蓄力 · 游戏里：没贴身时保持满蓄，每次打击后从零重新蓄（1.5 秒一次）',
-      state: (t) => { const cy = t % 80; if (cy < 50) return { t, c: cy / 50 }; if (cy < 64) return { t, c: 1 }; const k = (cy - 64) / 16; return { t, c: 0, hit: k < 0.35 ? 1 - k / 0.35 : 0 }; },
-      poses: [{ c: 0, label: '刚释放' }, { c: 0.5, t: 7, label: '蓄力中' }, { c: 1, label: '满蓄扣住' }, { c: 0, hit: 1, label: '释放瞬间' }] },
+      rule: '2×2 撞击层 · 选定 B 双缸，按你说的改成「蒸汽缸蓄力 → 一下释放」· 页面循环：两缸一下下蓄力（棘轮后退、弹簧压紧、表针上升）→ 挂钩扣住 → 释放（锤头弹出、多冲 3px 再回弹 + 冲击波 + 两缸和锤面猛喷蒸汽 + 整只锤子震颤）→ 重新蓄力 · 游戏里：没贴身时保持满蓄，每次打击后从零重新蓄（1.5 秒一次）',
+      state: (t) => { const cy = t % 90; if (cy < 50) return { t, c: cy / 50 }; if (cy < 64) return { t, c: 1 }; const k = (cy - 64) / 26; return { t, c: 0, hit: Math.max(0, 1 - k * 1.25) }; },
+      poses: [{ c: 1, label: '满蓄扣住' }, { c: 0, hit: 1, t: 3, label: '释放瞬间' }, { c: 0, hit: 0.5, t: 7, label: '震颤 + 蒸汽' }, { c: 0.5, t: 7, label: '重新蓄力' }] },
   ];
   function figure(ctx, x, y, e, o = {}) { g = ctx; e.draw(x, y, o); }
   function over(ctx, x, y, e, o = {}, m) { g = ctx; if (e.fx) e.fx(x, y, o); else if (m && m.fx) m.fx(x, y, o); }
