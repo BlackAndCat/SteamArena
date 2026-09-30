@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '—', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。目前没有进行中的项目', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四件辅助模块 v1', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：蓄压罐、测距仪、陀螺仪、散热片（侧挂）各 6 种（A～C 为 09-27 夜间候选重画，D～F 新方向），会动：存量涨落 / 镜片闪光 / 转子旋转 / 随车温开合', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'special-weapons', group: 'module', url: 'archive/special-weapons.html', name: '特殊武器', ver: 'v5', date: '2026-09-29', status: 'shipped',
       desc: '已进游戏：鱼叉 = 链锚抓钩 + 身后三圈粗缆的绞缆盘（射出时放缆）；蒸汽喷射器 = 扇形喷汽阀（只做 T1～T3）；喷火器 = 翅片喷焰炮（只做 T4～T6，火焰混白汽）；火箭架六档：投矛臂 / 投掷轮 / 板簧连弩（45° 抛射）/ 气压抛射管 / 火箭助推炸弹 / 管束发射架。v1 的 24 种、投掷架 4 种和各档候选的代码都在这页的 js 里', docs: ['docs/art-plan.md'] },
     { id: 'big-boiler-tank', group: 'module', url: 'archive/big-boiler-tank.html', name: '大锅炉 + 大水箱', ver: 'v4', date: '2026-09-29', status: 'shipped',

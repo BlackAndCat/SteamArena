@@ -28,8 +28,9 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：暂无</small></h1>
-    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。目前没有进行中的项目。上一期（特殊武器：鱼叉、蒸汽喷射器、喷火器、火箭架六档）已进游戏，归档在 <a href="archive/special-weapons.html">archive/special-weapons.html</a>。</p>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：蓄压罐 · 测距仪 · 陀螺仪 · 散热片 · v1 · 2026-09-29</small></h1>
+    <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（特殊武器：鱼叉、蒸汽喷射器、喷火器、火箭架六档）已进游戏，归档在 <a href="archive/special-weapons.html">archive/special-weapons.html</a>。</p>
+    <p><b>本期 v1</b>：蓄压罐、测距仪、陀螺仪、散热片各 6 种——<b>A～C 是 2026-09-27 的夜间候选</b>按现在的画法重画，<b>D～F 是新方向</b>。大图一直在动：蓄压罐的存量涨落（涨的时候阀口冒汽）、测距仪镜片闪光 / 指针找距离、陀螺仪转子一直转、散热片随车温变化（冷却液流速、百叶开合）。散热片是侧挂层：右边「装在车上」那张挂在装甲外面，镂空处能看到后面的车体。<b>请每种挑一个</b>（可以组合）。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -75,7 +76,9 @@
     const mx = ox + 48, my = oy + 48 - m.h * 24;
     try { for (let u = 0; u < 2; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy, { mt }); for (let u = 0; u < 2 + m.w; u++) SA.SPR.drawModule(g, 'armor', ox + u * 24, oy + 48, { mt }); } catch (err) {}
     const lay = document.createElement('canvas'); lay.width = W; lay.height = H;
-    Q.figure(lay.getContext('2d'), mx, my, e, o); applyMat(lay, mt, mx, my); Q.over(lay.getContext('2d'), mx, my, e, o, m);
+    const sx = m.side ? ox + 24 : mx, sy = m.side ? oy + 24 : my;
+    Q.figure(lay.getContext('2d'), sx, sy, e, o); applyMat(lay, mt, sx, sy); Q.over(lay.getContext('2d'), sx, sy, e, o, m);
+    if (m.side) { g.save(); g.filter = 'brightness(0) opacity(0.55)'; g.drawImage(lay, 3, 3); g.restore(); }
     g.drawImage(lay, 0, 0); return c;
   }
   const live = [];
@@ -88,7 +91,7 @@
         const big = el('div'), car = el('div'), tiers = el('div', { className: 'tiers' }), poses = el('div', { className: 'tiers' });
         live.push(() => { const o = m.state(st.t), mt = mtOf(m, e); big.replaceChildren(show(one(e, m, mt, o), 3)); car.replaceChildren(show(onCar(e, m, mt, o), 1.5)); });
         for (const mt of (e.tier ? [e.tier] : m.tiers)) tiers.append(el('div', {}, show(one(e, m, mt, { ...m.state(40), a: 6, k: 0, out: false, on: false, fire: false, n: 4 }, 2), 1), `T${mt} ${SA.MATS[mt].name}`));
-        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m, e), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label || (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
+        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m, e), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label != null ? ps.label : (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
         cards.append(el('div', { className: 'card' }, el('h3', {}, `${e.key} ${e.name}`), el('div', { className: 'row' }, big, car), tiers, poses,
           el('p', {}, e.idea), el('p', { style: 'font-size:11.5px;opacity:.8' }, '参考：' + e.ref)));
       }
