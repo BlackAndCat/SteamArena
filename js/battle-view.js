@@ -40,9 +40,9 @@ SA.BattleView.create = function createBattleView(api) {
     sync();
     if (!B || B.headless) return;
     if (type === 'part') B.parts.push({ ...data, max: data.life });
-    else if (type === 'text') B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life });
+    else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
     else if (type === 'particles') for (const p of data.items || []) B.parts.push({ ...p, max: p.life });
-    else if (type === 'texts') for (const t of data.items || []) B.texts.push({ ...t, life: t.life == null ? 0.9 : t.life });
+    else if (type === 'texts') for (const t of data.items || []) { if (DMG_RE.test(t.str)) addDmg(t); else B.texts.push({ ...t, life: t.life == null ? 0.9 : t.life }); }
     else if (type === 'ricochet') ricochetFx(data.x, data.y, data.back);
     else if (type === 'shatter') shatterFx(data.x, data.y, data.cell);
     else if (type === 'surrender-start') surrenderHint(true);
@@ -221,6 +221,8 @@ SA.BattleView.create = function createBattleView(api) {
     fxLabels();
     B.previewInfo = null;
     if (B.aim && !B.p.dead && !B.e.dead) drawPreview(aimT);
+    drawDmg();
+    dg.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
     if (B.aim) {
       const [mx, my] = B.aim;
       reticle(mx, my, aimT);
@@ -384,6 +386,133 @@ SA.BattleView.create = function createBattleView(api) {
     });
     g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   }
+  // ---------- 伤害数字 ----------
+  // 旧版：3×5 小字（5 和 S 同形、6 / 8 / 9 几乎一样），只有右下一道影子，所有伤害一个样，同一位置连着冒出来就叠成一团。
+  // 新版：① 5×7 字形（与界面钱数同一套）+ 一圈完整黑描边 + 下方投影，在屏幕空间按整数像素画，镜头缩放也不糊不变小；
+  // ② 按单发伤害分四档：大小、颜色、加粗、弹出力度、停留时间都不同，≥25 再带一圈迸射线；主体 白→黄→橙→红，侧挂 粉→品红，货箱 木色；
+  // ③ 同一模块上连着打进来的同值伤害（机枪）合成一个「9×4」，在弹着点悬停，停火后再飘走；
+  // ④ 不同数字之间每帧做一次避让（沿重叠较少的方向推开），不会叠在一起。
+  const DMG_RE = /^\d+$/;
+  const DMG_GLYPH = {
+    '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'], '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+    '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'], '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+    '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'], '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+    '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'], '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+    '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'], '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+    '×': ['000', '000', '101', '010', '101', '000', '000'],
+  };
+  const DMG_COL = {
+    body: ['#f4f7ee', '#ffe066', '#ffa133', '#ff4f2e'],
+    side: ['#f8c6f0', '#f590e4', '#ea55d4', '#d42abd'],
+    crate: ['#d9b27a', '#e2bd85', '#eac68e', '#f2d098'],
+  };
+  const DMG_U = [3, 4, 4, 5], DMG_BOLD = [0, 0, 1, 1], DMG_LIFE = [0.75, 0.95, 1.2, 1.5], DMG_RISE = [40, 32, 26, 20], DMG_POP = [1.5, 1.8, 2.1, 2.6];
+  const dmgTier = (v) => (v >= 50 ? 3 : v >= 25 ? 2 : v >= 10 ? 1 : 0);
+  const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); return `rgb(${Math.round((n >> 16) * k)},${Math.round(((n >> 8) & 255) * k)},${Math.round((n & 255) * k)})`; };
+  const dmgCache = new Map();
+  // 预烘一张 1 倍像素的数字图（描边 + 投影 + 两段明暗），画的时候按整数倍放大
+  function dmgSprite(str, tier, kind) {
+    const key = `${str}|${tier}|${kind}`;
+    if (dmgCache.has(key)) return dmgCache.get(key);
+    const bold = DMG_BOLD[tier], mask = [];
+    let w = 0;
+    for (const ch of str) {
+      const gl = DMG_GLYPH[ch], gw = gl[0].length;
+      gl.forEach((row, y) => { for (let i = 0; i < gw; i++) if (row[i] === '1') { mask.push([w + i, y]); if (bold) mask.push([w + i + 1, y]); } });
+      w += gw + 1 + bold;
+    }
+    w -= 1;
+    const cv = document.createElement('canvas');
+    cv.width = w + 2; cv.height = 7 + 3;
+    const x = cv.getContext('2d'), col = DMG_COL[kind][tier];
+    const at = (c, list, dy) => { x.fillStyle = c; for (const [px, py] of list) x.fillRect(px + 1, py + 1 + dy, 1, 1); };
+    const ring = [];
+    for (const [px, py] of mask) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) ring.push([px + dx, py + dy]);
+    at('rgba(0,0,0,0.45)', ring, 1);                             // 投影
+    at('#0b0a10', ring, 0);                                       // 一圈完整描边
+    at(col, mask, 0);
+    at(shade(col, 0.74), mask.filter(([, py]) => py >= 5), 0);    // 下两行压暗，字有厚度
+    if (tier >= 2) at('#ffffff', mask.filter(([, py]) => py === 0), 0);   // 大伤害顶上一行高光
+    if (dmgCache.size > 300) dmgCache.clear();
+    dmgCache.set(key, cv);
+    return cv;
+  }
+  // 数字属于哪个模块：battle.js 在模块中心上方 24px 处、左右 ±9 抖动生成数字，倒推回去找模块（找不到就按位置分格）
+  function dmgKey(x, y, kind) {
+    if (kind !== 'crate') for (const s of [B.e, B.p]) {
+      const cell = cellAt(s, x, y + 24);
+      const m = cell && modAt(s, kind === 'side' ? 'side' : 'body', cell.r, cell.c);
+      if (m) return `${s === B.e ? 'e' : 'p'}${m.layer}${m.r},${m.c}`;
+    }
+    return `${kind}${Math.round(x / 24)},${Math.round(y / 24)}`;
+  }
+  let dmgSeq = 0;
+  function addDmg(d) {
+    const list = B.dmg || (B.dmg = []);
+    const v = +d.str, kind = d.col === P.magenta ? 'side' : d.col === '#d9b27a' ? 'crate' : 'body', key = dmgKey(d.x, d.y, kind);
+    const m = list.find(n => n.key === key && n.v === v && n.since < 0.35);
+    if (m) { m.n++; m.since = 0; m.pop = 0; m.popK = 1.35; m.life = Math.max(m.life, DMG_LIFE[m.tier]); return; }
+    const tier = dmgTier(v);
+    list.push({ v, n: 1, tier, kind, key, x: d.x, y: d.y, ox: 0, oy: 0, rise: 0, age: 0, pop: 0, popK: DMG_POP[tier], since: 0, life: DMG_LIFE[tier], id: dmgSeq++ });
+  }
+  const dmgStr = (n) => (n.n > 1 ? `${n.v}×${n.n}` : `${n.v}`);
+  // 屏幕空间里的方框（逻辑像素 1280 × 720）
+  function dmgRect(n) {
+    const cam = B.cam, cv = dmgSprite(dmgStr(n), n.tier, n.kind), k = Math.min(1, n.pop / 0.16);
+    const u = DMG_U[n.tier] * (1 + (n.popK - 1) * (1 - k) * (1 - k));   // 含弹出放大，避让时也算进去
+    const cx = (n.x - cam.x) * cam.z + n.ox, cy = (n.y - cam.y) * cam.z - n.rise + n.oy;
+    return { cx, cy, w: cv.width * u, h: cv.height * u, cv, u };
+  }
+  function tickDmg(dt) {
+    const list = B.dmg;
+    if (!list || !list.length) return;
+    for (const n of list) {
+      n.age += dt; n.pop += dt; n.since += dt; n.life -= dt;
+      if (n.since > 0.12) n.rise += DMG_RISE[n.tier] * dt;   // 连射还在打进来时停在弹着点，停火后再往上飘
+    }
+    B.dmg = list.filter(n => n.life > 0);
+    // 避让：两两比较，重叠了就沿重叠较少的方向推开（新的挪 70%、旧的挪 30%，每帧两遍，平滑不抖）
+    const L = B.dmg, R = L.map(dmgRect);
+    for (let pass = 0; pass < 2; pass++) for (let j = 1; j < R.length; j++) for (let i = 0; i < j; i++) {
+      const a = R[i], b = R[j];
+      const ox = (a.w + b.w) / 2 + 8 - Math.abs(a.cx - b.cx), oy = (a.h + b.h) / 2 + 3 - Math.abs(a.cy - b.cy);   // 留出间隙：两个数字贴着会读成一个
+      if (ox <= 0 || oy <= 0) continue;
+      if (ox < oy) {
+        const d = b.cx === a.cx ? (L[j].id % 2 ? 1 : -1) : Math.sign(b.cx - a.cx);
+        L[j].ox += d * ox * 0.7; b.cx += d * ox * 0.7; L[i].ox -= d * ox * 0.3; a.cx -= d * ox * 0.3;
+      } else {
+        const d = b.cy === a.cy ? -1 : Math.sign(b.cy - a.cy);
+        L[j].oy += d * oy * 0.7; b.cy += d * oy * 0.7; L[i].oy -= d * oy * 0.3; a.cy -= d * oy * 0.3;
+      }
+    }
+    L.forEach((n, i) => { n.ox = clamp(n.ox, -120, 120); n.oy = clamp(n.oy, -140, 10); n.r = R[i]; });   // 挤得再多也不离弹着点太远；往下最多让一点，免得被压到车底下
+  }
+  function drawDmg() {
+    const list = B.dmg;
+    if (!list || !list.length) return;
+    // 直接画在设备像素上（DPX 可能不是整数）：一个字像素 = 整数个设备像素，块块方正
+    dg.setTransform(1, 0, 0, 1, 0, 0);
+    dg.imageSmoothingEnabled = false;
+    for (const n of [...list].sort((a, b) => a.tier - b.tier)) {   // 大伤害压在上面
+      const r = n.r || dmgRect(n), u = Math.max(1, Math.round(r.u * DPX));   // 一个字像素取整数个设备像素（弹出时按整数倍缩回）
+      const cx = r.cx * DPX, cy = r.cy * DPX;
+      const w = r.cv.width * u, h = r.cv.height * u, x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+      dg.globalAlpha = Math.min(1, n.life / 0.25);
+      // 大伤害：出现时一圈短促的迸射线（≥25 四道，≥50 八道），颜色同数字
+      if (n.tier >= 2 && n.age < 0.22) {
+        const t = n.age / 0.22, rays = n.tier === 3 ? 8 : 4, sz = Math.max(1, Math.round((n.tier === 3 ? 3 : 2) * DPX));
+        const rr = ((n.tier === 3 ? 22 : 16) + t * (n.tier === 3 ? 26 : 16)) * DPX, len = (7 * (1 - t) + 2) * DPX;
+        dg.fillStyle = DMG_COL[n.kind][n.tier];
+        for (let i = 0; i < rays; i++) {
+          const a = (i / rays) * Math.PI * 2 + Math.PI / rays, ca = Math.cos(a), sa = Math.sin(a);
+          for (let s = 0; s < len; s += sz) dg.fillRect(Math.round(cx + ca * (rr + s) * 1.4 - sz / 2), Math.round(cy + sa * (rr + s) - sz / 2), sz, sz);
+        }
+      }
+      dg.drawImage(r.cv, x, y, w, h);
+    }
+    dg.globalAlpha = 1;
+  }
+
   // 飘字：像素字体只有数字和几个字母，其余（"弹开""投降"等中文）在叠加层用矢量字画成小铭牌
   const PIXEL_TEXT = /^[0-9MIS!-]*$/;
   function fxLabels() {
@@ -871,6 +1000,7 @@ SA.BattleView.create = function createBattleView(api) {
     }
     B.parts = B.parts.filter(p => p.life > 0);
     for (const t of B.texts) { t.life -= dt; t.y -= 42 * dt; }
+    tickDmg(dt);
     B.texts = B.texts.filter(t => t.life > 0);
     B.shake = Math.max(0, B.shake - dt * 14);
   }
