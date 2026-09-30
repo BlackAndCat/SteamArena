@@ -28,12 +28,13 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 火箭架 · v3 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 火箭架 · v4 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（大型锅炉 + 大水箱）已进游戏，归档在 <a href="archive/big-boiler-tank.html">archive/big-boiler-tank.html</a>。</p>
     <p><b>你对 v1 的选择</b>：① 鱼叉用 E 链锚抓钩，把绞缆盘做成背景一个占满空间的圆盘、一圈圈绞线；② 蒸汽喷射器选 A 扇形喷汽阀；③ 喷火器选 F 翅片喷焰炮，火焰黑色杂点太多显脏，要和蒸汽适当结合，取消电极；④ 火箭重做成投石机 / 投矛器样式，每个投射点装一枚短小的炸弹。</p>
     <p><b>v2</b>：鱼叉、喷射器、喷火器各一件；投掷架 4 种（G 投掷轮 · H 投矛臂 · I 四联投石机 · J 配重投石机）。</p>
-    <p><b>你对 v2 的意见</b>：① 绞盘的线缆糊成一团，要清楚；② 火箭架继续探索，六个材料六种样式、从低到高；投矛臂、投掷轮保留，v1 的火箭架挑一个当高阶形态，再探索一些。</p>
-    <p><b>v3</b>：绞盘改成三圈粗缆（每圈之间一道黑缝、光从左上来、捻纹稀疏）。火箭架排成一条进化线——<b>T1 投矛臂 → T2 投掷轮 → T3 钢：弹簧 → T4 镀镍：蒸汽 / 气压 → T5 乌兹钢：火箭助推炸弹 → T6 以太合金：v1 管束发射架</b>；T3～T5 各两个候选（卷簧投掷臂 / 板簧连弩、气压抛射管 / 蒸汽弹射轨、火箭助推炸弹 / 转轮弹巢）。<b>请确认鱼叉，并给 T3～T5 各挑一个</b>。</p>
+    <p><b>v3</b>：绞盘改成三圈粗缆；火箭架排成六档进化线，T3～T5 各两个候选。</p>
+    <p><b>你对 v3 的选择</b>：T3 选板簧连弩（但太模糊，分不清是什么）；T4 选气压抛射管（烟和飞出去的炸弹对不上，反了）；T5 选火箭助推炸弹，T6 管束发射架。</p>
+    <p><b>v4（请再审查一次）</b>：板簧连弩重画——不再斜着转（转动会让细线发糊），四层水平发射槽 + 两根立柱，每层右端一副板簧弓 + 黄铜夹箍、白色弓弦、弦前一枚炸弹，开火时一层层弹出。气压抛射管的开火顺序修正：白汽和飞出去的炸弹都从刚打空的那根管口出来；火箭助推炸弹、管束发射架也按同样的顺序画出飞出去的那一发（带尾焰）。火箭架只留选定的六档。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -101,7 +102,7 @@
         line6 = el('div', { className: 'tiers', style: 'margin:4px 0 14px;gap:10px' });
         Q.LINEUP.forEach((e, i) => { const box6 = el('div'); line6.append(el('div', {}, box6, `T${i + 1} ${SA.MATS[i + 1].name} · ${e.name}`)); live.push(() => box6.replaceChildren(show(one(e, m, i + 1, m.state(st.t), 2), 2))); });
       }
-      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, m.name, el('small', {}, `${m.id} · ${m.SET.length} 种 · 材质 ${m.tiers.map(k => 'T' + k).join(' / ')}`)), el('p', { className: 'lead' }, m.rule), m.lineup ? el('p', { className: 'lead' }, el('b', {}, '推荐的六档一排（T3～T5 可以换成下面的另一个候选）：')) : null, line6, cards));
+      box.append(el('section', { id: m.id }, el('h2', { className: 'sec' }, m.name, el('small', {}, `${m.id} · ${m.SET.length} 种 · 材质 ${m.tiers.map(k => 'T' + k).join(' / ')}`)), el('p', { className: 'lead' }, m.rule), m.lineup ? el('p', { className: 'lead' }, el('b', {}, '选定的六档一排（一起动）：')) : null, line6, cards));
     }
     tick(true);
   }
