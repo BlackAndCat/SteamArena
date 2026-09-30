@@ -33,14 +33,34 @@ SA.Home = (() => {
 
   function build(stage, root) {
     const UI = X.ui, D = d(), has = SA.Camp.has, stats = SA.V.stats(D.vehicle), st = SA.Camp.current();
-    // ---------- 车：2 倍（放不下就 1 倍），底边踩在地上；黄铜角框 = 能点 ----------
-    const car = X.trim(SA.SPR.renderVehicle(D.vehicle, { key: 'home', t: 0, heat: 0.45, water: 0.8 }));
-    const cs = car.width * 2 <= 380 && car.height * 2 <= 420 ? 2 : 1, cw = car.width * cs, chh = car.height * cs;
-    const cx = Math.round(590 - cw / 2), cy = GROUND - chh;
+    // ---------- 车：院子的主角。站在前景（比铺子和人物更靠前）、画面中间偏下；2 倍（太大才 1 倍）----------
+    // 描一圈暗边 + 左边炉光轮廓光和背景分开；脚下有影子；背景用暗角压下去、车脚下铺一圈暖光；铜角框慢慢呼吸
+    const HS = SA.HomeScene, CAR_BOTTOM = 672;
+    const full = () => SA.SPR.renderVehicle(D.vehicle, { key: 'home', t: performance.now() / 1000, heat: 0.45, water: 0.8 });
+    const box = (() => { const src = full(), dd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height).data;
+      let x0 = src.width, y0 = src.height, x1 = -1, y1 = -1;
+      for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (dd[(y * src.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      return x1 < 0 ? { x: 0, y: 0, w: 1, h: 1 } : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; })();
+    const cs = box.w * 2 <= 560 && box.h * 2 <= 440 ? 2 : 1, cw = (box.w + HS.HERO_PAD * 2) * cs, chh = (box.h + HS.HERO_PAD * 2) * cs;
+    const cx = Math.round(640 - cw / 2), cy = CAR_BOTTOM - chh + HS.HERO_PAD * cs;   // 光晕那几圈不算，车轮底边踩在 CAR_BOTTOM
+    const carCv = document.createElement('canvas'); carCv.width = box.w + HS.HERO_PAD * 2; carCv.height = box.h + HS.HERO_PAD * 2; carCv.className = 'px-img'; carCv.style.cssText = `width:${cw}px;height:${chh}px`;
+    const paintCar = () => {
+      const crop = document.createElement('canvas'); crop.width = box.w; crop.height = box.h;
+      crop.getContext('2d').drawImage(full(), box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+      const g = carCv.getContext('2d'); g.clearRect(0, 0, carCv.width, carCv.height); g.drawImage(HS.hero(crop), 0, 0);
+    };
+    paintCar();
     const probs = stats.problems;
-    const carEl = h('div', { class: 'ab px-hot', style: `left:${cx - 10}px;top:${cy - 10}px;width:${cw + 20}px;height:${chh + 20}px;padding:10px`, title: has('garage') ? '进车间改装' : null, onclick: () => SA.nav('garage') },
-      UI.img(car, cs), UI.brackets(cw + 20, chh + 20),
-      probs.length ? h('div', { style: 'position:absolute;left:0;top:-20px', title: probs.join('\n') }, UI.stamp(`待修 · ${probs.length}`, 'background:#efe4c6')) : null);
+    const br = UI.brackets(cw + 24, chh + 24); br.classList.add('home-br');
+    const carEl = h('div', { class: 'ab home-car', style: `left:${cx - 12}px;top:${cy - 12}px;width:${cw + 24}px;height:${chh + 24}px;padding:12px`, title: has('garage') ? '进车间改装' : null, onclick: () => SA.nav('garage') },
+      carCv, br,
+      h('div', { class: 'home-hint' }, UI.tag(h('span', {}, '进车间改装 →'))),
+      probs.length ? h('div', { style: 'position:absolute;left:0;top:-22px', title: probs.join('\n') }, UI.stamp(`待修 · ${probs.length}`, 'background:#efe4c6')) : null);
+    const carShadow = ab(cx - 22 + 18, CAR_BOTTOM - 12, UI.img(HS.shadow(Math.round((cw + 44) / 2), 10), 2));   // 炉光在左，影子偏右
+    const carPlate = h('div', { class: 'ab', style: `left:0;width:1280px;top:${CAR_BOTTOM + 8}px;display:flex;justify-content:center;pointer-events:none` },
+      UI.plate([D.vehicle.name, ' · 评分 ', UI.num(stats.rating)], 'font-size:15px'));
+    const focusEl = UI.img(HS.focus(Math.round((cx + cw / 2) / 2), Math.round(CAR_BOTTOM / 2), Math.round(cw / 4)), 2, 'position:absolute;left:0;top:0;pointer-events:none');
+    const sh = (x, y, w) => ab(x, y, UI.img(HS.shadow(w, 6), 2));
     // ---------- 墙上钉的公报：下一场 ----------
     const news = (() => {
       const lines = st ? {
@@ -80,18 +100,19 @@ SA.Home = (() => {
     const F_TOM = { up: coal(TOM, { pose: 'cheer', look: 1 }), hit: coal(TOM, { pose: 'point', look: 1 }), rest: coal(TOM, { pose: 'hold', look: 1 }), talk: coal(TOM, { pose: 'hold', look: -1, expr: 'happy' }), blink: coal(TOM, { pose: 'hold', look: 1, expr: 'blink' }) };
     const F_REL = { idle: coal(REL, { pose: 'idle', look: 1 }), blink: coal(REL, { pose: 'idle', look: 1, expr: 'blink' }), talk: coal(REL, { pose: 'salute', look: 1, expr: 'happy' }), sleep: coal(REL, { pose: 'idle', look: 1, expr: 'sleepy' }), jolt: coal(REL, { pose: 'cheer', look: 1, expr: 'surprise' }) };
     const F_TIM = { work: coal(TIM, { pose: 'point', look: 1 }), rest: coal(TIM, { pose: 'hold', look: 1 }), talk: coal(TIM, { pose: 'wave', look: -1, expr: 'happy' }), yelp: coal(TIM, { pose: 'cheer', look: -1, expr: 'surprise' }) };
-    const timX = Math.max(770, cx + cw + 12);
+    const timX = Math.min(880, Math.max(790, cx + cw + 8));
     const bubbles = { rel: UI.bubble(34, 386, 30), tom: UI.bubble(300, 452, 20), tim: UI.bubble(timX - 120, 418, 150) };
     const sparks = [...Array(6)].map((_, i) => h('i', { class: 'px-spark', style: `background:${i % 2 ? P.fire[3] : P.fire[2]}` }));
     const zz = ab(124, 450, UI.num('z z Z', '#e4e0d6', P.dark[0])); zz.style.opacity = '0';
     const gearBtn = UI.btn(null, { title: '设置', icon: UI.img(X.gear(6, 8, X.RAMP.brass, 0.1)), onclick: () => SA.UI.settings() }); gearBtn.style.padding = '0 2px';
     const ingots = Object.entries(D.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     stage.append(...[
-      UI.img(backdrop(), 2, 'position:absolute;left:0;top:0'), fxCv,
+      UI.img(backdrop(), 2, 'position:absolute;left:0;top:0'), fxCv, focusEl,
       ab(20, 196, news),
+      sh(44, 596, 52), sh(166, 594, 30), sh(360, 596, 38), sh(270, 596, 40), sh(timX + 22, 596, 40),   // 木箱、水桶、铁砧、老汤姆、小提米的影子
       ab(52, 562, UI.img(X.crate())), ab(356, 546, UI.img(anvil)),
-      carEl,
       actor('rel', 40, 472, F_REL.idle), actor('tom', 250, 514, F_TOM.rest), actor('tim', timX, 514, F_TIM.work, true),
+      carShadow, carEl, carPlate,
       sparks.map(s => ab(422, 552, s)), zz,
       bubbles.rel, bubbles.tom, bubbles.tim,
       ab(300, 14, h('div', { title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? () => SA.UI.openBank() : null }, UI.counter({ money: D.money, rep: D.rep, ingotList: ingots, onclick: has('bank') })),
@@ -121,6 +142,7 @@ SA.Home = (() => {
       if (root.isConnected) mounted = true; else if (mounted) { clearInterval(timer); timer = null; if (ro) ro.disconnect(); return; }
       tick++;
       SA.HomeScene.fx(fxG, (performance.now() - t0fx) / 1000);
+      if (tick % 2 === 0) paintCar();
       if (!cur || tick - t0 > 32) { if (forced) { cur = forced; forced = null; } else { cur = LINES[i % LINES.length]; i++; } t0 = tick; say(cur[0], cur[1]); }
       const [spk, , act] = cur;
       if (spk === 'tom') who.tom.set(F_TOM.talk); else { const ph = tick % 8; who.tom.set(ph < 3 ? F_TOM.up : ph < 5 ? F_TOM.hit : (tick % 40 === 7 ? F_TOM.blink : F_TOM.rest)); if (ph === 3) burst(); }

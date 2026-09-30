@@ -176,5 +176,71 @@ SA.HomeScene = (() => {
       g.globalAlpha = 0.55 * (1 - k); R(x, y, s, s, k < 0.4 ? '#6d6a64' : '#8a8078'); R(x, y, s, 1, '#a8a39a'); g.globalAlpha = 1;
     }
   }
-  return { base, fx, W, H, GROUND, L };
+  // ---------- 让车当主角 ----------
+  // 接地影子：抖动的暗椭圆（中间实、边上疏），光从左边炉门来，所以调用处把影子往右挪一点
+  function shadow(w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = (x + 0.5 - w / 2) / (w / 2), dy = (y + 0.5 - h / 2) / (h / 2), r = dx * dx + dy * dy;
+      if (r >= 1) continue;
+      const k = 1 - r;
+      if (k * 1.25 > bay(x, y)) { g.fillStyle = k > 0.55 ? 'rgba(8,5,4,.78)' : 'rgba(8,5,4,.5)'; g.fillRect(x, y, 1, 1); }
+    }
+    return c;
+  }
+  // 聚焦：四周和天空用抖动压暗（越外越密），车脚下铺一圈暖光（原生坐标：cx = 车中心，gy = 车底，hw = 车半宽）
+  function focus(cx, gy, hw) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(20,11,14,.3)'; g.fillRect(0, 0, W, H);   // 一层薄暮：背景的纹理对比压下去，前景的车和人物就浮出来
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const d = Math.hypot((x - cx) / 290, (y - gy + 50) / 185);
+      const dark = Math.max(0, (d - 0.38) * 1.35) + Math.max(0, (80 - y) / 80) * 0.4;
+      if (dark > bay(x, y)) { g.fillStyle = `rgba(10,6,5,${Math.min(0.72, 0.32 + dark * 0.3).toFixed(2)})`; g.fillRect(x, y, 1, 1); continue; }
+      const pr = Math.pow((x - cx) / (hw + 46), 2) + Math.pow((y - gy + 3) / 20, 2);
+      if (pr < 1 && (1 - pr) * 1.1 > bay(x, y)) { g.fillStyle = pr < 0.45 ? 'rgba(255,190,110,.3)' : 'rgba(255,190,110,.18)'; g.fillRect(x, y, 1, 1); }
+    }
+    // 墙上伸出一盏工作灯，往车上打一束光锥（抖动的暖色，越往下越宽、越淡），把视线引到车上
+    const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const ly = 222, lx = cx;
+    for (let y = ly + 6; y < gy; y++) {
+      const k = (y - ly - 6) / (gy - ly - 6), half = 4 + k * (hw + 30);
+      for (let x = Math.round(lx - half); x <= Math.round(lx + half); x++) {
+        const e = 1 - Math.abs(x - lx) / half;   // 光锥中间亮、边上淡
+        if (e * (0.55 - k * 0.25) > bay(x, y)) R(x, y, 1, 1, 'rgba(255,206,130,.16)');
+      }
+    }
+    R(lx - 24, ly - 10, 25, 2, '#1a1110'); R(lx - 24, ly - 10, 25, 1, '#4a4038');          // 铁支臂
+    R(lx - 26, ly - 14, 3, 10, '#1a1110'); R(lx - 25, ly - 13, 1, 8, '#6a5e52');            // 墙上的卡座
+    R(lx, ly - 10, 1, 4, '#1a1110');                                                          // 吊链
+    R(lx - 5, ly - 6, 11, 5, '#1a1110'); R(lx - 4, ly - 5, 9, 3, P.brass ? P.brass[1] : '#a8741e'); R(lx - 4, ly - 5, 9, 1, '#f5d77a');   // 黄铜灯罩
+    R(lx - 3, ly - 1, 7, 3, '#fff1b8'); R(lx - 2, ly + 2, 5, 1, '#ffd070');                   // 灯泡
+    return c;
+  }
+  // 车：外面描一圈 1 像素暗边，和背景分开；再往外一圈暖光边 + 一圈抖动的光晕（被炉火照亮的热气，地面那边不画）；
+  // 朝炉门（左）和朝上的边缘提亮一层暖光（炉光打过来的轮廓光）。返回的画布四周各多 HERO_PAD 像素。
+  const HERO_PAD = 3;
+  function hero(src) {
+    const w = src.width, h = src.height, d = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data, P = HERO_PAD;
+    const c = document.createElement('canvas'); c.width = w + P * 2; c.height = h + P * 2;
+    const g = c.getContext('2d'), out = g.createImageData(c.width, c.height), o = out.data;
+    const A = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 8;
+    const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.abs(i) + Math.abs(j) <= r && A(x + i, y + j)) return true; return false; };
+    for (let y = -P; y < h + P; y++) for (let x = -P; x < w + P; x++) {
+      const j = ((y + P) * c.width + (x + P)) * 4;
+      if (A(x, y)) {
+        const i = (y * w + x) * 4; let r = d[i], gg = d[i + 1], b = d[i + 2];
+        const rimL = !A(x - 1, y) || !A(x - 2, y), rimT = !A(x, y - 1);
+        if (rimL) { r = r * 0.45 + 255 * 0.55; gg = gg * 0.45 + 200 * 0.55; b = b * 0.45 + 120 * 0.55; }
+        else if (rimT) { r = r * 0.7 + 255 * 0.3; gg = gg * 0.7 + 206 * 0.3; b = b * 0.7 + 150 * 0.3; }
+        o[j] = r; o[j + 1] = gg; o[j + 2] = b; o[j + 3] = 255;
+      } else if (near(x, y, 1)) { o[j] = 11; o[j + 1] = 9; o[j + 2] = 12; o[j + 3] = 255; }
+      else if (near(x, y, 2) && y < h - 1) { o[j] = 255; o[j + 1] = 186; o[j + 2] = 96; o[j + 3] = 190; }
+      else if (near(x, y, 3) && ((x + y) & 1) && y < h - 1) { o[j] = 255; o[j + 1] = 178; o[j + 2] = 82; o[j + 3] = 150; }
+    }
+    g.putImageData(out, 0, 0);
+    return c;
+  }
+  return { base, fx, shadow, focus, hero, HERO_PAD, W, H, GROUND, L };
 })();

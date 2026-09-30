@@ -1066,3 +1066,12 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 .ed-tab.on { margin-left: -8px; width: 48px; color: #2a1a05; box-shadow: inset 4px 0 0 var(--c); }
 .ed-tab.none { opacity: .45; cursor: default; }
 .cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 4px 4px; border-bottom: 3px double #2a1a05; box-shadow: inset 6px 0 0 var(--c); padding-left: 12px; margin-bottom: 2px; }
+
+/* ---- 院子里的车：主角（呼吸的铜角框、悬停提示）---- */
+.home-car { cursor: pointer; }
+.home-car .home-br { animation: home-br 1.6s steps(2) infinite; }
+.home-car:hover .home-br { animation: none; opacity: 1; filter: brightness(1.3); }
+.home-hint { position: absolute; left: 50%; top: -36px; transform: translateX(-50%); opacity: 0; transition: opacity .15s steps(2); pointer-events: none; }
+.home-car:hover .home-hint { opacity: 1; }
+.home-car:hover canvas.px-img:first-child { filter: brightness(1.08); }
+@keyframes home-br { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
