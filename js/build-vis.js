@@ -8,4 +8,5 @@ SA.BUILD_VIS += '+prologue-yard'; // 序章战斗的铁匠铺后院改用主页�
 SA.BUILD_VIS += '+workshop-pan-zoom'; // 车间蓝图横向拖动与滚轮缩放。
 SA.BUILD_VIS += '+cooling-water-labels'; // 水量提示只描述冷却耗水。
 SA.BUILD_VIS += '+blueprint-zoom-crisp'; // 蓝图缩放只用 1/2/3 整数倍、最近邻不糊、最小 1 倍；纸比画布宽、平移夹在纸里；打开时车居中；尺子斜放
+SA.BUILD_VIS += '+continuous-spread-fan'; // 瞄准散布扇区：弹道逐段精确求交 + 擦边处自适应补线 + 过准星淡出，对方移动时扇区连续变化不跳
 SA.BUILD_VIS += '+weather-indoors'; // 雨天 / 夜里人回屋：老汤姆在门里逆光打铁，一人在门口雨棚下（夜里小提米提马灯），一人在亮窗后只剩剪影；主页和序章背景同一套

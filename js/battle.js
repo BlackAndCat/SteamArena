@@ -1390,7 +1390,7 @@ SA.Battle = (() => {
   };
   if (SA.BattleView && SA.BattleView.create) view = SA.BattleView.create({
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
-    getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt,
+    getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt, cellAt,
     muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh, tetherState,
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),

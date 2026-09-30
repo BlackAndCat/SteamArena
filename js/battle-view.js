@@ -510,6 +510,151 @@ SA.BattleView.create = function createBattleView(api) {
   const QS = (() => { const a = Array.from({ length: 3000 }, gauss).sort((x, y) => x - y); return Array.from({ length: 15 }, (_, i) => a[Math.floor((i + 0.5) / 15 * a.length)]); })();
   const sameCell = (a, b) => a && b && a.layer === b.layer && a.r === b.r && a.c === b.c;
 
+  // ---------- 散布扇区 ----------
+  // 旧做法：17 条弹道各自按步长采样到「撞上的那一格」，相邻两条连成条带。对方一动，某条弹道擦过模块边缘就从
+  // 前一块跳到后一块（或穿过缝隙飞到地上），整条条带跟着跳。新做法让扇区形状只随连续量变化：
+  // ① 每条弹道用解析抛物线逐步走，每一步当作一小段弦做精确求交（模块逐格走、货箱矩形、地面逐像素），
+  //    入射点连续变化，擦过模块角 / 顶面的弹道也不会时有时无；
+  // ② 相邻两条弹道撞的东西不同（或终点离得远）就在中间补一条再比，直到角度差极小 ——
+  //    扇区边缘因此落在「刚好擦过模块角」的那条弹道上，对方移动时边缘跟着角点平滑滑动；
+  // ③ 穿过准星以后的部分沿弹道方向淡出（准星处的法平面往后 FAN_TAIL 像素），漏过缝隙的弹道只留一段渐隐的尾巴。
+  // 发射参数与 battle.js 的 launch() 一致（出膛点、偏弹射界限制、车身俯仰），只用于画面。
+  const FAN_TAIL = C * 2.5, FAN_STEP = T.PREVIEW_STEP, FAN_BUDGET = 220;
+  function fanLaunch(s, w, deg, jit) {
+    const [x0, y0] = muzzle(s, w, deg);
+    const shot = w.m.indirect ? clamp(deg + jit, w.m.elev[0], w.m.elev[1]) : deg + jit;
+    const wa = (shot + (isP(s) ? -1 : 1) * tiltOf(s) * 180 / Math.PI) * Math.PI / 180;
+    return { x0, y0, vx: (isP(s) ? 1 : -1) * w.m.v * Math.cos(wa), vy: -w.m.v * Math.sin(wa), g: K.GRAVITY * w.m.g };
+  }
+  const fanAt = (L, t) => [L.x0 + L.vx * t, L.y0 + L.vy * t + L.g * t * t / 2];
+  // 世界坐标 → 对方车身的格子坐标（u 列、v 行，整数处是格线）：先转回车身平放（绕支点反转倾斜），敌方列号镜像，与 cellAt() 相同
+  function fanUV(o, x, y) {
+    const a = tiltOf(o);
+    if (a && o.pivX != null) {
+      const py = pivY(o), dx = x - o.pivX, dy = y - py, c = Math.cos(a), n = Math.sin(a);
+      x = o.pivX + dx * c + dy * n; y = py - dx * n + dy * c;
+    }
+    return [(isP(o) ? x - o.x - PADX : o.x + VW - PADX - x) / C, (y - VY - (o.yo || 0)) / C];
+  }
+  // 一小段弦（一步 ≈ 7px，弦和抛物线相差不到 0.01px）最先撞到什么：返回 [λ, key]，λ ∈ [0, 1] 是弦上的位置。
+  // 模块：在格子坐标里逐格走（DDA），第一个有活模块的格子就是入射点 —— 精确到擦边，不会从角上一穿而过；
+  // 货箱：矩形求交；地面：贴近地面时逐像素查；淡出尾巴：法平面往后 FAN_TAIL 的那条线，线性求交。同一位置按 advance() 的优先级
+  function fanSeg(ctx, x0, y0, x1, y1) {
+    const o = ctx.o;
+    let best = Infinity, key = null;
+    const [u0, v0] = fanUV(o, x0, y0), [u1, v1] = fanUV(o, x1, y1);
+    const du = u1 - u0, dv = v1 - v0;
+    if (Math.max(u0, u1) >= 0 && Math.min(u0, u1) < K.COLS && Math.max(v0, v1) >= 0 && Math.min(v0, v1) < K.ROWS) {
+      let cu = Math.floor(u0), cv = Math.floor(v0), lam = 0;
+      const su = du > 0 ? 1 : -1, sv = dv > 0 ? 1 : -1;
+      const tdu = du ? 1 / Math.abs(du) : Infinity, tdv = dv ? 1 / Math.abs(dv) : Infinity;
+      let tu = du ? (du > 0 ? cu + 1 - u0 : u0 - cu) * tdu : Infinity, tv = dv ? (dv > 0 ? cv + 1 - v0 : v0 - cv) * tdv : Infinity;
+      for (let n = 0; n < 12; n++) {
+        if (cv >= 0 && cv < K.ROWS && cu >= 0 && cu < K.COLS) {
+          const m = modAt(o, ctx.side ? 'side' : 'body', cv, cu);
+          if (m) { best = lam; key = `${m.layer}${m.r},${m.c}`; break; }
+        }
+        if (Math.min(tu, tv) > 1) break;
+        if (tu < tv) { cu += su; lam = tu; tu += tdu; } else { cv += sv; lam = tv; tv += tdv; }
+      }
+    }
+    const dx = x1 - x0, dy = y1 - y0;
+    ctx.crates.forEach((c, i) => {
+      let lo = 0, hi = 1;
+      for (const [p, d, a, b] of [[x0, dx, c.x0, c.x1], [y0, dy, c.y0, c.y1]]) {
+        if (!d) { if (p < a || p > b) { lo = 2; } continue; }
+        let ta = (a - p) / d, tb = (b - p) / d;
+        if (ta > tb) [ta, tb] = [tb, ta];
+        lo = Math.max(lo, ta); hi = Math.min(hi, tb);
+      }
+      if (lo <= hi && lo < best) { best = lo; key = `c${B.ter.crates.indexOf(c)}`; }
+    });
+    if (Math.max(y0, y1) >= Math.min(groundAt(x0), groundAt(x1)) - HALF) {
+      const n = Math.max(1, Math.ceil(Math.hypot(dx, dy)));
+      for (let k = 0; k <= n; k++) {
+        const t = k / n;
+        if (t >= best) break;
+        if (y0 + dy * t >= groundAt(x0 + dx * t)) { best = t; key = 'g'; break; }
+      }
+    }
+    const pl = ctx.plane;
+    if (pl) {
+      const s0 = (x0 - pl.x) * pl.dx + (y0 - pl.y) * pl.dy - FAN_TAIL, s1 = (x1 - pl.x) * pl.dx + (y1 - pl.y) * pl.dy - FAN_TAIL;
+      const t = s0 >= 0 ? 0 : s1 > 0 ? s0 / (s0 - s1) : Infinity;
+      if (t < best) { best = t; key = 'tail'; }
+    }
+    return key ? [best, key] : null;
+  }
+  // 一条弹道：返回折线点、终点和撞到的东西（'tail' = 淡出尾巴走完，'out' = 飞出画面）
+  function fanTrace(ctx, jit) {
+    const L = fanLaunch(ctx.s, ctx.w, ctx.deg, jit);
+    const pts = [[L.x0, L.y0]];
+    let [px, py] = pts[0];
+    for (let i = 1; i <= T.PREVIEW_STEPS; i++) {
+      const [x, y] = fanAt(L, i * FAN_STEP), hit = fanSeg(ctx, px, py, x, y);
+      if (hit) {
+        const e = [px + (x - px) * hit[0], py + (y - py) * hit[0]];
+        pts.push(e);
+        return { jit, pts, end: e, key: hit[1] };
+      }
+      if (i % 3 === 0) pts.push([x, y]);
+      if (y > H + 100 || (B.cam && (x < B.cam.x - 200 || x > B.cam.x + B.cam.w + 200))) { pts.push([x, y]); return { jit, pts, end: [x, y], key: 'out' }; }
+      px = x; py = y;
+    }
+    return { jit, pts, end: [px, py], key: 'out' };
+  }
+  // 准星处的法平面：不受阻挡的中心弹道上离准星最近的点 + 那里的飞行方向。
+  // 参数 t 做轻微平滑，高抛弧线两段都靠近准星时也不会在两处之间跳
+  function fanPlane(s, w, deg) {
+    const L = fanLaunch(s, w, deg, 0), [ax, ay] = B.aim;
+    let best = Infinity, bt = 0;
+    for (let i = 1; i <= T.PREVIEW_STEPS; i++) {
+      const t = i * FAN_STEP, [x, y] = fanAt(L, t), d = (x - ax) ** 2 + (y - ay) ** 2;
+      if (d < best) { best = d; bt = t; }
+      if (y > H + 100) break;
+    }
+    // 在最近的采样点两侧三分法求精确最近点：准星移动时法平面连续滑动，不按 7px 一格跳
+    let lo = Math.max(0, bt - FAN_STEP), hi = bt + FAN_STEP;
+    const dist = (t) => { const [x, y] = fanAt(L, t); return (x - ax) ** 2 + (y - ay) ** 2; };
+    for (let k = 0; k < 30; k++) { const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3; if (dist(m1) < dist(m2)) hi = m2; else lo = m1; }
+    bt = (lo + hi) / 2;
+    const dt = Math.min(0.1, B.t - (B.fanPT || B.t));
+    B.fanPT = B.t;
+    B.fanTA = B.fanTA == null || B.fanPW !== w.key ? bt : B.fanTA + (bt - B.fanTA) * Math.min(1, dt * 12);
+    B.fanPW = w.key;
+    const [x, y] = fanAt(L, B.fanTA), vx = L.vx, vy = L.vy + L.g * B.fanTA, n = Math.hypot(vx, vy) || 1;
+    return { x, y, dx: vx / n, dy: vy / n };
+  }
+  function drawFan(s, w, deg, side, S, col) {
+    const ctx = { s, w, deg, side, o: B.e, plane: fanPlane(s, w, deg), crates: B.ter ? B.ter.crates.filter(c => !c.dead) : [] };
+    let budget = FAN_BUDGET;
+    const trace = (j) => { budget--; return fanTrace(ctx, j); };
+    const N = 13, base = [];
+    for (let i = 0; i < N; i++) base.push(trace(-S + 2 * S * i / (N - 1)));
+    const rays = [base[0]];
+    const far = (a, b) => Math.hypot(a.end[0] - b.end[0], a.end[1] - b.end[1]) > 6;
+    const refine = (a, b, depth) => {
+      // 撞的东西不同：一直细分到擦边（角度差 ≈ 散布 / 3000）；同一个东西只是终点远（掠地的浅角）：补两层就够平滑
+      if (budget <= 0 || (a.key === b.key ? depth > 1 || !far(a, b) : depth > 9)) return;
+      const m = trace((a.jit + b.jit) / 2);
+      refine(a, m, depth + 1); rays.push(m); refine(m, b, depth + 1);
+    };
+    for (let i = 0; i < N - 1; i++) { refine(base[i], base[i + 1], 0); rays.push(base[i + 1]); }
+    // 相邻两条弹道之间围成条带，全部放进同一条路径一次填满（nonzero，重叠处不叠深）；
+    // 填充用沿弹道方向的渐变：准星法平面之前是正常浓度，之后 FAN_TAIL 像素内淡到 0
+    const pl = ctx.plane, gr = g.createLinearGradient(pl.x, pl.y, pl.x + pl.dx * FAN_TAIL, pl.y + pl.dy * FAN_TAIL);
+    gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(244,247,238,0)');
+    g.save(); g.globalAlpha = 0.16; g.fillStyle = gr; g.beginPath();
+    for (let i = 0; i < rays.length - 1; i++) {
+      const a = rays[i].pts, b = rays[i + 1].pts;
+      g.moveTo(a[0][0], a[0][1]);
+      for (let k = 1; k < a.length; k++) g.lineTo(a[k][0], a[k][1]);
+      for (let k = b.length - 1; k >= 0; k--) g.lineTo(b[k][0], b[k][1]);
+      g.closePath();
+    }
+    g.fill('nonzero'); g.restore();
+  }
+
   // 当前武器组的弹道预览：按炮管「当前」仰角画（炮管转动有延迟）。
   // 中心点线与落点共用真实弹道；有散布的武器（含抛射架）另画扇区和命中率。
   function drawPreview(aimT) {
@@ -529,28 +674,14 @@ SA.BattleView.create = function createBattleView(api) {
     const big = w.m.proj === 'shell';
     SA.SPR.useCtx(g);
     const sp = spreadDeg(p, B.e, w);
-    // 扇区宽度：散布变大立刻跟上（扇区永远盖住真实散布），变小时慢慢收（不随每一帧的颠簸抖）
+    // 扇区宽度：散布变大时很快跟上（约 0.1 秒），变小时慢慢收；都是连续变化，不会一帧跳宽
     const now = B.t, dtv = Math.min(0.1, now - (B.fanT || now));
     B.fanT = now;
-    B.fanSp = B.fanSp == null || B.fanW !== w.key || sp > B.fanSp ? sp : B.fanSp + (sp - B.fanSp) * Math.min(1, dtv * 4);
+    if (B.fanSp == null || B.fanW !== w.key) B.fanSp = sp;
+    else B.fanSp += (sp - B.fanSp) * Math.min(1, dtv * (sp > B.fanSp ? 20 : 4));
     B.fanW = w.key;
     if (sp > 0) {
-      // 扇区：散布范围内均匀取 17 条弹道，各自飞到真正撞上的模块 / 货箱 / 地面为止（不做长度平滑，终点就是真实落点）；
-      // 相邻两条弹道之间围成一条条带，所有条带放进同一条路径一次填满（nonzero 规则，重叠处不会叠深），没有缝也没有锯齿
-      const N = 17, rays = [];
-      for (let i = 0; i < N; i++) {
-        const r0 = predict(p, B.e, w, cur, side, -B.fanSp + 2 * B.fanSp * i / (N - 1));
-        rays.push([...r0.pts, r0.end]);
-      }
-      g.save(); g.globalAlpha = 0.16; g.fillStyle = col; g.beginPath();
-      for (let i = 0; i < N - 1; i++) {
-        const a = rays[i], b = rays[i + 1];
-        g.moveTo(a[0][0], a[0][1]);
-        for (let k = 1; k < a.length; k++) g.lineTo(a[k][0], a[k][1]);
-        for (let k = b.length - 1; k >= 0; k--) g.lineTo(b[k][0], b[k][1]);
-        g.closePath();
-      }
-      g.fill('nonzero'); g.restore();
+      drawFan(p, w, cur, side, B.fanSp, col);
       if (aimT) {
         let n = 0;
         for (const q of QS) if (sameCell(predict(p, B.e, w, cur, side, q * sp).hit, aimT)) n++;
