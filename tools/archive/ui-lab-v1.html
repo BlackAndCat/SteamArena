@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>界面重建 · 四套方案</title>
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="ui-lab-v1.css">
+</head>
+<body class="uilab">
+<h1>界面重建 · 四套方案 <small>v1（历史存档，用户选了 A + C 结合，见 <a href="../ui-lab.html">v2</a>）· 2026-09-30 · 主页面、改装台、出战、设计语言和小组件（开发者模式不在内）</small></h1>
+<p class="lead">四个方向各做了一整套：<b>设计语言</b>（颜色、字、按钮、面板、仪表）→ <b>主页面</b> → <b>改装台</b> → <b>出战</b> → <b>小组件</b>（资源、材料标、模块卡、提示、弹窗、缴获、战斗顶条）。画面里的车、模块、碳球人物和战斗场景都直接读游戏代码，数据是写死的样例（第一章打到 Boss 煤灰寡妇）。只是样机，游戏没动。
+<br>可以整套选，也可以<b>按页面混搭</b>（比如设计语言 B + 主页面 A）：每个画面下面有「选这个」，选择记在本机，最上面的条里汇总。</p>
+
+<div class="finds">
+  <div class="find"><b>现在的问题（这次要解决的）</b>
+  <ol>
+    <li><b>不知道下一步做什么</b>：进游戏直接落在车间，下一场打谁、车能不能打，要自己去出战页的长列表里找；战役、街头赛、锦标赛三个标签平铺，没有主次。</li>
+    <li><b>改装台的车太小</b>：大片空网格占满中间，车挤在最下面一角；网格、层（主体层 / 侧挂层）的意思要看帮助才懂。</li>
+    <li><b>数值看不见、看不懂</b>：动力 / 重量 / 热量这些要选中或展开才有，都是长句子；装上一个零件会让哪一项变好变坏，事先看不出来。</li>
+    <li><b>视线来回跳</b>：选中车上的模块，操作条在最下面，零件清单在最右边，提示在画布底下一行小字。</li>
+    <li><b>商店是个开关</b>：「只列出有库存的模块 / 商店」混在一个长列表里，卡片数值是小字堆叠。</li>
+    <li><b>出战页信息平均用力</b>：对手的弱点、奖励、场地和操作说明一样大小，「重打」按钮最大却不说明为什么打它。</li>
+    <li><b>风格不够</b>：通用的深蓝灰面板 + 黄铜描边，更像后台；世界观里的铁匠铺、碳球车手、维多利亚赛会在界面上几乎看不到。</li>
+    <li><b>资源挤在侧边栏左下角</b>，材料名折行；侧边栏两块大导航板占了很多地方，信息却只有两个字。</li>
+  </ol></div>
+  <div class="find"><b>四套方案都会做的（UX 基线）</b>
+  <ol>
+    <li><b>主页面</b>：一眼看到「下一场」和一个主按钮；车况有问题时直接说哪里不行、点一下去修。</li>
+    <li><b>资源常驻顶栏</b>，图标 + 数字，点开看明细（银行、材料）。</li>
+    <li><b>改装台以车为中心</b>：自动缩放到车的大小；网格只画在可建造区域；问题直接标在车上，点问题就定位。</li>
+    <li><b>六项属性常驻</b>，悬停 / 拿起零件时预览变化（▲▼）；选中模块的操作卡贴在模块旁边。</li>
+    <li><b>商店并进零件清单</b>：同一张卡片，有库存显示件数，没有显示价格；按类别分组、可筛选。</li>
+    <li><b>出战页讲清「为什么打、怎么打」</b>：对手弱点标签、双方对比、奖励、场地，一个主按钮 + 一个「回车间对症改装」。</li>
+    <li><b>角色出场</b>：老汤姆、亲戚、对手车手用碳球头像说话，替代长段提示文字。</li>
+    <li>不改规则、数值和存档；功能和现在一一对应，只是重新组织和换皮。</li>
+  </ol></div>
+</div>
+
+<div class="ctl" id="ctl"></div>
+<div id="out"></div>
+
+<script src="../../js/text-manager.js"></script>
+<script src="../../js/palette.js"></script><script src="../../js/coal.js"></script><script src="../../js/modules.js"></script><script src="../../js/module-art.js"></script><script src="../../js/dynamics.js"></script><script src="../../js/sprites.js"></script>
+<script src="../../js/legs.js"></script><script src="../../js/vehicle.js"></script><script src="../../js/content.js"></script><script src="../../js/terrain-art.js"></script><script src="../../js/scenes.js"></script>
+<script src="ui-lab-v1.js"></script>
+<script src="ui-lab-v1-a.js"></script><script src="ui-lab-v1-b.js"></script><script src="ui-lab-v1-c.js"></script><script src="ui-lab-v1-d.js"></script>
+<script>SA.UILAB.mount();</script>
+<script src="../labs.js"></script>
+</body></html>
