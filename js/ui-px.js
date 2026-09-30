@@ -17,6 +17,7 @@ SA.PX = (() => {
     blue: { o: P.blueprint[0], b: P.blueprint[1], g: P.blueprint[2], G: P.blueprint[3], ink: P.blueprint[4] },
   };
   const INK = P.ink, RED = P.fire[1], CHALK = '#e8e3d2';
+  const NOTE = { o: '#6a5520', d: '#c9b25c', a: '#e2cc72', b: '#f4e49a', l: '#fff6c4', s: '#e9d886' };   // 便签的黄
   const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const bay = (x, y) => (BAY[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
   const hash = (x, y, s = 1) => { let v = (x * 374761393 + y * 668265263 + s * 982451653) | 0; v = Math.imul(v ^ (v >>> 13), 1274126177); return ((v ^ (v >>> 16)) >>> 0) / 4294967296; };
@@ -90,10 +91,33 @@ SA.PX = (() => {
     for (const s of [1, -1]) line(k, x2, y2, x2 - ux * 4 + uy * 3 * s, y2 - uy * 4 - ux * 3 * s, col);
     return k.c;
   }
+  // 毛笔大字（海报标题）：用行楷 / 舒体 / 楷体在小画布上写，每个字随机歪一点、大小不一、上下错落，
+  // 再二值化成硬像素（不抗锯齿），配一道硬投影和几点甩出来的墨点。放大 2 倍显示，和全界面同一种像素大小
+  function brush(text, size = 40, col = RED, shadow = INK, seed = 7) {
+    const chars = [...text], pad = Math.ceil(size * 0.35), TW = Math.ceil(chars.length * size + pad * 2), TH = Math.ceil(size * 1.6);
+    const t = document.createElement('canvas'); t.width = TW; t.height = TH;
+    const g = t.getContext('2d'); g.fillStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    chars.forEach((ch, i) => {
+      const sz = size * (0.9 + hash(i, 1, seed) * 0.3), a = (hash(i, 2, seed) - 0.5) * 0.26, dy = (hash(i, 3, seed) - 0.5) * size * 0.18;
+      g.save(); g.translate(pad + size * (i + 0.5), TH / 2 + dy); g.rotate(a);
+      g.font = `bold ${Math.round(sz)}px "STXingkai","华文行楷","FZShuTi","方正舒体","STKaiti","华文楷体","KaiTi","楷体",serif`;
+      g.fillText(ch, 0, 0); g.restore();
+    });
+    const d = g.getImageData(0, 0, TW, TH).data, on = (x, y) => x >= 0 && y >= 0 && x < TW && y < TH && d[(y * TW + x) * 4 + 3] > 120;
+    const k = C(TW + 3, TH + 3);
+    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) if (on(x, y)) k.p(x + 2, y + 2, shadow);
+    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) if (on(x, y)) k.p(x, y, col);
+    for (let i = 0; i < 9; i++) { const x = Math.floor(hash(i, 5, seed) * TW), y = Math.floor(hash(i, 6, seed) * TH); if (on(x - 3, y) || on(x + 3, y) || on(x, y - 3)) { k.p(x, y, col); if (i % 3 === 0) k.p(x + 1, y, col); } }   // 甩出来的墨点
+    return trim(k.c);
+  }
+  // 图钉（钉海报）和胶带（贴便签）
+  function pin() { const k = C(8, 10); k.r(1, 0, 6, 6, P.fire[0]); k.r(2, 1, 4, 4, P.fire[1]); k.r(2, 1, 2, 2, P.fire[3]); k.r(3, 6, 2, 1, P.dark[0]); k.r(4, 7, 1, 3, P.iron[3]); k.clr(1, 0); k.clr(6, 0); k.clr(1, 5); k.clr(6, 5); return k.c; }
+  function tape(w = 26) { const k = C(w, 8); k.g.globalAlpha = 0.78; k.r(0, 0, w, 8, '#d8c48c'); k.g.globalAlpha = 1; k.r(0, 0, w, 1, '#efe0b0'); for (let y = 0; y < 8; y += 2) { k.clr(0, y); k.clr(w - 1, y + 1); } return k.c; }
+
   // 贴在木牌上的纸条：毛边、左边一片浆糊印、右上角翘起
   function paperLabel(w, h, seed = 3) {
     const k = C(w, h), R = RAMP.paper;
-    paperFill(k, 0, 0, w, h, R, seed, 2); deckle(k, w, h, R, seed);
+    paperFill(k, 0, 0, w, h, R, seed); deckle(k, w, h, R, seed);
     for (let y = 2; y < h - 2; y++) for (let x = 2; x < Math.min(9, w - 2); x++) if (bay(x, y) < 0.28) k.p(x, y, R.a);
     for (let i = 0; i < 4; i++) for (let j = 0; j < 4 - i; j++) k.clr(w - 1 - j, i);
     for (let i = 0; i < 4; i++) { k.p(w - 4 + i, i, R.o); if (i) k.p(w - 5 + i, i, R.l); }
@@ -114,11 +138,13 @@ SA.PX = (() => {
     // 纸纤维：稀疏的 2～3 像素短横
     for (let i = 0; i < w * h / 220; i++) { const x = x0 + Math.floor(hash(i, 3, seed) * (w - 3)), y = y0 + Math.floor(hash(i, 5, seed) * h); k.r(x, y, 2 + (i % 2), 1, hash(i, 9, seed) > 0.5 ? R.l : R.s); }
   }
-  // 毛边：描边沿着纸边随机往里缩一个像素
-  function deckle(k, w, h, R, seed) {
-    for (let x = 0; x < w; x++) for (const y of [0, h - 1]) { const inn = hash(x, y, seed) < 0.28; if (inn) { k.clr(x, y); k.p(x, y === 0 ? 1 : h - 2, R.o); } else k.p(x, y, R.o); }
-    for (let y = 0; y < h; y++) for (const x of [0, w - 1]) { const inn = hash(x, y, seed + 1) < 0.28; if (inn) { k.clr(x, y); k.p(x === 0 ? 1 : w - 2, y, R.o); } else k.p(x, y, R.o); }
-    k.clr(0, 0); k.clr(w - 1, 0); k.clr(0, h - 1); k.clr(w - 1, h - 1);
+  // 纸边（2026-09-30 用户：边上一圈零散的黑点像是后面还有内容）：一整圈连续的描边 + 里面一道受光 / 背光边 + band 宽的一圈旧纸色，
+  // 全是平涂、不抖动，一眼看出「纸到这里为止」；四个角各切掉一个像素
+  function deckle(k, w, h, R, seed, band = 1) {
+    const o = R.o, l = R.l || R.b, a = R.a || R.s || R.b;
+    for (let i = 1; i <= band; i++) { k.r(i, i, w - i * 2, 1, i === 1 ? l : a); k.r(i, i, 1, h - i * 2, i === 1 ? l : a); k.r(i, h - 1 - i, w - i * 2, 1, a); k.r(w - 1 - i, i, 1, h - i * 2, a); }
+    k.r(0, 0, w, 1, o); k.r(0, h - 1, w, 1, o); k.r(0, 0, 1, h, o); k.r(w - 1, 0, 1, h, o);
+    for (const [x, y, dx, dy] of [[0, 0, 1, 1], [w - 1, 0, -1, 1], [0, h - 1, 1, -1], [w - 1, h - 1, -1, -1]]) { k.clr(x, y); k.p(x + dx, y + dy, o); }
   }
   function build() {
     // 铁板：平的，只在四角打铆钉；不要满屏纹理
@@ -130,10 +156,14 @@ SA.PX = (() => {
     skin('ironBtnDn', 4, 16, (k, w, h) => { box(k, 0, 0, w, h, RAMP.iron, true); for (const [x, y] of [[1, 1], [w - 4, 1], [1, h - 4], [w - 4, h - 4]]) brassRivet(k, x, y); });
     skin('fire', 4, 16, (k, w, h) => { box(k, 0, 0, w, h, RAMP.fire); for (const [x, y] of [[1, 1], [w - 4, 1], [1, h - 4], [w - 4, h - 4]]) brassRivet(k, x, y); });
     skin('flat', 4, 16, (k, w, h) => { box(k, 0, 0, w, h, RAMP.flat); });
-    skin('paper', 6, 40, (k, w, h) => { paperFill(k, 0, 0, w, h, RAMP.paper, 11, 4); deckle(k, w, h, RAMP.paper, 11); });
-    skin('paperOld', 6, 40, (k, w, h) => { paperFill(k, 0, 0, w, h, { ...RAMP.paper, b: '#d4bf92', a: '#bba172', s: '#c2aa7a' }, 13, 5); deckle(k, w, h, RAMP.paper, 13); });
-    skin('kraft', 4, 24, (k, w, h) => { paperFill(k, 0, 0, w, h, RAMP.kraft, 17, 2); deckle(k, w, h, RAMP.kraft, 17); });
-    skin('green', 4, 24, (k, w, h) => { paperFill(k, 0, 0, w, h, { o: '#2e3a26', b: '#cfdcb8', a: '#b8c89c', l: '#e2ecd0', s: '#bccb9f' }, 19, 3); deckle(k, w, h, { o: '#2e3a26' }, 19); });
+    skin('paper', 6, 40, (k, w, h) => { paperFill(k, 0, 0, w, h, RAMP.paper, 11); deckle(k, w, h, RAMP.paper, 11, 2); });
+    skin('paperOld', 6, 40, (k, w, h) => { const R = { ...RAMP.paper, b: '#d4bf92', a: '#bba172', s: '#c2aa7a', l: '#e6d6ae' }; paperFill(k, 0, 0, w, h, R, 13); deckle(k, w, h, R, 13, 3); });
+    skin('kraft', 4, 24, (k, w, h) => { paperFill(k, 0, 0, w, h, RAMP.kraft, 17); deckle(k, w, h, { ...RAMP.kraft, a: RAMP.kraft.d }, 17, 1); });
+    skin('green', 4, 24, (k, w, h) => { const R = { o: '#2e3a26', b: '#cfdcb8', a: '#b8c89c', l: '#e2ecd0', s: '#bccb9f' }; paperFill(k, 0, 0, w, h, R, 19); deckle(k, w, h, R, 19, 2); });
+    // 便签：黄纸、平涂边，右下角折起一个小角
+    skin('note', 5, 30, (k, w, h) => { const R = NOTE; paperFill(k, 0, 0, w, h, R, 37); deckle(k, w, h, R, 37, 1);
+      const cx = w - 5, cy = h - 5;   // 右下角 5×5：斜着切掉一角，折过来的那片画深一点
+      for (let y = cy; y < h; y++) for (let x = cx; x < w; x++) { const u = x - cx, v = y - cy; if (u + v > 4) k.clr(x, y); else if (u + v === 4 || u === 0 || v === 0) k.p(x, y, R.o); else k.p(x, y, R.d); } });
     skin('wood', 5, 18, (k, w, h) => { woodGrain(k, 0, 0, w, h, RAMP.wood, 23); box0(k, w, h, RAMP.wood); });
     skin('board', 8, 32, (k, w, h) => {
       woodGrain(k, 0, 0, w, h, RAMP.wood, 29, (x, y) => x < 5 || y < 5 || x >= w - 5 || y >= h - 5); box0(k, w, h, RAMP.wood);
@@ -336,7 +366,7 @@ SA.PX = (() => {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) { const row = y >> 3, off = row ? 8 : 0, mort = (y % 8 === 7) || ((x + off) % 16 === 15); b.p(x, y, mort ? P.bg[0] : hash((x + off) >> 4, row, 9) < 0.5 ? P.bg[3] : P.bg[2]); if (!mort && (y % 8 === 0)) b.p(x, y, P.bg[4]); }
     root.style.setProperty('--px-brick', `url(${b.c.toDataURL()})`);
   }
-  return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
+  return { S, RAMP, INK, RED, CHALK, PEN, P, C, trim, engrave, box, rivet, brassRivet, line, num, numW, gear, gearStrip, star, ingot, clip, bigClip, tagHead, tail, chalkLine, ellipse, lever, sign, post, crate, planks, paperLabel, brush, pin, tape, NOTE, penLoop, penUnder, penArrow, woodGrain, init, SKIN, GEARS, hash, bay };
 })();
 
 // ---------- 界面件（DOM）：游戏和样机页共用。类名都带 px- 前缀，样式在 css/style.css「像素界面件」一节 ----------

@@ -12,6 +12,7 @@ SA.current = null;
 // 标记当前页面并刷新顶栏；页面自己负责渲染
 SA.go = (name) => {
   SA.current = name;
+  delete document.body.dataset.yard;   // 院子（主页面 / 出战黑板）自己再标上
   SA.Camp.syncLim();
   document.body.dataset.screen = name;
   SA.UI.topbar();

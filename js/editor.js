@@ -31,6 +31,8 @@ SA.Editor = (() => {
   const where = (r, c) => `第 ${K.ROWS - r} 行 第 ${c + 1} 列`;   // 子格坐标，从地面往上数
   const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
   const has = (f) => SA.Camp.has(f);
+  // 蓝图库：功能开放了、而且到了第二章（战役序号 2）才显示
+  const bpOpen = () => has('blueprints') && (SA.Camp.done() || SA.Camp.chIndex() >= 2);
   // 商店里能买的：商店已开放、战役已解锁这种模块（只卖黄铜，更好的材料在车上升级）
   const buyable = (id) => SA.S.buyable(id);
   const matName = (mt) => SA.MATS[mt].name;
@@ -41,6 +43,7 @@ SA.Editor = (() => {
     // 重开车间先取消上一帧（包括首次 fit 回调），始终只保留一条绘制循环。
     if (frame !== null) cancelAnimationFrame(frame);
     if (dock) st.dock = dock;
+    if (st.dock === 'bps' && !bpOpen()) st.dock = 'mods';
     SA.go('garage');
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
@@ -441,7 +444,7 @@ SA.Editor = (() => {
     const setLayer = (k) => { st.layer = k; st.pick = null; if (st.sel && SA.V.layerOf(kid(st.sel)) !== k) st.sel = null; renderAll(); };
     viewEl.append(...[
       has('side') ? SA.PX.ui.toggle('主体层', '侧挂层', st.layer === 'side', () => setLayer(st.layer === 'side' ? 'body' : 'side')) : null,
-      has('blueprints') ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，分享码也在这里',
+      bpOpen() ? h('button', { class: `btn small bp-btn ${st.dock === 'bps' ? 'on' : ''}`, title: '蓝图库：保存 / 套用整车方案，分享码也在这里',
         onclick: () => setDock(st.dock === 'bps' ? 'mods' : 'bps') }, SA.SPR.iconCanvas('scroll', st.dock === 'bps' ? '#e4e0d6' : '#f5d77a', 2), '蓝图库') : null].filter(Boolean));
   }
 
@@ -566,6 +569,7 @@ SA.Editor = (() => {
     // 右边一列纸页签：类别色条 + 名字 + 件数；空的类别变淡
     tabsEl.innerHTML = '';
     for (const { cat, keys } of cats) {
+      if (!keys.length) continue;   // 没有库存（商店模式下没有可买）的大类不显示页签
       const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
       tabsEl.append(h('button', { class: `ed-tab ${st.cat === cat ? 'on' : ''} ${keys.length ? '' : 'none'}`, style: `--c:${SA.CAT[cat].plate}`, title: keys.length ? `${SA.CAT[cat].name}：${shop ? `${keys.length} 种` : `${have} 件`}` : `${SA.CAT[cat].name}：没有`,
         onclick: () => { if (!keys.length) return; st.cat = cat; saveCat(); renderInv(); invEl.scrollTop = 0; } },
