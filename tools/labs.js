@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四种特殊武器 v1', date: '2026-09-29', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：鱼叉、蒸汽喷射器（只做 T1～T3）、喷火器（只做 T4～T6）、火箭架，各 6 种（A～C 为 09-27 夜间候选重画，D～F 新方向），会动：瞄准 / 开火 / 装填', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '四种特殊武器 v2', date: '2026-09-29', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期 v2：鱼叉（链锚抓钩 + 背景绞缆盘）、蒸汽喷射器（扇形喷汽阀，T1～T3）、喷火器（翅片喷焰炮，T4～T6，火焰混进白汽）、投掷架 4 种（四杓投掷轮 / 投矛臂 / 四联投石机 / 配重投石机，每个投射点一枚短炸弹）', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
     { id: 'big-boiler-tank', group: 'module', url: 'archive/big-boiler-tank.html', name: '大锅炉 + 大水箱', ver: 'v4', date: '2026-09-29', status: 'shipped',
       desc: '已进游戏：大锅炉 = 巨炮钢板墙 + 占约 60% 的巨大炉口火光 + 输送链 / 传动链 / 拉环的黑剪影 + 大煤块垒成的煤山 + 黄铜包边的司炉站台，煤球司炉小工一铲一铲把煤抛上链条（画在材质层之后）；大水箱 = 分片钢板 + 角铁包角 + 几乎占满正面的大舷窗 + 给水泵。v2 / v3 的代码也在这页的 js 里', docs: ['docs/art-plan.md'] },
     { id: 'big-boiler-tank-v1', group: 'module', url: 'archive/big-boiler-tank-v1.html', name: '大锅炉 + 大水箱 · 12 种', ver: 'v1', date: '2026-09-29', status: 'archived',

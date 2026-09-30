@@ -28,10 +28,10 @@
 <body>
 <div class="wrap">
   <header class="hero">
-    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 火箭架 · v1 · 2026-09-29</small></h1>
+    <h1>当前开发 <small style="font-size:13px;color:var(--muted);letter-spacing:0">本期：鱼叉 · 蒸汽喷射器 · 喷火器 · 投掷架 · v2 · 2026-09-29</small></h1>
     <p><b>这一页只放正在开发、等你确认的东西</b>（不复用）。上一期（大型锅炉 + 大水箱）已进游戏，归档在 <a href="archive/big-boiler-tank.html">archive/big-boiler-tank.html</a>。</p>
-    <p><b>你的要求</b>：做鱼叉、喷火器、蒸汽喷射器、火箭发射装置；为了更有分段感，<b>蒸汽喷射器是黄铜到钢（T1～T3）</b>的武器，<b>喷火器是镀镍到以太合金（T4～T6）</b>的装置；现有的设计也纳入考虑。</p>
-    <p><b>v1</b>：每种 6 个——<b>A～C 是 2026-09-27 的夜间候选</b>（候选页 v1）按现在的画法重画，<b>D～F 是新方向</b>。蒸汽喷射器只给 T1～T3 的材质条、喷火器只给 T4～T6。大图一直在动：仰角来回摆，鱼叉会射出去（绳子绷直）再收回，喷射器 / 喷火器待机 → 喷，火箭一发一发打空再装回。每张卡下面还有 4 个固定姿态（最低、水平、最高、开火）。<b>请每种挑一个</b>（可以组合）。</p>
+    <p><b>你对 v1 的选择</b>：① 鱼叉用 E 链锚抓钩，把绞缆盘做成背景一个占满空间的圆盘、一圈圈绞线；② 蒸汽喷射器选 A 扇形喷汽阀；③ 喷火器选 F 翅片喷焰炮，火焰黑色杂点太多显脏，要和蒸汽适当结合，取消电极；④ 火箭重做成投石机 / 投矛器样式，每个投射点装一枚短小的炸弹。</p>
+    <p><b>v2</b>：鱼叉、喷射器、喷火器各一件（喷射器没改）；投掷架 4 种新方案：<b>G 四杓投掷轮 · H 投矛臂 · I 四联投石机 · J 配重投石机</b>。v1 的 24 种代码留在 current.js 里（归档时一起存）。<b>请确认前三件、投掷架挑一个</b>，就一起进游戏。</p>
     <nav class="jump" id="jump" style="margin-top:8px"></nav>
   </header>
   <div class="cbar">
@@ -90,7 +90,7 @@
         const big = el('div'), car = el('div'), tiers = el('div', { className: 'tiers' }), poses = el('div', { className: 'tiers' });
         live.push(() => { const o = m.state(st.t), mt = mtOf(m); big.replaceChildren(show(one(e, m, mt, o), 3)); car.replaceChildren(show(onCar(e, m, mt, o), 1.5)); });
         for (const mt of m.tiers) tiers.append(el('div', {}, show(one(e, m, mt, { ...m.state(40), a: 6, k: 0, out: false, on: false, fire: false, n: 4 }, 2), 1), `T${mt} ${SA.MATS[mt].name}`));
-        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`));
+        for (const ps of m.poses) poses.append(el('div', {}, show(one(e, m, mtOf(m), { t: 40, k: 0, n: 4, ...ps }, 2), 1), ps.label || (ps.out || ps.on || ps.fire ? '开火' : `${ps.a}°`)));
         cards.append(el('div', { className: 'card' }, el('h3', {}, `${e.key} ${e.name}`), el('div', { className: 'row' }, big, car), tiers, poses,
           el('p', {}, e.idea), el('p', { style: 'font-size:11.5px;opacity:.8' }, '参考：' + e.ref)));
       }
