@@ -137,11 +137,11 @@ SA.Arena = (() => {
       h('div', { class: 'ar-kick' }, where),
       e.boss || (e.tag && e.tag[1] === 'Boss')
         ? h('div', { class: 'ar-title boss' }, UI.img(X.brush('大对决', 34, X.RED, X.INK, 5), 2), UI.stamp('Boss', 'position:absolute;right:6px;top:10px'))
-        : h('div', { class: 'ar-title' }, UI.img(X.brush(e.name, 22, X.INK, '#b59c6c', 3), 2)),
+        : h('div', { class: 'ar-title' }, UI.img(X.brush(e.v?.name || e.name, 22, X.INK, '#b59c6c', 3), 2)),
       h('div', { class: 'ar-vs' },
         h('div', { class: 'who' }, oval('你'), h('div', { class: 'nm' }, h('b', {}, D.vehicle.name), h('span', { class: 'px-small' }, ' 评分 '), UI.num(s.rating))),
         h('div', { class: 'mid' }, UI.loop(h('span', { class: 'dui' }, '对'), 42, 38, 7)),
-        h('div', { class: 'who' }, oval(e.pilot), h('div', { class: 'nm' }, h('b', {}, e.name), h('span', { class: 'px-small' }, ' 评分 '), UI.num(e.rating)))),
+        h('div', { class: 'who' }, oval(e.pilot), h('div', { class: 'nm' }, h('b', {}, e.v?.name || e.name), h('span', { class: 'px-small' }, ' 评分 '), UI.num(e.rating)))),
       h('div', { class: 'ar-cars' }, engraved(D.vehicle, false), engraved(e.v, true)),
       h('div', { class: 'ar-prize' }, e.replay ? UI.hand('↺ 重打：不发奖金、不计声望、不留战损、不掉落', 14, 'white-space:normal')
         : e.prize ? ['奖金 ', UI.underline(UI.num(money(e.prize)), 30, 4), ' · 声望 · 缴获一件'] : '赢了不发奖金'),
@@ -175,7 +175,8 @@ SA.Arena = (() => {
     const field = (k, ...v) => h('div', { class: 'f' }, h('span', { class: 'k' }, k), h('span', {}, ...v));
     const dossier = h('div', { class: 'ar-dossier px-sk px-sk-kraft px-drop' }, UI.sk('paper', [
       h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, '对手档案'), e.boss ? UI.underline(UI.hand('Boss！', 20), 26, 6) : null),
-      field('车手', e.pilot || '—'), field('座驾', e.name), chassis ? field('底盘', chassis) : null,
+      // 对手档案展示车辆铭牌；关卡标题仍由赛程和海报单独使用。
+      field('车手', e.pilot || '—'), field('座驾', e.v?.name || e.name), chassis ? field('底盘', chassis) : null,
       field('评分', UI.num(e.rating), h('span', { class: 'px-small' }, ' 你 '), UI.num(s.rating)),
       field('速度', SA.kmh(fs.topSpeed), h('span', { class: 'px-small' }, fs.topSpeed > s.topSpeed * 1.2 ? ' 比你快' : fs.topSpeed < s.topSpeed * 0.8 ? ' 比你慢' : ' 差不多'))]));
     const why = e.lock || (!s.canDeploy ? '先把车修整好' : null);
