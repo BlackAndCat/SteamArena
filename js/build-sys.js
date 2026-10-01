@@ -20,3 +20,4 @@ SA.BUILD_SYS += '+arena-edit-first-open'; // 出战黑板首开与切关使用�
 SA.BUILD_SYS += '+stage-reward-quantity-settlement'; // 关卡固定物品数量与金币、胜后修理配置。
 SA.BUILD_SYS += '+yard-click-text-workbench'; // 院子工作台可分别编辑并保存三个人物的点击对话。
 SA.BUILD_SYS += '+high-arc-near-targets'; // 四种高抛炮支持前方近目标并补偿坡地俯仰。
+SA.BUILD_SYS += '+shop-unlock-melee-wreck'; // 商店按解锁售卖，近战可持续冲击并分摊残骸伤害。

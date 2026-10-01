@@ -152,7 +152,7 @@ SA.S = (() => {
   }
   // 买下 n 个模块进库存
   function buy(id, n = 1) {
-    if (SA.isUnique(id) || SA.minMt(id) > SA.Camp.maxMat()) return false;
+    if (!buyable(id)) return false;
     const cost = SA.buyPrice(id) * n;
     if (d.money < cost) return false;
     d.money -= cost; addInv(id, n, SA.buyMt(id));
@@ -504,7 +504,10 @@ SA.S = (() => {
   }
 
   // 编辑器操作：付款在原确认入口扣除，其余模块变更在此执行。
-  const buyable = (id) => SA.Camp.has('shop') && SA.Camp.hasMod(id) && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
+  // 商店只卖有效的非退役模块；额外名单仅替代模块解锁，不放宽其他交易门槛。
+  const buyable = (id) => typeof id === 'string' && Object.hasOwn(SA.MODULES, id) && !Object.hasOwn(SA.RETIRED, id)
+    && SA.Camp.has('shop') && (SA.Camp.hasMod(id) || SA.SHOP_EXTRAS.includes(id))
+    && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
   function payAmount(amount) { d.money -= amount; save(); }
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }
   function repairCells(cells) { for (const c of cells) c.hp = SA.V.maxHp(c); }

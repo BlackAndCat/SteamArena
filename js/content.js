@@ -71,6 +71,8 @@ SA.TERRAIN_ORDER = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 // subs：用子格坐标放置 1×1 / 1×2 / Boss 大件，坐标仍是 24px 最小格；无专用美术的模块由通用占位显示。
 // 开局已有小锅炉、小机枪，商店清单继续保留原有可用模块；黄铜材料，4×3 改装台。
 SA.CAMP_START = { feat: [], mods: ['track', 'helmet', 'plate', 'boiler', 'water', 'armor', 'cannon_m', 'mg', 'boiler_s', 'mg_s'], mat: 1, grid: { cols: 4, rows: 3 } };
+// 商店额外出售的模块 ID：只跳过战役模块解锁，商店开放、材料等级和唯一件限制仍生效。
+SA.SHOP_EXTRAS = [];
 SA.FEATURES = {
   garage: '车间', shop: '商店', street: '街头赛', bank: '银行贷款', side: '侧挂层', upgrade: '改装（炮盾 / 附加装甲）',
   orders: '民间委托', bet: '下注', blueprints: '蓝图库', friendly: '友谊赛 · 云车库', season: '终局 · 伦敦蒸汽大奖赛',
