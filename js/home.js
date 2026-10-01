@@ -179,7 +179,7 @@ SA.Home = (() => {
     stage.append(...[
       sparks.map(s => (at('tom') === 'forge' ? ab(SP.anvil[0] * 2 + 16, SP.anvil[1] * 2 - 10, s) : ab(ANVIL_X + 24, FEET - 58, s))), zz,
       bubbles.rel, bubbles.tom, bubbles.tim,
-      h('div', { class: 'ab yb-keep', style: 'left:300px;top:14px' }, h('div', { title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? () => SA.UI.openBank() : null }, UI.counter({ money: D.money, rep: D.rep, ingotList: ingots, onclick: has('bank') })),
+      h('div', { class: 'ab yb-keep', style: 'left:300px;top:14px' }, h('div', { title: has('bank') ? '银行：借款 / 还款' : '资金', onclick: has('bank') ? () => SA.UI.openBank() : null }, UI.counter({ money: D.money, ingotList: ingots, onclick: has('bank') })),
         D.debt ? h('div', { style: 'margin:6px 0 0 8px' }, UI.tag([h('span', {}, '欠银行'), UI.num(SA.UI.money(D.debt), X.RED)])) : null),
       h('div', { class: 'ab yb-keep', style: 'left:1206px;top:14px' }, gearBtn),
     ].flat(Infinity).filter(Boolean));

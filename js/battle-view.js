@@ -51,7 +51,7 @@ SA.BattleView.create = function createBattleView(api) {
       const e = B.e, why = data.why;
       SA.UI.dialog(`「${e.name}」挂出了白旗`, [
         h('p', { style: 'margin-top:0' }, `对手${why}，已经没法再打，请求投降。`),
-        h('p', {}, h('b', {}, '接受：'), '立即获胜，对手剩下的零件原样保留（缴获的选择更多），体面收场额外 ', h('b', {}, '声望 +1'), '。'),
+        h('p', {}, h('b', {}, '接受：'), '立即获胜，对手剩下的零件原样保留（缴获的选择更多）。'),
         h('p', { class: 'muted' }, '拒绝：比赛继续，你可以把它拆得更彻底；这场不会再问第二次。'),
       ], [{ label: '接受投降', primary: true, onClick: () => api.acceptSurrender() }], '拒绝，继续打', () => api.refuseSurrender());
     }

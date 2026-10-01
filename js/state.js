@@ -352,7 +352,7 @@ SA.S = (() => {
       return SA.Street.offers().map((o, i) => {
         const tier = SA.STREET_TIERS[i];
         const v = SA.Street.vehicleOf(o), cap = SA.Street.cap(i);
-        return { key: i, name: o.name, pilot: o.pilot, blurb: '街坊邻居随手拼的小车。赢了拿奖金，不计声望、不影响赛程；损伤照常带回车间。', v, rating: o.rating, prize: o.prize, terrain: o.terrain || 'flat',
+        return { key: i, name: o.name, pilot: o.pilot, blurb: '街坊邻居随手拼的小车。赢了拿奖金，不影响赛程；损伤照常带回车间。', v, rating: o.rating, prize: o.prize, terrain: o.terrain || 'flat',
           tag: ['', `上限 ${cap}`], title: `${tier.name} · ${o.name}`, lock: me > cap ? `你的评分 ${me} 超过上限 ${cap}` : null,
           start: () => SA.Battle.start({ mode: 'street', streetTier: i, enemyVehicle: v, enemyName: o.name, aim: o.aim, terrain: o.terrain, hpMul: 1, prize: o.prize }) };
       });
@@ -401,7 +401,7 @@ SA.S = (() => {
         d.losses++;
         d.news = `「${d.vehicle.name}」在${tier.name}输给了「${res.enemyName}」。`;
       }
-      lines.push('街头赛不计声望，也不影响战役进度。');
+      lines.push('街头赛不影响战役进度。');
       SA.Street.consume(res.opts.streetTier);
     } else if (res.mode === 'campaign' || res.mode === 'tournament') {
       const camp = res.mode === 'campaign';
@@ -419,10 +419,8 @@ SA.S = (() => {
       } else if (res.win) {
         if (rewardMoney) d.money += res.prize;
         d.wins++;
-        const rep = (res.flawless ? 2 : 1) + (res.surrendered ? 1 : 0);
-        d.rep += rep;
+        // 暂停声望结算，保留旧存档中的 rep 字段和数值。
         if (rewardMoney) lines.push(`奖金 +${formatMoney(res.prize)}`);
-        lines.push(`声望 +${rep}${[res.flawless ? '驾驶舱毫发无损' : '', res.surrendered ? '接受投降，体面收场' : ''].filter(Boolean).map(x => `（${x}）`).join('')}`);
         if (d.bet) { const pay = Math.round(d.bet.amount * d.bet.odds); d.money += pay; lines.push(`赌注兑现 +${formatMoney(pay)}`); }
         // 缴获：只有你还没有的零件或史诗 / 传奇件；什么都没有就说一声
         const loot = SA.Camp.salvageOptions(res.survivors || []);

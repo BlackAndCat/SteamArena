@@ -26,3 +26,4 @@ SA.BUILD_VIS += '+tutorial-player-camera'; // 首关教程讲解镜头跟随玩�
 SA.BUILD_VIS += '+no-rank-chevrons'; // 模块上的改装军衔杠取消（车间悬停 / 战斗瞄准都不再画）；车间底部纸条只写 名字 · 材质 · 耐久
 SA.BUILD_VIS += '+stage-victory-free-repair'; // 战役胜利后按关卡设置呈现免费修理。
 SA.BUILD_VIS += '+scene-atmosphere'; // 战斗场景氛围层：景深雾 / 雾带 / 灯光晕和光锥 / 车底软影 / 贴地薄雾 / 调色 / 泛光 / 超近景虚化剪影（挡车自动变淡）/ 飘浮物 / 暗角 / 颗粒，帧率低自动降档，设置里可关
+SA.BUILD_VIS += '+reputation-hidden'; // 顶栏与投降提示不再显示声望。

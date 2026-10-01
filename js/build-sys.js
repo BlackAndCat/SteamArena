@@ -18,3 +18,4 @@ SA.BUILD_SYS += '+stage-workbench-full-modules'; // 关卡车工作台显示正�
 SA.BUILD_SYS += '+end-armor-chapter-bounds'; // 底盘端部挂甲减速与序章、第二章场地边界。
 SA.BUILD_SYS += '+arena-edit-first-open'; // 出战黑板首开与切关使用同一页面编辑路径。
 SA.BUILD_SYS += '+stage-reward-quantity-settlement'; // 关卡固定物品数量与金币、胜后修理配置。
+SA.BUILD_SYS += '+reputation-paused'; // 暂停声望结算，保留旧存档中的声望数值。

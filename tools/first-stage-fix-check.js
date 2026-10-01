@@ -56,7 +56,8 @@ function run() {
   };
   context.requestAnimationFrame = fn => { frames.push(fn); };
   context.addEventListener = (type, fn) => { (keys[type] ||= []).push(fn); };
-  SA.Scenes = { pick: () => ({}), back() {}, floor() {}, front() {} };
+  // 首关模拟不绘制场景，但须提供战斗画面调用的氛围层接口。
+  SA.Scenes = { pick: () => ({}), back() {}, fxBack() {}, floor() {}, front() {}, fxFront() {} };
   SA.PX = { init() {}, ui: { btn: () => context.document.createElement('button') } };
   let tutorialLines, finishTutorial, marked = false;
   SA.Story = { tutorial: () => SA.STORY.tutorial, talk: (lines, opts) => { tutorialLines = lines; finishTutorial = opts.onDone; return { close() {} }; }, mark: () => { marked = true; }, emblem: () => ({ cv: context.document.createElement('canvas'), muzzles: [] }) };
