@@ -10,7 +10,7 @@ SA.Home = (() => {
   const h = (...a) => SA.h(...a);
   const d = () => SA.S.d;
   const ab = (x, y, ...kids) => h('div', { class: 'ab', style: `left:${x}px;top:${y}px` }, ...kids);
-  let timer = null, ro = null, live = null;
+  let timer = null, ro = null, live = null, stopChat = null;
 
   // 场景：专门给主页面画的铁匠铺院子（js/home-scene.js），底图静态 + 一层动效（炉火、窗光、烟）
   const backdrop = (wk) => SA.HomeScene.base(wk);
@@ -75,6 +75,7 @@ SA.Home = (() => {
   });
 
   function build(stage, root, WX) {
+    if (stopChat) { stopChat(); stopChat = null; }
     const UI = X.ui, D = d(), has = SA.Camp.has, stats = SA.V.stats(D.vehicle), st = SA.Camp.current(), HS = SA.HomeScene;
     // 站位线：人物、道具、路标的脚都落在这里（原生 HS.FEET 放大 2 倍）；车站得更靠前
     const FEET = HS.FEET * 2, CAR_BOTTOM = 672, SUNX = HS.theme(WX).cast === 'sun' ? 6 : 0;
@@ -183,18 +184,15 @@ SA.Home = (() => {
         D.debt ? h('div', { style: 'margin:6px 0 0 8px' }, UI.tag([h('span', {}, '欠银行'), UI.num(SA.UI.money(D.debt), X.RED)])) : null),
       h('div', { class: 'ab yb-keep', style: 'left:1206px;top:14px' }, gearBtn),
     ].flat(Infinity).filter(Boolean));
-    // ---------- 闲谈：每句 3.2 秒轮换；点人物插一句跟你有关的 ----------
-    const foeLine = st ? `「${st.name}」？别慌，车顶住了就行。` : '锦标赛可不比后巷，别给我丢人。';
-    const LINES = [
-      ['rel', '想当年在孟买，我们的蒸汽车能拖动一整个炮兵连！', 'talk'], ['tom', '你那台车？早锈成门把手了。', 'talk'], ['tim', '师傅！锅炉又在漏气！', 'yelp'], ['tom', '拿扳手拧紧，别拿脑袋顶着。', 'talk'],
-      ['rel', '……', 'sleep'], ['rel', '谁？！谁在开炮？！', 'jolt'], ['tom', foeLine, 'talk'], ['tim', '我在锅炉上画了个笑脸！', 'talk'],
-    ];
-    // 雨天 / 夜里多几句应景的，穿插进去
-    const EXTRA = {
-      rain: [['rel', '下雨天我这老寒腿就知道——要打仗了！', 'talk'], ['tim', '师傅，雨什么时候停呀？', 'talk'], ['tom', '雨天淬火，连水都不用挑。', 'talk']],
-      night: [['tim', '我来守夜！……就是院子有点黑。', 'talk'], ['tom', '夜里看火色最准。', 'talk'], ['rel', '……呼……', 'sleep']],
-    }[WX] || [];
-    EXTRA.forEach((l, k) => LINES.splice(1 + k * 3, 0, l));
+    // 闲谈的抽取、章节继承和时间参数由 YardChat 管；这里仅负责原有气泡和人物动画。
+    let chatter = SA.YardChat.createPlayer();
+    const stopChatUpdates = SA.Text.onChange(key => {
+      if (key === '*' || key.startsWith('home:chat:')) {
+        chatter = SA.YardChat.createPlayer(); cur = null;
+        for (const bubble of Object.values(bubbles)) bubble.classList.remove('on');
+      }
+    });
+    stopChat = stopChatUpdates;
     const NAME = { rel: REL, tom: TOM, tim: TIM };
     const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const TIP = {
@@ -202,17 +200,21 @@ SA.Home = (() => {
       rel: '要打哪场，去路标那儿拉下黑板看！打过的我给你划掉了！',
       tim: '要改装就点车！',
     };
-    let i = 0, t0 = 0, cur = null, forced = null, tick = 0, mounted = false;
+    let cur = null, tick = 0, mounted = false;
     const say = (key, html) => { for (const k in bubbles) bubbles[k].classList.remove('on'); bubbles[key].set(NAME[key], html); bubbles[key].classList.add('on'); };
     const burst = () => sparks.forEach((s, k) => { const a = -Math.PI * (0.15 + 0.7 * k / 5), r = 10 + (k % 3) * 8; let f = 0; s.style.opacity = '1';
       const iv = setInterval(() => { f++; const q = f / 4; s.style.transform = `translate(${Math.round(Math.cos(a) * r * q / 2) * 2}px,${Math.round((Math.sin(a) * r * q + q * q * 6) / 2) * 2}px)`; if (f >= 4) { s.style.opacity = '0'; clearInterval(iv); } }, 70); });
     const step = () => {
-      if (root.isConnected) mounted = true; else if (mounted) { clearInterval(timer); timer = null; if (ro) ro.disconnect(); return; }
+      if (root.isConnected) mounted = true; else if (mounted) { clearInterval(timer); timer = null; stopChatUpdates(); if (stopChat === stopChatUpdates) stopChat = null; if (ro) ro.disconnect(); return; }
       tick++;
       SA.HomeScene.fx(fxG, (performance.now() - t0fx) / 1000, WX);
       if (tick % 2 === 0) paintCar();
-      if (!cur || tick - t0 > 32) { if (forced) { cur = forced; forced = null; } else { cur = LINES[i % LINES.length]; i++; } t0 = tick; say(cur[0], cur[1]); }
-      const [spk, , act] = cur;
+      const chat = chatter.step(Date.now() / 1000, WX);
+      if (chat.line) {
+        if (chat.line !== cur) { cur = chat.line; say(cur.who, cur.trustedHtml ? cur.text : esc(cur.text)); }
+        if (chat.expired) bubbles[cur.who].classList.remove('on');
+      }
+      const spk = cur?.who, act = cur?.action;
       if (spk === 'tom') who.tom.set(F_TOM.talk); else { const ph = tick % 8; who.tom.set(ph < 3 ? F_TOM.up : ph < 5 ? F_TOM.hit : (tick % 40 === 7 ? F_TOM.blink : F_TOM.rest)); if (ph === 3) burst(); }
       const dozing = at('rel') === 'window';   // 夜里亲戚在窗后打盹，没轮到他说话就一直点头
       who.rel.set(spk === 'rel' ? F_REL[act] || F_REL.talk : dozing ? F_REL.sleep : (tick % 30 === 5 ? F_REL.blink : F_REL.idle));
@@ -227,7 +229,7 @@ SA.Home = (() => {
         HS.inside(inG, WX, f, (performance.now() - t0fx) / 1000);
       }
     };
-    for (const k of ['tom', 'rel', 'tim']) who[k].box.addEventListener('click', () => { forced = [k, TIP[k], 'talk']; cur = null; });
+    for (const k of ['tom', 'rel', 'tim']) who[k].box.addEventListener('click', () => { chatter.force(k, TIP[k]); step(); });
     if (timer) clearInterval(timer);
     timer = setInterval(step, 100);
     step();

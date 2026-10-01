@@ -10,3 +10,4 @@ SA.BUILD_SYS += '+module-editor-save'; // 模块工作台记住文件授权并�
 SA.BUILD_SYS += '+stage-car-name-workbench'; // 关卡车工作台恢复像素车间并分别保存关卡名与车名。
 SA.BUILD_SYS += '+page-versions-canvas-hover'; // 页面历史版本、画布文字和悬浮内容编辑。
 SA.BUILD_SYS += '+opening-story-editor'; // 标题与开场演出直达剧情编排，试播不推进存档。
+SA.BUILD_SYS += '+yard-chat-data'; // 院子闲谈支持章节继承、成套对答、权重冷却和全局时间。

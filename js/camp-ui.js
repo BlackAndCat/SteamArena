@@ -58,6 +58,7 @@ SA.CampUI = (() => {
     { url: 'tools/evolve.html', name: '进化报告', desc: '关卡车进化生成器的结果：选关、强度 × 表现散点图、分类网格、毒瘤车与奇特构筑，可复现、可试驾' },
     { url: 'tools/stage-editor.html', name: '关卡车工作台', desc: '拼装全部章节关卡车，编辑奖励、文字与强度并保存手工锁定版本' },
     { url: 'tools/module-editor.html', name: '模块属性工作台', desc: '选择模块，修改文字与玩法属性，一键保存到模块数据' },
+    { url: () => `tools/yard-chat-editor.html?scope=${encodeURIComponent(SA.YardChat.currentScope())}`, name: '院子聊天工作台', desc: '按章节关卡编排闲聊和多人对答，调整出现频率与气泡时长' },
     { url: 'tools/module-candidates.html', name: '模块造型 · 全部进度', desc: '全部模块按计划表分档：已通过的定稿、候选、占位，一页看全' },
     { url: 'tools/current.html', name: '当前开发', desc: '只放正在开发、等你确认的东西；确认后归档，这里换成下一项' },
     { url: 'tools/lab.html', name: '视觉样机馆', desc: '全部视觉样机和美术规范：风格参考、精灵表、模块造型探索、底盘演进、地形与悬挂；按类别、版本和状态收纳' },
@@ -68,7 +69,7 @@ SA.CampUI = (() => {
     const row = (...kids) => h('div', { class: 'dialog-actions dev-row' }, kids);
     SA.UI.openModal('开发者模式', h('div', { class: 'dev-panel' },
       h('h3', { class: 'help-h' }, '开发工具 · 新标签页打开'),
-      h('div', { class: 'dev-tools' }, DEV_TOOLS.map(t => h('a', { class: 'dev-tool', href: t.url, target: '_blank', rel: 'noopener' },
+      h('div', { class: 'dev-tools' }, DEV_TOOLS.map(t => h('a', { class: 'dev-tool', href: typeof t.url === 'function' ? t.url() : t.url, target: '_blank', rel: 'noopener' },
         h('b', {}, t.name, h('span', { class: 'ext' }, ' ↗')), h('span', { class: 'muted' }, t.desc)))),
       h('h3', { class: 'help-h' }, '存档调试 · 直接改存档'),
       row(act('一键全部解锁', () => { dev.unlockAll(); dev.money(10000); dev.ingots(5); }, true),

@@ -162,3 +162,4 @@
 
 | 2026-09-30 | astra → Opus | 院子文案后台接口已提供，Home 尚未接入。等待 `await SA.Text.ready` 后，以 `SA.Text.homeLines(LINES)` 读取 `[说话者, 文案, 动作]` 元组副本，以 `SA.Text.homeTips(TIP)` 读取人物提示副本；闲谈的稳定键为 `home:chatter:<0 基索引>`，提示键为 `home:tip:<人物 key>`。编辑用 `SA.Text.set(key, text)` 和 `await SA.Text.save()`；默认文案每次读取更新，自定义覆盖优先。说话者与动作仍由 Home 管理；编辑后需立即显示时，Home 用已有 `SA.Text.onChange` 自行重建或刷新。后台不负责显示，真实前端接入与验收待 Opus 完成。 | 后台接口与回归完成，待视觉接入 |
 | 2026-09-30 | 用户 → astra / Opus | 车间蓝图画布按本次授权加入横向拖动与滚轮缩放：地面底线固定，空白点击沿用原有选中模块操作；视觉归属文件 `js/editor.js`、`js/build-vis.js` 本次仅为该交互做最小改动。 | 已实现，待车间交互验收 |
+| 2026-10-01 | 用户 → astra / Opus | 院子聊天工作台按当前章关编辑闲谈、成套对答、组权重与独立冷却，并调整全局间隔、对答间隔和气泡留存；后台新增 `SA.YardChat`，Home 只接入调度结果与现有气泡、动作，工作台界面由独立工具页负责。此前 `SA.Text.homeLines` 的位置键保留兼容，但院子聊天改用 `home:chat:*` 范围池；文件直写与本机服务保存都通过跨页快照通知同步，两个隔离检查已加入 `tools/evolve-check.js`。 | 后台完成，待整体验收 |

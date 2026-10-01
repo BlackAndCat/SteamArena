@@ -19,6 +19,7 @@ SA.Text = (() => {
     locale: 'zh-CN',
     loadUrl: '/__text/load',
     saveUrl: '/__text/save',
+    toolbar: true,
   };
   const values = Object.create(null);
   const removedElements = new Set();
@@ -68,7 +69,7 @@ SA.Text = (() => {
   const handleKey = () => `${config.game}/${config.locale}:${location.pathname}`;
   const safeKey = key => typeof key === 'string' && key.length > 0 && key.length <= 240;
   // 剧情编排入口及编辑器自身是功能控件，页面选字模式不能拦截其点击或扫描其文字。
-  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror], [data-story-action]');
+  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror], [data-story-action], [data-yard-chat-editor]');
   const snapshot = () => ({ values: { ...values }, removedElements: [...removedElements] });
   const sameSnapshot = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
   const newVersion = () => ({ id: `${Date.now()}-${++versionCounter}`, at: new Date().toISOString() });
@@ -882,8 +883,30 @@ SA.Text = (() => {
     if (readyResolve) readyResolve(api);
     updateToolbar();
     scan();
+    notify('*'); // 游戏首屏若已建院子，异步文本到齐后立即重建当前聊天池。
     if (startupStyle) { startupStyle.remove(); startupStyle = null; }
     if (dirty) scheduleAutoSave();
+  }
+
+  // 其他标签页保存院子聊天后刷新已保存快照；当前页有草稿时不覆盖它。
+  async function reload(savedDocument) {
+    if (dirty) return false;
+    let data = savedDocument;
+    if (!data) {
+      const query = `?game=${encodeURIComponent(config.game)}&locale=${encodeURIComponent(config.locale)}`;
+      const response = await fetch(`${config.loadUrl}${query}`, { cache: 'no-store' });
+      if (!response.ok) return false;
+      data = await response.json();
+    }
+    if (!data || data.version !== 1 || data.game !== config.game || data.locale !== config.locale
+      || !data.values || typeof data.values !== 'object' || Array.isArray(data.values)) return false;
+    replaceSnapshot(data);
+    readVersions(data);
+    persistLocal();
+    applyAll();
+    scan();
+    notify('*');
+    return true;
   }
 
   function save() {
@@ -920,7 +943,7 @@ SA.Text = (() => {
       persistLocal();
       updateToolbar(dirty ? '部分修改仍待保存' : `已写入 ${fileName()}`);
       if (dirty) scheduleAutoSave();
-      return { ok: true, file: fileName(), revision: serverRevision, pending: dirty };
+      return { ok: true, file: fileName(), revision: serverRevision, pending: dirty, document: payload };
     } catch (error) {
       activeVersion = previous.activeVersion;
       history = previous.history;
@@ -964,7 +987,7 @@ SA.Text = (() => {
   }
 
   function boot() {
-    createToolbar();
+    if (config.toolbar) createToolbar();
     wrapCanvasText();
     document.addEventListener('pointerover', event => {
       if (editing && !isUiElement(event.target)) hovered = event.target;
@@ -1008,7 +1031,7 @@ SA.Text = (() => {
   }
 
   const api = {
-    init, ready, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
+    init, ready, load: reload, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
     versions: () => [activeVersion, ...history].filter(Boolean).map(item => ({ id: item.id, at: item.at })),
     selectVersion,

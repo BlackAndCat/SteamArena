@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>院子聊天工作台</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    html, body { height: auto; overflow: auto; }
+    body { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0 0 5px; color: var(--brass2); font-size: 22px; }
+    h2 { margin: 0 0 9px; color: var(--brass3); font-size: 17px; }
+    h3 { margin: 0; color: var(--brass3); font-size: 15px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .panel { background: var(--dark1); border: 1px solid var(--dark3); padding: 12px; margin: 12px 0; }
+    .settings, .group-fields { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 10px; }
+    .field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+    input, select, textarea { box-sizing: border-box; width: 100%; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 6px; font: inherit; }
+    textarea { min-height: 54px; resize: vertical; }
+    button { cursor: pointer; }
+    .bar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .bar > select { width: min(100%, 460px); }
+    .group { border: 1px solid var(--dark3); background: var(--dark0); padding: 11px; margin: 10px 0; }
+    .group-head, .line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+    .group-head { margin-bottom: 9px; }
+    .group-actions, .line-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .group-fields { margin-bottom: 10px; }
+    .lines { display: grid; gap: 6px; }
+    .line { grid-template-columns: 90px minmax(0, 1fr) minmax(100px, .35fr) auto; }
+    .notice { white-space: pre-wrap; border: 1px solid var(--dark3); background: var(--dark0); padding: 8px; }
+    .notice.ok { border-color: var(--gauge1); color: var(--gauge2); }
+    .notice.bad { border-color: var(--fire2); color: var(--fire3); }
+    @media (max-width: 760px) { .settings, .group-fields { grid-template-columns: 1fr; } .line { grid-template-columns: 90px minmax(0, 1fr); } .line-actions { grid-column: 1 / -1; } }
+  </style>
+</head>
+<body data-yard-chat-editor>
+  <h1>院子聊天工作台</h1>
+  <p class="muted">按全局、章节或关卡编排院子闲聊。每组可写单句或多人对答；<code>{关卡名}</code> 会随当前关卡自动替换。</p>
+  <section class="panel">
+    <h2>整体节奏</h2>
+    <div class="settings">
+      <label class="field">聊天间隔（秒）<input id="interval" type="number" min="0.1" step="0.1"></label>
+      <label class="field">对答句间隔（秒）<input id="reply" type="number" min="0.1" step="0.1"></label>
+      <label class="field">气泡留存（秒）<input id="bubble" type="number" min="0" step="0.1"></label>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="bar"><h2>聊天范围</h2><select id="scope" aria-label="聊天范围"></select><span id="source" class="muted"></span></div>
+    <p class="muted">出现权重为 0 时停用；独立冷却为 0 时不限制。关卡优先使用本关内容，其次本章，最后全局。</p>
+    <div id="groups"></div>
+    <div class="bar"><button class="btn" id="add-group" type="button">新增聊天</button><button class="btn" id="inherit" type="button">恢复继承上一级</button></div>
+  </section>
+  <div class="bar"><button class="btn primary" id="save" type="button">一键保存</button><span id="dirty" class="muted"></span></div>
+  <p id="notice" class="notice" role="status" aria-live="polite">正在读取院子聊天……</p>
+  <script src="../js/modules.js"></script>
+  <script src="../js/content.js"></script>
+  <script src="../js/text-manager.js"></script>
+  <script src="../js/yard-chat.js"></script>
+  <script src="yard-chat-editor.js"></script>
+</body>
+</html>

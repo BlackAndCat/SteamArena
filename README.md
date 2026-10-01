@@ -24,6 +24,8 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 模块属性工作台：在「开发者」面板或关卡车工作台打开 `tools/module-editor.html`，按名称或类别选模块，直接调整文字和玩法属性并点「一键保存」或按 Ctrl+S（Mac 上为 Cmd+S）。使用本地 `tools/serve.py` 时直接写入 `js/modules.js`；Chrome / Edge 静态打开时首次选择该文件并授权写入，此后浏览器记住文件句柄。保存成功后工作台自动刷新；已打开的游戏页面刷新后读取新属性。
 
+院子聊天工作台：从「开发者」面板打开 `tools/yard-chat-editor.html`，默认定位当前关卡，也可切到全局、章节或任意关卡。可编排单句与成套对答，调整每组出现权重、独立冷却和天气条件，并设置整体聊天间隔、对答句间隔、气泡留存时间。切换范围会保留本页未保存的草稿；点「一键保存」或按 Ctrl+S 将全部待保存范围写入页面管理共用的文本文件。关卡或章节可选择「恢复继承上一级」。
+
 进化任务开始前会预检所选全部关卡的标尺构筑，失败提示对应章节、关卡、奖励和预算。`node tools/evolve-chapters-check.js` 用小种群检查第一至第五章共 15 关的奖励保底、90 台标尺及完整生成流程，已接入 `node tools/evolve-check.js`；生成成功与胜率 / 地形 / 奖励效果达标分别报告。
 
 审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。
