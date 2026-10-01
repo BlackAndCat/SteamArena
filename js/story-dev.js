@@ -9,8 +9,9 @@ SA.StoryDev = (() => {
   const KEY = 'steam_arena_story_dev_v1';
   const SCENES = { sleep: '睡觉', roof: '掀屋顶', roll: '滚进来', car: '战车' };
   let on = false;
-  try { on = localStorage.getItem(KEY) === '1'; } catch (e) { on = false; }
-  const enabled = () => on;
+  // 发行版忽略旧开发开关，普通玩家的首次剧情仍走下方 hook。
+  if (!SA.RELEASE) try { on = localStorage.getItem(KEY) === '1'; } catch (e) { on = false; }
+  const enabled = () => !SA.RELEASE && on;
   function setEnabled(v) { on = !!v; try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) { /* 隐私模式：只在本页记住 */ } }
 
   const D = () => SA.StoryData;
@@ -196,6 +197,6 @@ SA.StoryDev = (() => {
     const title = document.querySelector('#modal [data-story-stage-label]');
     if (title) title.textContent = label(title.dataset.storyStageLabel);
   }
-  window.addEventListener('focus', refreshConsoleLabel);
-  return { enabled, setEnabled, editor, browser, play, before, after, label, refreshConsoleLabel };
+  if (!SA.RELEASE) window.addEventListener('focus', refreshConsoleLabel);
+  return SA.RELEASE ? { enabled, before, after } : { enabled, setEnabled, editor, browser, play, before, after, label, refreshConsoleLabel };
 })();

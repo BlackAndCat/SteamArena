@@ -404,7 +404,8 @@ SA.Story = (() => {
     const txt = h('div', { class: 'vn-text' });
     const more = h('i', { class: 'vn-more', 'aria-hidden': 'true' });
     const skip = h('button', { class: 'vn-skip', type: 'button' }, '跳过 ▸▸');
-    const edit = onEdit ? h('button', { class: 'vn-skip', type: 'button', style: 'right:96px', 'data-story-action': '1' }, '编排剧情') : null;
+    // 发行版不创建编排按钮，玩家仍可跳过或继续剧情。
+    const edit = !SA.RELEASE && onEdit ? h('button', { class: 'vn-skip', type: 'button', style: 'right:96px', 'data-story-action': '1' }, '编排剧情') : null;
     const dock = h('div', { class: 'vn-dock' }, name,
       h('div', { class: 'vn-box' }, h('div', { class: 'vn-frame' }, h('div', { class: 'vn-in' },
         h('div', { class: 'vn-portrait' }, face), txt, duo ? h('div', { class: 'vn-portrait vn-portrait2' }, face2) : null, more))));
@@ -487,20 +488,23 @@ SA.Story = (() => {
     const em = h('canvas', { class: 'px title-emblem', width: 64, height: 64 });
     const fresh = isFresh();
     const C0 = SA.S.d.camp, ch = SA.CAMPAIGN[Math.min(C0.ch, SA.CAMPAIGN.length - 1)];
+    // 旧存档若已越过发行范围，标题按发行进度视图显示，不泄露后续章节名。
+    const savePlace = SA.RELEASE ? (SA.Camp.done() ? '战役已通关' : SA.CAMPAIGN[SA.Camp.chIndex()].name)
+      : (C0.done ? '战役已通关' : ch.name);
     const go = h('button', { class: 'btn primary title-go', type: 'button' }, '开始游戏');
-    const edit = h('button', { class: 'btn small', type: 'button', 'data-story-action': '1' }, '编排开场剧情');
+    const edit = !SA.RELEASE ? h('button', { class: 'btn small', type: 'button', 'data-story-action': '1' }, '编排开场剧情') : null;
     const root = h('div', { class: 'title', role: 'dialog', 'aria-label': '蒸汽竞技场' }, bg,
       h('div', { class: 'title-card' }, em,
         h('h1', { class: 'title-name' }, '蒸汽竞技场'),
         h('div', { class: 'title-sub' }, 'STEAM  ARENA'),
         go, edit,
-        h('div', { class: 'title-save' }, fresh ? '新的存档' : `继续存档 · ${C0.done ? '战役已通关' : ch.name}`)));
+        h('div', { class: 'title-save' }, fresh ? '新的存档' : `继续存档 · ${savePlace}`)));
     document.body.append(root);
     const g = bg.getContext('2d'), eg = em.getContext('2d');
     let raf = 0, t = 0, last = performance.now(), left = false;
     const frame = (now) => {
       if (left) return;
-      edit.hidden = !canEditOpening();
+      if (edit) edit.hidden = !canEditOpening();
       t += Math.min(0.05, (now - last) / 1000); last = now;
       g.imageSmoothingEnabled = false;
       sky(g, t);
@@ -534,8 +538,10 @@ SA.Story = (() => {
       onStart();
     }
     go.addEventListener('click', start);
-    edit.addEventListener('click', () => { if (canEditOpening()) SA.StoryDev.editor('opening'); });
-    edit.hidden = !canEditOpening();
+    if (edit) {
+      edit.addEventListener('click', () => { if (canEditOpening()) SA.StoryDev.editor('opening'); });
+      edit.hidden = !canEditOpening();
+    }
     setTimeout(() => go.focus(), 0);
   }
 
@@ -553,7 +559,7 @@ SA.Story = (() => {
     const rows = lines('opening', SA.STORY.opening);
     if (!rows.length) { mark('opening'); firstBattle(); return; }
     talk(rows, { scene: openingScene(), cls: 'vn-opening', onDone: () => { mark('opening'); firstBattle(); },
-      onEdit: () => SA.StoryDev.editor('opening', { back: begin }) });
+      onEdit: SA.RELEASE ? null : () => SA.StoryDev.editor('opening', { back: begin }) });
   }
   function firstBattle() {
     const e = SA.S.arenaEntries('camp').find(x => x.next);

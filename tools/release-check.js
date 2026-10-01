@@ -1,0 +1,219 @@
+/* 发行专项回归：同一份规则在开发和发行启动顺序下分别运行。 */
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.resolve(__dirname, '..');
+const source = name => fs.readFileSync(path.join(ROOT, 'js', name), 'utf8');
+const copy = value => JSON.parse(JSON.stringify(value));
+const noop = () => {};
+
+/** 只补规则和普通剧情播放所需的浏览器对象，脚本仍逐个执行真实游戏文件。 */
+function runtime(release, memory = new Map(), textDocument = null) {
+  const element = (tag = 'div') => ({ style: { display: '', getPropertyValue: () => '',
+    getPropertyPriority: () => '', setProperty(name, value) { this[name] = value; }, removeProperty: noop },
+    classList: { add: noop, remove: noop, toggle: noop, contains: () => false, [Symbol.iterator]: function* () {} },
+    addEventListener: noop, removeEventListener: noop, setAttribute: noop, append: noop,
+    appendChild: noop, remove: noop, querySelector: () => null, querySelectorAll: () => [],
+    closest: () => null, contains: () => false, getAttribute: () => null,
+    getContext: () => null, getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 600 }),
+    tagName: tag.toUpperCase(), nodeType: 1, childNodes: [], children: [], dataset: {},
+    textContent: '', innerHTML: '' });
+  const document = { readyState: 'loading', body: element(), documentElement: element(),
+    createElement: element, createTextNode: text => ({ textContent: text }),
+    addEventListener: noop, removeEventListener: noop, write: noop, querySelector: () => null,
+    querySelectorAll: () => [] };
+  const sample = element();
+  sample.id = 'release-test';
+  sample.parentElement = document.body;
+  document.body.children = [sample];
+  document.body.querySelectorAll = () => textDocument ? [sample] : [];
+  const context = vm.createContext({ console, document, addEventListener: noop, removeEventListener: noop,
+    innerWidth: 1000, innerHeight: 600, setTimeout, clearTimeout, setInterval, clearInterval,
+    requestAnimationFrame: noop, cancelAnimationFrame: noop, performance: { now: () => 0 },
+    Image: function Image() {}, navigator: {}, location: { href: 'http://localhost:5173/' },
+    localStorage: { getItem: key => memory.get(key) ?? null,
+      setItem: (key, value) => memory.set(key, String(value)), removeItem: key => memory.delete(key) },
+    sessionStorage: { getItem: () => null, setItem: noop },
+    fetch: async url => url === 'text/steam-arena/zh-CN.json' && textDocument
+      ? { ok: true, json: async () => textDocument }
+      : { ok: false, status: 404, json: async () => ({}) },
+    btoa: value => Buffer.from(value, 'binary').toString('base64'),
+    atob: value => Buffer.from(value, 'base64').toString('binary'),
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 } });
+  context.window = context;
+  context.globalThis = context;
+  const files = [
+    ...(release ? ['release.js'] : []), 'text-manager.js', 'yard-chat.js', 'palette.js', 'modules.js',
+    'module-art.js', 'dynamics.js', 'sprites.js', 'legs.js', 'vehicle.js', 'content.js',
+    'stage-cars.js', 'state.js', 'ui.js', 'camp.js', 'camp-ui.js', 'story.js',
+    'story-dev.js', 'terrain-art.js', 'battle.js',
+  ];
+  for (const file of files) vm.runInContext(source(file), context, { filename: file });
+  context.SA.S.load();
+  return { SA: context.SA, context, memory, sample };
+}
+
+/** 旧进度允许重打已开放的两章，但不能从列表、直接关卡或结算进入后续章。 */
+function progressCheck() {
+  const dev = runtime(false);
+  assert.strictEqual(dev.SA.CAMPAIGN.length, 6, '开发内容应保留六章');
+  dev.SA.S.d.rep = 77;
+  dev.SA.S.d.camp.ch = 3;
+  dev.SA.S.d.camp.st = 2;
+  dev.SA.S.d.camp.done = false;
+  dev.SA.S.d.camp.mods.push('flamer');
+  dev.SA.S.d.inv.plate = 4;
+  dev.SA.S.save();
+  const saved = copy(dev.SA.S.d);
+  const rel = runtime(true, dev.memory), { SA } = rel;
+  assert.strictEqual(SA.RELEASE, true);
+  assert.strictEqual(SA.CAMPAIGN.length, 6, '发行应保留完整章节数据，便于旧档兼容');
+  assert.strictEqual(SA.Camp.done(), true, '后续章旧档在发行版本应视为已通关');
+  assert.strictEqual(SA.S.d.camp.ch, 3, '发行不应回夹真实进度');
+  assert.strictEqual(SA.S.d.camp.st, 2);
+  assert.strictEqual(SA.S.d.camp.done, false, '发行不应改写开发版通关标志');
+  assert.strictEqual(SA.S.d.rep, saved.rep);
+  assert.strictEqual(SA.S.d.inv.plate, saved.inv.plate);
+  assert(SA.S.d.camp.mods.includes('flamer'), '旧解锁应保留');
+  const entries = SA.S.arenaEntries('camp');
+  assert(entries.length > 0 && entries.every(e => /^[01],/.test(e.key) && e.replay && !e.next),
+    '旧档只能重打序章和第一章');
+  const starts = [];
+  SA.Battle.start = options => starts.push(options);
+  for (const entry of entries) entry.start();
+  assert(starts.length === entries.length && starts.every(options => /^[01],/.test(options.storyKey) && options.replay),
+    '旧档可进入后续章或重打入口未正确标记');
+  assert.strictEqual(SA.Camp.stage(2, 0), null, '直接请求后续章关卡应被拒绝');
+  assert.strictEqual(SA.Camp.current(), null);
+  const before = copy(SA.S.d);
+  SA.Camp.win();
+  assert.deepStrictEqual(copy(SA.S.d), before, '后续章旧档不能被 win 推进');
+  SA.S.settleBattle({ mode: 'campaign', win: true, replay: false,
+    playerVehicle: SA.V.clone(SA.S.d.vehicle), enemyName: '关闭章节', prize: 99,
+    survivors: [], opts: { storyKey: '2,0', rewardMoney: true } });
+  assert.deepStrictEqual(copy(SA.S.d), before, '伪造后续章结算不能发奖或改进度');
+  for (const done of [true, false]) {
+    const loaded = copy(saved);
+    loaded.camp.done = done;
+    rel.memory.set('steam_arena_save_v2', JSON.stringify(loaded));
+    SA.S.load();
+    assert(SA.S.arenaEntries('camp').every(e => /^[01],/.test(e.key) && e.replay && !e.next),
+      `旧档 done=${done} 不应开放后续章`);
+  }
+  return { oldSaveReplay: entries.length };
+}
+
+/** 发行终点停在真实 ch=2，原六章进度与资源留给开发版继续使用。 */
+function endingCheck() {
+  const { SA } = runtime(true);
+  const C = SA.S.d.camp;
+  C.ch = 1;
+  C.st = SA.CAMPAIGN[1].stages.length - 1;
+  C.done = false;
+  C.intro = 0;
+  const finalStage = SA.Camp.current();
+  assert(finalStage && finalStage.ci === 1);
+  SA.Camp.win();
+  assert.strictEqual(C.ch, 2);
+  assert.strictEqual(C.st, 0);
+  assert.strictEqual(C.done, false);
+  assert.strictEqual(SA.Camp.done(), true);
+  assert.strictEqual(SA.Camp.current(), null);
+  assert.strictEqual(SA.S.arenaEntries('camp').some(e => e.next), false);
+  SA.S.save();
+  assert.strictEqual(runtime(false, new Map([['steam_arena_save_v2',
+    JSON.stringify(copy(SA.S.d))]])).SA.Camp.done(), false,
+  '开发版应能继续使用同一份未全六章通关的存档');
+  return { releaseEnd: `${C.ch},${C.st}` };
+}
+
+/** 战役胜利仍结算正常奖励，但暂停声望增长且不删除旧字段。 */
+function reputationCheck() {
+  for (const release of [false, true]) {
+    const { SA } = runtime(release);
+    SA.S.d.rep = 49;
+    const result = SA.S.settleBattle({ mode: 'campaign', win: true, replay: false,
+      playerVehicle: SA.V.clone(SA.S.d.vehicle), enemyName: '测试对手', prize: 15,
+      survivors: [], opts: { storyKey: '0,0', rewardMoney: true } });
+    assert.strictEqual(SA.S.d.rep, 49, `${release ? '发行' : '开发'}胜利增加了声望`);
+    assert(Object.hasOwn(SA.S.d, 'rep'), '旧声望字段被删除');
+    assert(result.lines.some(line => line.includes('奖金')), '正常奖金结算丢失');
+  }
+  return { reputationFrozen: true };
+}
+
+/** 发行移除开发 API，剧情 before/after 与文本读取仍能正常播放。 */
+async function surfaceCheck() {
+  const memory = new Map([['steam_arena_story_dev_v1', '1']]);
+  const textDocument = { version: 1, game: 'steam-arena', locale: 'zh-CN',
+    values: { 'story:before.0,0': JSON.stringify([{ text: '正式剧情' }]) },
+    removedElements: ['main::global::div#release-test'] };
+  const { SA, sample } = runtime(true, memory, textDocument);
+  assert.strictEqual(SA.dev, undefined);
+  assert.strictEqual(SA.Camp.dev, undefined);
+  assert.strictEqual(SA.reset, undefined);
+  assert.strictEqual(SA.Battle.debug, undefined);
+  assert.strictEqual(SA.S.reset, undefined);
+  assert.strictEqual(SA.S.replaceWithStarter, undefined);
+  for (const key of ['validateSettings', 'setSettings', 'validateGroups', 'write', 'inherit', 'save'])
+    assert.strictEqual(SA.YardChat[key], undefined, `发行暴露院子编辑接口 ${key}`);
+  for (const key of ['read', 'settings', 'createPlayer'])
+    assert.strictEqual(typeof SA.YardChat[key], 'function', `院子普通播放接口缺失 ${key}`);
+  assert.strictEqual(SA.StoryDev.enabled(), false);
+  for (const key of ['setEnabled', 'editor', 'browser', 'refreshConsoleLabel'])
+    assert.strictEqual(SA.StoryDev[key], undefined, `发行暴露剧情编辑接口 ${key}`);
+  for (const key of ['set', 'save', 'toggle', 'enterEdit', 'exitEdit'])
+    assert.strictEqual(SA.Text[key], undefined, `发行暴露文本编辑接口 ${key}`);
+  assert.strictEqual(typeof SA.Text.get, 'function');
+  assert.strictEqual(typeof SA.Text.init, 'function');
+  assert.strictEqual(typeof SA.StoryDev.before, 'function');
+  assert.strictEqual(typeof SA.StoryDev.after, 'function');
+  assert.strictEqual(SA.StoryDev.enabled(), false, '旧开发者开关不应激活发行编辑流程');
+  SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', page: 'main' });
+  await SA.Text.ready;
+  assert.strictEqual(SA.Text.get('story:before.0,0'), textDocument.values['story:before.0,0']);
+  assert.strictEqual(SA.StoryData.get('before.0,0')[0].text, '正式剧情');
+  assert.strictEqual(sample.style.display, 'none', '静态文案中的元素显隐覆盖未生效');
+  let played = 0, marked = 0, continued = 0;
+  SA.Story.seen = () => false;
+  SA.Story.mark = () => { marked++; };
+  SA.Story.talk = (lines, options) => { assert.strictEqual(lines[0].text, '正式剧情'); played++; options.onDone(); };
+  SA.StoryDev.before({ key: '0,0', replay: false }, () => continued++);
+  SA.StoryDev.after({ key: '0,0', replay: true }, () => continued++);
+  assert.deepStrictEqual({ played, marked, continued }, { played: 1, marked: 1, continued: 2 });
+  return { normalStoryPlayback: played };
+}
+
+/** 包目录只允许白名单运行文件，且脚本次序与网页入口一致。 */
+function packageCheck() {
+  const dir = path.join(ROOT, 'tools', 'out', 'release');
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(match => match[1]);
+  assert.strictEqual(scripts[0], 'js/release.js', '发行标志必须最先载入');
+  const expected = new Set(['index.html', 'css/style.css', 'text/steam-arena/zh-CN.json',
+    'js/stage-cars.js', ...scripts]);
+  const found = [];
+  function walk(folder) {
+    for (const item of fs.readdirSync(folder, { withFileTypes: true })) {
+      const file = path.join(folder, item.name);
+      if (item.isDirectory()) walk(file);
+      else found.push(path.relative(dir, file).replaceAll('\\', '/'));
+    }
+  }
+  walk(dir);
+  assert.deepStrictEqual(found.sort(), [...expected].sort(), '发行目录含额外工具或缺少游戏文件');
+  assert(fs.existsSync(path.join(ROOT, 'tools', 'out', 'release.zip')), '发行 ZIP 未生成');
+  return { packageFiles: found.length };
+}
+
+async function run() {
+  return { ...progressCheck(), ...endingCheck(), ...reputationCheck(),
+    ...await surfaceCheck(), ...packageCheck() };
+}
+
+run().then(result => console.log(JSON.stringify(result, null, 2)),
+  error => { console.error(error.stack || error); process.exitCode = 1; });

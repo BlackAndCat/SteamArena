@@ -93,7 +93,8 @@ function applyLocalStageCars(payload) {
     // 手工关卡车的目标随现有战役章节生成，工作台可编辑全部已定义关卡。
     SA.STAGE_CARS.targets = SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
   }
-  const local = arguments.length ? payload : readLocalStageCars();
+  // 发行版只使用随包发布的手工关卡车，不读取本机工作台草稿。
+  const local = SA.RELEASE ? null : arguments.length ? payload : readLocalStageCars();
   SA.STAGE_CARS.records = { ...SA.__STAGE_CARS_FILE_RECORDS, ...migrateStageRecords(local?.records, local?.campaignLayout) };
   if (typeof SA.StageCars.applyToCampaign === 'function') SA.StageCars.applyToCampaign();
   return { ok: !!local, count: Object.keys(local?.records || {}).length };
@@ -164,15 +165,17 @@ SA.Camp = (() => {
   const hasMod = (id) => c().mods.includes(id);
   const maxMat = () => c().mat;
   const grid = () => c().grid;
-  const done = () => !!c().done;
+  const chapterCount = () => SA.RELEASE ? 2 : SA.CAMPAIGN.length;
+  const done = () => !!(c().done || (SA.RELEASE && c().ch >= chapterCount()));
   // 当前章节序号（通关后停在最后一章）
-  const chIndex = () => Math.min(c().ch, SA.CAMPAIGN.length - 1);
+  const chIndex = () => Math.min(c().ch, chapterCount() - 1);
 
   // 玩家的车带上改装台大小，编辑器和出战检查都按它限制可用格子
   function syncLim() { if (d() && d().vehicle) d().vehicle.lim = { ...grid() }; }
 
   // 第 ci 章第 si 关的对手
   function stage(ci = c().ch, si = c().st) {
+    if (SA.RELEASE && (ci < 0 || ci >= chapterCount())) return null;
     const ch = SA.CAMPAIGN[ci], o = ch && ch.stages[si];
     if (!o) return null;
     const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
@@ -207,7 +210,7 @@ SA.Camp = (() => {
   // 读档时补发：已经打过的关卡 / 章节，按现在的数据重新发一遍解锁（以后新加的解锁内容老存档也能拿到；锭不重复发）
   function backfill() {
     const C = c();
-    SA.CAMPAIGN.forEach((ch, ci) => {
+    SA.CAMPAIGN.slice(0, chapterCount()).forEach((ch, ci) => {
       ch.stages.forEach((raw, si) => { const s = stage(ci, si) || raw; if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
       if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
     });
@@ -437,14 +440,16 @@ SA.Camp = (() => {
     resetVehicle: () => SA.S.replaceWithStarter(),
   };
 
-  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, maxMat, grid, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, dev };
+  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, maxMat, grid, chapterCount, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
 })();
-SA.dev = SA.Camp.dev;
+if (!SA.RELEASE) SA.dev = SA.Camp.dev;
 if (SA.StageCars) {
   supportStageVehicleName();
-  SA.StageCars.localKey = STAGE_CARS_LOCAL_KEY;
-  SA.StageCars.applyLocal = applyLocalStageCars;
-  SA.StageCars.saveLocal = saveLocalStageCars;
+  if (!SA.RELEASE) {
+    SA.StageCars.localKey = STAGE_CARS_LOCAL_KEY;
+    SA.StageCars.applyLocal = applyLocalStageCars;
+    SA.StageCars.saveLocal = saveLocalStageCars;
+  }
   applyLocalStageCars();
-  installStageCarsLocalSync();
+  if (!SA.RELEASE) installStageCarsLocalSync();
 }

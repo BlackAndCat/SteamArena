@@ -140,13 +140,13 @@ SA.UI = (() => {
       gear,
     ].filter(Boolean));
   }
-  // 设置：开发者面板和页面管理
+  // 设置：发行版只显示玩家可用的设置，不生成开发入口。
   function settings() {
     const editing = SA.Text && SA.Text.isEditing();
-    dialog('设置', [h('p', { style: 'margin-top:0' }, '开发和调试用的入口。')], [
-      { label: '开发者', onClick: () => SA.Camp.dev.panel() },
+    dialog('设置', [h('p', { style: 'margin-top:0' }, SA.RELEASE ? '调整场景特效显示。' : '开发和调试用的入口。')], [
+      !SA.RELEASE ? { label: '开发者', onClick: () => SA.Camp.dev.panel() } : null,
       SA.Scenes ? { label: `场景特效：${SA.Scenes.fxOn() ? '开' : '关'}`, onClick: () => { SA.Scenes.setFx(!SA.Scenes.fxOn()); SA.toast && SA.toast(`场景特效已${SA.Scenes.fxOn() ? '打开' : '关闭'}（雾、光、超近景遮挡）`); } } : null,
-      SA.Text ? { label: editing ? '完成页面编辑' : '页面管理', onClick: () => { SA.Text.toggle(); topbar(); } } : null,
+      !SA.RELEASE && SA.Text ? { label: editing ? '完成页面编辑' : '页面管理', onClick: () => { SA.Text.toggle(); topbar(); } } : null,
     ].filter(Boolean));
   }
 

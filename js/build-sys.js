@@ -19,3 +19,4 @@ SA.BUILD_SYS += '+end-armor-chapter-bounds'; // 底盘端部挂甲减速与序�
 SA.BUILD_SYS += '+arena-edit-first-open'; // 出战黑板首开与切关使用同一页面编辑路径。
 SA.BUILD_SYS += '+stage-reward-quantity-settlement'; // 关卡固定物品数量与金币、胜后修理配置。
 SA.BUILD_SYS += '+reputation-paused'; // 暂停声望结算，保留旧存档中的声望数值。
+SA.BUILD_SYS += '+publisher-release-v1'; // 发行版封闭开发入口并限制战役开放章节。

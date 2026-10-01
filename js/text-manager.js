@@ -886,6 +886,22 @@ SA.Text = (() => {
     if (dirty) scheduleAutoSave();
   }
 
+  // 发行版只读随包发布的文本快照，不读取开发服务、文件句柄或本机草稿。
+  async function loadRelease() {
+    try {
+      const response = await fetch(fileName(), { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.values && typeof data.values === 'object') replaceSnapshot(editedSnapshot(data));
+      }
+    } catch (error) { console.error('发行文案加载失败', error); }
+    loaded = true;
+    if (readyResolve) readyResolve(api);
+    scan();
+    notify('*');
+    if (startupStyle) { startupStyle.remove(); startupStyle = null; }
+  }
+
   // 其他标签页保存院子聊天后刷新已保存快照；当前页有草稿时不覆盖它。
   async function reload(savedDocument) {
     if (dirty) return false;
@@ -979,19 +995,21 @@ SA.Text = (() => {
   }
 
   function boot() {
-    if (config.toolbar) createToolbar();
+    if (!SA.RELEASE && config.toolbar) createToolbar();
     wrapCanvasText();
-    document.addEventListener('pointerover', event => {
-      if (editing && !isUiElement(event.target)) hovered = event.target;
-    }, true);
-    document.addEventListener('keydown', event => {
-      if (!editing || isUiElement(event.target) || event.key !== 'F8' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
-      event.preventDefault(); event.stopImmediatePropagation(); pinHover();
-    }, true);
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('click', onClick, true);
-    for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
-      document.addEventListener(type, suppressPageEvent, true);
+    if (!SA.RELEASE) {
+      document.addEventListener('pointerover', event => {
+        if (editing && !isUiElement(event.target)) hovered = event.target;
+      }, true);
+      document.addEventListener('keydown', event => {
+        if (!editing || isUiElement(event.target) || event.key !== 'F8' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+        event.preventDefault(); event.stopImmediatePropagation(); pinHover();
+      }, true);
+      document.addEventListener('pointerdown', onPointerDown, true);
+      document.addEventListener('click', onClick, true);
+      for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
+        document.addEventListener(type, suppressPageEvent, true);
+    }
     observer = new MutationObserver(records => {
       if (records.every(record => isUiElement(record.target))) return;
       if (scanTimer) return;
@@ -1014,7 +1032,7 @@ SA.Text = (() => {
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
     else boot();
-    load().catch(error => {
+    (SA.RELEASE ? loadRelease() : load()).catch(error => {
       fileLoadError = `文本加载失败：${error.message}`;
       loaded = true;
       scan();
@@ -1023,7 +1041,11 @@ SA.Text = (() => {
     return api;
   }
 
-  const api = {
+  const api = SA.RELEASE ? {
+    init, ready, get, t: get, register, homeLines, homeTips, bindText, bindAttr, canvas, draw, onChange,
+    isEditing: () => false,
+    file: fileName,
+  } : {
     init, ready, load: reload, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
     versions: () => [{ id: 'original' }, { id: 'edited' }],
@@ -1125,5 +1147,6 @@ SA.StoryData = (() => {
   }
 
   async function save() { await SA.Text.ready; return SA.Text.save(); }
-  return { list, get, set, save, point };
+  // 发行版保留剧情读取与插入点定位，编辑和保存接口只给开发版。
+  return SA.RELEASE ? { list, get, point } : { list, get, set, save, point };
 })();
