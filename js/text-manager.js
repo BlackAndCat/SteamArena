@@ -68,6 +68,18 @@ SA.Text = (() => {
   // 剧情编排入口及编辑器自身是功能控件，页面选字模式不能拦截其点击或扫描其文字。
   const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror], [data-story-action], [data-yard-chat-editor]');
   const snapshot = () => ({ values: { ...values }, removedElements: [...removedElements] });
+  // 旧首开编辑可能在黑板尚未加 down 时保存；读取时统一到展开态路径。
+  // 同一历史层内两种路径并存时展开态优先；跨层仍按历史时间与顶层覆盖顺序。
+  const boardPath = key => typeof key === 'string' ? key.replace(/(^|\/)(div\.yard-board)(:n\d+)(?=\/|::|$)/, '$1$2.down$3') : key;
+  function boardValues(source) {
+    const normalized = {};
+    for (const [key, value] of Object.entries(source)) {
+      const current = boardPath(key);
+      if (current !== key && !Object.hasOwn(source, current)) normalized[current] = value;
+    }
+    for (const [key, value] of Object.entries(source)) if (boardPath(key) === key) normalized[key] = value;
+    return normalized;
+  }
   // 旧文件的历史文案按时间由旧到新合并，同时间以数组较后项为准；顶层覆盖是最后的编辑态。
   // 元素显隐是完整快照，只取顶层最终状态，不能把旧快照的删除路径并集回来。
   function editedSnapshot(data) {
@@ -75,9 +87,10 @@ SA.Text = (() => {
     (Array.isArray(data?.history) ? data.history : []).filter(item => item && item.values && typeof item.values === 'object')
       .map((item, index) => ({ item, index }))
       .sort((a, b) => String(a.item.at || '').localeCompare(String(b.item.at || '')) || a.index - b.index)
-      .forEach(({ item }) => Object.assign(merged, item.values));
-    Object.assign(merged, data?.values || {});
-    return { values: merged, removedElements: Array.isArray(data?.removedElements) ? data.removedElements : [] };
+      .forEach(({ item }) => Object.assign(merged, boardValues(item.values)));
+    Object.assign(merged, boardValues(data?.values || {}));
+    const removed = Array.isArray(data?.removedElements) ? data.removedElements : [];
+    return { values: merged, removedElements: [...new Set(removed.map(boardPath))] };
   }
 
   // 原始文件只有默认值；旧版本元数据或非空覆盖表示已有编辑稿，防止空原始文件盖掉本地编辑。
@@ -241,6 +254,9 @@ SA.Text = (() => {
   }
 
   function stableClasses(el) {
+    // 出战黑板先挂载、延时展开；路径始终使用已有编辑稿保存时的展开态 class，
+    // 让首次扫描与切关重绘命中同一文字、画布和元素显隐记录。
+    if (el.classList?.contains('yard-board')) return ['yard-board', 'down'];
     const transient = new Set(['on', 'open', 'show', 'active', 'sel', 'bad', 'folded', 'hidden', 'drag']);
     return Array.from(el.classList || []).filter(name => !transient.has(name)).slice(0, 2);
   }

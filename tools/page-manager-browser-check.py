@@ -42,6 +42,7 @@ requestAnimationFrame(firstVisible);</script></body></html>'''
 
 class Handler(http.server.BaseHTTPRequestHandler):
     game_source = {'version': 1, 'values': {}, 'removedElements': []}
+    game_delay = .3
 
     def do_GET(self):
         if self.path.startswith('/fixture'):
@@ -56,7 +57,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.dumps({'version': 1, 'values': {}, 'removedElements': []}).encode()
             kind = 'application/json'
         elif self.path == '/__text/load?game=steam-arena&locale=zh-CN':
-            time.sleep(.3)
+            time.sleep(self.game_delay)
             body = json.dumps(self.game_source).encode()
             kind = 'application/json'
         elif self.path.startswith('/js/') or self.path.startswith('/css/'):
@@ -259,6 +260,85 @@ def run():
                 assert actual['title'] == expected and actual['removed'], (mode, actual)
                 assert actual['options'] == 2 and actual['selected'] == 'edited', (mode, actual)
                 value['game_' + mode] = actual
+            # 出战黑板先入 DOM、30 毫秒后才加 down；已有编辑稿的 key 使用展开态路径。
+            # 用真实页面生成文字、画布和隐藏元素的 key，再验证普通首开、切关及瞬时展开。
+            cdp.call('Runtime.evaluate', {'expression': "SA.nav('arena');", 'returnByValue': True})
+            time.sleep(.1)
+            arena_keys = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{
+              document.querySelector('.ch-row.on').click();
+              await new Promise(requestAnimationFrame); SA.Text.enterEdit();
+              const pick=el=>{el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+                return document.querySelector('#sa-text-manager .sa-text-editor small').textContent};
+              const kick=pick(document.querySelector('.ar-kick'));
+              const canvas=pick(document.querySelector('.ar-title canvas'));
+              pick(document.querySelector('.ar-notes .ar-stick'));
+              document.querySelector('[data-text-action="remove-element"]').click();
+              const draft=JSON.parse(localStorage.getItem('sa-text-steam-arena-zh-CN'));
+              return {kick,canvas,removed:draft.removedElements.at(-1)};
+            })()''', 'returnByValue': True, 'awaitPromise': True})['result']['value']
+            assert all(arena_keys.values()) and '.yard-board.down:' in arena_keys['kick'], arena_keys
+            arena_source = {'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN', 'edited': True,
+                'values': {arena_keys['kick']: '编辑后的场次', arena_keys['canvas']: '编辑后的海报'},
+                'removedElements': [arena_keys['removed']]}
+            legacy_keys = {name: key.replace('.yard-board.down:', '.yard-board:') for name, key in arena_keys.items()}
+            legacy_source = {**arena_source,
+                'values': {legacy_keys['kick']: '编辑后的场次', legacy_keys['canvas']: '编辑后的海报'},
+                'removedElements': [legacy_keys['removed']]}
+            mixed_source = {**arena_source,
+                'values': {**arena_source['values'], legacy_keys['kick']: '不应盖掉展开稿', legacy_keys['canvas']: '旧海报'},
+                'removedElements': [arena_keys['removed'], legacy_keys['removed']]}
+            history_source = {**arena_source,
+                'history': [{'at': '2026-09-30T00:00:00Z', 'values': {arena_keys['kick']: '过期展开稿'}}],
+                'values': {legacy_keys['kick']: '编辑后的场次', legacy_keys['canvas']: '编辑后的海报'}}
+            history_order = {**arena_source,
+                'history': [{'at': '2026-09-29T00:00:00Z', 'values': {arena_keys['kick']: '过期展开稿'}},
+                    {'at': '2026-09-30T00:00:00Z', 'values': {legacy_keys['kick']: '编辑后的场次'}}],
+                'values': {legacy_keys['canvas']: '编辑后的海报'}}
+            empty_top = {**history_source, 'values': {legacy_keys['kick']: '', legacy_keys['canvas']: '编辑后的海报'}}
+            arena_check = {}
+            for label, delay, source, expected in [('instant-load', 0, arena_source, '编辑后的场次'),
+                ('delayed-load', .3, arena_source, '编辑后的场次'),
+                ('legacy-no-down', .3, legacy_source, '编辑后的场次'),
+                ('mixed-keys', .3, mixed_source, '编辑后的场次'),
+                ('history-top-override', .3, history_source, '编辑后的场次'),
+                ('history-newer-override', .3, history_order, '编辑后的场次'),
+                ('top-empty-clear', .3, empty_top, '')]:
+                Handler.game_delay = delay
+                Handler.game_source = source
+                cdp.call('Runtime.evaluate', {'expression': "localStorage.removeItem('sa-text-steam-arena-zh-CN')"})
+                cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/'})
+                for _ in range(100):
+                    probe = cdp.call('Runtime.evaluate', {'expression': "document.readyState==='complete'&&!!window.SA?.Text", 'returnByValue': True})
+                    if probe.get('result', {}).get('value'):
+                        break
+                    time.sleep(.1)
+                # 同一调用内先读未展开态的 key，再等动画 class 切换，最后重绘当前关。
+                arena = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{
+                  await SA.Text.ready;
+                  const read=()=>({down:document.querySelector('.yard-board').classList.contains('down'),
+                    kick:document.querySelector('.ar-kick').textContent,
+                    canvas:document.querySelector('.ar-title canvas').width,
+                    hidden:getComputedStyle(document.querySelector('.ar-notes .ar-stick')).display==='none'});
+                  const pick=()=>{document.querySelector('.ar-kick').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+                    return document.querySelector('#sa-text-manager .sa-text-editor small').textContent};
+                  SA.nav('arena'); await new Promise(requestAnimationFrame); SA.Text.enterEdit();
+                  const first=read(), firstKey=pick();
+                  await new Promise(r=>setTimeout(r,100));
+                  const afterDown=read(), afterDownKey=pick();
+                  document.querySelector('.ch-row.on').click(); await new Promise(requestAnimationFrame);
+                  const afterSwitch=read(), afterSwitchKey=pick();
+                  SA.nav('arena',undefined,true); await new Promise(requestAnimationFrame);
+                  const instant=read(), instantKey=pick();
+                  return {first,afterDown,afterSwitch,instant,keys:[firstKey,afterDownKey,afterSwitchKey,instantKey]};
+                })()''', 'returnByValue': True, 'awaitPromise': True})['result']['value']
+                for phase in ('first', 'afterDown', 'afterSwitch', 'instant'):
+                    assert arena[phase]['kick'] == expected, (label, phase, arena)
+                    assert arena[phase]['hidden'] and arena[phase]['canvas'] < 200, (label, phase, arena)
+                assert not arena['first']['down'] and arena['afterDown']['down'] and arena['instant']['down'], (label, arena)
+                if expected:
+                    assert len(set(arena['keys'])) == 1 and arena['keys'][0] == arena_keys['kick'], (label, arena)
+                arena_check[label] = arena
+            value['arena_first_open'] = arena_check
             print(json.dumps(value, ensure_ascii=False))
         finally:
             browser.terminate()
