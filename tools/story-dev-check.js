@@ -6,7 +6,8 @@ const path = require('path');
 const vm = require('vm');
 const evolve = require('./evolve');
 const copy = value => JSON.parse(JSON.stringify(value));
-const source = file => fs.readFileSync(path.join(__dirname, '../js', file), 'utf8');
+const source = file => fs.readFileSync(file === 'text-manager.js' && process.env.TEXT_MANAGER_SOURCE
+  ? process.env.TEXT_MANAGER_SOURCE : path.join(__dirname, '../js', file), 'utf8');
 
 /** 新档、已有档与主动换车分别验证，退库必须保留有损伤、有改装的唯一件实例。 */
 function starterCheck() {
@@ -332,7 +333,57 @@ async function homeTextCheck() {
   return { stableKeys: true, dynamicDefaults: true, preservedTuples: true, reload: true, reset: true };
 }
 
-async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck(), homeText: await homeTextCheck(), directFile: await directFileSaveCheck() }; }
+/** 页面版本在旧服务剥离扩展字段、刷新和失败写入后仍使用选中的完整快照。 */
+async function pageVersionCheck() {
+  const memory = new Map();
+  let server = { version: 1, game: 'steam-arena', locale: 'zh-CN', values: { probe: '旧文件' }, removedElements: [] };
+  let fail = false;
+  const fetch = async (url, options) => {
+    if (!options?.method) return { ok: true, json: async () => copy(server) };
+    if (fail) return { ok: false, status: 500, json: async () => ({ error: '模拟写入失败' }) };
+    const payload = JSON.parse(options.body);
+    // 旧版服务写盘时只保留 v1 的原字段。
+    server = { version: 1, game: payload.game, locale: payload.locale,
+      values: payload.values, removedElements: payload.removedElements };
+    return { ok: true, json: async () => ({ revision: '旧服务' }) };
+  };
+  let SA = await textContext(memory, fetch);
+  assert.strictEqual(SA.Text.get('probe'), '旧文件');
+  SA.Text.set('probe', '第一稿'); assert((await SA.Text.save()).ok);
+  assert.strictEqual(SA.Text.versions().length, 2, '首次保存未产生旧版');
+  SA.Text.set('probe', '第二稿'); assert((await SA.Text.save()).ok);
+  assert.strictEqual(SA.Text.versions().length, 3);
+  const selected = SA.Text.versions()[1].id;
+  SA.Text.selectVersion(selected);
+  assert.strictEqual(SA.Text.get('probe'), '旧文件', '选版没有立刻应用');
+  assert.strictEqual(SA.Text.versions().length, 3, '切版重复创建了相同内容');
+  SA = await textContext(memory, fetch);
+  assert.strictEqual(SA.Text.get('probe'), '旧文件', '刷新被旧服务当前稿覆盖');
+  assert.strictEqual(SA.Text.versions()[0].id, selected, '刷新未保持选中版本');
+  SA.Text.set('probe', '未保存草稿');
+  SA.Text.selectVersion(SA.Text.versions()[1].id);
+  assert(SA.Text.versions().length >= 4, '切版前丢失未保存草稿');
+  fail = true; SA.Text.set('probe', '失败草稿');
+  assert.strictEqual((await SA.Text.save()).ok, false);
+  SA = await textContext(memory, fetch);
+  assert.strictEqual(SA.Text.get('probe'), '失败草稿', '写入失败后草稿丢失');
+  const cleanMemory = new Map();
+  let current = { version: 1, game: 'steam-arena', locale: 'zh-CN', values: { probe: '远端一' },
+    removedElements: [], activeVersion: { id: 'remote-1', at: '2026-10-01T00:00:00Z' }, history: [] };
+  const newFetch = async () => ({ ok: true, json: async () => copy(current) });
+  SA = await textContext(cleanMemory, newFetch);
+  assert.strictEqual(SA.Text.get('probe'), '远端一');
+  current = { ...current, values: { probe: '远端二' },
+    activeVersion: { id: 'remote-2', at: '2026-10-01T01:00:00Z' },
+    history: [{ id: 'remote-1', at: '2026-10-01T00:00:00Z', values: { probe: '远端一' }, removedElements: [] }] };
+  SA = await textContext(cleanMemory, newFetch);
+  assert.strictEqual(SA.Text.get('probe'), '远端二', '干净缓存遮住了新版文件');
+  assert.strictEqual(SA.Text.versions()[0].id, 'remote-2');
+  return { oldServerCompatible: true, selectedReload: true, unsavedPreserved: true,
+    failedDraft: true, newSourceAuthoritative: true };
+}
+
+async function run() { return { starter: starterCheck(), surrender: surrenderCheck(), story: await storyCheck(), homeText: await homeTextCheck(), directFile: await directFileSaveCheck(), pageVersion: await pageVersionCheck() }; }
 if (require.main === module) run().then(result => console.log(JSON.stringify(result, null, 2))).catch(error => {
   console.error(error.stack || error.message); process.exitCode = 1;
 });

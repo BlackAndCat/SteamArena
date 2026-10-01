@@ -51,6 +51,15 @@ SA.Text = (() => {
   let fileLoadError = '';
   let autoSaveTimer = 0;
   let changeRevision = 0;
+  let activeVersion = null;
+  let history = [];
+  let savedSnapshot = null;
+  let versionCounter = 0;
+  const canvasSource = new WeakMap();
+  let canvasWrapped = false;
+  let pinned = null;
+  let hovered = null;
+  let startupStyle = null;
   let readyResolve;
   const ready = new Promise(resolve => { readyResolve = resolve; });
 
@@ -58,7 +67,67 @@ SA.Text = (() => {
   const fileName = () => `text/${config.game}/${config.locale}.json`;
   const handleKey = () => `${config.game}/${config.locale}:${location.pathname}`;
   const safeKey = key => typeof key === 'string' && key.length > 0 && key.length <= 240;
-  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager');
+  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror]');
+  const snapshot = () => ({ values: { ...values }, removedElements: [...removedElements] });
+  const sameSnapshot = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
+  const newVersion = () => ({ id: `${Date.now()}-${++versionCounter}`, at: new Date().toISOString() });
+
+  // 顶层始终保存当前版本，历史只存旧快照；限制文件体积以适配本机服务与浏览器存储。
+  function trimHistory() {
+    while (history.length > 20 || (history.length && encodeURIComponent(JSON.stringify(payloadNow())).replace(/%[0-9A-F]{2}/g, 'x').length > 1400000)) history.shift();
+  }
+
+  function replaceSnapshot(data) {
+    Object.keys(values).forEach(key => delete values[key]);
+    Object.assign(values, data.values || {});
+    removedElements.clear();
+    (data.removedElements || []).forEach(path => removedElements.add(path));
+    restoreElements();
+    applyAll();
+    scan();
+  }
+
+  function readVersions(data) {
+    activeVersion = data.activeVersion && typeof data.activeVersion.id === 'string' ? data.activeVersion : newVersion();
+    history = Array.isArray(data.history) ? data.history.filter(item => item && item.id && item.values && Array.isArray(item.removedElements)) : [];
+    trimHistory();
+    savedSnapshot = snapshot();
+    updateVersions();
+  }
+
+  function checkpoint() {
+    const current = snapshot();
+    if (sameSnapshot(current, savedSnapshot)) return false;
+    if (savedSnapshot) history.push({ ...activeVersion, ...savedSnapshot });
+    activeVersion = newVersion();
+    savedSnapshot = current;
+    trimHistory();
+    updateVersions();
+    return true;
+  }
+
+  // 切换前保留尚未写盘的编辑，选择结果同步写入草稿，刷新时仍先显示该版。
+  function selectVersion(id) {
+    if (!id || activeVersion?.id === id) return;
+    const index = history.findIndex(item => item.id === id);
+    if (index < 0) return;
+    releasePin();
+    if (!sameSnapshot(snapshot(), savedSnapshot)) checkpoint();
+    const chosenIndex = history.findIndex(item => item.id === id);
+    const chosen = history.splice(chosenIndex, 1)[0];
+    history.push({ ...activeVersion, ...snapshot() });
+    activeVersion = { id: chosen.id, at: chosen.at };
+    replaceSnapshot(chosen);
+    savedSnapshot = snapshot();
+    dirty = true;
+    changeRevision++;
+    trimHistory();
+    persistLocal();
+    scheduleAutoSave();
+    notify('*');
+    updateVersions();
+    updateToolbar('已切换版本；草稿已保存');
+  }
 
   function notify(key) {
     listeners.forEach(fn => {
@@ -154,6 +223,19 @@ SA.Text = (() => {
   function applyEntry(entry) {
     if (!entry || !entry.target || !entry.target.isConnected) return;
     const value = entryValue(entry);
+    if (entry.kind === 'canvas') {
+      if (entry.drawn !== value) {
+        const source = entry.render(value);
+        entry.target.width = source.width;
+        entry.target.height = source.height;
+        entry.target.style.width = `${source.width * entry.scale}px`;
+        entry.target.style.height = `${source.height * entry.scale}px`;
+        entry.target.getContext('2d').drawImage(source, 0, 0);
+        entry.drawn = value;
+        canvasSource.set(entry.target, { ...canvasSource.get(entry.target), drawn: value });
+      }
+      return;
+    }
     if (entry.kind === 'attr') {
       if (entry.target.getAttribute(entry.attr) !== value) entry.target.setAttribute(entry.attr, value);
       return;
@@ -304,6 +386,13 @@ SA.Text = (() => {
         addEntry({ key, legacyKey: semantic ? null : legacyAttrKey(el, attr), semantic,
           kind: 'attr', attr, target: el, fallback: originals.get(attr), auto: true });
       });
+      if (el.tagName === 'CANVAS' && canvasSource.has(el)) {
+        const source = canvasSource.get(el);
+        const key = `canvas:${removalPath(el)}`;
+        el.dataset.saTextEditable = '1';
+        addEntry({ key, kind: 'canvas', target: el, fallback: source.text, render: source.render,
+          scale: source.scale, drawn: source.drawn, auto: true });
+      }
     });
     applyAll();
     applyRemoved();
@@ -358,6 +447,10 @@ SA.Text = (() => {
   function findEntry(target, preferAttribute = false) {
     let node = target && target.nodeType === Node.ELEMENT_NODE ? target : target && target.parentElement;
     while (node && node !== document.body) {
+      if (node.tagName === 'CANVAS' && canvasSource.has(node)) {
+        const entries = keyEntries.get(`canvas:${removalPath(node)}`);
+        if (entries?.size) return [...entries][0];
+      }
       const direct = directTextNodes(node);
       const attributeEntry = () => {
         for (const attr of editableAttributes(node)) {
@@ -407,6 +500,10 @@ SA.Text = (() => {
     head.append(title, status);
     const actions = document.createElement('div'); actions.className = 'sa-text-actions';
     actions.append(makeButton('toggle', '开启编辑'), makeButton('save', '选择保存文件'), makeButton('export', '导出 JSON'), makeButton('reset', '清除覆盖'));
+    const versionsLabel = document.createElement('label'); versionsLabel.textContent = '编辑版本 ';
+    const versions = document.createElement('select'); versions.dataset.textVersions = '1';
+    versionsLabel.append(versions);
+    versions.addEventListener('change', () => selectVersion(versions.value));
     editorBox = document.createElement('div'); editorBox.className = 'sa-text-editor'; editorBox.hidden = true;
     const label = document.createElement('label'); label.textContent = '当前文案';
     editorInput = document.createElement('textarea'); editorInput.rows = 2;
@@ -416,7 +513,7 @@ SA.Text = (() => {
     const editActions = document.createElement('div'); editActions.className = 'sa-text-actions';
     editActions.append(makeButton('parent', '选中父元素'), makeButton('remove-element', '删除所选元素'), makeButton('remove-text', '删除当前文字'));
     editorBox.append(selection, editActions);
-    toolbar.append(head, actions, editorBox);
+    toolbar.append(head, actions, versionsLabel, editorBox);
     document.body.append(toolbar);
     statusEl = status;
     toolbar.addEventListener('click', event => {
@@ -436,6 +533,19 @@ SA.Text = (() => {
       if (activeEntry) set(activeEntry.key, editorInput.value);
     });
     updateToolbar();
+  }
+
+  function updateVersions() {
+    const select = toolbar?.querySelector('[data-text-versions]');
+    if (!select || !activeVersion) return;
+    select.replaceChildren();
+    [activeVersion, ...history.slice().reverse()].forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = `${new Date(item.at).toLocaleString('zh-CN')} · ${item.id === activeVersion.id ? '当前' : '历史'}`;
+      select.append(option);
+    });
+    select.value = activeVersion.id;
   }
 
   function openEditor(entry) {
@@ -478,6 +588,9 @@ SA.Text = (() => {
   }
 
   function onPointerDown(event) {
+    if (editing && event.target.closest?.('[data-sa-text-mirror]') && pinned?.source) {
+      event.preventDefault(); event.stopImmediatePropagation(); selectElement(pinned.source, true); return;
+    }
     if (!editing || isUiElement(event.target)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -498,10 +611,88 @@ SA.Text = (() => {
     selectElement(event.target, event.altKey || event.shiftKey);
   }
 
+  // 仅追踪公开文字工厂，显示画布沿用原工厂参数重绘。
+  function wrapCanvasText() {
+    if (canvasWrapped || !SA.PX?.ui?.img) return;
+    canvasWrapped = true;
+    for (const name of ['brush', 'num']) {
+      const original = SA.PX[name];
+      if (typeof original !== 'function') continue;
+      SA.PX[name] = function (text, ...args) {
+        const source = original.call(this, text, ...args);
+        canvasSource.set(source, { text: String(text), render: value => original.call(SA.PX, value, ...args) });
+        return source;
+      };
+    }
+    const originalImg = SA.PX.ui.img;
+    SA.PX.ui.img = function (source, scale, style) {
+      const display = originalImg.call(this, source, scale, style);
+      const meta = canvasSource.get(source);
+      if (meta) canvasSource.set(display, { ...meta, scale: scale ?? SA.PX.S, drawn: meta.text });
+      return display;
+    };
+    // ui.num 内部使用词法 img，不经过公开 ui.img，单独继承同一文字来源。
+    if (typeof SA.PX.ui.num === 'function') {
+      const originalNum = SA.PX.ui.num;
+      SA.PX.ui.num = function (text, ...args) {
+        const display = originalNum.call(this, text, ...args);
+        canvasSource.set(display, { text: String(text), render: value => originalNum.call(SA.PX.ui, value, ...args),
+          scale: SA.PX.S, drawn: String(text) });
+        return display;
+      };
+    }
+  }
+
+  function releasePin() {
+    if (!pinned) return;
+    if (pinned.mirror) pinned.mirror.remove();
+    if (pinned.element && pinned.style) {
+      for (const [name, saved] of Object.entries(pinned.style)) {
+        if (saved.value) pinned.element.style.setProperty(name, saved.value, saved.priority);
+        else pinned.element.style.removeProperty(name);
+      }
+    }
+    pinned = null;
+  }
+
+  // F8 固定真实悬浮内容；原生 title 的临时镜像只负责选择源属性。
+  function pinHover() {
+    if (pinned) { releasePin(); return; }
+    const target = hovered && hovered.isConnected ? hovered : null;
+    if (!target) return;
+    const home = target.closest('.home-car');
+    const hint = target.matches('.home-hint') ? target : (home || target).querySelector('.home-hint');
+    if (hint) {
+      const style = {};
+      for (const name of ['opacity', 'visibility', 'pointer-events'])
+        style[name] = { value: hint.style.getPropertyValue(name), priority: hint.style.getPropertyPriority(name) };
+      pinned = { element: hint, style };
+      hint.style.setProperty('opacity', '1', 'important');
+      hint.style.setProperty('visibility', 'visible', 'important');
+      hint.style.setProperty('pointer-events', 'auto', 'important');
+      selectElement(hint);
+    } else {
+      const titled = target.closest('[title]') || target.querySelector('[title]');
+      if (!titled) return;
+      const mirror = document.createElement('div');
+      mirror.textContent = titled.getAttribute('title');
+      mirror.dataset.saTextMirror = '1';
+      mirror.style.cssText = 'position:fixed;z-index:2147483646;padding:6px;background:#f4e4bd;color:#231b16;border:1px solid #231b16;pointer-events:auto;';
+      const rect = titled.getBoundingClientRect();
+      mirror.style.left = `${Math.max(0, rect.left)}px`;
+      mirror.style.top = `${Math.max(0, rect.bottom)}px`;
+      document.body.append(mirror);
+      pinned = { mirror, source: titled };
+      selectElement(titled, true);
+    }
+    updateToolbar('悬浮内容已固定；按 F8 释放');
+  }
+
   function toggle(force) {
     editing = force == null ? !editing : !!force;
     document.body.classList.toggle('sa-text-editing', editing);
     if (!editing) {
+      releasePin();
       activeEntry = null;
       activeElement = null;
       if (editorBox) editorBox.hidden = true;
@@ -532,7 +723,7 @@ SA.Text = (() => {
 
   function persistLocal() {
     try {
-      localStorage.setItem(storageKey(), JSON.stringify({ version: 1, game: config.game, locale: config.locale, dirty, resetPending, values, removedElements: [...removedElements] }));
+      localStorage.setItem(storageKey(), JSON.stringify({ ...payloadNow(), dirty, resetPending, savedSnapshot }));
     } catch (e) {
       updateToolbar('浏览器存储不可用');
     }
@@ -559,7 +750,7 @@ SA.Text = (() => {
   }
 
   function payloadNow() {
-    return { version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] };
+    return { version: 1, game: config.game, locale: config.locale, ...snapshot(), activeVersion, history };
   }
 
   // 首次选文件先读现有覆盖；有草稿时只补文件独有的键，显式“清除覆盖”则保持全清意图。
@@ -572,10 +763,8 @@ SA.Text = (() => {
       throw new Error('所选文件不是当前游戏的页面管理 JSON');
     const removed = data.removedElements || [];
     if (!dirty) {
-      Object.keys(values).forEach(key => delete values[key]);
-      Object.assign(values, data.values);
-      removedElements.clear();
-      removed.forEach(path => removedElements.add(path));
+      replaceSnapshot({ values: data.values, removedElements: removed });
+      readVersions(data);
     } else if (!resetPending) {
       Object.entries(data.values).forEach(([key, value]) => { if (!(key in values)) values[key] = value; });
       removed.forEach(path => removedElements.add(path));
@@ -633,6 +822,8 @@ SA.Text = (() => {
     try { local = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (e) { local = null; }
     if (local && local.values && typeof local.values === 'object') Object.assign(values, local.values);
     if (local && Array.isArray(local.removedElements)) local.removedElements.forEach(path => removedElements.add(path));
+    readVersions(local || {});
+    if (local?.savedSnapshot) savedSnapshot = local.savedSnapshot;
     dirty = !!(local && local.dirty);
     resetPending = !!(local && local.resetPending && dirty);
     let sourceLoaded = false;
@@ -644,11 +835,8 @@ SA.Text = (() => {
           filePermission = await fileHandle.queryPermission({ mode: 'readwrite' }) === 'granted';
           if (filePermission) {
             const data = JSON.parse(await (await fileHandle.getFile()).text());
-            if (!dirty && data.values && typeof data.values === 'object') {
-              Object.keys(values).forEach(key => delete values[key]);
-              Object.assign(values, data.values);
-              removedElements.clear();
-              if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
+            if (!dirty && data.values && typeof data.values === 'object' && (!local?.activeVersion || data.activeVersion)) {
+              replaceSnapshot(data); readVersions(data);
             }
             sourceLoaded = true;
           } else {
@@ -668,11 +856,8 @@ SA.Text = (() => {
       const response = await fetch(`${config.loadUrl}${query}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
-        if (!dirty && !fileHandle && !fileRestoreFailed && data.values && typeof data.values === 'object') {
-          Object.keys(values).forEach(key => delete values[key]);
-          Object.assign(values, data.values);
-          removedElements.clear();
-          if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
+        if (!dirty && !fileHandle && !fileRestoreFailed && (!local?.activeVersion || data.activeVersion) && data.values && typeof data.values === 'object') {
+          replaceSnapshot(data); readVersions(data);
         }
         sourceLoaded = true;
       }
@@ -684,11 +869,8 @@ SA.Text = (() => {
         const response = await fetch(fileName(), { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
-          if (!dirty && data.values && typeof data.values === 'object') {
-            Object.keys(values).forEach(key => delete values[key]);
-            Object.assign(values, data.values);
-            removedElements.clear();
-            if (Array.isArray(data.removedElements)) data.removedElements.forEach(path => removedElements.add(path));
+          if (!dirty && (!local?.activeVersion || data.activeVersion) && data.values && typeof data.values === 'object') {
+            replaceSnapshot(data); readVersions(data);
           }
           sourceLoaded = true;
         }
@@ -699,6 +881,7 @@ SA.Text = (() => {
     if (readyResolve) readyResolve(api);
     updateToolbar();
     scan();
+    if (startupStyle) { startupStyle.remove(); startupStyle = null; }
     if (dirty) scheduleAutoSave();
   }
 
@@ -714,6 +897,8 @@ SA.Text = (() => {
   async function saveNow() {
     if (!dirty && !fileHandle) return { ok: true, local: true };
     persistLocal();
+    const previous = { activeVersion, history: history.slice(), savedSnapshot };
+    checkpoint();
     const payload = payloadNow();
     const revision = changeRevision;
     try {
@@ -736,6 +921,11 @@ SA.Text = (() => {
       if (dirty) scheduleAutoSave();
       return { ok: true, file: fileName(), revision: serverRevision, pending: dirty };
     } catch (error) {
+      activeVersion = previous.activeVersion;
+      history = previous.history;
+      savedSnapshot = previous.savedSnapshot;
+      persistLocal();
+      updateVersions();
       if (fileHandle) filePermission = false;
       updateToolbar(`写入失败，草稿仍在浏览器：${error.message}`);
       return { ok: false, error };
@@ -743,7 +933,7 @@ SA.Text = (() => {
   }
 
   function exportJson() {
-    const payload = JSON.stringify({ version: 1, game: config.game, locale: config.locale, values: { ...values }, removedElements: [...removedElements] }, null, 2);
+    const payload = JSON.stringify(payloadNow(), null, 2);
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([payload], { type: 'application/json;charset=utf-8' }));
     link.download = `${config.game}-${config.locale}.json`;
@@ -774,13 +964,23 @@ SA.Text = (() => {
 
   function boot() {
     createToolbar();
+    wrapCanvasText();
+    document.addEventListener('pointerover', event => {
+      if (editing && !isUiElement(event.target)) hovered = event.target;
+    }, true);
+    document.addEventListener('keydown', event => {
+      if (!editing || event.key !== 'F8' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      event.preventDefault(); event.stopImmediatePropagation(); pinHover();
+    }, true);
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('click', onClick, true);
     for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
       document.addEventListener(type, suppressPageEvent, true);
-    observer = new MutationObserver(() => {
+    observer = new MutationObserver(records => {
+      if (records.every(record => isUiElement(record.target))) return;
       if (scanTimer) return;
-      scanTimer = requestAnimationFrame(() => { scanTimer = 0; scan(); });
+      scanTimer = 1;
+      queueMicrotask(() => { scanTimer = 0; scan(); });
     });
     observer.observe(document.body, { childList: true, subtree: true });
     scan();
@@ -790,15 +990,27 @@ SA.Text = (() => {
     Object.assign(config, options);
     if (started) return api;
     started = true;
+    if (document.head) {
+      startupStyle = document.createElement('style');
+      startupStyle.textContent = 'body{visibility:hidden!important}';
+      document.head.append(startupStyle);
+    }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
     else boot();
-    load();
+    load().catch(error => {
+      fileLoadError = `文本加载失败：${error.message}`;
+      loaded = true;
+      scan();
+      if (readyResolve) readyResolve(api);
+    }).finally(() => { if (startupStyle) { startupStyle.remove(); startupStyle = null; } });
     return api;
   }
 
   const api = {
     init, ready, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
+    versions: () => [activeVersion, ...history].filter(Boolean).map(item => ({ id: item.id, at: item.at })),
+    selectVersion,
     isEditing: () => editing,
     file: fileName,
     refresh: () => scan(),

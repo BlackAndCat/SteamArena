@@ -207,6 +207,8 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         locale = payload.get('locale')
         values = payload.get('values')
         removed_elements = payload.get('removedElements', [])
+        active_version = payload.get('activeVersion')
+        history = payload.get('history', [])
         path = self._text_file(game, locale)
         if not path:
             self._json(400, {'error': 'game 或 locale 不合法'})
@@ -227,6 +229,27 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             if not isinstance(value, str) or len(value) > 10000:
                 self._json(400, {'error': '文本值必须是长度不超过 10000 的字符串'})
                 return
+        # 旧 v1 文件可省略版本字段；新版历史逐项复用现有文案与隐藏路径边界。
+        def valid_version(item):
+            return isinstance(item, dict) and isinstance(item.get('id'), str) and 0 < len(item['id']) <= 80 \
+                and isinstance(item.get('at'), str) and 0 < len(item['at']) <= 80
+
+        def valid_snapshot(item):
+            entries = item.get('values')
+            paths = item.get('removedElements')
+            return isinstance(entries, dict) and len(entries) <= 10000 \
+                and all(isinstance(k, str) and 0 < len(k) <= 240 and '..' not in k
+                        and not any(ord(ch) < 32 for ch in k)
+                        and isinstance(v, str) and len(v) <= 10000 for k, v in entries.items()) \
+                and isinstance(paths, list) and len(paths) <= 10000 \
+                and all(isinstance(p, str) and 0 < len(p) <= 2048
+                        and not any(ord(ch) < 32 for ch in p) for p in paths)
+
+        if (active_version is not None and not valid_version(active_version)) or not isinstance(history, list) \
+                or len(history) > 20 or any(not valid_version(item) or not valid_snapshot(item) for item in history) \
+                or (history and active_version is None):
+            self._json(400, {'error': '文本历史版本格式不合法'})
+            return
         document = {
             'version': 1,
             'game': game,
@@ -235,6 +258,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             'values': values,
             'removedElements': removed_elements,
         }
+        if active_version is not None:
+            document['activeVersion'] = active_version
+            document['history'] = history
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             # 同目录临时文件 + replace，避免浏览器刷新时读到半个 JSON。

@@ -165,6 +165,25 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(self.post('/__text/save', payload), 400)
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
 
+    def test_text_history_round_trip_and_legacy_file(self):
+        """历史快照完整往返，旧 v1 请求仍可保存，非法历史不得覆盖文件。"""
+        old = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': '旧版'},
+               'removedElements': []}
+        self.assertEqual(self.post('/__text/save', old), 200)
+        legacy = json.loads(self.text_file.read_text(encoding='utf-8'))
+        self.assertNotIn('history', legacy)
+        current = {'id': 'v2', 'at': '2026-10-01T00:00:00Z'}
+        history = [{'id': 'v1', 'at': '2026-09-30T00:00:00Z',
+                    'values': {'title': '旧版'}, 'removedElements': ['main::global::div#hint']}]
+        newer = {**old, 'values': {'title': '新版'}, 'activeVersion': current, 'history': history}
+        self.assertEqual(self.post('/__text/save', newer), 200)
+        saved = json.loads(self.text_file.read_text(encoding='utf-8'))
+        self.assertEqual(saved['activeVersion'], current)
+        self.assertEqual(saved['history'], history)
+        newer['history'] = [{**history[0], 'values': {'../bad': '非法'}}]
+        self.assertEqual(self.post('/__text/save', newer), 400)
+        self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
+
     def test_local_cli_without_origin_can_control_evolution(self):
         """无 Origin 的本机脚本仍可启动、停止任务。"""
         self.assertEqual(self.post('/__evolve/run', {'candidate': 'demo'}), 202)
