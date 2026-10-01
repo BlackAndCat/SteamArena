@@ -250,17 +250,21 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 or (history and active_version is None):
             self._json(400, {'error': '文本历史版本格式不合法'})
             return
+        # 旧客户端仍可能提交按时间保存的历史；按时间合并文字后只写一个编辑稿。
+        # 顶层是最终编辑态，元素显隐只取顶层快照，避免已恢复元素再被旧记录隐藏。
+        merged_values = {}
+        for item in sorted(enumerate(history), key=lambda pair: (pair[1]['at'], pair[0])):
+            merged_values.update(item[1]['values'])
+        merged_values.update(values)
         document = {
             'version': 1,
             'game': game,
             'locale': locale,
             'updatedAt': datetime.now(timezone.utc).isoformat(),
-            'values': values,
+            'edited': True,
+            'values': merged_values,
             'removedElements': removed_elements,
         }
-        if active_version is not None:
-            document['activeVersion'] = active_version
-            document['history'] = history
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             # 同目录临时文件 + replace，避免浏览器刷新时读到半个 JSON。

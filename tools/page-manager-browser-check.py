@@ -53,7 +53,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == '/__text/load?game=fixture&locale=zh-CN':
             # 让初始 DOM 至少有几帧处于旧服务响应等待中，暴露首屏闪烁。
             time.sleep(.3)
-            body = json.dumps({'version': 1, 'values': {'fixture:target': '服务旧稿'}, 'removedElements': []}).encode()
+            body = json.dumps({'version': 1, 'values': {}, 'removedElements': []}).encode()
             kind = 'application/json'
         elif self.path == '/__text/load?game=steam-arena&locale=zh-CN':
             time.sleep(.3)
@@ -146,7 +146,7 @@ def run():
               document.querySelector('[data-text-action="remove-text"]').click();
               await SA.Text.save();
               const removed=canvas.width;
-              SA.Text.selectVersion(SA.Text.versions().find(item=>item.id==='chosen').id);
+              SA.Text.selectVersion('original');
               const restored=canvas.width;
               const car=document.getElementById('car');
               car.dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));
@@ -156,6 +156,7 @@ def run():
               const hintEditable=input.value;
               input.value='固定后编辑'; input.dispatchEvent(new Event('input',{bubbles:true}));
               const hintChanged=document.getElementById('hint').textContent;
+              const selectedAfterEdit=document.querySelector('[data-text-versions]').value;
               document.dispatchEvent(new KeyboardEvent('keydown',{key:'F8',bubbles:true}));
               const released=getComputedStyle(document.getElementById('hint')).opacity;
               const titled=document.getElementById('titled');
@@ -168,16 +169,17 @@ def run():
               const titleChanged=titled.title;
               SA.Text.exitEdit();
               return {first,canvasValue,changed,beforeRemove,removed,restored,
-                pinned,released,hintEditable,hintChanged,titleEditable,titleChanged,
+                pinned,released,hintEditable,hintChanged,selectedAfterEdit,titleEditable,titleChanged,
                 mirrorGone:!document.querySelector('[data-sa-text-mirror]'),
                 active:SA.Text.versions()[0].id,versions:SA.Text.versions().length};
             })()''', 'returnByValue': True, 'awaitPromise': True})
             value = result['result']['value']
             assert value['first'] == '选中版本', value
             assert value['canvasValue'] == '原题', value
-            assert value['beforeRemove'] >= 3, value
+            assert value['beforeRemove'] == 2 and value['versions'] == 2, value
             assert value['removed'] < value['changed'] and value['restored'] != value['removed'], value
             assert value['hintEditable'] == '提示原文' and value['hintChanged'] == '固定后编辑', value
+            assert value['selectedAfterEdit'] == 'edited', value
             assert value['titleEditable'] == '原生提示' and value['titleChanged'] == '新提示' and value['mirrorGone'], value
             assert value['pinned'] == '1' and value['released'] == '0', value
             cdp.call('Page.reload', {'ignoreCache': True})
@@ -188,17 +190,17 @@ def run():
                 time.sleep(.1)
             reloaded_result = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{await SA.Text.ready;
               await new Promise(requestAnimationFrame);
-              return {first:window.firstVisibleText,active:SA.Text.versions()[0].id,
+              return {first:window.firstVisibleText,selected:document.querySelector('[data-text-versions]').value,
                 title:document.getElementById('titled').title};})()''',
               'returnByValue': True, 'awaitPromise': True})
             if 'exceptionDetails' in reloaded_result:
                 raise RuntimeError(reloaded_result['exceptionDetails'])
             reloaded = reloaded_result['result']['value']
-            assert reloaded['first'] == '选中版本' and reloaded['active'] == 'chosen', reloaded
+            assert reloaded['first'] == '选中版本' and reloaded['selected'] == 'edited', reloaded
             assert reloaded['title'] == '新提示', reloaded
             value['reload'] = reloaded
-            # 旧版草稿没有版本元数据，现代草稿有历史；两者创建工具栏后都须显示可选择的当前版。
-            for mode, expected, count in [('legacy', '旧版草稿', 1), ('dirty', '未保存编辑', 2)]:
+            # 旧版与现代草稿都只显示固定的两版，刷新默认选择编辑版。
+            for mode, expected, count in [('legacy', '旧版草稿', 2), ('dirty', '未保存编辑', 2)]:
                 cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/fixture?mode={mode}'})
                 for _ in range(80):
                     probe = cdp.call('Runtime.evaluate', {'expression': "document.readyState==='complete'&&!!window.SA?.Text", 'returnByValue': True})
@@ -212,7 +214,7 @@ def run():
                     options:select.options.length,selected:select.value,active:SA.Text.versions()[0].id};})()''',
                     'returnByValue': True, 'awaitPromise': True})['result']['value']
                 assert check['first'] == expected and check['text'] == expected, (mode, check)
-                assert check['options'] == count and check['selected'] == check['active'], (mode, check)
+                assert check['options'] == count and check['selected'] == 'edited', (mode, check)
                 value[mode] = check
             # 使用仓库真实 index 与全部游戏脚本，先从实际标题页读取稳定 key 和移除路径。
             cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/'})
@@ -255,7 +257,7 @@ def run():
                     'returnByValue': True, 'awaitPromise': True})['result']['value']
                 assert actual.get('first') == {'title': expected, 'removed': True}, (mode, actual)
                 assert actual['title'] == expected and actual['removed'], (mode, actual)
-                assert actual['options'] >= 1 and actual['selected'] == actual['active'], (mode, actual)
+                assert actual['options'] == 2 and actual['selected'] == 'edited', (mode, actual)
                 value['game_' + mode] = actual
             print(json.dumps(value, ensure_ascii=False))
         finally:

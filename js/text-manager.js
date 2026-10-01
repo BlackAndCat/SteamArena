@@ -52,10 +52,7 @@ SA.Text = (() => {
   let fileLoadError = '';
   let autoSaveTimer = 0;
   let changeRevision = 0;
-  let activeVersion = null;
-  let history = [];
-  let savedSnapshot = null;
-  let versionCounter = 0;
+  let originalView = false;
   const canvasSource = new WeakMap();
   let canvasWrapped = false;
   let pinned = null;
@@ -71,13 +68,21 @@ SA.Text = (() => {
   // 剧情编排入口及编辑器自身是功能控件，页面选字模式不能拦截其点击或扫描其文字。
   const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror], [data-story-action], [data-yard-chat-editor]');
   const snapshot = () => ({ values: { ...values }, removedElements: [...removedElements] });
-  const sameSnapshot = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
-  const newVersion = () => ({ id: `${Date.now()}-${++versionCounter}`, at: new Date().toISOString() });
-
-  // 顶层始终保存当前版本，历史只存旧快照；限制文件体积以适配本机服务与浏览器存储。
-  function trimHistory() {
-    while (history.length > 20 || (history.length && encodeURIComponent(JSON.stringify(payloadNow())).replace(/%[0-9A-F]{2}/g, 'x').length > 1400000)) history.shift();
+  // 旧文件的历史文案按时间由旧到新合并，同时间以数组较后项为准；顶层覆盖是最后的编辑态。
+  // 元素显隐是完整快照，只取顶层最终状态，不能把旧快照的删除路径并集回来。
+  function editedSnapshot(data) {
+    const merged = {};
+    (Array.isArray(data?.history) ? data.history : []).filter(item => item && item.values && typeof item.values === 'object')
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => String(a.item.at || '').localeCompare(String(b.item.at || '')) || a.index - b.index)
+      .forEach(({ item }) => Object.assign(merged, item.values));
+    Object.assign(merged, data?.values || {});
+    return { values: merged, removedElements: Array.isArray(data?.removedElements) ? data.removedElements : [] };
   }
+
+  // 原始文件只有默认值；旧版本元数据或非空覆盖表示已有编辑稿，防止空原始文件盖掉本地编辑。
+  const hasEdits = data => !!(data && (data.edited || data.activeVersion || data.history?.length
+    || Object.keys(data.values || {}).length || data.removedElements?.length));
 
   function replaceSnapshot(data) {
     Object.keys(values).forEach(key => delete values[key]);
@@ -89,46 +94,17 @@ SA.Text = (() => {
     scan();
   }
 
-  function readVersions(data) {
-    activeVersion = data.activeVersion && typeof data.activeVersion.id === 'string' ? data.activeVersion : newVersion();
-    history = Array.isArray(data.history) ? data.history.filter(item => item && item.id && item.values && Array.isArray(item.removedElements)) : [];
-    trimHistory();
-    savedSnapshot = snapshot();
-    updateVersions();
-  }
-
-  function checkpoint() {
-    const current = snapshot();
-    if (sameSnapshot(current, savedSnapshot)) return false;
-    if (savedSnapshot) history.push({ ...activeVersion, ...savedSnapshot });
-    activeVersion = newVersion();
-    savedSnapshot = current;
-    trimHistory();
-    updateVersions();
-    return true;
-  }
-
-  // 切换前保留尚未写盘的编辑，选择结果同步写入草稿，刷新时仍先显示该版。
-  function selectVersion(id) {
-    if (!id || activeVersion?.id === id) return;
-    const index = history.findIndex(item => item.id === id);
-    if (index < 0) return;
-    releasePin();
-    if (!sameSnapshot(snapshot(), savedSnapshot)) checkpoint();
-    const chosenIndex = history.findIndex(item => item.id === id);
-    const chosen = history.splice(chosenIndex, 1)[0];
-    history.push({ ...activeVersion, ...snapshot() });
-    activeVersion = { id: chosen.id, at: chosen.at };
-    replaceSnapshot(chosen);
-    savedSnapshot = snapshot();
-    dirty = true;
-    changeRevision++;
-    trimHistory();
-    persistLocal();
-    scheduleAutoSave();
+  // 原始版只供预览；编辑数据一直保存在顶层快照，切回编辑版立即恢复。
+  function selectVersion(id, keepPin = false) {
+    if (!['original', 'edited'].includes(id) || originalView === (id === 'original')) return;
+    if (!keepPin) releasePin();
+    originalView = id === 'original';
+    restoreElements();
+    applyAll();
+    scan();
     notify('*');
     updateVersions();
-    updateToolbar('已切换版本；草稿已保存');
+    updateToolbar(originalView ? '正在预览原始版本' : '已返回编辑版本');
   }
 
   function notify(key) {
@@ -165,6 +141,7 @@ SA.Text = (() => {
   }
 
   function get(key, fallback = '') {
+    if (originalView) return key in defaults ? defaults[key] : String(fallback == null ? '' : fallback);
     if (key in values) return values[key];
     return key in defaults ? defaults[key] : String(fallback == null ? '' : fallback);
   }
@@ -198,6 +175,7 @@ SA.Text = (() => {
   }
 
   function set(key, value, options = {}) {
+    if (originalView) selectVersion('edited', true);
     if (!safeKey(key)) throw new Error('SA.Text.set 需要非空且不超过 240 字符的 key');
     const next = String(value == null ? '' : value);
     if (!(key in defaults)) defaults[key] = Array.from(keyEntries.get(key) || []).find(entry => entry.auto)?.fallback ?? next;
@@ -214,6 +192,7 @@ SA.Text = (() => {
   }
 
   function entryValue(entry) {
+    if (originalView) return entry.semantic && entry.key in defaults ? defaults[entry.key] : entry.fallback;
     const oldPathKey = entry.auto && !entry.semantic ? uniqueOldPathKey(entry.key, Object.keys(values), 'dom:') : null;
     return entry.key in values ? values[entry.key]
       : oldPathKey ? values[oldPathKey]
@@ -337,7 +316,7 @@ SA.Text = (() => {
   }
 
   function applyRemoved() {
-    if (!removedElements.size) return;
+    if (originalView || !removedElements.size) return;
     for (const el of document.body.querySelectorAll('*')) {
       if (!canRemove(el)) continue;
       const path = removalPath(el);
@@ -541,15 +520,15 @@ SA.Text = (() => {
 
   function updateVersions() {
     const select = toolbar?.querySelector('[data-text-versions]');
-    if (!select || !activeVersion) return;
+    if (!select) return;
     select.replaceChildren();
-    [activeVersion, ...history.slice().reverse()].forEach(item => {
+    [['original', '原始版本'], ['edited', '编辑版本']].forEach(([id, label]) => {
       const option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = `${new Date(item.at).toLocaleString('zh-CN')} · ${item.id === activeVersion.id ? '当前' : '历史'}`;
+      option.value = id;
+      option.textContent = label;
       select.append(option);
     });
-    select.value = activeVersion.id;
+    select.value = originalView ? 'original' : 'edited';
   }
 
   function openEditor(entry) {
@@ -578,6 +557,7 @@ SA.Text = (() => {
 
   function removeSelectedElement() {
     if (!canRemove(activeElement)) return;
+    if (originalView) selectVersion('edited');
     removedElements.add(removalPath(activeElement));
     hideElement(activeElement);
     activeElement = null; activeEntry = null; editorBox.hidden = true;
@@ -727,7 +707,7 @@ SA.Text = (() => {
 
   function persistLocal() {
     try {
-      localStorage.setItem(storageKey(), JSON.stringify({ ...payloadNow(), dirty, resetPending, savedSnapshot }));
+      localStorage.setItem(storageKey(), JSON.stringify({ ...payloadNow(), dirty, resetPending }));
     } catch (e) {
       updateToolbar('浏览器存储不可用');
     }
@@ -754,7 +734,7 @@ SA.Text = (() => {
   }
 
   function payloadNow() {
-    return { version: 1, game: config.game, locale: config.locale, ...snapshot(), activeVersion, history };
+    return { version: 1, game: config.game, locale: config.locale, edited: true, ...snapshot() };
   }
 
   // 首次选文件先读现有覆盖；有草稿时只补文件独有的键，显式“清除覆盖”则保持全清意图。
@@ -765,13 +745,12 @@ SA.Text = (() => {
       || !data.values || typeof data.values !== 'object' || Array.isArray(data.values)
       || (Object.hasOwn(data, 'removedElements') && !Array.isArray(data.removedElements)))
       throw new Error('所选文件不是当前游戏的页面管理 JSON');
-    const removed = data.removedElements || [];
+    const merged = editedSnapshot(data);
     if (!dirty) {
-      replaceSnapshot({ values: data.values, removedElements: removed });
-      readVersions(data);
+      replaceSnapshot(merged);
     } else if (!resetPending) {
-      Object.entries(data.values).forEach(([key, value]) => { if (!(key in values)) values[key] = value; });
-      removed.forEach(path => removedElements.add(path));
+      Object.entries(merged.values).forEach(([key, value]) => { if (!(key in values)) values[key] = value; });
+      // 草稿的显隐清单是最终状态；文件旧清单不可把用户已恢复的元素再隐藏。
       changeRevision++;
     }
     persistLocal();
@@ -824,10 +803,11 @@ SA.Text = (() => {
   async function load() {
     let local = null;
     try { local = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (e) { local = null; }
-    if (local && local.values && typeof local.values === 'object') Object.assign(values, local.values);
-    if (local && Array.isArray(local.removedElements)) local.removedElements.forEach(path => removedElements.add(path));
-    readVersions(local || {});
-    if (local?.savedSnapshot) savedSnapshot = local.savedSnapshot;
+    if (local && local.values && typeof local.values === 'object') {
+      const merged = editedSnapshot(local);
+      Object.assign(values, merged.values);
+      merged.removedElements.forEach(path => removedElements.add(path));
+    }
     dirty = !!(local && local.dirty);
     resetPending = !!(local && local.resetPending && dirty);
     let sourceLoaded = false;
@@ -839,8 +819,8 @@ SA.Text = (() => {
           filePermission = await fileHandle.queryPermission({ mode: 'readwrite' }) === 'granted';
           if (filePermission) {
             const data = JSON.parse(await (await fileHandle.getFile()).text());
-            if (!dirty && data.values && typeof data.values === 'object' && (!local?.activeVersion || data.activeVersion)) {
-              replaceSnapshot(data); readVersions(data);
+            if (!dirty && data.values && typeof data.values === 'object' && (!hasEdits(local) || hasEdits(data))) {
+              replaceSnapshot(editedSnapshot(data));
             }
             sourceLoaded = true;
           } else {
@@ -860,8 +840,8 @@ SA.Text = (() => {
       const response = await fetch(`${config.loadUrl}${query}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
-        if (!dirty && !fileHandle && !fileRestoreFailed && (!local?.activeVersion || data.activeVersion) && data.values && typeof data.values === 'object') {
-          replaceSnapshot(data); readVersions(data);
+        if (!dirty && !fileHandle && !fileRestoreFailed && (!hasEdits(local) || hasEdits(data)) && data.values && typeof data.values === 'object') {
+          replaceSnapshot(editedSnapshot(data));
         }
         sourceLoaded = true;
       }
@@ -873,8 +853,8 @@ SA.Text = (() => {
         const response = await fetch(fileName(), { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
-          if (!dirty && (!local?.activeVersion || data.activeVersion) && data.values && typeof data.values === 'object') {
-            replaceSnapshot(data); readVersions(data);
+          if (!dirty && (!hasEdits(local) || hasEdits(data)) && data.values && typeof data.values === 'object') {
+            replaceSnapshot(editedSnapshot(data));
           }
           sourceLoaded = true;
         }
@@ -902,8 +882,7 @@ SA.Text = (() => {
     }
     if (!data || data.version !== 1 || data.game !== config.game || data.locale !== config.locale
       || !data.values || typeof data.values !== 'object' || Array.isArray(data.values)) return false;
-    replaceSnapshot(data);
-    readVersions(data);
+    replaceSnapshot(editedSnapshot(data));
     persistLocal();
     applyAll();
     scan();
@@ -923,8 +902,6 @@ SA.Text = (() => {
   async function saveNow() {
     if (!dirty && !fileHandle) return { ok: true, local: true };
     persistLocal();
-    const previous = { activeVersion, history: history.slice(), savedSnapshot };
-    checkpoint();
     const payload = payloadNow();
     const revision = changeRevision;
     try {
@@ -947,11 +924,7 @@ SA.Text = (() => {
       if (dirty) scheduleAutoSave();
       return { ok: true, file: fileName(), revision: serverRevision, pending: dirty, document: payload };
     } catch (error) {
-      activeVersion = previous.activeVersion;
-      history = previous.history;
-      savedSnapshot = previous.savedSnapshot;
       persistLocal();
-      updateVersions();
       if (fileHandle) filePermission = false;
       updateToolbar(`写入失败，草稿仍在浏览器：${error.message}`);
       return { ok: false, error };
@@ -969,6 +942,7 @@ SA.Text = (() => {
   }
 
   function reset() {
+    if (originalView) selectVersion('edited');
     Object.keys(values).forEach(key => delete values[key]);
     removedElements.clear();
     restoreElements();
@@ -1036,7 +1010,7 @@ SA.Text = (() => {
   const api = {
     init, ready, load: reload, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
-    versions: () => [activeVersion, ...history].filter(Boolean).map(item => ({ id: item.id, at: item.at })),
+    versions: () => [{ id: 'original' }, { id: 'edited' }],
     selectVersion,
     isEditing: () => editing,
     file: fileName,

@@ -166,20 +166,25 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
 
     def test_text_history_round_trip_and_legacy_file(self):
-        """历史快照完整往返，旧 v1 请求仍可保存，非法历史不得覆盖文件。"""
+        """旧历史文案按时间并入唯一编辑稿，元素取当前显隐，非法历史不得覆盖文件。"""
         old = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': '旧版'},
                'removedElements': []}
         self.assertEqual(self.post('/__text/save', old), 200)
         legacy = json.loads(self.text_file.read_text(encoding='utf-8'))
         self.assertNotIn('history', legacy)
         current = {'id': 'v2', 'at': '2026-10-01T00:00:00Z'}
-        history = [{'id': 'v1', 'at': '2026-09-30T00:00:00Z',
-                    'values': {'title': '旧版'}, 'removedElements': ['main::global::div#hint']}]
+        history = [{'id': 'v1-late', 'at': '2026-09-30T00:00:00Z',
+                    'values': {'title': '历史后项', 'kept': '后项'}, 'removedElements': ['main::global::div#hint']},
+                   {'id': 'v1-early', 'at': '2026-09-29T00:00:00Z',
+                    'values': {'title': '历史前项', 'first': '前项'}, 'removedElements': []}]
         newer = {**old, 'values': {'title': '新版'}, 'activeVersion': current, 'history': history}
         self.assertEqual(self.post('/__text/save', newer), 200)
         saved = json.loads(self.text_file.read_text(encoding='utf-8'))
-        self.assertEqual(saved['activeVersion'], current)
-        self.assertEqual(saved['history'], history)
+        self.assertEqual(saved['values'], {'title': '新版', 'first': '前项', 'kept': '后项'})
+        self.assertEqual(saved['removedElements'], [])
+        self.assertTrue(saved['edited'])
+        self.assertNotIn('activeVersion', saved)
+        self.assertNotIn('history', saved)
         newer['history'] = [{**history[0], 'values': {'../bad': '非法'}}]
         self.assertEqual(self.post('/__text/save', newer), 400)
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)

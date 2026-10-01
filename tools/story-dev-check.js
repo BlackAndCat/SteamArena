@@ -201,7 +201,7 @@ async function directFileSaveCheck() {
   SA.Text.set('draft', '草稿优先');
   assert((await SA.Text.save()).ok);
   assert.deepStrictEqual(JSON.parse(content).values, { draft: '草稿优先', keep: '文件独有' });
-  assert.deepStrictEqual(JSON.parse(content).removedElements, ['旧元素']);
+  assert.deepStrictEqual(JSON.parse(content).removedElements, [], '文件旧删除覆盖了草稿的元素恢复状态');
   handles.clear();
   SA = await textContext(new Map(), fetch, capabilities);
   SA.Text.reset(); SA.Text.set('only', '清除后的新字');
@@ -333,10 +333,10 @@ async function homeTextCheck() {
   return { stableKeys: true, dynamicDefaults: true, preservedTuples: true, reload: true, reset: true };
 }
 
-/** 页面版本在旧服务剥离扩展字段、刷新和失败写入后仍使用选中的完整快照。 */
+/** 页面管理始终只有原始与编辑两版；旧历史合并、草稿优先和干净缓存更新均可恢复。 */
 async function pageVersionCheck() {
   const memory = new Map();
-  let server = { version: 1, game: 'steam-arena', locale: 'zh-CN', values: { probe: '旧文件' }, removedElements: [] };
+  let server = { version: 1, game: 'steam-arena', locale: 'zh-CN', values: {}, removedElements: [] };
   let fail = false;
   const fetch = async (url, options) => {
     if (!options?.method) return { ok: true, json: async () => copy(server) };
@@ -347,22 +347,36 @@ async function pageVersionCheck() {
       values: payload.values, removedElements: payload.removedElements };
     return { ok: true, json: async () => ({ revision: '旧服务' }) };
   };
+  memory.set('sa-text-steam-arena-zh-CN', JSON.stringify({ version: 1, game: 'steam-arena', locale: 'zh-CN',
+    dirty: false, values: { probe: '当前稿', empty: '' }, removedElements: [],
+    activeVersion: { id: 'current', at: '2026-10-01T02:00:00Z' },
+    history: [
+      { id: 'late', at: '2026-10-01T01:00:00Z', values: { probe: '新历史', lateOnly: '后来的字' }, removedElements: ['old-hidden'] },
+      { id: 'early', at: '2026-09-30T01:00:00Z', values: { probe: '旧历史', earlyOnly: '早先的字' }, removedElements: [] },
+      { id: 'same-time', at: '2026-10-01T01:00:00Z', values: { lateOnly: '同时间较后项' }, removedElements: [] },
+    ] }));
   let SA = await textContext(memory, fetch);
-  assert.strictEqual(SA.Text.get('probe'), '旧文件');
+  assert.strictEqual(SA.Text.get('probe'), '当前稿', '服务空原始文件盖掉本地编辑稿');
+  assert.strictEqual(SA.Text.get('earlyOnly'), '早先的字');
+  assert.strictEqual(SA.Text.get('lateOnly'), '同时间较后项');
+  assert.strictEqual(SA.Text.get('empty'), '', '显式空串丢失');
+  assert.deepStrictEqual(JSON.parse(memory.get('sa-text-steam-arena-zh-CN')).removedElements, [], '旧隐藏路径重新生效');
+  assert.strictEqual(SA.Text.versions().length, 2);
+  SA.Text.selectVersion('original');
+  assert.strictEqual(SA.Text.get('probe', '原字'), '原字');
+  SA.Text.selectVersion('edited');
+  assert.strictEqual(SA.Text.get('probe'), '当前稿', '原始预览损坏编辑稿');
   SA.Text.set('probe', '第一稿'); assert((await SA.Text.save()).ok);
-  assert.strictEqual(SA.Text.versions().length, 2, '首次保存未产生旧版');
   SA.Text.set('probe', '第二稿'); assert((await SA.Text.save()).ok);
-  assert.strictEqual(SA.Text.versions().length, 3);
-  const selected = SA.Text.versions()[1].id;
-  SA.Text.selectVersion(selected);
-  assert.strictEqual(SA.Text.get('probe'), '旧文件', '选版没有立刻应用');
-  assert.strictEqual(SA.Text.versions().length, 3, '切版重复创建了相同内容');
+  assert.strictEqual(SA.Text.versions().length, 2, '连续保存增加版本');
+  assert(!('history' in JSON.parse(memory.get('sa-text-steam-arena-zh-CN'))), '本地草稿还在写历史');
+  assert(!('history' in server), '保存仍输出历史');
   SA = await textContext(memory, fetch);
-  assert.strictEqual(SA.Text.get('probe'), '旧文件', '刷新被旧服务当前稿覆盖');
-  assert.strictEqual(SA.Text.versions()[0].id, selected, '刷新未保持选中版本');
+  assert.strictEqual(SA.Text.get('probe'), '第二稿', '刷新未默认加载编辑稿');
   SA.Text.set('probe', '未保存草稿');
-  SA.Text.selectVersion(SA.Text.versions()[1].id);
-  assert(SA.Text.versions().length >= 4, '切版前丢失未保存草稿');
+  SA.Text.selectVersion('original');
+  SA.Text.selectVersion('edited');
+  assert.strictEqual(SA.Text.get('probe'), '未保存草稿', '切版前丢失未保存草稿');
   fail = true; SA.Text.set('probe', '失败草稿');
   assert.strictEqual((await SA.Text.save()).ok, false);
   SA = await textContext(memory, fetch);
@@ -378,8 +392,8 @@ async function pageVersionCheck() {
     history: [{ id: 'remote-1', at: '2026-10-01T00:00:00Z', values: { probe: '远端一' }, removedElements: [] }] };
   SA = await textContext(cleanMemory, newFetch);
   assert.strictEqual(SA.Text.get('probe'), '远端二', '干净缓存遮住了新版文件');
-  assert.strictEqual(SA.Text.versions()[0].id, 'remote-2');
-  return { oldServerCompatible: true, selectedReload: true, unsavedPreserved: true,
+  assert.strictEqual(SA.Text.versions().length, 2);
+  return { oldServerCompatible: true, mergedHistory: true, selectedReload: true, unsavedPreserved: true,
     failedDraft: true, newSourceAuthoritative: true };
 }
 
