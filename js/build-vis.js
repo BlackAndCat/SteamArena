@@ -19,3 +19,6 @@ SA.BUILD_VIS += '+garage-exit-dock'; // 车间出口挪进改装台下面的工�
 SA.BUILD_VIS += '+two-way-lever'; // 出战黑板：拉杆立在正中，往左扳到底回院子、往右推到底出战，两端小字（快到哪头哪头亮），没扳到底弹回；去掉左上角「回院子」按钮
 SA.BUILD_VIS += '+arena-vehicle-name'; // 出战海报与档案的车名读取车辆铭牌，关卡标题独立显示。
 SA.BUILD_VIS += '+battle-hud-a-cab'; // 战斗界面 A 驾驶台：战场不挂框（对方车顶不再有状态条和警报牌），上方两块铁名牌 + 计时鼓，下方铁皮仪表台（锅炉压力表 / 水位管 / 十片装甲 / 五盏指示灯 / 纸条 / 10 格武器键 / 泄压 / 撤退），打不了时准星变红，升白旗压暗只留对方车 + 电报
+SA.BUILD_VIS += '+first-stage-own-car-guide'; // 车间三步提示与首关己方部件箭头。
+SA.BUILD_VIS += '+stage-workbench-larger-canvas'; // 关卡车工具页扩大拼装画布和操作区域。
+

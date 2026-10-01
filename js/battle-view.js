@@ -1019,7 +1019,7 @@ SA.BattleView.create = function createBattleView(api) {
     B.shake = Math.max(0, B.shake - dt * 14);
   }
 
-  // ---------- 开场：第一关的教程（箭头指着对手的部件讲解）+ 每场的开战动画 ----------
+  // ---------- 开场：第一关的教程（箭头指着自己的部件讲解）+ 每场的开战动画 ----------
   // 开场期间战斗不推进（step 不跑），镜头由这里直接摆；结束后交还给 battle.js 的镜头，它会自己平滑拉回
   const easeIO = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
   const CINE = { pIn: 0.7, pHold: 1.1, pan: 2.1, eHold: 2.4, back: 3.0, drop: 2.8, land: 3.15, fire: 3.6, stamp: 3.8, fade: 4.7, end: 5.1 };
@@ -1064,11 +1064,11 @@ SA.BattleView.create = function createBattleView(api) {
     const tut = SA.Story && SA.Story.tutorial(opts);
     if (!tut) { I.from = { cx: camCx(), z: B.cam.z, bot: camBottom() }; return; }
     I.mode = 'tutor';
-    const box = sideBox(B.e);
+    const box = sideBox(B.p);
     I.arrows = tut.parts.map(p => {
-      const at = findPart(B.e, p.part);
+      const at = findPart(B.p, p.part);
       if (!at) return null;
-      const b = modBox(B.e, at.r, at.c, at.id), mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+      const b = modBox(B.p, at.r, at.c, at.id), mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
       // 箭头从车外指向部件：方向取车中心 → 部件；底盘在最下面，改成从车头斜上方指过去
       let dx = mx - box.cx, dy = my - box.cy;
       if (p.part === 'track' || Math.hypot(dx, dy) < 6) { dx = -1; dy = -0.35; }

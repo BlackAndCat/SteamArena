@@ -12,7 +12,7 @@ SA.S = (() => {
   function fresh() {
     return {
       money: 300, debt: 0, rep: 0, season: 1, round: 0,
-      inv: { armor: 4, mg: 1 }, ingots: {},   // 铁装甲 1×2：四块 = 原来两块 2×2
+      inv: {}, ingots: {},   // 新档先用四件初始车作教学，首胜再领取小水罐。
       vehicle: starterVehicle(),
       // 领取账本按奖励 key 记；stockCells 保存有身份或迁移耐久的库存实例，inv 仍是供现有车间读取的总件数。
       uniqueClaims: {}, stockCells: [],

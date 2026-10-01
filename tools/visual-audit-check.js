@@ -124,6 +124,7 @@ function workshopRuntime() {
   context.ResizeObserver = class { observe() {} disconnect() {} };
   SA.go = page => { SA.current = page; };
   SA.S.reset();
+  SA.S.addInv('armor', 1, 1); // 新档不预置装甲；本测试单独准备一件库存用于放置交互。
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/ui-px.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/editor.js'), 'utf8'), context);
   SA.Editor.open();
@@ -241,7 +242,7 @@ function workshopPanZoom() {
   const armorPoint = screen(m, PADX + (spot.c + armorSize.w / 2) * C, (spot.r + armorSize.h / 2) * C);
   click(armorPoint);
   assert(v.body[spot.r][spot.c] && v.body[spot.r][spot.c].id === 'armor', `变换后库存模块没有放到目标格：${JSON.stringify({ spot, armorPoint, size: [cv.width, cv.height], inv: SA.S.d.inv.armor })}`);
-  assert.strictEqual(SA.S.d.inv.armor, stockBefore - 1, '放置没有扣除库存');
+  assert.strictEqual(SA.S.d.inv.armor || 0, stockBefore - 1, '放置没有扣除库存');
 
   // 右键先取消库存选择，再对实际模块右键拆卸。
   const cancel = doc.dispatch('contextmenu', { ...armorPoint, target: cv });

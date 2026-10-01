@@ -129,7 +129,8 @@ SA.CAMPAIGN = [
         blurb: '铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。',
         rows: ['........', '........', '........', '...K....', '...OM...', '...TT...'],
         spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
-        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：库存里有一门机炮和四块铁装甲，再给你一只小水罐练习冷却。' },
+        rewardItems: [{ id: 'tank_s', count: 1, mt: 1 }], // 首关实发一只 1×1 黄铜小水罐。
+        unlock: { feat: ['garage'], mods: ['tank_s'], note: '车间开放：领取一只 1×1 小水罐，装上它练习冷却。' },
       },
       { ...SA.PROLOGUE_PLATE_STAGE },
       {

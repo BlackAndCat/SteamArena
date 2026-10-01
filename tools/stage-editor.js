@@ -14,15 +14,7 @@
   let recentModules = loadRecentModules();
   let moduleTools = null;
   let updatingModuleTools = false;
-  const searchExpandedGroups = new Set();
 
-  // 只在工具页给原车间图标附加库存键；图片和原生点击、拖拽处理均保持不变。
-  const moduleCanvas = SA.SPR.moduleCanvas;
-  SA.SPR.moduleCanvas = (id, scale = 1, mt = 1) => {
-    const canvas = moduleCanvas(id, scale, mt);
-    canvas.dataset.stockKey = SA.invKey(id, mt);
-    return canvas;
-  };
   // 通过摆放校验并实际扣取库存后才记为“使用”，浏览、失败摆放和拆卸不污染历史。
   const installStock = SA.S.installStock;
   SA.S.installStock = (...args) => {
@@ -48,48 +40,20 @@
       }).slice(0, RECENT_MODULES_LIMIT);
     } catch (error) { return []; }
   }
-  function stockKeyOf(row) { return row?.querySelector('canvas[data-stock-key]')?.dataset.stockKey; }
-  function moduleGroup(cat) { return document.querySelector(`.assembly-screen .panel-list .grp.cat-${cat}`); }
-
-  // 搜索时临时展开折叠分类，清空搜索或离开车间后还原原有折叠习惯。
-  function restoreModuleGroups() {
-    const cats = [...searchExpandedGroups]; searchExpandedGroups.clear();
-    for (const cat of cats) {
-      const group = moduleGroup(cat);
-      if (group && !group.classList.contains('folded')) group.click();
-    }
-  }
+  // 车间清单行自带稳定库存键；图标经像素裁剪后不保证保留 canvas 属性。
+  function stockKeyOf(row) { return row?.dataset.pageKey?.replace(/^inventory:/, ''); }
+  // 现行车间使用分类页签；搜索只筛选当前页的模块行。
   function filterModules(list) {
     const terms = $('stage-module-search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if (terms.length) {
-      for (const cat of Object.keys(SA.CAT)) {
-        const group = moduleGroup(cat);
-        if (group?.classList.contains('folded')) {
-          searchExpandedGroups.add(cat);
-          group.click();
-          // 折叠分类的点击会让原车间重绘清单，必须拿到重绘后的列表再继续筛选。
-          list = document.querySelector('.assembly-screen .panel-list');
-        }
-      }
-    } else {
-      restoreModuleGroups();
-      list = document.querySelector('.assembly-screen .panel-list');
-    }
     if (!list) return null;
-    let group = null, matches = 0, visible = false, total = 0;
-    for (const item of list.children) {
-      if (item.classList.contains('grp')) {
-        if (group) group.hidden = terms.length > 0 && matches === 0;
-        group = item; matches = 0;
-      } else if (item.classList.contains('mrow')) {
+    let total = 0;
+    for (const item of list.querySelectorAll('.mrow')) {
         const { id, mt } = SA.parseKey(stockKeyOf(item)), mod = SA.MODULES[id];
         const text = [id, mod?.name, SA.CAT[mod?.cat]?.name, SA.MATS[mt]?.name, SA.MATS[mt]?.rank].join(' ').toLowerCase();
-        visible = terms.every(term => text.includes(term));
+        const visible = terms.every(term => text.includes(term));
         item.hidden = !visible;
-        if (visible) { matches++; total++; }
-      } else if (item.classList.contains('mdetail')) item.hidden = !visible;
+        if (visible) total++;
     }
-    if (group) group.hidden = terms.length > 0 && matches === 0;
     const empty = $('stage-search-empty');
     if (empty) empty.hidden = !terms.length || total > 0;
     return list;
@@ -99,9 +63,12 @@
   function selectRecentModule(key) {
     $('stage-module-search').value = '';
     updateWorkshopModules(true);
-    const { id } = SA.parseKey(key), group = moduleGroup(SA.MODULES[id].cat);
-    if (group?.classList.contains('folded')) group.click();
-    const row = [...document.querySelectorAll('.assembly-screen .panel-list .mrow')].find(item => stockKeyOf(item) === key);
+    let row = [...document.querySelectorAll('.assembly-screen .panel-list .mrow')].find(item => stockKeyOf(item) === key);
+    if (!row) {
+      // 最近使用可能属于另一个分类，先回到工作台的全部页签再定位。
+      document.querySelector('.assembly-screen .ed-tab[title="全部模块"]')?.click();
+      row = [...document.querySelectorAll('.assembly-screen .panel-list .mrow')].find(item => stockKeyOf(item) === key);
+    }
     if (row && !row.classList.contains('sel')) row.click();
   }
   function renderRecentModules(list) {
@@ -136,7 +103,7 @@
           SA.h('div', { id: 'stage-recent-empty', class: 'muted' }, '装上模块后显示在这里'));
       }
       if (tools.nextElementSibling !== moduleTools) tools.after(moduleTools);
-      moduleTools.hidden = !list.querySelector('.grp');
+      moduleTools.hidden = !list.querySelector('.mrow');
       let currentList = list;
       if (!moduleTools.hidden) currentList = filterModules(currentList) || currentList;
       renderRecentModules(currentList);
@@ -249,7 +216,6 @@
     const vehicle = SA.V.clone(syncAssemblyVehicle());
     SA.current = 'stage-editor'; document.body.dataset.screen = 'stage-editor';
     if (shopObserver) { shopObserver.disconnect(); shopObserver = null; }
-    restoreModuleGroups();
     if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
     assemblyOpen = false;
     $('assembly-screen').hidden = true; $('assembly-empty').hidden = false;

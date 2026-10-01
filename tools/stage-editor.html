@@ -7,10 +7,10 @@
   <link rel="stylesheet" href="../css/style.css">
   <style>
     html, body { height: auto; overflow: auto; }
-    body { max-width: 1500px; margin: 0 auto; padding: 16px; }
+    body { max-width: 1900px; margin: 0 auto; padding: 12px; }
     h1 { margin: 0 0 4px; color: var(--brass2); font-size: 22px; }
     h2 { margin: 18px 0 8px; color: var(--brass3); font-size: 16px; }
-    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; }
+    .layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; }
     .panel { background: var(--dark1); border: 1px solid var(--dark3); padding: 10px; }
     .stage-list { display: grid; gap: 4px; }
     .stage-list button { text-align: left; color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 7px; cursor: pointer; }
@@ -43,9 +43,13 @@
     .tab-button { color: var(--text); background: var(--dark0); border: 1px solid var(--dark3); padding: 7px 11px; cursor: pointer; }
     .tab-button.active, .tab-button:hover { color: var(--brass3); border-color: var(--brass2); background: var(--dark2); }
     .tab-panel[hidden] { display: none; }
-    .assembly-screen { min-height: 650px; height: min(780px, 72vh); background: var(--dark0); border: 1px solid var(--dark3); overflow: hidden; }
+    /* 工作台把性能单放到画布下方，让拼装画布取得主要宽度；窄屏允许滚动操作。 */
+    .assembly-screen { min-height: 820px; height: clamp(820px, 94vh, 1150px); background: var(--dark0); border: 1px solid var(--dark3); overflow: auto; }
     .assembly-screen #screen { height: 100%; min-height: 0; }
-    .assembly-screen .ed { height: 100%; }
+    .assembly-screen .ed { height: 100%; min-width: 960px; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) 155px; }
+    .assembly-screen .ed-main { grid-column: 1; grid-row: 1; }
+    .assembly-screen .ed-sheet { grid-column: 1; grid-row: 2; max-height: none; }
+    .assembly-screen .ed-cat { grid-column: 2; grid-row: 1 / 3; }
     /* 搜索和最近使用固定在模块清单标题下；库存列表保留原车间的滚动与拖拽。 */
     .stage-module-tools { display: grid; gap: 5px; padding: 0 12px 8px; border-bottom: 2px solid var(--dark0); }
     .stage-module-tools input { min-width: 0; font-size: 13px; }

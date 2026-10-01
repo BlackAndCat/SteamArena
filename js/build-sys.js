@@ -13,3 +13,5 @@ SA.BUILD_SYS += '+opening-story-editor'; // 标题与开场演出直达剧情编
 SA.BUILD_SYS += '+yard-chat-data'; // 院子闲谈支持章节继承、成套对答、权重冷却和全局时间。
 SA.BUILD_SYS += '+page-startup-version-fix'; // 页面旧草稿版本恢复与首屏覆盖应用。
 SA.BUILD_SYS += '+page-two-versions'; // 页面原始版与编辑版固定两版，旧历史文案合入编辑稿。
+SA.BUILD_SYS += '+first-stage-tank-reward'; // 首关小水罐实物奖励与旧档一次性补发。
+SA.BUILD_SYS += '+stage-workbench-full-modules'; // 关卡车工作台显示正式注册的全部非退役模组。

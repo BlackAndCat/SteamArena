@@ -21,7 +21,9 @@ SA.Editor = (() => {
   // 商店分组的折叠状态记在本机
   // 模块清单的纸页签：一次只看一类（界面重建 v3，替换原来的折叠条）；记住上次看的是哪一类
   function loadCat() { try { return localStorage.getItem('steam_arena_cat_v1') || null; } catch (e) { return null; } }
-  function saveCat() { try { localStorage.setItem('steam_arena_cat_v1', st.cat || ''); } catch (e) { /* ignore */ } }
+  // 关卡车工作台共用编辑器，但其分类选择不写入普通游戏车间的偏好。
+  const stageWorkbench = () => !!document.querySelector('#assembly-screen > #screen');
+  function saveCat() { if (stageWorkbench()) return; try { localStorage.setItem('steam_arena_cat_v1', st.cat || ''); } catch (e) { /* ignore */ } }
   let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, tabsEl, plateEl, ghost, ro, frame = null, sheetEl = null, leverEl = null;
 
   const d = () => SA.S.d;
@@ -44,6 +46,7 @@ SA.Editor = (() => {
     if (frame !== null) cancelAnimationFrame(frame);
     if (dock) st.dock = dock;
     if (st.dock === 'bps' && !bpOpen()) st.dock = 'mods';
+    if (stageWorkbench()) st.cat = 'all';
     SA.go('garage');
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
@@ -574,16 +577,22 @@ SA.Editor = (() => {
     // 每一类要列的模块（按材料分行：库存里有的都列，材料好的排前面；商店打开时补上能买的黄铜款）
     const keysOf = (cat) => {
       const keys = [];
-      for (const id of SA.MODULE_ORDER) {
-        if (M[id].cat !== cat) continue;
+      // 工作台以正式注册表兜底补齐排序表遗漏的模块；普通车间沿用既有清单。
+      const ids = stageWorkbench() ? [...new Set([...SA.MODULE_ORDER, ...Object.keys(M)])] : SA.MODULE_ORDER;
+      for (const id of ids) {
+        if (!M[id] || M[id].retired || M[id].cat !== cat) continue;
         for (let mt = SA.MAT_MAX; mt >= 1; mt--) { const k = SA.invKey(id, mt); if (inv[k] > 0 || (mt === SA.buyMt(id) && shop && buyable(id))) keys.push(k); }
       }
       return keys;
     };
     const cats = CAT_ORDER.map(cat => ({ cat, keys: keysOf(cat) }));
-    if (!cats.some(c => c.cat === st.cat && c.keys.length)) { const first = cats.find(c => c.keys.length); st.cat = first ? first.cat : CAT_ORDER[0]; }
+    if (st.cat !== 'all' || !stageWorkbench()) {
+      if (!cats.some(c => c.cat === st.cat && c.keys.length)) { const first = cats.find(c => c.keys.length); st.cat = first ? first.cat : CAT_ORDER[0]; }
+    }
     // 右边一列纸页签：类别色条 + 名字 + 件数；空的类别变淡
     tabsEl.innerHTML = '';
+    if (stageWorkbench()) tabsEl.append(h('button', { class: `ed-tab ${st.cat === 'all' ? 'on' : ''}`, title: '全部模块',
+      onclick: () => { st.cat = 'all'; renderInv(); invEl.scrollTop = 0; } }, h('span', { class: 'nm' }, '全部')));
     for (const { cat, keys } of cats) {
       if (!keys.length) continue;   // 没有库存（商店模式下没有可买）的大类不显示页签
       const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
@@ -591,11 +600,15 @@ SA.Editor = (() => {
         onclick: () => { if (!keys.length) return; st.cat = cat; saveCat(); renderInv(); invEl.scrollTop = 0; } },
         h('i', {}), h('span', { class: 'nm' }, SA.CAT[cat].name), keys.length ? h('b', {}, shop ? keys.length : have) : null));
     }
-    const curCat = cats.find(c => c.cat === st.cat);
+    const curCat = st.cat === 'all' && stageWorkbench()
+      ? { cat: 'all', keys: cats.flatMap(c => c.keys) } : cats.find(c => c.cat === st.cat);
     if (curCat && curCat.keys.length) {
       const cat = curCat.cat, keys = curCat.keys;
       const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
-      invEl.append(h('div', { class: 'cat-head', style: `--c:${SA.CAT[cat].plate}` }, h('span', { class: 'px-h2' }, SA.CAT[cat].name), h('span', { class: 'px-small' }, shop ? `${keys.length} 种` : `${have} 件`)));
+      const distinct = new Set(keys.map(kid)).size;
+      invEl.append(h('div', { class: 'cat-head', style: `--c:${cat === 'all' ? 'var(--brass2)' : SA.CAT[cat].plate}` },
+        h('span', { class: 'px-h2' }, cat === 'all' ? '全部模块' : SA.CAT[cat].name),
+        h('span', { class: 'px-small' }, cat === 'all' ? `${distinct} 种` : shop ? `${keys.length} 种` : `${have} 件`)));
       for (const key of keys) {
         shown++;
         const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
@@ -749,37 +762,12 @@ SA.Editor = (() => {
     changed();
   }
 
-  // 「?」：图例 + 规则，合在一个地方
+  // 「?」只保留新手此刻要做的三步，详细模块数据仍在选中卡片里。
   function openHelp() {
-    const H = (t) => h('h3', { class: 'help-h' }, t);
     SA.UI.openModal('图例与规则', h('div', { class: 'help' },
-      H('模块图例'),
-      h('div', { class: 'help-cats' }, Object.entries(SA.CAT).map(([k, c]) => h('div', { class: `help-cat cat-${k}` },
-        h('b', {}, h('i', { style: `background:${c.plate}` }), c.name),
-        h('div', { class: 'help-mods' }, SA.MODULE_ORDER.filter(id => M[id].cat === k && !M[id].retired).map(id => h('span', {}, SA.SPR.moduleCanvas(id, 0.6), M[id].name)))))),
-      H('材料'),
-      h('p', {}, '模块的品质就是材料：', SA.MATS.slice(1).map((mt, i) => [SA.Camp.matChip(i + 1), ` ×${mt.mul} `]),
-        '。选中车上的模块就能升级材料：耐久、伤害、动力、水、冷却、撞击、承重、护甲一起放大，重量和产热不变。黄铜到镀镍花钱升级，随战役逐章解锁；史诗「乌兹钢」和传奇「以太合金」还要消耗乌兹钢锭 / 以太结晶，靠 Boss 掉落获得。战役胜利后还能从对手剩下的模块里缴获一件。'),
-      H('实体辅助模块'),
-      h('p', {}, '观察镜、装弹机、陀螺仪和测距仪是可被击毁的 1×1 实体模块，放在车上即可生效。'),
-      H('护甲与穿深'),
-      h('p', {}, `装甲类模块有装甲厚度（铁装甲 ${M.armor.armor}、重装甲 ${M.armor_heavy.armor}、铲斗 ${M.bucket.armor}、履带 ${M.track.armor}、四足 ${M.quad.armor}，随材料加厚），每挨一发先减掉固定伤害，最少保留 25%。武器有穿深（不随材料变）：穿深不到装甲厚度的炮弹有概率`, h('b', {}, '弹开'),
-        `，几乎没有伤害。机炮穿深 ${M.mg.penetration}，打熟铁以上的装甲就会开始弹开，适合专打没护甲的锅炉、水箱、驾驶舱；主炮穿深高，才能稳定打穿厚甲。在模块清单里选中一件武器或装甲，会展开它的穿深对照表。`),
-      H('修理费'),
-      h('p', {}, '越复杂精密的部件修起来越贵：甲片、装甲便宜，水箱低，撞击件、武器居中，驾驶舱和锅炉最贵。模块清单里每件的「修」刻度亮几格就是第几档（', h('span', { style: 'color:var(--gauge2)' }, '便宜'), ' → ', h('span', { style: 'color:var(--brass2)' }, '一般'), ' → ', h('span', { style: 'color:var(--fire2)' }, '较贵'), ' → ', h('span', { style: 'color:#ff5a3c' }, '昂贵'), '），战后结算会列出每件花了多少。'),
-      H('新属性'),
-      h('p', {}, h('b', { style: 'color:var(--fire2)' }, '储能'), '：蓄压罐在锅炉有富余时存下蒸汽，动力不够时补上。', h('b', { style: 'color:var(--water2)' }, '省水'), '：冷凝器让冷却耗水打折，同样的水撑得更久。', h('b', { style: 'color:var(--water2)' }, '不耗水散热'), '：散热片不用水也能一直散热。', h('b', { style: 'color:var(--brass2)' }, '牵引'), '：鱼叉命中后把对手拉过来，被拉过来的撞击反震减半。选中这些模块可以看到装上后整车的变化。'),
-      H('车间里的颜色'),
-      h('p', {}, h('b', { style: 'color:var(--gauge2)' }, '绿色闪烁'), ' 选中 / 可以放 · ', h('b', { style: 'color:#ff3b2f' }, '红色闪烁'), ' 悬空、不合规或不能放 · 空格上的淡绿 = 能稳稳装上的位置'),
-      H('操作'),
-      h('p', {}, '从模块清单选一个再点格子放置（也可以直接拖上去）；安装后保持选中，可连续放置，库存用尽后自动购买，钱不够会问要不要贷款。点已有模块直接替换（换下的回库存），点同款模块拆下。点车上的模块选中它（修理 / 拆下）；拖动可移动或对调，拖回清单放回库存。打开「商店」开关能看到没有库存的模块。右键先取消选中或拖动，空手时才拆下指针下的模块 · Esc 取消 · Delete 拆下选中。'),
-      H('摆放规则'),
-      h('p', {}, '驾驶员：驾驶舱里坐 1 人，1×2 联合驾驶舱 2 人，2×2 联合驾驶舱 4 人。全车驾驶员每比 1 多一个，就替你操作一组你当前没在用的武器（你切换武器组，他们跟着接手剩下的），自己挑目标，但没你准。'),
-      h('p', {}, '速度：最高速度 = 底盘速度 × 动力比（锅炉富余最多超速 25%），单位 km/h。底盘手感：双足起步和刹车最快但走起来最晃，四足刹车最慢但移动时最平稳，履带居中。重量：每个模块都有重量（基础 250 kg + 自身重量），总重不能超过底盘承重；车越重，行驶要的动力越多、加速越慢，撞击却越狠（撞击面自己也会受伤）。改装：选中车上的模块可以加炮盾 / 附加装甲，每级加耐久也加重量，鼠标停在模块上能看到军衔杠。'),
-      h('p', {}, '格子：每个大格分成 2×2 个小格。大模块占 2×2 小格，可以错开半格摆；甲片、小水罐、头盔驾驶舱占 1 个小格，水罐占 1×2，用来补缝。摆放时模块的中心跟着鼠标走，底盘自动贴到最底下两行。'),
-      h('p', {}, '改装台上可以随便摆、暂时悬空，但出战前所有模块都要一路连到底盘。底盘只能放最底下两行；其他模块四周紧贴已连上的模块就行（可以侧挂、悬挑，撞击件不算支撑），最高 6 层。直射火炮、机炮炮管那一行（模块下半格）前方不能有己方模块，高抛火炮不受影响。撞击武器（铲斗装在底盘前，撞角 / 撞锤装在装甲或底盘前）必须是它那几行的最前端。两车只在同一高度的行上相撞：光秃秃的底盘只在底盘那两行挡路，高处的撞角能越过它撞到后面。侧炮整个挂在主体模块上，不会被己方挡住但命中率低。'),
-      H('战斗里的颜色'),
-      h('p', {}, h('b', {}, '白框'), ' 准星对准的模块 · ', h('b', { style: 'color:var(--magenta)' }, '洋红'), ' 准星对准的侧炮 · ', h('b', { style: 'color:#ffb347' }, '橙色角框'), ' = 弹道中心会先打中的模块（不是你瞄的那个）· ', h('b', { style: 'color:var(--fire2)' }, '橙'), ' 热量 · ', h('b', { style: 'color:var(--water2)' }, '青'), ' 水 · ', h('b', { style: 'color:var(--gauge2)' }, '绿'), ' 动力 · ', h('b', { style: 'color:var(--brass2)' }, '黄铜'), ' 火力。准星旁的小沙漏 = 装填进度。'),
+      h('p', {}, '1. 先从模块清单选一件，再用左键点车上的格子放置。'),
+      h('p', {}, '2. 选着模块或正在拖动时，右键取消当前操作。'),
+      h('p', {}, '3. 点「出战 →」打开出战黑板，选择关卡进入战斗；A/D 移动，鼠标瞄准，按住左键稳住准星，蓄满自动开火或松手开火。'),
     ));
   }
 

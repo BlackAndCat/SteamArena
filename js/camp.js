@@ -8,6 +8,7 @@ window.SA = window.SA || {};
 const STAGE_CARS_LOCAL_KEY = 'steam_arena_stage_cars_local_v1';
 const STAGE_CARS_CHANNEL_NAME = 'steam-arena-stage-cars';
 let stageCarsChannel = null;
+const FIRST_TANK_REWARD = '0:0:tank_s'; // 修正首关固定奖励的持久化领取记号。
 
 // 关卡标题和车辆铭牌分别保存；旧手工记录没有 vehicleName 时仍沿用原来的关卡名。
 // 原始关卡车文件由用户工作台生成，这里只扩展公开接口，不手工改写其内容。
@@ -177,7 +178,10 @@ SA.Camp = (() => {
     const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
     if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
     // 序章第一关是教学战：保留手工关卡车，但驾驶行为不被历史车记录覆盖。
-    if (ci === 0 && si === 0) { merged.style = 'rookie'; merged.aim = 0.18; }
+    if (ci === 0 && si === 0) {
+      merged.style = 'rookie'; merged.aim = 0.18;
+      merged.unlock = { ...merged.unlock, note: '车间开放：首胜领取一只 1×1 小水罐，装上它练习冷却。' }; // 旧手工备注只在运行时更正，不改用户关卡记录。
+    }
     return { ...merged, ci, si, chapter: ch };
   }
   const current = () => (done() ? null : stage());
@@ -207,6 +211,12 @@ SA.Camp = (() => {
       ch.stages.forEach((raw, si) => { const s = stage(ci, si) || raw; if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
       if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
     });
+    // 旧档已过首关但当时只有文字承诺：补发一次；旧库存与玩家构筑原样保留。
+    if ((C.done || C.ch > 0 || C.st > 0) && !C.rewardClaims?.[FIRST_TANK_REWARD]) {
+      SA.S.addInv('tank_s', 1, 1);
+      (C.rewardClaims ||= {})[FIRST_TANK_REWARD] = true;
+      SA.S.save();
+    }
   }
   function unlockLines(u) {
     const out = [];
@@ -228,6 +238,7 @@ SA.Camp = (() => {
     for (const item of st.rewardItems || []) {
       SA.S.addInv(item.id, item.count, item.mt);
       out.lines.push(`获得 ${M[item.id].name} ×${item.count}`);
+      if (st.ci === 0 && st.si === 0 && item.id === 'tank_s') (C.rewardClaims ||= {})[FIRST_TANK_REWARD] = true;
     }
     if (st.drop) {
       SA.S.addIngots(st.drop);
