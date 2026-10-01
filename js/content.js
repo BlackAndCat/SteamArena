@@ -148,6 +148,7 @@ SA.CAMPAIGN = [
   },
   {
     name: '第一章 · 后巷', place: '白教堂后巷',
+    bounds: { left: 0, right: 1280 }, // 后巷两头堆着路障（画面见 scenes.js 的 barriers），整车不能无限后退；用户 2026-09-30 要求。
     blurb: '后巷里的地下赛车圈。在这里站稳脚跟，才会有人给你递锦标赛的请柬。',
     stages: [
       {

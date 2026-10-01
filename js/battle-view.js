@@ -62,7 +62,7 @@ SA.BattleView.create = function createBattleView(api) {
   let BD = null;
   const sceneT = () => performance.now() / 1000;
   function drawBackdrop(vw, vh, oy) { SA.Scenes.back(BD, g, vw, vh, oy, B.cam.x, sceneT(), B.opts); }
-  function drawFloor() { SA.Scenes.floor(BD, g, B.cam); }
+  function drawFloor() { SA.Scenes.floor(BD, g, B.cam); if (B.bounds) SA.Scenes.barriers(BD, g, B.bounds, groundAt, sceneT()); }   // 有场地边界时两头摆路障
   function drawNear(vw, vh, oy) { SA.Scenes.front(BD, g, vw, vh, oy, B.cam.x, sceneT()); }
 
   // ---------- 绘制 ----------

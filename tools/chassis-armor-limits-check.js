@@ -7,8 +7,8 @@ function run() {
   const { SA } = loadGame();
   assert.deepStrictEqual(JSON.parse(JSON.stringify(SA.CAMPAIGN[0].bounds)), { left: 0, right: 1280 }, '序章应有两侧边界');
   assert.deepStrictEqual(JSON.parse(JSON.stringify(SA.CAMPAIGN[2].bounds)), { left: 0, right: 1280 }, '第二章应有两侧边界');
-  assert(!SA.CAMPAIGN[1].bounds, '第一章应保留自由场地');
-  assert(SA.CAMPAIGN.every((chapter, i) => i === 0 || i === 2 || !chapter.bounds), '边界不能扩散到其它章节');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(SA.CAMPAIGN[1].bounds)), { left: 0, right: 1280 }, '第一章（后巷，两头路障）应有两侧边界');   // 用户 2026-09-30 追加
+  assert(SA.CAMPAIGN.every((chapter, i) => i <= 2 || !chapter.bounds), '边界不能扩散到其它章节');
   const row = SA.V.chassisRow('track');
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   const car = (chassis, boiler = 'boiler') => {

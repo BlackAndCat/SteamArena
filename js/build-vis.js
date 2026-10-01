@@ -27,3 +27,4 @@ SA.BUILD_VIS += '+no-rank-chevrons'; // 模块上的改装军衔杠取消（车�
 SA.BUILD_VIS += '+stage-victory-free-repair'; // 战役胜利后按关卡设置呈现免费修理。
 SA.BUILD_VIS += '+scene-atmosphere'; // 战斗场景氛围层：景深雾 / 雾带 / 灯光晕和光锥 / 车底软影 / 贴地薄雾 / 调色 / 泛光 / 超近景虚化剪影（挡车自动变淡）/ 飘浮物 / 暗角 / 颗粒，帧率低自动降档，设置里可关
 SA.BUILD_VIS += '+yard-click-dialog'; // 院子人物点击显示可关闭对话框，台词读取页面管理覆盖。
+SA.BUILD_VIS += '+back-alley-scene'; // 第一章后巷场景（熏黑的民房、酒馆、当铺三铜球、窗里和人行道上围观的煤球、庄家赔率黑板和放贷的）+ 场地两头的路障（后巷 / 铁匠铺 / 野地 / 竞技场各一种）
