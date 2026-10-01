@@ -327,13 +327,14 @@ SA.S = (() => {
         if (!beaten && !next) return [];
         const stage = SA.Camp.stage(chapterIndex, i);
         const replay = beaten;
-        return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', bounds: stage.chapter.bounds, replay, next,
+        return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay || stage.rewardMoney === false ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', bounds: stage.chapter.bounds, replay, next,
           tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
           // 战前控制台可修改当前关卡；真正开战时再取一次最新数据，剧情编号和重打规则仍固定。
           start: () => {
             const latest = SA.Camp.stage(chapterIndex, i);
-            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, bounds: latest.chapter.bounds, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
+            // 本场经济规则随战斗选项固定，结算时不再读取可能已被工作台修改的关卡。
+            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, bounds: latest.chapter.bounds, boss: latest.boss, hpMul: 1, prize: replay || latest.rewardMoney === false ? 0 : latest.prize, rewardMoney: latest.rewardMoney !== false, victoryRepairFree: latest.victoryRepairFree === true, uniqueLoot: latest.uniqueLoot || [] });
           } }];
       }));
     }
@@ -405,17 +406,23 @@ SA.S = (() => {
     } else if (res.mode === 'campaign' || res.mode === 'tournament') {
       const camp = res.mode === 'campaign';
       if (d.debt) { const add = Math.ceil(d.debt * 0.1); d.debt += add; lines.push(`银行利息 +${formatMoney(add)}`); }
+      // 关卡关闭金币时，平局也不发最低 5 金币的出场费；赌注仍按原规则退回。
+      const rewardMoney = !camp || res.opts?.rewardMoney !== false;
       if (res.draw) {
-        const fee = drawFee(res.prize);
-        d.money += fee;
-        lines.push(`平手：双方各拿出场费 ${formatMoney(fee)}，这一场要重赛`);
+        if (rewardMoney) {
+          const fee = drawFee(res.prize);
+          d.money += fee;
+          lines.push(`平手：双方各拿出场费 ${formatMoney(fee)}，这一场要重赛`);
+        } else lines.push('平手：这一场要重赛');
         if (d.bet) { d.money += d.bet.amount; lines.push(`平局退还赌注 ${formatMoney(d.bet.amount)}`); }
         d.news = `「${d.vehicle.name}」和「${res.enemyName}」打成平手，择日重赛。`;
       } else if (res.win) {
-        d.money += res.prize; d.wins++;
+        if (rewardMoney) d.money += res.prize;
+        d.wins++;
         const rep = (res.flawless ? 2 : 1) + (res.surrendered ? 1 : 0);
         d.rep += rep;
-        lines.push(`奖金 +${formatMoney(res.prize)}`, `声望 +${rep}${[res.flawless ? '驾驶舱毫发无损' : '', res.surrendered ? '接受投降，体面收场' : ''].filter(Boolean).map(x => `（${x}）`).join('')}`);
+        if (rewardMoney) lines.push(`奖金 +${formatMoney(res.prize)}`);
+        lines.push(`声望 +${rep}${[res.flawless ? '驾驶舱毫发无损' : '', res.surrendered ? '接受投降，体面收场' : ''].filter(Boolean).map(x => `（${x}）`).join('')}`);
         if (d.bet) { const pay = Math.round(d.bet.amount * d.bet.odds); d.money += pay; lines.push(`赌注兑现 +${formatMoney(pay)}`); }
         // 缴获：只有你还没有的零件或史诗 / 传奇件；什么都没有就说一声
         const loot = SA.Camp.salvageOptions(res.survivors || []);

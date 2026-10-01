@@ -107,10 +107,11 @@ for (const variant of SA.LEG_VARIANTS) {
     reward: { ...variant, unique: true, guaranteed: true },
   });
 }
-// 序章第二关新增甲片奖励；保留原始模板供旧手工关卡记录迁移时恢复新关。
+// 序章训练赛不发金币，胜利后由铁匠铺免费修理；保留原奖金数值供工作台重新开启时使用。
+// 第二关原始模板还用于旧手工关卡记录迁移时恢复新关。
 SA.CAMPAIGN_LAYOUT = 2;
 SA.PROLOGUE_PLATE_STAGE = {
-  name: '补丁号', pilot: '铆工 小艾达', prize: 0, aim: 0.45, style: 'turtle',
+  name: '补丁号', pilot: '铆工 小艾达', prize: 0, rewardMoney: false, victoryRepairFree: true, aim: 0.45, style: 'turtle',
   blurb: '驾驶舱上方焊着一块甲片。观察它护住了哪里，再试着从薄弱处打进去。',
   rows: ['........', '........', '........', '........', '........', '........'],
   subs: [[8, 5, 'boiler_s'], [9, 4, 'helmet'], [9, 6, 'mg_s'], [10, 4, 'track'], [8, 4, 'plate']],
@@ -126,7 +127,7 @@ SA.CAMPAIGN = [
     blurb: '老汤姆答应教你开蒸汽战车。先在后院的煤渣地上试试手：A/D 开车，按住左键瞄准开火。',
     stages: [
       {
-        name: '破铜烂铁号', pilot: '学徒 小提米', prize: 60, aim: 0.18, style: 'rookie',
+        name: '破铜烂铁号', pilot: '学徒 小提米', prize: 60, rewardMoney: false, victoryRepairFree: true, aim: 0.18, style: 'rookie',
         blurb: '铁匠铺学徒拿废料拼的练习车，只有一门机炮，枪法也很烂。放心开火。',
         rows: ['........', '........', '........', '...K....', '...OM...', '...TT...'],
         spec: { terrain: 'flat', reward: 'tank_s', lesson: '认识车间、锅炉和机炮：先学会让车动起来并保护驾驶舱。', targetStrength: [0.65, 0.8], performanceMin: 35 },
@@ -135,7 +136,7 @@ SA.CAMPAIGN = [
       },
       { ...SA.PROLOGUE_PLATE_STAGE },
       {
-        name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 120, aim: 0.6,
+        name: '锈钉子号', pilot: '铁匠 老汤姆', prize: 120, rewardMoney: false, victoryRepairFree: true, aim: 0.6,
         blurb: '老汤姆的机炮从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。',
         rows: ['........', '........', '........', '...KM...', '...OWA..', '...TTU..'],
         spec: { terrain: 'flat', reward: 'bucket', lesson: '铲斗近战：没有好炮时，用动力和铲斗贴身推倒早期薄甲车。', targetStrength: [0.65, 0.8], performanceMin: 35 },

@@ -338,8 +338,10 @@ SA.UI = (() => {
     const summary = () => {
       const hurt = [];
       SA.V.each(d.vehicle, (cell) => { if (cell.hp < SA.V.maxHp(cell)) hurt.push(cell); });
-      const cost = hurt.reduce((a, c) => a + SA.S.repairCost(c), 0);
-      const fixAll = () => { SA.S.repairCells(hurt); toast(`修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
+      // 免费修理只适用于本场战役胜利；损伤和点击修复仍走原有部件流程。
+      const freeRepair = res.mode === 'campaign' && res.win && !res.draw && res.opts?.victoryRepairFree === true;
+      const cost = freeRepair ? 0 : hurt.reduce((a, c) => a + SA.S.repairCost(c), 0);
+      const fixAll = () => { SA.S.repairCells(hurt); toast(freeRepair ? `免费修好 ${hurt.length} 个模块` : `修好 ${hurt.length} 个模块，花费 ${money(cost)}`); };
       const after = () => { refresh(); story(() => SA.Camp.introIfNew()); };
       const gain = d.money - money0, net = gain - cost;
       dialog(res.draw ? '平手' : res.win ? '胜利！' : '战败', [
@@ -347,13 +349,13 @@ SA.UI = (() => {
         h('p', { class: 'muted' }, `造成伤害 ${Math.round(res.dealt)} · 承受伤害 ${Math.round(res.taken)} · 用时 ${Math.round(res.time)} 秒`),
         lines.map(l => h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, l)),
         hurt.length ? h('div', { class: 'rp-sum' },
-          h('div', { class: 'rp-head' }, h('b', {}, `修理费 · ${hurt.length} 个模块受损`), h('span', { class: 'muted' }, '越精密的部件修起来越贵')),
-          repairList(hurt),
-          gain > 0 ? h('div', { class: `rp-net ${net < 0 ? 'bad' : ''}` },
-            `本场进账 ${money(gain)} − 修理 ${money(cost)} = `, h('b', {}, `${net < 0 ? '净亏' : '净赚'} ${money(Math.abs(net))}`)) : null) : null,
+          h('div', { class: 'rp-head' }, h('b', {}, `${freeRepair ? '免费修理' : '修理费'} · ${hurt.length} 个模块受损`), h('span', { class: 'muted' }, freeRepair ? '本场胜利修理由铁匠铺承担' : '越精密的部件修起来越贵')),
+          repairList(hurt, 5, freeRepair),
+          gain > 0 || freeRepair ? h('div', { class: `rp-net ${net < 0 ? 'bad' : ''}` },
+            `本场进账 ${money(gain)} − 修理 ${freeRepair ? '免费' : money(cost)} = `, h('b', {}, `${net < 0 ? '净亏' : '净赚'} ${money(Math.abs(net))}`)) : null) : null,
         feedbackRow(res.humanId),
       ], [
-        hurt.length ? { label: `全部修理 ${money(cost)}`, primary: true, onClick: () => pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { fixAll(); after(); } }) } : null,
+        hurt.length ? { label: freeRepair ? '免费全部修理' : `全部修理 ${money(cost)}`, primary: true, onClick: () => freeRepair ? (fixAll(), after()) : pay({ title: '修理', amount: cost, okLabel: '修理', confirm: false, onPaid: () => { fixAll(); after(); } }) } : null,
         hurt.length && SA.Camp.has('garage') ? { label: '去车间', onClick: () => { SA.nav('garage'); story(() => {}); } } : null,
       ].filter(Boolean), hurt.length ? '稍后再说' : '继续', after);
     };
@@ -381,7 +383,7 @@ SA.UI = (() => {
       `修满 ${money(repairFull(cell))} · ${t.name}`);
   }
   // 修理清单：按花费从高到低，最贵的几件单独列出，条的长短 = 占总修理费的比例
-  function repairList(cells, top = 5) {
+  function repairList(cells, top = 5, free = false) {
     const rows = cells.map(c => ({ c, cost: SA.S.repairCost(c) })).filter(r => r.cost > 0).sort((a, b) => b.cost - a.cost);
     const total = rows.reduce((a, r) => a + r.cost, 0), rest = rows.slice(top);
     const row = ({ c, cost }) => {
@@ -389,11 +391,11 @@ SA.UI = (() => {
       const pic = SA.SPR.moduleCanvas(c.id, 0.5, c.mt); pic.classList.add('px');
       return h('div', { class: `rp-row rp-${t.n}`, style: `--f:${(cost / Math.max(1, total) * 100).toFixed(1)}%` },
         h('span', { class: 'pic' }, pic), h('span', { class: 'nm' }, SA.MODULES[c.id].name, ' ', SA.Camp.matChip(c.mt || 1)),
-        h('span', { class: `lost ${c.hp <= 0 ? 'dead' : ''}` }, lost), repairPips(c.id), h('b', {}, money(cost)));
+        h('span', { class: `lost ${c.hp <= 0 ? 'dead' : ''}` }, lost), repairPips(c.id), h('b', {}, free ? '免费' : money(cost)));
     };
     return h('div', { class: 'rp-list' }, rows.slice(0, top).map(row),
-      rest.length ? h('div', { class: 'rp-row more' }, h('span', { class: 'nm' }, `其余 ${rest.length} 件`), h('b', {}, money(rest.reduce((a, r) => a + r.cost, 0)))) : null,
-      rows.length > 1 ? h('div', { class: 'rp-row total' }, h('span', { class: 'nm' }, '合计'), h('b', {}, money(total))) : null);
+      rest.length ? h('div', { class: 'rp-row more' }, h('span', { class: 'nm' }, `其余 ${rest.length} 件`), h('b', {}, free ? '免费' : money(rest.reduce((a, r) => a + r.cost, 0)))) : null,
+      rows.length > 1 ? h('div', { class: 'rp-row total' }, h('span', { class: 'nm' }, '合计'), h('b', {}, free ? '免费' : money(total))) : null);
   }
   // 一行文字版（按钮的鼠标提示用）
   const repairBrief = (cells) => cells.map(c => [c, SA.S.repairCost(c)]).sort((a, b) => b[1] - a[1]).slice(0, 4)

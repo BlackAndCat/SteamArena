@@ -277,6 +277,41 @@
     $('terrain').innerHTML = Object.keys(SA.TERRAINS).map(id => `<option value="${esc(id)}">${esc(SA.TERRAINS[id].name || id)}</option>`).join('');
   }
 
+  // 固定奖励与解锁、可缴获件分开录入；保留每行材料和数量，不合并同类物品。
+  function addRewardItem(item = {}) {
+    const row = document.createElement('div'); row.className = 'reward-row';
+    const moduleLabel = document.createElement('label'); moduleLabel.textContent = '物品';
+    const module = document.createElement('select'); module.className = 'reward-id';
+    module.innerHTML = '<option value="">请选择物品</option>' + [...new Set((SA.MODULE_ORDER || []).concat(Object.keys(SA.MODULES || {})))]
+      .filter(id => SA.MODULES[id] && !SA.MODULES[id].retired)
+      .map(id => `<option value="${esc(id)}">${esc(SA.MODULES[id].name)}</option>`).join('');
+    module.value = item.id || ''; moduleLabel.append(module);
+    const countLabel = document.createElement('label'); countLabel.textContent = '数量';
+    const count = document.createElement('input'); count.className = 'reward-count'; count.type = 'number'; count.min = '1'; count.step = '1'; count.value = item.count ?? 1; countLabel.append(count);
+    const materialLabel = document.createElement('label'); materialLabel.textContent = '材料';
+    const material = document.createElement('select'); material.className = 'reward-mt';
+    material.innerHTML = SA.MATS.map((mat, mt) => mat ? `<option value="${mt}">${esc(mat.name)}</option>` : '').join('');
+    material.value = item.mt ?? 1; materialLabel.append(material);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn'; remove.textContent = '删除'; remove.onclick = () => row.remove();
+    row.append(moduleLabel, countLabel, materialLabel, remove); $('reward-items').append(row);
+  }
+
+  function readRewardItems() {
+    return [...$('reward-items').querySelectorAll('.reward-row')].map((row, index) => {
+      const id = row.querySelector('.reward-id').value;
+      const countText = row.querySelector('.reward-count').value.trim();
+      const count = Number(countText);
+      const mt = Number(row.querySelector('.reward-mt').value);
+      if (!SA.MODULES[id] || SA.MODULES[id].retired) throw new Error(`第 ${index + 1} 项物品奖励未选择有效物品`);
+      if (!/^\d+$/.test(countText) || !Number.isSafeInteger(count) || count < 1) throw new Error(`第 ${index + 1} 项物品奖励数量必须是正整数`);
+      if (!Number.isInteger(mt) || !SA.MATS[mt] || mt < SA.minMt(id) || mt > SA.maxMt(id)) throw new Error(`第 ${index + 1} 项物品奖励材料不适用于该物品`);
+      return { id, count, mt };
+    });
+  }
+
+  // 金币奖励关闭时保留奖金原数值，重新开启后可继续编辑。
+  function syncPrizeInput() { $('prize').disabled = !$('reward-money').checked; }
+
   function readFields() {
     let unlock = state.record?.unlock || state.base?.unlock || null;
     const mods = $('unlock-mods').value.split(',').map(x => x.trim()).filter(Boolean);
@@ -294,7 +329,8 @@
     return {
       name: $('name').value.trim(), vehicleName: $('vehicle-name').value.trim(), pilot: $('pilot').value.trim(), style: $('style').value,
       aim: +$('aim').value, terrain: $('terrain').value, boss: $('boss').checked, prize: +$('prize').value,
-      unlock, uniqueLoot, blurb: $('blurb').value, weakness: $('weakness').value,
+      unlock, uniqueLoot, rewardItems: readRewardItems(), rewardMoney: $('reward-money').checked,
+      victoryRepairFree: $('victory-repair-free').checked, blurb: $('blurb').value, weakness: $('weakness').value,
       locked: state.record ? state.record.locked !== false : true,
     };
   }
@@ -315,6 +351,12 @@
     $('unlock-mat').value = stage.unlock?.mat ?? '';
     $('unlock-grid').value = stage.unlock?.grid ? `${stage.unlock.grid.cols}x${stage.unlock.grid.rows}` : '';
     $('loot').value = JSON.stringify(stage.uniqueLoot || [], null, 2);
+    $('reward-items').replaceChildren();
+    (stage.rewardItems || []).forEach(addRewardItem);
+    // 旧关卡没有结算开关时沿用原有奖金和付费修理规则。
+    $('reward-money').checked = stage.rewardMoney !== false;
+    $('victory-repair-free').checked = stage.victoryRepairFree === true;
+    syncPrizeInput();
     $('blurb').value = stage.blurb || '';
     $('weakness').value = stage.weakness || '';
     renderUnlockSummary();
@@ -480,6 +522,8 @@
   $('assembly-open').onclick = openAssembly;
   $('assembly-exit').onclick = exitAssembly;
   $('open-modules').onclick = openModulePicker;
+  $('add-reward-item').onclick = () => addRewardItem();
+  $('reward-money').onchange = syncPrizeInput;
   $('module-picker-cancel').onclick = closeModulePicker;
   $('module-picker-confirm').onclick = confirmModulePicker;
   $('save').onclick = async () => { try { const result = await saveRecord(); refreshAfterSave(result); showToast(saveNotice(result, '保存并锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`保存失败：${error.message}`, 'bad'); } };

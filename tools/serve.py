@@ -370,6 +370,13 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             return
         # 六章各三关均可由工作台保存，键仍需经过下方格式与范围双重校验。
         allowed_keys = {f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)}
+        targets = payload.get('targets', sorted(allowed_keys))
+        # 旧生成数据可显式带入原目标列表；保留顺序，避免维护 helper 时改动用户范围。
+        if (not isinstance(targets, list) or len(targets) > len(allowed_keys)
+                or any(not isinstance(key, str) or key not in allowed_keys for key in targets)
+                or len(set(targets)) != len(targets)):
+            self._json(400, {'error': '关卡目标列表不合法'})
+            return
         for key, record in records.items():
             if not isinstance(key, str) or not re.fullmatch(r'\d{1,2}:\d{1,2}', key):
                 self._json(400, {'error': '关卡键不合法'})
@@ -389,7 +396,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             records = dict(records)
             old = records.pop('0:1')
             records['0:2'] = dict(old, id='0:2') if old else old
-        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': sorted(allowed_keys), 'records': records}, ensure_ascii=False, indent=2)
+        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': targets, 'records': records}, ensure_ascii=False, indent=2)
         helper = r'''SA.StageCars = (() => {
   const data = SA.STAGE_CARS;
   const keyOf = (chapter, stage) => `${chapter}:${stage}`;
@@ -413,7 +420,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
     const record = get(chapter, stage);
     if (!record) return { ...base, source: 'original', locked: false, stageCar: null };
     const out = { ...base };
-    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot']) if (record[field] !== undefined) out[field] = record[field];
+    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (record[field] !== undefined) out[field] = record[field];
     out.source = 'manual'; out.locked = record.locked !== false; out.stageCar = record; out.manualVersion = record.updatedAt || record.version || null; out.vehicle = vehicle(record, out.name);
     return out;
   }
@@ -423,7 +430,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
       const [chapter, stage] = key.split(':').map(Number), record = get(chapter, stage), base = SA.CAMPAIGN[chapter]?.stages?.[stage];
       if (!record || !base) continue;
       const out = merge(base, chapter, stage);
-      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot']) if (out[field] !== undefined) base[field] = out[field];
+      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (out[field] !== undefined) base[field] = out[field];
       base.vehicle = out.vehicle; base.source = 'manual'; base.locked = out.locked; base.stageCar = record;
     }
   }
@@ -433,6 +440,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
       version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
       style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
       prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
+      rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
+      rewardMoney: meta.rewardMoney === undefined ? (base.rewardMoney !== false) : !!meta.rewardMoney,
+      victoryRepairFree: meta.victoryRepairFree === undefined ? (base.victoryRepairFree === true) : !!meta.victoryRepairFree,
       name: meta.name || base.name || vehicleValue.name, pilot: meta.pilot || base.pilot || '', blurb: meta.blurb ?? base.blurb ?? '', weakness: meta.weakness ?? base.weakness ?? '',
       source: 'manual', locked: meta.locked !== false, updatedAt: new Date().toISOString(), rules: ruleFingerprint(),
       analysis: { rating: stats.rating, value: stats.value, weight: stats.weight, drive: stats.drive, water: stats.water, overheat: stats.overheat, dps: stats.dps, hp: stats.hp },

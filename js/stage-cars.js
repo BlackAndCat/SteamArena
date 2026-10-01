@@ -395,7 +395,7 @@ SA.StageCars = (() => {
     const record = get(chapter, stage);
     if (!record) return { ...base, source: 'original', locked: false, stageCar: null };
     const out = { ...base };
-    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot']) if (record[field] !== undefined) out[field] = record[field];
+    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (record[field] !== undefined) out[field] = record[field];
     out.source = 'manual'; out.locked = record.locked !== false; out.stageCar = record; out.manualVersion = record.updatedAt || record.version || null; out.vehicle = vehicle(record, out.name);
     return out;
   }
@@ -405,7 +405,7 @@ SA.StageCars = (() => {
       const [chapter, stage] = key.split(':').map(Number), record = get(chapter, stage), base = SA.CAMPAIGN[chapter]?.stages?.[stage];
       if (!record || !base) continue;
       const out = merge(base, chapter, stage);
-      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot']) if (out[field] !== undefined) base[field] = out[field];
+      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (out[field] !== undefined) base[field] = out[field];
       base.vehicle = out.vehicle; base.source = 'manual'; base.locked = out.locked; base.stageCar = record;
     }
   }
@@ -415,6 +415,9 @@ SA.StageCars = (() => {
       version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
       style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
       prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
+      rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
+      rewardMoney: meta.rewardMoney === undefined ? (base.rewardMoney !== false) : !!meta.rewardMoney,
+      victoryRepairFree: meta.victoryRepairFree === undefined ? (base.victoryRepairFree === true) : !!meta.victoryRepairFree,
       name: meta.name || base.name || vehicleValue.name, pilot: meta.pilot || base.pilot || '', blurb: meta.blurb ?? base.blurb ?? '', weakness: meta.weakness ?? base.weakness ?? '',
       source: 'manual', locked: meta.locked !== false, updatedAt: new Date().toISOString(), rules: ruleFingerprint(),
       analysis: { rating: stats.rating, value: stats.value, weight: stats.weight, drive: stats.drive, water: stats.water, overheat: stats.overheat, dps: stats.dps, hp: stats.hp },

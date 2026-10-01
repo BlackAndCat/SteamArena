@@ -24,3 +24,4 @@ SA.BUILD_VIS += '+stage-workbench-larger-canvas'; // 关卡车工具页扩大拼
 SA.BUILD_VIS += '+tutorial-player-camera'; // 首关教程讲解镜头跟随玩家车，使四件部件的指示箭头可见。
 
 SA.BUILD_VIS += '+no-rank-chevrons'; // 模块上的改装军衔杠取消（车间悬停 / 战斗瞄准都不再画）；车间底部纸条只写 名字 · 材质 · 耐久
+SA.BUILD_VIS += '+stage-victory-free-repair'; // 战役胜利后按关卡设置呈现免费修理。
