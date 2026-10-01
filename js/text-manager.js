@@ -67,7 +67,8 @@ SA.Text = (() => {
   const fileName = () => `text/${config.game}/${config.locale}.json`;
   const handleKey = () => `${config.game}/${config.locale}:${location.pathname}`;
   const safeKey = key => typeof key === 'string' && key.length > 0 && key.length <= 240;
-  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror]');
+  // 剧情编排入口及编辑器自身是功能控件，页面选字模式不能拦截其点击或扫描其文字。
+  const isUiElement = el => el && el.closest && el.closest('#sa-text-manager, [data-sa-text-mirror], [data-story-action]');
   const snapshot = () => ({ values: { ...values }, removedElements: [...removedElements] });
   const sameSnapshot = (a, b) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
   const newVersion = () => ({ id: `${Date.now()}-${++versionCounter}`, at: new Date().toISOString() });
@@ -969,7 +970,7 @@ SA.Text = (() => {
       if (editing && !isUiElement(event.target)) hovered = event.target;
     }, true);
     document.addEventListener('keydown', event => {
-      if (!editing || event.key !== 'F8' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      if (!editing || isUiElement(event.target) || event.key !== 'F8' || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
       event.preventDefault(); event.stopImmediatePropagation(); pinHover();
     }, true);
     document.addEventListener('pointerdown', onPointerDown, true);

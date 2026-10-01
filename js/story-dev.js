@@ -44,6 +44,9 @@ SA.StoryDev = (() => {
   let open = null;
   function editor(id, o = {}) {
     if (open) open.close(true);
+    // 页面选字模式会截获编辑器输入；编排期间暂停，最终返回来源时再恢复。
+    const restoreText = o.restoreText === true || !!SA.Text?.isEditing?.();
+    if (restoreText) SA.Text.exitEdit();
     const rows = safeGet(id).map(l => ({ ...l }));
     const list = h('div', { class: 'sd-rows' });
     const status = h('span', { class: 'sd-status muted' }, '');
@@ -91,20 +94,21 @@ SA.StoryDev = (() => {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') { e.preventDefault(); e.stopImmediatePropagation(); save(); }
       else if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
     };
-    const root = h('div', { class: 'sd', role: 'dialog', 'aria-label': '剧情编辑' },
+    const root = h('div', { class: 'sd', role: 'dialog', 'aria-label': '剧情编辑', 'data-story-action': '1' },
       h('div', { class: 'panel sd-panel' },
         h('div', { class: 'panel-head' }, h('h2', {}, `剧情编辑 · ${label(id)}`), h('code', { class: 'sd-id muted' }, id)),
         h('div', { class: 'panel-body' }, list,
           h('button', { class: 'btn small sd-add', onclick: () => { rows.push({ text: '', who: rows.length ? rows[rows.length - 1].who : 'uncle' }); draw(); list.lastChild.querySelector('textarea').focus(); } }, '+ 添加一句')),
         h('div', { class: 'dialog-actions sd-foot' }, status,
           h('button', { class: 'btn', onclick: () => save() }, '保存', h('kbd', {}, 'Ctrl+S')),
-          h('button', { class: 'btn primary', onclick: async () => { if (await save()) { close(true); play(id, o.cont || (() => {})); } } }, o.cont ? '保存并播放后继续' : '保存并试播'),
+          h('button', { class: 'btn primary', onclick: async () => { if (await save()) { close(true); play(id, id === 'opening' ? () => editor(id, { ...o, restoreText }) : o.cont || (() => {})); } } }, o.cont ? '保存并播放后继续' : '保存并试播'),
           h('button', { class: 'btn', onclick: () => close() }, o.cont ? '关闭并继续' : '关闭'))));
     function close(silent) {
       if (!silent && dirty && !confirm('有未保存的修改，确定关闭？')) return;
       window.removeEventListener('keydown', onKey, true);
       root.remove();
       if (open && open.root === root) open = null;
+      if (!silent && restoreText) SA.Text.enterEdit();
       if (!silent && o.cont) o.cont();
       else if (!silent && o.back) o.back();
     }
@@ -119,7 +123,8 @@ SA.StoryDev = (() => {
   function play(id, next) {
     const L = safeGet(id);
     if (!L.length) { next(); return; }
-    SA.Story.talk(L, { onDone: next, cls: 'vn-hint' });
+    if (id === 'opening') SA.Story.previewOpening(L, next);
+    else SA.Story.talk(L, { onDone: next, cls: 'vn-hint' });
   }
 
   // ---------- 全部场景 ----------

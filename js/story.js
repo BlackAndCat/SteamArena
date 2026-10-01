@@ -394,7 +394,7 @@ SA.Story = (() => {
   // lines: [{ who, text, scene, on }]。host 默认整页（带暗底）；战斗里传画布外框，对话框压在画面下沿。
   // 点击 / 空格 / 回车：先把字打完，再翻下一句；Esc 或「跳过」直接结束。结束时调用 onDone。
   const CPS = 26;
-  function talk(lines, { host = document.body, scene = null, onDone = null, cls = '' } = {}) {
+  function talk(lines, { host = document.body, scene = null, onDone = null, onEdit = null, cls = '' } = {}) {
     const page = host === document.body;
     const face = h('canvas', { class: 'px vn-face', width: 96, height: 96 });
     // 老汤姆一出场就和远房亲戚同框：左边亲戚、右边老汤姆，谁说话谁亮
@@ -404,11 +404,12 @@ SA.Story = (() => {
     const txt = h('div', { class: 'vn-text' });
     const more = h('i', { class: 'vn-more', 'aria-hidden': 'true' });
     const skip = h('button', { class: 'vn-skip', type: 'button' }, '跳过 ▸▸');
+    const edit = onEdit ? h('button', { class: 'vn-skip', type: 'button', style: 'right:96px', 'data-story-action': '1' }, '编排剧情') : null;
     const dock = h('div', { class: 'vn-dock' }, name,
       h('div', { class: 'vn-box' }, h('div', { class: 'vn-frame' }, h('div', { class: 'vn-in' },
         h('div', { class: 'vn-portrait' }, face), txt, duo ? h('div', { class: 'vn-portrait vn-portrait2' }, face2) : null, more))));
     const root = h('div', { class: `vn ${page ? 'vn-page' : ''} ${duo ? 'vn-duo' : ''} ${cls}`, role: 'dialog', 'aria-live': 'polite' },
-      scene ? scene.el : null, dock, skip);
+      scene ? scene.el : null, dock, skip, edit);
     host.append(root);
     const fg = face.getContext('2d'), fg2 = face2 && face2.getContext('2d');
     let i = -1, shown = 0, full = '', done = false, raf = 0, last = performance.now(), lt = 0, gt = 0;
@@ -433,6 +434,7 @@ SA.Story = (() => {
     }
     function frame(now) {
       if (done) return;
+      if (edit) edit.hidden = !canEditOpening();
       const dt = Math.min(0.05, (now - last) / 1000); last = now; lt += dt; gt += dt;
       if (shown < full.length) { shown = Math.min(full.length, shown + dt * CPS); render(); }
       const who = root.dataset.who;
@@ -446,24 +448,27 @@ SA.Story = (() => {
       raf = requestAnimationFrame(frame);
     }
     const onKey = (e) => {
+      if (e.target === edit) return;
       if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); e.stopImmediatePropagation(); advance(); }
       else if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); finish(); }
     };
-    function finish() {
+    function finish(notify = true) {
       if (done) return;
       done = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('keydown', onKey, true);
-      root.classList.add('out');
-      setTimeout(() => root.remove(), 260);
-      if (onDone) onDone();
+      if (notify) { root.classList.add('out'); setTimeout(() => root.remove(), 260); }
+      else root.remove();
+      if (notify && onDone) onDone();
     }
-    root.addEventListener('pointerdown', (e) => { if (e.target === skip) return; if (e.button > 0) return; e.preventDefault(); advance(); });
+    root.addEventListener('pointerdown', (e) => { if (e.target === skip || e.target === edit) return; if (e.button > 0) return; e.preventDefault(); advance(); });
     skip.addEventListener('click', (e) => { e.stopPropagation(); finish(); });
+    if (edit) edit.addEventListener('click', (e) => { e.stopPropagation(); if (canEditOpening()) { finish(false); onEdit(); } });
     window.addEventListener('keydown', onKey, true);
     show(0);
+    if (edit) edit.hidden = !canEditOpening();
     raf = requestAnimationFrame(frame);
-    return { close: finish, get index() { return i; } };
+    return { close: () => finish(), cancel: () => finish(false), get index() { return i; } };
   }
 
   // 开场画面：480×270 画布，分镜随台词切换
@@ -475,23 +480,27 @@ SA.Story = (() => {
   }
 
   // ---------- 开始界面 ----------
+  // 两种开发入口都复用同一开场编辑器；页面选字模式可在标题出现后即时开启。
+  const canEditOpening = () => !!SA.StoryDev && (SA.StoryDev.enabled() || !!SA.Text?.isEditing?.());
   function title(onStart) {
     const bg = h('canvas', { class: 'px title-bg', width: SW, height: SH });
     const em = h('canvas', { class: 'px title-emblem', width: 64, height: 64 });
     const fresh = isFresh();
     const C0 = SA.S.d.camp, ch = SA.CAMPAIGN[Math.min(C0.ch, SA.CAMPAIGN.length - 1)];
     const go = h('button', { class: 'btn primary title-go', type: 'button' }, '开始游戏');
+    const edit = h('button', { class: 'btn small', type: 'button', 'data-story-action': '1' }, '编排开场剧情');
     const root = h('div', { class: 'title', role: 'dialog', 'aria-label': '蒸汽竞技场' }, bg,
       h('div', { class: 'title-card' }, em,
         h('h1', { class: 'title-name' }, '蒸汽竞技场'),
         h('div', { class: 'title-sub' }, 'STEAM  ARENA'),
-        go,
+        go, edit,
         h('div', { class: 'title-save' }, fresh ? '新的存档' : `继续存档 · ${C0.done ? '战役已通关' : ch.name}`)));
     document.body.append(root);
     const g = bg.getContext('2d'), eg = em.getContext('2d');
     let raf = 0, t = 0, last = performance.now(), left = false;
     const frame = (now) => {
       if (left) return;
+      edit.hidden = !canEditOpening();
       t += Math.min(0.05, (now - last) / 1000); last = now;
       g.imageSmoothingEnabled = false;
       sky(g, t);
@@ -513,7 +522,7 @@ SA.Story = (() => {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    const onKey = (e) => { if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') { e.preventDefault(); e.stopImmediatePropagation(); start(); } };
+    const onKey = (e) => { if (e.target === edit || document.querySelector('.sd, .vn')) return; if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') { e.preventDefault(); e.stopImmediatePropagation(); start(); } };
     window.addEventListener('keydown', onKey, true);
     function start() {
       if (left) return;
@@ -525,16 +534,26 @@ SA.Story = (() => {
       onStart();
     }
     go.addEventListener('click', start);
+    edit.addEventListener('click', () => { if (canEditOpening()) SA.StoryDev.editor('opening'); });
+    edit.hidden = !canEditOpening();
     setTimeout(() => go.focus(), 0);
   }
 
   // ---------- 流程 ----------
   // 台词一律经 SA.StoryData.get 读（开发者编辑过的覆盖值优先，SA.STORY 是默认值）；取不到就用默认
   const lines = (id, fb) => { try { return SA.StoryData ? SA.StoryData.get(id) : fb; } catch (e) { return fb; } };
+  // 开场试播使用正式分镜，但结束后只执行编辑器回调，不写进度或进入战斗。
+  function previewOpening(rows, next) {
+    if (!rows.length) { next(); return; }
+    talk(rows, { scene: openingScene(), cls: 'vn-opening', onDone: next });
+  }
   // 开始游戏：全新存档先演开场，演完直接进第一场战斗；否则回到正常的页面
   function begin() {
     if (!isFresh() || seen('opening')) return;
-    talk(lines('opening', SA.STORY.opening), { scene: openingScene(), cls: 'vn-opening', onDone: () => { mark('opening'); firstBattle(); } });
+    const rows = lines('opening', SA.STORY.opening);
+    if (!rows.length) { mark('opening'); firstBattle(); return; }
+    talk(rows, { scene: openingScene(), cls: 'vn-opening', onDone: () => { mark('opening'); firstBattle(); },
+      onEdit: () => SA.StoryDev.editor('opening', { back: begin }) });
   }
   function firstBattle() {
     const e = SA.S.arenaEntries('camp').find(x => x.next);
@@ -566,5 +585,5 @@ SA.Story = (() => {
     talk(out, { onDone: next, cls: 'vn-hint' });
   }
 
-  return { title, begin, talk, tutorial, afterBattle, emblem, portrait, seen, mark, reset, isFresh };
+  return { title, begin, talk, previewOpening, tutorial, afterBattle, emblem, portrait, seen, mark, reset, isFresh };
 })();
