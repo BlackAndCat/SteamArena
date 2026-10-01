@@ -122,6 +122,7 @@ SA.PROLOGUE_PLATE_STAGE = {
 SA.CAMPAIGN = [
   {
     name: '序章 · 铁匠铺后院', place: '铁匠铺后院',
+    bounds: { left: 0, right: 1280 }, // 两侧为现有地形边缘；整车不能无限后退。
     blurb: '老汤姆答应教你开蒸汽战车。先在后院的煤渣地上试试手：A/D 开车，按住左键瞄准开火。',
     stages: [
       {
@@ -176,6 +177,7 @@ SA.CAMPAIGN = [
   },
   {
     name: '第二章 · 码头区', place: '泰晤士河码头',
+    bounds: { left: 0, right: 1280 }, // 本章场地同样以地形两端为极限。
     blurb: '码头区先让你用侧炮和近战贴身，随后把战场抬到头顶：货箱和厚甲挡住平射，臼炮从后排越过掩体落下。',
     stages: [
       {

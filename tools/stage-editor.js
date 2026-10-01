@@ -442,13 +442,15 @@
   function testVehicle() {
     const vehicle = syncAssemblyVehicle();
     if (!vehicle) throw new Error('请先准备一台关卡车');
+    // 测试的是当前关卡，沿用该章场地边界；参考车来源不改变场地规则。
+    const bounds = SA.CAMPAIGN[state.ci].bounds;
     const games = Math.max(1, Math.min(200, +$('games').value || 20)), refs = [SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || [])];
     for (let ci = 0; ci <= state.ci; ci++) for (let si = 0; si < SA.CAMPAIGN[ci].stages.length; si++) if (ci < state.ci || si < state.si) refs.push(actualStage(ci, si).vehicle);
     const rows = [], counts = { p: 0, e: 0, draw: 0, timeout: 0 }; let wins = 0, total = 0, time = 0;
     refs.slice(-4).forEach((ref, ri) => { for (let i = 0; i < games; i++) {
       const seed = 0x5eed + state.ci * 10000 + state.si * 1000 + ri * 100 + i;
-      const a = SA.Battle.simulate({ p: ref, e: vehicle, pAim: 0.8, eAim: +$('aim').value, pStyle: 'wander', eStyle: $('style').value, terrain: $('terrain').value, eBoss: $('boss').checked, seed });
-      const b = SA.Battle.simulate({ p: vehicle, e: ref, pAim: +$('aim').value, eAim: 0.8, pStyle: $('style').value, eStyle: 'wander', terrain: $('terrain').value, seed: seed + 1 });
+      const a = SA.Battle.simulate({ p: ref, e: vehicle, pAim: 0.8, eAim: +$('aim').value, pStyle: 'wander', eStyle: $('style').value, terrain: $('terrain').value, bounds, eBoss: $('boss').checked, seed });
+      const b = SA.Battle.simulate({ p: vehicle, e: ref, pAim: +$('aim').value, eAim: 0.8, pStyle: $('style').value, eStyle: 'wander', terrain: $('terrain').value, bounds, seed: seed + 1 });
       for (const [result, candidateSide] of [[a, 'e'], [b, 'p']]) { const winner = result.winner || 'draw'; counts[winner] = (counts[winner] || 0) + 1; if (winner === candidateSide) wins++; total++; time += result.t || 0; }
     } });
     const rate = total ? wins / total : 0, z = 1.96, den = 1 + z * z / total, centre = rate + z * z / (2 * total), spread = z * Math.sqrt((rate * (1 - rate) + z * z / (4 * total)) / total);

@@ -327,13 +327,13 @@ SA.S = (() => {
         if (!beaten && !next) return [];
         const stage = SA.Camp.stage(chapterIndex, i);
         const replay = beaten;
-        return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', replay, next,
+        return [{ key: `${chapterIndex},${i}`, name: stage.name, pilot: stage.pilot, blurb: stage.blurb, v: stage.vehicle, raw: stage.vehicle, hpMul: 1, rating: SA.V.stats(stage.vehicle).rating, prize: replay ? 0 : stage.prize, boss: stage.boss, terrain: stage.terrain || 'flat', bounds: stage.chapter.bounds, replay, next,
           tag: replay ? ['ok', '可重打'] : next ? ['next', stage.boss ? 'Boss' : '下一场'] : ['no', stage.boss ? 'Boss' : `第 ${i + 1} 场`],
           title: `第 ${chapterIndex + 1} 章 · 第 ${i + 1} 场 · ${stage.name}`, lock: replay || next ? null : '先完成前面的战役',
           // 战前控制台可修改当前关卡；真正开战时再取一次最新数据，剧情编号和重打规则仍固定。
           start: () => {
             const latest = SA.Camp.stage(chapterIndex, i);
-            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
+            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, bounds: latest.chapter.bounds, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
           } }];
       }));
     }

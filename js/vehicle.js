@@ -205,6 +205,30 @@ SA.V = (() => {
     if (!a || r < a.r || r + h > a.r + 2) return false;
     return (c >= a.c - 2 && c + w <= a.c) || (c >= a.c + 2 && c + w <= a.c + 4);
   }
+  // 只允许三种实体装甲贴在连续履带/四足链的整体端部，向下伸入底盘保留区。
+  // 位置判定同时供摆放、出战连通和速度计算使用，避免链内接缝被误认成车头/车尾。
+  function endArmorSide(v, id, r, c) {
+    if (!['plate', 'armor', 'armor_heavy'].includes(id)) return null;
+    const { w, h } = fp(id), floor = floorRow(v);
+    if (r + h <= floor || r >= CH + 2 || r + h <= CH) return null;
+    const anchors = chassisAnchors(v).sort((a, b) => a.c - b.c);
+    if (!anchors.length || !['track', 'quad'].includes(anchors[0].cell.id)) return null;
+    const type = anchors[0].cell.id, width = fp(type).w;
+    if (anchors.some((x, i) => x.cell.id !== type || x.r !== CH || (i && x.c !== anchors[i - 1].c + width))) return null;
+    if (c + w === anchors[0].c) return 'rear';
+    if (c === anchors[anchors.length - 1].c + width) return 'front';
+    return null;
+  }
+  // 每侧只计算一次 30% 罚速；战斗中只看仍有耐久的装甲，击毁后即时恢复。
+  function armorSpeedFactor(v) {
+    const sides = new Set();
+    each(v, (cell, r, c, layer) => {
+      if (layer !== 'body' || !alive(cell)) return;
+      const side = endArmorSide(v, cell.id, r, c);
+      if (side) sides.add(side);
+    });
+    return 1 - sides.size * 0.3;
+  }
   const inHipRows = (v, r, h) => { const a = bipedOf(v); return !!a && r >= a.r && r + h <= a.r + 2; };
   // 这几行里，锚点左边有没有撞击件（撞击件前方不能再放东西）
   const ramBehind = (O, r, c, h) => { for (let i = 0; i < h; i++) for (let k = 0; k < c; k++) if (O[r + i][k] && isRamCell(O[r + i][k].cell)) return true; return false; };
@@ -244,7 +268,7 @@ SA.V = (() => {
       if (ramBehind(O, r, c, h)) return no('撞击武器前方不能再放模块');
       return { ok: true };
     }
-    if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h)) return no(bipedOf(v) ? '双足的胯层只能放腰挂位，腿区不能放模块' : '最底下两行只能放底盘');
+    if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h) && !endArmorSide(v, id, r, c)) return no(bipedOf(v) ? '双足的胯层只能放腰挂位，腿区不能放模块' : '最底下两行只能放底盘');
     // 外圈只要挨着一个（非撞击件的）模块就能塞进去；是否一路连到底盘由 issues() 检查
     const near = ring(r, c, w, h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
     if (!near.length) return no('悬空：四周都没有模块可以依靠');
@@ -376,7 +400,7 @@ SA.V = (() => {
         if (!o || ok.has(key(o.r, o.c))) continue;
         const m = M[o.cell.id];
         const of = fp(o.cell.id);
-        if (m.layer !== 'body' || (o.r + of.h > floor && !(isBiped && bipedWaist(v, o.r, o.c, of.w, of.h)))) continue;
+        if (m.layer !== 'body' || (o.r + of.h > floor && !(isBiped && bipedWaist(v, o.r, o.c, of.w, of.h)) && !endArmorSide(v, o.cell.id, o.r, o.c))) continue;
         ok.add(key(o.r, o.c)); queue.push([o.r, o.c]);
       }
     }
@@ -392,7 +416,7 @@ SA.V = (() => {
           if (isBiped && !inHipRows(v, r, h)) flag('body', r, c, '双足撞击件只能装在胯层或腰挂位');
           else if (!behind(O, r, c, h).some(o => m.mount.includes(o.cell.id) && ok.has(key(o.r, o.c)))) flag('body', r, c, mountText(m));
           else if (anyAhead(O, r, c, w, h)) flag('body', r, c, '撞击武器必须是这一行的最前端');
-        } else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h))) {
+        } else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h)) && !endArmorSide(v, cell.id, r, c)) {
           flag('body', r, c, isBiped ? (r + h > floor + 2 ? '双足腿区不能放模块' : '双足的胯层只能放腰挂位（胯左右各一格）') : '底盘腿区只能放底盘');
         } else if (!ok.has(key(r, c))) {
           const below = ring(r, c, w, h).filter(([rr]) => rr === r + h).map(([rr, cc]) => O[rr][cc]).filter(Boolean);
@@ -531,7 +555,8 @@ SA.V = (() => {
     s.blocked = blockedList(v);
     // 最高速度 = 底盘基础速度 × 动力比（锅炉富余时可以超速，最多 125%）
     s.speedMul = s.demand ? Math.min(K.SPEED_BOOST, s.supply / s.demand) : (s.supply ? 1 : 0);
-    s.topSpeed = s.speed * s.speedMul;
+    s.armorSpeedFactor = armorSpeedFactor(v);
+    s.topSpeed = s.speed * s.speedMul * s.armorSpeedFactor;
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     let weaponHeat = 0;
@@ -798,5 +823,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

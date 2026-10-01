@@ -405,7 +405,8 @@
   function replay(rec) {
     const v = vehicleOf(rec), opp = stageOpponent(rec), t = rec.typical;
     if (!v || !opp || !t || t.seed == null) return null;
-    return SA.Battle.simulate({ p: v, e: opp.v, pAim: 0.8, eAim: 0.8, pStyle: opp.o.style || 'wander', eStyle: 'wander', terrain: (rec.spec && rec.spec.terrain) || 'flat', seed: t.seed });
+    // 报告只保存章号；复现时从当前章节读取场地边界，与生成时的规格一致。
+    return SA.Battle.simulate({ p: v, e: opp.v, pAim: 0.8, eAim: 0.8, pStyle: opp.o.style || 'wander', eStyle: 'wander', terrain: (rec.spec && rec.spec.terrain) || 'flat', bounds: SA.CAMPAIGN[rec.spec?.chapter]?.bounds, seed: t.seed });
   }
   const winnerName = (w) => (w === 'p' ? '候选车胜' : w === 'e' ? '对手胜' : '平手');
   function testDrive(rec) {

@@ -238,8 +238,8 @@ def dispatch(name, a):
         return evaluate(tid, expression)
     if name == "steam_arena_simulate":
         ci, si, repeat = int(a.get("campaign_index", 0)), int(a.get("stage_index", 0)), max(1, int(a.get("repeat", 1)))
-        # 使用当前战役关卡作为敌方、STARTER 作为我方，结果保留原始字段。
-        js = "(() => { const s=SA.CAMPAIGN[%d].stages[%d]; const e=SA.V.fromAscii(s.name,s.rows,s.sides||[],s.mt||1,s.elite||[],s.subs||[]); const p=SA.V.fromAscii('MCP',SA.STARTER.rows,SA.STARTER.sides||[],1,[],SA.STARTER.subs||[]); const out=[]; for(let i=0;i<%d;i++) out.push(SA.Battle.simulate({p,e,pAim:s.aim,eAim:s.aim,pStyle:s.style,eStyle:s.style,eBoss:s.boss,terrain:s.terrain||'flat'})); return out; })()" % (ci, si, repeat)
+        # 使用当前战役关卡及其章节边界；STARTER 作为我方，结果保留原始字段。
+        js = "(() => { const ch=SA.CAMPAIGN[%d],s=ch.stages[%d]; const e=SA.V.fromAscii(s.name,s.rows,s.sides||[],s.mt||1,s.elite||[],s.subs||[]); const p=SA.V.fromAscii('MCP',SA.STARTER.rows,SA.STARTER.sides||[],1,[],SA.STARTER.subs||[]); const out=[]; for(let i=0;i<%d;i++) out.push(SA.Battle.simulate({p,e,pAim:s.aim,eAim:s.aim,pStyle:s.style,eStyle:s.style,eBoss:s.boss,terrain:s.terrain||'flat',bounds:ch.bounds})); return out; })()" % (ci, si, repeat)
         return evaluate(tid, js)
     if name == "start_server":
         global _server

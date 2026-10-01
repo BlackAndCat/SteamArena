@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-09-30-special-weapons-audit-damage';
+SA.RULES_VERSION = '2026-10-01-end-armor-chapter-bounds';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -91,8 +91,10 @@ SA.Battle = (() => {
     const ax = SA.auxEffect(live);
     s.aimShrink = Math.min(K.AIM_SHRINK_MAX, K.AIM_SHRINK + Math.max(aimSh, ax.aimShrink));
     s.aimSpeed = K.AIM_SPEED + Math.max(aimSp, ax.aimSpeed);
-    Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1),
-      speedMul: supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1 });
+    // 端部挂甲在动力倍率之后扣速；锅炉富余无法抵消这项罚速。
+    const armorSpeedFactor = SA.V.armorSpeedFactor(s.v);
+    Object.assign(s, { accelK: avg(ak, 1), brakeK: avg(bk, 1), sway: avg(sw, 1) * ax.sway, spoolK: avg(spk, 1), armorSpeedFactor,
+      speedMul: (supply <= 0 ? 0 : demand ? Math.min(K.SPEED_BOOST, supply / demand) : 1) * armorSpeedFactor });
     s.chassisId = Object.keys(chIds).sort((a, b) => chIds[b] - chIds[a])[0] || 'track';
     let bipedCell = null;
     if (s.chassisId === 'biped') {
@@ -177,6 +179,13 @@ SA.Battle = (() => {
   const crateAt = (x, y) => (B && B.ter ? B.ter.crates.findIndex(c => !c.dead && x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1) : -1);
   // 整车在世界里的左右边缘
   const span = (s) => (isP(s) ? [cellX(s, s.minCol), cellX(s, s.frontCol) + C] : [cellX(s, s.frontCol), cellX(s, s.minCol) + C]);
+  // 有场地边界时，按整车外沿限制中心位置。碰撞会再次推动车身，因此每帧碰撞后统一限位。
+  function enforceBounds(s) {
+    if (!B.bounds || s.frontCol < 0) return;
+    const [left, right] = span(s);
+    if (left < B.bounds.left) { s.x += B.bounds.left - left; if (s.vx < 0) s.vx = 0; }
+    else if (right > B.bounds.right) { s.x -= right - B.bounds.right; if (s.vx > 0) s.vx = 0; }
+  }
   // 地形对速度的影响：泥地按底盘减速；上坡慢、下坡快（按车头车尾的高度差）
   function terrainK(s, dir) {
     if (!B.ter) return { top: 1, acc: 1 };
@@ -596,7 +605,7 @@ SA.Battle = (() => {
         emit('part', { type: 'dust', x: dx0, y: groundAt(dx0) - 2, vx: -Math.sign(s.vx) * rnd(10, 60), vy: rnd(-60, -20), life: rnd(0.3, 0.5), col: undefined });
       }
     }
-    // 场地左右无限延伸：想退多远退多远，不会被堵在角落里（背景看台会跟着转）
+    // 自由场地可无限延伸；有限场地在本帧碰撞与推挤结束后统一钳住整车外沿。
     let nx = s.x + s.vx * dt;
     // 货箱：不经撞，车一顶上去就碾碎（车越重、越快碎得越快），碾的时候车速被拖慢；碎了留一堆碎木，开过去再慢一点
     if (B.ter) {
@@ -812,7 +821,9 @@ SA.Battle = (() => {
     const util = availableSupply ? Math.min(1, s.demand / availableSupply) : 0;
     s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
     s.driveAvailableKw = Math.max(0, availableSupply - s.equip);
-    s.speedMul = s.driveKw ? Math.min(K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0;
+    // 每帧重算：挂甲被击毁后，下一帧即按存活装甲解除对应侧罚速。
+    s.armorSpeedFactor = SA.V.armorSpeedFactor(s.v);
+    s.speedMul = (s.driveKw ? Math.min(K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0) * s.armorSpeedFactor;
     drive(s, dt);
     const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
@@ -1151,6 +1162,7 @@ SA.Battle = (() => {
     collide();
     pistons(B.p, B.e, dt);
     pistons(B.e, B.p, dt);
+    enforceBounds(B.p); enforceBounds(B.e);
     // 进化评分只保存时间摘要，不保存逐帧录像；同一帧由双方共享一份距离统计。
     if (B.metrics) {
       const distance = Math.abs(frontEdge(B.e) - frontEdge(B.p));
@@ -1265,7 +1277,7 @@ SA.Battle = (() => {
     const pShift = frontShift(d.vehicle);
     const pv = shiftVeh(SA.V.battleCopy(d.vehicle, 1, opts.mode === 'friendly'), pShift);
     const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, opts.hpMul || 1, true), frontShift(opts.enemyVehicle));
-    B = { opts, pShift, ter: makeTerrain(opts.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+    B = { opts, pShift, bounds: opts.bounds || null, ter: makeTerrain(opts.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       speed: view ? view.gameSpeed() : K.GAME_SPEED, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
@@ -1361,7 +1373,7 @@ SA.Battle = (() => {
     const previousRandom = random;
     random = o && o.seed != null ? seededRandom(o.seed) : Math.random;
     const pS = frontShift(o.p), eS = frontShift(o.e);
-    B = { headless: true, opts: { mode: 'sim' }, pShift: pS, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+    B = { headless: true, opts: { mode: 'sim' }, pShift: pS, bounds: o.bounds || null, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       metrics: { distanceSum: 0, samples: 0, nearTime: 0, farTime: 0, noEngageTime: 0 },
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {

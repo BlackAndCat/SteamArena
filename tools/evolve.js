@@ -200,7 +200,7 @@ function stageSpec(SA, chapter, stage) {
   const rule = stageRules[index], reward = design.reward || null;
   const available = [...new Set([...stageRules.slice(0, index + 1).flatMap(row => row.addMods), ...(rule.stageMods || [])])];
   return {
-    chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null,
+    chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null, bounds: ch.bounds,
     lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
     uniqueLoot: (actual.uniqueLoot || []).map(item => ({ ...item })),
     chapterHasBoss: ch.stages.some((row, index) => !!(stageFor(SA, chapter, index)?.boss || row.boss)),
@@ -580,7 +580,7 @@ function createDuelCache(SA, maxEntries = 50000) {
   };
   return {
     key(candidate, opponent, spec, seed, games) {
-      return `${vehicleKey(candidate)}|${vehicleKey(opponent)}|${spec?.style || 'wander'}|${spec?.terrain || 'flat'}|${seed}|${games}`;
+      return `${vehicleKey(candidate)}|${vehicleKey(opponent)}|${spec?.style || 'wander'}|${spec?.terrain || 'flat'}|${spec?.bounds?.left ?? ''},${spec?.bounds?.right ?? ''}|${seed}|${games}`;
     },
     get(key) {
       if (!entries.has(key)) { misses++; return undefined; }
@@ -603,6 +603,7 @@ function createDuelCache(SA, maxEntries = 50000) {
 }
 
 function duel(SA, candidate, opponent, spec, seed, games, duelCache = null) {
+  // 关卡规格带入章节边界；通用对局的规格没有 bounds，仍按无限场地模拟。
   const cacheKey = duelCache?.key(candidate, opponent, spec, seed, games);
   if (cacheKey) {
     const cached = duelCache.get(cacheKey);
@@ -611,8 +612,8 @@ function duel(SA, candidate, opponent, spec, seed, games, duelCache = null) {
   let wins = 0, draws = 0, totalTime = 0, performance = 0, resultSample = null;
   for (let i = 0; i < games; i++) {
     const seedA = seed + i * 2;
-    const a = SA.Battle.simulate({ p: candidate, e: opponent, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: 'wander', terrain: spec.terrain, seed: seedA });
-    const b = invertResult(SA.Battle.simulate({ p: opponent, e: candidate, pAim: 0.8, eAim: 0.8, pStyle: 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain, seed: seedA + 1 }));
+    const a = SA.Battle.simulate({ p: candidate, e: opponent, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: 'wander', terrain: spec.terrain, bounds: spec.bounds, seed: seedA });
+    const b = invertResult(SA.Battle.simulate({ p: opponent, e: candidate, pAim: 0.8, eAim: 0.8, pStyle: 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain, bounds: spec.bounds, seed: seedA + 1 }));
     for (const r of [a, b]) { if (r.winner === 'p') wins++; else if (r.winner === 'draw') draws++; totalTime += r.t; performance += performanceScore(r, 'p', config.performance); resultSample = resultSample || { ...r, seed: r === a ? seedA : seedA + 1 }; }
   }
   const n = games * 2;
@@ -746,8 +747,8 @@ function usageAgainst(SA, candidate, opponent, spec, seed, games = 2, rewardId =
     for (const key of ['active', 'fire', 'hit', 'tether', 'energy', 'waterSaved', 'dryCool']) module[key] = (module[key] || 0) + (Number(row[key]) || 0);
   };
   for (let i = 0; i < games; i++) {
-    const direct = SA.Battle.simulate({ p: candidate, e: opponent, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: 'wander', terrain: spec.terrain, seed: seed + i * 2 });
-    const reverse = SA.Battle.simulate({ p: opponent, e: candidate, pAim: 0.8, eAim: 0.8, pStyle: 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain, seed: seed + i * 2 + 1 });
+    const direct = SA.Battle.simulate({ p: candidate, e: opponent, pAim: 0.8, eAim: 0.8, pStyle: spec.style || 'wander', eStyle: 'wander', terrain: spec.terrain, bounds: spec.bounds, seed: seed + i * 2 });
+    const reverse = SA.Battle.simulate({ p: opponent, e: candidate, pAim: 0.8, eAim: 0.8, pStyle: 'wander', eStyle: spec.style || 'wander', terrain: spec.terrain, bounds: spec.bounds, seed: seed + i * 2 + 1 });
     add(direct.events?.p); add(reverse.events?.e); addModule(direct.effectStats?.p); addModule(reverse.effectStats?.e);
   }
   return { ...total, module };
@@ -1242,7 +1243,7 @@ function check() {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
       const item = stageFor(SA, chapter, stage);
       const v = item.vehicle;
-      const result = SA.Battle.simulate({ p: previousVehicle, e: v, terrain: item.terrain || 'flat', pStyle: 'wander', eStyle: item.style || 'wander', eBoss: !!item.boss, seed: chapter * 100 + stage });
+      const result = SA.Battle.simulate({ p: previousVehicle, e: v, terrain: item.terrain || 'flat', bounds: SA.CAMPAIGN[chapter].bounds, pStyle: 'wander', eStyle: item.style || 'wander', eBoss: !!item.boss, seed: chapter * 100 + stage });
       if (!Number.isFinite(result.t) || !Number.isFinite(result.pDealt) || !Number.isFinite(result.eDealt)) throw new Error(`战役第 ${chapter + 1} 章第 ${stage + 1} 关出现非有限模拟结果`);
       stages.push({ chapter, stage, t: result.t, winner: result.winner });
       previousVehicle = v;

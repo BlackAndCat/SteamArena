@@ -15,3 +15,4 @@ SA.BUILD_SYS += '+page-startup-version-fix'; // 页面旧草稿版本恢复与�
 SA.BUILD_SYS += '+page-two-versions'; // 页面原始版与编辑版固定两版，旧历史文案合入编辑稿。
 SA.BUILD_SYS += '+first-stage-tank-reward'; // 首关小水罐实物奖励与旧档一次性补发。
 SA.BUILD_SYS += '+stage-workbench-full-modules'; // 关卡车工作台显示正式注册的全部非退役模组。
+SA.BUILD_SYS += '+end-armor-chapter-bounds'; // 底盘端部挂甲减速与序章、第二章场地边界。
