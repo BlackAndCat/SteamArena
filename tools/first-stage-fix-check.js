@@ -44,15 +44,29 @@ function run() {
   assert.deepStrictEqual(Array.from(parts, p => p.part), ['cockpit', 'track', 'boiler', 'mg']);
   const starterIds = SA.V.countIds(SA.S.starterVehicle());
   for (const id of ['helmet', 'track', 'boiler_s', 'mg_s']) assert(starterIds[id] > 0, `初始车缺教程目标 ${id}`);
-  // 按页面顺序接上画面层并真正开始第一关，读取运行时生成的四个箭头。
-  SA.Scenes = { pick: () => ({}) };
-  SA.Story = { tutorial: () => SA.STORY.tutorial, talk: () => ({ close() {} }) };
-  SA.go = () => {};
+  // 按页面顺序接上画面层并真正开始第一关，逐帧检查教程镜头和箭头投影。
+  const frames = [], canvases = [], keys = {}, makeElement = context.document.createElement;
+  context.document.createElement = tag => {
+    const el = makeElement(tag);
+    el.clientWidth = 1296; el.offsetHeight = 140;
+    el.listeners = {};
+    el.addEventListener = (type, fn) => { el.listeners[type] = fn; };
+    if (tag === 'canvas') canvases.push(el);
+    return el;
+  };
+  context.requestAnimationFrame = fn => { frames.push(fn); };
+  context.addEventListener = (type, fn) => { (keys[type] ||= []).push(fn); };
+  SA.Scenes = { pick: () => ({}), back() {}, floor() {}, front() {} };
+  SA.PX = { init() {}, ui: { btn: () => context.document.createElement('button') } };
+  let tutorialLines, finishTutorial, marked = false;
+  SA.Story = { tutorial: () => SA.STORY.tutorial, talk: (lines, opts) => { tutorialLines = lines; finishTutorial = opts.onDone; return { close() {} }; }, mark: () => { marked = true; }, emblem: () => ({ cv: context.document.createElement('canvas'), muzzles: [] }) };
+  SA.go = page => { SA.current = page; };
   vm.runInContext(source('battle-view.js'), context, { filename: 'js/battle-view.js' });
   vm.runInContext(source('battle.js'), context, { filename: 'js/battle.js' });
   SA.S.d.vehicle = SA.S.starterVehicle();
   SA.Battle.start({ mode: 'campaign', enemyVehicle: first.vehicle, enemyName: first.name, terrain: first.terrain || 'flat' });
   const battle = SA.Battle.debug.B, arrows = battle.intro?.arrows || [];
+  battle.hudT = 100;
   assert.deepStrictEqual(Array.from(arrows, a => a.part), ['cockpit', 'track', 'boiler', 'mg']);
   const targetId = { cockpit: 'helmet', track: 'track', boiler: 'boiler_s', mg: 'mg_s' };
   for (const arrow of arrows) {
@@ -62,10 +76,51 @@ function run() {
     const [px, py] = SA.Battle.debug.cellCenter('p', own.r, own.c);
     assert(Math.abs(arrow.mx - px) < 1e-6 && Math.abs(arrow.my - py) < 1e-6, `${arrow.part} 箭头没有指向玩家模块`);
   }
+  const canvas = canvases.find(c => c.listeners.pointermove);
+  assert(canvas.width > 0 && canvas.height > 0, '首关画布未完成实际尺寸适配');
+  let now = 0;
+  const nextFrame = () => { const frame = frames.shift(); assert(frame, '战斗动画帧中断'); frame(now += 50); };
+  let lineIndex = SA.STORY.tutorial.intro.length;
+  for (const arrow of arrows) {
+    const part = parts.find(p => p.part === arrow.part);
+    assert(part && tutorialLines[lineIndex]?.on, `${arrow.part} 缺少教程焦点对话`);
+    tutorialLines[lineIndex].on();
+    assert.strictEqual(battle.intro.focus, arrow.part, `${arrow.part} 对话未切换教程焦点`);
+    lineIndex += part.lines.length;
+    for (let i = 0; i < 40; i++) nextFrame();
+    const cam = battle.cam, dpx = canvas.width / 1280, z = cam.z * dpx;
+    const playerX = (Math.min(...arrows.map(a => a.b.x0)) + Math.max(...arrows.map(a => a.b.x1))) / 2;
+    const enemyX = battle.e.x + 128;
+    assert(Math.abs(cam.x + cam.w / 2 - playerX) < 80 && Math.abs(cam.x + cam.w / 2 - playerX) < Math.abs(cam.x + cam.w / 2 - enemyX), `${arrow.part} 讲解镜头没有面向玩家车`);
+    // 与 introDraw 一致：检查精灵中心经真实镜头和设备像素比后的落点。
+    const bob = 3 + 3 * Math.sin(battle.intro.clock * 7);
+    const ax = arrow.mx + arrow.ox * (arrow.reach + bob + 10);
+    const ay = arrow.my + arrow.oy * (arrow.reach + bob + 10);
+    const sx = (ax - cam.x) * z, sy = (ay - cam.y) * z;
+    assert(sx >= 0 && sx < canvas.width && sy >= 0 && sy < canvas.height, `${arrow.part} 箭头投影不在视口内：${sx}, ${sy}`);
+  }
+  // 对话自然完成后走原开战动画；结束后的同一循环继续推进战斗。
+  finishTutorial();
+  assert(marked && battle.intro?.mode === 'cine', '教程结束后未进入开战动画');
+  for (let i = 0; i < 110 && battle.intro; i++) nextFrame();
+  assert.strictEqual(battle.intro, null, '开战动画未结束');
+  const timeBefore = battle.t;
+  nextFrame();
+  assert(battle.t > timeBefore && !battle.done, '教程后战斗未恢复推进');
+  // 从真实画布鼠标事件瞄准，再用已绑定的 Space 键输入开火。
+  let enemyCell;
+  SA.V.each(battle.e.v, (cell, r, c) => { if (!enemyCell && cell.hp > 0) enemyCell = { r, c }; });
+  assert(enemyCell, '第一关敌车没有可瞄准部件');
+  const [ex, ey] = SA.Battle.debug.cellCenter('e', enemyCell.r, enemyCell.c);
+  canvas.listeners.pointermove({ clientX: (ex - battle.cam.x) * battle.cam.z / 1280 * 1000, clientY: (ey - battle.cam.y) * battle.cam.z / 720 * 600 });
+  for (const onKey of keys.keydown || []) onKey({ type: 'keydown', code: 'Space', preventDefault() {} });
+  const shotsBefore = battle.p.events.fire;
+  for (let i = 0; i < 160 && battle.p.events.fire === shotsBefore && !battle.done; i++) nextFrame();
+  assert(battle.p.events.fire > shotsBefore, '第一关恢复后按开火键没有发射弹丸');
   const editor = source('editor.js'), help = editor.slice(editor.indexOf('function openHelp() {'), editor.indexOf('// ---------- 绘制 ----------'));
   assert.strictEqual((help.match(/h\('p',/g) || []).length, 3, '车间帮助不是三条');
   assert(/左键/.test(help) && /右键/.test(help) && /出战/.test(help) && /按住左键稳住准星/.test(help));
-  return { firstReward: SA.S.d.inv.tank_s, legacyBackfillOnce: true, tutorialParts: parts.length, helpItems: 3 };
+  return { firstReward: SA.S.d.inv.tank_s, legacyBackfillOnce: true, tutorialParts: parts.length, firstStageFired: true, helpItems: 3 };
 }
 
 if (require.main === module) console.log(JSON.stringify(run()));

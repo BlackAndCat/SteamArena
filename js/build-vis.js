@@ -21,5 +21,6 @@ SA.BUILD_VIS += '+arena-vehicle-name'; // 出战海报与档案的车名读取�
 SA.BUILD_VIS += '+battle-hud-a-cab'; // 战斗界面 A 驾驶台：战场不挂框（对方车顶不再有状态条和警报牌），上方两块铁名牌 + 计时鼓，下方铁皮仪表台（锅炉压力表 / 水位管 / 十片装甲 / 五盏指示灯 / 纸条 / 10 格武器键 / 泄压 / 撤退），打不了时准星变红，升白旗压暗只留对方车 + 电报
 SA.BUILD_VIS += '+first-stage-own-car-guide'; // 车间三步提示与首关己方部件箭头。
 SA.BUILD_VIS += '+stage-workbench-larger-canvas'; // 关卡车工具页扩大拼装画布和操作区域。
+SA.BUILD_VIS += '+tutorial-player-camera'; // 首关教程讲解镜头跟随玩家车，使四件部件的指示箭头可见。
 
 SA.BUILD_VIS += '+no-rank-chevrons'; // 模块上的改装军衔杠取消（车间悬停 / 战斗瞄准都不再画）；车间底部纸条只写 名字 · 材质 · 耐久

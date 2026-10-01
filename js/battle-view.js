@@ -1107,10 +1107,10 @@ SA.BattleView.create = function createBattleView(api) {
     I.clock += dt;
     tick(dt);   // 粒子和震屏照常衰减
     if (I.mode === 'tutor') {
-      // 讲解部件时镜头推到对手车上，旁白时回到全景
-      const eb = sideBox(B.e);
+      // 讲解部件时镜头推到玩家车上，旁白时回到全景。
+      const pb = sideBox(B.p);
       // 对话框压在画面上方，讲解时把车往画面下方放，给箭头和标签留出空间
-      const [tx, tz, tb] = I.focus ? [eb.cx, 2.2, GROUND + 22] : [I.home.x + I.home.w / 2, I.home.z, GROUND + 60];
+      const [tx, tz, tb] = I.focus ? [pb.cx, 2.2, GROUND + 22] : [I.home.x + I.home.w / 2, I.home.z, GROUND + 60];
       const k = Math.min(1, dt * 4);
       camAt(camCx() + (tx - camCx()) * k, B.cam.z + (tz - B.cam.z) * k, camBottom() + (tb - camBottom()) * k);
       return;
