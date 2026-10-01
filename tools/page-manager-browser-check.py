@@ -14,31 +14,57 @@ from html5_game_mcp import CDP
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-HTML = '''<!doctype html><meta charset="utf-8"><style>
+FIRST_VISIBLE_PROBE = b'''<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const first=()=>{
+    if(getComputedStyle(document.body).opacity!=='1')return requestAnimationFrame(first);
+    const title=document.querySelector('.title-name'),sub=document.querySelector('.title-sub');
+    window.__firstGameVisible={title:title?.textContent,removed:sub?getComputedStyle(sub).display==='none':false};
+  };
+  requestAnimationFrame(first);
+},{once:true});</script>'''
+HTML = '''<!doctype html><html><head><meta charset="utf-8"><style id="sa-text-startup-hide">body{opacity:0!important}</style><style>
 .home-hint{opacity:0;pointer-events:none}.home-car:hover .home-hint{opacity:1}
-</style><div id="screen"><div id="target" data-text-key="fixture:target">原文字</div>
+</style></head><body><div id="screen"><div id="target" data-text-key="fixture:target">原文字</div>
 <div class="home-car" id="car">车<div class="home-hint" id="hint">提示原文</div></div>
 <div id="titled" title="原生提示">标题</div><div class="ar-title" id="art"></div></div>
-<script>if(!localStorage.getItem('sa-text-fixture-zh-CN'))localStorage.setItem('sa-text-fixture-zh-CN',JSON.stringify({version:1,game:'fixture',locale:'zh-CN',dirty:false,values:{'fixture:target':'选中版本'},removedElements:[],activeVersion:{id:'chosen',at:'2026-10-01T00:00:00Z'},history:[{id:'old',at:'2026-09-30T00:00:00Z',values:{'fixture:target':'原文字'},removedElements:[]}]}));</script>
+<script>const mode=new URLSearchParams(location.search).get('mode');
+const current={version:1,game:'fixture',locale:'zh-CN',dirty:false,values:{'fixture:target':'选中版本'},removedElements:[],activeVersion:{id:'chosen',at:'2026-10-01T00:00:00Z'},history:[{id:'old',at:'2026-09-30T00:00:00Z',values:{'fixture:target':'原文字'},removedElements:[]}]};
+if(mode==='legacy')localStorage.setItem('sa-text-fixture-zh-CN',JSON.stringify({version:1,dirty:true,values:{'fixture:target':'旧版草稿'},removedElements:[]}));
+else if(mode==='dirty')localStorage.setItem('sa-text-fixture-zh-CN',JSON.stringify({...current,dirty:true,values:{'fixture:target':'未保存编辑'}}));
+else if(!localStorage.getItem('sa-text-fixture-zh-CN'))localStorage.setItem('sa-text-fixture-zh-CN',JSON.stringify(current));</script>
 <script src="/js/text-manager.js"></script><script src="/js/palette.js"></script>
 <script src="/js/ui-px.js"></script><script>window.showSaveFilePicker=undefined;SA.Text.init({game:'fixture',locale:'zh-CN',page:'fixture'});
 document.addEventListener('DOMContentLoaded',()=>{document.getElementById('art').append(SA.PX.ui.img(SA.PX.brush('原题',22,SA.PX.INK,'#b59c6c',3),2));});
-function firstVisible(){if(getComputedStyle(document.body).visibility==='visible')window.firstVisibleText=document.getElementById('target').textContent;else requestAnimationFrame(firstVisible)}
-requestAnimationFrame(firstVisible);</script>'''
+function firstVisible(){if(getComputedStyle(document.body).opacity==='1')window.firstVisibleText=document.getElementById('target').textContent;else requestAnimationFrame(firstVisible)}
+requestAnimationFrame(firstVisible);</script></body></html>'''
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    game_source = {'version': 1, 'values': {}, 'removedElements': []}
+
     def do_GET(self):
-        if self.path == '/fixture':
+        if self.path.startswith('/fixture'):
             body = HTML.encode()
             kind = 'text/html'
+        elif self.path == '/':
+            body = (ROOT / 'index.html').read_bytes().replace(b'<head>', b'<head>' + FIRST_VISIBLE_PROBE, 1)
+            kind = 'text/html'
         elif self.path == '/__text/load?game=fixture&locale=zh-CN':
+            # 让初始 DOM 至少有几帧处于旧服务响应等待中，暴露首屏闪烁。
+            time.sleep(.3)
             body = json.dumps({'version': 1, 'values': {'fixture:target': '服务旧稿'}, 'removedElements': []}).encode()
             kind = 'application/json'
-        elif self.path in ('/js/text-manager.js', '/js/palette.js', '/js/ui-px.js'):
+        elif self.path == '/__text/load?game=steam-arena&locale=zh-CN':
+            time.sleep(.3)
+            body = json.dumps(self.game_source).encode()
+            kind = 'application/json'
+        elif self.path.startswith('/js/') or self.path.startswith('/css/'):
+            if self.path == '/js/main.js':
+                time.sleep(.3)
             selected = os.environ.get('TEXT_MANAGER_SOURCE') if self.path == '/js/text-manager.js' else None
             body = (pathlib.Path(selected) if selected else ROOT / self.path.lstrip('/')).read_bytes()
-            kind = 'text/javascript'
+            kind = 'text/css' if self.path.startswith('/css/') else 'text/javascript'
         else:
             self.send_error(404)
             return
@@ -171,6 +197,66 @@ def run():
             assert reloaded['first'] == '选中版本' and reloaded['active'] == 'chosen', reloaded
             assert reloaded['title'] == '新提示', reloaded
             value['reload'] = reloaded
+            # 旧版草稿没有版本元数据，现代草稿有历史；两者创建工具栏后都须显示可选择的当前版。
+            for mode, expected, count in [('legacy', '旧版草稿', 1), ('dirty', '未保存编辑', 2)]:
+                cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/fixture?mode={mode}'})
+                for _ in range(80):
+                    probe = cdp.call('Runtime.evaluate', {'expression': "document.readyState==='complete'&&!!window.SA?.Text", 'returnByValue': True})
+                    if probe.get('result', {}).get('value'):
+                        break
+                    time.sleep(.1)
+                check = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{await SA.Text.ready;
+                  await new Promise(requestAnimationFrame);
+                  const select=document.querySelector('[data-text-versions]');
+                  return {first:window.firstVisibleText,text:document.getElementById('target').textContent,
+                    options:select.options.length,selected:select.value,active:SA.Text.versions()[0].id};})()''',
+                    'returnByValue': True, 'awaitPromise': True})['result']['value']
+                assert check['first'] == expected and check['text'] == expected, (mode, check)
+                assert check['options'] == count and check['selected'] == check['active'], (mode, check)
+                value[mode] = check
+            # 使用仓库真实 index 与全部游戏脚本，先从实际标题页读取稳定 key 和移除路径。
+            cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/'})
+            for _ in range(100):
+                probe = cdp.call('Runtime.evaluate', {'expression': "document.readyState==='complete'&&!!document.querySelector('.title-name')", 'returnByValue': True})
+                if probe.get('result', {}).get('value'):
+                    break
+                time.sleep(.1)
+            captured = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{await SA.Text.ready;
+              SA.Text.enterEdit();
+              document.querySelector('.title-name').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+              const key=document.querySelector('#sa-text-manager .sa-text-editor small').textContent;
+              document.querySelector('.title-sub').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+              document.querySelector('[data-text-action="remove-element"]').click();
+              const draft=JSON.parse(localStorage.getItem('sa-text-steam-arena-zh-CN'));
+              return {key,removed:draft.removedElements.at(-1)};})()''',
+              'returnByValue': True, 'awaitPromise': True})['result']['value']
+            assert captured['key'] and captured['removed'], captured
+            for mode in ('clean', 'dirty'):
+                expected = '真实入口已编辑' if mode == 'clean' else '真实入口草稿'
+                cache = {'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN',
+                    'dirty': mode == 'dirty', 'values': {captured['key']: expected},
+                    'removedElements': [captured['removed']]}
+                Handler.game_source = {'version': 1, 'values': cache['values'] if mode == 'clean' else {},
+                    'removedElements': cache['removedElements'] if mode == 'clean' else []}
+                cdp.call('Runtime.evaluate', {'expression':
+                    "localStorage.setItem('sa-text-steam-arena-zh-CN',JSON.stringify(" + json.dumps(cache, ensure_ascii=False) + "))"})
+                cdp.call('Page.navigate', {'url': f'http://127.0.0.1:{server.server_port}/'})
+                for _ in range(100):
+                    probe = cdp.call('Runtime.evaluate', {'expression': "document.readyState==='complete'&&!!window.SA?.Text", 'returnByValue': True})
+                    if probe.get('result', {}).get('value'):
+                        break
+                    time.sleep(.1)
+                actual = cdp.call('Runtime.evaluate', {'expression': '''(async()=>{await SA.Text.ready;
+                  await new Promise(requestAnimationFrame);
+                  const select=document.querySelector('[data-text-versions]');
+                  return {first:window.__firstGameVisible,title:document.querySelector('.title-name')?.textContent,
+                    removed:getComputedStyle(document.querySelector('.title-sub')).display==='none',
+                    options:select.options.length,selected:select.value,active:SA.Text.versions()[0].id};})()''',
+                    'returnByValue': True, 'awaitPromise': True})['result']['value']
+                assert actual.get('first') == {'title': expected, 'removed': True}, (mode, actual)
+                assert actual['title'] == expected and actual['removed'], (mode, actual)
+                assert actual['options'] >= 1 and actual['selected'] == actual['active'], (mode, actual)
+                value['game_' + mode] = actual
             print(json.dumps(value, ensure_ascii=False))
         finally:
             browser.terminate()

@@ -534,6 +534,8 @@ SA.Text = (() => {
     editorInput.addEventListener('input', () => {
       if (activeEntry) set(activeEntry.key, editorInput.value);
     });
+    // 本地草稿可能先于工具栏读取；工具栏出现后补上当前版与历史版。
+    updateVersions();
     updateToolbar();
   }
 
@@ -1015,9 +1017,10 @@ SA.Text = (() => {
     if (started) return api;
     started = true;
     if (document.head) {
-      startupStyle = document.createElement('style');
-      startupStyle.textContent = 'body{visibility:hidden!important}';
-      document.head.append(startupStyle);
+      // 首页在脚本下载前已设遮罩；沿用它，待本地和文件覆盖均应用后再显示。
+      startupStyle = document.getElementById('sa-text-startup-hide') || document.createElement('style');
+      startupStyle.textContent = 'body{opacity:0!important}';
+      if (!startupStyle.isConnected) document.head.append(startupStyle);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
     else boot();

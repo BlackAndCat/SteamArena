@@ -11,3 +11,4 @@ SA.BUILD_SYS += '+stage-car-name-workbench'; // 关卡车工作台恢复像素�
 SA.BUILD_SYS += '+page-versions-canvas-hover'; // 页面历史版本、画布文字和悬浮内容编辑。
 SA.BUILD_SYS += '+opening-story-editor'; // 标题与开场演出直达剧情编排，试播不推进存档。
 SA.BUILD_SYS += '+yard-chat-data'; // 院子闲谈支持章节继承、成套对答、权重冷却和全局时间。
+SA.BUILD_SYS += '+page-startup-version-fix'; // 页面旧草稿版本恢复与首屏覆盖应用。
