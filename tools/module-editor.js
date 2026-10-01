@@ -15,7 +15,10 @@
     const keys = path.split('.');
     let part = obj;
     for (const key of keys.slice(0, -1)) part = part[key] ||= {};
-    part[keys.at(-1)] = value;
+    const key = keys.at(-1);
+    // 部分默认文案是只读 getter；保存成功后同步当前页时沿用模块加载器的覆盖方式。
+    if (Object.getOwnPropertyDescriptor(part, key)?.get) Object.defineProperty(part, key, { value, writable: true, configurable: true, enumerable: true });
+    else part[key] = value;
   }
   function drop(obj, path) {
     const keys = path.split('.'), parents = [obj];
@@ -49,8 +52,12 @@
       return await new Promise((resolve, reject) => {
         const tx = db.transaction('files', next ? 'readwrite' : 'readonly');
         const req = next ? tx.objectStore('files').put(next, 'modules') : tx.objectStore('files').get('modules');
-        req.onsuccess = () => resolve(next || req.result || null);
-        req.onerror = () => reject(req.error);
+        let saved = null;
+        req.onsuccess = () => { if (!next) saved = req.result || null; };
+        // 请求成功时事务仍可能回滚；必须等事务提交后才能刷新页面并复用句柄。
+        tx.oncomplete = () => resolve(next || saved);
+        tx.onerror = () => reject(tx.error || req.error || new Error('文件授权记录写入失败。'));
+        tx.onabort = () => reject(tx.error || new Error('文件授权记录未能提交。'));
       });
     } finally { db.close(); }
   }
@@ -208,7 +215,7 @@
     await stream.write(updated); await stream.close();
   }
   async function save() {
-    if (saving || !selected || !changed()) return;
+    if (saving || !ready || !selected || !changed()) return;
     const id = selected, values = overrides(), valid = SA.validateModuleOverrides(id, values);
     if (!valid.ok) { notice((valid.errors || []).join('\n') || '属性校验未通过。', 'bad'); return; }
     // 首次选文件必须直接发生在按钮事件中，以保留浏览器的用户激活权限。
@@ -226,7 +233,17 @@
         const permission = await handle.queryPermission({ mode: 'readwrite' });
         if (permission !== 'granted' && await handle.requestPermission({ mode: 'readwrite' }) !== 'granted') throw new Error('未获得文件写入权限，修改尚未保存。');
         await fileSave(handle, id, values);
-        try { await storedHandle(handle); } catch { /* 私密模式可保存当前文件，但不能记住句柄。 */ }
+        try { await storedHandle(handle); }
+        catch {
+          // 文件已写入，先同步当前页的编辑基线，避免切换模块后用旧值覆盖本次保存。
+          for (const path of touched) put(SA.MODULES[id], path, controls.get(path)());
+          if (Object.keys(values).length) SA.MODULE_OVERRIDES[id] = values;
+          else delete SA.MODULE_OVERRIDES[id];
+          touched.clear(); saving = false; updateDirty(); filterList();
+          $('hero').querySelector('h2').textContent = SA.MODULES[id].name;
+          notice('本次已保存到 js/modules.js，但浏览器未能记住文件。当前页面可继续一键保存；刷新后可能需要重新选择文件。', 'warn');
+          return;
+        }
       }
       sessionStorage.setItem('module-editor-success', `${SA.MODULES[id].name} 已保存到 js/modules.js。重新打开的游戏页面会使用新属性。`);
       location.reload();
@@ -242,6 +259,11 @@
     $('category').append(new Option('全部类别', ''));
     for (const cat of new Set(ids.map(id => SA.MODULES[id].cat))) $('category').append(new Option(categoryName(cat), cat));
     $('search').oninput = filterList; $('category').onchange = filterList; $('save').onclick = save;
+    window.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') {
+        event.preventDefault(); event.stopImmediatePropagation(); save();
+      }
+    }, true);
     window.addEventListener('beforeunload', event => { if (changed() && !saving) { event.preventDefault(); event.returnValue = ''; } });
     select(sessionStorage.getItem('module-editor-selected') || ids[0]);
     const success = sessionStorage.getItem('module-editor-success'); sessionStorage.removeItem('module-editor-success');
