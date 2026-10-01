@@ -128,6 +128,10 @@ SA.BattleView.create = function createBattleView(api) {
     g.restore();
     // 第 1 层：背景 + 地面 + 地形（世界像素）
     present(vw, vh, ox, oy, true);
+    // 氛围（js/scenes.js，设备分辨率、平滑）：车后面一层雾、灯光、车底软影；车前面一层薄雾、调色、超近景虚化剪影、暗角
+    const fxc = { W: cv.width, H: cv.height, Z: cam.z * DPX, dpx: DPX, zoom: cam.z, camx: cam.x, camy: cam.y, ox, oy, vw, vh, t: sceneT(), opts: B.opts, aim: B.aim,
+      cars: [B.p, B.e].map(s => { const b = sideBox(s); return isFinite(b.x0) ? { ...b, ground: groundAt(b.cx) } : null; }).filter(Boolean) };
+    SA.Scenes.fxBack(BD, dg, fxc);
 
     // 第 2 层：车。车会跟着坡度连续倾斜，在世界像素里最近邻旋转会让像素行断成台阶、每帧还跳来跳去（撕裂 / 闪烁），
     // 所以车直接画在设备分辨率上：车身画布先整数倍最近邻放大，再带着旋转双线性画上去 —— 像素块大小一致，斜边平滑不抖
@@ -209,6 +213,7 @@ SA.BattleView.create = function createBattleView(api) {
     g.restore();
     drawNear(vw, vh, oy);   // 近景压在车和炮弹前面
     present(vw, vh, ox, oy, false);
+    SA.Scenes.fxFront(BD, dg, fxc);   // HUD（准星、伤害数字、标签）画在它上面，不被调色和遮挡影响
 
     // 叠加层：直接画在设备分辨率上（文字、细条、准星、弹道扇区都是矢量，不再被放大成糊块）
     dg.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);

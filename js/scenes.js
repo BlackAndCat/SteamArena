@@ -732,10 +732,343 @@ SA.Scenes = (() => {
     return (coalCache[k] = ch ? SA.Coal.draw(ch, { size: 'sprite', pose, expr, look }) : document.createElement('canvas'));
   }
 
+  // =====================================================================
+  // 氛围层（不要求像素风，重点是质感）：画在设备分辨率上，平滑、可以虚化。
+  //  fxBack（车后面）：远景和中景之间的景深雾、成团的雾带、灯的光晕和光锥、地上的树影、车底的软接触影子
+  //  fxFront（车前面、HUD 下面）：贴地薄雾、整体调色、泛光、超近景的虚化剪影（比车移动得快；挡到车或准星时自动变淡）、
+  //           空气里的飘浮物（火星、花粉、雨丝、雾里的浮尘）、镁光灯、暗角、胶片颗粒
+  // 参考：低视角横版游戏「前景遮挡 + 体积光 + 雾」的做法。设置里能关（localStorage steam_arena_scene_fx = off），关掉就是纯像素画面
+  // =====================================================================
+  const FXKEY = 'steam_arena_scene_fx';
+  let fxOn = (() => { try { return localStorage.getItem(FXKEY) !== 'off'; } catch (e) { return true; } })();
+  function setFx(on) { fxOn = !!on; fxLevel = 2; try { sessionStorage.removeItem(LVKEY); } catch (e) { /* ignore */ } try { localStorage.setItem(FXKEY, fxOn ? 'on' : 'off'); } catch (e) { /* 不记也行 */ } }
+  // 自动降档：整帧掉到 30 帧以下持续 1.5 秒就降一档（2 全开 → 1 精简：不要颗粒、调色、暗角、泛光、镁光灯 → 0 关），本次打开游戏内不再升回去。
+  // 没有显卡加速的环境（软件渲染）里全屏混合很贵，有显卡时这一层只占一两毫秒
+  // 定下来的档位记在 sessionStorage：同一次打开游戏，后面的战斗直接从这一档开始，不再卡一下
+  const LVKEY = 'steam_arena_scene_fx_level';
+  let fxLevel = (() => { try { const v = +sessionStorage.getItem(LVKEY); return v >= 0 && v <= 2 && sessionStorage.getItem(LVKEY) != null ? v : 2; } catch (e) { return 2; } })();
+  const perf = { ema: 0, last: 0, slow: 0, warm: 0 };
+  function watch(t) {
+    const dt = perf.last ? t - perf.last : 0; perf.last = t;
+    if (!dt || dt > 1) { perf.slow = 0; return; }   // 切到后台 / 暂停回来的那一帧不算
+    perf.warm += dt; perf.ema = perf.ema ? perf.ema * 0.92 + dt * 0.08 : dt;
+    if (perf.warm < 0.5) return;
+    perf.slow = perf.ema > 1 / 30 ? perf.slow + dt : 0;
+    if ((perf.slow > 1 || perf.ema > 1 / 12) && fxLevel > 0) {   // 慢到 12 帧以下立刻降，30 帧以下撑 1 秒再降
+      fxLevel--; perf.slow = 0; perf.warm = 0; perf.ema = 0;
+      try { sessionStorage.setItem(LVKEY, String(fxLevel)); } catch (e) { /* ignore */ }
+      if (window.console) console.info(`[场景特效] 帧率偏低，自动降到第 ${fxLevel} 档`);
+    }
+  }
+  const can = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; };
+  const rgbaS = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+  // 虚化：先画在 1/k 的小画布上，再分两步平滑放大 —— 便宜，也不依赖 ctx.filter（Safari 没有）
+  function soften(w, h, k, paint) {
+    const s = can(w / k, h / k), sx = s.getContext('2d'); sx.scale(1 / k, 1 / k); paint(sx);
+    const m = can(w / 2, h / 2), mx = m.getContext('2d'); mx.imageSmoothingEnabled = true; mx.imageSmoothingQuality = 'high'; mx.drawImage(s, 0, 0, m.width, m.height);
+    const c = can(w, h), cx = c.getContext('2d'); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high'; cx.drawImage(m, 0, 0, w, h);
+    return c;
+  }
+  // 光晕贴图：按颜色缓存的径向渐变（中心实、边缘柔和衰减）；黑色的同一张图就是软影子
+  const glowCache = {};
+  function glowTex(hex, size = 256) {
+    const key = hex + size;
+    if (glowCache[key]) return glowCache[key];
+    const R0 = size / 2, c = can(size, size), x = c.getContext('2d'), gr = x.createRadialGradient(R0, R0, 0, R0, R0, R0);
+    [[0, 1], [0.12, 0.62], [0.35, 0.25], [0.65, 0.07], [1, 0]].forEach(([k, a]) => gr.addColorStop(k, rgbaS(hex, a)));
+    x.fillStyle = gr; x.fillRect(0, 0, size, size);
+    return (glowCache[key] = c);
+  }
+  // 光锥：顶上窄、往下张开，两边和底下都是软边
+  const coneCache = {};
+  function coneTex(hex) {
+    if (coneCache[hex]) return coneCache[hex];
+    return (coneCache[hex] = soften(256, 512, 8, (x) => {
+      const gr = x.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, rgbaS(hex, 0.9)); gr.addColorStop(0.7, rgbaS(hex, 0.35)); gr.addColorStop(1, rgbaS(hex, 0));
+      x.fillStyle = gr; x.beginPath(); x.moveTo(108, 0); x.lineTo(148, 0); x.lineTo(236, 500); x.lineTo(20, 500); x.closePath(); x.fill();
+    }));
+  }
+  // 雾带贴图：一串软椭圆叠成的云团（横向首尾相接，可平铺）
+  const fogCache = {};
+  function fogTex(hex, seed) {
+    const key = hex + seed;
+    if (fogCache[key]) return fogCache[key];
+    const r = rng(seed);
+    return (fogCache[key] = soften(1024, 256, 8, (x) => {
+      for (let i = 0; i < 46; i++) {
+        const cx = r() * 1024, cy = 128 + (r() - 0.5) * 90, rx = 70 + r() * 150, ry = 22 + r() * 40;
+        x.fillStyle = rgbaS(hex, 0.25 + r() * 0.4);
+        for (const ox of [-1024, 0, 1024]) { x.beginPath(); x.ellipse(cx + ox, cy, rx, ry, 0, 0, TAU); x.fill(); }
+      }
+    }));
+  }
+  // ---------- 超近景剪影：离镜头极近，所以大、暗、虚 ----------
+  // 每种画在「基准像素」里（1280 宽的画面），实际大小 × 镜头缩放；col = 剪影色（各场景压暗的主色）
+  const NEAR = {
+    bush: [560, 500, (x, col, r) => {
+      x.strokeStyle = x.fillStyle = col; x.lineCap = 'round';
+      const br = (px, py, len, a, w, d) => {
+        const ex = px + Math.cos(a) * len, ey = py + Math.sin(a) * len;
+        x.lineWidth = w; x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo((px + ex) / 2 + (r() - 0.5) * 30, (py + ey) / 2, ex, ey); x.stroke();
+        if (d <= 1) for (let i = 0; i < 4; i++) { x.beginPath(); x.ellipse(ex + (r() - 0.5) * 50, ey + (r() - 0.5) * 40, 18 + r() * 22, 12 + r() * 16, r() * 3, 0, TAU); x.fill(); }
+        if (d > 0) for (let i = 0; i < 2 + (r() < 0.5 ? 1 : 0); i++) br(ex, ey, len * (0.62 + r() * 0.15), a + (r() - 0.5) * 1.3, w * 0.62, d - 1);
+      };
+      for (let i = 0; i < 4; i++) br(280 + (r() - 0.5) * 60, 500, 120 + r() * 50, -Math.PI / 2 + (r() - 0.5) * 0.9, 22, 4);
+    }],
+    grass: [380, 340, (x, col, r) => {
+      x.fillStyle = col;
+      for (let i = 0; i < 46; i++) {
+        const bx = 20 + r() * 340, len = 120 + r() * 210, bend = (r() - 0.4) * 140, w = 5 + r() * 7;
+        x.beginPath(); x.moveTo(bx - w, 340); x.quadraticCurveTo(bx + bend * 0.4, 340 - len * 0.6, bx + bend, 340 - len); x.quadraticCurveTo(bx + bend * 0.4 + w, 340 - len * 0.6, bx + w, 340); x.fill();
+        if (r() < 0.12) { x.beginPath(); x.ellipse(bx + bend, 340 - len - 6, 9, 16, bend / 300, 0, TAU); x.fill(); }   // 穗子
+      }
+    }],
+    scrap: [660, 300, (x, col) => {
+      x.fillStyle = x.strokeStyle = col;
+      x.beginPath(); x.ellipse(330, 330, 330, 120, 0, Math.PI, TAU); x.fill();                       // 废料堆
+      x.save(); x.translate(200, 150); x.rotate(0.3); x.fillRect(-10, -150, 26, 260); x.restore();     // 斜插的管子
+      x.lineWidth = 16; x.beginPath(); x.arc(470, 170, 70, 0, TAU); x.stroke();                       // 车轮
+      for (let k = 0; k < 8; k++) { const a = k * TAU / 8; x.lineWidth = 7; x.beginPath(); x.moveTo(470, 170); x.lineTo(470 + Math.cos(a) * 70, 170 + Math.sin(a) * 70); x.stroke(); }
+      x.beginPath(); for (let k = 0; k < 24; k++) { const a = k * TAU / 24, rr = k % 2 ? 46 : 60; x.lineTo(320 + Math.cos(a) * rr, 210 + Math.sin(a) * rr); } x.fill();   // 齿轮
+    }],
+    post: [760, 560, (x, col) => {
+      x.fillStyle = x.strokeStyle = col;
+      x.fillRect(340, 20, 54, 560); x.fillRect(330, 10, 74, 20);
+      x.lineWidth = 4; for (const [y0, s] of [[150, 40], [260, 46]]) { x.beginPath(); x.moveTo(0, y0); x.quadraticCurveTo(190, y0 + s, 360, y0); x.quadraticCurveTo(560, y0 + s, 760, y0); x.stroke(); }
+      for (let k = 30; k < 760; k += 60) x.fillRect(k, 158 + Math.sin(k / 120) * 10, 10, 6);   // 铁丝刺
+    }],
+    chain: [160, 470, (x, col) => {
+      x.strokeStyle = x.fillStyle = col; x.lineWidth = 9;
+      for (let y = 0; y < 380; y += 30) { x.beginPath(); x.ellipse(80, y + 15, (y / 30) % 2 ? 6 : 15, 18, 0, 0, TAU); x.stroke(); }
+      x.lineWidth = 16; x.beginPath(); x.arc(80, 420, 34, -0.3, Math.PI * 1.1); x.stroke();          // 吊钩
+    }],
+    branch: [820, 400, (x, col, r) => {
+      x.strokeStyle = x.fillStyle = col; x.lineCap = 'round';
+      x.lineWidth = 34; x.beginPath(); x.moveTo(-20, 40); x.quadraticCurveTo(320, 60, 760, 150); x.stroke();
+      for (let i = 0; i < 9; i++) {
+        const t = 0.1 + i * 0.1, px = -20 + 780 * t, py = 40 + 110 * t * t, len = 80 + r() * 140, a = Math.PI / 2 + (r() - 0.5) * 1.4;
+        x.lineWidth = 9; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len); x.stroke();
+        for (let k = 0; k < 5; k++) { x.beginPath(); x.ellipse(px + Math.cos(a) * len * (0.5 + r() * 0.6) + (r() - 0.5) * 50, py + Math.sin(a) * len * (0.5 + r() * 0.6), 20 + r() * 18, 10 + r() * 10, r() * 3, 0, TAU); x.fill(); }
+      }
+    }],
+    heads: [820, 300, (x, col, r) => {
+      x.fillStyle = col;
+      for (let i = 0; i < 6; i++) {
+        const cx = 70 + i * 135 + (r() - 0.5) * 30, top = 90 + r() * 70, rr = 48 + r() * 14;
+        x.beginPath(); x.ellipse(cx, top + rr, rr, rr * 1.05, 0, 0, TAU); x.fill(); x.fillRect(cx - rr * 1.5, top + rr * 1.6, rr * 3, 300);   // 后脑勺 + 肩膀
+        const hat = i % 3;
+        if (hat === 0) { x.fillRect(cx - rr * 0.75, top - rr * 0.9, rr * 1.5, rr * 1.2); x.fillRect(cx - rr * 1.2, top + rr * 0.25, rr * 2.4, 12); }   // 礼帽
+        else if (hat === 1) { x.beginPath(); x.ellipse(cx, top + rr * 0.3, rr * 0.9, rr * 0.75, 0, Math.PI, TAU); x.fill(); x.fillRect(cx - rr * 1.3, top + rr * 0.25, rr * 2.6, 10); }   // 圆顶礼帽
+      }
+    }],
+    bunting: [1100, 230, (x, col, r) => {
+      x.strokeStyle = x.fillStyle = col; x.lineWidth = 5;
+      const y = (k) => 30 + Math.sin(k * Math.PI) * 110;
+      x.beginPath(); for (let k = 0; k <= 1; k += 0.02) x.lineTo(k * 1100, y(k)); x.stroke();
+      for (let k = 0.04; k < 1; k += 0.07) { const px = k * 1100, py = y(k); x.beginPath(); x.moveTo(px - 28, py); x.lineTo(px + 28, py); x.lineTo(px + (r() - 0.5) * 10, py + 70 + r() * 20); x.fill(); }
+    }],
+  };
+  // 按屏幕上的实际大小（缩放取 0.05 一档）缓存一张，每帧只做 1:1 的贴图，不做缩放和变形（没显卡时缩放 / 斜切都很慢）
+  function nearImg(S, i, s) {
+    S.fxNear = S.fxNear || [];
+    const o = S.fx.near[i], [w, h, paint] = NEAR[o.kind], q = Math.round(s * 20) / 20, m = S.fxNear[i] || (S.fxNear[i] = {});
+    if (!m.src) m.src = soften(w, h, o.blur || 7, (x) => paint(x, S.fx.nearCol, rng(31 + i * 17)));
+    if (!m[q]) { const c = can(w * q, h * q), x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(m.src, 0, 0, c.width, c.height); m[q] = c; }
+    return m[q];
+  }
+  // 雾带：贴图横向平铺，按视差和时间平移；b = { y 世界中心, h 世界高, a, col, par, v, seed }
+  function fogBand(g, c, b) {
+    const tex = fogTex(b.col, b.seed || 3), Z = c.Z, dh = b.h * Z, dw = tex.width * (dh / tex.height) * 1.6;
+    const y = (b.y - c.camy) * Z - dh / 2, off = ((c.camx * (b.par || 0.6) * Z + c.t * (b.v || 6) * Z) % dw + dw) % dw;
+    g.globalAlpha = b.a;
+    for (let x = -off; x < c.W; x += dw) g.drawImage(tex, x, y, dw + 1, dh);
+    g.globalAlpha = 1;
+  }
+  // 灯：L = { x, y 视口像素, r 世界半径, col, a, flick, cone: [长, 半宽] }；mul = 强度倍数，grow = 半径倍数（泛光用）
+  function drawLight(g, c, L, mul = 1, grow = 1) {
+    const dx = (L.x + c.ox - c.camx) * c.Z, dy = (L.y + c.oy - c.camy) * c.Z;
+    const fl = L.flick ? 0.82 + 0.18 * Math.sin(c.t * 13 + L.x) * Math.sin(c.t * 7.3 + L.y) : 1, r = L.r * c.Z * grow;
+    g.globalAlpha = Math.min(1, L.a * fl * mul);
+    g.drawImage(glowTex(L.col), dx - r, dy - r, r * 2, r * 2);
+    if (L.cone && grow === 1) {
+      const [len, wid] = L.cone, w = wid * 2 * c.Z, h = len * c.Z;
+      g.globalAlpha = Math.min(1, L.a * fl * mul * 0.55);
+      g.drawImage(coneTex(L.col), dx - w / 2, dy, w, h);
+      g.fillStyle = rgbaS(L.col, 0.8);   // 光锥里飘的灰
+      for (let i = 0; i < 10; i++) { const f = (c.t * 0.05 + hash(i, 5)) % 1, px = dx + (hash(i, 6) - 0.5) * w * (0.2 + f * 0.6) + Math.sin(c.t + i) * 4 * c.Z, py = dy + f * h * 0.9; g.globalAlpha = 0.5 * Math.sin(f * Math.PI); g.fillRect(px, py, 1.5 * c.Z, 1.5 * c.Z); }
+    }
+    g.globalAlpha = 1;
+  }
+  const vigCache = {};
+  function vignette(W2, H2, a) {
+    const k = `${W2}x${H2}x${a}`;
+    if (vigCache[k]) return vigCache[k];
+    const c = can(W2, H2), x = c.getContext('2d'), gr = x.createRadialGradient(W2 / 2, H2 * 0.48, Math.min(W2, H2) * 0.35, W2 / 2, H2 * 0.48, Math.hypot(W2, H2) * 0.6);
+    gr.addColorStop(0, 'rgba(4,4,8,0)'); gr.addColorStop(1, `rgba(4,4,8,${a})`);
+    x.fillStyle = gr; x.fillRect(0, 0, W2, H2);
+    return (vigCache[k] = c);
+  }
+  let grainC = null;
+  function grain() {
+    if (grainC) return grainC;
+    grainC = can(192, 192); const x = grainC.getContext('2d'), img = x.createImageData(192, 192);
+    for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+    x.putImageData(img, 0, 0);
+    return grainC;
+  }
+  const overlap = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+
+  // c = { W, H 设备画布, Z 设备像素 / 世界像素, camx, camy, ox, oy 视口左上角（世界）, vw, vh, t, opts, cars: [{ x0, x1, y0, y1, ground }], aim: [x, y] 世界 }
+  function fxBack(id, g, c) {
+    if (!fxOn) return;
+    watch(c.t);
+    if (!fxLevel) return;
+    const full = fxLevel > 1;   // 精简档：只留超近景、小灯、光锥、车底影子和少量飘浮物，不画整屏的雾和大光晕
+    const S = get(id), F = S.fx;
+    if (!F) return;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    const Z = c.Z, Y = (wy) => (wy - c.camy) * Z;
+    if (F.haze && full) {   // 景深雾：远景和中景之间、地平线一带最浓
+      const [col, a] = F.haze, y0 = Y(HZ - 160), y1 = Y(F0 + 20), gr = g.createLinearGradient(0, y0, 0, y1);
+      gr.addColorStop(0, rgbaS(col, 0)); gr.addColorStop(0.6, rgbaS(col, a)); gr.addColorStop(1, rgbaS(col, a * 0.3));
+      g.fillStyle = gr; g.fillRect(0, y0, c.W, y1 - y0);
+    }
+    if (full) for (const b of F.banks || []) fogBand(g, c, b);
+    if (F.dapple && full) {   // 地上的树影：几团软暗斑，跟着地面走，慢慢晃
+      const sh = glowTex('#000000');
+      for (let i = 0; i < 9; i++) {
+        const per = 2600, u = hash(i, 41) * per, x = (((u - c.camx) % per + per) % per - 300) * Z + Math.sin(c.t * 0.6 + i) * 6 * Z, w = (180 + hash(i, 42) * 220) * Z, h = 26 * Z;
+        g.globalAlpha = F.dapple; g.drawImage(sh, x - w / 2, Y(GROUND - 30 - hash(i, 43) * 50) - h / 2, w, h);
+      }
+      g.globalAlpha = 1;
+    }
+    S.fxLights = F.lights ? F.lights(c) : [];
+    g.globalCompositeOperation = 'lighter';
+    for (const L of S.fxLights) if (full || L.r <= 120) drawLight(g, c, L);
+    g.globalCompositeOperation = 'source-over';
+    // 车底软影：贴着地面的一团扁椭圆，车越宽影子越长
+    const sh = glowTex('#000000');
+    for (const car of c.cars) {
+      const x0 = (car.x0 - c.camx) * Z, x1 = (car.x1 - c.camx) * Z, w = (x1 - x0) * 1.25, h = 22 * Z;
+      g.globalAlpha = F.shadow == null ? 0.45 : F.shadow; g.drawImage(sh, (x0 + x1) / 2 - w / 2, Y(car.ground) - h * 0.45, w, h);
+    }
+    g.globalAlpha = 1;
+    g.restore();
+  }
+  function fxFront(id, g, c) {
+    if (!fxOn || !fxLevel) return;
+    const full = fxLevel > 1;
+    const S = get(id), F = S.fx;
+    if (!F) return;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    const Z = c.Z, W2 = c.W, H2 = c.H, st = S.fxState || (S.fxState = { fade: {}, last: c.t, flash: [] }), dt = Math.max(0, Math.min(0.1, c.t - st.last)); st.last = c.t;
+    if (F.mist && full) fogBand(g, c, F.mist);   // 贴地薄雾，从车轮前面飘过
+    if (F.grade && full) { const [col, a, mode] = F.grade; g.globalCompositeOperation = mode; g.fillStyle = rgbaS(col, a); g.fillRect(0, 0, W2, H2); g.globalCompositeOperation = 'source-over'; }
+    // 泛光：灯再叠一层更大更淡的光，溢到车身和前景上
+    g.globalCompositeOperation = 'lighter';
+    if (full) for (const L of S.fxLights || []) drawLight(g, c, L, F.bloom == null ? 0.3 : F.bloom, 1.8);
+    // 镁光灯（预选赛看台）：偶尔「啪」地一闪
+    if (F.flashes && full) {
+      if (Math.random() < dt * F.flashes) st.flash.push({ x: Math.random() * W2, y: (418 + Math.random() * 90 - c.camy) * Z, life: 0.16 });
+      for (const f of st.flash) { f.life -= dt; const r = 60 * Z * (0.6 + f.life * 3); g.globalAlpha = Math.max(0, f.life / 0.16); g.drawImage(glowTex('#f4f6ff'), f.x - r, f.y - r, r * 2, r * 2); }
+      st.flash = st.flash.filter(f => f.life > 0);
+    }
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    // 超近景剪影：视差 2.1 倍（比车快一倍多），挡到车或准星时很快淡到 0.2
+    const PAR = 2.1, per = 3600, keep = c.cars.map(k => ({ x0: (k.x0 - c.camx) * Z, x1: (k.x1 - c.camx) * Z, y0: (k.y0 - c.camy) * Z, y1: (k.y1 - c.camy) * Z }));
+    if (c.aim) { const ax = (c.aim[0] - c.camx) * Z, ay = (c.aim[1] - c.camy) * Z; keep.push({ x0: ax - 40 * Z, x1: ax + 40 * Z, y0: ay - 40 * Z, y1: ay + 40 * Z }); }
+    (F.near || []).forEach((o, i) => {
+      const img = nearImg(S, i, (c.dpx || Z) * Math.max(0.8, Math.min(1.2, c.zoom || 1)) * (o.s || 1)), w = img.width, h = img.height;   // 镜头推近时它们不跟着放到满屏
+      const x = (((o.u - c.camx * PAR) % per + per) % per - 900) * Z;
+      if (x > W2 || x + w < 0) return;
+      const y = o.top ? -(o.dy || 0) * Z : H2 - h + (o.dy || 0) * Z, box = { x0: x + w * 0.1, x1: x + w * 0.9, y0: y + h * 0.1, y1: y + h };
+      const tgt = keep.some(k => overlap(box, k)) ? 0.2 : 1, cur = st.fade[i] == null ? tgt : st.fade[i];
+      st.fade[i] = cur + (tgt - cur) * Math.min(1, dt * 7);
+      g.globalAlpha = (o.a || 0.94) * st.fade[i];
+      const sway = o.sway ? Math.sin(c.t * 0.8 + i * 1.7) * o.sway * h * 0.35 : 0;   // 风吹：整个轻轻左右挪
+      g.drawImage(img, Math.round(x + sway), Math.round(y));
+    });
+    g.globalAlpha = 1;
+    // 飘浮物
+    const M = F.motes;
+    if (M) {
+      for (let i = 0, n = (M.n || 24) >> (full ? 0 : 1); i < n; i++) {
+        const big = i < (M.bokeh || 0), par = big ? 2.4 : 1.3, sz = (big ? 10 + hash(i, 7) * 18 : M.size || 2) * Z;
+        if (M.kind === 'rain') {   // 镜头前的雨丝：长、斜、半透明；近的更粗更虚
+          const span = H2 + 200, f = ((c.t * (900 + hash(i, 3) * 400) * Z + hash(i, 4) * span) % span) - 100, Q = W2 + 200;
+          const x = ((hash(i, 5) * Q - c.camx * 1.8 * Z - f * 0.18) % Q + Q) % Q - 100;
+          g.strokeStyle = rgbaS(M.col, big ? 0.1 : 0.22); g.lineWidth = (big ? 3 : 1.2) * Z; g.beginPath(); g.moveTo(x, f); g.lineTo(x - 10 * Z, f + (big ? 110 : 60) * Z); g.stroke();
+          continue;
+        }
+        const up = M.kind === 'ember' ? -1 : M.kind === 'specks' ? 1 : 0, sp = (M.speed || 20) * (0.6 + hash(i, 8)), span = H2 + 100;
+        const fy = up ? ((hash(i, 9) * span + up * c.t * sp * Z) % span + span) % span - 50 : hash(i, 9) * H2 + Math.sin(c.t * 0.4 + i) * 30 * Z;
+        const Q = W2 + 200, x = ((hash(i, 10) * Q + c.t * (M.drift || 8) * Z - c.camx * par * Z) % Q + Q) % Q - 100 + Math.sin(c.t * 1.3 + i) * 12 * Z;
+        const tw = 0.6 + 0.4 * Math.sin(c.t * 3 + i * 2.3);
+        g.globalCompositeOperation = M.glow ? 'lighter' : 'source-over';
+        g.globalAlpha = (big ? 0.16 : M.a || 0.7) * tw;
+        if (M.glow || big) g.drawImage(glowTex(M.col, big ? 128 : 32), x - sz * 2, fy - sz * 2, sz * 4, sz * 4);
+        else { g.fillStyle = M.col; g.fillRect(x, fy, sz, sz); }
+      }
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    }
+    if (F.vig && full) g.drawImage(vignette(W2, H2, F.vig), 0, 0);
+    if (F.grain && full) {   // 胶片颗粒：每帧换个偏移
+      st.grainPat = st.grainPat || g.createPattern(grain(), 'repeat');
+      g.globalCompositeOperation = 'overlay'; g.globalAlpha = F.grain;
+      g.translate(Math.floor(Math.random() * 192), Math.floor(Math.random() * 192)); g.fillStyle = st.grainPat; g.fillRect(-192, -192, W2 + 192, H2 + 192);
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    }
+    g.restore();
+  }
+
+  // ---------- 各场景的氛围设置 ----------
+  // lights(c) 返回这一帧的灯（视口像素坐标），位置和像素层的灯 / 窗 / 炉口对齐
+  function fxConfig(id, S) {
+    if (id === 'forge') {
+      const HS = SA.HomeScene, wk = S.wk, t = HS.theme(wk), DY = GE - HS.BASE;
+      const base = {
+        sun: { grade: ['#ffb070', 0.14, 'soft-light'], haze: ['#e8d0a8', 0.22], motes: { kind: 'ember', col: '#ffb050', glow: 1, n: 16, bokeh: 3, speed: 26, size: 2 }, vig: 0.45, grain: 0.05, shadow: 0.42, door: 0.35 },
+        rain: { grade: ['#40587a', 0.26, 'multiply'], haze: ['#7a8898', 0.4], banks: [{ y: GE - 30, h: 150, a: 0.35, col: '#9aa6b4', par: 0.5, v: 10, seed: 5 }], mist: { y: GROUND - 6, h: 70, a: 0.22, col: '#aab4c0', par: 1.3, v: 14, seed: 9 }, motes: { kind: 'rain', col: '#d0dcf0', n: 70, bokeh: 10 }, vig: 0.6, grain: 0.06, shadow: 0.3, door: 0.6 },
+        night: { grade: ['#25305e', 0.42, 'multiply'], haze: ['#1c2444', 0.35], mist: { y: GROUND - 4, h: 60, a: 0.2, col: '#3a4468', par: 1.3, v: 6, seed: 11 }, motes: { kind: 'ember', col: '#ffa040', glow: 1, n: 22, bokeh: 4, speed: 30, size: 2 }, vig: 0.7, grain: 0.07, shadow: 0.5, door: 0.85, bloom: 0.45 },
+        fog: { grade: ['#d0d4d8', 0.18, 'soft-light'], haze: ['#d4d6d8', 0.6], banks: [{ y: GE - 70, h: 200, a: 0.5, col: '#d6d8da', par: 0.4, v: 5, seed: 3 }, { y: GE + 20, h: 120, a: 0.45, col: '#e0e2e4', par: 0.8, v: -4, seed: 7 }], mist: { y: GROUND - 10, h: 110, a: 0.35, col: '#e4e6e8', par: 1.4, v: 8, seed: 13 }, motes: { kind: 'specks', col: '#f4f4f4', n: 40, bokeh: 6, speed: 18, size: 2.5, a: 0.6 }, vig: 0.4, grain: 0.06, shadow: 0.25, door: 0.5 },
+      }[wk] || {};
+      return { ...base, nearCol: wk === 'night' ? '#05060c' : wk === 'fog' ? '#3a3a3e' : '#0c0807', dapple: 0,
+        near: [{ kind: 'scrap', u: 300, dy: 70 }, { kind: 'chain', u: 1250, top: 1, dy: 30, sway: 0.03 }, { kind: 'grass', u: 1900, dy: 30, sway: 0.05 }, { kind: 'bush', u: 2900, dy: 90, s: 0.9, sway: 0.03 }],
+        lights: (c) => {
+          const out = [], rot = c.camx * 0.45, MW = S.mid.width, oy2 = DY - c.oy;
+          spots(S.houseX, rot, MW, c.vw, 500, (x) => {
+            out.push({ x: x + 178, y: oy2 + 234, r: 110, col: '#ff8a30', a: base.door || 0.4, flick: 1 });   // 敞开的大门里的炉火
+            if (t.lit) { out.push({ x: x + 402, y: oy2 + 166, r: 56, col: '#ffb050', a: 0.5 }); out.push({ x: x + 263, y: oy2 + 166, r: 34, col: '#ffd070', a: 0.65, flick: 1 }); }
+            if (t.lamp) out.push({ x: x + 320, y: oy2 + 205, r: 26, col: '#ffe0a8', a: 0.55, cone: [70, 40] });   // 工作灯往下打一束光
+          });
+          if (S.lamp) spots(S.lamp[0], rot, MW, c.vw, 60, (x) => out.push({ x: x + 3, y: S.lamp[1] + 5 - c.oy, r: 40, col: '#ffc060', a: 0.55, flick: 1 }));
+          if (t.orb) out.push({ x: t.orb[0] < 320 ? c.vw * 0.12 : c.vw * 0.86, y: t.orb[1] + DY - c.oy, r: wk === 'sun' ? 170 : 70, col: wk === 'sun' ? '#fff0c0' : '#c8d4f4', a: wk === 'sun' ? 0.4 : 0.3 });
+          return out;
+        } };
+    }
+    if (id === 'wild') return {
+      grade: ['#ffc070', 0.16, 'soft-light'], haze: ['#c8b890', 0.34], banks: [{ y: 470, h: 120, a: 0.3, col: '#d0ccb4', par: 0.2, v: 3, seed: 21 }],
+      mist: { y: GROUND - 8, h: 60, a: 0.14, col: '#d8d4c0', par: 1.3, v: 6, seed: 23 }, dapple: 0.2,
+      motes: { kind: 'dust', col: '#ffe8b0', glow: 1, n: 30, bokeh: 4, drift: 10, size: 2 }, vig: 0.5, grain: 0.05, shadow: 0.4, nearCol: '#0a0d08',
+      near: [{ kind: 'grass', u: 200, dy: 30, sway: 0.06 }, { kind: 'branch', u: 1000, top: 1, dy: 20, sway: 0.015 }, { kind: 'post', u: 1800, dy: 40, s: 0.9 }, { kind: 'bush', u: 2700, dy: 80, sway: 0.03 }, { kind: 'grass', u: 3300, dy: 40, s: 0.8, sway: 0.06 }],
+      lights: (c) => {
+        const out = [{ x: c.vw * 0.72, y: 318 - c.oy, r: 260, col: '#ffd890', a: 0.5 }];
+        spots(S.cottage[2], c.camx * 0.15, TW, c.vw, 20, (x) => out.push({ x: x + 3, y: S.cottage[3] + 3 - c.oy, r: 16, col: '#ffb050', a: 0.55, flick: 1 }));
+        return out;
+      } };
+    return {   // 预选赛：白天的薄尘、太阳泛光、看台上的镁光灯、前排观众和彩旗的超近景
+      grade: ['#e0ecff', 0.1, 'soft-light'], haze: ['#a8b4c0', 0.28], mist: { y: GROUND - 4, h: 50, a: 0.14, col: '#d8c8a8', par: 1.3, v: 10, seed: 31 }, dapple: 0,
+      flashes: 1.6, motes: { kind: 'dust', col: '#fff4d8', glow: 1, n: 20, bokeh: 3, drift: 6, size: 2 }, vig: 0.45, grain: 0.05, shadow: 0.45, nearCol: '#0b0b10',
+      near: [{ kind: 'heads', u: 400, dy: 60 }, { kind: 'bunting', u: 1300, top: 1, dy: 10, sway: 0.01, a: 0.85 }, { kind: 'heads', u: 2300, dy: 80, s: 0.9 }, { kind: 'post', u: 3100, dy: 160, s: 0.8 }],
+      lights: (c) => [{ x: c.vw * 0.18, y: 120 - c.oy, r: 280, col: '#fff4d8', a: 0.42 }],
+    };
+  }
+
   const built = {};
   function get(id) {
     const key = id === 'forge' && SA.HomeScene ? `forge:${SA.HomeScene.weather()}` : id;   // 铁匠铺后院跟着院子的天气，每种天气各建一次
     if (!built[key]) built[key] = id === 'forge' ? buildForge() : id === 'wild' ? buildWild() : buildQual();
+    if (!built[key].fx) built[key].fx = fxConfig(id, built[key]);
     return built[key];
   }
   // 画背景（天空 → 中景）：画在世界画布的视口像素里；t = 秒（场景自己的时钟，不跟战斗暂停）
@@ -745,5 +1078,5 @@ SA.Scenes = (() => {
   // 近景：压在车前面，画在视口像素里（vh = 视口高，底边就是画面底边）
   function front(id, g, vw, vh, oy, camx, t) { get(id).front(g, vw, vh, oy, camx, t); }
 
-  return { pick, get, back, floor, front, NAMES };
+  return { pick, get, back, floor, front, fxBack, fxFront, fxOn: () => fxOn, fxLevel: () => fxLevel, setFx, NAMES };
 })();
