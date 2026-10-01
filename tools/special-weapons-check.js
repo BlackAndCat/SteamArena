@@ -55,7 +55,7 @@ function start(SA, api, id) {
   return { B, w, ew, target };
 }
 
-/** 双朝向和坡地解析落点、首发转炮、四发延迟、高抛实伤与近远盲区。 */
+/** 双朝向和坡地解析落点、首发转炮、四发延迟、高抛实伤与前方近点射界。 */
 function rocket(SA, api) {
   const { B, w, ew, target } = start(SA, api, 'rocket_rack');
   assert(w.m.indirect && w.m.arc === 'high' && w.m.elev[0] >= 18);
@@ -75,7 +75,8 @@ function rocket(SA, api) {
     }
     s.kw = 0;
     const origin = api.muzzle(s, gun);
-    assert.strictEqual(api.aimAngle(s, gun, origin[0] + dir * 20, origin[1]).over, 'high');
+    const near = api.aimAngle(s, gun, origin[0] + dir * 20, origin[1]);
+    assert(near.reach && !near.over && !near.behind, '抛射架仍把前方近目标判成盲区');
     assert(!api.aimAngle(s, gun, origin[0] + dir * 1600, origin[1]).reach);
   }
   assert(cases >= 14);
@@ -99,7 +100,7 @@ function rocket(SA, api) {
     }
   }
   assert(first && B.p.events.highHit > 0 && B.p.dealt > 0, '抛射未落到敌车并造成伤害');
-  // 保留正常齐射散布时，所有偏弹仍在抬起的射界内；近远盲区的 AI 不得空射。
+  // 保留正常齐射散布时，所有偏弹仍在抬起的射界内；超远目标的 AI 不得空射。
   const scattered = start(SA, api, 'rocket_rack');
   scattered.B.p.prism = false;
   scattered.B.p.lastSel = scattered.B.p.sel;
@@ -108,13 +109,16 @@ function rocket(SA, api) {
   const shots = scattered.B.shots.filter(sh => sh.from === scattered.B.p);
   assert.strictEqual(shots.length, 4);
   assert(shots.every(sh => sh.vx > 0 && sh.vy < 0));
-  for (const [distance, direction] of [[90, -1], [1600, 1]]) {
+  for (const [distance, direction] of [[90, 1], [1600, 1]]) {
     const scene = start(SA, api, 'rocket_rack');
     scene.B.p.isAI = true; scene.B.p.target = { layer: 'body', r: scene.ew.r, c: scene.ew.c };
     scene.B.p.retarget = 100; scene.B.p.moveT = 100; scene.B.p.charge = true;
     scene.B.p.heldT = 100; scene.B.p.lastSel = scene.B.p.sel;
     const origin = api.muzzle(scene.B.p, scene.w), point = api.modCenter(scene.B.e, 'body', scene.ew.r, scene.ew.c);
     scene.B.e.x += origin[0] + distance - point[0]; scene.B.e.pivX += origin[0] + distance - point[0];
+    const aim = api.aimAngle(scene.B.p, scene.w, ...api.modCenter(scene.B.e, 'body', scene.ew.r, scene.ew.c));
+    if (distance === 90) assert(aim.reach && !aim.over && !aim.behind, 'AI 近目标未进入有效射界');
+    else assert(!aim.reach, '超出射程仍判定可达');
     api.step(1/60);
     assert.strictEqual(scene.B.p.dir, direction); assert.strictEqual(scene.B.p.events.fire, 0);
   }

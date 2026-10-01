@@ -48,7 +48,7 @@ function start(SA, api, v) {
   return { B, w, ew };
 }
 
-/** 在两种朝向与上/下坡姿态下，解析落点必须与瞄准点一致，近远盲区必须被识别。 */
+/** 在两种朝向与上/下坡姿态下，解析落点必须与瞄准点一致，前方近点与超远距离分别处理。 */
 function trajectories(SA, api, v) {
   const { B, w, ew } = start(SA, api, v);
   let count = 0, errorMax = 0;
@@ -72,7 +72,7 @@ function trajectories(SA, api, v) {
     const origin = api.muzzle(s, gun);
     const near = api.aimAngle(s, gun, origin[0] + dir * 20, origin[1]);
     const far = api.aimAngle(s, gun, origin[0] + dir * 1600, origin[1]);
-    assert(near.over === 'high', '近端盲区没有限制');
+    assert(near.reach && !near.over && !near.behind, '前方近目标未进入高抛射界');
     assert(!far.reach, '超过最大射程仍判定可达');
   }
   assert(count >= 10, '实际仰角未提供足够的高抛射界，请先接入 Opus 的角度配置');
@@ -121,10 +121,10 @@ function firing(SA, api, v, copilot = false) {
   return { firstShot: first, highHits: B.p.events.highHit, damage: B.p.dealt };
 }
 
-/** AI 在近端盲区后退、超出射程前进；装填完也不会向不可达目标空射。 */
+/** AI 对前方近目标按冲锋策略移动，超出射程时前进；转炮前及不可达时不空射。 */
 function rangeControl(SA, api, v) {
   const result = [];
-  for (const [distance, direction] of [[90, -1], [1600, 1]]) {
+  for (const [distance, direction] of [[90, 1], [1600, 1]]) {
     const { B, w, ew } = start(SA, api, v);
     B.p.isAI = true;
     B.p.target = { layer: 'body', r: ew.r, c: ew.c };
@@ -137,6 +137,9 @@ function rangeControl(SA, api, v) {
     const muzzle = api.muzzle(B.p, w), target = api.modCenter(B.e, 'body', ew.r, ew.c);
     B.e.x += muzzle[0] + distance - target[0];
     B.e.pivX += muzzle[0] + distance - target[0];
+    const aim = api.aimAngle(B.p, w, ...api.modCenter(B.e, 'body', ew.r, ew.c));
+    if (distance === 90) assert(aim.reach && !aim.over && !aim.behind, 'AI 近目标未进入有效射界');
+    else assert(!aim.reach, '超出射程仍判定可达');
     api.step(1 / 60);
     assert.strictEqual(B.p.dir, direction, `AI 在距离 ${distance} 时移动方向错误`);
     assert.strictEqual(B.p.events.fire, 0, 'AI 向射界外的目标空射');

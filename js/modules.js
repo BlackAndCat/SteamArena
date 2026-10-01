@@ -220,15 +220,15 @@ SA.MODULES = {
     name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', unique: { mt: 6, once: true, source: 'salvage' },
     price: 760, hp: 420, power: 10, kg: 1800, q: 5,
     dmg: 104, reload: 6.8, heat: 18, proj: 'shell', v: 820, g: 1, spread: 0, arc: 'high', indirect: true, kick: 180,
-    elev: [55, 85], slew: 11, windup: 0.8, wild: 0, rest: 75, aimT: 2.4,   // 与攻城臼炮 v6 的炮口朝天造型一致
+    elev: [55, 90], slew: 11, windup: 0.8, wild: 0, rest: 75, aimT: 2.4,   // 与攻城臼炮 v6 的炮口朝天造型一致
 
-    desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，近处有射击盲区；热量和动力压力都最高。',
+    desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，可向前方近处高抛；热量和动力压力都最高。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
     dmg: 38, reload: 3.4, heat: 7, proj: 'shell', v: 780, g: 1, spread: 0, arc: 'high', indirect: true, kick: 40,
-    elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
+    elev: [32, 90], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
 
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
@@ -272,7 +272,7 @@ SA.MODULES = {
     name: '抛射架', cat: 'firepower', layer: 'body',
     price: 230, hp: 150, power: 4, kg: 430, q: 3,
     dmg: 14, reload: 6, heat: 10, salvo: 4, salvoGap: 0.12, splash: { r: 24, k: 0.5 }, explode: 22, proj: 'shell', v: 760, g: 0.65, spread: 20, arc: 'high', indirect: true, kick: 58,
-    elev: [18, 85], slew: 22, windup: 0.4, wild: 0.2, rest: 55, aimT: 1.3,   // 六档抛射造型：管口至少抬起 18°，高角射界保留近距离盲区。
+    elev: [18, 90], slew: 22, windup: 0.4, wild: 0.2, rest: 55, aimT: 1.3,   // 六档抛射造型：管口至少抬起 18°，近处可向世界竖直方向发射。
 
     desc: '四发齐射抛射架：低档投掷炸弹，高档采用气压与火箭助推发射，均沿高抛弹道越过正面遮挡；每发 14 点伤害，命中点 24px 内溅射，装填 6 秒；装填中的抛射架被击毁会殉爆。',
   },
@@ -345,7 +345,7 @@ SA.MODULES = {
   mortar_s: {
     name: '小臼炮', cat: 'firepower', layer: 'body', w: 1, h: 1,
     price: 70, hp: 45, power: 1, kg: 110, q: 2, dmg: 16, reload: 2.6, heat: 3, proj: 'shell', v: 720, g: 1, spread: 0, arc: 'high', indirect: true, kick: 24,
-    elev: [32, 82], slew: 22, windup: 0.35, wild: 0, rest: 55, aimT: 1.1, kick: 24,
+    elev: [32, 90], slew: 22, windup: 0.35, wild: 0, rest: 55, aimT: 1.1, kick: 24,
     desc: '占一个小格的间接火力；直射被挡时由 AI 自动切换。',
   },
   mg2: {

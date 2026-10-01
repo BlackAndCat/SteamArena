@@ -333,10 +333,13 @@ SA.Battle = (() => {
     if ((w.m.indirect && !w.m.spread) || (s.prism && focus >= 1)) return 0;
     return (w.m.spread * (1 - s.acc * T.AIM_ACCEL_SPREAD) + shakeOf(s) * T.AIM_SHAKE_SPREAD) * (1 - s.aimShrink * focus) + o.evade * T.AIM_EVADE_SPREAD;
   };
+  // 间接炮的最高仰角限制在世界竖直方向；下坡时允许车身相对角超过 90°。
+  // 瞄准与散布发射共用此界，直射炮仍使用模块原射界。
+  const aimLimits = (s, w) => [w.m.elev[0], w.m.indirect ? w.m.elev[1] - pitchOf(s) : w.m.elev[1]];
   // 瞄准点 → 炮管该抬到的仰角（度），受射界限制
   function aimAngle(s, w, tx, ty) {
     let a = barrel(s, w), sol, raw, behind;
-    const [lo, hi] = w.m.elev;
+    const [lo, hi] = aimLimits(s, w);
     // 高抛炮的炮口会随仰角明显移动：从候选仰角的炮口迭代求解，
     // 让 AI 预判、慢速转炮后的发射和弹道预览使用同一个出膛点。
     for (let i = 0; i < (w.m.indirect ? 4 : 1); i++) {
@@ -361,7 +364,7 @@ SA.Battle = (() => {
   function launch(s, w, deg, jitter) {
     const [x0, y0] = muzzle(s, w, deg);
     // 有散布的抛射件限制偏弹射界；预览和实射共用，避免平射、反向射击或预览扇区越界。
-    const shotDeg = w.m.indirect ? clamp(deg + jitter, w.m.elev[0], w.m.elev[1]) : deg + jitter;
+    const shotDeg = w.m.indirect ? clamp(deg + jitter, ...aimLimits(s, w)) : deg + jitter;
     const a = shotDeg * Math.PI / 180;
     const dir = isP(s) ? 1 : -1;
     const wa = a + pitchOf(s) * Math.PI / 180;   // 炮管仰角（相对车身）+ 车身抬头 = 世界里的仰角
@@ -990,8 +993,8 @@ SA.Battle = (() => {
       s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
     }
     const selected = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
-    // 高抛射界有近端盲区和最远距离，沿用模块的角度配置判断，不写死巨炮的视觉参数。
-    // 近到抬不够炮口时后退，远到弹道不可达或压不低时前进；进入射界后仍按原性格移动。
+    // 高抛炮只对超出有效射界或炮口后方的目标后退；前方近点可竖直高抛。
+    // 远到弹道不可达或压不低时前进；进入射界后仍按原性格移动。
     const aimPt = selected && selected.m.indirect ? aiAimPoint(s, o) : null;
     const lob = aimPt ? aimAngle(s, selected, aimPt[0], aimPt[1]) : null;
     const fwd = isP(s) ? 1 : -1;
@@ -1403,7 +1406,7 @@ SA.Battle = (() => {
   if (SA.BattleView && SA.BattleView.create) view = SA.BattleView.create({
     constants: { h, K, T, M, P, C, PADX, W, H, GROUND, VY, VW, HALF },
     getState: () => B, startState, step, camera, kill, crippled, alive, clamp, rnd, gauss, isP, cellX, cellY, frontEdge, groundAt, crateAt, modCenter, modAt, cellAt,
-    muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh, tetherState,
+    muzzle, targetAt, aimAngle, spreadDeg, shakeOf, barrel, launch, predict, tiltOf, pivY, toWorld, modBox, frontShift, shiftVeh, tetherState,
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });

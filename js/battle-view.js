@@ -10,7 +10,7 @@ SA.BattleView.create = function createBattleView(api) {
   const camera = api.camera;
   const isP = api.isP, cellX = api.cellX, cellY = api.cellY, frontEdge = api.frontEdge;
   const groundAt = api.groundAt, crateAt = api.crateAt, modBox = api.modBox, modCenter = api.modCenter, cellAt = api.cellAt, modAt = api.modAt;
-  const muzzle = api.muzzle, targetAt = api.targetAt, aimAngle = api.aimAngle, spreadDeg = api.spreadDeg, barrel = api.barrel, predict = api.predict;
+  const muzzle = api.muzzle, targetAt = api.targetAt, aimAngle = api.aimAngle, spreadDeg = api.spreadDeg, barrel = api.barrel, launch = api.launch, predict = api.predict;
   const tiltOf = api.tiltOf, pivY = api.pivY, toWorld = api.toWorld;
   const step = api.step;
   let B = null, cv, g, dg, wc, wrap, hud = {};
@@ -609,10 +609,8 @@ SA.BattleView.create = function createBattleView(api) {
   // 发射参数与 battle.js 的 launch() 一致（出膛点、偏弹射界限制、车身俯仰），只用于画面。
   const FAN_TAIL = C * 2.5, FAN_STEP = T.PREVIEW_STEP, FAN_BUDGET = 220;
   function fanLaunch(s, w, deg, jit) {
-    const [x0, y0] = muzzle(s, w, deg);
-    const shot = w.m.indirect ? clamp(deg + jit, w.m.elev[0], w.m.elev[1]) : deg + jit;
-    const wa = (shot + (isP(s) ? -1 : 1) * tiltOf(s) * 180 / Math.PI) * Math.PI / 180;
-    return { x0, y0, vx: (isP(s) ? 1 : -1) * w.m.v * Math.cos(wa), vy: -w.m.v * Math.sin(wa), g: K.GRAVITY * w.m.g };
+    const shot = launch(s, w, deg, jit);
+    return { x0: shot.x, y0: shot.y, vx: shot.vx, vy: shot.vy, g: shot.g };
   }
   const fanAt = (L, t) => [L.x0 + L.vx * t, L.y0 + L.vy * t + L.g * t * t / 2];
   // 世界坐标 → 对方车身的格子坐标（u 列、v 行，整数处是格线）：先转回车身平放（绕支点反转倾斜），敌方列号镜像，与 cellAt() 相同
