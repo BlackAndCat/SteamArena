@@ -48,7 +48,7 @@ function fullVehicle(SA) {
   return v;
 }
 
-function checkOrderAndOldCode(SA) {
+function checkOrderAndOldCode(SA, context) {
   assert.strictEqual(OLD_ORDER.length, 42);
   OLD_ORDER.forEach((id, i) => assert.strictEqual(SA.MODULE_ORDER[i], id, `旧模块序号 ${i} 改变`));
   assert.deepStrictEqual(Array.from(SA.MODULE_ORDER.slice(42)), NEW_IDS);
@@ -57,7 +57,34 @@ function checkOrderAndOldCode(SA) {
   assert.strictEqual(v.body[8][8]?.id, 'mg', '旧索引 10 未读回原机炮');
   assert.strictEqual(v.body[7][8]?.id, 'helmet');
   assert.strictEqual(SA.MODULES.mg.name, '机炮');
-  assert(SA.MODULES.mg2 && SA.STARTER && SA.S.reset().inv.mg === 1, '旧库存或双联机枪丢失');
+  assert(SA.MODULES.mg2, '双联机枪定义丢失');
+  assert(SA.STARTER?.rows && SA.STARTER?.subs, '初始车定义丢失');
+  const memory = new Map();
+  context.localStorage = {
+    getItem: key => memory.get(key) || null,
+    setItem: (key, value) => memory.set(key, value),
+    removeItem: key => memory.delete(key),
+  };
+  const fresh = SA.S.reset();
+  assert.deepStrictEqual(Object.keys(fresh.inv), [], '新档库存不符合空库存教学规则');
+  const starterIds = SA.V.countIds(SA.S.starterVehicle());
+  for (const id of ['helmet', 'track', 'boiler_s', 'mg_s'])
+    assert(starterIds[id] > 0, `初始车缺少 ${id}`);
+  // 旧版 2×2 铁装甲改为并排两件 1×2；无 av 的旧车触发库存数量换算。
+  fresh.vehicle = SA.V.create('旧档空车');
+  delete fresh.vehicle.av;
+  delete fresh.vehicle.pv;
+  fresh.inv = { armor: 2, mg: 1 };
+  delete fresh.stockCells;
+  delete fresh.uniqueClaims;
+  SA.S.save();
+  for (let reload = 1; reload <= 2; reload++) {
+    SA.S.load();
+    SA.Camp.backfill();
+    assert.strictEqual(SA.S.d.inv.mg, 1, `旧档第 ${reload} 次读取后机炮库存丢失`);
+    assert.strictEqual(SA.S.d.inv.armor, 4, `旧档第 ${reload} 次读取后装甲库存迁移数量错误`);
+    SA.S.save();
+  }
   return { oldCount: OLD_ORDER.length, decoded: v.body[8][8].id };
 }
 
@@ -140,8 +167,8 @@ function checkWeapons(SA) {
 }
 
 function run() {
-  const { SA } = loadGame();
-  return { display: checkDisplay(SA), compatibility: checkOrderAndOldCode(SA), layout: checkLayoutAndStats(SA), shop: checkProgressAndShop(SA), weapons: checkWeapons(SA) };
+  const { SA, context } = loadGame();
+  return { display: checkDisplay(SA), compatibility: checkOrderAndOldCode(SA, context), layout: checkLayoutAndStats(SA), shop: checkProgressAndShop(SA), weapons: checkWeapons(SA) };
 }
 
 module.exports = { run };
