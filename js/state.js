@@ -437,7 +437,7 @@ SA.S = (() => {
           lines.push(...r.lines);
           for (const u of r.unlocks) pre.push({ kind: 'unlock', unlock: u });
           const st = SA.Camp.current();
-          d.news = SA.Camp.done() ? (SA.RELEASE ? `「${d.vehicle.name}」完成了当前开放的战役，可以重打序章和第一章。` : `「${d.vehicle.name}」击败女王号，夺得帝国蒸汽大奖赛冠军！`)
+          d.news = SA.Camp.done() ? (SA.RELEASE ? `「${d.vehicle.name}」完成了当前开放的战役，可以重打已开放的关卡。` : `「${d.vehicle.name}」击败女王号，夺得帝国蒸汽大奖赛冠军！`)
             : `「${d.vehicle.name}」击败了「${res.enemyName}」。下一场：${SA.CAMPAIGN[st.ci].name} · ${st.name}。`;
         } else {
           d.round++;

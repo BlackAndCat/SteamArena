@@ -15,7 +15,9 @@ class Channel {
 const text = {
   ready: Promise.resolve(),
   get: (key, fallback = '') => values.get(key) ?? fallback,
+  has: key => values.has(key),
   set: (key, value) => values.set(key, value),
+  unset: key => values.delete(key),
   save: async () => ({ ok: saveOk, document: saveOk ? { version: 1, game: 'steam-arena', locale: 'zh-CN', values: Object.fromEntries(values), removedElements: [] } : undefined }),
   load: async () => { loaded++; },
 };

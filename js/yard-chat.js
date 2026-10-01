@@ -54,8 +54,11 @@ SA.YardChat = (() => {
   function read(scope = currentScope()) {
     validScope(scope);
     for (const candidate of fallbackScopes(scope)) {
-      const raw = SA.Text.get(scopeKey(candidate), '');
-      if (raw) return { source: candidate, groups: clone(JSON.parse(raw)) };
+      const key = scopeKey(candidate);
+      if (SA.Text.has(key)) {
+        const raw = SA.Text.get(key, '');
+        return { source: candidate, groups: raw === '' ? [] : clone(JSON.parse(raw)) };
+      }
     }
     return { source: 'default', groups: clone(DEFAULT_GROUPS) };
   }
@@ -119,7 +122,7 @@ SA.YardChat = (() => {
 
   function inherit(scope) {
     validScope(scope);
-    SA.Text.set(scopeKey(scope), '');
+    SA.Text.unset(scopeKey(scope));
     return read(scope);
   }
 

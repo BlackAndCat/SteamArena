@@ -16,6 +16,7 @@ SA.BUILD_SYS += '+page-two-versions'; // 页面原始版与编辑版固定两版
 SA.BUILD_SYS += '+first-stage-tank-reward'; // 首关小水罐实物奖励与旧档一次性补发。
 SA.BUILD_SYS += '+stage-workbench-full-modules'; // 关卡车工作台显示正式注册的全部非退役模组。
 SA.BUILD_SYS += '+end-armor-chapter-bounds'; // 底盘端部挂甲减速与序章、第二章场地边界。
+SA.BUILD_SYS += '+author-content-release'; // 作者剧情、闲谈、页面文案与模块设计覆盖入包。
 SA.BUILD_SYS += '+arena-edit-first-open'; // 出战黑板首开与切关使用同一页面编辑路径。
 SA.BUILD_SYS += '+stage-reward-quantity-settlement'; // 关卡固定物品数量与金币、胜后修理配置。
 SA.BUILD_SYS += '+reputation-paused'; // 暂停声望结算，保留旧存档中的声望数值。

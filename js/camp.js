@@ -165,7 +165,8 @@ SA.Camp = (() => {
   const hasMod = (id) => c().mods.includes(id);
   const maxMat = () => c().mat;
   const grid = () => c().grid;
-  const chapterCount = () => SA.RELEASE ? 2 : SA.CAMPAIGN.length;
+  // 发行包在构建时写入开放章数；开发版始终开放完整战役。
+  const chapterCount = () => SA.RELEASE ? Math.min(SA.RELEASE_CHAPTERS ?? 2, SA.CAMPAIGN.length) : SA.CAMPAIGN.length;
   const done = () => !!(c().done || (SA.RELEASE && c().ch >= chapterCount()));
   // 当前章节序号（通关后停在最后一章）
   const chIndex = () => Math.min(c().ch, chapterCount() - 1);
@@ -251,6 +252,7 @@ SA.Camp = (() => {
     if (C.st >= st.chapter.stages.length) {
       applyUnlock(st.chapter.unlock);
       out.unlocks.push({ title: `${st.chapter.name} · 通关`, u: st.chapter.unlock });
+      // 发行版在当前开放范围结束后仍保存下一章进度，扩章时可接着玩；全战役结束才永久标记通关。
       if (C.ch + 1 >= SA.CAMPAIGN.length) { C.done = true; C.st = st.chapter.stages.length; }
       else { C.ch++; C.st = 0; }
     }

@@ -7,7 +7,8 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const source = name => fs.readFileSync(path.join(ROOT, 'js', name), 'utf8');
+const PACKAGE = path.join(ROOT, 'tools', 'out', 'release');
+const source = (name, release) => fs.readFileSync(path.join(release ? PACKAGE : ROOT, 'js', name), 'utf8');
 const copy = value => JSON.parse(JSON.stringify(value));
 const noop = () => {};
 
@@ -52,17 +53,23 @@ function runtime(release, memory = new Map(), textDocument = null) {
     'stage-cars.js', 'state.js', 'ui.js', 'camp.js', 'camp-ui.js', 'story.js',
     'story-dev.js', 'terrain-art.js', 'battle.js',
   ];
-  for (const file of files) vm.runInContext(source(file), context, { filename: file });
+  for (const file of files) vm.runInContext(source(file, release), context, { filename: file });
   context.SA.S.load();
   return { SA: context.SA, context, memory, sample };
 }
 
-/** 旧进度允许重打已开放的两章，但不能从列表、直接关卡或结算进入后续章。 */
+/** 旧进度只允许重打当前发行章节，不能从其他入口进入后续章。 */
 function progressCheck() {
   const dev = runtime(false);
   assert.strictEqual(dev.SA.CAMPAIGN.length, 6, '开发内容应保留六章');
+  const chapterCount = runtime(true).SA.RELEASE_CHAPTERS;
+  assert(Number.isInteger(chapterCount) && chapterCount >= 1 && chapterCount <= dev.SA.CAMPAIGN.length);
+  if (chapterCount === dev.SA.CAMPAIGN.length) {
+    assert.strictEqual(runtime(true).SA.Camp.chapterCount(), chapterCount);
+    return { oldSaveReplay: '全章开放' };
+  }
   dev.SA.S.d.rep = 77;
-  dev.SA.S.d.camp.ch = 3;
+  dev.SA.S.d.camp.ch = chapterCount + 1;
   dev.SA.S.d.camp.st = 2;
   dev.SA.S.d.camp.done = false;
   dev.SA.S.d.camp.mods.push('flamer');
@@ -73,61 +80,68 @@ function progressCheck() {
   assert.strictEqual(SA.RELEASE, true);
   assert.strictEqual(SA.CAMPAIGN.length, 6, '发行应保留完整章节数据，便于旧档兼容');
   assert.strictEqual(SA.Camp.done(), true, '后续章旧档在发行版本应视为已通关');
-  assert.strictEqual(SA.S.d.camp.ch, 3, '发行不应回夹真实进度');
+  assert.strictEqual(SA.S.d.camp.ch, saved.camp.ch, '发行不应回夹真实进度');
   assert.strictEqual(SA.S.d.camp.st, 2);
   assert.strictEqual(SA.S.d.camp.done, false, '发行不应改写开发版通关标志');
   assert.strictEqual(SA.S.d.rep, saved.rep);
   assert.strictEqual(SA.S.d.inv.plate, saved.inv.plate);
   assert(SA.S.d.camp.mods.includes('flamer'), '旧解锁应保留');
   const entries = SA.S.arenaEntries('camp');
-  assert(entries.length > 0 && entries.every(e => /^[01],/.test(e.key) && e.replay && !e.next),
-    '旧档只能重打序章和第一章');
+  const opened = key => Number(key.split(',')[0]) < chapterCount;
+  assert(entries.length > 0 && entries.every(e => opened(e.key) && e.replay && !e.next),
+    '旧档只能重打已开放章节');
   const starts = [];
   SA.Battle.start = options => starts.push(options);
   for (const entry of entries) entry.start();
-  assert(starts.length === entries.length && starts.every(options => /^[01],/.test(options.storyKey) && options.replay),
+  assert(starts.length === entries.length && starts.every(options => opened(options.storyKey) && options.replay),
     '旧档可进入后续章或重打入口未正确标记');
-  assert.strictEqual(SA.Camp.stage(2, 0), null, '直接请求后续章关卡应被拒绝');
+  assert.strictEqual(SA.Camp.stage(chapterCount, 0), null, '直接请求后续章关卡应被拒绝');
   assert.strictEqual(SA.Camp.current(), null);
   const before = copy(SA.S.d);
   SA.Camp.win();
   assert.deepStrictEqual(copy(SA.S.d), before, '后续章旧档不能被 win 推进');
   SA.S.settleBattle({ mode: 'campaign', win: true, replay: false,
     playerVehicle: SA.V.clone(SA.S.d.vehicle), enemyName: '关闭章节', prize: 99,
-    survivors: [], opts: { storyKey: '2,0', rewardMoney: true } });
+    survivors: [], opts: { storyKey: `${chapterCount},0`, rewardMoney: true } });
   assert.deepStrictEqual(copy(SA.S.d), before, '伪造后续章结算不能发奖或改进度');
   for (const done of [true, false]) {
     const loaded = copy(saved);
     loaded.camp.done = done;
     rel.memory.set('steam_arena_save_v2', JSON.stringify(loaded));
     SA.S.load();
-    assert(SA.S.arenaEntries('camp').every(e => /^[01],/.test(e.key) && e.replay && !e.next),
+    assert(SA.S.arenaEntries('camp').every(e => opened(e.key) && e.replay && !e.next),
       `旧档 done=${done} 不应开放后续章`);
   }
   return { oldSaveReplay: entries.length };
 }
 
-/** 发行终点停在真实 ch=2，原六章进度与资源留给开发版继续使用。 */
+/** 发行终点停在实际开放章数，原进度与资源留给开发版使用。 */
 function endingCheck() {
   const { SA } = runtime(true);
   const C = SA.S.d.camp;
-  C.ch = 1;
-  C.st = SA.CAMPAIGN[1].stages.length - 1;
+  const limit = SA.RELEASE_CHAPTERS;
+  C.ch = limit - 1;
+  C.st = SA.CAMPAIGN[limit - 1].stages.length - 1;
   C.done = false;
   C.intro = 0;
   const finalStage = SA.Camp.current();
-  assert(finalStage && finalStage.ci === 1);
+  assert(finalStage && finalStage.ci === limit - 1);
   SA.Camp.win();
-  assert.strictEqual(C.ch, 2);
-  assert.strictEqual(C.st, 0);
-  assert.strictEqual(C.done, false);
+  if (limit < SA.CAMPAIGN.length) {
+    assert.strictEqual(C.ch, limit);
+    assert.strictEqual(C.st, 0);
+    assert.strictEqual(C.done, false);
+  } else {
+    assert.strictEqual(C.ch, limit - 1);
+    assert.strictEqual(C.done, true);
+  }
   assert.strictEqual(SA.Camp.done(), true);
   assert.strictEqual(SA.Camp.current(), null);
   assert.strictEqual(SA.S.arenaEntries('camp').some(e => e.next), false);
   SA.S.save();
   assert.strictEqual(runtime(false, new Map([['steam_arena_save_v2',
-    JSON.stringify(copy(SA.S.d))]])).SA.Camp.done(), false,
-  '开发版应能继续使用同一份未全六章通关的存档');
+    JSON.stringify(copy(SA.S.d))]])).SA.Camp.done(), limit === SA.CAMPAIGN.length,
+  '开发版应能正确读取发行版本存档');
   return { releaseEnd: `${C.ch},${C.st}` };
 }
 
@@ -185,13 +199,23 @@ async function surfaceCheck() {
   SA.StoryDev.before({ key: '0,0', replay: false }, () => continued++);
   SA.StoryDev.after({ key: '0,0', replay: true }, () => continued++);
   assert.deepStrictEqual({ played, marked, continued }, { played: 1, marked: 1, continued: 2 });
-  return { normalStoryPlayback: played };
+  const authored = JSON.parse(fs.readFileSync(path.join(PACKAGE, 'text', 'steam-arena', 'zh-CN.json'), 'utf8'));
+  const keys = Object.keys(authored.values);
+  assert(keys.length > 0 || authored.removedElements.length > 0, '发行作者内容为空');
+  const actual = runtime(true, new Map(), authored);
+  actual.SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', page: 'main' });
+  await actual.SA.Text.ready;
+  for (const key of keys) {
+    assert.strictEqual(actual.SA.Text.get(key), authored.values[key], `作者文本未覆盖：${key}`);
+  }
+  return { normalStoryPlayback: played, authoredValues: keys.length,
+    authoredRemovedElements: authored.removedElements.length };
 }
 
 /** 包目录只允许白名单运行文件，且脚本次序与网页入口一致。 */
 function packageCheck() {
-  const dir = path.join(ROOT, 'tools', 'out', 'release');
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const dir = PACKAGE;
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(match => match[1]);
   assert.strictEqual(scripts[0], 'js/release.js', '发行标志必须最先载入');
   const expected = new Set(['index.html', 'css/style.css', 'text/steam-arena/zh-CN.json',
@@ -206,8 +230,11 @@ function packageCheck() {
   }
   walk(dir);
   assert.deepStrictEqual(found.sort(), [...expected].sort(), '发行目录含额外工具或缺少游戏文件');
-  assert(fs.existsSync(path.join(ROOT, 'tools', 'out', 'release.zip')), '发行 ZIP 未生成');
-  return { packageFiles: found.length };
+  const { SA } = runtime(true);
+  const archive = path.join(ROOT, 'tools', 'out', `release-${SA.RELEASE_VERSION}.zip`);
+  assert(fs.existsSync(archive), '当前版本 ZIP 未生成');
+  assert.strictEqual(SA.Camp.chapterCount(), SA.RELEASE_CHAPTERS);
+  return { packageFiles: found.length, chapterCount: SA.RELEASE_CHAPTERS, version: SA.RELEASE_VERSION };
 }
 
 async function run() {
@@ -215,5 +242,9 @@ async function run() {
     ...await surfaceCheck(), ...packageCheck() };
 }
 
-run().then(result => console.log(JSON.stringify(result, null, 2)),
-  error => { console.error(error.stack || error); process.exitCode = 1; });
+if (process.argv[2] === '--campaign-length') {
+  console.log(runtime(false).SA.CAMPAIGN.length);
+} else {
+  run().then(result => console.log(JSON.stringify(result, null, 2)),
+    error => { console.error(error.stack || error); process.exitCode = 1; });
+}

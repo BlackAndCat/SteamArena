@@ -4,6 +4,8 @@
 
 ## 运行
 
+发行分支可双击 `tools/publish.cmd` 一键生成版本，或运行 `python tools/package-release.py --version v1 --chapters 2`；章节数包含序章，可设为 1 至当前战役总章数。输出在 `tools/out/release/` 和 `tools/out/release-<版本>.zip`，`tools/out/release.zip` 保留最近生成的版本。工具会运行发行专项检查。首次使用可在不入 Git 的 `tools/out/publish-settings.json` 配置 `sourceRoot`（作者开发目录）、`textSource`（页面管理保存的权威 JSON）和 `chapters`；命令行 `--source-root`、`--text-source`、`--chapters` 可临时覆盖。普通代码更新先按所选源码分支同步到本发行工作树；一键打包只同步上述作者数据并应用发行配置。
+
 脚本是普通 `<script>`，直接双击 `index.html` 也能玩；推荐起一个静态服务器：
 
 ```bash

@@ -220,15 +220,15 @@ SA.MODULES = {
     name: '巨炮', cat: 'firepower', layer: 'body', w: 4, h: 4, minMt: 6, lowAlt: 'cannon_heavy', unique: { mt: 6, once: true, source: 'salvage' },
     price: 760, hp: 420, power: 10, kg: 1800, q: 5,
     dmg: 104, reload: 6.8, heat: 18, proj: 'shell', v: 820, g: 1, spread: 0, arc: 'high', indirect: true, kick: 180,
-    elev: [55, 85], slew: 11, windup: 0.8, wild: 0, rest: 75, aimT: 2.4,   // 与攻城臼炮 v6 的炮口朝天造型一致
+    elev: [55, 90], slew: 11, windup: 0.8, wild: 0, rest: 75, aimT: 2.4,   // 与攻城臼炮 v6 的炮口朝天造型一致
 
-    desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，近处有射击盲区；热量和动力压力都最高。',
+    desc: '女王号缴获的攻城臼炮，高抛炮弹越过己方装甲砸向敌车顶部。慢装填、慢转炮，可向前方近处高抛；热量和动力压力都最高。',
   },
   mortar: {
     name: '高抛火炮', cat: 'firepower', layer: 'body',
     price: 190, hp: 150, power: 3, kg: 450, q: 3,
     dmg: 38, reload: 3.4, heat: 7, proj: 'shell', v: 780, g: 1, spread: 0, arc: 'high', indirect: true, kick: 40,
-    elev: [32, 82], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
+    elev: [32, 90], slew: 20, windup: 0.45, wild: 0, rest: 55, aimT: 1.4,
 
     desc: '炮口朝天，弹道高抛，可以躲在装甲后面开火，砸敌人的顶部。指哪打哪，但炮弹飞得慢，移动中的目标会躲开。',
   },
@@ -272,7 +272,7 @@ SA.MODULES = {
     name: '抛射架', cat: 'firepower', layer: 'body',
     price: 230, hp: 150, power: 4, kg: 430, q: 3,
     dmg: 14, reload: 6, heat: 10, salvo: 4, salvoGap: 0.12, splash: { r: 24, k: 0.5 }, explode: 22, proj: 'shell', v: 760, g: 0.65, spread: 20, arc: 'high', indirect: true, kick: 58,
-    elev: [18, 85], slew: 22, windup: 0.4, wild: 0.2, rest: 55, aimT: 1.3,   // 六档抛射造型：管口至少抬起 18°，高角射界保留近距离盲区。
+    elev: [18, 90], slew: 22, windup: 0.4, wild: 0.2, rest: 55, aimT: 1.3,   // 六档抛射造型：管口至少抬起 18°，近处可向世界竖直方向发射。
 
     desc: '四发齐射抛射架：低档投掷炸弹，高档采用气压与火箭助推发射，均沿高抛弹道越过正面遮挡；每发 14 点伤害，命中点 24px 内溅射，装填 6 秒；装填中的抛射架被击毁会殉爆。',
   },
@@ -345,7 +345,7 @@ SA.MODULES = {
   mortar_s: {
     name: '小臼炮', cat: 'firepower', layer: 'body', w: 1, h: 1,
     price: 70, hp: 45, power: 1, kg: 110, q: 2, dmg: 16, reload: 2.6, heat: 3, proj: 'shell', v: 720, g: 1, spread: 0, arc: 'high', indirect: true, kick: 24,
-    elev: [32, 82], slew: 22, windup: 0.35, wild: 0, rest: 55, aimT: 1.1, kick: 24,
+    elev: [32, 90], slew: 22, windup: 0.35, wild: 0, rest: 55, aimT: 1.1, kick: 24,
     desc: '占一个小格的间接火力；直射被挡时由 AI 自动切换。',
   },
   mg2: {
@@ -484,6 +484,17 @@ SA.MODULE_OVERRIDES = {
   "armor": {
     "desc": "广泛应用于各行各业的金属甲板，造成金属价格上涨的罪魁祸首之一。用于保护更大的区域，但其重量也是个不容小觑的问题",
     "hp": 100
+  },
+  "tank_s": {
+    "desc": "一个供锅炉解渴的水箱，时髦地使用了玻璃。优良的工艺使其意外地坚固。便宜的价格让伦敦城中家家户户都要备上一罐。除此之外，还能给驾驶员解渴",
+    "hp": 14
+  },
+  "mortar_s": {
+    "desc": "早在拿破仑时期就被广泛使用的抛射火炮，因其独特的弹道和散布范围而被军队逐渐淘汰。如今在战车竞技、马戏表演、狗狗抛接球和个人商业短途飞行等领域得到广泛应用。"
+  },
+  "mortar": {
+    "desc": "现役的抛射型火炮，威力和散布都比过去的版本有了长足的增长。当然重量和价格也是。发明家一直试图将其转化为新一代城市内通勤用的快速旅行装置，火热的技术竞争每天都在发生。\n\n“这是分不错的工作，很吃激，让思绪摆多大地的束缚……现在可以给窝医疗费噜吗？”——鼻青脸肿的测试员",
+    "hp": 75
   }
 };
 // MODULE_EDITOR_OVERRIDES_END
