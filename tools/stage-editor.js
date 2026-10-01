@@ -189,6 +189,7 @@
       state.vehicle = SA.S.d.vehicle;
       if (SA.Editor?.refresh) SA.Editor.refresh();
     } else state.vehicle = vehicle;
+    $('vehicle-name').value = state.vehicle.name || '';
     renderPreview(state.vehicle); renderStats(state.vehicle);
   }
   function setTab(tab) {
@@ -217,6 +218,9 @@
     ensureEditorNavigation();
     try {
       if (!SA.Editor) throw new Error('车间编辑器没有加载');
+      if (!SA.PX?.ui?.img || !SA.PX.bigClip) throw new Error('车间像素界面没有加载');
+      // 独立工具页没有游戏主入口，首次开车间时自行注册像素皮肤变量。
+      SA.PX.init();
       assemblyOpen = true;
       SA.Camp.dev.designMode();
       // 沿用当前底稿，包含尚未保存的导入车和上次退出拼装时的改动。
@@ -229,8 +233,13 @@
       updateWorkshopModules();
       syncAssemblyVehicle();
     } catch (error) {
+      // 打开失败时还原车间容器和正式存档，避免下次重试只看到空白画布。
+      if (assemblyOpen && SA.S?.d?.vehicle) state.vehicle = SA.V.clone(SA.S.d.vehicle);
       assemblyOpen = false;
       if (SA.Camp.isDesignMode()) SA.Camp.dev.exitDesign();
+      SA.current = 'stage-editor'; document.body.dataset.screen = 'stage-editor';
+      $('screen').replaceChildren();
+      $('assembly-screen').hidden = true; $('assembly-empty').hidden = false;
       showToast(`无法打开拼装车间：${error.message}`, 'bad');
     }
   }
@@ -317,7 +326,7 @@
     let uniqueLoot = state.record?.uniqueLoot || state.base?.uniqueLoot || [];
     try { uniqueLoot = $('loot').value.trim() ? JSON.parse($('loot').value) : []; } catch (error) { throw new Error(`可缴获件不是有效 JSON：${error.message}`); }
     return {
-      name: $('name').value.trim(), pilot: $('pilot').value.trim(), style: $('style').value,
+      name: $('name').value.trim(), vehicleName: $('vehicle-name').value.trim(), pilot: $('pilot').value.trim(), style: $('style').value,
       aim: +$('aim').value, terrain: $('terrain').value, boss: $('boss').checked, prize: +$('prize').value,
       unlock, uniqueLoot, blurb: $('blurb').value, weakness: $('weakness').value,
       locked: state.record ? state.record.locked !== false : true,
@@ -328,6 +337,7 @@
     const rec = SA.StageCars.get(state.ci, state.si), base = stageAt(state.ci, state.si);
     state.record = rec;
     $('name').value = stage.name || '';
+    $('vehicle-name').value = stage.vehicle?.name || stage.name || '';
     $('pilot').value = stage.pilot || '';
     $('style').value = stage.style || 'wander';
     $('aim').value = stage.aim ?? 0.8;
@@ -433,7 +443,7 @@
     if (text.startsWith('SA1.') || text.startsWith('SA2.')) return SA.V.decode(text);
     const json = JSON.parse(text), cells = Array.isArray(json) ? json : json.cells;
     if (!Array.isArray(cells)) throw new Error('需要分享码或 cells 模块清单');
-    return SA.V.fromCells($('name').value || '导入关卡车', cells);
+    return SA.V.fromCells($('vehicle-name').value || '导入关卡车', cells);
   }
 
   async function saveRecord(lockValue) {
@@ -441,6 +451,8 @@
     if (!assemblyOpen) openAssembly();
     if (!assemblyOpen || !SA.Camp?.dev?.saveStageCar) throw new Error('车间尚未打开，无法保存关卡车');
     const vehicle = syncAssemblyVehicle(), meta = readFields(); if (lockValue !== undefined) meta.locked = lockValue;
+    if (!meta.vehicleName) throw new Error('车名不能为空');
+    vehicle.name = meta.vehicleName;
     const preview = SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta);
     const check = SA.Camp.dev.checkStageCar(state.ci, state.si, preview, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
@@ -487,6 +499,16 @@
   }
 
   document.querySelectorAll('.tab-button').forEach(button => button.onclick = () => setTab(button.dataset.tab));
+  // 文字页车名和原车间性能单的铭牌共用同一辆设计车，关卡标题保持独立。
+  $('vehicle-name').oninput = () => {
+    const vehicle = syncAssemblyVehicle();
+    if (vehicle) vehicle.name = $('vehicle-name').value;
+    const plateName = document.querySelector('.assembly-screen .plate-name');
+    if (plateName) plateName.value = $('vehicle-name').value;
+  };
+  document.addEventListener('input', event => {
+    if (event.target.matches?.('.assembly-screen .plate-name')) $('vehicle-name').value = event.target.value;
+  });
   $('assembly-open').onclick = openAssembly;
   $('assembly-exit').onclick = exitAssembly;
   $('open-modules').onclick = openModulePicker;
@@ -525,14 +547,14 @@
     const i = Number(raw); if (!Number.isInteger(i)) { showToast('候选车编号无效', 'bad'); return; }
     let picks = []; try { picks = JSON.parse(localStorage.getItem('steam_arena_evolve_picks')) || []; } catch (error) { showToast(`候选车列表读取失败：${error.message}`, 'bad'); return; }
     const p = picks[i]; if (!p) { showToast('候选车不存在，请重新打开进化报告', 'warn'); return; }
-    try { setWorkingVehicle(p.cells ? SA.V.fromCells($('name').value || p.name, p.cells) : SA.V.decode(p.code)); }
+    try { setWorkingVehicle(p.cells ? SA.V.fromCells(p.name || $('vehicle-name').value, p.cells) : SA.V.decode(p.code)); }
     catch (error) { showToast(`候选车导入失败：${error.message}`, 'bad'); }
   };
   $('test').onclick = () => { try { testVehicle(); } catch (error) { $('test-result').className = 'notice bad'; $('test-result').textContent = `测试失败：${error.message}`; } };
   $('drive').onclick = () => {
     const vehicle = syncAssemblyVehicle();
     if (!vehicle) { showToast('请先选择一关并打开车间', 'warn'); return; }
-    localStorage.setItem('steam_arena_evolve_picks', JSON.stringify([{ name: $('name').value || '手工关卡车', cells: cellsOf(vehicle), terrain: $('terrain').value, style: $('style').value, from: `关卡车工作台 · ${$('name').value}` }]));
+    localStorage.setItem('steam_arena_evolve_picks', JSON.stringify([{ name: vehicle.name || '手工关卡车', cells: cellsOf(vehicle), terrain: $('terrain').value, style: $('style').value, from: `关卡车工作台 · ${$('name').value}` }]));
     const opened = window.open('../index.html#sandbox=evolve', '_blank', 'noopener');
     // 某些内置浏览器会拦截脚本新标签；同页跳转仍然能进入现有试驾场。
     if (!opened) window.location.href = '../index.html#sandbox=evolve';
@@ -560,7 +582,7 @@
       arenaId = row.id;
       const rec = row.record;
       setWorkingVehicle(rec.cells ? SA.V.fromCells(rec.name, rec.cells) : SA.V.decode(rec.code));
-      $('name').value = rec.name || $('name').value; $('style').value = rec.style || 'wander';
+      $('style').value = rec.style || 'wander';
       $('arena-notice').hidden = false;
       $('arena-notice').textContent = `正在修改擂台候选：${rec.name || '候选车'}。使用“保存到进化擂台”保存构筑、名称和性格；关卡奖励与文字由正式关卡保存处理。`;
       // 后续章节可在擂台编辑，但正式工作台的写入范围仍遵守原有约定。

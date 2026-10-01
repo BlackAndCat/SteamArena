@@ -9,6 +9,36 @@ const STAGE_CARS_LOCAL_KEY = 'steam_arena_stage_cars_local_v1';
 const STAGE_CARS_CHANNEL_NAME = 'steam-arena-stage-cars';
 let stageCarsChannel = null;
 
+// 关卡标题和车辆铭牌分别保存；旧手工记录没有 vehicleName 时仍沿用原来的关卡名。
+// 原始关卡车文件由用户工作台生成，这里只扩展公开接口，不手工改写其内容。
+function supportStageVehicleName() {
+  if (!SA.StageCars) return;
+  const cars = SA.StageCars;
+  const makeRecord = cars.makeRecord, merge = cars.merge, applyToCampaign = cars.applyToCampaign;
+  cars.makeRecord = (chapter, stage, base, vehicle, meta = {}) => {
+    const record = makeRecord(chapter, stage, base, vehicle, meta);
+    record.vehicleName = String(meta.vehicleName || vehicle.name || record.name).trim();
+    return record;
+  };
+  cars.merge = (base, chapter, stage) => {
+    const merged = merge(base, chapter, stage);
+    const name = cars.get(chapter, stage)?.vehicleName;
+    if (name && merged.vehicle) merged.vehicle.name = name;
+    return merged;
+  };
+  cars.applyToCampaign = () => {
+    const result = applyToCampaign();
+    // 原函数内部直接调用自己的 merge，随后修正已放进战役的车辆铭牌。
+    for (const key of cars.targetKeys()) {
+      const [chapter, stage] = key.split(':').map(Number);
+      const name = cars.get(chapter, stage)?.vehicleName;
+      const vehicle = SA.CAMPAIGN[chapter]?.stages?.[stage]?.vehicle;
+      if (name && vehicle) vehicle.name = name;
+    }
+    return result;
+  };
+}
+
 // 插入甲片关后，旧序章第二关仍是铲斗关，统一顺延到第三关；其他章不变。
 function migrateStageIndex(chapter, stage, layout) {
   return (layout || 1) < SA.CAMPAIGN_LAYOUT && chapter === 0 && stage === 1 ? 2 : stage;
@@ -317,7 +347,7 @@ SA.Camp = (() => {
     const st = stage(chapter, stageIndex);
     if (!st) throw new Error(`找不到第 ${chapter + 1} 章第 ${stageIndex + 1} 关`);
     const v = SA.V.clone(st.vehicle);
-    v.name = st.name;
+    v.name = st.stageCar?.vehicleName || st.vehicle.name || st.name;
     v.lim = { cols: 8, rows: 6 };
     SA.S.d.vehicle = v;
     SA.S.d.camp.grid = { cols: 8, rows: 6 };
@@ -400,6 +430,7 @@ SA.Camp = (() => {
 })();
 SA.dev = SA.Camp.dev;
 if (SA.StageCars) {
+  supportStageVehicleName();
   SA.StageCars.localKey = STAGE_CARS_LOCAL_KEY;
   SA.StageCars.applyLocal = applyLocalStageCars;
   SA.StageCars.saveLocal = saveLocalStageCars;

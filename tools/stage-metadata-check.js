@@ -24,11 +24,37 @@ async function run() {
 
   SA.Camp.dev.designMode();
   SA.S.d.vehicle = SA.V.clone(original.vehicle);
-  const saved = await SA.Camp.dev.saveStageCar(ci, si, { name: '末关资料回归', pilot: '测试驾驶员' });
+  SA.S.d.vehicle.name = '独立车名回归';
+  const saved = await SA.Camp.dev.saveStageCar(ci, si, { name: '末关资料回归', vehicleName: '独立车名回归', pilot: '测试驾驶员' });
   assert.strictEqual(saved.record.name, '末关资料回归');
+  assert.strictEqual(saved.record.vehicleName, '独立车名回归');
   assert.strictEqual(saved.record.pilot, '测试驾驶员');
   assert(saved.warnings.some(x => x.includes('沿用原关卡车已有问题')));
   assert.strictEqual(JSON.stringify(saved.record.cells), JSON.stringify(baseline.cells));
+  assert.strictEqual(SA.Camp.stage(ci, si).name, '末关资料回归');
+  assert.strictEqual(SA.Camp.stage(ci, si).vehicle.name, '独立车名回归');
+  assert.strictEqual(SA.Camp.dev.loadStageCar(ci, si).vehicle.name, '独立车名回归');
+  const battleStart = SA.Battle.start;
+  let battleOptions = null;
+  SA.Battle.start = options => { battleOptions = options; };
+  SA.S.d.camp.ch = ci; SA.S.d.camp.st = si;
+  const entry = SA.S.arenaEntries('camp').find(item => item.key === `${ci},${si}`);
+  assert.strictEqual(entry.name, '末关资料回归');
+  assert(entry.title.includes('末关资料回归'));
+  entry.start();
+  assert.strictEqual(battleOptions.enemyName, '独立车名回归');
+
+  // 没有新字段的旧手工记录仍用关卡标题作为敌车名。
+  const legacy = SA.StageCars.makeRecord(0, 0, SA.Camp.stage(0, 0), SA.Camp.stage(0, 0).vehicle, { name: '旧版关卡名' });
+  delete legacy.vehicleName;
+  SA.STAGE_CARS.records['0:0'] = legacy;
+  SA.StageCars.applyToCampaign();
+  SA.S.d.camp.ch = 0; SA.S.d.camp.st = 0;
+  const oldEntry = SA.S.arenaEntries('camp').find(item => item.key === '0,0');
+  assert.strictEqual(oldEntry.name, '旧版关卡名');
+  oldEntry.start();
+  assert.strictEqual(battleOptions.enemyName, '旧版关卡名');
+  SA.Battle.start = battleStart;
 
   const changed = SA.V.clone(SA.Camp.stage(ci, si).vehicle);
   let downgraded = false;

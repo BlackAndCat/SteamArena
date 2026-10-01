@@ -333,7 +333,7 @@ SA.S = (() => {
           // 战前控制台可修改当前关卡；真正开战时再取一次最新数据，剧情编号和重打规则仍固定。
           start: () => {
             const latest = SA.Camp.stage(chapterIndex, i);
-            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
+            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, boss: latest.boss, hpMul: 1, prize: replay ? 0 : latest.prize, uniqueLoot: latest.uniqueLoot || [] });
           } }];
       }));
     }
