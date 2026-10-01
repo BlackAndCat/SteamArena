@@ -56,7 +56,8 @@ function run() {
   };
   context.requestAnimationFrame = fn => { frames.push(fn); };
   context.addEventListener = (type, fn) => { (keys[type] ||= []).push(fn); };
-  SA.Scenes = { pick: () => ({}), back() {}, floor() {}, front() {} };
+  // 本检查只验证教程镜头；场景与特效绘制都用空实现保留真实画面层调用路径。
+  SA.Scenes = { pick: () => ({}), back() {}, fxBack() {}, floor() {}, front() {}, fxFront() {} };
   SA.PX = { init() {}, ui: { btn: () => context.document.createElement('button') } };
   let tutorialLines, finishTutorial, marked = false;
   SA.Story = { tutorial: () => SA.STORY.tutorial, talk: (lines, opts) => { tutorialLines = lines; finishTutorial = opts.onDone; return { close() {} }; }, mark: () => { marked = true; }, emblem: () => ({ cv: context.document.createElement('canvas'), muzzles: [] }) };

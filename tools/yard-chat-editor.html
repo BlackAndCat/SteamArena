@@ -45,6 +45,15 @@
     </div>
   </section>
   <section class="panel">
+    <h2>点击人物对话（所有章节共用）</h2>
+    <p class="muted">这三段对话与下方自动闲谈池分开。可输入多行纯文本。</p>
+    <div class="settings" id="click-tips">
+      <label class="field">老汤姆<textarea data-person="tom" aria-label="点击老汤姆时的对话"></textarea></label>
+      <label class="field">瑞尔<textarea data-person="rel" aria-label="点击瑞尔时的对话"></textarea></label>
+      <label class="field">小提米<textarea data-person="tim" aria-label="点击小提米时的对话"></textarea></label>
+    </div>
+  </section>
+  <section class="panel">
     <div class="bar"><h2>聊天范围</h2><select id="scope" aria-label="聊天范围"></select><span id="source" class="muted"></span></div>
     <p class="muted">出现权重为 0 时停用；独立冷却为 0 时不限制。关卡优先使用本关内容，其次本章，最后全局。</p>
     <div id="groups"></div>

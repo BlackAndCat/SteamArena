@@ -25,6 +25,21 @@ SA.YardChat = (() => {
     one('base-7', 'tom', '「{关卡名}」？别慌，车顶住了就行。'),
     one('base-8', 'tim', '我在锅炉上画了个笑脸！'),
   ];
+
+  // 三个人物的点击台词共用这一份默认值；工作台独立打开时没有存档，老汤姆使用通用提示。
+  function clickTips() {
+    const data = SA.S?.d;
+    const problems = data && SA.V?.stats ? SA.V.stats(data.vehicle).problems : [];
+    const stage = data && SA.Camp?.current ? SA.Camp.current() : null;
+    const defaults = {
+      tom: problems?.length ? `车还有问题：${problems[0]}。先去车间弄好。`
+        : stage ? `下一场是「${stage.name}」，${stage.pilot}开的。车况不错，去吧。`
+        : '车况不错。锦标赛就等你了。',
+      rel: '要打哪场，去路标那儿拉下黑板看！打过的我给你划掉了！',
+      tim: '要改装就点车！',
+    };
+    return SA.Text?.homeTips ? SA.Text.homeTips(defaults) : defaults;
+  }
   const scopeKey = scope => `${KEY}pool:${scope}`;
 
   // 存档里的章、关为零基序号；关卡完成后仍可继承所在章节的聊天。
@@ -197,5 +212,5 @@ SA.YardChat = (() => {
     };
   }
 
-  return { currentScope, read, settings, validateSettings, setSettings, validateGroups, write, inherit, save, createPlayer };
+  return { currentScope, read, settings, validateSettings, setSettings, validateGroups, write, inherit, save, createPlayer, clickTips };
 })();

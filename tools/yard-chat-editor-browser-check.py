@@ -23,6 +23,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     store = {'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN', 'values': {}, 'removedElements': []}
     saves = 0
     fail = False
+    pause = False
+    request_ready = threading.Event()
+    release = threading.Event()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -43,6 +46,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404)
             return
         body = self.rfile.read(int(self.headers['Content-Length']))
+        if Handler.pause:
+            Handler.request_ready.set()
+            if not Handler.release.wait(10):
+                self.send_error(504, 'test save timeout')
+                return
         if Handler.fail:
             self.send_error(503, 'test save failure')
             return
@@ -119,6 +127,10 @@ def run():
             until("document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
             assert evaluate("document.querySelector('#scope').value==='stage:0:0'"), '初始关卡未定位'
             assert evaluate("document.querySelector('#source').textContent.includes('内置默认')"), '默认聊天继承未显示'
+            original_rel = evaluate("document.querySelector('[data-person=rel]').value")
+            original_tim = evaluate("document.querySelector('[data-person=tim]').value")
+            click_line = '老汤姆说：\n「铜管」与 <齿轮> 都在。'
+            evaluate(f"(()=>{{const t=document.querySelector('[data-person=tom]');t.value={json.dumps(click_line, ensure_ascii=False)};t.dispatchEvent(new Event('input',{{bubbles:true}}));return true}})()")
             evaluate("document.querySelector('#add-group').click()")
             evaluate("(()=>{const t=document.querySelector('.group:last-child textarea');t.value='第一句';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
             evaluate("document.querySelector('.group:last-child [data-action=line-add]').click()")
@@ -144,9 +156,40 @@ def run():
             assert [line['text'] for line in group['lines']] == ['第二句', '第一句'], '对答排序保存错误'
             assert json.loads(values['home:chat:pool:chapter:0'])[-1]['lines'][0]['text'] == '章节聊天', '章节草稿未一并保存'
             assert json.loads(values['home:chat:settings'])['intervalSec'] == 8, '整体间隔保存错误'
+            assert values['home:tip:tom'] == click_line, '点击对话的多行中文、引号或尖括号丢失'
+            assert 'home:tip:rel' not in values and 'home:tip:tim' not in values, '未编辑人物被保存覆盖'
             cdp.call('Page.navigate', {'url': url})
             until("document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
             assert evaluate("document.querySelector('.group:last-child textarea').value==='第二句'"), '刷新未恢复保存的版本'
+            assert evaluate("document.querySelector('[data-person=tom]').value") == click_line, '刷新未恢复点击对话'
+            assert evaluate("document.querySelector('[data-person=rel]').value") == original_rel, '其他人物的默认对话被覆盖'
+            assert evaluate("document.querySelector('[data-person=tim]').value") == original_tim, '其他人物的默认对话被覆盖'
+            pool_before = {key: value for key, value in Handler.store['values'].items() if key.startswith('home:chat:')}
+            evaluate("(()=>{const t=document.querySelector('[data-person=rel]');t.value='瑞尔：只改我这一句。';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
+            evaluate("(()=>{const t=document.querySelector('[data-person=tim]');t.value='';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
+            evaluate("document.querySelector('#save').click()")
+            until("document.querySelector('#notice')?.textContent.includes('已保存')")
+            assert Handler.store['values']['home:tip:rel'] == '瑞尔：只改我这一句。', '第二个人物点击对话未保存'
+            assert Handler.store['values']['home:tip:tim'] == '', '显式清空的人物对话被默认文案覆盖'
+            assert Handler.store['values']['home:tip:tom'] == click_line, '保存其他人物时覆盖了老汤姆文案'
+            assert {key: value for key, value in Handler.store['values'].items() if key.startswith('home:chat:')} == pool_before, '只保存点击对话时改动了自动闲谈池'
+            cdp.call('Page.navigate', {'url': url})
+            until("document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
+            assert evaluate("document.querySelector('[data-person=tim]').value") == '', '刷新后显式空对话丢失'
+            Handler.request_ready.clear()
+            Handler.release.clear()
+            Handler.pause = True
+            evaluate("(()=>{const t=document.querySelector('[data-person=tom]');t.value='等待写入的旧句';t.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#save').click();return true})()")
+            assert Handler.request_ready.wait(5), '未收到延迟保存请求'
+            evaluate("(()=>{const t=document.querySelector('[data-person=tom]');t.value='等待期间的新句';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
+            Handler.pause = False
+            Handler.release.set()
+            until("document.querySelector('#notice')?.textContent.includes('仍有后续修改待保存')")
+            assert Handler.store['values']['home:tip:tom'] == '等待写入的旧句', '首次延迟保存应写入提交时的文本'
+            assert evaluate("document.querySelector('#dirty').textContent.includes('待保存')"), '保存期间新编辑的脏标记丢失'
+            evaluate("document.querySelector('#save').click()")
+            until("document.querySelector('#notice')?.textContent.includes('已保存。')")
+            assert Handler.store['values']['home:tip:tom'] == '等待期间的新句', '第二次保存未写入最新文本'
             evaluate("localStorage.setItem('steam_arena_save_v2',JSON.stringify({camp:{ch:0,st:0}}))")
             cdp.call('Page.navigate', {'url': url.split('?')[0]})
             until("document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
@@ -159,9 +202,60 @@ def run():
             evaluate("document.querySelector('#add-group').click()")
             evaluate("(()=>{const t=document.querySelector('.group:last-child textarea');t.value='失败草稿';t.dispatchEvent(new Event('input',{bubbles:true}));return true})()")
             evaluate("document.querySelector('#save').click()")
-            until("document.querySelector('#notice')?.textContent.includes('保存失败')")
+            until("document.querySelector('#notice')?.textContent.includes('本机草稿已保存')")
             assert evaluate("document.querySelector('#dirty').textContent.includes('待保存')"), '失败后未保留草稿'
-            print('院子聊天工作台：当前关卡、对答排序、多范围预校验、Ctrl+S、刷新、继承和失败草稿通过')
+
+            # 直接双击文件启动时，隔离 profile 中的本机草稿须跨编辑页与游戏页共享。
+            def file_tab(file_path):
+                request = urllib.request.Request(f'http://127.0.0.1:{debug_port}/json/new?{file_path.as_uri()}', method='PUT')
+                page = json.load(urllib.request.urlopen(request, timeout=5))
+                return CDP(page['webSocketDebuggerUrl'])
+
+            def file_eval(tab, expression):
+                result = tab.call('Runtime.evaluate', {'expression': expression, 'returnByValue': True})
+                if 'exceptionDetails' in result:
+                    raise AssertionError(result['exceptionDetails'])
+                return result.get('result', {}).get('value')
+
+            def file_until(tab, expression):
+                for _ in range(80):
+                    if file_eval(tab, expression):
+                        return
+                    time.sleep(.1)
+                raise AssertionError(f'文件页面等待失败：{expression}')
+
+            editor_file = ROOT / 'tools/yard-chat-editor.html'
+            game_file = ROOT / 'index.html'
+            local_line = '本地文件：<铜管>\n「台词」'
+            file_editor = file_tab(editor_file)
+            file_until(file_editor, "document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
+            file_eval(file_editor, f"(()=>{{const t=document.querySelector('[data-person=tom]');t.value={json.dumps(local_line, ensure_ascii=False)};t.dispatchEvent(new Event('input',{{bubbles:true}}));return true}})()")
+            # 自动化不操作系统文件选择器；禁用后文件写入应明确报错，本机草稿仍可恢复。
+            file_eval(file_editor, "window.showSaveFilePicker=undefined;document.querySelector('#save').click()")
+            file_until(file_editor, "document.querySelector('#notice')?.textContent.includes('文本文件尚未写入')")
+            refreshed_editor = file_tab(editor_file)
+            file_until(refreshed_editor, "document.querySelector('#notice')?.textContent.includes('Ctrl+S')")
+            assert file_eval(refreshed_editor, "document.querySelector('[data-person=tom]').value") == local_line, 'file:// 刷新编辑页丢失本机草稿'
+
+            def click_file_tom(tab):
+                file_until(tab, '!!window.SA?.Home && !!SA.YardChat && !!document.querySelector("#modal")')
+                file_eval(tab, "document.querySelector('.title')?.remove();document.querySelector('#modal').hidden=true;SA.Home.open('sun')")
+                point = file_eval(tab, "(()=>{const e=[...document.querySelectorAll('.home-stage > .ab.px-hot')].filter(x=>!x.classList.contains('home-vane'))[1],cv=e.querySelector('canvas'),a=cv.getContext('2d').getImageData(0,0,56,56).data;let best=1e9,pixel=null;for(let y=12;y<49;y++)for(let x=18;x<38;x++){if(a[(y*56+x)*4+3]<20)continue;const score=(x-28)**2+(y-26)**2;if(score<best){best=score;pixel=[x,y]}}const r=cv.getBoundingClientRect(),x=Math.floor(r.left+(pixel[0]+.5)*r.width/56),y=Math.floor(r.top+(pixel[1]+.5)*r.height/56);return {x,y,hit:e.contains(document.elementFromPoint(x,y))}})()")
+                assert point['hit'], 'file:// 老汤姆人物被遮挡'
+                for event in ('mouseMoved', 'mousePressed', 'mouseReleased'):
+                    tab.call('Input.dispatchMouseEvent', {'type': event, 'x': point['x'], 'y': point['y'],
+                        'button': 'left' if event != 'mouseMoved' else 'none',
+                        'buttons': 1 if event == 'mousePressed' else 0,
+                        'clickCount': 1 if event != 'mouseMoved' else 0})
+                assert file_eval(tab, "!document.querySelector('#modal').hidden"), 'file:// 点击人物未出现对话框'
+                assert file_eval(tab, "document.querySelector('#modal .panel-body').textContent") == local_line, 'file:// 点击人物未读取编辑原文'
+                assert not file_eval(tab, "!!document.querySelector('#modal .panel-body img')"), 'file:// 点击对话被当作 HTML 执行'
+
+            file_game = file_tab(game_file)
+            click_file_tom(file_game)
+            file_game.call('Page.navigate', {'url': game_file.as_uri()})
+            click_file_tom(file_game)
+            print('院子聊天工作台：三人物点击对话、空值、多范围闲谈、延迟保存竞态、刷新、继承、失败草稿及 file:// 跨页真实点击通过')
         finally:
             browser.terminate()
             browser.wait(timeout=10)

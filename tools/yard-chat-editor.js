@@ -6,6 +6,9 @@
   let currentScope = '';
   let settingsDraft;
   let settingsDirty = false;
+  let clickDraft;
+  const clickDirty = new Set();
+  let textPending = false;
   let saving = false;
 
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -13,10 +16,10 @@
     $('notice').textContent = message;
     $('notice').className = `notice ${kind}`;
   }
-  function pending() { return settingsDirty || [...drafts.values()].some(d => d.dirty); }
+  function pending() { return settingsDirty || clickDirty.size > 0 || textPending || [...drafts.values()].some(d => d.dirty); }
   function showDirty() {
     const count = [...drafts.values()].filter(d => d.dirty).length;
-    $('dirty').textContent = pending() ? `待保存：${count} 个聊天范围${settingsDirty ? '及整体节奏' : ''}` : '全部已保存';
+    $('dirty').textContent = pending() ? `待保存：${count} 个聊天范围${settingsDirty ? '及整体节奏' : ''}${clickDirty.size ? `及 ${clickDirty.size} 个人物点击对话` : ''}${textPending ? '及文本写入' : ''}` : '全部已保存';
   }
   function parentScope(scope) {
     if (scope.startsWith('stage:')) return `chapter:${scope.split(':')[1]}`;
@@ -148,18 +151,23 @@
   async function save() {
     if (saving) return;
     saving = true;
+    let stagedLocally = false;
     $('save').disabled = true;
-    note('正在保存聊天与整体节奏……');
+    note('正在保存院子对话……');
     try {
       const changed = [...drafts.entries()].filter(([, draft]) => draft.dirty);
+      const savedClick = new Map([...clickDirty].map(who => [who, clickDraft[who]]));
       // 先校验全部草稿，避免某个范围无效时其它范围已进入文本管理器的自动保存队列。
       for (const [, draft] of changed) if (draft.mode !== 'inherit') SA.YardChat.validateGroups(draft.groups);
       if (settingsDirty) SA.YardChat.validateSettings(settingsDraft);
       for (const [scope, draft] of changed) {
         if (draft.mode === 'inherit') SA.YardChat.inherit(scope);
         else SA.YardChat.write(scope, draft.groups);
+        stagedLocally = true;
       }
-      if (settingsDirty) SA.YardChat.setSettings(settingsDraft);
+      if (settingsDirty) { SA.YardChat.setSettings(settingsDraft); stagedLocally = true; }
+      // 只写用户改过的人物，避免点击对话保存时覆盖其他人及闲谈池的现有内容。
+      for (const [who, value] of savedClick) { SA.Text.set(`home:tip:${who}`, value); stagedLocally = true; }
       const result = await SA.YardChat.save();
       if (!result?.ok) throw result?.error || new Error('写入未成功，草稿仍保留在浏览器');
       for (const [scope, draft] of changed) {
@@ -170,10 +178,14 @@
         draft.dirty = false;
       }
       settingsDirty = false;
+      for (const [who, value] of savedClick) if (clickDraft[who] === value) clickDirty.delete(who);
+      textPending = !!result.pending;
       render();
-      note('已保存。游戏中的院子聊天会自动更新。', 'ok');
+      note(pending() ? '本次修改已写入；仍有后续修改待保存。' : '已保存。游戏中的院子聊天会自动更新。', 'ok');
     } catch (error) {
-      note(`保存失败；草稿仍在本页，可以修改后重试：${error.message || error}`, 'bad');
+      note(stagedLocally
+        ? `本机草稿已保存，文本文件尚未写入；可刷新恢复并重试写入：${error.message || error}`
+        : `保存失败；草稿仍在本页，可以修改后重试：${error.message || error}`, 'bad');
     } finally {
       saving = false;
       $('save').disabled = false;
@@ -193,6 +205,9 @@
     currentScope = requested && validScope(requested) ? requested : savedScope();
     if (!validScope(currentScope)) currentScope = 'global';
     settingsDraft = copy(SA.YardChat.settings());
+    // YardChat 提供与 Home 相同的实时默认文案入口，已保存的覆盖值由 Text.homeTips 优先返回。
+    clickDraft = { ...SA.YardChat.clickTips() };
+    $('click-tips').querySelectorAll('textarea').forEach(node => { node.value = clickDraft[node.dataset.person]; });
     $('interval').value = settingsDraft.intervalSec;
     $('reply').value = settingsDraft.replySec;
     $('bubble').value = settingsDraft.bubbleSec;
@@ -202,6 +217,13 @@
     for (const [id, key] of [['interval', 'intervalSec'], ['reply', 'replySec'], ['bubble', 'bubbleSec']]) {
       $(id).addEventListener('input', event => { settingsDraft[key] = event.target.value === '' ? NaN : Number(event.target.value); settingsDirty = true; showDirty(); });
     }
+    $('click-tips').addEventListener('input', event => {
+      const who = event.target.dataset.person;
+      if (!who) return;
+      clickDraft[who] = event.target.value;
+      clickDirty.add(who);
+      showDirty();
+    });
     $('groups').addEventListener('input', event => {
       const node = event.target;
       const group = ensureDraft(currentScope).groups[Number(node.dataset.group)];
