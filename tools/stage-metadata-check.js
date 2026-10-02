@@ -31,13 +31,17 @@ async function run() {
   SA.Camp.dev.designMode();
   SA.S.d.vehicle = SA.V.clone(original.vehicle);
   SA.S.d.vehicle.name = '独立车名回归';
-  const saved = await SA.Camp.dev.saveStageCar(ci, si, { name: '末关资料回归', vehicleName: '独立车名回归', pilot: '测试驾驶员' });
+  const saved = await SA.Camp.dev.saveStageCar(ci, si, { name: '末关资料回归', vehicleName: '独立车名回归', pilot: '测试驾驶员', style: 'rookie', repairFree: true });
   assert.strictEqual(saved.record.name, '末关资料回归');
   assert.strictEqual(saved.record.vehicleName, '独立车名回归');
   assert.strictEqual(saved.record.pilot, '测试驾驶员');
+  assert.strictEqual(saved.record.style, 'rookie');
+  assert.strictEqual(saved.record.repairFree, true);
   assert(saved.warnings.some(x => x.includes('沿用原关卡车已有问题')));
   assert.strictEqual(JSON.stringify(saved.record.cells), JSON.stringify(baseline.cells));
   assert.strictEqual(SA.Camp.stage(ci, si).name, '末关资料回归');
+  assert.strictEqual(SA.Camp.stage(ci, si).style, 'rookie');
+  assert.strictEqual(SA.Camp.stage(ci, si).repairFree, true);
   assert.strictEqual(SA.Camp.stage(ci, si).vehicle.name, '独立车名回归');
   assert.strictEqual(SA.Camp.dev.loadStageCar(ci, si).vehicle.name, '独立车名回归');
   // 固定物品奖励记录应保留多个条目和数量；空数组明确清除原关卡奖励。

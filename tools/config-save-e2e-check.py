@@ -58,6 +58,13 @@ def check(root, port):
     assert modules_after['MODULES'][module_id]['name'] == '临时端到端模块'
     assert all(modules_after['MODULES'][other] == modules_before['MODULES'][other]
                for other in modules_before['MODULE_ORDER'] if other != module_id)
+    # 模块工作台先保存，调速随后只提交单字段；服务端锁内合并后不得丢模块作者改动。
+    expect_saved(port, '/__battle-speed/save', {'gameSpeed': 1.1})
+    assert read(root, 'modules')['K']['GAME_SPEED'] == 1.1
+    assert read(root, 'modules')['MODULES'][module_id]['name'] == '临时端到端模块'
+    before_invalid_speed = (root / 'config/modules.json').read_bytes()
+    status, _ = request(port, '/__battle-speed/save', {'gameSpeed': 2.0})
+    assert status == 400 and (root / 'config/modules.json').read_bytes() == before_invalid_speed
 
     text_before = read(root, 'text')
     values = {**text_before['values'], 'e2e:save': '临时端到端文字'}

@@ -53,6 +53,7 @@ function runtime() {
     const battle = SA.Battle.debug.B;
     SA.V.each(battle.p.v, cell => { cell.hp = Math.max(1, cell.hp - 2); });
     if (outcome === 'draw') { battle.draw = '测试平手'; battle.ending = SA.K.BATTLE.ENDING_TIME; }
+    else if (outcome === 'retreat') battleApi.retreat();
     else battleApi.kill(outcome === 'win' ? battle.e : battle.p, '测试判负');
     for (let i = 0; i < 600 && !battle.done; i++) battleApi.step(1 / 60);
     assert(result, '战斗没有产生结果');
@@ -71,7 +72,39 @@ function run() {
     const stage = SA.Camp.stage(0, index);
     assert.strictEqual(stage.rewardMoney, false, `序章 ${index + 1} 关发金币`);
     assert.strictEqual(stage.victoryRepairFree, true, `序章 ${index + 1} 关收费修理`);
+    assert.strictEqual(stage.repairFree, true, `序章 ${index + 1} 关未开启全结果免修`);
   }
+  // 从正式关卡入口覆盖胜、负、平、撤退；旧伤也修满，蓝图库中的另一辆车保持原样。
+  for (let index = 0; index < 3; index++) for (const outcome of ['win', 'loss', 'draw', 'retreat']) {
+    SA.S.reset();
+    SA.S.d.camp.st = index;
+    let oldDamage = false;
+    SA.V.each(SA.S.d.vehicle, cell => { if (!oldDamage) { cell.hp -= 5; oldDamage = true; } });
+    assert(oldDamage, '参赛车没有可制造旧伤的部件');
+    SA.S.Blueprints.save('另一辆车');
+    const parked = JSON.stringify(SA.S.Blueprints.mine()), moneyBefore = SA.S.d.money;
+    const active = SA.S.arenaEntries('camp').find(row => row.key === `0,${index}`);
+    assert(active, `缺少序章 ${index + 1} 关出战入口`);
+    const battleResult = play(active, outcome);
+    assert.strictEqual(battleResult.opts.repairFree, true, `${index}:${outcome} 未传全结果免修配置`);
+    SA.UI.afterBattle(battleResult);
+    SA.V.each(SA.S.d.vehicle, cell => assert.strictEqual(cell.hp, SA.V.maxHp(cell), `${index}:${outcome} 留下修理账单`));
+    assert.strictEqual(SA.S.d.money, moneyBefore, `${index}:${outcome} 扣除了金币`);
+    assert.strictEqual(JSON.stringify(SA.S.Blueprints.mine()), parked, `${index}:${outcome} 误修另一辆车`);
+    assert(modal.textContent.includes('本场参赛车已免费修复'), `${index}:${outcome} 未显示已免修`);
+    assert(!button('全部修理 £') && !button('免费全部修理'), `${index}:${outcome} 仍显示战后修理按钮`);
+  }
+  SA.S.reset();
+  SA.S.d.camp.st = 1;
+  SA.V.each(SA.S.d.vehicle, cell => { cell.hp = Math.max(1, cell.hp - 7); });
+  const replayMoney = SA.S.d.money;
+  const replayEntry = SA.S.arenaEntries('camp').find(row => row.key === '0,0' && row.replay);
+  assert(replayEntry, '缺少首关重打入口');
+  const freeReplay = play(replayEntry, 'win');
+  SA.UI.afterBattle(freeReplay);
+  SA.V.each(SA.S.d.vehicle, cell => assert.strictEqual(cell.hp, SA.V.maxHp(cell), '免费关重打未修复旧伤'));
+  assert.strictEqual(SA.S.d.money, replayMoney, '免费关重打扣款');
+  assert(modal.textContent.includes('本场参赛车已免费修复') && !button('全部修理 £'), '免费关重打界面未显示免修');
   // 正式记录必须包含结算字段；显式修改时以该记录为准。
   const record = SA.StageCars.get(0, 0);
   assert(record, '缺少序章第一关的手工记录');
@@ -79,6 +112,7 @@ function run() {
   assert.strictEqual(typeof record.rewardMoney, 'boolean');
   assert.strictEqual(typeof record.victoryRepairFree, 'boolean');
   const savedRewardMoney = record.rewardMoney, savedRepairFree = record.victoryRepairFree;
+  record.repairFree = false; // 以下继续覆盖普通关现有胜利免修与付款按钮，不改正式配置文件。
   record.rewardMoney = true; record.victoryRepairFree = false;
   assert.strictEqual(SA.Camp.stage(0, 0).rewardMoney, true, '手工记录未开启金币');
   assert.strictEqual(SA.Camp.stage(0, 0).victoryRepairFree, false, '手工记录未关闭免费修理');
@@ -148,7 +182,8 @@ function run() {
   SA.UI.afterBattle(result);
   assert.strictEqual(SA.S.d.money, money, '重打发放了奖金');
   assert(!button('全部修理'), '重打留下战损');
-  return { prologue: 3, draw: true, freeRepair: true, paidRepair: true, loss: true, replay: true };
+  record.repairFree = true;
+  return { prologue: 3, fullRepairOutcomes: 12, freeReplay: true, draw: true, freeRepair: true, paidRepair: true, loss: true, replay: true };
 }
 
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));

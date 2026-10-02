@@ -8,12 +8,14 @@ const seeded = seed => {
   return () => ((state = (state * 1664525 + 1013904223) >>> 0) / 4294967296);
 };
 
-// 正式首关只验证配置权威与战斗可运行；胜率阈值留给下方独立 rookie 算法夹具。
+// 正式首关必须启用教学新手 AI，并保留作者配置的低命中率。
 {
   const { SA } = loadGame();
   const stage = stageFor(SA, 0, 0), author = SA.StageCars.get(0, 0);
   if (stage.style !== author.style || stage.aim !== author.aim || stage.pilot !== author.pilot)
     throw new Error('正式首关 AI 参数与作者记录不一致');
+  if (stage.style !== 'rookie' || stage.aim > 0.15)
+    throw new Error('正式首关未启用低命中率的教学新手 AI');
   const player = SA.V.fromAscii('序章起始车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
   const result = SA.Battle.simulate({ p: player, e: stage.vehicle, pAim: 0.8, eAim: stage.aim,
     pStyle: 'wander', eStyle: stage.style, terrain: stage.terrain || 'flat', seed: 17 });
@@ -31,14 +33,12 @@ function play(seed, moving) {
   const author = SA.StageCars.get(0, 0);
   if (enemy.style !== author.style || enemy.aim !== author.aim || enemy.pilot !== author.pilot)
     throw new Error('序章首关没有沿用正式作者关卡的 AI 参数');
-  // 独立教学 AI 夹具只覆写模拟参数，不改变正式作者关卡及车辆。
-  const rookie = { ...enemy, style: 'rookie', aim: 0.18 };
   const player = SA.V.fromAscii('序章起始车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
   SA.S.reset();
   SA.S.d.vehicle = player;
   SA.go = () => {};
-  const B = SA.Battle.startState({ mode: 'friendly', enemyVehicle: rookie.vehicle, enemyName: rookie.name,
-    terrain: rookie.terrain || 'flat', aim: rookie.aim, style: rookie.style, boss: rookie.boss });
+  const B = SA.Battle.startState({ mode: 'friendly', enemyVehicle: enemy.vehicle, enemyName: enemy.name,
+    terrain: enemy.terrain || 'flat', aim: enemy.aim, style: enemy.style, boss: enemy.boss });
   const control = seeded(seed + 99001);
   const bias = [(control() - 0.5) * 30, (control() - 0.5) * 24];
   let aim = [0, 0], nextAim = 0, frames = 0, lastX = B.e.x, lastDir = 0, stopped = 0, forward = 0, backward = 0;

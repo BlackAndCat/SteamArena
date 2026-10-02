@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const state = { ci: 0, si: 0, vehicle: null, base: null, record: null, tests: {} };
   let arenaId = null;
-  const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' };
+  const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩', rookie: '教学新手' };
   const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
   let assemblyOpen = false;
   let shopObserver = null;
@@ -331,7 +331,7 @@
       name: $('name').value.trim(), vehicleName: $('vehicle-name').value.trim(), pilot: $('pilot').value.trim(), style: $('style').value,
       aim: +$('aim').value, terrain: $('terrain').value, boss: $('boss').checked, prize: +$('prize').value,
       unlock, uniqueLoot, rewardItems: readRewardItems(), rewardMoney: $('reward-money').checked,
-      victoryRepairFree: $('victory-repair-free').checked, blurb: $('blurb').value, weakness: $('weakness').value,
+      victoryRepairFree: $('victory-repair-free').checked, repairFree: $('repair-free').checked, blurb: $('blurb').value, weakness: $('weakness').value,
       locked: state.record ? state.record.locked !== false : true,
     };
   }
@@ -357,6 +357,7 @@
     // 旧关卡没有结算开关时沿用原有奖金和付费修理规则。
     $('reward-money').checked = stage.rewardMoney !== false;
     $('victory-repair-free').checked = stage.victoryRepairFree === true;
+    $('repair-free').checked = stage.repairFree === true;
     syncPrizeInput();
     $('blurb').value = stage.blurb || '';
     $('weakness').value = stage.weakness || '';

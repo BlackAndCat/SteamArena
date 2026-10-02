@@ -244,7 +244,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         endpoint = urlparse(self.path).path
-        allowed = ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__config/save',
+        allowed = ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__battle-speed/save', '/__config/save',
                    '/__config/migrate', '/__evolve/run', '/__evolve/stop', '/__publish/archive')
         if endpoint not in allowed:
             self._json(404, {'error': '接口不存在'})
@@ -259,6 +259,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         try:
             payload = self._request_json()
             if endpoint == '/__modules/save': result = self._save_modules(payload)
+            elif endpoint == '/__battle-speed/save': result = self._save_battle_speed(payload)
             elif endpoint == '/__stage-cars/save': result = self._save_stage_cars(payload)
             elif endpoint == '/__text/save': result = self._save_text(payload)
             elif endpoint == '/__config/save': result = self._save_config(payload)
@@ -288,6 +289,23 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 raise ValueError('最低材料阶不能超过最高材料阶')
             _write_json(MODULES_FILE, data)
         return {'id': module_id, 'file': 'config/modules.json'}
+
+    def _save_battle_speed(self, payload):
+        """在配置锁内只更新战斗速度，不覆盖模块工作台的其它作者改动。"""
+        if set(payload) != {'gameSpeed'}:
+            raise ValueError('战斗速度请求字段不合法')
+        speed = payload['gameSpeed']
+        if type(speed) not in (int, float) or not math.isfinite(speed):
+            raise ValueError('战斗速度必须是有限数字')
+        with MODULE_SAVE_LOCK:
+            data = _json_file(MODULES_FILE)
+            limits = data['K']['BATTLE']
+            minimum, maximum, step = (limits['GAME_SPEED_MIN'], limits['GAME_SPEED_MAX'], limits['GAME_SPEED_STEP'])
+            if speed < minimum or speed > maximum or abs((speed - minimum) / step - round((speed - minimum) / step)) > 1e-7:
+                raise ValueError('战斗速度超出可选范围')
+            data['K']['GAME_SPEED'] = speed
+            _write_json(MODULES_FILE, data)
+        return {'gameSpeed': speed, 'file': 'config/modules.json'}
 
     def _save_stage_cars(self, payload):
         """只覆盖被编辑的一关，其余十七关和顶层扩展字段原样保留。"""
