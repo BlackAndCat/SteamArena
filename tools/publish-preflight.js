@@ -1,4 +1,4 @@
-// 预检只列当前来源或显式导入文档与正式文件的差异；所有差异默认不勾选。
+// 预检只列当前来源或显式导入文档与正式文件的差异；新差异默认选中，手动排除状态随重绘保留。
 (() => {
   const $ = id => document.getElementById(id);
   const entries = new Map();
@@ -17,7 +17,7 @@
   function addEntry(type, key, next, previous) {
     const id = `${type}:${key}`;
     if (same(next, previous)) { entries.delete(id); return; }
-    entries.set(id, { type, key, next, previous });
+    entries.set(id, { type, key, next, previous, selected: entries.get(id)?.selected ?? true });
   }
 
   function importBundle(data, current = false) {
@@ -58,6 +58,8 @@
     for (const [id, item] of entries) {
       const row = document.createElement('label'); row.className = 'row';
       const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.dataset.id = id;
+      checkbox.checked = item.selected;
+      checkbox.onchange = () => { item.selected = checkbox.checked; };
       const content = document.createElement('div');
       const title = document.createElement('strong');
       title.textContent = `${{ stage: '关卡', text: '文本', removed: '隐藏元素' }[item.type]} · ${item.key}`;
@@ -87,7 +89,7 @@
         if (data.kind === 'steam-arena-author-bundle') importBundle(data);
         else importText({ ...data, __fileName: file.name });
       }
-      status(`已读取 ${event.target.files.length} 份文件；请逐项勾选。`);
+      status(`已读取 ${event.target.files.length} 份文件；差异默认选中，可取消不归档项。`);
     } catch (error) { status(`导入失败：${error.message}`); }
     event.target.value = '';
   };

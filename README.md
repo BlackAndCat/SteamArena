@@ -12,7 +12,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 本地预览服务默认只监听 `127.0.0.1`。页面覆盖、关卡车与进化任务的写入接口只接受本机同源页面；本机命令行请求没有 `Origin` 时仍可使用。服务写入校验可运行 `python -m unittest tools/test_serve_security.py`。
 
-发行前先从作者浏览器导出作者包，在本机服务打开 `tools/publish-preflight.html` 导入并核对内容，归档到主仓正式的关卡车、模块与 `text/steam-arena/zh-CN.json`。归档会生成 `tools/out/publish-preflight.json` 回执；然后运行 `tools/publish.cmd` 或 `python tools/package-release.py --settings <设置文件> --output-root <输出目录>`。包工具核对三份正式文件与回执的哈希，并从同一 `sourceRoot` 复制首页、运行脚本、样式和正式文本；发行目录与 ZIP 在检查完成后更新。旧设置中的 `textSource` 仅作来源提示，须先经预检归档。预检不自动寻找其他浏览器中的草稿。
+发行前先从作者浏览器导出作者包，在本机服务打开 `tools/publish-preflight.html` 导入并核对内容；差异默认全选，需排除的逐项取消勾选，再归档到主仓正式的关卡车、模块与 `text/steam-arena/zh-CN.json`。归档会生成 `tools/out/publish-preflight.json` 回执；然后运行 `tools/publish.cmd` 或 `python tools/package-release.py --settings <设置文件> --output-root <输出目录>`。包工具核对三份正式文件与回执的哈希，并从同一 `sourceRoot` 复制首页、运行脚本、样式和正式文本；发行目录与 ZIP 在检查完成后更新。旧设置中的 `textSource` 仅作来源提示，须先经预检归档。预检不自动寻找其他浏览器中的草稿。
 
 侧边栏「页面管理」可开启编辑：点击页面元素或文字画布，选择当前文字或父元素，删除文字或隐藏所选元素。悬浮内容可在编辑模式按 F8 固定，再点击编辑；再次按 F8 释放。「编辑版本」固定为原始版本与编辑版本，原始版只供预览，编辑版文字和元素优先加载，刷新默认回到编辑版；旧历史文案会合入同一份编辑稿。修改立即留在浏览器草稿；支持浏览器文件选择接口时，首次点「选择保存文件」并选本项目的 `text/steam-arena/zh-CN.json`，此后编辑、删除和「清除覆盖」会自动写入该文件，刷新后复用已授权文件。若浏览器不支持直接写文件，仍可用 `tools/serve.py` 保存，或点「导出 JSON」手动替换文件。出战只列已击败的关卡和当前下一场，未解锁章节及未来场数不展示。
 
