@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>剧情试播</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* 后台「剧情」里嵌着的试播窗：用游戏自己的对话框（js/story.js 的 talk）把一段从头演到尾 */
+    html, body { height: 100%; overflow: hidden; }
+    body { background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 2px, transparent 2px 4px), var(--bg1); }
+    /* 战斗教程在游戏里压在战斗画面上方；这里用一块暗色底示意战斗画面 */
+    .sp-battle { position: absolute; inset: 0; background: linear-gradient(#2b2a33, #1a1614 62%, #2e2723 62%); }
+    .sp-tag { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); }
+    .sp-end { position: fixed; inset: 0; z-index: 90; display: grid; place-content: center; justify-items: center; gap: 14px; background: rgba(7, 8, 12, .72); color: var(--text); font-size: 15px; }
+    .sp-end[hidden] { display: none; }
+    .sp-end .row { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div id="modal" hidden></div>
+  <div id="toast"></div>
+  <div class="sp-end" id="end" hidden>
+    <b>这一段播完了</b>
+    <div class="row"><button class="btn primary" type="button" id="again">↺ 从头重放</button></div>
+  </div>
+  <script src="../js/release.js"></script>
+  <script src="../js/palette.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/coal.js"></script>
+  <script src="../js/modules.js"></script>
+  <script src="../js/module-art.js"></script>
+  <script src="../js/dynamics.js"></script>
+  <script src="../js/sprites.js"></script>
+  <script src="../js/ui-px.js"></script>
+  <script src="../js/legs.js"></script>
+  <script src="../js/vehicle.js"></script>
+  <script src="../js/content.js"></script>
+  <script src="../js/build-sys.js"></script>
+  <script src="../js/stage-cars.js"></script>
+  <script src="../js/state.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/camp.js"></script>
+  <script src="../js/story.js"></script>
+  <script>
+    // 试播接口：后台调用 StoryPlayer.play({ rows, id, from })。rows 是编辑中的台词（不必先保存）。
+    // 开场带分镜动画；教程段按战斗里的样子压在画面上方；其余按过关 / 功能提示的样子整页弹出。
+    window.StoryPlayer = (() => {
+      const end = document.getElementById('end');
+      let vn = null, stage = null, last = null;
+      try { SA.PX.init(); } catch (e) { /* 像素界面件可缺省 */ }
+      try { SA.S.load(); } catch (e) { /* 没有存档时开场不画战车 */ }
+      function stop() {
+        if (vn) { const v = vn; vn = null; v.cancel(); }
+        if (stage) { stage.remove(); stage = null; }
+        end.hidden = true;
+      }
+      function play(o) {
+        stop();
+        last = o;
+        const rows = (o.rows || []).filter(r => (r.text || '').trim());
+        if (!rows.length) { end.hidden = false; return; }
+        const done = () => { vn = null; end.hidden = false; if (o.onDone) o.onDone(); };
+        const from = o.from || 0;
+        if (o.id === 'opening') vn = SA.Story.previewOpening(rows, done, { start: from });
+        else if (/^tutorial\./.test(o.id || '')) {
+          stage = SA.h('div', { class: 'sp-battle' }, SA.h('span', { class: 'sp-tag' }, '（战斗画面）'));
+          document.body.append(stage);
+          vn = SA.Story.talk(rows, { host: stage, cls: 'vn-battle', onDone: done, start: from });
+        } else vn = SA.Story.talk(rows, { cls: 'vn-hint', onDone: done, start: from });
+        window.focus();
+      }
+      document.getElementById('again').addEventListener('click', () => last && play({ ...last, from: 0 }));
+      return { play, stop };
+    })();
+  </script>
+</body>
+</html>

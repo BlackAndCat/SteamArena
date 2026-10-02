@@ -399,13 +399,15 @@
 
   // ---------- 剧情脚本编辑 ----------
   // 每次编辑经 SA.StoryData.set 校验并留在本页，点击保存才写入正式配置。
+  // 右边：表情窗（这一句说话人的表情 + 说话动作，点小图换表情）、对话框预览、完整重放（tools/story-player.html，游戏自己的对话框）
   function scriptEditor(id) {
     const cast = Object.entries(SA.STORY.cast || {});
-    const coalOf = (who) => (SA.STORY.cast[who] && (SA.STORY.cast[who].coal || SA.STORY.cast[who].name)) || null;
     const nameOf = (who) => (SA.STORY.cast[who] && SA.STORY.cast[who].name) || '旁白';
     const SCENES = { sleep: '睡觉', roof: '掀屋顶', roll: '滚进来', car: '战车' };
+    const EXPRS = SA.Story.exprs();
+    const exprName = (k) => (EXPRS.find(([x]) => x === k) || EXPRS[0])[1];
     let lines = sceneLines(id).map((l) => ({ ...l }));
-    let sel = 0, err = '', playing = 0, typing = 0;
+    let sel = 0, err = '', typing = 0;
     const root = el('div.script');
     const main = el('div.script-main'), side = el('div.vn');
     root.append(main, side);
@@ -414,7 +416,7 @@
       const empty = lines.findIndex((l) => !l.text.trim());
       if (empty >= 0) { err = `第 ${empty + 1} 句还是空的，写完才能保存`; showErr(); return; }
       try {
-        SA.StoryData.set(id, lines.map((l) => ({ text: l.text, who: l.who || undefined, ...(id === 'opening' ? { scene: l.scene || undefined } : {}) })));
+        SA.StoryData.set(id, lines.map((l) => ({ text: l.text, who: l.who || undefined, expr: (l.who && l.expr) || undefined, ...(id === 'opening' ? { scene: l.scene || undefined } : {}) })));
         err = ''; textDirty.story.add(id); refreshStatus();
       } catch (e) { err = e.message || String(e); }
       showErr();
@@ -423,10 +425,16 @@
     function showErr() { errBox.textContent = err; }
 
     function row(l, i) {
-      const who = el('select', { 'aria-label': `第 ${i + 1} 句说话人`, on: { change: (e) => { l.who = e.target.value; commit(); renderPreview(); } } },
+      const who = el('select', { 'aria-label': `第 ${i + 1} 句说话人`, on: { change: (e) => { l.who = e.target.value; if (!l.who) l.expr = undefined; sel = i; commit(); render(); } } },
         el('option', { value: '', text: '旁白' }), cast.map(([k, c]) => el('option', { value: k, text: c.name })));
       who.value = l.who || '';
       const kids = [who];
+      if (l.who) {
+        const ex = el('select.expr', { 'aria-label': `第 ${i + 1} 句表情`, on: { change: (e) => { setExpr(i, e.target.value); } } },
+          EXPRS.map(([k, n]) => el('option', { value: k, text: `表情 · ${n}` })));
+        ex.value = l.expr || 'normal';
+        kids.push(ex);
+      }
       if (id === 'opening') {
         const sc = el('select', { 'aria-label': `第 ${i + 1} 句分镜`, on: { change: (e) => { l.scene = e.target.value; commit(); } } },
           el('option', { value: '', text: '沿用上一格' }), Object.entries(SCENES).map(([k, v]) => el('option', { value: k, text: `分镜 · ${v}` })));
@@ -441,6 +449,16 @@
         el('div.n', { text: i + 1 }), el('div.who', null, kids), text,
         el('div.tools', null, miniBtn('up', '上移', () => move(-1)), miniBtn('down', '下移', () => move(1)),
           miniBtn('x', '删掉这一句', () => { lines.splice(i, 1); sel = Math.min(sel, lines.length - 1); commit(); render(); }, 'del')));
+    }
+    // 改表情：normal 不写进数据
+    function setExpr(i, k) {
+      const l = lines[i];
+      if (!l || !l.who) return;
+      l.expr = k === 'normal' ? undefined : k;
+      commit();
+      const pick = main.querySelectorAll('.line')[i]?.querySelector('select.expr');
+      if (pick) pick.value = l.expr || 'normal';
+      if (i === sel) renderPreview();
     }
     function select(i) {
       if (sel === i) return;
@@ -468,40 +486,76 @@
       renderPreview();
     }
 
-    const portraitCache = new Map();
-    function portrait(who) {
-      const name = coalOf(who);
-      if (!name || !SA.Coal || !SA.Coal.byName[name]) return null;
-      if (!portraitCache.has(who)) {
-        try { portraitCache.set(who, SA.Coal.draw(SA.Coal.byName[name], { size: 'bust', expr: 'normal', cy: 62, look: who === 'smith' ? -1 : 1 })); } catch (e) { portraitCache.set(who, null); }
-      }
-      const src = portraitCache.get(who);
-      if (!src) return null;
-      const c = el('canvas', { width: src.width, height: src.height });
-      c.getContext('2d').drawImage(src, 0, 0);
+    // 头像：用游戏同一套碳球头像（js/story.js），按这一句的表情画
+    function face(who, expr, size = 96) {
+      if (!who || !SA.STORY.cast[who]) return null;
+      const c = el('canvas', { width: 96, height: 96, style: `width:${size}px;height:${size}px` });
+      try { c.getContext('2d').drawImage(SA.Story.portrait(false, false, who, expr || 'normal'), 0, 0); } catch (e) { return null; }
       return c;
+    }
+    // 表情窗：大图循环演「说话（身子一弹一弹）→ 停下眨眼」，下面是这个人能用的全部表情，点一下就换
+    let anim = 0;
+    function exprWindow(l) {
+      cancelAnimationFrame(anim);
+      if (!l) return null;
+      if (!l.who) return el('div.xw.narr', null, el('div.xw-h', null, el('b', { text: '旁白' }), el('span', { text: '冷色字、铁灰框；不显示也不改动任何头像' })));
+      const big = el('canvas.xw-big', { width: 96, height: 96 }), g = big.getContext('2d');
+      const state = el('span.xw-state');
+      const t0 = performance.now();
+      const tick = (now) => {
+        if (!big.isConnected) return;
+        const t = (now - t0) / 1000, k = t % 2.8, talking = k < 1.6;
+        const bob = talking && Math.floor(t * 9) % 2 === 0, blink = !talking && k > 2.2 && k < 2.32;
+        g.clearRect(0, 0, 96, 96);
+        g.drawImage(SA.Story.portrait(bob, blink, l.who, l.expr || 'normal'), 0, 0);
+        const txt = talking ? '说话中' : '停顿 · 眨眼';
+        if (state.textContent !== txt) state.textContent = txt;
+        anim = requestAnimationFrame(tick);
+      };
+      anim = requestAnimationFrame(tick);
+      const cur = l.expr || 'normal';
+      const grid = el('div.xw-grid', null, EXPRS.map(([k, n]) => el(`button.xw-pick${k === cur ? '.on' : ''}`, { type: 'button', title: `换成「${n}」`, 'aria-pressed': String(k === cur), on: { click: () => setExpr(sel, k) } },
+        face(l.who, k, 48), el('span', { text: n }))));
+      return el('div.xw', null,
+        el('div.xw-h', null, el('b', { text: nameOf(l.who) }), el('span', { text: `第 ${sel + 1} 句 · ${exprName(cur)}` })),
+        el('div.xw-stage', null, big, state),
+        grid);
     }
     function renderPreview() {
       const l = lines[sel];
       const box = l ? (l.who && SA.STORY.cast[l.who]
-        ? el('div.vn-box', null, portrait(l.who) || el('div'), el('div', null, el('span.vn-name', { text: nameOf(l.who) }), el('div.vn-text', { text: l.text || '（空）' })))
-        : el('div.vn-box', null, el('div.vn-text.vn-narr', { text: l.text || '（空）' })))
+        ? el('div.vn-box', null, face(l.who, l.expr) || el('div'), el('div', null, el('span.vn-name', { text: nameOf(l.who) }), el('div.vn-text', { text: l.text || '（空）' })))
+        : el('div.vn-box.narr', null, el('div.vn-text.vn-narr', { text: l.text || '（空）' })))
         : el('div.vn-box', null, el('div.vn-text.vn-narr', { text: '没有台词' }));
       const ctrl = el('div.vn-ctrl', null,
-        el('button.btn.sm', { type: 'button', disabled: !lines.length, on: { click: play } }, icon('play'), playing ? '停' : '播放'),
-        el('button.btn.sm.ghost', { type: 'button', disabled: sel <= 0, on: { click: () => { select(Math.max(0, sel - 1)); } } }, '上一句'),
-        el('button.btn.sm.ghost', { type: 'button', disabled: sel >= lines.length - 1, on: { click: () => { select(Math.min(lines.length - 1, sel + 1)); } } }, '下一句'),
-        el('span', { text: lines.length ? `${sel + 1} / ${lines.length}` : '' }));
-      side.replaceChildren(el('div.vn-ctrl', { text: '对话框预览（游戏里的样子）' }), box, ctrl);
+        el('button.btn.sm', { type: 'button', disabled: !lines.length, title: '用游戏里的对话框把这一段从第一句演到最后一句', on: { click: () => replay(0) } }, icon('play'), '完整重放'),
+        el('button.btn.sm.ghost', { type: 'button', disabled: !lines.length || sel <= 0, on: { click: () => replay(sel) } }, '从这句播'),
+        el('span.grow'),
+        el('button.btn.sm.ghost', { type: 'button', disabled: sel <= 0, title: '上一句', 'aria-label': '上一句', on: { click: () => { select(Math.max(0, sel - 1)); } } }, icon('left')),
+        el('span', { text: lines.length ? `${sel + 1} / ${lines.length}` : '' }),
+        el('button.btn.sm.ghost', { type: 'button', disabled: sel >= lines.length - 1, title: '下一句', 'aria-label': '下一句', on: { click: () => { select(Math.min(lines.length - 1, sel + 1)); } } }, icon('right')));
+      side.replaceChildren(el('div.vn-ctrl', { text: '表情与说话动作' }), exprWindow(l), el('div.vn-ctrl', { text: '对话框预览（游戏里的样子）' }), box, ctrl);
     }
-    function play() {
-      if (playing) { clearInterval(playing); playing = 0; renderPreview(); return; }
-      sel = 0; renderPreview();
-      playing = setInterval(() => {
-        if (!root.isConnected || sel >= lines.length - 1) { clearInterval(playing); playing = 0; if (root.isConnected) renderPreview(); return; }
-        select(sel + 1);
-      }, 1800);
-      renderPreview();
+    // 完整重放：弹出试播窗，用游戏自己的对话框演编辑中的台词（不用先保存）；开场带分镜动画，教程按战斗里的位置
+    function replay(from) {
+      const rows = lines.filter((l) => l.text.trim()).map((l) => ({ text: l.text, who: l.who || undefined, expr: (l.who && l.expr) || undefined, scene: l.scene || undefined }));
+      if (!rows.length) { toast('这一幕还没有台词', 'warn'); return; }
+      const start = lines.slice(0, from).filter((l) => l.text.trim()).length;
+      document.querySelector('.sp-ov')?.remove();
+      const frame = el('iframe', { src: 'story-player.html', title: '剧情试播' });
+      const go = (k) => { try { frame.contentWindow.StoryPlayer.play({ id, rows, from: k }); frame.focus(); } catch (e) { toast(`试播窗没能打开：${e.message || e}`, 'bad'); } };
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); } };
+      const close = () => { window.removeEventListener('keydown', onKey, true); ov.remove(); };
+      const ov = el('div.sp-ov', { role: 'dialog', 'aria-label': '剧情试播' },
+        el('div.sp-win', null,
+          el('div.sp-bar', null, el('b', { text: `试播 · ${sceneLabel(id)}` }), el('span.muted', { text: '点画面 / 空格翻页' }), el('span.grow'),
+            el('button.btn.sm', { type: 'button', on: { click: () => go(0) } }, icon('reload'), '从头重放'),
+            el('button.btn.sm.ghost', { type: 'button', on: { click: close } }, icon('x'), '关闭')),
+          frame));
+      ov.addEventListener('pointerdown', (e) => { if (e.target === ov) close(); });
+      frame.addEventListener('load', () => go(start), { once: true });
+      window.addEventListener('keydown', onKey, true);
+      document.body.append(ov);
     }
     render();
     return root;

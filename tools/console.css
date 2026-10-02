@@ -261,6 +261,28 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .vn-text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; font-family: var(--song); }
 .vn-narr { grid-column: 1 / -1; font-style: italic; text-align: center; padding: 18px 8px; }
 .vn-ctrl { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-3); }
+/* 旁白：冷色铁灰底，和人物说话的纸面框分开（游戏里同样是铁灰框 + 冷色字） */
+.vn-box.narr { background: #c4ccce; border-color: #34404a; box-shadow: inset 0 0 0 2px #dfe5e6, var(--hard); color: #1e2a33; }
+/* 表情窗：说话人 + 循环的说话动作 + 全部表情 */
+.xw { display: grid; gap: 8px; padding: 10px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: var(--hard); }
+.xw.narr { background: #c4ccce; border-color: #34404a; color: #1e2a33; }
+.xw-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-3); }
+.xw-h b { color: var(--ink); font-size: 14px; font-family: var(--song); }
+.xw.narr .xw-h span { color: #34404a; }
+.xw-stage { position: relative; display: grid; place-items: center; padding: 6px; background: #cdb887; border: 2px solid #4a3a28; }
+.xw-big { width: 144px; height: 144px; image-rendering: pixelated; }
+.xw-state { position: absolute; left: 6px; bottom: 4px; font-size: 11.5px; color: #4a3a28; }
+.xw-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.xw-pick { display: grid; justify-items: center; gap: 1px; padding: 3px 2px 2px; background: var(--paper); border: 1px solid var(--line); color: var(--ink-2); font: inherit; font-size: 11.5px; cursor: pointer; }
+.xw-pick canvas { image-rendering: pixelated; background: #cdb887; }
+.xw-pick:hover { border-color: var(--line-2); color: var(--ink); }
+.xw-pick.on { border-color: var(--copper); box-shadow: inset 0 0 0 2px var(--copper); color: var(--ink); font-weight: 700; }
+/* 完整重放：试播窗（tools/story-player.html，游戏自己的对话框） */
+.sp-ov { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(20, 10, 4, 0.62); }
+.sp-win { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1200px, 100%); height: min(760px, 100%); background: var(--paper); border: 2px solid var(--line-2); box-shadow: 6px 6px 0 rgba(20, 10, 4, 0.6); }
+.sp-bar { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-bottom: 2px solid var(--line-2); font-size: 13px; }
+.sp-bar b { font-family: var(--song); }
+.sp-win iframe { width: 100%; height: 100%; border: 0; background: #14110f; }
 
 /* ---------- 院子闲聊 ---------- */
 .chat-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
