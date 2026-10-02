@@ -84,6 +84,9 @@ def git_info(root):
 def remove_output(out, path):
     path = within(out, path)
     if path.is_dir():
+        # 发行目录可能是用户手工维护的 Git 仓库；任何递归清理都不能删除仓库身份。
+        if (path / ".git").exists() or (path / "old-release/.git").exists():
+            raise ValueError(f"拒绝递归清理含 Git 元数据的目录：{path}")
         shutil.rmtree(path)
     elif path.exists():
         path.unlink()
@@ -194,7 +197,8 @@ def main():
                     raise ValueError(f"发行 ZIP 内容不一致：{name}")
         # 所有生成和检查成功后才替换上次成功的发行目录与兼容 ZIP。
         old_dir, old_zip = stage / "old-release", stage / "old-release.zip"
-        moved_dir = moved_zip = installed_dir = installed_zip = False
+        old_git, release_git = old_dir / ".git", release_dir / ".git"
+        moved_dir = moved_zip = moved_git = installed_dir = installed_zip = False
         try:
             if release_dir.exists():
                 release_dir.rename(old_dir)
@@ -204,11 +208,21 @@ def main():
                 moved_zip = True
             staged_dir.rename(release_dir)
             installed_dir = True
+            # ZIP 已生成并回读；仅在目录安装事务中搬移旧仓库身份，绝不写入 ZIP。
+            if old_git.exists():
+                if linked(old_git) or release_git.exists():
+                    raise ValueError("发行仓库 .git 是链接或新目录已存在 .git，拒绝替换")
+                old_git.rename(release_git)
+                moved_git = True
             shutil.copyfile(staged_zip, version_zip)
             staged_zip.rename(latest_zip)
             installed_zip = True
         except Exception as publish_error:
             try:
+                # 必须先恢复 Git 元数据；恢复失败时两个目录都原样保留，不递归删除。
+                if moved_git:
+                    release_git.rename(old_git)
+                    moved_git = False
                 if installed_dir and release_dir.exists():
                     remove_output(out, release_dir)
                 if installed_zip and latest_zip.exists():

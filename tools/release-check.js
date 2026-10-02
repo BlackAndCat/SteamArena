@@ -210,6 +210,8 @@ function packageCheck() {
   const found = [];
   function walk(folder) {
     for (const item of fs.readdirSync(folder, { withFileTypes: true })) {
+      // 发行目录可保留自身的 Git 元数据；游戏文件仍按白名单逐项检查。
+      if (folder === dir && item.name === '.git') continue;
       const file = path.join(folder, item.name);
       if (item.isDirectory()) walk(file);
       else found.push(path.relative(dir, file).replaceAll('\\', '/'));
