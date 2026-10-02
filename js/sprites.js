@@ -2348,12 +2348,18 @@ SA.SPR = (() => {
   // 侧框 + 负重轮（T2～T6），fx0 / fx1 = 本格里侧框的左右端；图案按格内绝对 x 排，跨格不错位
   function trackFrame(T, x, y, L, Rr, fx0, fx1, ph, g0, g1, gof) {
     const each = (step, off, lo, hi, fn) => { for (let k = x; k < x + C; k++) if (((k - x) % step) === off && k >= lo && k <= hi) fn(k); };
-    const spin = (i) => ph / 24 * TAUT + i;
+    const spin = (i) => ph / 24 * TAUT + i, solo = !L && !Rr;   // solo：单节履带，下段链带是平的
     if (T === 2) {   // 上梁 + 吊杆 + 铸铁小托轮
       const a = L ? x : x + 14, b = Rr ? x + C : x + 34;
       R(a, y + 11, b - a, 4, P.iron[0]); R(a, y + 12, b - a, 2, P.iron[3]); R(a, y + 12, b - a, 1, P.iron[4]);
       each(8, 3, a + 2, b - 4, (k) => tBolt(k, y + 12));
       for (const lx of [8, 24, 40]) if (x + lx >= a + 3 && x + lx <= b - 3) { R(x + lx - 1, y + 15, 3, 12, P.iron[0]); R(x + lx, y + 15, 1, 12, P.iron[3]); }
+      if (solo) {   // 单节：两只大轮之间只剩一只托轮，加大、提亮，压在平直的下段链带上
+        const cx = x + 24, wy = y + 39;
+        R(cx - 1, y + 27, 3, 9, P.iron[0]); R(cx, y + 27, 1, 9, P.iron[3]);
+        disc(cx, wy, 4.4, P.dark[0]); disc(cx, wy, 3.6, P.iron[3]); disc(cx - 0.5, wy - 0.5, 2.4, P.iron[4]); disc(cx, wy, 1.4, P.iron[1]);
+        return;
+      }
       for (const lx of [8, 24, 40]) if (x + lx >= a + 4 && x + lx <= b - 4) { const wy = y + 40 + gof(lx), cx = x + lx; disc(cx, wy, 3.4, P.dark[0]); disc(cx, wy, 2.6, P.iron[2]); px(cx - 1, wy - 1, P.iron[4]); }
       return;
     }
@@ -2367,6 +2373,7 @@ SA.SPR = (() => {
         R(x + gc - 6, y + 34 + d, 12, 2, P.dark[0]);
         for (const dx of [-4, 4]) tRoad(x + gc + dx, y + 39.5 + d, 4.3, spin(dx), 'dark');
       });
+      if (solo) { R(x + 21, y + 34, 6, 2, P.dark[0]); tRoad(x + 24, y + 39.5, 4.3, spin(24), 'dark'); }   // 单节：中间一只负重轮
       return;
     }
     if (T === 4) {   // 冲孔减重钢框 + 单排钢盘负重轮
@@ -2374,7 +2381,9 @@ SA.SPR = (() => {
       each(8, 2, fx0 + 3, fx1 - 5, (k) => { disc(k + 1.5, y + 28, 3.2, P.iron[1]); disc(k + 1.5, y + 28, 2.6, P.dark[1]); px(k - 1, y + 26, P.iron[0]); px(k + 1, y + 30, P.iron[3]); });
       R(fx0 + 1, y + 22, fx1 - fx0 - 2, 1, P.iron[4]);
       each(8, 2, fx0 + 2, fx1 - 2, (k) => tBolt(k, y + 33));
-      for (const lx of [5, 13, 21, 29, 37, 45]) if (x + lx - 4.6 >= fx0 && x + lx + 4.6 <= fx1) tRoad(x + lx, y + 39.5 + gof(lx), 3.8, spin(lx), 'steel');
+      // 跨到右邻格的那只（lx 45）由本格画，不然两节接缝处缺一只轮
+      for (const lx of [5, 13, 21, 29, 37, 45]) if (x + lx - 4.6 >= fx0 && (x + lx + 4.6 <= fx1 || Rr)) tRoad(x + lx, y + 39.5 + gof(lx), 3.8, spin(lx), 'steel');
+      if (solo) tRoad(x + 24, y + 39.5, 3.8, spin(24), 'steel');   // 单节：中间一只钢盘轮
       return;
     }
     if (T === 5) {   // X 形桁架 + 板簧转向架
@@ -2395,6 +2404,12 @@ SA.SPR = (() => {
         line(bx - 5, y + 39 + d + rock, bx + 5, y + 39 + d - rock, 2, P.dark[0]);
         for (const dx of [-5, 5]) tRoad(bx + dx, y + 39.5 + d + (dx > 0 ? -rock : rock) * 0.5, 4.4, spin(dx), 'brass');
       });
+      if (solo) {   // 单节：板簧吊一只轮
+        const bx = x + 24;
+        R(bx - 1, y + 34, 3, 3, P.dark[0]);
+        for (let k = -4; k <= 4; k++) px(bx + k, y + 35 - (Math.abs(k) < 3 ? 1 : 0), P.iron[k % 2 ? 2 : 3]);
+        tRoad(bx, y + 39.5, 4.4, spin(24), 'brass');
+      }
       return;
     }
     // T6 全包裙板：整块铆接裙板盖住上段和侧框，只露出下面一排负重轮；前后两端斜切露出大轮
@@ -2407,7 +2422,7 @@ SA.SPR = (() => {
       if (yy - top > 12 && !Rr && xx >= sx1 - (yy - top - 12) * 1.1) return false;
       return true;
     };
-    for (const lx of [8, 24, 40]) if (x + lx >= fx0 + 6 && x + lx <= fx1 - 4 || (L && Rr)) tRoad(x + lx, y + 40 + gof(lx), 4.4, spin(lx), 'brass');
+    for (const lx of [8, 24, 40]) if (x + lx >= fx0 + 4 && x + lx <= fx1 - 4 || (L && Rr)) tRoad(x + lx, y + 40 + (solo ? 0 : gof(lx)), 4.4, spin(lx), 'brass');   // 前后对称；单节留中间一只
     for (let yy = top; yy < top + hh; yy++) for (let xx = x; xx < x + C; xx++) {
       if (!ins(xx, yy)) continue;
       const edge = !ins(xx - 1, yy) || !ins(xx + 1, yy) || !ins(xx, yy - 1) || !ins(xx, yy + 1);
