@@ -31,6 +31,8 @@ SA.StoryDev = (() => {
     if (m) { const p = SA.STORY.tutorial.parts[+m[1]]; return `第一关教程 · 讲解${p ? p.label : m[1]}`; }
     m = /^tutorial\.controls\.(\w+)\.(desktop|touch)$/.exec(id);
     if (m) { const c = (SA.STORY.tutorial.controls || []).find(x => x.part === m[1]); return `第一关教程 · 操作${c ? c.label : m[1]}（${m[2] === 'touch' ? '手机' : '电脑'}）`; }
+    m = /^guide\.(.+)$/.exec(id);
+    if (m) { const g = (SA.STORY.guideList || []).find(x => x.id === m[1]); return `页面教程 · ${g ? g.label : m[1]}`; }
     m = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
     if (m) return `${stageName(m[1])} · ${m[2] === 'win' ? '胜利后提示' : '战败后提示'}`;
     m = /^feat\.(.+)$/.exec(id);
@@ -39,7 +41,7 @@ SA.StoryDev = (() => {
     if (m) return `${m[2] === 'current' ? '其他对战（街头赛 / 锦标赛 / 支线）' : stageName(m[2])} · ${m[1] === 'before' ? '战前' : '战后'}`;
     return id;
   }
-  const group = (id) => id === 'opening' || id.startsWith('tutorial.') ? '开场与教程'
+  const group = (id) => id === 'opening' || id.startsWith('tutorial.') || id.startsWith('guide.') ? '开场与教程'
     : id.startsWith('before.') || id.startsWith('after.') ? '战前 / 战后插入' : id.startsWith('stage.') ? '过关提示' : '功能开放提示';
 
   // ---------- 简易编辑器 ----------

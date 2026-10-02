@@ -86,6 +86,18 @@ SA.Editor = (() => {
     ro.observe(stage);
     renderAll();
     frame = requestAnimationFrame(() => { fit(); loop(); });
+    // 页面教程（js/tutorial.js）：第一次进车间讲装水罐和性能单，商店第一次开张时指一下开关；后台拼装台不讲
+    if (SA.Guide && !stageWorkbench() && !SA.Camp.isDesignMode()) SA.Guide.garage();
+  }
+  // 教程用：把清单翻到这个模块所在的那一类（shop 决定是否打开商店），返回清单里那一行
+  function focusInv(id, shop) {
+    if (!invEl || !invEl.isConnected || !M[id]) return null;
+    if (shop != null) st.shop = !!shop && has('shop');
+    st.cat = M[id].cat;
+    renderTools(); renderInv();
+    const row = invEl.querySelector(`.mrow[data-page-key^="inventory:${id}"]`);
+    if (row) row.scrollIntoView({ block: 'nearest' });
+    return row;
   }
 
   // 弹窗关闭后由 SA.UI.refresh 调用：钱、库存可能变了
@@ -1104,5 +1116,5 @@ SA.Editor = (() => {
     frame = requestAnimationFrame(loop);
   }
 
-  return { open, refresh };
+  return { open, refresh, focusInv };
 })();

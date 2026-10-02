@@ -54,7 +54,20 @@
     "story:tutorial.controls.fire.desktop": "[{\"text\":\"开火：按住鼠标左键，准星会一圈圈收紧，收满变绿就自动打出去；提前松手也会打，只是没那么准。\"},{\"text\":\"机枪这种快枪，按住就一直打；空格键和左键一样。准星变成沙漏，是炮还在装填。\"}]",
     "story:tutorial.controls.fire.touch": "[{\"text\":\"开火：右手按着别松，准星会一圈圈收紧，收满变绿就自动打出去；提前抬手也会打，只是没那么准。\"},{\"text\":\"机枪这种快枪，按住就一直打。左手开车、右手开火，两只手可以同时按。\"}]",
     "story:tutorial.controls.weapon.desktop": "[{\"text\":\"车上装了几种武器时，按数字键 1～9、0 换着用，也可以直接点仪表台上的武器键。\"}]",
-    "story:tutorial.controls.weapon.touch": "[{\"text\":\"车上装了几种武器时，点仪表台上的武器键换着用。\"}]"
+    "story:tutorial.controls.weapon.touch": "[{\"text\":\"车上装了几种武器时，点仪表台上的武器键换着用。\"}]",
+    "story:guide.arena": "[{\"text\":\"这块黑板就是出战台。左边粉笔写着赛程：打过的划掉，下一场用圈圈起来。\"},{\"text\":\"中间贴着这一场的对决海报，右边是对手的档案：评分、车速，心里先有个数。\"},{\"text\":\"右下角是出战拉杆。按住杆头往右推到底，就开打；往左扳到底，回院子。\"},{\"text\":\"想回去改车，就点左下角的「车间」路牌。\"}]",
+    "story:guide.arena.lever": "[{\"text\":\"试一下：按住右下角的拉杆，往右推到底——出战！\"}]",
+    "story:guide.garage": "[{\"text\":\"这里是车间。你的车摆在中间的改装台上，每一格都能装零件。\"},{\"text\":\"右边是零件清单。刚拿到的小水罐就在这里。\"}]",
+    "story:guide.garage.tank": "[{\"text\":\"把水罐装上：按住清单里的水罐，拖到车上的空格里松手；也可以先点一下水罐，再点格子。\"}]",
+    "story:guide.stats": "[{\"text\":\"装好了！左边这张性能单会跟着你的改动变化，一项一项看：\"}]",
+    "story:guide.stats.rating": "[{\"text\":\"评分：整台车大致有多强。出战前可以和对手档案上的评分比一比。\"}]",
+    "story:guide.stats.power": "[{\"text\":\"动力：锅炉供得上的蒸汽，和设备、行驶要用的蒸汽。条过了红线，车跑不动，武器也会变慢。\"}]",
+    "story:guide.stats.weight": "[{\"text\":\"重量：整车装满水时有多重。红线是底盘的承重，超过就开不动；越重撞人越疼，但起步和爬坡越慢。\"}]",
+    "story:guide.stats.speed": "[{\"text\":\"速度：平地上最快能跑多快。动力不够时会打折扣。\"}]",
+    "story:guide.stats.heat": "[{\"text\":\"热量：全力开火时，产热和冷却的比。到 100% 就会越打越烫，过热了锅炉减压、武器停火。\"}]",
+    "story:guide.stats.water": "[{\"text\":\"水：水罐里的冷却水，靠它把热量带走；烧干了就只剩散热片。刚装的水罐就加在这一项上。\"}]",
+    "story:guide.stats.exit": "[{\"text\":\"每一项停一下都能看到细账。车弄好了，就点下面的「出战 →」去黑板那边。\"}]",
+    "story:guide.shop": "[{\"text\":\"商店开张了！零件清单上方多了一个「商店」开关。\"},{\"text\":\"拨到「商店」，清单里会列出能买的零件、标着价钱；拨回去，就只看自己的库存。\"}]"
   },
   "removedElements": [
     "main::global::div#app/aside#side/span.px-sk.px-sk-brass:n1",
@@ -151,6 +164,60 @@
       {
         "part": "weapon",
         "label": "换武器"
+      }
+    ],
+    "guides": [
+      {
+        "id": "arena",
+        "label": "出战黑板 · 讲解"
+      },
+      {
+        "id": "arena.lever",
+        "label": "出战黑板 · 推拉杆（操作提示）"
+      },
+      {
+        "id": "garage",
+        "label": "车间 · 讲解"
+      },
+      {
+        "id": "garage.tank",
+        "label": "车间 · 装水罐（操作提示）"
+      },
+      {
+        "id": "stats",
+        "label": "车间 · 性能单开头"
+      },
+      {
+        "id": "stats.rating",
+        "label": "车间 · 性能单 · 评分"
+      },
+      {
+        "id": "stats.power",
+        "label": "车间 · 性能单 · 动力"
+      },
+      {
+        "id": "stats.weight",
+        "label": "车间 · 性能单 · 重量"
+      },
+      {
+        "id": "stats.speed",
+        "label": "车间 · 性能单 · 速度"
+      },
+      {
+        "id": "stats.heat",
+        "label": "车间 · 性能单 · 热量"
+      },
+      {
+        "id": "stats.water",
+        "label": "车间 · 性能单 · 水"
+      },
+      {
+        "id": "stats.exit",
+        "label": "车间 · 性能单结尾"
+      },
+      {
+        "id": "shop",
+        "label": "商店开关"
       }
     ]
   },

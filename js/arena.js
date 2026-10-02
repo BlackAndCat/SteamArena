@@ -22,6 +22,7 @@ SA.Arena = (() => {
     root = SA.Home.board({ instant: !!quiet });   // 院子里拉下黑板，返回黑板上的内容容器
     render();
     if (!quiet) SA.Camp.introIfNew();
+    if (!quiet && SA.Guide) SA.Guide.arena();   // 第一次正式进出战黑板（第二关）：讲黑板和拉杆
   }
   function unmount() { root = null; }
 
@@ -84,7 +85,10 @@ SA.Arena = (() => {
     } else rows = list.map(line);
     const foot = st.mode === 'street' ? h('button', { class: 'ch-tab', onclick: () => { SA.Street.offers(true); render(); } }, SA.Config.text("arena_b111553da074"))
       : st.mode === 'camp' ? h('div', { class: 'ch-foot' }, SA.Config.text("arena_76babf5f99db")) : null;
-    return [tabs, h('div', { class: 'ch-list' }, rows), foot];
+    // 黑板左下角钉一块朝左的木路牌：直接回车间改车（和右下角的出战拉杆左右对着）
+    const garage = SA.Camp.has('garage') ? h('div', { class: 'ar-garage' },
+      UI.sign(SA.Config.text('home_98d39d5eed3f'), -1, 72, { onclick: () => SA.nav('garage'), title: SA.Config.text('arena_back_garage'), seed: 11 })) : null;
+    return [tabs, h('div', { class: 'ch-list' }, rows), foot, garage];
   }
   // 便签（贴在海报下面）：场地剖面、线人情报、能缴获的唯一件
   function notes(e) {

@@ -13,6 +13,9 @@ SA.STORY = (() => {
       // 讲完部件后的操作教学：电脑和触屏各一套旁白（desktop / touch）
       controls: (doc.storyMeta.tutorialControls || []).map(c =>
         ({ ...c, lines: { desktop: rows(`tutorial.controls.${c.part}.desktop`), touch: rows(`tutorial.controls.${c.part}.touch`) } })) },
+    // 页面教程（js/tutorial.js）：出战黑板、车间、商店第一次出现时的旁白
+    guides: Object.fromEntries((doc.storyMeta.guides || []).map(g => [g.id, rows(`guide.${g.id}`)])),
+    guideList: doc.storyMeta.guides || [],
     stage: {}, before: {}, after: {}, feat: {} };
   for (const key of Object.keys(doc.values)) {
     let match = /^story:stage\.(\d+,\d+)\.(win|lose)$/.exec(key);

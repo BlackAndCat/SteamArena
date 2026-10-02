@@ -162,6 +162,8 @@
     if (m) { const p = SA.STORY.tutorial.parts[+m[1]]; return `第一关教程 · 讲解${p ? p.label : m[1]}`; }
     m = /^tutorial\.controls\.(\w+)\.(desktop|touch)$/.exec(id);
     if (m) { const c = (SA.STORY.tutorial.controls || []).find(x => x.part === m[1]); return `第一关教程 · 操作${c ? c.label : m[1]}（${m[2] === 'touch' ? '手机' : '电脑'}）`; }
+    m = /^guide\.(.+)$/.exec(id);
+    if (m) { const g = (SA.STORY.guideList || []).find(x => x.id === m[1]); return `页面教程 · ${g ? g.label : m[1]}`; }
     m = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
     if (m) return `${stageLabel(m[1])} · ${OUTCOME[m[2]]}`;
     m = /^(before|after)\.(.+)$/.exec(id);

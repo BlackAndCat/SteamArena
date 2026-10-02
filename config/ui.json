@@ -72,6 +72,8 @@
     "battle_view_demo_hold": "按住",
     "battle_view_demo_release": "打出去！",
     "battle_view_no_weapon_touch": "没有可用的武器 · 可以推左圈冲撞对手",
+    "guide_hint_close": "知道了",
+    "arena_back_garage": "直接回车间改车",
     "battle_view_aim_pad": "右手按住 · 瞄准开火",
     "battle_view_aim_side_cannon": "瞄准 敌方侧炮（只打侧炮）",
     "battle_view_aim_enemy": "瞄准 敌方{{0}}",
