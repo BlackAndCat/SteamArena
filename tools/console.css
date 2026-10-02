@@ -451,7 +451,43 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .map.dim .w-branch, .map.dim .w-lane { opacity: 0.2; }
 
 /* 悬浮卡片 */
-.mcard { position: fixed; z-index: 80; width: 320px; max-height: calc(100vh - 16px); overflow: auto; display: grid; gap: 8px; padding: 12px 13px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.45); font-size: 12.5px; color: var(--ink); }
+.mcard { position: fixed; z-index: 80; width: min(660px, calc(100vw - 24px)); max-height: calc(100vh - 16px); overflow: auto; display: grid; gap: 10px; align-content: start; padding: 14px 16px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.45); font-size: 13px; color: var(--ink); container-type: inline-size; }
+/* 卡片：标题一条；左栏车和速览，右栏页签预览；窄了上下叠 */
+.mc-top { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+.mc-body { display: grid; grid-template-columns: minmax(0, 44fr) minmax(0, 56fr); gap: 16px; align-items: start; }
+.mc-left, .mc-right { display: grid; gap: 9px; min-width: 0; }
+.mc-car { display: grid; place-items: center; min-height: 150px; padding: 14px 10px 12px; background: linear-gradient(to bottom, transparent calc(100% - 13px), var(--line) calc(100% - 13px), var(--line) calc(100% - 11px), transparent calc(100% - 11px)), var(--paper-3); border: 1px solid var(--line); }
+.mc-car canvas { image-rendering: pixelated; }
+.mc-car.none { min-height: 120px; border-style: dashed; color: var(--ink-3); font-size: 12.5px; background: none; }
+.mc-tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--line-2); }
+.mc-tab { padding: 5px 10px 4px; border: 1px solid transparent; border-bottom: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -2px; }
+.mc-tab:hover { color: var(--ink); background: var(--paper); }
+.mc-tab.on { background: var(--paper); border-color: var(--line-2); border-bottom: 2px solid var(--paper); color: var(--ink); font-weight: 700; }
+.mc-pane { display: grid; gap: 8px; align-content: start; min-height: 180px; }
+.mc-pane .stats { grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 5px; }
+.mc-pane .stat { padding: 5px 7px; }
+.mc-pane .stat b { font-size: 14px; }
+.mc-pane .note { font-size: 12px; padding: 6px 9px; }
+.mc-foot { display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 2px solid var(--line); position: sticky; bottom: -14px; background: var(--paper-hi); margin: 0 -16px -14px; padding: 10px 16px 12px; }
+.mc-go svg { width: 12px; height: 12px; }
+/* 出战海报：游戏里出战黑板上那张纸的样子 */
+.mc-poster { display: grid; gap: 3px; padding: 10px 12px; background: var(--paper); border: 2px solid var(--line-2); box-shadow: inset 0 0 0 3px var(--paper-hi), var(--hard); }
+.mc-poster b { font: 700 16px var(--song); }
+.mc-poster small { color: var(--ink-3); }
+.mc-poster p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); }
+.mc-poster p.weak { color: var(--red); font-style: normal; }
+.mc-poster p.weak span { font-weight: 700; }
+.mc-quote { font-size: 12px; color: var(--ink-2); padding: 6px 9px; border-left: 3px solid var(--brass-lo); background: rgba(217, 164, 65, 0.1); line-height: 1.6; }
+.mc-chat { display: grid; gap: 3px; padding: 6px 8px; border: 1px solid var(--line); background: var(--paper); }
+.mc-chat-h { display: flex; gap: 8px; align-items: baseline; }
+.mc-chat-h small { color: var(--ink-3); font-size: 11px; }
+.mc-line { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 6px; font-size: 12px; }
+.mc-line .who { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-line .say { color: var(--ink); }
+@container (max-width: 560px) {
+  .mc-body { grid-template-columns: minmax(0, 1fr); }
+  .mc-car { min-height: 110px; }
+}
 .mcard.pinned { border-color: var(--brass-dk); box-shadow: 0 0 0 2px var(--brass), 5px 5px 0 rgba(20, 10, 4, 0.45); }
 .mcard[hidden] { display: none; }
 .mc-h { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
@@ -464,11 +500,8 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .mc-h .chip.s-garden { border-color: #4f7a35; color: #4f7a35; }
 .mc-h .chip.s-deep { border-color: #3d6578; color: #3d6578; }
 .mc-key { font: 11px var(--mono); color: var(--ink-3); }
-.mc-title { margin: 0; font: 700 18px/1.3 var(--song); }
+.mc-title { margin: 0; font: 700 20px/1.3 var(--song); }
 .mc-sub { color: var(--ink-2); margin-top: -4px; }
-.mc-sil { display: grid; place-items: center; min-height: 64px; padding: 12px 8px 8px; background: linear-gradient(to bottom, transparent calc(100% - 9px), var(--line) calc(100% - 9px), var(--line) calc(100% - 7px), transparent calc(100% - 7px)), var(--paper-3); border: 1px solid var(--line); }
-.mc-sil canvas { image-rendering: pixelated; }
-.mc-sil.none { min-height: 48px; border-style: dashed; color: var(--ink-3); font-size: 12px; background: none; }
 .mc-stats { font-size: 11.5px; color: var(--ink-3); }
 .mc-sec { font: 700 12px var(--song); color: var(--brass-dk); letter-spacing: 0.06em; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
 .mc-rows { display: grid; gap: 5px; }
@@ -480,7 +513,7 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .mc-plan b { color: var(--ink-3); font-weight: 400; }
 .mc-loot { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--brass-lo); background: rgba(217, 164, 65, 0.12); }
 .mc-loot canvas { image-rendering: pixelated; }
-.mc-loot div { display: grid; }
+.mc-loot div { display: grid; gap: 1px; }
 .mc-loot small { color: var(--ink-3); }
 .mc-acts { display: flex; flex-wrap: wrap; gap: 4px; }
 .mc-note { font-size: 11.5px; color: var(--ink-3); }

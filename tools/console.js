@@ -689,7 +689,7 @@
 
   VIEWS.home = (rest, m) => {
     setTitle('总览');
-    const stages = allStages(), manual = Object.keys(SA.STAGE_CARS?.records || {}).length;
+    const stages = allStages(), manual = Object.values(SA.STAGE_CARS?.records || {}).filter((r) => r?.source === 'manual').length;
     const scenes = SA.StoryData.list(), edited = scenes.filter(sceneEdited).length;
     const scopes = ['global', ...SA.CAMPAIGN.flatMap((ch, ci) => [`chapter:${ci}`, ...ch.stages.map((_, si) => `stage:${ci}:${si}`)])];
     const ownChat = scopes.filter(scopeOwn).length;
@@ -741,27 +741,46 @@
     out.getContext('2d').drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
     return out;
   }
-  // 车的剪影：游戏里的车整台画一遍，裁掉空边，再压成两种墨色——
-  // 大部分涂成深墨，原图里亮的地方（炮管、锅炉、铆钉的高光）留浅一档，方方的车身也看得出装了什么
-  function silhouette(key) {
+  // 车的样子：和车间预览一样整台画一遍（锅炉温着、水半满），裁掉空边
+  function carImage(key) {
     if (silCache.has(key)) return silCache.get(key);
     let out = null;
     try {
       const [ci, si] = key.split(',').map(Number), v = stageData(ci, si)?.vehicle;
-      if (v) {
-        out = trimCanvas(SA.SPR.renderVehicle(v, { key: 'console-map', t: 0, heat: 0, water: 0.8 }));
-        const g = out.getContext('2d'), img = g.getImageData(0, 0, out.width, out.height), px = img.data;
-        for (let i = 0; i < px.length; i += 4) {
-          if (!px[i + 3]) continue;
-          const lum = px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11;
-          const [r, gg, b] = lum > 140 ? [92, 64, 34] : [42, 26, 5];
-          px[i] = r; px[i + 1] = gg; px[i + 2] = b; px[i + 3] = 255;
-        }
-        g.putImageData(img, 0, 0);
-      }
+      if (v) out = trimCanvas(SA.SPR.renderVehicle(v, { key: 'console-map', t: 0, heat: 0.45, water: 0.8 }));
     } catch (e) { out = null; }
     silCache.set(key, out);
     return out;
+  }
+  // 像素图按整数倍放大到盒子里（最多 3 倍）
+  function fitPixels(cv, w, h, max = 3) {
+    const s = Math.max(1, Math.min(max, Math.floor(Math.min(w / cv.width, h / cv.height))));
+    cv.style.width = `${cv.width * s}px`; cv.style.height = `${cv.height * s}px`;
+    return cv;
+  }
+  // 对打测试的结论（强度页签和地图卡片共用；判定区间照旧工作台）
+  function testVerdict(r, boss, reward) {
+    const range = boss ? [0.45, 0.65] : reward ? [0.4, 0.7] : [0.35, 0.8], soft = boss ? [0.3, 0.78] : [0.2, 0.9];
+    const level = r.rate >= range[0] && r.rate <= range[1] ? 'ok' : r.rate >= soft[0] && r.rate <= soft[1] ? 'warn' : 'bad';
+    const pct = (x) => `${(x * 100).toFixed(1)}%`;
+    return el(`div.note.${level}`, null,
+      el('b', { text: level === 'ok' ? '在目标范围内' : level === 'warn' ? '接近目标，建议多测几局' : '偏离目标，需要调' }),
+      `：这台车胜率 ${pct(r.rate)}（95% 区间 ${pct(r.lo)}～${pct(r.hi)}），共 ${r.total} 局，平均 ${r.avg.toFixed(1)} 秒；`,
+      `目标 ${Math.round(range[0] * 100)}～${Math.round(range[1] * 100)}%（${boss ? 'Boss' : reward ? '带奖励模块' : '普通关'}）。对手：开局车和前面最近的 ${Math.max(0, r.refs - 1)} 关。`);
+  }
+  // 车的性能单（强度页签和地图卡片共用）
+  function perfSheet(v) {
+    const s = SA.V.stats(v), pen = [], thick = [];
+    SA.V.each(v, (cell) => { const m = SA.mod(cell); if (m.penetration) pen.push(m.penetration); if (m.armor) thick.push(m.armor); });
+    const stat = (label, val) => el('div.stat', null, el('span', { text: label }), el('b', { text: val }));
+    const dist = (arr) => { const c = new Map(); arr.forEach((x) => c.set(x, (c.get(x) || 0) + 1)); return [...c.entries()].sort((a, b) => a[0] - b[0]).map(([x, n]) => `${x}×${n}`).join('、') || '无'; };
+    return [
+      el('div.stats', null, stat('评分', Math.round(s.rating)), stat('价值', `£${Math.round(s.value)}`), stat('重量', Math.round(s.weight)),
+        stat('动力 需/供', `${Math.round(s.demand)}/${Math.round(s.supply)}`), stat('水量', Math.round(s.water)),
+        stat('烧干', Number.isFinite(s.overheat) ? `${Math.round(s.overheat)} 秒` : '不会'), stat('秒伤', s.dps.toFixed(1))),
+      el(`div.note.${s.canDeploy ? 'ok' : 'bad'}`, { text: s.canDeploy ? '可以出战' : `不能出战：${s.problems.join('；')}` }),
+      el('div.note', { style: 'white-space:pre-wrap', text: `穿深分布：${dist(pen)}\n装甲厚度分布：${dist(thick)}` }),
+    ];
   }
   // 唯一腿型的样子：和 SA.SPR.moduleCanvas 同样的留边，只是多带一个外观
   function legPic(key) {
@@ -1008,10 +1027,12 @@
       });
     }
     function hover(id) { clearTimeout(hideT); clearTimeout(showT); if (pinned) return; showT = setTimeout(() => show(id), cur ? 30 : 110); }
-    function unhover() { clearTimeout(showT); if (pinned) return; hideT = setTimeout(hide, 180); }
+    function unhover() { clearTimeout(showT); if (pinned) return; clearTimeout(hideT); hideT = setTimeout(hide, 180); }
     function hide() { card.hidden = true; cur = null; pinned = false; light(null); grid.querySelectorAll('.mnode.on').forEach((n) => n.classList.remove('on')); }
     card.addEventListener('pointerenter', () => clearTimeout(hideT));
     card.addEventListener('pointerleave', unhover);
+    // 在卡片里点了东西（换页签、跑测试）就把它钉住，鼠标移开也不收
+    card.addEventListener('pointerdown', () => { if (!pinned && cur) { pinned = true; card.classList.add('pinned'); } });
     function show(id) {
       const n = nodes.get(id);
       if (!n) return;
@@ -1047,85 +1068,148 @@
     }
     const jump = (label, path, cls = '') => el(`a.btn.sm${cls}`, { href: `#/${path}` }, label);
 
+    const chip = (t, cls = '') => el(`span.chip${cls}`, { text: t });
+    // 卡片：上面一条标题，下面左右两栏（窄的时候上下叠），游戏里有的关最底下一个「去修改」
     function cardBody(d) {
-      const out = [];
-      const chip = (t, cls = '') => el(`span.chip${cls}`, { text: t });
-      if (d.type === 'gate') {
-        const ch = d.ch;
-        out.push(el('div.mc-h', null, chip(ch.code), chip(d.c === lastCol ? '全部通关' : '通关', '.k-gate')));
-        out.push(el('h3.mc-title', { text: d.title }));
-        out.push(el('div.mc-plan', null, el('b', { text: '设计稿：' }), ch.clear));
-        // 游戏里现在：设计稿这一章最后一关正好是游戏里某一章的最后一关时，把那一章的通关奖励摆出来
-        const lk = mapLink(plan, ch.stages[ch.stages.length - 1]);
-        if (lk) {
-          const [ci, si] = lk.split(',').map(Number), gch = SA.CAMPAIGN[ci];
-          if (si === gch.stages.length - 1 && gch.unlock) {
-            out.push(el('div.mc-sec', { text: `游戏里现在：${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
-            const feats = (gch.unlock.feat || []).filter((k) => sceneIds.has(`feat.${k}`));
-            if (feats.length) out.push(el('div.mc-acts', null, feats.map((k) => jump(`剧情 · ${SA.FEATURES[k] || k}开放`, `story/feat.${k}`))));
-          }
+      if (d.type === 'gate') return gateCard(d);
+      if (d.type === 'side') return planCard(d, d.e, {
+        chips: [chip(d.sideInfo.name, `.s-${d.side}`), d.e.final ? chip('支线终章 ★', '.k-boss') : null, chip('设计稿 · 还没做进游戏', '.plan')],
+        title: `${d.e.code} ${d.e.name}`, sub: `${d.e.car} · ${d.e.pilot}`,
+        rows: [['开放', [chip(openText(d))]], ['地形', [chip(d.e.terrain)]], ['考点', [el('span', { text: d.e.test })]], ['奖励', [el('span', { text: d.e.reward })]]],
+      });
+      if (!d.key) return planCard(d, d.p, {
+        chips: [chip(d.p.code), chip(d.p.role, `.k-${d.kind}`), chip('设计稿 · 还没做进游戏', '.plan')],
+        title: d.p.car, sub: `${d.p.pilot} · ${d.p.terrain} · 压力 ${d.p.pressure}`,
+        rows: [['考题', [el('span', { text: d.p.test })]], ['奖励', [el('span', { text: d.p.reward })]]],
+        note: '后台按设计稿落数据以后，这里会换成游戏里的真关卡（docs/campaign-plan.md §10.1）。',
+      });
+      return stageCard(d);
+    }
+    function openText(d) {
+      const e = d.e, prev = d.i > 0 ? d.sideInfo.episodes[d.i - 1] : null;
+      return e.open.after ? `主线 ${e.open.after} 之后` : e.open.clear != null ? `${plan.chapters[e.open.clear].code}通关以后` : `${prev ? prev.code : '上一集'}之后`;
+    }
+    function gateCard(d) {
+      const ch = d.ch, out = [];
+      out.push(el('div.mc-top', null, el('div.mc-h', null, chip(ch.code), chip(d.c === lastCol ? '全部通关' : '通关', '.k-gate')), el('h3.mc-title', { text: d.title })));
+      out.push(el('div.mc-plan', null, el('b', { text: '设计稿：' }), ch.clear));
+      // 游戏里现在：设计稿这一章最后一关正好是游戏里某一章的最后一关时，把那一章的通关奖励摆出来
+      const lk = mapLink(plan, ch.stages[ch.stages.length - 1]);
+      if (lk) {
+        const [ci, si] = lk.split(',').map(Number), gch = SA.CAMPAIGN[ci];
+        if (si === gch.stages.length - 1 && gch.unlock) {
+          out.push(el('div.mc-sec', { text: `游戏里现在：${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
+          if (gch.unlock.note) out.push(el('div.mc-quote', { text: gch.unlock.note }));
+          const feats = (gch.unlock.feat || []).filter((k) => sceneIds.has(`feat.${k}`));
+          if (feats.length) out.push(el('div.mc-acts', null, feats.map((k) => jump(`剧情 · ${SA.FEATURES[k] || k}开放`, `story/feat.${k}`))));
         }
-        const opens = plan.sides.flatMap((s) => s.episodes.filter((e) => e.open.clear === d.c).map((e) => `${e.code} ${e.name}`));
-        if (opens.length) out.push(el('div.mc-note', { text: `通关后开放支线：${opens.join('、')}` }));
-        return out;
       }
-      if (d.type === 'side') {
-        const e = d.e, prev = d.i > 0 ? d.sideInfo.episodes[d.i - 1] : null;
-        const openText = e.open.after ? `主线 ${e.open.after} 之后` : e.open.clear != null ? `${plan.chapters[e.open.clear].code}通关以后` : `${prev ? prev.code : '上一集'}之后`;
-        out.push(el('div.mc-h', null, chip(d.sideInfo.name, `.s-${d.side}`), e.final ? chip('支线终章 ★', '.k-boss') : null, chip('设计稿 · 还没做进游戏', '.plan')));
-        out.push(el('h3.mc-title', null, `${e.code} `, e.name));
-        out.push(el('div.mc-sub', { text: `${e.car} · ${e.pilot}` }));
-        out.push(el('div.mc-sil.none', { text: '车还没拼' }));
-        out.push(kvRows([['开放', [chip(openText)]], ['地形', [chip(e.terrain)]], ['考点', [el('span', { text: e.test })]], ['奖励', [el('span', { text: e.reward })]]]));
-        if (e.loot) out.push(...lootBlock(e.loot));
-        return out;
-      }
-      // 主线的关
-      const p = d.p;
-      if (!d.key) {
-        out.push(el('div.mc-h', null, p ? chip(p.code) : null, chip(p ? p.role : MAP_KIND[d.kind], `.k-${d.kind}`), chip('设计稿 · 还没做进游戏', '.plan')));
-        out.push(el('h3.mc-title', { text: p.car }));
-        out.push(el('div.mc-sub', { text: `${p.pilot} · ${p.terrain} · 压力 ${p.pressure}` }));
-        out.push(el('div.mc-sil.none', { text: '车还没拼' }));
-        out.push(kvRows([['考题', [el('span', { text: p.test })]], ['奖励', [el('span', { text: p.reward })]]]));
-        if (p.loot) out.push(...lootBlock(p.loot));
-        out.push(el('div.mc-note', { text: '后台按设计稿落数据以后，这里会换成游戏里的真关卡（docs/campaign-plan.md §10.1）。' }));
-        return out;
-      }
-      const [ci, si] = d.key.split(',').map(Number), st = stageData(ci, si), gch = SA.CAMPAIGN[ci];
-      const terrain = SA.TERRAINS[st.terrain || 'flat'] || SA.TERRAINS.flat;
-      out.push(el('div.mc-h', null, chip(p ? p.code : st.code), chip(p ? p.role : (st.boss ? 'Boss' : '普通'), `.k-${d.kind}`),
-        el('span.grow'), el('span.mc-key', { text: `游戏里 ${st.code}`, title: `键 ${d.key} · ${gch.name}` })));
-      out.push(el('h3.mc-title', { text: st.name }));
+      const opens = plan.sides.flatMap((s) => s.episodes.filter((e) => e.open.clear === d.c).map((e) => `${e.code} ${e.name}`));
+      if (opens.length) out.push(el('div.mc-note', { text: `通关后开放支线：${opens.join('、')}` }));
+      return out;
+    }
+    function planCard(d, x, { chips, title, sub, rows, note }) {
+      const left = el('div.mc-left', null, el('div.mc-car.none', { text: '车还没拼' }));
+      if (x.loot) left.append(...lootBlock(x.loot));
+      return [
+        el('div.mc-top', null, el('div.mc-h', null, chips), el('h3.mc-title', { text: title }), el('div.mc-sub', { text: sub })),
+        el('div.mc-body', null, left, el('div.mc-right', null, kvRows(rows), note ? el('div.mc-note', { text: note }) : null)),
+      ];
+    }
+    // 游戏里有的关：左边车和速览，右边四个页签现场预览，底部按页签传送到工作台
+    const MAP_TABS = [['overview', '概览', 'build', '拼装'], ['text', '文字与奖励', 'text', '文字与奖励'], ['test', '强度', 'test', '强度'], ['chat', '院子闲聊', 'chat', '院子闲聊']];
+    function stageCard(d) {
+      const p = d.p, [ci, si] = d.key.split(',').map(Number), st = stageData(ci, si), gch = SA.CAMPAIGN[ci];
+      const rec = recordOf(ci, si), terrain = SA.TERRAINS[st.terrain || 'flat'] || SA.TERRAINS.flat;
       const vname = st.vehicle?.name && st.vehicle.name !== st.name ? `车：${st.vehicle.name} · ` : '';
-      out.push(el('div.mc-sub', { text: `${vname}${st.pilot || '无名车手'}` }));
-      const sil = silhouette(d.key);
-      if (sil) {
-        const s = Math.max(1, Math.min(2, Math.floor(Math.min(288 / sil.width, 110 / sil.height))));
-        sil.style.width = `${sil.width * s}px`; sil.style.height = `${sil.height * s}px`;
-        out.push(el('div.mc-sil', null, sil));
-      } else out.push(el('div.mc-sil.none', { text: '这一关还没有车' }));
+      const top = el('div.mc-top', null,
+        el('div.mc-h', null, chip(p ? p.code : st.code), chip(p ? p.role : (st.boss ? 'Boss' : '普通'), `.k-${d.kind}`),
+          rec?.source === 'manual' ? chip('手工关卡车', '.manual') : null, stageDirty(d.key) ? chip('有改动没保存', '.edited') : null,
+          el('span.grow'), el('span.mc-key', { text: `游戏里 ${st.code}`, title: `键 ${d.key} · ${gch.name}` })),
+        el('h3.mc-title', { text: st.name }),
+        el('div.mc-sub', { text: `${vname}${st.pilot || '无名车手'}` }));
+      const img = carImage(d.key);
       let rating = '';
       try { rating = st.vehicle ? `评分 ${Math.round(SA.V.stats(st.vehicle).rating)}` : ''; } catch (e) { rating = ''; }
-      out.push(el('div.mc-stats', { text: [rating, `地形 ${terrain.name}`, STYLE[st.style] ? `性格 ${STYLE[st.style]}` : '', st.mt ? `材料 ${matName(st.mt)}` : ''].filter(Boolean).join(' · ') }));
-      out.push(el('div.mc-sec', { text: '奖励' }), kvRows(stageRewardRows(st)));
+      const left = el('div.mc-left', null,
+        img ? el('div.mc-car', null, fitPixels(img, 270, 190)) : el('div.mc-car.none', { text: '这一关还没有车' }),
+        el('div.mc-stats', { text: [rating, `地形 ${terrain.name}`, STYLE[st.style] ? `性格 ${STYLE[st.style]}` : '', st.mt ? `材料 ${matName(st.mt)}` : ''].filter(Boolean).join(' · ') }));
+      let tab = MAP_TABS.some(([k]) => k === prefs.mapTab) ? prefs.mapTab : 'overview';
+      const pane = el('div.mc-pane');
+      const go2 = el('a.btn.primary.mc-go');
+      const tabBar = el('div.mc-tabs', { role: 'tablist' }, MAP_TABS.map(([k, label]) => el('button.mc-tab', { type: 'button', role: 'tab', dataset: { tab: k }, on: { click: () => { tab = k; prefs.mapTab = k; savePrefs(); render(); } } }, label)));
+      function render() {
+        tabBar.querySelectorAll('.mc-tab').forEach((b) => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+        const [, , dest, destName] = MAP_TABS.find(([k]) => k === tab);
+        go2.href = `#/stage/${d.key}/${dest}`;
+        go2.replaceChildren(`去工作台「${destName}」修改`, icon('right'));
+        pane.replaceChildren(...(tab === 'text' ? textPreview(d.key, st) : tab === 'test' ? testPreview(d.key, st) : tab === 'chat' ? chatPreview(ci, si, st) : overview(d, st, ci, si, gch)));
+      }
+      render();
+      return [top, el('div.mc-body', null, left, el('div.mc-right', null, tabBar, pane)),
+        el('div.mc-foot', null, el('span.mc-note', { text: '点节点直接进工作台；页签只是预览' }), el('span.grow'), go2)];
+    }
+    function overview(d, st, ci, si, gch) {
+      const out = [el('div.mc-sec', { text: '奖励' }), kvRows(stageRewardRows(st))];
       if (si === gch.stages.length - 1 && gch.unlock) out.push(el('div.mc-sec', { text: `打完这一关 = ${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
-      if (p && p.reward) out.push(el('div.mc-plan', null, el('b', { text: '设计稿奖励：' }), p.reward, p.car !== st.name ? el('span.muted', { text: `（设计稿车名：${p.car}）` }) : null));
-      // 去哪：工作台各页签 + 这一关的剧情
+      if (d.p && d.p.reward) out.push(el('div.mc-plan', null, el('b', { text: '设计稿奖励：' }), d.p.reward, d.p.car !== st.name ? el('span.muted', { text: `（设计稿车名：${d.p.car}）` }) : null));
       const slots = storySlotsOf(d.key).filter(([, id]) => sceneIds.has(id));
-      out.push(el('div.mc-sec', { text: '去' }),
-        el('div.mc-acts', null, jump('拼装', `stage/${d.key}/build`, '.primary'), jump('文字与奖励', `stage/${d.key}/text`), jump('强度', `stage/${d.key}/test`), jump('院子闲聊', `stage/${d.key}/chat`)),
-        slots.length ? el('div.mc-acts', null, slots.map(([, id, name]) => { const n = sceneLines(id).length; return jump(`${name}${n ? ` ${n}句` : ' 空'}`, `story/${id}`, n ? '' : '.ghost'); })) : null,
-        el('div.mc-note', { text: '点节点直接进工作台' }));
+      if (slots.length) out.push(el('div.mc-sec', { text: '剧情' }),
+        el('div.mc-acts', null, slots.map(([, id, name]) => { const n = sceneLines(id).length; return jump(`${name}${n ? ` ${n}句` : ' 空'}`, `story/${id}`, n ? '' : '.ghost'); })));
+      return out;
+    }
+    // 文字与奖励：出战海报 + 关卡资料 + 奖励和解锁（有没保存的改动时显示改动后的样子）
+    function textPreview(key, st) {
+      const f = stageDraft(key).fields, terrain = SA.TERRAINS[f.terrain || 'flat'] || SA.TERRAINS.flat;
+      const u = f.unlock || {};
+      const rows = [['车名', [chip(f.vehicleName || '—')]], ['车手', [chip(f.pilot || '无名车手')]], ['性格', [chip(STYLE[f.style] || f.style || '游走')]],
+        ['枪法', [chip(String(f.aim))]], ['地形', [chip(terrain.name)]], ['类型', [chip(f.boss ? 'Boss' : '普通')]]];
+      const pay = [['奖金', [chip(f.rewardMoney ? `£${f.prize}` : '不发'), f.victoryRepairFree ? chip('打赢免修理费') : null].filter(Boolean)]];
+      if (f.rewardItems?.length) pay.push(['固定奖励', f.rewardItems.filter((r) => SA.MODULES[r.id]).map((r) => modChip(r.id, `×${r.count} · ${matName(r.mt || 1)}`))]);
+      if (st.uniqueLoot?.length) pay.push(['唯一件', st.uniqueLoot.map((r) => { const leg = (SA.LEG_VARIANTS || []).find((x) => x.key === r.key); return leg ? chip(`${leg.name} · ${matName(leg.mt)}`) : modChip(r.id, matName(r.mt || 5)); })]);
+      return [
+        el('div.mc-poster', null, el('b', { text: f.name || st.name }), el('small', { text: f.pilot || '无名车手' }), el('p', { text: f.blurb || '（没有简介）' }),
+          f.weakness ? el('p.weak', null, el('span', { text: '线人手写：' }), f.weakness) : null),
+        el('div.mc-sec', { text: '关卡' }), kvRows(rows),
+        el('div.mc-sec', { text: '奖励' }), kvRows(pay),
+        ...(u.mods?.length || u.feat?.length || u.mat || u.grid ? [el('div.mc-sec', { text: '解锁' }), kvRows(unlockRows(u))] : []),
+        u.note ? el('div.mc-quote', { text: u.note }) : null,
+      ].filter(Boolean);
+    }
+    // 强度：性能单 + 现场跑一次对打（用拼装台上的车，含没保存的改动）
+    function testPreview(key, st) {
+      const d = stageDraft(key), f = d.fields;
+      const result = el('div', null, d.test ? testVerdict(d.test, !!f.boss, !!(f.unlock?.mods?.length || st.spec?.reward)) : el('div.mc-note', { text: '还没测。对手是开局车和前面最近的几关，每对双方各当一次玩家。' }));
+      const run = el('button.btn.sm', { type: 'button', on: { click: async () => {
+        run.disabled = true; run.textContent = '测试中…';
+        try {
+          const G = await garageOpen(key);
+          await new Promise((r) => setTimeout(r, 40));
+          d.test = G.test(prefs.testGames || 20, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss });
+          result.replaceChildren(testVerdict(d.test, !!f.boss, !!(f.unlock?.mods?.length || st.spec?.reward)));
+        } catch (e) { result.replaceChildren(el('div.note.bad', { text: `测试失败：${e.message || e}` })); }
+        finally { run.disabled = false; run.textContent = '再测一次'; }
+      } } }, d.test ? '再测一次' : `跑一次对打（每对 ${prefs.testGames || 20} 局）`);
+      return [...(st.vehicle ? perfSheet(st.vehicle) : [el('div.mc-note', { text: '这一关还没有车' })]), el('div.mc-sec', { text: '对打测试' }), el('div.mc-acts', null, run), result];
+    }
+    // 院子闲聊：这一关用的是哪一份闲聊（本关 / 沿用本章 / 沿用全局），每组几句对答
+    function chatPreview(ci, si, st) {
+      const scope = `stage:${ci}:${si}`, draft = chatDrafts.get(scope), data = draft || SA.YardChat.read(scope);
+      const own = draft ? draft.mode !== 'inherit' && draft.source === scope : data.source === scope;
+      const out = [el('div.mc-note', { text: own ? '这一关单独编排的闲聊' : `沿用 · ${scopeName(data.source)}` })];
+      const groups = data.groups || [];
+      if (!groups.length) out.push(el('div.mc-note', { text: '这一范围还没有闲聊' }));
+      for (const g of groups.slice(0, 6)) {
+        out.push(el('div.mc-chat', null,
+          el('div.mc-chat-h', null, el('b', { text: g.name || '闲聊' }), el('small', { text: [WEATHER[g.weather] || '', g.weight != null ? `权重 ${g.weight}` : ''].filter(Boolean).join(' · ') })),
+          (g.lines || []).map((l) => el('div.mc-line', null, el('span.who', { text: CHAT_WHO[l.who] || l.who }), el('span.say', { text: String(l.text || '').replaceAll('{关卡名}', st.name) })))));
+      }
+      if (groups.length > 6) out.push(el('div.mc-note', { text: `还有 ${groups.length - 6} 组，到工作台里看全部` }));
       return out;
     }
     function lootBlock(key) {
       const pic = legPic(key), home = lootHome(key), out = [];
-      if (pic) {
-        const s = Math.max(1, Math.min(2, Math.floor(Math.min(200 / pic.cv.width, 90 / pic.cv.height))));
-        pic.cv.style.width = `${pic.cv.width * s}px`; pic.cv.style.height = `${pic.cv.height * s}px`;
-        out.push(el('div.mc-loot', null, pic.cv, el('div', null, el('b', { text: pic.rule.name }), el('small', { text: `${pic.rule.id === 'quad' ? '四足' : '双足'} · ${matName(pic.rule.mt)}` }))));
-      }
+      if (pic) out.push(el('div.mc-loot', null, fitPixels(pic.cv, 150, 110), el('div', null, el('small', { text: '奖励里的唯一腿型' }), el('b', { text: pic.rule.name }), el('small', { text: `${pic.rule.id === 'quad' ? '四足' : '双足'} · ${matName(pic.rule.mt)}` }))));
       if (home) out.push(el('div.mc-note', { text: home }));
       return out;
     }
@@ -1205,7 +1289,7 @@
           return el(`button.st-item${sd.key === key ? '.on' : ''}`, { type: 'button', dataset: { key: sd.key }, title: `${sd.code} ${sd.name} · ${sd.pilot || ''}`, on: { click: () => goStage(sd.key) } },
             el('span.code', { text: sd.code }), el('span.nm', null, sd.name, el('small', { text: sd.pilot || '' })),
             el('span.marks', null, stageDirty(sd.key) ? el('span.dot', { title: '未保存' }) : null, sd.boss ? el('span.mark', { text: '★', title: 'Boss' }) : null,
-              rec ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '已锁定' }) : null));
+              rec?.source === 'manual' ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '已锁定' }) : null));
         }).filter(Boolean);
         if (!items.length) return null;
         const closed = !q && prefs.closed[c] && c !== ci;
@@ -1223,7 +1307,7 @@
       el('div.code', { text: st.code }),
       el('div', { style: 'min-width:0' }, el('h2', { text: f.name || st.name }),
         el('div.who', null, f.pilot || '无名车手', f.boss ? el('span.chip.boss', { text: '★ Boss' }) : null,
-          rec ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
+          rec?.source === 'manual' ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
           f.locked ? el('span.chip.locked', { text: '锁定' }) : el('span.chip', { text: '进化器可改' }),
           stageDirty(key) ? el('span.chip.edited', { text: '有改动没保存' }) : null)),
       el('div.acts', null,
@@ -1470,16 +1554,9 @@
     const sheet = el('div', { style: 'display:grid;gap:12px' }, el('div.muted', { text: '正在读拼装台上的车……' }));
     const games = el('input', { type: 'number', min: 1, max: 200, step: 1, value: prefs.testGames || 20, style: 'width:80px', 'aria-label': '每对局数' });
     const result = el('div');
-    const pct = (x) => `${(x * 100).toFixed(1)}%`;
     function show(r) {
       if (!r) { result.replaceChildren(el('div.note', { text: '还没测。对手是开局车和前面最近的几关，每对双方各当一次玩家。' })); return; }
-      const boss = !!f.boss, reward = !!(f.unlock?.mods?.length || st.spec?.reward);
-      const range = boss ? [0.45, 0.65] : reward ? [0.4, 0.7] : [0.35, 0.8], soft = boss ? [0.3, 0.78] : [0.2, 0.9];
-      const level = r.rate >= range[0] && r.rate <= range[1] ? 'ok' : r.rate >= soft[0] && r.rate <= soft[1] ? 'warn' : 'bad';
-      result.replaceChildren(el(`div.note.${level}`, null,
-        el('b', { text: level === 'ok' ? '在目标范围内' : level === 'warn' ? '接近目标，建议多测几局' : '偏离目标，需要调' }),
-        `：这台车胜率 ${pct(r.rate)}（95% 区间 ${pct(r.lo)}～${pct(r.hi)}），共 ${r.total} 局，平均 ${r.avg.toFixed(1)} 秒；`,
-        `目标 ${Math.round(range[0] * 100)}～${Math.round(range[1] * 100)}%（${boss ? 'Boss' : reward ? '带奖励模块' : '普通关'}）。对手：开局车和前面最近的 ${Math.max(0, r.refs - 1)} 关。`));
+      result.replaceChildren(testVerdict(r, !!f.boss, !!(f.unlock?.mods?.length || st.spec?.reward)));
     }
     show(d.test);
     const run = el('button.btn.primary', { type: 'button', on: { click: async () => {

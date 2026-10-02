@@ -31,7 +31,11 @@ SA.Arena = (() => {
     if (!e) return [];
     let raw = [];
     if (st.mode === 'camp') { const [ci, si] = String(e.key).split(',').map(Number); raw = (SA.CAMPAIGN[ci] && SA.CAMPAIGN[ci].stages[si].uniqueLoot) || []; }
-    return raw.map(r => ({ id: r.id, mt: r.mt || 1, claimed: SA.S.hasUnique(r.id) }));
+    // 唯一腿型按变体身份记账和起名（「步行履带」而不是「钢四足底盘」）
+    return raw.map(r => {
+      const leg = r.key ? (SA.LEG_VARIANTS || []).find(x => x.key === r.key) : null;
+      return { id: r.id, mt: (leg && leg.mt) || r.mt || 1, name: leg ? leg.name : null, claimed: SA.S.hasUnique(r.key || r.id) };
+    });
   }
   // ---------- 页面（界面重建 v3）：左黑板赛程 · 中对决海报 · 右对手档案 + 下注凭单 + 调速杆 ----------
   function render() {
@@ -99,7 +103,7 @@ SA.Arena = (() => {
       t ? note(SA.Config.text("arena_ef520ff326a4", `${t.name}`), UI.img(sketch(t, '#4a3a18', 76), 2), h('div', { class: 'nb', title: t.desc }, t.desc.split(/[。；]/)[0])) : null,
       e.blurb ? note(SA.Config.text("arena_0499bfda46ca"), h('div', { class: 'nb', title: e.blurb }, UI.hand(SA.Config.text("arena_741522735269", `${e.blurb}`), 14, 'white-space:normal'))) : null,
       rs.length ? note(SA.Config.text("arena_c51834a41645"), ...rs.map(r => h('div', { class: 'nu' }, SA.SPR.moduleCanvas(r.id, 0.5, r.mt),
-        h('div', {}, h('b', {}, `${r.mt > 1 ? SA.MATS[r.mt].name : ''}${M[r.id].name}`), h('div', { class: 'px-small' }, r.claimed ? SA.Config.text("arena_260e1d99c461") : e.replay ? SA.Config.text("arena_8c9eaa468201") : SA.Config.text("arena_1c589341288b")))))) : null,
+        h('div', {}, h('b', {}, r.name || `${r.mt > 1 ? SA.MATS[r.mt].name : ''}${M[r.id].name}`), h('div', { class: 'px-small' }, r.claimed ? SA.Config.text("arena_260e1d99c461") : e.replay ? SA.Config.text("arena_8c9eaa468201") : SA.Config.text("arena_1c589341288b")))))) : null,
     ];
   }
   // 场地剖面（便签上用墨线画）：地面一条线，土坡是鼓包，货箱是方块（带一道斜撑），泥地是点点
