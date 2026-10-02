@@ -1,10 +1,10 @@
-/* 商店售卖回归：使用正式状态入口验证解锁、额外名单与唯一件的共同门槛。 */
+/* 商店售卖回归：正式状态入口按战役进度、章节白名单及交易门槛判断。 */
 'use strict';
 
 const assert = require('assert');
 const { loadGame } = require('./evolve');
 
-/** 失败购买不得扣钱或生成库存。 */
+/** 拒售必须同时挡住列表查询和直接购买，且不能扣款或改变库存。 */
 function denied(SA, id) {
   const before = { money: SA.S.d.money, inv: JSON.stringify(SA.S.d.inv), stock: JSON.stringify(SA.S.d.stockCells) };
   assert.strictEqual(SA.S.buyable(id), false, `${id} 错误地显示可售`);
@@ -18,46 +18,56 @@ function run() {
   const { SA } = loadGame();
   SA.S.reset();
   SA.S.d.money = 100000;
-  assert.deepStrictEqual(Array.from(SA.SHOP_EXTRAS), [], '额外售卖清单应默认为空');
+  const C = SA.S.d.camp;
 
-  denied(SA, 'track'); // 已解锁模块也必须等商店开张。
-  SA.S.d.camp.feat.push('shop');
-  denied(SA, 'mortar_s'); // 普通模块未解锁时不可直接调用购买入口绕过。
-  SA.S.d.camp.mods.push('mortar_s');
-  assert(SA.S.buyable('mortar_s') && SA.S.buy('mortar_s'), '已解锁普通模块不能购买');
-  assert.strictEqual(SA.S.invCount('mortar_s'), 1, '购买未进入库存');
-
-  SA.S.d.camp.mods.pop();
-  SA.SHOP_EXTRAS.push('mortar_s');
-  assert(!SA.Camp.hasMod('mortar_s'), '额外名单不应写入战役解锁');
-  assert(SA.S.buyable('mortar_s') && SA.S.buy('mortar_s'), '额外名单中的普通模块不能购买');
-  assert.strictEqual(SA.S.invCount('mortar_s'), 2, '额外名单购买未进入库存');
-
-  // 唯一件、材料、商店开放和模块注册仍由同一闸门限制。
-  SA.SHOP_EXTRAS.push('boss_ram', 'flamer', 'copilot', 'missing_module', 'quad:centaur');
-  denied(SA, 'boss_ram');
-  denied(SA, 'flamer');
-  denied(SA, 'copilot');
-  denied(SA, 'missing_module');
-  denied(SA, 'quad:centaur');
-  SA.S.d.camp.mat = 4;
-  const money = SA.S.d.money;
-  assert(SA.S.buyable('flamer') && SA.S.buy('flamer'), '额外名单的普通模块在材料解锁后仍不可购买');
-  assert.strictEqual(SA.S.invCount('flamer'), 1, '材料解锁后的购买未入库');
-  assert.strictEqual(SA.S.d.money, money - SA.buyPrice('flamer'), '材料解锁后的购买扣款不正确');
-  SA.S.d.camp.mat = 6;
-  denied(SA, 'boss_ram');
-  SA.S.d.camp.feat = [];
+  denied(SA, 'track'); // 商店开张前，起始模块也不能购买。
+  C.feat.push('shop');
+  assert(SA.S.buyable('track') && SA.S.buy('track'), '起始模块未进入商店');
   denied(SA, 'mortar_s');
-  SA.S.d.camp.feat.push('shop');
+  C.mods.push('mortar_s');
+  SA.S.addInv('mortar_s', 1);
+  const owned = SA.S.invCount('mortar_s');
+  assert(SA.Camp.hasMod('mortar_s') && owned > 0, '旧档夹具未保留解锁与库存');
+  denied(SA, 'mortar_s'); // 旧档全解锁和已有库存都不能提前扩展商店。
+  assert(SA.S.invCount('mortar_s') === owned && SA.Camp.hasMod('mortar_s'));
 
-  // 腿的稀有外观是实例身份，不能封禁普通底盘整类。
-  SA.SHOP_EXTRAS.push('quad');
-  assert.strictEqual(SA.uniqueRule('quad'), null, '普通四足底盘被错误标成唯一件');
-  assert(SA.LEG_VARIANTS.some(x => x.id === 'quad'), '缺少四足唯一外观夹具');
-  assert(SA.S.buyable('quad') && SA.S.buy('quad'), '唯一外观阻止普通四足底盘购买');
-  SA.SHOP_EXTRAS.length = 0;
-  return { unlocked: true, extra: true, uniqueBlocked: true, baseQuadBuyable: true };
+  C.st = 1;
+  assert(SA.S.buyable('tank_s'), '已通过首关的解锁未售卖');
+  denied(SA, 'bucket');
+  C.st = 2;
+  denied(SA, 'bucket'); // 当前尚未通过的章末关不能提前售卖。
+  C.ch = 1; C.st = 0;
+  assert(SA.S.buyable('bucket') && SA.S.buyable('cannon_s'), '已通过关卡或章节解锁丢失');
+  denied(SA, 'mortar_s');
+  C.st = 1;
+  assert(SA.S.buyable('mortar_s') && SA.S.buy('mortar_s'), '当前章已通过关卡未售卖');
+  C.st = 2;
+  assert(SA.S.buyable('cockpit_pair'), '上一关解锁未售卖');
+  denied(SA, 'mortar');
+  C.ch = 2; C.st = 0;
+  assert(SA.S.buyable('mortar') && SA.S.buyable('quad'), '完成第一章后的解锁未售卖');
+
+  // 作者白名单只属于当前章；未通关关卡的 unlock 不能被误当作白名单。
+  C.ch = 0; C.st = 0;
+  SA.CAMPAIGN[0].shopExtras = ['mortar_s', 'flamer', 'boss_ram', 'copilot', 'missing_module', 'quad:centaur'];
+  assert(SA.S.buyable('mortar_s') && SA.S.buy('mortar_s'), '当前章节白名单未开放普通模块');
+  denied(SA, 'flamer'); // 材料门槛仍生效。
+  for (const id of ['boss_ram', 'copilot', 'missing_module', 'quad:centaur']) denied(SA, id);
+  C.mat = 4;
+  assert(SA.S.buyable('flamer') && SA.S.buy('flamer'), '材料达标后白名单模块不可买');
+  C.ch = 1;
+  denied(SA, 'flamer');
+  SA.CAMPAIGN[1].shopExtras = ['quad'];
+  assert(SA.S.buyable('quad') && SA.S.buy('quad'), '本章白名单未售卖普通四足底盘');
+  assert(SA.uniqueRule('quad') === null && SA.LEG_VARIANTS.some(x => x.id === 'quad'));
+
+  C.done = true; C.mat = 6;
+  assert(SA.S.buyable('rocket_rack') && SA.S.buyable('water_l'), '全战役完成后遗漏已解锁模块');
+  denied(SA, 'cannon_giant');
+  denied(SA, 'boss_ram');
+  C.feat = [];
+  denied(SA, 'track');
+  return { progress: true, currentChapterExtras: true, oldSavePreserved: true, uniqueAndMaterialGate: true };
 }
 
 module.exports = { run };

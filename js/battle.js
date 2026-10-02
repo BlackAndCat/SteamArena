@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-01-end-armor-chapter-bounds';
+SA.RULES_VERSION = '2026-10-02-crew-clearance-thermal';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -10,9 +10,6 @@ SA.Battle = (() => {
   const VW = K.COLS * C + PADX * 2;
   const HALF = C / 2;   // C = 子格 24px；模块的实际大小按 SA.fp 算（modBox / modCenter）
   const alive = SA.V.alive;
-  // 武器组顺序同时决定驾驶员接管顺序。新模块追加到末尾，避免旧分享码的手操顺序变化。
-  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mortar_s', 'mg', 'mg2', 'side_cannon',
-    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'mg_s', 'mg_heavy'];
   let B = null;
   let view = null;
   const CAMERA_ZMIN = SA.Config.get('rules').battle.cameraMinZoom;
@@ -117,7 +114,7 @@ SA.Battle = (() => {
     // 被毁模块带走其自身热容对应的能量；幸存回路保持原温升，不因质量突降凭空跳温。
     if (s.heatCapacity && heatCapacity < s.heatCapacity) s.heat *= heatCapacity / s.heatCapacity;
     Object.assign(s, { supply, demand, driveKw, equip, dryKg: kg, heatRate, heatMul, heatCapacity, heatMax, cool, dryCool, waterSave, storeMax, waterMax, minCol, frontCol, rams, mass, thrown, prism,
-      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, copilots: Math.max(0, cop - 1) });   // 多出来的驾驶员各管一组武器
+      evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, drivers: cop, copilots: Math.max(0, cop - 1) });   // 每个自动武器组占用一名驾驶员
     if (s.chassisId === 'biped') {
       if (s.bipedLegDead || s.balance === '失衡') s.speed = 0;
       if (s.bipedHipDead) s.sway *= T.BIPED_HIP_SWAY;
@@ -134,8 +131,9 @@ SA.Battle = (() => {
       s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * ax.reload, spread: m.spread * ax.spread }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
-    s.groups = GROUP_ORDER.filter(id => s.weapons.some(w => w.cell.id === id));
-    if (!s.groups.includes(s.sel)) s.sel = s.groups[0] || null;
+    const crew = SA.V.crewPlan(s.weapons, cop, s.sel);
+    s.groups = crew.groups;
+    s.sel = crew.selected;
     s.pistons = [];
     SA.V.each(s.v, (cell, r, c, layer) => { if (layer === 'body' && alive(cell) && (cell.id === 'piston' || M[cell.id].special === 'hydraulic-bite')) s.pistons.push({ cell, r, c }); });
     if (!cock) kill(s, SA.Config.text("battle_d45a8a5771ea"));
@@ -981,14 +979,16 @@ SA.Battle = (() => {
     // 快枪（机枪）：按住装好就打，不用等蓄满；稳定度照样影响散布，每发后坐会把它震掉一些
     const ready = (w) => (isHuman(s) ? s.focus >= 1 || s.release || w.m.reload < K.FAST_RELOAD : s.heldT >= w.m.windup);
     // 多出来的驾驶员：每人接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
-    s.coGroups = s.copilots ? s.groups.filter(g => g !== s.sel).slice(0, s.copilots) : [];
+    const crew = SA.V.crewPlan(s.weapons, s.drivers, s.sel);
+    s.coGroups = crew.autoGroups;
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
     const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
     // 装填：先把所有炮的装填计时推进一步
-    for (const w of s.weapons) {
+    for (let i = 0; i < s.weapons.length; i++) {
+      const w = s.weapons[i];
       if (w.blocked) continue;
       if (s.timers[w.key] == null) s.timers[w.key] = rnd(T.COPILOT_RELOAD_MIN, T.COPILOT_RELOAD_MAX) * w.m.reload;
-      s.timers[w.key] -= dt * s.power;
+      s.timers[w.key] -= dt * s.power * crew.rates[i];
     }
     // 手操的这一组是齐射：组里每门炮都装好了才一起开火（其他驾驶员管的组照旧各打各的）
     const salvo = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);

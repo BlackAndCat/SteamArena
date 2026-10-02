@@ -14,16 +14,20 @@ function run() {
   const vehicle = SA.Camp.stage(0, 1).vehicle;
   assert(evolve.legalVehicle(SA, vehicle, evolve.stageSpec(SA, 0, 1)), '甲片关原始车不合法');
   assert(SA.V.stats(vehicle).byId.plate, '甲片关没有装甲片');
+  // 作者可调整固定奖励数量；按当前关卡明确配置精确校验发放与补档幂等。
+  const plateReward = SA.Camp.stage(0, 1).rewardItems.filter(item => item.id === 'plate')
+    .reduce((total, item) => total + item.count, 0);
+  assert(Number.isInteger(plateReward) && plateReward > 0, '甲片关缺少有效的甲片实物奖励');
   SA.S.reset();
   const before = SA.S.invCount('plate');
   SA.Camp.win();
   assert.strictEqual(SA.S.d.camp.st, 1);
   assert.strictEqual(SA.Camp.current().spec.reward, 'plate');
   SA.Camp.win();
-  assert.strictEqual(SA.S.invCount('plate'), before + 1, '已有甲片解锁时没有发放实物');
+  assert.strictEqual(SA.S.invCount('plate'), before + plateReward, '已有甲片解锁时实物奖励数量不符');
   assert.strictEqual(SA.Camp.current().spec.reward, 'bucket');
   SA.Camp.backfill(); SA.Camp.backfill();
-  assert.strictEqual(SA.S.invCount('plate'), before + 1, '读档补解锁重复发放甲片');
+  assert.strictEqual(SA.S.invCount('plate'), before + plateReward, '读档补解锁重复发放甲片');
   SA.Camp.win();
   assert.strictEqual(SA.S.d.camp.ch, 1);
 

@@ -33,6 +33,7 @@ const storyDev = require('./story-dev-check');
 const yardChat = require('./yard-chat-check');
 const yardChatSync = require('./yard-chat-sync-check');
 const specialWeapons = require('./special-weapons-check');
+const crewClearance = require('./crew-clearance-check');
 const auditBattle = require('./battle-audit-check');
 const auditShare = require('./share-audit-check');
 const auditVisual = require('./visual-audit-check');
@@ -217,6 +218,7 @@ async function main() {
   result.storyDev = await storyDev.run();
   result.yardChat = { scheduler: await yardChat.run(), sync: await yardChatSync.run() };
   result.specialWeapons = specialWeapons.run();
+  result.crewClearance = crewClearance.run();
   result.audit = audit;
   console.log(JSON.stringify(result, null, 2));
 }

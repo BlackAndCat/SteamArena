@@ -5,6 +5,9 @@ window.SA = window.SA || {};
 
 SA.V = (() => {
   const K = SA.K, M = SA.MODULES;
+  // 武器组次序决定默认手操组及其余驾驶员的接管顺序，战斗和纸面预计统一使用。
+  const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mortar_s', 'mg', 'mg2', 'side_cannon',
+    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'mg_s', 'mg_heavy'];
   const grid = () => Array.from({ length: K.ROWS }, () => Array(K.COLS).fill(null));
   // av：铁装甲的数据版本。2026-09-28 铁装甲从 2×2 改成竖着的 1×2；没有 av 的旧数据读进来时由 widenArmor 拆成并排两块
   const ARMOR_VER = 2;
@@ -195,6 +198,20 @@ SA.V = (() => {
 
   const isRamCell = (cell) => cell && SA.isRam(cell.id);
   const mountText = (m) => SA.Config.text("vehicle_00ad5972b1d4", `${m.name}`, `${m.mount.map(x => M[x].name).join('/')}`);
+  const CLEARANCE = '抛射型火炮上方必须留空';
+  // 高抛炮从炮顶垂直出膛；主体实体在其水平投影上方会挡住炮口，侧挂层不占炮口空间。
+  // 候选件既可能是炮，也可能是后来加在炮顶的遮挡件；ignore 用于检查已放入的自身。
+  function clearanceBlocked(v, id, r, c, layer, ignore = null, liveOnly = false) {
+    if (layer !== 'body') return false;
+    const f = fp(id);
+    let blocked = false;
+    each(v, (other, or, oc, ol) => {
+      if (blocked || ol !== 'body' || (liveOnly && !alive(other)) || (ignore && ignore.layer === ol && ignore.r === or && ignore.c === oc)) return;
+      if (c >= oc + fp(other.id).w || oc >= c + f.w) return;
+      if ((M[id].arc === 'high' && or < r) || (M[other.id].arc === 'high' && r < or)) blocked = true;
+    });
+    return blocked;
+  }
   // 真双足：锚在第 ROWS-4 行的 2×4 整件；胯层 = 锚点那两行，腿区 = 下面两行（不能放任何模块）
   const bipedOf = (v) => chassisAnchors(v).find(x => x.cell.id === 'biped' && x.r === chassisRow('biped')) || null;
   // 底盘保留区从哪一行开始：双足占最底下两层（4 行），其余底盘两行
@@ -243,6 +260,7 @@ SA.V = (() => {
     const no = (reason) => ({ ok: false, reason });
     if (!fits(r, c, w, h)) return no(SA.Config.text("vehicle_7230b6f9f8a8"));
     if (!boxInRegion(v, r, c, w, h)) return no(LOCKED);
+    if (clearanceBlocked(v, id, r, c, layerOf(id))) return no(CLEARANCE);
     const O = occ(v, 'body'), cells = box(r, c, w, h);
     if (m.layer === 'side') {
       if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
@@ -293,6 +311,7 @@ SA.V = (() => {
     const { w, h } = fp(id), layer = layerOf(id);
     if (!fits(r, c, w, h)) return { ok: false, reason: SA.Config.text("vehicle_7230b6f9f8a8") };
     if (!boxInRegion(v, r, c, w, h)) return { ok: false, reason: LOCKED };
+    if (clearanceBlocked(v, id, r, c, layer)) return { ok: false, reason: CLEARANCE };
     if (!free(v, layer, r, c, w, h)) return { ok: false, reason: layer === 'side' ? SA.Config.text("vehicle_3ef702ab6894") : SA.Config.text("vehicle_45f9e24da252") };
     const chk = canPlace(v, id, r, c);
     return { ok: true, fit: chk.ok, reason: chk.reason };
@@ -351,18 +370,30 @@ SA.V = (() => {
       v[layer][r][c] = it.cell;
       for (const x of it.riders) v.side[r + x.dr][c + x.dc] = x.cell;
     };
+    const blockedMove = (it, r, c) => clearanceBlocked(v, it.cell.id, r, c, layer, { layer, r, c })
+      || it.riders.some(x => clearanceBlocked(v, x.cell.id, r + x.dr, c + x.dc, 'side', { layer: 'side', r: r + x.dr, c: c + x.dc }));
     const a = lift(r1, c1);
     const O = occ(v, layer);
     const hits = [];
     for (const [rr, cc] of box(r2, c2, w, h)) { const o = O[rr][cc]; if (o && !hits.includes(o)) hits.push(o); }
-    if (!hits.length) { drop(a, r2, c2); return { ok: true, swapped: false }; }
+    if (!hits.length) {
+      drop(a, r2, c2);
+      if (!blockedMove(a, r2, c2)) return { ok: true, swapped: false };
+      v[layer][r2][c2] = null; for (const x of a.riders) v.side[r2 + x.dr][c2 + x.dc] = null;
+      drop(a, r1, c1);
+      return { ok: false, reason: CLEARANCE };
+    }
     if (hits.length > 1) { drop(a, r1, c1); return { ok: false, reason: SA.Config.text("vehicle_33e9896fda49") }; }
     const X = hits[0], xf = fp(X.cell.id);
     const b = lift(X.r, X.c);
     // 先放搬过去的，再看对方能不能放回原位
     if (free(v, layer, r2, c2, w, h) && fits(r1, c1, xf.w, xf.h) && boxInRegion(v, r1, c1, xf.w, xf.h)) {
       drop(a, r2, c2);
-      if (free(v, layer, r1, c1, xf.w, xf.h)) { drop(b, r1, c1); return { ok: true, swapped: true }; }
+      if (free(v, layer, r1, c1, xf.w, xf.h)) {
+        drop(b, r1, c1);
+        if (!blockedMove(a, r2, c2) && !blockedMove(b, r1, c1)) return { ok: true, swapped: true };
+        v[layer][r1][c1] = null; for (const x of b.riders) v.side[r1 + x.dr][c1 + x.dc] = null;
+      }
       v[layer][r2][c2] = null; for (const x of a.riders) v.side[r2 + x.dr][c2 + x.dc] = null;
     }
     drop(b, X.r, X.c); drop(a, r1, c1);
@@ -431,6 +462,7 @@ SA.V = (() => {
         const cell = B[r][c];
         if (!cell) continue;
         const m = M[cell.id], { w, h } = fp(cell.id);
+        if (clearanceBlocked(v, cell.id, r, c, 'body', { layer: 'body', r, c })) flag('body', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('body', r, c, LOCKED);
         else if (m.layer === 'chassis') {
           if (r !== chassisRow(cell.id)) flag('body', r, c, SA.Config.text("vehicle_3ad9ab98b50f", `${m.name}`));
@@ -450,6 +482,7 @@ SA.V = (() => {
         const cell = v.side[r][c];
         if (!cell) continue;
         const { w, h } = fp(cell.id), under = box(r, c, w, h).map(([rr, cc]) => inGrid(rr, cc) && O[rr][cc]);
+        if (clearanceBlocked(v, cell.id, r, c, 'side', { layer: 'side', r, c })) flag('side', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
         else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, SA.Config.text("vehicle_790b7c4b3a97"));
         else if (under.some(o => !o)) flag('side', r, c, SA.Config.text("vehicle_064c258235ab"));
@@ -491,14 +524,18 @@ SA.V = (() => {
     return v;
   }
 
-  // 直射武器：模块覆盖的每一行都要检查；任一行前方有己方存活主体模块就算被挡。
-  // 这样 1×1 小模块、驾驶舱以及高大的重炮/巨炮都会和战斗判定保持一致；高抛炮不受影响。
+  // 直射炮查前方同行遮挡；高抛炮查炮顶垂直投影，旧车的非法布局也不能射穿顶部。
   function blockedList(v) {
     const out = [], O = occ(v, 'body');
     for (let r = 0; r < K.ROWS; r++)
       for (let c = 0; c < K.COLS; c++) {
         const cell = v.body[r][c];
-        if (!alive(cell) || !SA.isWeapon(cell.id) || M[cell.id].indirect) continue;
+        if (!alive(cell) || !SA.isWeapon(cell.id)) continue;
+        if (M[cell.id].arc === 'high') {
+          if (clearanceBlocked(v, cell.id, r, c, 'body', { layer: 'body', r, c }, true)) out.push({ r, c });
+          continue;
+        }
+        if (M[cell.id].indirect) continue;
         const { w, h } = fp(cell.id);
         let blocked = false;
         for (let row = r; row < r + h && !blocked; row++)
@@ -507,6 +544,18 @@ SA.V = (() => {
         if (blocked) out.push({ r, c });
       }
     return out;
+  }
+
+  // 纯计算：每个自动武器组独占一名驾驶员并在组内按实体炮分摊；其他活炮共用剩余人手。
+  // blocked 炮仍占操作量，避免靠遮挡或切组获得额外装填速度；单炮封顶 200%。
+  function crewPlan(weapons, drivers, selected) {
+    const groups = GROUP_ORDER.filter(id => weapons.some(w => w.cell.id === id));
+    const sel = groups.includes(selected) ? selected : groups[0] || null;
+    const autoGroups = groups.filter(id => id !== sel).slice(0, Math.max(0, drivers - 1));
+    const counts = new Map(autoGroups.map(id => [id, weapons.filter(w => w.cell.id === id).length]));
+    const shared = weapons.length - [...counts.values()].reduce((n, count) => n + count, 0);
+    const sharedRate = shared ? Math.min(2, Math.max(0, drivers - counts.size) / shared) : 0;
+    return { groups, selected: sel, autoGroups, rates: weapons.map(w => counts.has(w.cell.id) ? 1 / counts.get(w.cell.id) : sharedRate) };
   }
 
   function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw) {
@@ -523,7 +572,7 @@ SA.V = (() => {
     const s = {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
-      water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
+      water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, drivers: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
       center: 0, d: 0, balance: '无底盘', balanceState: '无底盘', balanceTolerance: 0, comHeight: 0, topHeavy: false, hip: '正常', legs: '正常',
     };
@@ -551,7 +600,7 @@ SA.V = (() => {
       if (m.waterSave) s.waterSave = Math.max(K.WATER_SAVE_MIN, s.waterSave * m.waterSave);
       if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
-      if (SA.isCockpit(cell.id)) s.cockpits++;
+      if (SA.isCockpit(cell.id)) { s.cockpits++; s.drivers += SA.driversOf(cell.id); }
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
       if (m.water || m.cool) { if (m.cat === 'cooling') s.tanks++; s.water += m.water || 0; s.cool += m.cool || 0; }
     });
@@ -581,23 +630,30 @@ SA.V = (() => {
     s.topSpeed = s.speed * s.speedMul * s.armorSpeedFactor;
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
+    const weapons = [];
+    each(v, (cell, r, c, layer) => { if (alive(cell) && SA.mod(cell).dmg) weapons.push({ cell, r, c, layer }); });
+    // 纸面以开战默认首组手操估算持续火力，使用和战斗同一套驾驶员分配倍率。
+    const crew = crewPlan(weapons, s.drivers, null);
     let weaponHeat = 0;
+    let weaponIndex = 0;
     each(v, (cell, r, c, layer) => {
       const m = SA.mod(cell);
       if (!alive(cell) || !m.dmg) return;
+      const crewRate = crew.rates[weaponIndex++];
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
       // 与战斗共用辅助件汇总倍率，纸面输出不再重复应用装弹、散布和晃动收益。
       const reload = m.reload * ax.reload;
       const salvo = m.salvo || 1;
       const shotDps = m.dmgPerSec ? m.dmgPerSec * salvo : m.dmg * salvo / reload;
+      const ownHeatRate = m.heatPerSec ? m.heat * m.reload / reload : m.heat / reload;
       const splash = m.splash ? (m.splash.k * Math.PI * m.splash.r * m.splash.r / (K.CELL * K.CELL)) : 0;
-      s.dps += (shotDps * Math.max(0.4, 0.95 - (m.spread || 0) * ax.spread * 0.03 + s.acc)) * s.power;
-      s.salvoDps += shotDps * s.power;
-      s.splashDps += shotDps * splash * 0.08 * s.power;
-      s.heatDps += (m.heatPerSec || m.heat / reload) * s.power;
+      s.dps += (shotDps * Math.max(0.4, 0.95 - (m.spread || 0) * ax.spread * 0.03 + s.acc)) * s.power * crewRate;
+      s.salvoDps += shotDps * s.power * crewRate;
+      s.splashDps += shotDps * splash * 0.08 * s.power * crewRate;
+      s.heatDps += ownHeatRate * s.power * crewRate;
       s.tether += m.tether ? 12 : 0;
-      weaponHeat += (m.heatPerSec ? m.heat : m.heat / reload) * s.power;
+      weaponHeat += ownHeatRate * s.power * crewRate;
     });
     s.heatCapacity = SA.Phys.heatCapacity(s.dryWeight);
     s.heatMax = SA.Phys.heatMax(s.dryWeight);
@@ -845,5 +901,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, put, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
 })();

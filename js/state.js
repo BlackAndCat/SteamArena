@@ -532,9 +532,9 @@ SA.S = (() => {
   }
 
   // 编辑器操作：付款在原确认入口扣除，其余模块变更在此执行。
-  // 商店只卖有效的非退役模块；额外名单仅替代模块解锁，不放宽其他交易门槛。
+  // 商店只卖本进度已解锁或当前章节作者指定的有效模块；旧存档的宽泛解锁不能越级售卖。
   const buyable = (id) => typeof id === 'string' && Object.hasOwn(SA.MODULES, id) && !Object.hasOwn(SA.RETIRED, id)
-    && SA.Camp.has('shop') && (SA.Camp.hasMod(id) || SA.SHOP_EXTRAS.includes(id))
+    && SA.Camp.has('shop') && SA.Camp.shopMods().has(id)
     && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
   function payAmount(amount) { d.money -= amount; save(); }
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }

@@ -74,14 +74,22 @@ function checkCatalog(SA) {
 function checkOrdinaryModules(SA) {
   SA.S.reset();
   SA.S.d.camp.feat.push('shop');
+  // 本章作者白名单是正式售卖入口；旧 C.mods 不能再单独让未来模块上架。
+  const chapter = SA.CAMPAIGN[0], previous = chapter.shopExtras;
+  const variant = SA.LEG_VARIANTS[0];
+  chapter.shopExtras = ['periscope', 'armor_heavy', variant.key, 'boss_ram'];
+  SA.S.d.money = 100000;
   for (const id of ['periscope', 'armor_heavy']) {
-    if (!SA.S.d.camp.mods.includes(id)) SA.S.d.camp.mods.push(id);
     SA.S.d.uniqueClaims[id] = { mt: 2, source: 'legacy' };
     assert(!SA.uniqueRule(id), `${id} 被整类标成唯一件`);
     assert.strictEqual(SA.S.buyable(id), true, `${id} 无法从商店购买`);
-    SA.S.d.money = 100000;
     assert.strictEqual(SA.S.buy(id), true, `${id} 购买失败`);
   }
+  assert.strictEqual(SA.S.buyable(variant.key), false, '唯一腿部变体进入商店');
+  assert.strictEqual(SA.S.buy(variant.key), false, '唯一腿部变体可直接购买');
+  assert.strictEqual(SA.S.buyable('boss_ram'), false, '唯一模块进入商店');
+  assert.strictEqual(SA.S.buy('boss_ram'), false, '唯一模块可直接购买');
+  if (previous === undefined) delete chapter.shopExtras; else chapter.shopExtras = previous;
 }
 
 /** 取消支线后仍保留旧档的资金、奖励实例和完成记录，但不按旧记录补发。 */

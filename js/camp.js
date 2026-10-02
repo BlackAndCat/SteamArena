@@ -98,6 +98,23 @@ SA.Camp = (() => {
   // 当前章节序号（通关后停在最后一章）
   const chIndex = () => Math.min(c().ch, chapterCount() - 1);
 
+  // 商店以当前战役坐标重新计算可售模块，避免旧档或开发者解锁写入的 C.mods 提前泄漏未来章节。
+  // 已通关关卡、已完成章节与本章作者白名单可售；背包和一般解锁仍照常使用 C.mods。
+  function shopMods() {
+    const C = c(), available = new Set(SA.CAMP_START.mods);
+    for (let ci = 0; ci < chapterCount(); ci++) {
+      const chapter = SA.CAMPAIGN[ci];
+      if (C.done || ci < C.ch || ci === C.ch) for (let si = 0; si < chapter.stages.length; si++) {
+        if (!(C.done || ci < C.ch || si < C.st)) break;
+        const unlocked = stage(ci, si)?.unlock || chapter.stages[si].unlock;
+        for (const id of unlocked?.mods || []) available.add(id);
+      }
+      if (C.done || ci < C.ch) for (const id of chapter.unlock?.mods || []) available.add(id);
+    }
+    for (const id of SA.CAMPAIGN[chIndex()]?.shopExtras || []) available.add(id);
+    return available;
+  }
+
   // 玩家的车带上改装台大小，编辑器和出战检查都按它限制可用格子
   function syncLim() { if (d() && d().vehicle) d().vehicle.lim = { ...grid() }; }
 
@@ -354,7 +371,7 @@ SA.Camp = (() => {
     resetVehicle: () => SA.S.replaceWithStarter(),
   };
 
-  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, maxMat, grid, chapterCount, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
+  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, shopMods, maxMat, grid, chapterCount, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
 })();
 if (!SA.RELEASE) SA.dev = SA.Camp.dev;
 if (SA.StageCars) {

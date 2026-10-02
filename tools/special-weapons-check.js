@@ -155,7 +155,10 @@ function tether(SA, api) {
 function materials(SA) {
   SA.S.reset();
   const D = SA.S.d;
-  D.money = 100000; D.camp.mods.push('steamjet', 'flamer'); D.camp.feat.push('shop'); D.camp.mat = 3;
+  // 本章作者白名单提供合法售卖资格；材料门槛仍独立决定喷火器何时可买。
+  const chapter = SA.CAMPAIGN[D.camp.ch], previousExtras = chapter.shopExtras;
+  chapter.shopExtras = [...(previousExtras || []), 'steamjet', 'flamer'];
+  D.money = 100000; D.camp.feat.push('shop'); D.camp.mat = 3;
   for (let mt = 1; mt <= 6; mt++) for (const id of ['steamjet', 'flamer']) {
     assert.strictEqual(SA.newCell(id, mt).id, mt < 4 ? 'steamjet' : 'flamer');
     const old = { id, mt, lv: 2, hp: Math.round(SA.mod(id, mt).hp * 1.6 / 2) };
@@ -202,6 +205,7 @@ function materials(SA) {
   SA.dev.designMode();
   for (let mt = 1; mt <= 6; mt++) assert(SA.S.d.inv[SA.invKey(mt < 4 ? 'flamer' : 'steamjet', mt)] == null);
   SA.dev.exitDesign();
+  if (previousExtras === undefined) delete chapter.shopExtras; else chapter.shopExtras = previousExtras;
   return { materialCases: 12, oldSave: true, blueprintGate: true, campaignPool: true };
 }
 
