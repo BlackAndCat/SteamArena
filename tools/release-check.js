@@ -226,7 +226,7 @@ function packageCheck() {
   const scriptPaths = scripts.map(checkedLink);
   const stylePaths = styles.map(checkedLink);
   assert.strictEqual(scriptPaths[0], 'js/release.js', '发行标志必须最先载入');
-  const expected = new Set(['index.html', 'release-manifest.json', 'text/steam-arena/zh-CN.json',
+  const expected = new Set(['index.html', '.gitattributes', 'release-manifest.json', 'text/steam-arena/zh-CN.json',
     'js/stage-cars.js', ...stylePaths, ...scriptPaths]);
   const found = [];
   function walk(folder) {
@@ -242,6 +242,11 @@ function packageCheck() {
   assert.deepStrictEqual(found.sort(), [...expected].sort(), '发行目录含额外工具或缺少游戏文件');
   const { SA } = runtime(true);
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'release-manifest.json'), 'utf8'));
+  const gitAttributes = fs.readFileSync(path.join(dir, '.gitattributes'));
+  assert(/(?:^|\r?\n)\* -text\r?\n$/.test(gitAttributes.toString('utf8')),
+    '发行仓必须禁用 Git 文本转换');
+  assert.strictEqual(crypto.createHash('sha256').update(gitAttributes).digest('hex'), manifest.gitAttributesSha256,
+    '发行仓属性文件与清单哈希不一致');
   assert.strictEqual(manifest.releaseVersion, SA.RELEASE_VERSION);
   assert.strictEqual(manifest.chapters, SA.RELEASE_CHAPTERS);
   assert.strictEqual(SA.Camp.chapterCount(), SA.RELEASE_CHAPTERS);

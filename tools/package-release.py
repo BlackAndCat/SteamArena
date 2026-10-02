@@ -192,19 +192,23 @@ def main():
             release_html = release_html.replace(original,
                 f'{attr}="{name}?v={digest(staged_dir / name)}"')
         (staged_dir / "index.html").write_text(release_html, encoding="utf-8")
+        # 发行仓可能启用 core.autocrlf；禁用文本转换以保留哈希对应的原始字节。
+        (staged_dir / ".gitattributes").write_text(
+            "# 发行文件保留打包时的原始字节，避免 Git 自动转换换行。\n* -text\n", encoding="utf-8")
         manifest = {"version": 1, "releaseVersion": version, "chapters": chapters,
                     "sourceRoot": str(source_root), "git": git_info(source_root),
-                    "sourceHashes": source_hashes}
+                    "sourceHashes": source_hashes,
+                    "gitAttributesSha256": digest(staged_dir / ".gitattributes")}
         if archive is not None:
             manifest["archive"] = archive
         (staged_dir / "release-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         subprocess.run(["node", str(ROOT / "tools/release-check.js"), str(staged_dir)], cwd=ROOT, check=True)
         subprocess.run(["node", str(ROOT / "tools/author-content-check.js"), str(staged_dir), str(source_root)], cwd=ROOT, check=True)
         with ZipFile(staged_zip, "w", ZIP_DEFLATED) as bundle:
-            for name in [*files, "release-manifest.json"]:
+            for name in [*files, ".gitattributes", "release-manifest.json"]:
                 bundle.write(staged_dir / name, name)
         with ZipFile(staged_zip) as bundle:
-            if set(bundle.namelist()) != {*files, "release-manifest.json"}:
+            if set(bundle.namelist()) != {*files, ".gitattributes", "release-manifest.json"}:
                 raise ValueError("发行 ZIP 文件清单与运行文件不一致")
             for name in bundle.namelist():
                 if hashlib.sha256(bundle.read(name)).hexdigest() != digest(staged_dir / name):
@@ -256,7 +260,7 @@ def main():
         # 旧包可能本身是 Git 工作树；版本记录作为备份保留，不递归清理只读对象。
         if old_dir.exists() and any((old_dir / name).exists() for name in (".git", ".hg", ".svn")):
             preserve_backup = True
-        print(f"发行版本：{version}；开放章节：{chapters}；文件数：{len(files) + 1}")
+        print(f"发行版本：{version}；开放章节：{chapters}；文件数：{len(files) + 2}")
         print(f"发行目录：{release_dir}\n发行 ZIP：{version_zip}\n兼容 ZIP：{latest_zip}")
         if preserve_backup:
             print(f"旧发行目录含版本记录，备份保留在：{stage}")
