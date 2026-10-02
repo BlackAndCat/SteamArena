@@ -2,6 +2,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -210,10 +211,23 @@ function packageCheck() {
   const dir = PACKAGE;
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   const scripts = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(match => match[1]);
-  assert.strictEqual(scripts[0], 'js/release.js', '发行标志必须最先载入');
   const styles = [...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"/g)].map(match => match[1]);
+  // 每个资源链接都绑定当前文件内容；路径仍须落在发行白名单内。
+  function checkedLink(ref) {
+    const match = /^([^?]+)\?v=([0-9a-f]{64})$/.exec(ref);
+    assert(match, `发行资源缺少内容哈希：${ref}`);
+    assert(/^(?:js\/[A-Za-z0-9_-]+\.js|css\/[A-Za-z0-9_-]+\.css)$/.test(match[1]),
+      `发行资源路径不在包内：${match[1]}`);
+    const file = path.join(dir, match[1]);
+    assert.strictEqual(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), match[2],
+      `发行资源哈希与文件不一致：${match[1]}`);
+    return match[1];
+  }
+  const scriptPaths = scripts.map(checkedLink);
+  const stylePaths = styles.map(checkedLink);
+  assert.strictEqual(scriptPaths[0], 'js/release.js', '发行标志必须最先载入');
   const expected = new Set(['index.html', 'release-manifest.json', 'text/steam-arena/zh-CN.json',
-    'js/stage-cars.js', ...styles, ...scripts]);
+    'js/stage-cars.js', ...stylePaths, ...scriptPaths]);
   const found = [];
   function walk(folder) {
     for (const item of fs.readdirSync(folder, { withFileTypes: true })) {
@@ -231,6 +245,16 @@ function packageCheck() {
   assert.strictEqual(manifest.releaseVersion, SA.RELEASE_VERSION);
   assert.strictEqual(manifest.chapters, SA.RELEASE_CHAPTERS);
   assert.strictEqual(SA.Camp.chapterCount(), SA.RELEASE_CHAPTERS);
+  // 真实执行发行内容脚本，核对同步加载的关卡车使用当前版本 URL。
+  const written = [];
+  const context = vm.createContext({ SA: { RELEASE: true, RELEASE_VERSION: SA.RELEASE_VERSION, LEG_VARIANTS: [] },
+    document: { readyState: 'loading', currentScript: { src: 'https://example.invalid/js/content.js?v=old' },
+      write: html => written.push(html) }, URL, encodeURIComponent });
+  context.window = context;
+  vm.runInContext(source('content.js', true), context);
+  assert.deepStrictEqual(written,
+    [`<script src="https://example.invalid/js/stage-cars.js?v=${encodeURIComponent(SA.RELEASE_VERSION)}"></script>`],
+    '动态关卡车必须随发行版本更新 URL');
   return { packageFiles: found.length, chapterCount: SA.RELEASE_CHAPTERS, version: SA.RELEASE_VERSION };
 }
 

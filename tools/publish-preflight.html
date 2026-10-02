@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>发行前设计归档</title>
+  <title>作者设计预检与恢复</title>
   <style>
     body { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; font: 16px/1.5 sans-serif; color: #e7e1d5; background: #24221f; }
     button, input { font: inherit; } button { padding: .4rem .7rem; margin: .2rem; cursor: pointer; }
@@ -15,8 +15,8 @@
   </style>
 </head>
 <body>
-  <h1>发行前设计归档</h1>
-  <p>普通工作台保存可能只进入当前浏览器来源的本机草稿。请在使用过的每个 <code>file:</code>、<code>localhost</code> 或 <code>127.0.0.1</code> 页面分别导出作者包，再在本机 HTTP 预检页导入。此页只能看到当前来源的存储，无法扫描其他浏览器资料。</p>
+  <h1>作者设计预检与恢复</h1>
+  <p>本机 HTTP 工作台保存成功后会更新项目正式文件，发行直接使用这些文件。本页用于核对正式内容，或恢复旧 <code>file:</code> 页面等其他浏览器来源中尚未归档的设计：从原来源导出作者包，再通过本机服务打开此页导入。此页只能看到当前来源的存储，无法扫描其他浏览器资料。</p>
   <section>
     <h2>来源</h2>
     <button id="export">导出当前来源作者包</button>

@@ -23,12 +23,18 @@
   function importBundle(data, current = false) {
     if (data?.version !== 1 || data.kind !== 'steam-arena-author-bundle' ||
         !data.source || data.stageCars?.campaignLayout !== 2 || !data.stageCars?.records ||
+        data.stageCars.deletedKeys != null && (!Array.isArray(data.stageCars.deletedKeys) ||
+          data.stageCars.deletedKeys.some(key => typeof key !== 'string' || Object.hasOwn(data.stageCars.records, key))) ||
         !data.text?.values || !Array.isArray(data.text.removedElements))
       throw new Error('作者包格式不合法');
     source(current ? 'current-origin' : 'author-bundle', data.source.url, data.source.exportedAt);
-    if (data.stageCars.present !== false)
+    if (data.stageCars.present !== false) {
       for (const [key, record] of Object.entries(data.stageCars.records))
         addEntry('stage', key, record, formal.stageCars.records[key]);
+      // 旧作者包没有 deletedKeys 时仍只导入所列记录，不推断缺失项为删除。
+      for (const key of data.stageCars.deletedKeys || [])
+        addEntry('stage', key, null, formal.stageCars.records[key]);
+    }
     if (data.text.present !== false) importText(data.text, false);
     render();
   }

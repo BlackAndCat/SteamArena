@@ -1,4 +1,4 @@
-"""从已归档的正式源码与文案生成静态发行目录和 ZIP。"""
+"""从当前正式源码与作者保存稿生成静态发行目录和 ZIP。"""
 
 import argparse
 from datetime import datetime
@@ -16,7 +16,6 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT = Path(__file__).resolve().parents[1]
 TEXT = "text/steam-arena/zh-CN.json"
-AUTHORED = ("js/stage-cars.js", TEXT, "js/modules.js")
 
 
 class EntryParser(HTMLParser):
@@ -97,12 +96,12 @@ def main():
     parser.add_argument("--settings", type=Path, help="本机发行设置 JSON")
     parser.add_argument("--output-root", type=Path, help="发行输出根目录")
     parser.add_argument("--source-root", type=Path, help="统一运行源码根目录")
-    parser.add_argument("--text-source", type=Path, help="旧参数；外部文本须先经预检归档")
+    parser.add_argument("--text-source", type=Path, help="旧参数；发行直接读取 sourceRoot 内的正式文本")
     parser.add_argument("--version", help="发行版本号")
     parser.add_argument("--chapters", type=int, help="开放章节数，包含序章")
     args = parser.parse_args()
     if args.text_source:
-        raise ValueError("--text-source 不再直接覆盖发行文本，请先用预检页归档到 sourceRoot/text")
+        raise ValueError("--text-source 不再覆盖发行文本，请直接保存到 sourceRoot/text/steam-arena/zh-CN.json")
 
     settings_path = args.settings or ROOT / "tools/out/publish-settings.json"
     settings = json.loads(settings_path.read_text(encoding="utf-8-sig")) if settings_path.exists() else {}
@@ -144,17 +143,20 @@ def main():
     if not isinstance(document.get("values"), dict) or not isinstance(document.get("removedElements"), list):
         raise ValueError("正式文本必须包含 values 对象和 removedElements 数组")
     if not document["values"] and not document["removedElements"]:
-        raise ValueError("正式文本仍为空，请先用预检页归档作者文案")
+        raise ValueError("正式文本仍为空，请先在工作台保存作者内容")
 
     source_hashes = {name: digest(path) for name, path in sources.items()}
 
-    receipt_path = source_file(source_root, "tools/out/publish-preflight.json")
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
-    if receipt.get("version") != 1 or not isinstance(receipt.get("sources"), list):
-        raise ValueError("作者归档回执格式无效，请重新归档")
-    for name in AUTHORED:
-        if receipt.get("files", {}).get(name) != source_hashes[name]:
-            raise ValueError(f"{name} 与作者归档回执不一致，请重新归档")
+    # 历史归档回执仅供溯源；工作台保存到正式文件后即可参与本次发行。
+    receipt_path = source_root / "tools/out/publish-preflight.json"
+    archive = None
+    if receipt_path.is_file() and not linked(receipt_path):
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
+            if isinstance(receipt, dict) and receipt.get("version") == 1:
+                archive = {key: receipt.get(key) for key in ("archivedAt", "sources", "files")}
+        except (OSError, json.JSONDecodeError):
+            pass  # 回执缺损不能拦截当前正式保存稿。
 
     release_dir = within(out, out / "release")
     latest_zip = within(out, out / "release.zip")
@@ -179,10 +181,22 @@ def main():
             "// 发行配置先于其他游戏脚本加载。\nwindow.SA = window.SA || {};\n"
             f"SA.RELEASE = true;\nSA.RELEASE_CHAPTERS = {chapters};\n"
             f"SA.RELEASE_VERSION = {json.dumps(version)};\n", encoding="utf-8")
+        # 链接哈希取自本次 staged 内容，浏览器缓存不会混用两次发行的脚本或样式。
+        linked_files = [*entry.styles, *entry.scripts]
+        release_html = html
+        for name in linked_files:
+            attr = "href" if name in entry.styles else "src"
+            original = f'{attr}="{name}"'
+            if release_html.count(original) != 1:
+                raise ValueError(f"首页引用格式不符：{name}")
+            release_html = release_html.replace(original,
+                f'{attr}="{name}?v={digest(staged_dir / name)}"')
+        (staged_dir / "index.html").write_text(release_html, encoding="utf-8")
         manifest = {"version": 1, "releaseVersion": version, "chapters": chapters,
                     "sourceRoot": str(source_root), "git": git_info(source_root),
-                    "sourceHashes": source_hashes,
-                    "archive": {"archivedAt": receipt.get("archivedAt"), "sources": receipt["sources"], "files": receipt["files"]}}
+                    "sourceHashes": source_hashes}
+        if archive is not None:
+            manifest["archive"] = archive
         (staged_dir / "release-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         subprocess.run(["node", str(ROOT / "tools/release-check.js"), str(staged_dir)], cwd=ROOT, check=True)
         subprocess.run(["node", str(ROOT / "tools/author-content-check.js"), str(staged_dir), str(source_root)], cwd=ROOT, check=True)

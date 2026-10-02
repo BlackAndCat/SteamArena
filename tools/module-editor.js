@@ -7,6 +7,8 @@
   const markerEnd = '// MODULE_EDITOR_OVERRIDES_END';
   const dbName = 'steam-arena-module-editor';
   let selected = '', controls = new Map(), touched = new Set(), service = false, handle = null, saving = false, ready = false;
+  // HTTP 作者页只通过本机服务写正式源文件；文件直开页保留原有句柄保存路径。
+  const usesService = () => location.protocol === 'http:' || location.protocol === 'https:';
 
   const at = (obj, path) => path.split('.').reduce((v, key) => v?.[key], obj);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -219,11 +221,12 @@
     const id = selected, values = overrides(), valid = SA.validateModuleOverrides(id, values);
     if (!valid.ok) { notice((valid.errors || []).join('\n') || '属性校验未通过。', 'bad'); return; }
     // 首次选文件必须直接发生在按钮事件中，以保留浏览器的用户激活权限。
-    const pick = !service && !handle && window.showOpenFilePicker
+    const pick = !usesService() && !handle && window.showOpenFilePicker
       ? window.showOpenFilePicker({ multiple: false, types: [{ description: '模块数据', accept: { 'text/javascript': ['.js'] } }] }) : null;
     saving = true; updateDirty();
     try {
-      if (service) {
+      if (usesService()) {
+        if (!service) throw new Error('本机模块保存服务不可用，修改仍留在页面。请通过 python tools/serve.py 打开工作台。');
         const res = await fetch('/__modules/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, overrides: values }) });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error || data.message || `保存失败（HTTP ${res.status}）。`);
@@ -267,13 +270,14 @@
     window.addEventListener('beforeunload', event => { if (changed() && !saving) { event.preventDefault(); event.returnValue = ''; } });
     select(sessionStorage.getItem('module-editor-selected') || ids[0]);
     const success = sessionStorage.getItem('module-editor-success'); sessionStorage.removeItem('module-editor-success');
-    try { handle = await storedHandle(); } catch { /* 不支持 IndexedDB 时仍可首次选择文件。 */ }
+    if (!usesService()) try { handle = await storedHandle(); } catch { /* 不支持 IndexedDB 时仍可首次选择文件。 */ }
     try {
       const response = await fetch('/__modules/status', { cache: 'no-store' });
       service = response.ok && !!(await response.json()).ok;
     } catch { service = false; }
     ready = true; updateDirty();
-    if (success) notice(success, 'ok');
+    if (usesService() && !service) notice('本机模块保存服务不可用。请通过 python tools/serve.py 打开工作台；当前修改仍留在页面。', 'bad');
+    else if (success) notice(success, 'ok');
     else if (service) notice('本地写入服务已连接。修改后点“一键保存”即可更新 js/modules.js。', 'ok');
     else if (window.showOpenFilePicker) notice(handle ? '已记住模块文件。修改后点“一键保存”即可写入。' : '首次保存时请选择本项目的 js/modules.js；浏览器授权后即可一键保存。', 'warn');
     else notice('浏览器不支持直接写文件。请使用 Chrome 或 Edge，或通过 tools/serve.py 启动本地服务。', 'warn');
