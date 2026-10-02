@@ -2,3 +2,5 @@
 tools/out/
 # 本机预览服务导入任务管理器时产生的 Python 缓存。
 tools/__pycache__/
+# 本机作者缓存迁移的幂等记录，不随版本共享。
+tools/.config-migration-state.json

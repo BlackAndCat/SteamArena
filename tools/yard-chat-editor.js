@@ -1,4 +1,4 @@
-// 院子聊天工作台：各范围草稿暂存在本页，按一次保存才写入共用文本文件。
+// 院子聊天工作台：各范围修改暂存在本页，按一次保存才写入正式配置。
 (() => {
   const $ = id => document.getElementById(id);
   const drafts = new Map();
@@ -157,7 +157,7 @@
     try {
       const changed = [...drafts.entries()].filter(([, draft]) => draft.dirty);
       const savedClick = new Map([...clickDirty].map(who => [who, clickDraft[who]]));
-      // 先校验全部草稿，避免某个范围无效时其它范围已进入文本管理器的自动保存队列。
+      // 先校验全部本页修改，避免部分范围进入待写配置。
       for (const [, draft] of changed) if (draft.mode !== 'inherit') SA.YardChat.validateGroups(draft.groups);
       if (settingsDirty) SA.YardChat.validateSettings(settingsDraft);
       for (const [scope, draft] of changed) {
@@ -169,7 +169,7 @@
       // 只写用户改过的人物，避免点击对话保存时覆盖其他人及闲谈池的现有内容。
       for (const [who, value] of savedClick) { SA.Text.set(`home:tip:${who}`, value); stagedLocally = true; }
       const result = await SA.YardChat.save();
-      if (!result?.ok) throw result?.error || new Error('写入未成功，草稿仍保留在浏览器');
+      if (!result?.ok) throw result?.error || new Error('配置写入未成功');
       for (const [scope, draft] of changed) {
         const saved = SA.YardChat.read(scope);
         draft.source = saved.source;
@@ -184,8 +184,8 @@
       note(pending() ? '本次修改已写入；仍有后续修改待保存。' : '已保存。游戏中的院子聊天会自动更新。', 'ok');
     } catch (error) {
       note(stagedLocally
-        ? `本机草稿已保存，文本文件尚未写入；可刷新恢复并重试写入：${error.message || error}`
-        : `保存失败；草稿仍在本页，可以修改后重试：${error.message || error}`, 'bad');
+        ? `配置尚未写入；修改仍在本页，可直接重试：${error.message || error}`
+        : `保存失败；修改仍在本页，可以修改后重试：${error.message || error}`, 'bad');
     } finally {
       saving = false;
       $('save').disabled = false;

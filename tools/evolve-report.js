@@ -38,7 +38,9 @@
   const stable = (v) => (Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
     ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v);
   async function currentFingerprint() {
-    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js'];
+    const names = (await fetch('/__config/list', { cache: 'no-store' }).then(r => r.json())).names;
+    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
+      ...names.slice().sort().map(name => `config/${name}.json`)];
     const texts = await Promise.all([...files.map(f => `../${f}`), 'evolve-config.js'].map(u => fetch(u, { cache: 'no-store' }).then(r => r.text())));
     const module = { exports: {} };
     new Function('module', 'exports', 'require', texts[files.length])(module, module.exports, () => ({}));

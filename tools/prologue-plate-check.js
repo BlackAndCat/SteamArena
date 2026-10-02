@@ -51,19 +51,10 @@ function run() {
   assert.strictEqual(arena.read()[0].record.spec.stage, 2, '再次读取导致重复顺延');
   assert.strictEqual(arena.merge(oldReport).candidates.length, 1, '旧收藏和旧报告合并后重复');
 
-  // 模拟旧文件助手已按旧编号覆盖新第二关，再让规则层恢复模板并迁移记录。
-  const manual = SA.StageCars.makeRecord(0, 1, SA.CAMPAIGN[0].stages[2], bucket, { name: '旧手工铲斗车' });
-  delete SA.__STAGE_CARS_FILE_RECORDS;
-  delete SA.STAGE_CARS.campaignLayout;
-  SA.STAGE_CARS.records = { '0:1': manual };
-  SA.StageCars.applyToCampaign();
-  SA.StageCars.applyLocal(null);
-  assert.strictEqual(SA.Camp.stage(0, 1).name, '补丁号');
-  assert.strictEqual(SA.StageCars.get(0, 1), null);
-  assert.strictEqual(SA.StageCars.get(0, 2).name, '旧手工铲斗车');
-  assert.strictEqual(SA.StageCars.get(0, 2).id, '0:2');
-  assert(SA.StageCars.targetKeys().includes('0:2'));
-  return { stages: 3, rewardOnce: true, budget: SA.V.stats(vehicle).value, reportMigration: true, favoriteMigration: true, manualMigration: true };
+  // 正式关卡由配置中的十八条最终记录组成；旧手工缓存只在服务端迁移一次。
+  assert.strictEqual(SA.StageCars.targetKeys().length, 18);
+  assert(SA.StageCars.targetKeys().every(key => SA.STAGE_CARS.records[key]?.id === key));
+  return { stages: 3, rewardOnce: true, budget: SA.V.stats(vehicle).value, reportMigration: true, favoriteMigration: true, configComplete: true };
 }
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
 module.exports = { run };

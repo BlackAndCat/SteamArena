@@ -15,9 +15,6 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT = "text/steam-arena/zh-CN.json"
-
-
 class EntryParser(HTMLParser):
     """只收集首页实际加载的本地脚本与样式。"""
 
@@ -96,12 +93,12 @@ def main():
     parser.add_argument("--settings", type=Path, help="本机发行设置 JSON")
     parser.add_argument("--output-root", type=Path, help="发行输出根目录")
     parser.add_argument("--source-root", type=Path, help="统一运行源码根目录")
-    parser.add_argument("--text-source", type=Path, help="旧参数；发行直接读取 sourceRoot 内的正式文本")
+    parser.add_argument("--text-source", type=Path, help="旧参数；正式文本已并入 config/text.json")
     parser.add_argument("--version", help="发行版本号")
     parser.add_argument("--chapters", type=int, help="开放章节数，包含序章")
     args = parser.parse_args()
     if args.text_source:
-        raise ValueError("--text-source 不再覆盖发行文本，请直接保存到 sourceRoot/text/steam-arena/zh-CN.json")
+        raise ValueError("--text-source 不再使用，请直接保存到 sourceRoot/config/text.json")
 
     settings_path = args.settings or ROOT / "tools/out/publish-settings.json"
     settings = json.loads(settings_path.read_text(encoding="utf-8-sig")) if settings_path.exists() else {}
@@ -128,6 +125,8 @@ def main():
     entry.feed(html)
     if not entry.scripts or entry.scripts[0] != "js/release.js":
         raise ValueError("index.html 必须最先加载 js/release.js")
+    if "js/config.js" not in entry.scripts:
+        raise ValueError("index.html 必须加载 js/config.js")
     if not entry.styles:
         raise ValueError("index.html 缺少样式入口")
     if len(entry.scripts) != len(set(entry.scripts)) or len(entry.styles) != len(set(entry.styles)):
@@ -136,27 +135,19 @@ def main():
         raise ValueError("首页包含不属于 js/ 的运行脚本")
     if any(not x.startswith("css/") or not x.endswith(".css") for x in entry.styles):
         raise ValueError("首页包含不属于 css/ 的样式")
-    # stage-cars.js 由 content.js 在解析期间同步加载；它不在静态 script 标签清单中。
-    files = list(dict.fromkeys(["index.html", *entry.styles, *entry.scripts, "js/stage-cars.js", TEXT]))
+    # 把全部正式配置原样复制到发行包，新增配置文件无需手动维护清单。
+    config_files = sorted(f"config/{p.name}" for p in (source_root / "config").glob("*.json"))
+    if not config_files or "config/text.json" not in config_files:
+        raise ValueError("正式配置缺少 config/text.json")
+    files = list(dict.fromkeys(["index.html", *entry.styles, *entry.scripts, "js/stage-cars.js", *config_files]))
     sources = {name: source_file(source_root, name) for name in files}
-    document = json.loads(sources[TEXT].read_text(encoding="utf-8-sig"))
+    document = json.loads(sources["config/text.json"].read_text(encoding="utf-8-sig"))
     if not isinstance(document.get("values"), dict) or not isinstance(document.get("removedElements"), list):
         raise ValueError("正式文本必须包含 values 对象和 removedElements 数组")
     if not document["values"] and not document["removedElements"]:
         raise ValueError("正式文本仍为空，请先在工作台保存作者内容")
 
     source_hashes = {name: digest(path) for name, path in sources.items()}
-
-    # 历史归档回执仅供溯源；工作台保存到正式文件后即可参与本次发行。
-    receipt_path = source_root / "tools/out/publish-preflight.json"
-    archive = None
-    if receipt_path.is_file() and not linked(receipt_path):
-        try:
-            receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
-            if isinstance(receipt, dict) and receipt.get("version") == 1:
-                archive = {key: receipt.get(key) for key in ("archivedAt", "sources", "files")}
-        except (OSError, json.JSONDecodeError):
-            pass  # 回执缺损不能拦截当前正式保存稿。
 
     release_dir = within(out, out / "release")
     latest_zip = within(out, out / "release.zip")
@@ -199,8 +190,6 @@ def main():
                     "sourceRoot": str(source_root), "git": git_info(source_root),
                     "sourceHashes": source_hashes,
                     "gitAttributesSha256": digest(staged_dir / ".gitattributes")}
-        if archive is not None:
-            manifest["archive"] = archive
         (staged_dir / "release-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         subprocess.run(["node", str(ROOT / "tools/release-check.js"), str(staged_dir)], cwd=ROOT, check=True)
         subprocess.run(["node", str(ROOT / "tools/author-content-check.js"), str(staged_dir), str(source_root)], cwd=ROOT, check=True)

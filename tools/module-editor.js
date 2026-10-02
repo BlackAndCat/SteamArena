@@ -3,66 +3,24 @@
   const $ = id => document.getElementById(id);
   const schema = SA.MODULE_EDITOR_SCHEMA?.fields || {};
   const ids = (SA.MODULE_ORDER || Object.keys(SA.MODULES)).filter(id => SA.MODULES[id]);
-  const markerStart = '// MODULE_EDITOR_OVERRIDES_START';
-  const markerEnd = '// MODULE_EDITOR_OVERRIDES_END';
-  const dbName = 'steam-arena-module-editor';
-  let selected = '', controls = new Map(), touched = new Set(), service = false, handle = null, saving = false, ready = false;
-  // HTTP 作者页只通过本机服务写正式源文件；文件直开页保留原有句柄保存路径。
-  const usesService = () => location.protocol === 'http:' || location.protocol === 'https:';
-
-  const at = (obj, path) => path.split('.').reduce((v, key) => v?.[key], obj);
+  let selected = '', controls = new Map(), touched = new Set(), saving = false, ready = false;
+  const at = (obj, path) => path.split('.').reduce((value, key) => value?.[key], obj);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const copy = value => JSON.parse(JSON.stringify(value));
   function put(obj, path, value) {
     const keys = path.split('.');
-    let part = obj;
-    for (const key of keys.slice(0, -1)) part = part[key] ||= {};
-    const key = keys.at(-1);
-    // 部分默认文案是只读 getter；保存成功后同步当前页时沿用模块加载器的覆盖方式。
-    if (Object.getOwnPropertyDescriptor(part, key)?.get) Object.defineProperty(part, key, { value, writable: true, configurable: true, enumerable: true });
-    else part[key] = value;
-  }
-  function drop(obj, path) {
-    const keys = path.split('.'), parents = [obj];
-    for (const key of keys.slice(0, -1)) {
-      if (!parents.at(-1)?.[key]) return;
-      parents.push(parents.at(-1)[key]);
-    }
-    delete parents.at(-1)[keys.at(-1)];
-    for (let i = keys.length - 2; i >= 0; i--) {
-      if (Object.keys(parents[i + 1]).length) break;
-      delete parents[i][keys[i]];
-    }
+    let target = obj;
+    for (const key of keys.slice(0, -1)) target = target[key] ||= {};
+    const field = keys.at(-1);
+    if (Object.getOwnPropertyDescriptor(target, field)?.get)
+      Object.defineProperty(target, field, { value, writable: true, configurable: true, enumerable: true });
+    else target[field] = value;
   }
   function notice(message, kind = '') {
     $('notice').textContent = message;
     $('notice').className = 'notice ' + kind;
   }
 
-  // 文件句柄只留在浏览器本机；写入前仍逐次读取并核对源文件的限定区。
-  function dbOpen() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(dbName, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore('files');
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-  async function storedHandle(next) {
-    const db = await dbOpen();
-    try {
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction('files', next ? 'readwrite' : 'readonly');
-        const req = next ? tx.objectStore('files').put(next, 'modules') : tx.objectStore('files').get('modules');
-        let saved = null;
-        req.onsuccess = () => { if (!next) saved = req.result || null; };
-        // 请求成功时事务仍可能回滚；必须等事务提交后才能刷新页面并复用句柄。
-        tx.oncomplete = () => resolve(next || saved);
-        tx.onerror = () => reject(tx.error || req.error || new Error('文件授权记录写入失败。'));
-        tx.onabort = () => reject(tx.error || new Error('文件授权记录未能提交。'));
-      });
-    } finally { db.close(); }
-  }
   function categoryName(cat) { return SA.CAT?.[cat]?.name || cat || '其他'; }
   function filterList() {
     const q = $('search').value.trim().toLocaleLowerCase(), cat = $('category').value;
@@ -172,91 +130,47 @@
     }
     filterList(); updateDirty();
   }
-  function overrides() {
-    const result = copy(SA.MODULE_OVERRIDES[selected] || {}), original = SA.MODULE_DEFAULTS[selected];
+  function changes() {
+    const result = {};
     for (const path of touched) {
       const read = controls.get(path);
-      if (!read) continue;
-      const value = read();
-      if (same(value, at(SA.MODULES[selected], path))) continue;
-      if (same(value, at(original, path))) drop(result, path);
-      else put(result, path, value);
+      if (read && !same(read(), at(SA.MODULES[selected], path))) put(result, path, read());
     }
     return result;
   }
   function changed() {
-    if (!selected) return false;
-    return [...touched].some(path => controls.has(path) && !same(controls.get(path)(), at(SA.MODULES[selected], path)));
+    return !!selected && [...touched].some(path => controls.has(path) && !same(controls.get(path)(), at(SA.MODULES[selected], path)));
   }
   function updateDirty() {
-    const dirty = changed();
-    $('dirty').textContent = dirty ? '有未保存的修改' : '与已加载版本一致';
-    $('save').disabled = saving || !ready || !selected || !dirty;
-  }
-  function sourceRegion(source) {
-    const start = source.indexOf(markerStart), end = source.indexOf(markerEnd);
-    if (start < 0 || end < start || source.indexOf(markerStart, start + 1) >= 0 || source.indexOf(markerEnd, end + 1) >= 0 || !source.includes('SA.MODULES = {') || !source.includes('SA.MODULE_DEFAULTS =')) throw new Error('选中的文件不是带有模块覆盖区的本项目 js/modules.js。');
-    const body = source.slice(start + markerStart.length, end).trim();
-    const match = /^SA\.MODULE_OVERRIDES\s*=\s*(\{[\s\S]*\});?$/.exec(body);
-    if (!match) throw new Error('模块覆盖区格式不符，已停止写入。');
-    let table;
-    try { table = JSON.parse(match[1]); } catch { throw new Error('模块覆盖区不是有效 JSON，已停止写入。'); }
-    if (!table || Array.isArray(table) || typeof table !== 'object') throw new Error('模块覆盖区内容无效。');
-    return { start, end, table };
-  }
-  async function fileSave(fileHandle, id, values) {
-    const file = await fileHandle.getFile();
-    if (file.name !== 'modules.js') throw new Error('请选择本项目的 js/modules.js。');
-    const source = await file.text(), region = sourceRegion(source);
-    if (Object.keys(values).length) region.table[id] = values;
-    else delete region.table[id];
-    const newline = source.includes('\r\n') ? '\r\n' : '\n';
-    const replacement = `${markerStart}${newline}SA.MODULE_OVERRIDES = ${JSON.stringify(region.table, null, 2).replace(/\n/g, newline)};${newline}`;
-    const updated = source.slice(0, region.start) + replacement + source.slice(region.end);
-    const stream = await fileHandle.createWritable();
-    await stream.write(updated); await stream.close();
+    $('dirty').textContent = changed() ? '有未保存的修改' : '与已加载版本一致';
+    $('save').disabled = saving || !ready || !changed();
   }
   async function save() {
     if (saving || !ready || !selected || !changed()) return;
-    const id = selected, values = overrides(), valid = SA.validateModuleOverrides(id, values);
+    const id = selected, edits = changes(), valid = SA.validateModuleOverrides(id, edits);
     if (!valid.ok) { notice((valid.errors || []).join('\n') || '属性校验未通过。', 'bad'); return; }
-    // 首次选文件必须直接发生在按钮事件中，以保留浏览器的用户激活权限。
-    const pick = !usesService() && !handle && window.showOpenFilePicker
-      ? window.showOpenFilePicker({ multiple: false, types: [{ description: '模块数据', accept: { 'text/javascript': ['.js'] } }] }) : null;
     saving = true; updateDirty();
     try {
-      if (usesService()) {
-        if (!service) throw new Error('本机模块保存服务不可用，修改仍留在页面。请通过 python tools/serve.py 打开工作台。');
-        const res = await fetch('/__modules/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, overrides: values }) });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || data.message || `保存失败（HTTP ${res.status}）。`);
-      } else {
-        if (pick) { const files = await pick; handle = files[0]; }
-        if (!handle) throw new Error('当前浏览器不支持直接写文件。请用 Chrome 或 Edge 打开工作台，或通过 tools/serve.py 启动本地服务。');
-        const permission = await handle.queryPermission({ mode: 'readwrite' });
-        if (permission !== 'granted' && await handle.requestPermission({ mode: 'readwrite' }) !== 'granted') throw new Error('未获得文件写入权限，修改尚未保存。');
-        await fileSave(handle, id, values);
-        try { await storedHandle(handle); }
-        catch {
-          // 文件已写入，先同步当前页的编辑基线，避免切换模块后用旧值覆盖本次保存。
-          for (const path of touched) put(SA.MODULES[id], path, controls.get(path)());
-          if (Object.keys(values).length) SA.MODULE_OVERRIDES[id] = values;
-          else delete SA.MODULE_OVERRIDES[id];
-          touched.clear(); saving = false; updateDirty(); filterList();
-          $('hero').querySelector('h2').textContent = SA.MODULES[id].name;
-          notice('本次已保存到 js/modules.js，但浏览器未能记住文件。当前页面可继续一键保存；刷新后可能需要重新选择文件。', 'warn');
-          return;
-        }
+      const response = await fetch('/__modules/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, changes: edits }) });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || `保存失败（HTTP ${response.status}）`);
+      // 服务端成功后再更新内存和浏览器展示；失败时控件内容可直接重试。
+      for (const path of touched) {
+        const read = controls.get(path);
+        if (read) put(SA.MODULES[id], path, read());
       }
-      sessionStorage.setItem('module-editor-success', `${SA.MODULES[id].name} 已保存到 js/modules.js。重新打开的游戏页面会使用新属性。`);
-      location.reload();
+      if (Object.hasOwn(edits, 'desc')) delete SA.MODULES[id].descTemplate;
+      SA.Config.clear('modules');
+      touched.clear();
+      notice(`${SA.MODULES[id].name} 已保存到 config/modules.json。重新打开的游戏页面会使用新属性。`, 'ok');
+      $('hero').querySelector('h2').textContent = SA.MODULES[id].name;
+      filterList();
     } catch (error) {
-      notice(error.name === 'AbortError' ? '已取消选择文件，修改仍留在页面。' : error.message || String(error), 'bad');
-      saving = false; updateDirty();
-    }
+      notice(error.message || String(error), 'bad');
+    } finally { saving = false; updateDirty(); }
   }
   async function init() {
-    if (!Object.keys(schema).length || !SA.MODULE_DEFAULTS || !SA.validateModuleOverrides) {
+    if (!Object.keys(schema).length || !SA.validateModuleOverrides) {
       notice('模块字段规则尚未加载，无法编辑。', 'bad'); $('save').disabled = true; return;
     }
     $('category').append(new Option('全部类别', ''));
@@ -269,18 +183,12 @@
     }, true);
     window.addEventListener('beforeunload', event => { if (changed() && !saving) { event.preventDefault(); event.returnValue = ''; } });
     select(sessionStorage.getItem('module-editor-selected') || ids[0]);
-    const success = sessionStorage.getItem('module-editor-success'); sessionStorage.removeItem('module-editor-success');
-    if (!usesService()) try { handle = await storedHandle(); } catch { /* 不支持 IndexedDB 时仍可首次选择文件。 */ }
     try {
       const response = await fetch('/__modules/status', { cache: 'no-store' });
-      service = response.ok && !!(await response.json()).ok;
-    } catch { service = false; }
-    ready = true; updateDirty();
-    if (usesService() && !service) notice('本机模块保存服务不可用。请通过 python tools/serve.py 打开工作台；当前修改仍留在页面。', 'bad');
-    else if (success) notice(success, 'ok');
-    else if (service) notice('本地写入服务已连接。修改后点“一键保存”即可更新 js/modules.js。', 'ok');
-    else if (window.showOpenFilePicker) notice(handle ? '已记住模块文件。修改后点“一键保存”即可写入。' : '首次保存时请选择本项目的 js/modules.js；浏览器授权后即可一键保存。', 'warn');
-    else notice('浏览器不支持直接写文件。请使用 Chrome 或 Edge，或通过 tools/serve.py 启动本地服务。', 'warn');
+      if (!response.ok || !(await response.json()).ok) throw new Error('本机模块保存服务不可用。');
+      ready = true; updateDirty();
+      notice('本地写入服务已连接；一键保存会直接更新 config/modules.json。', 'ok');
+    } catch (error) { notice(error.message || String(error), 'bad'); }
   }
   init();
 })();

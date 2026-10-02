@@ -18,15 +18,13 @@ from evolve_service import EvolutionService
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_ROOT = os.path.join(ROOT, 'text')
-STAGE_CARS_FILE = os.path.join(ROOT, 'js', 'stage-cars.js')
-MODULES_FILE = os.path.join(ROOT, 'js', 'modules.js')
+CONFIG_ROOT = os.path.join(ROOT, 'config')
+STAGE_CARS_FILE = os.path.join(CONFIG_ROOT, 'stage-cars.json')
+MODULES_FILE = os.path.join(CONFIG_ROOT, 'modules.json')
+TEXT_FILE = os.path.join(CONFIG_ROOT, 'text.json')
+MIGRATION_STATE = os.path.join(ROOT, 'tools', '.config-migration-state.json')
 MODULE_SCHEMA_FILE = os.path.join(ROOT, 'tools', 'module-editor-schema.js')
 MODULE_SAVE_LOCK = threading.Lock()
-PUBLISH_LOCK = threading.Lock()
-PUBLISH_RECEIPT = os.path.join(ROOT, 'tools', 'out', 'publish-preflight.json')
-PUBLISH_FILES = {'js/stage-cars.js': STAGE_CARS_FILE,
-                 'text/steam-arena/zh-CN.json': os.path.join(TEXT_ROOT, 'steam-arena', 'zh-CN.json'),
-                 'js/modules.js': MODULES_FILE}
 SAFE_PART = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 MAX_BODY = 2 * 1024 * 1024
 EVOLUTION = EvolutionService(ROOT)
@@ -106,123 +104,59 @@ def _validate_module_overrides(fields, overrides, module_id, allowed_ids):
 
 
 
-def _stage_cars_content(payload):
-    """沿用原工作台的唯一 JS 生成器。"""
-    records = payload['records']
-    targets = payload.get('targets', [f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)])
-    # 仍开着的旧工作台可能提交旧序章编号；校验后将铲斗关顺延，保留其构筑。
-    if payload.get('campaignLayout', 1) == 1 and '0:1' in records:
-        records = dict(records)
-        old = records.pop('0:1')
-        records['0:2'] = dict(old, id='0:2') if old else old
-    data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': targets, 'records': records}, ensure_ascii=False, indent=2)
-    helper = r'''SA.StageCars = (() => {
-  const data = SA.STAGE_CARS;
-  const keyOf = (chapter, stage) => `${chapter}:${stage}`;
-  const targetKeys = () => [...(data.targets || [])];
-  const get = (chapter, stage) => data.records && data.records[keyOf(chapter, stage)] || null;
-  const isLocked = (chapter, stage) => !!get(chapter, stage)?.locked;
-  // 规则指纹只来自后台版本，不把用户的手工数据算进去。
-  const ruleFingerprint = () => String(SA.RULES_VERSION || SA.BUILD_SYS || 'rules-unknown');
-  function cellsOf(vehicle) {
-    const cells = [];
-    SA.V.each(vehicle, (cell, row, col, layer) => cells.push([layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0]));
-    return cells;
-  }
-  function vehicle(record, name) {
-    if (!record) return null;
-    if (Array.isArray(record.cells) && typeof SA.V.fromCells === 'function') return SA.V.fromCells(name || record.name || '手工关卡车', record.cells);
-    if (record.code && typeof SA.V.decode === 'function') return SA.V.decode(record.code);
-    return null;
-  }
-  function merge(base, chapter, stage) {
-    const record = get(chapter, stage);
-    if (!record) return { ...base, source: 'original', locked: false, stageCar: null };
-    const out = { ...base };
-    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (record[field] !== undefined) out[field] = record[field];
-    out.source = 'manual'; out.locked = record.locked !== false; out.stageCar = record; out.manualVersion = record.updatedAt || record.version || null; out.vehicle = vehicle(record, out.name);
-    return out;
-  }
-  function applyToCampaign() {
-    if (!Array.isArray(SA.CAMPAIGN)) return;
-    for (const key of targetKeys()) {
-      const [chapter, stage] = key.split(':').map(Number), record = get(chapter, stage), base = SA.CAMPAIGN[chapter]?.stages?.[stage];
-      if (!record || !base) continue;
-      const out = merge(base, chapter, stage);
-      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (out[field] !== undefined) base[field] = out[field];
-      base.vehicle = out.vehicle; base.source = 'manual'; base.locked = out.locked; base.stageCar = record;
-    }
-  }
-  function makeRecord(chapter, stage, base, vehicleValue, meta = {}) {
-    const stats = SA.V.stats(vehicleValue);
-    return {
-      version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
-      style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
-      prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
-      rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
-      rewardMoney: meta.rewardMoney === undefined ? (base.rewardMoney !== false) : !!meta.rewardMoney,
-      victoryRepairFree: meta.victoryRepairFree === undefined ? (base.victoryRepairFree === true) : !!meta.victoryRepairFree,
-      name: meta.name || base.name || vehicleValue.name, pilot: meta.pilot || base.pilot || '', blurb: meta.blurb ?? base.blurb ?? '', weakness: meta.weakness ?? base.weakness ?? '',
-      source: 'manual', locked: meta.locked !== false, updatedAt: new Date().toISOString(), rules: ruleFingerprint(),
-      analysis: { rating: stats.rating, value: stats.value, weight: stats.weight, drive: stats.drive, water: stats.water, overheat: stats.overheat, dps: stats.dps, hp: stats.hp },
-    };
-  }
-  function validate(record, chapter, stage, vehicleValue) {
-    const out = { ok: false, warnings: [], errors: [], stats: null };
-    if (!vehicleValue) { out.errors.push('没有可分析的载具'); return out; }
-    const stats = SA.V.stats(vehicleValue); out.stats = stats;
-    if (!stats.canDeploy) out.errors.push(...(stats.problems || ['载具不能出战']));
-    if (!record || !Array.isArray(record.cells) || !record.cells.length) out.errors.push('没有模块清单');
-    const allowed = new Set(SA.CAMP_START?.mods || []), base = SA.CAMPAIGN?.[chapter]?.stages?.[stage];
-    if (SA.STARTER && SA.V?.fromAscii) {
-      const starter = SA.V.fromAscii('开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
-      SA.V.each(starter, cell => allowed.add(cell.id));
-    }
-    // 开局车的 ASCII 车体用 K 表示驾驶舱，正式模块清单使用 cockpit；两者都属于开局可用部件。
-    allowed.add('cockpit');
-    for (let ci = 0; ci <= chapter; ci++) {
-      const ch = SA.CAMPAIGN[ci], stop = ci === chapter ? stage : ch.stages.length;
-      for (let si = 0; si < stop; si++) for (const id of ch.stages[si].unlock?.mods || []) allowed.add(id);
-      if (ci < chapter) for (const id of ch.unlock?.mods || []) allowed.add(id);
-    }
-    for (const id of record?.unlock?.mods || []) allowed.add(id);
-    for (const loot of record?.uniqueLoot || []) if (loot?.id) allowed.add(loot.id);
-    if (base?.spec?.reward) allowed.add(base.spec.reward);
-    for (const row of base?.subs || []) if (row?.[2]) allowed.add(row[2]);
-    for (const cell of record?.cells || []) if (cell && SA.MODULES[cell[3]] && !allowed.has(cell[3]) && !record.boss) out.warnings.push(`使用了该关尚未解锁的模块：${cell[3]}`);
-    out.ok = out.errors.length === 0;
-    return out;
-  }
-  applyToCampaign();
-  return { data, keyOf, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
-})();
-'''
-    content = '// 关卡车手工设计数据（由 tools/stage-editor.html 写入，请勿手工编辑已保存记录）。\nwindow.SA = window.SA || {};\nSA.STAGE_CARS = ' + data + ';\n' + helper
-    return content
-
-
-def _file_hash(path):
-    """回执对正式文件的原始字节取指纹，打包工具按同一规则核对。"""
-    with open(path, 'rb') as stream:
-        return hashlib.sha256(stream.read()).hexdigest()
-
-
 def _stage_data():
-    """只解析既有生成器写出的固定 JSON 赋值，不执行 JS。"""
+    """读取单一关卡内容源。"""
     with open(STAGE_CARS_FILE, 'r', encoding='utf-8') as stream:
-        source = stream.read()
-    matched = re.search(r'\bSA\.STAGE_CARS\s*=\s*(\{.*?\})\s*;\s*SA\.StageCars\s*=', source, re.DOTALL)
-    if not matched:
-        raise ValueError('正式关卡车数据格式不合法')
-    return json.loads(matched.group(1))
+        return json.load(stream)
 
 
-def _publish_state():
-    """返回预检页需要的固定正式数据和三个文件的 SHA-256。"""
-    with open(PUBLISH_FILES['text/steam-arena/zh-CN.json'], 'r', encoding='utf-8') as stream:
-        text_data = json.load(stream)
-    return {'stageCars': _stage_data(), 'text': text_data,
-            'files': {name: _file_hash(path) for name, path in PUBLISH_FILES.items()}}
+def _json_file(path):
+    with open(path, 'r', encoding='utf-8') as stream:
+        return json.load(stream)
+
+
+def _write_json(path, data):
+    _atomic_bytes(path, (json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8'))
+
+
+def _merge_fields(target, changes):
+    """仅合并工作台指定的模块字段，保留外观及未知扩展字段。"""
+    for key, value in changes.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _merge_fields(target[key], value)
+        else:
+            target[key] = value
+
+
+def _migrate_stage(current, raw):
+    payload = json.loads(raw)
+    if not isinstance(payload, dict) or not isinstance(payload.get('records'), dict):
+        raise ValueError('旧关卡车缓存格式不合法')
+    records = dict(current['records'])
+    for key, record in payload['records'].items():
+        ci, sep, si = key.partition(':')
+        if not sep or not ci.isdigit() or not si.isdigit() or int(ci) >= 6 or int(si) >= 3:
+            raise ValueError('旧关卡编号不合法')
+        if (payload.get('campaignLayout') or 1) < 2 and key == '0:1':
+            key = '0:2'
+        if record is None:
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get('cells'), list):
+            raise ValueError('旧关卡记录不合法')
+        previous = records[key]
+        records[key] = {**previous, **record, 'id': key}
+        for field in ('rows', 'sides', 'elite', 'subs'):
+            records[key].pop(field, None)
+    return {**current, 'records': records}
+
+
+def _migrate_text(current, raw):
+    payload = json.loads(raw)
+    if not isinstance(payload, dict) or not isinstance(payload.get('values'), dict):
+        raise ValueError('旧文字缓存格式不合法')
+    values = {**current.get('values', {}), **payload['values']}
+    hidden = sorted(set(current.get('removedElements', [])) | set(payload.get('removedElements', [])))
+    return {**current, 'values': values, 'removedElements': hidden}
 
 
 def _atomic_bytes(path, content):
@@ -237,61 +171,6 @@ def _atomic_bytes(path, content):
         if temporary and os.path.exists(temporary):
             os.unlink(temporary)
 
-
-def _validate_publish(payload, stage, text_data):
-    """写文件之前完整校验差异和来源，防止部分非法请求改动正式数据。"""
-    if not isinstance(payload, dict) or payload.get('version') != 1 or set(payload) != {'version', 'sources', 'stageRecords', 'textValues', 'removedElements'}:
-        raise ValueError('归档请求格式不合法')
-    sources = payload['sources']
-    if (not isinstance(sources, list) or len(sources) > 16 or
-            any(not isinstance(item, dict) or set(item) != {'kind', 'url', 'exportedAt'} or
-                item['kind'] not in ('current-origin', 'author-bundle', 'text-export', 'formal-files') or
-                not all(isinstance(item[k], str) and 0 < len(item[k]) <= 2048 for k in ('url', 'exportedAt'))
-                for item in sources)):
-        raise ValueError('来源清单不合法')
-    records = payload['stageRecords']
-    values = payload['textValues']
-    removed = payload['removedElements']
-    if not isinstance(records, dict) or len(records) > 18 or not isinstance(values, dict) or len(values) > 10000 or not isinstance(removed, dict) or len(removed) > 10000:
-        raise ValueError('差异清单格式不合法')
-    allowed = {f'{chapter}:{index}' for chapter in range(6) for index in range(3)}
-    for key, record in records.items():
-        if key not in allowed or (record is not None and
-                (not isinstance(record, dict) or record.get('source') != 'manual' or
-                 not isinstance(record.get('cells'), list) or len(record['cells']) > 256 or
-                 len(json.dumps(record, ensure_ascii=False, allow_nan=False)) > 500000)):
-            raise ValueError(f'关卡记录不合法：{key}')
-    for key, value in values.items():
-        if (not isinstance(key, str) or not key or len(key) > 240 or '..' in key or
-                any(ord(ch) < 32 for ch in key) or
-                value is not None and (not isinstance(value, str) or len(value) > 10000)):
-            raise ValueError(f'文本差异不合法：{key}')
-    for key, value in removed.items():
-        if (not isinstance(key, str) or not key or len(key) > 2048 or
-                any(ord(ch) < 32 for ch in key) or not isinstance(value, bool)):
-            raise ValueError('隐藏元素差异不合法')
-    merged_records = dict(stage.get('records', {}))
-    for key, record in records.items():
-        if record is None:
-            merged_records.pop(key, None)
-        else:
-            merged_records[key] = record
-    merged_stage = dict(stage, version=1, campaignLayout=2, records=merged_records) if records else stage
-    merged_values = dict(text_data.get('values', {}))
-    for key, value in values.items():
-        if value is None:
-            merged_values.pop(key, None)
-        else:
-            merged_values[key] = value
-    hidden = set(text_data.get('removedElements', []))
-    for key, value in removed.items():
-        (hidden.add if value else hidden.discard)(key)
-    merged_text = (dict(text_data, version=1, game='steam-arena', locale='zh-CN',
-                        values=merged_values, removedElements=sorted(hidden))
-                   if values or removed else text_data)
-    if values or removed:
-        merged_text.update(updatedAt=datetime.now(timezone.utc).isoformat(), edited=True)
-    return merged_stage, merged_text
 
 class NoCache(http.server.SimpleHTTPRequestHandler):
     """静态预览服务器，为文本、手工关卡车和进化任务提供受限 JSON 接口。"""
@@ -329,219 +208,164 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _text_file(self, game, locale):
-        # 文件名只由两个安全片段组成，接口不会接受任意路径，避免路径穿越覆盖项目文件。
-        if not SAFE_PART.fullmatch(game or '') or not SAFE_PART.fullmatch(locale or ''):
-            return None
-        folder = os.path.join(TEXT_ROOT, game)
-        path = os.path.abspath(os.path.join(folder, f'{locale}.json'))
-        if os.path.commonpath([TEXT_ROOT, path]) != os.path.abspath(TEXT_ROOT):
-            return None
-        return path
+    def _request_json(self):
+        """所有写端点共用请求体大小与 JSON 校验。"""
+        length = int(self.headers.get('Content-Length', '0'))
+        if length <= 0 or length > MAX_BODY:
+            raise ValueError('请求体过大或为空')
+        payload = json.loads(self.rfile.read(length).decode('utf-8'))
+        if not isinstance(payload, dict):
+            raise ValueError('JSON 顶层必须是对象')
+        return payload
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path == '/__publish/state':
-            if not self._allow_local_write():
+        try:
+            if parsed.path == '/__modules/status':
+                self._json(200, {'ok': True})
                 return
-            try:
-                self._json(200, _publish_state())
-            except (OSError, ValueError) as error:
-                self._json(500, {'error': str(error)})
-            return
-        if parsed.path == '/__modules/status':
-            self._json(200, {'ok': True})
-            return
-        if parsed.path in ('/__evolve/config', '/__evolve/job'):
-            try:
+            if parsed.path == '/__config/list':
+                if not self._allow_local_write(): return
+                self._json(200, {'names': sorted(name[:-5] for name in os.listdir(CONFIG_ROOT)
+                                                  if name.endswith('.json') and SAFE_PART.fullmatch(name[:-5]))})
+                return
+            if parsed.path in ('/__evolve/config', '/__evolve/job'):
                 self._json(200, EVOLUTION.catalog() if parsed.path.endswith('/config') else EVOLUTION.snapshot())
-            except (OSError, ValueError, TimeoutError) as error:
-                self._json(500, {'error': str(error)})
-            return
-        if parsed.path == '/__text/load':
-            query = parse_qs(parsed.query)
-            path = self._text_file(query.get('game', [''])[0], query.get('locale', [''])[0])
-            if not path:
-                self._json(400, {'error': 'game 或 locale 不合法'})
                 return
-            if not os.path.isfile(path):
-                self._json(404, {'error': '文本文件尚未创建'})
+            if parsed.path == '/__text/load':
+                query = parse_qs(parsed.query)
+                if query.get('game', [''])[0] != 'steam-arena' or query.get('locale', [''])[0] != 'zh-CN':
+                    self._json(400, {'error': 'game 或 locale 不合法'})
+                else: self._json(200, _json_file(TEXT_FILE))
                 return
-            try:
-                with open(path, 'r', encoding='utf-8') as stream:
-                    self._json(200, json.load(stream))
-            except (OSError, ValueError) as error:
-                self._json(500, {'error': f'读取文本文件失败：{error}'})
-            return
-        super().do_GET()
+            super().do_GET()
+        except (OSError, ValueError, TimeoutError) as error:
+            self._json(500, {'error': str(error)})
 
     def do_POST(self):
-        parsed = urlparse(self.path)
-        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__evolve/run', '/__evolve/stop', '/__publish/archive') and not self._allow_local_write():
-            return
-        if parsed.path == '/__publish/archive':
-            self._publish_archive()
-            return
-        if parsed.path == '/__modules/save':
-            self._save_modules()
-            return
-        if parsed.path in ('/__evolve/run', '/__evolve/stop'):
-            self._evolve_request(parsed.path)
-            return
-        if parsed.path == '/__stage-cars/save':
-            self._save_stage_cars()
-            return
-        if parsed.path != '/__text/save':
+        endpoint = urlparse(self.path).path
+        allowed = ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__config/save',
+                   '/__config/migrate', '/__evolve/run', '/__evolve/stop', '/__publish/archive')
+        if endpoint not in allowed:
             self._json(404, {'error': '接口不存在'})
             return
-        try:
-            length = int(self.headers.get('Content-Length', '0'))
-        except ValueError:
-            length = 0
-        if length <= 0 or length > MAX_BODY:
-            self._json(413, {'error': '请求体过大或为空'})
+        if not self._allow_local_write(): return
+        if endpoint == '/__publish/archive':
+            self._json(410, {'error': '旧归档写入已停用；作者数据现由配置文件直接保存'})
+            return
+        if endpoint in ('/__evolve/run', '/__evolve/stop'):
+            self._evolve_request(endpoint)
             return
         try:
-            payload = json.loads(self.rfile.read(length).decode('utf-8'))
-        except (UnicodeDecodeError, ValueError):
-            self._json(400, {'error': '请求不是有效 JSON'})
-            return
-        if not isinstance(payload, dict):
-            self._json(400, {'error': 'JSON 顶层必须是对象'})
-            return
-        game = payload.get('game')
-        locale = payload.get('locale')
-        values = payload.get('values')
-        removed_elements = payload.get('removedElements', [])
-        active_version = payload.get('activeVersion')
-        history = payload.get('history', [])
-        path = self._text_file(game, locale)
-        if not path:
-            self._json(400, {'error': 'game 或 locale 不合法'})
-            return
-        if payload.get('version', 1) != 1 or not isinstance(values, dict) or len(values) > 10000:
-            self._json(400, {'error': '文本数据格式不合法'})
-            return
-        # v1 文本文件允许新增元素隐藏清单；旧文件没有该字段时仍按空清单读取。
-        if (not isinstance(removed_elements, list) or len(removed_elements) > 10000
-                or any(not isinstance(item, str) or not item or len(item) > 2048
-                       or any(ord(ch) < 32 for ch in item) for item in removed_elements)):
-            self._json(400, {'error': '元素删除清单格式不合法'})
-            return
-        for key, value in values.items():
-            if not isinstance(key, str) or not key or len(key) > 240 or '..' in key or any(ord(ch) < 32 for ch in key):
-                self._json(400, {'error': '存在不合法的文本 key'})
-                return
-            if not isinstance(value, str) or len(value) > 10000:
-                self._json(400, {'error': '文本值必须是长度不超过 10000 的字符串'})
-                return
-        # 旧 v1 文件可省略版本字段；新版历史逐项复用现有文案与隐藏路径边界。
-        def valid_version(item):
-            return isinstance(item, dict) and isinstance(item.get('id'), str) and 0 < len(item['id']) <= 80 \
-                and isinstance(item.get('at'), str) and 0 < len(item['at']) <= 80
+            payload = self._request_json()
+            if endpoint == '/__modules/save': result = self._save_modules(payload)
+            elif endpoint == '/__stage-cars/save': result = self._save_stage_cars(payload)
+            elif endpoint == '/__text/save': result = self._save_text(payload)
+            elif endpoint == '/__config/save': result = self._save_config(payload)
+            else: result = self._migrate(payload)
+            self._json(200, {'ok': True, **result})
+        except (OSError, UnicodeError, ValueError, KeyError, TypeError) as error:
+            self._json(400 if isinstance(error, (ValueError, KeyError, TypeError, UnicodeError)) else 500,
+                       {'error': str(error)})
 
-        def valid_snapshot(item):
-            entries = item.get('values')
-            paths = item.get('removedElements')
-            return isinstance(entries, dict) and len(entries) <= 10000 \
-                and all(isinstance(k, str) and 0 < len(k) <= 240 and '..' not in k
-                        and not any(ord(ch) < 32 for ch in k)
-                        and isinstance(v, str) and len(v) <= 10000 for k, v in entries.items()) \
-                and isinstance(paths, list) and len(paths) <= 10000 \
-                and all(isinstance(p, str) and 0 < len(p) <= 2048
-                        and not any(ord(ch) < 32 for ch in p) for p in paths)
-
-        if (active_version is not None and not valid_version(active_version)) or not isinstance(history, list) \
-                or len(history) > 20 or any(not valid_version(item) or not valid_snapshot(item) for item in history) \
-                or (history and active_version is None):
-            self._json(400, {'error': '文本历史版本格式不合法'})
-            return
-        # 旧客户端仍可能提交按时间保存的历史；按时间合并文字后只写一个编辑稿。
-        # 顶层是最终编辑态，元素显隐只取顶层快照，避免已恢复元素再被旧记录隐藏。
-        merged_values = {}
-        for item in sorted(enumerate(history), key=lambda pair: (pair[1]['at'], pair[0])):
-            merged_values.update(item[1]['values'])
-        merged_values.update(values)
-        document = {
-            'version': 1,
-            'game': game,
-            'locale': locale,
-            'updatedAt': datetime.now(timezone.utc).isoformat(),
-            'edited': True,
-            'values': merged_values,
-            'removedElements': removed_elements,
-        }
-        try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            # 同目录临时文件 + replace，避免浏览器刷新时读到半个 JSON。
-            fd, temporary = tempfile.mkstemp(prefix='.text-', suffix='.json', dir=os.path.dirname(path))
-            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-                json.dump(document, stream, ensure_ascii=False, indent=2)
-                stream.write('\n')
-            os.replace(temporary, path)
-        except OSError as error:
-            try:
-                if temporary:
-                    os.unlink(temporary)
-            except (OSError, UnboundLocalError):
-                pass
-            self._json(500, {'error': f'写入文本文件失败：{error}'})
-            return
-        self._json(200, {'ok': True, 'file': os.path.relpath(path, ROOT).replace(os.sep, '/'), 'revision': document['updatedAt']})
-
-    def _save_modules(self):
-        """仅替换模块覆盖块中的一个 ID，保持原表、getter、注释及其他模块原样。"""
-        try:
-            length = int(self.headers.get('Content-Length', '0'))
-        except ValueError:
-            length = 0
-        if length <= 0 or length > MAX_BODY:
-            self._json(413, {'error': '请求体过大或为空'})
-            return
-        try:
-            payload = json.loads(self.rfile.read(length).decode('utf-8'))
-            if not isinstance(payload, dict) or set(payload) != {'id', 'overrides'}:
-                raise ValueError('模块保存数据格式不合法')
-            module_id = payload['id']
-            if not isinstance(module_id, str):
-                raise ValueError('模块 ID 不合法')
+    def _save_modules(self, payload):
+        """直接修改当前模块记录；默认基线不参与日常保存。"""
+        module_id, changes = payload.get('id'), payload.get('changes')
+        with MODULE_SAVE_LOCK:
+            data = _json_file(MODULES_FILE)
+            if not isinstance(module_id, str) or module_id not in data.get('MODULE_ORDER', []):
+                raise ValueError('模块 ID 不存在')
             with open(MODULE_SCHEMA_FILE, 'r', encoding='utf-8') as stream:
                 schema_source = stream.read()
             schema, _, _ = _module_json_block(schema_source, '// MODULE_EDITOR_SCHEMA_START',
                                                '// MODULE_EDITOR_SCHEMA_END', 'SA.MODULE_EDITOR_SCHEMA')
-            # 模块 ID 从现有顺序表取白名单；工作台不能新增、重排或重命名模块 ID。
-            with MODULE_SAVE_LOCK:
-                with open(MODULES_FILE, 'r', encoding='utf-8', newline='') as stream:
-                    source = stream.read()
-                order = re.search(r'SA\.MODULE_ORDER\s*=\s*\[(.*?)\];', source, re.DOTALL)
-                allowed_ids = set(re.findall(r"'([A-Za-z0-9_]+)'", order.group(1))) if order else set()
-                if module_id not in allowed_ids:
-                    raise ValueError('模块 ID 不存在')
-                _validate_module_overrides(schema['fields'], payload['overrides'], module_id, allowed_ids)
-                records, before, after = _module_json_block(source, '// MODULE_EDITOR_OVERRIDES_START',
-                                                              '// MODULE_EDITOR_OVERRIDES_END', 'SA.MODULE_OVERRIDES')
-                if not isinstance(records, dict):
-                    raise ValueError('模块覆盖表不合法')
-                if payload['overrides']:
-                    records[module_id] = payload['overrides']
-                else:
-                    records.pop(module_id, None)
-                body = 'SA.MODULE_OVERRIDES = ' + json.dumps(records, ensure_ascii=False, separators=(',', ':'), allow_nan=False) + ';'
-                newline = '\r\n' if '\r\n' in source else '\n'
-                content = before + '// MODULE_EDITOR_OVERRIDES_START' + newline + body + newline + '// MODULE_EDITOR_OVERRIDES_END' + after
-                temporary = None
-                try:
-                    fd, temporary = tempfile.mkstemp(prefix='.modules-', suffix='.js', dir=os.path.dirname(MODULES_FILE))
-                    with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
-                        stream.write(content)
-                    os.replace(temporary, MODULES_FILE)
-                finally:
-                    if temporary and os.path.exists(temporary):
-                        os.unlink(temporary)
-        except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError) as error:
-            self._json(400, {'error': str(error)})
-            return
-        self._json(200, {'ok': True, 'id': module_id, 'file': 'js/modules.js'})
+            _validate_module_overrides(schema['fields'], changes, module_id, set(data['MODULE_ORDER']))
+            current = data['MODULES'][module_id]
+            _merge_fields(current, changes)
+            if 'desc' in changes:
+                current.pop('descTemplate', None)
+            if current.get('minMt', 1) > current.get('maxMt', len(data['MATS']) - 1):
+                raise ValueError('最低材料阶不能超过最高材料阶')
+            _write_json(MODULES_FILE, data)
+        return {'id': module_id, 'file': 'config/modules.json'}
+
+    def _save_stage_cars(self, payload):
+        """只覆盖被编辑的一关，其余十七关和顶层扩展字段原样保留。"""
+        record = payload.get('record')
+        if not isinstance(record, dict) or not isinstance(record.get('id'), str):
+            raise ValueError('关卡记录不合法')
+        key = record['id']
+        with MODULE_SAVE_LOCK:
+            data = _json_file(STAGE_CARS_FILE)
+            if key not in data.get('targets', []): raise ValueError('关卡编号不合法')
+            if record.get('source') != 'manual' or not isinstance(record.get('cells'), list) or len(record['cells']) > 256:
+                raise ValueError('手工关卡记录不合法')
+            if len(json.dumps(record, ensure_ascii=False, allow_nan=False)) > 500000:
+                raise ValueError('关卡记录过大')
+            data['records'][key] = {**data['records'][key], **record}
+            for field in ('rows', 'sides', 'elite', 'subs'):
+                data['records'][key].pop(field, None)
+            _write_json(STAGE_CARS_FILE, data)
+        return {'id': key, 'file': 'config/stage-cars.json'}
+
+    def _save_text(self, payload):
+        """只接受当前文本稿，不按历史版本回放覆盖新稿。"""
+        if payload.get('game') != 'steam-arena' or payload.get('locale') != 'zh-CN':
+            raise ValueError('game 或 locale 不合法')
+        values = payload.get('values')
+        hidden = payload.get('removedElements')
+        if not isinstance(values, dict) or len(values) > 10000 or not isinstance(hidden, list) or len(hidden) > 10000:
+            raise ValueError('文本数据格式不合法')
+        if any(not isinstance(k, str) or not k or len(k) > 240 or not isinstance(v, str) or len(v) > 10000
+               for k, v in values.items()): raise ValueError('文本值不合法')
+        if any(not isinstance(item, str) or not item or len(item) > 2048 for item in hidden):
+            raise ValueError('隐藏元素路径不合法')
+        with MODULE_SAVE_LOCK:
+            data = _json_file(TEXT_FILE)
+            data.update(values=values, removedElements=hidden, updatedAt=datetime.now(timezone.utc).isoformat(), edited=True)
+            if 'storyMeta' in payload: data['storyMeta'] = payload['storyMeta']
+            _write_json(TEXT_FILE, data)
+        return {'file': 'config/text.json', 'revision': data['updatedAt']}
+
+    def _save_config(self, payload):
+        """薄通用入口供新增参数编辑器写整份已存在的配置。"""
+        name, data = payload.get('name'), payload.get('data')
+        if not isinstance(name, str) or not SAFE_PART.fullmatch(name) or not isinstance(data, dict):
+            raise ValueError('配置名称或内容不合法')
+        path = os.path.join(CONFIG_ROOT, name + '.json')
+        if not os.path.isfile(path): raise ValueError('配置不存在')
+        with MODULE_SAVE_LOCK: _write_json(path, data)
+        return {'file': 'config/' + name + '.json'}
+
+    def _migrate(self, payload):
+        """按稳定哈希只迁一次旧作者缓存，避免刷新后旧稿重新覆盖新文件。"""
+        keys = ('steam_arena_stage_cars_local_v1', 'sa-text-steam-arena-zh-CN')
+        if any(key not in keys + ('__shadow', '__returnHash') for key in payload):
+            raise ValueError('迁移请求包含未知数据')
+        raw = {key: payload[key] for key in keys if key in payload}
+        shadow = payload.get('__shadow', {})
+        if not isinstance(shadow, dict) or any(key not in keys for key in shadow):
+            raise ValueError('旧作者缓存来源不合法')
+        if not raw: return {'migrated': False}
+        if any(not isinstance(value, str) or len(value) > MAX_BODY for value in list(raw.values()) + list(shadow.values())):
+            raise ValueError('旧作者数据格式不合法')
+        with MODULE_SAVE_LOCK:
+            seen = _json_file(MIGRATION_STATE) if os.path.isfile(MIGRATION_STATE) else {}
+            if not isinstance(seen, dict): raise ValueError('迁移状态格式不合法')
+            pending = {key: value for key, value in raw.items()
+                       if hashlib.sha256(value.encode('utf-8')).hexdigest() not in seen.get(key, [])}
+            if not pending and not shadow: return {'migrated': False}
+            stage = _migrate_stage(_stage_data(), pending[keys[0]]) if keys[0] in pending else None
+            text_data = _migrate_text(_json_file(TEXT_FILE), pending[keys[1]]) if keys[1] in pending else None
+            if stage is not None: _write_json(STAGE_CARS_FILE, stage)
+            if text_data is not None: _write_json(TEXT_FILE, text_data)
+            for source in (raw, shadow):
+                for key, value in source.items():
+                    hashes = seen.setdefault(key, [])
+                    digest = hashlib.sha256(value.encode('utf-8')).hexdigest()
+                    if digest not in hashes: hashes.append(digest)
+            _write_json(MIGRATION_STATE, seen)
+        return {'migrated': True, 'keys': list(pending)}
 
     def _evolve_request(self, endpoint):
         """仅允许本机同源页面启动固定的模拟程序，不提供通用命令执行接口。"""
@@ -556,123 +380,6 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         except (OSError, ValueError) as error:
             self._json(400, {'error': str(error)})
 
-    def _save_stage_cars(self):
-        """开发者工具的受限写接口：只接受完整记录表，并原子替换 js/stage-cars.js。"""
-        try:
-            length = int(self.headers.get('Content-Length', '0'))
-        except ValueError:
-            length = 0
-        if length <= 0 or length > MAX_BODY:
-            self._json(413, {'error': '请求体过大或为空'})
-            return
-        try:
-            payload = json.loads(self.rfile.read(length).decode('utf-8'))
-        except (UnicodeDecodeError, ValueError):
-            self._json(400, {'error': '请求不是有效 JSON'})
-            return
-        records = payload.get('records') if isinstance(payload, dict) else None
-        if not isinstance(payload, dict) or payload.get('version', 1) != 1 or not isinstance(records, dict) or len(records) > 32:
-            self._json(400, {'error': '关卡车数据格式不合法'})
-            return
-        # 六章各三关均可由工作台保存，键仍需经过下方格式与范围双重校验。
-        allowed_keys = {f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)}
-        targets = payload.get('targets', sorted(allowed_keys))
-        # 旧生成数据可显式带入原目标列表；保留顺序，避免维护 helper 时改动用户范围。
-        if (not isinstance(targets, list) or len(targets) > len(allowed_keys)
-                or any(not isinstance(key, str) or key not in allowed_keys for key in targets)
-                or len(set(targets)) != len(targets)):
-            self._json(400, {'error': '关卡目标列表不合法'})
-            return
-        for key, record in records.items():
-            if not isinstance(key, str) or not re.fullmatch(r'\d{1,2}:\d{1,2}', key):
-                self._json(400, {'error': '关卡键不合法'})
-                return
-            if key not in allowed_keys:
-                self._json(400, {'error': f'{key} 不在战役六章范围内'})
-                return
-            if record is not None:
-                if not isinstance(record, dict) or record.get('source') != 'manual' or not isinstance(record.get('cells'), list):
-                    self._json(400, {'error': f'{key} 记录不合法'})
-                    return
-                if len(record['cells']) > 256 or len(json.dumps(record, ensure_ascii=False)) > 500000:
-                    self._json(413, {'error': f'{key} 记录过大'})
-                    return
-        content = _stage_cars_content(dict(payload, records=records, targets=targets))
-        try:
-            fd, temporary = tempfile.mkstemp(prefix='.stage-cars-', suffix='.js', dir=os.path.dirname(STAGE_CARS_FILE))
-            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-                stream.write(content)
-            os.replace(temporary, STAGE_CARS_FILE)
-        except OSError as error:
-            try:
-                if temporary:
-                    os.unlink(temporary)
-            except (OSError, UnboundLocalError):
-                pass
-            self._json(500, {'error': f'写入关卡车失败：{error}'})
-            return
-        self._json(200, {'ok': True, 'file': 'js/stage-cars.js'})
-
-    def _publish_archive(self):
-        """逐条合并作者差异；备份、重读校验后才签发发行回执。"""
-        backups = {}
-        invalidated = False
-        try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if length <= 0 or length > MAX_BODY:
-                raise ValueError('请求体过大或为空')
-            payload = json.loads(self.rfile.read(length).decode('utf-8'))
-            with PUBLISH_LOCK:
-                state = _publish_state()
-                stage, text_data = _validate_publish(payload, state['stageCars'], state['text'])
-                changed_stage = bool(payload['stageRecords'])
-                changed_text = bool(payload['textValues'] or payload['removedElements'])
-                stage_content = _stage_cars_content(stage).encode('utf-8') if changed_stage else None
-                text_content = (json.dumps(text_data, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8') if changed_text else None
-                # 旧回执先失效；若写入任一步失败，发行工具绝不会误认本次归档成功。
-                if os.path.exists(PUBLISH_RECEIPT):
-                    os.unlink(PUBLISH_RECEIPT)
-                invalidated = True
-                if changed_stage or changed_text:
-                    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-                    backup = os.path.join(ROOT, 'tools', 'out', 'publish-backups', stamp)
-                    os.makedirs(backup, exist_ok=True)
-                    for name in ('js/stage-cars.js', 'text/steam-arena/zh-CN.json'):
-                        if name.startswith('js/') and not changed_stage or name.startswith('text/') and not changed_text:
-                            continue
-                        target = os.path.join(backup, name)
-                        os.makedirs(os.path.dirname(target), exist_ok=True)
-                        shutil.copy2(PUBLISH_FILES[name], target)
-                        backups[name] = target
-                if stage_content is not None:
-                    _atomic_bytes(STAGE_CARS_FILE, stage_content)
-                if text_content is not None:
-                    _atomic_bytes(PUBLISH_FILES['text/steam-arena/zh-CN.json'], text_content)
-                after = _publish_state()
-                if after['stageCars'] != stage or after['text'] != text_data:
-                    raise OSError('写入后重读结果不一致')
-                receipt = {'version': 1, 'archivedAt': datetime.now(timezone.utc).isoformat(),
-                           'scope': '仅核对当前可见来源及显式导入的文件，不代表扫描了整台电脑的浏览器存储',
-                           'sources': payload['sources'], 'files': after['files']}
-                os.makedirs(os.path.dirname(PUBLISH_RECEIPT), exist_ok=True)
-                _atomic_bytes(PUBLISH_RECEIPT, (json.dumps(receipt, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
-            self._json(200, {'ok': True, 'receipt': receipt, 'backup': os.path.relpath(backup, ROOT).replace(os.sep, '/') if changed_stage or changed_text else None})
-        except (OSError, ValueError, UnicodeDecodeError, TypeError, KeyError) as error:
-            # 后一道正式文件或回执写入失败时，把已动过的正式文件恢复到预检前。
-            for name, saved in backups.items():
-                try:
-                    with open(saved, 'rb') as stream:
-                        _atomic_bytes(PUBLISH_FILES[name], stream.read())
-                except OSError:
-                    pass
-            if invalidated:
-                try:
-                    if os.path.exists(PUBLISH_RECEIPT):
-                        os.unlink(PUBLISH_RECEIPT)
-                except OSError:
-                    pass
-            self._json(400 if isinstance(error, (ValueError, UnicodeDecodeError, TypeError, KeyError)) else 500,
-                       {'error': str(error)})
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ const config = require('./evolve-config');
 /** 用小种群比较原整章入口、首关同步入口和 worker 入口的完整选关证据。 */
 async function run() {
   const before = { ...config.population };
-  const files = ['js/content.js', 'js/stage-cars.js', 'tools/evolve-preview.json'];
+  const files = ['config/content.json', 'config/stage-cars.json', 'tools/evolve-preview.json'];
   const originals = files.map(file => fs.readFileSync(path.join(__dirname, '..', file)));
   try {
     Object.assign(config.population, { size: 4, generations: 1 });

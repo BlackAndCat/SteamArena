@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>正式配置编辑</title>
+  <style>
+    body { margin: 24px auto; max-width: 1100px; padding: 0 20px; font: 15px/1.5 sans-serif; color: #242424; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    h1 { font-size: 22px; margin: 0 12px 0 0; }
+    select, button { font: inherit; padding: 7px 10px; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 70vh; padding: 12px; font: 13px/1.45 monospace; tab-size: 2; }
+    #status { min-height: 24px; margin: 10px 0; }
+    #status.error { color: #a72020; }
+    #status.ok { color: #176a31; }
+  </style>
+  <script src="../js/config.js"></script>
+  <script src="config-editor.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>正式配置编辑</h1>
+    <label>文件 <select id="name" aria-label="配置文件"></select></label>
+    <button id="save" type="button">保存到配置</button>
+  </header>
+  <p id="status" role="status"></p>
+  <textarea id="source" spellcheck="false" aria-label="配置 JSON"></textarea>
+</body>
+</html>

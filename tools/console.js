@@ -79,7 +79,7 @@
   // ---------- 还没重做的工作台、视觉页 ----------
   const TOOLS = {
     'stage-editor': { name: '关卡车工作台（旧版）', url: 'stage-editor.html', old: true, desc: '旧版关卡车工作台；拼装已经搬进「关卡」，这里留着备用' },
-    'publish-preflight': { name: '发行前设计归档', url: 'publish-preflight.html', old: true, desc: '导入各来源作者包，逐项核对并写入正式文件' },
+    'config-editor': { name: '正式配置编辑', url: 'config-editor.html', desc: '直接读取并保存 config 目录里的正式 JSON' },
     evolve: { name: '进化擂台', url: 'evolve.html', old: true, desc: '关卡车进化生成器：选关、强度 × 表现散点、分类网格、候选库' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
     modules: { name: '模块属性', url: 'module-editor.html', old: true, desc: '改模块的文字与玩法属性，保存到模块数据' },
@@ -95,7 +95,7 @@
     { items: [{ id: 'home', name: '总览', path: 'home' }] },
     { group: '战役', items: [
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
-      { id: 'publish-preflight', name: '发行前归档', path: 'open/publish-preflight', tag: 'old' },
+      { id: 'config-editor', name: '正式配置', path: 'open/config-editor', tag: 'new' },
       { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'old' },
       { id: 'selftest', name: '数值自测', path: 'open/selftest', tag: 'old' },
     ] },
@@ -168,7 +168,7 @@
     if (m) return `功能开放 · ${SA.FEATURES[m[1]] || m[1]}`;
     return id;
   }
-  const sceneEdited = (id) => !!SA.Text.get(`story:${id}`, '');
+  const sceneEdited = (id) => sceneLines(id).length > 0;
   const sceneLines = (id) => { try { return SA.StoryData.get(id); } catch (e) { return []; } };
 
   // ---------- 院子闲聊 ----------
@@ -347,7 +347,7 @@
   function stageNotice(res) {
     const warn = res.warnings?.length ? `\n提醒：${res.warnings.join('；')}` : '';
     if (res.filePersisted) return `已写进 js/stage-cars.js，开着的游戏页也换上了。${warn}`;
-    if (res.persisted) return `已存到本机浏览器，开着的游戏页也换上了；没写进 js/stage-cars.js（用 python tools/serve.py 打开后台才会写文件；发行前到「发行前归档」导入作者包）。${warn}`;
+    if (res.persisted) return `只存到了本机浏览器，尚未写入正式配置；请用 python tools/serve.py 打开后台并重试保存。${warn}`;
     return `只在当前页面生效，关掉就没了：浏览器不让存本机。${warn}`;
   }
   let saving = false;
@@ -369,7 +369,7 @@
       if (isTextDirty()) {
         let staged = false;
         try {
-          // 先全部校验，免得一个范围出错时别的已经进了文本草稿
+          // 先全部校验，免得一个范围出错时别的已经进入待写配置。
           for (const scope of textDirty.chat) { const c = chatDrafts.get(scope); if (c && c.mode !== 'inherit') SA.YardChat.validateGroups(c.groups); }
           if (textDirty.settings) SA.YardChat.validateSettings(settingsDraft);
           for (const scope of textDirty.chat) {
@@ -381,16 +381,14 @@
           if (textDirty.settings) { SA.YardChat.setSettings(settingsDraft); staged = true; }
           for (const who of textDirty.tips) { SA.Text.set(`home:tip:${who}`, clickDraft[who]); staged = true; }
           const result = await SA.YardChat.save();   // 写共用文本文件，并通知开着的游戏页
-          // 支持文件选择的浏览器第一次保存要选一下文本文件（文本管理的既有做法），取消了就留着改动
-          if (result && result.cancelled) fails.push(`剧情和闲聊：第一次保存要在弹出的窗口里选 ${SA.Text.file()}，以后就不用再选。这次没选成，改动还在。`);
-          else if (!result || !result.ok) throw result?.error || new Error('写入没有成功，草稿还在浏览器里');
+          if (!result || !result.ok) throw result?.error || new Error('配置写入没有成功');
           else {
             for (const scope of textDirty.chat) chatDrafts.delete(scope);
             textDirty.story.clear(); textDirty.chat.clear(); textDirty.settings = false; textDirty.tips.clear();
             done.push(`剧情和闲聊：已写进 ${SA.Text.file()}`);
           }
         } catch (e) {
-          fails.push(`剧情和闲聊：${staged ? '本机草稿已存，文件还没写入' : '没保存，改动还在页面上'}——${e.message || e}`);
+          fails.push(`剧情和闲聊：${staged ? '配置未写入，修改仍在本页' : '没保存，改动还在页面上'}——${e.message || e}`);
         }
       }
     } finally { saving = false; }
@@ -400,7 +398,7 @@
   }
 
   // ---------- 剧情脚本编辑 ----------
-  // 每改一次都交给 SA.StoryData.set（它负责校验并存进本机草稿），按保存才写进文本文件
+  // 每次编辑经 SA.StoryData.set 校验并留在本页，点击保存才写入正式配置。
   function scriptEditor(id) {
     const cast = Object.entries(SA.STORY.cast || {});
     const coalOf = (who) => (SA.STORY.cast[who] && (SA.STORY.cast[who].coal || SA.STORY.cast[who].name)) || null;
@@ -414,7 +412,7 @@
 
     function commit() {
       const empty = lines.findIndex((l) => !l.text.trim());
-      if (empty >= 0) { err = `第 ${empty + 1} 句还是空的，写完才会存进草稿`; showErr(); return; }
+      if (empty >= 0) { err = `第 ${empty + 1} 句还是空的，写完才能保存`; showErr(); return; }
       try {
         SA.StoryData.set(id, lines.map((l) => ({ text: l.text, who: l.who || undefined, ...(id === 'opening' ? { scene: l.scene || undefined } : {}) })));
         err = ''; textDirty.story.add(id); refreshStatus();
@@ -459,9 +457,9 @@
     function render() {
       const head = el('div.script-head', null,
         el('h3', { text: sceneLabel(id) }), el('code', { text: id }),
-        sceneEdited(id) ? el('span.chip.edited', { text: '已改' }) : el('span.chip', { text: '默认' }),
+        sceneEdited(id) ? el('span.chip.edited', { text: '有台词' }) : el('span.chip', { text: '空场景' }),
         el('span.grow'),
-        armedButton('恢复默认', '再点一次恢复', () => { SA.Text.set(`story:${id}`, ''); textDirty.story.add(id); refreshStatus(); lines = sceneLines(id).map((l) => ({ ...l })); sel = 0; render(); toast('已恢复默认台词，保存后生效'); }, 'btn sm ghost'));
+        armedButton('清空场景', '再点一次清空', () => { SA.Text.set(`story:${id}`, '[]'); textDirty.story.add(id); refreshStatus(); lines = []; sel = 0; render(); toast('场景已清空，保存后生效'); }, 'btn sm ghost'));
       const list = lines.length ? lines.map(row) : [el('div.empty', null, el('b', { text: '这一幕还没有台词' }), '加一句试试。战前 / 战后为空时，游戏里就不插入剧情。')];
       const foot = el('div.script-foot', null,
         cast.map(([k, c]) => el('button.btn.sm', { type: 'button', on: { click: () => add(k) } }, icon('plus'), c.name)),
@@ -1061,23 +1059,12 @@
     el('div.frame-wrap', null, frame));
     return frame;
   }
-  // 作者包（tools/author-content.js）：把本页来源存在浏览器里的关卡车和文字草稿导成一个文件，交给发行前归档
-  function exportAuthor() {
-    if (!window.SAAuthorContent) { toast('没加载 tools/author-content.js', 'bad'); return; }
-    captureGarage();
-    try {
-      SAAuthorContent.download();
-      toast(isDirty() ? '已导出作者包。注意：还有没保存的改动，它们不在包里——先 Ctrl+S 再导出一次。' : '已导出作者包：在「发行前归档」里导入，逐项核对后写进正式文件。', isDirty() ? 'warn' : '');
-    } catch (e) { toast(`导出失败：${e.message || e}`, 'bad'); }
-  }
   VIEWS.open = (rest, m) => {
     const t = TOOLS[rest[0]];
     if (!t) { VIEWS.home([], m); return; }
     let url = t.url;
     if (rest[0] === 'stage-editor' && validKey(rest[1])) url += `?stage=${encodeURIComponent(rest[1])}`;
-    const actions = rest[0] === 'publish-preflight'
-      ? [el('button.btn.sm', { type: 'button', title: '把这个浏览器里的关卡车和文字草稿导成作者包', on: { click: exportAuthor } }, '导出待发布设计')] : [];
-    frameView(m, { title: t.name, url, actions, chips: t.old ? [el('span.chip', { text: '旧版 · 接下来重做' })] : [] });
+    frameView(m, { title: t.name, url, actions: [], chips: t.old ? [el('span.chip', { text: '旧版 · 接下来重做' })] : [] });
   };
 
   // 样机目录：从 tools/labs.js 读登记表
@@ -1153,7 +1140,6 @@
     const add = (group, label, path, extra = '', run) => items.push({ group, label, path, extra, run, hay: `${label} ${extra}`.toLowerCase() });
     NAV.forEach((g) => g.items.forEach((it) => add('页面', it.name, it.path, g.group || '')));
     add('操作', '保存全部改动', null, 'Ctrl+S save', () => saveAll());
-    add('操作', '导出待发布设计（作者包）', null, 'export author 发行 归档', exportAuthor);
     allStages().forEach((k) => {
       const [ci, si] = k.split(',').map(Number), st = stageData(ci, si);
       add('关卡', `${st.code} ${st.name}`, `stage/${k}`, `${st.pilot || ''} ${chShort(st.chapter)} ${st.vehicle?.name || ''}`);

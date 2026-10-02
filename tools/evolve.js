@@ -24,11 +24,13 @@ const config = require('./evolve-config');
 const stageRules = require('./evolve-stage-rules.json');
 const storage = require('./evolve-storage');
 const { createEvaluationPool } = require('./evolve-pool');
+const { install: installConfig } = require('./config-node');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
 // 指纹只纳入后台规则文件；视觉拆分文件不会让候选车报告失效。
-const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js'];
+const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
+  ...fs.readdirSync(path.join(ROOT, 'config')).filter(name => name.endsWith('.json')).sort().map(name => `config/${name}`)];
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // ---------- Node VM：只补游戏脚本启动所需的最小浏览器接口 ----------
@@ -94,6 +96,7 @@ function createGameContext(contextify = false) {
 // contextify 只供运行环境差分检查恢复旧路径；正式预演和 worker 默认使用普通全局对象。
 function loadGame({ contextify = false } = {}) {
   const context = createGameContext(contextify);
+  installConfig(context, ROOT);
   // Node 诊断只需要规则层；不加载 battle-view，避免 debug.step 的无画面检查误触发精灵绘制。
   // 浏览器页面仍按 index / tools/sim.html 的脚本顺序加载 battle-view.js。
   const files = ['js/palette.js', 'js/modules.js', 'js/module-art.js', 'js/dynamics.js', 'js/sprites.js', 'js/legs.js', 'js/vehicle.js',
@@ -1343,9 +1346,9 @@ function outcomeSummary(SA, rows) {
 function healthCheck(games = 4) {
   const { SA } = loadGame();
   const anchors = [
-    SA.V.fromAscii('序章车', SA.CAMPAIGN[0].stages[0].rows, [], 1),
-    SA.V.fromAscii('第一章 Boss', SA.CAMPAIGN[1].stages[2].rows, SA.CAMPAIGN[1].stages[2].sides || [], 1, SA.CAMPAIGN[1].stages[2].elite || [], SA.CAMPAIGN[1].stages[2].subs || []),
-    SA.V.fromAscii('第三章 Boss', SA.CAMPAIGN[3].stages[2].rows, SA.CAMPAIGN[3].stages[2].sides || [], 3, SA.CAMPAIGN[3].stages[2].elite || [], SA.CAMPAIGN[3].stages[2].subs || []),
+    stageFor(SA, 0, 0).vehicle,
+    stageFor(SA, 1, 2).vehicle,
+    stageFor(SA, 3, 2).vehicle,
   ];
   const allRows = [];
   const pairs = [];

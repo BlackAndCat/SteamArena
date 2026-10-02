@@ -15,7 +15,13 @@ async function run() {
   // 无界面夹具要载入真实像素 UI 依赖，才能覆盖退出关卡车设计模式的完整路径。
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/ui-px.js'), 'utf8'), context, { filename: 'js/ui-px.js' });
   context.document.documentElement.style.setProperty = () => {};
-  context.location.protocol = 'file:'; // 回归只写虚拟浏览器存档，不发文件保存请求。
+  // 保存接口只由内存响应，检查真实请求格式而不写项目配置。
+  context.fetch = async (url, options) => {
+    assert.strictEqual(url, '/__stage-cars/save');
+    assert.strictEqual(options.method, 'POST');
+    assert(JSON.parse(options.body).record);
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  };
   SA.S.reset();
   const ci = SA.CAMPAIGN.length - 1, si = SA.CAMPAIGN[ci].stages.length - 1;
   const original = SA.Camp.stage(ci, si);
@@ -49,15 +55,9 @@ async function run() {
   const cleared = SA.StageCars.makeRecord(0, 1, rewardBase, rewardBase.vehicle, { rewardItems: [] });
   SA.STAGE_CARS.records['0:1'] = cleared;
   assert.strictEqual(SA.StageCars.merge(rewardBase, 0, 1).rewardItems.length, 0);
-  const legacyRewardBase = SA.Camp.stage(0, 0);
-  const legacyRewardRecord = SA.StageCars.makeRecord(0, 0, legacyRewardBase, legacyRewardBase.vehicle);
-  delete legacyRewardRecord.rewardItems;
-  delete legacyRewardRecord.rewardMoney;
-  delete legacyRewardRecord.victoryRepairFree;
-  SA.STAGE_CARS.records['0:0'] = legacyRewardRecord;
-  assert.strictEqual(JSON.stringify(SA.StageCars.merge(legacyRewardBase, 0, 0).rewardItems), JSON.stringify(legacyRewardBase.rewardItems));
-  assert.strictEqual(SA.StageCars.merge(legacyRewardBase, 0, 0).rewardMoney, legacyRewardBase.rewardMoney);
-  assert.strictEqual(SA.StageCars.merge(legacyRewardBase, 0, 0).victoryRepairFree, legacyRewardBase.victoryRepairFree);
+  const completeReward = SA.StageCars.makeRecord(0, 0, SA.Camp.stage(0, 0), SA.Camp.stage(0, 0).vehicle);
+  assert(Array.isArray(completeReward.rewardItems) && typeof completeReward.rewardMoney === 'boolean'
+    && typeof completeReward.victoryRepairFree === 'boolean', '正式关卡记录必须保存完整奖励字段');
   SA.STAGE_CARS.records['0:1'] = rewardRecord;
   SA.S.reset();
   SA.S.d.camp.ch = 0; SA.S.d.camp.st = 1;

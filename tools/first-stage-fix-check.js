@@ -15,7 +15,7 @@ function run() {
   const first = SA.Camp.stage(0, 0);
   assert.strictEqual(first.rewardItems?.[0]?.id, 'tank_s');
   assert.strictEqual(first.rewardItems[0].mt, 1);
-  assert(/小水罐/.test(first.unlock.note) && !/机炮|铁装甲/.test(first.unlock.note), '手工关卡旧备注仍误导首胜奖励');
+  assert.strictEqual(first.unlock.note, SA.StageCars.get(0, 0).unlock.note, '首关备注没有沿用正式作者记录');
   const result = SA.Camp.win();
   assert(result.lines.some(line => /小水罐/.test(line)));
   assert.strictEqual(SA.S.d.inv.tank_s, 1, '首胜未实发一只小水罐');
@@ -120,7 +120,13 @@ function run() {
   assert(battle.p.events.fire > shotsBefore, '第一关恢复后按开火键没有发射弹丸');
   const editor = source('editor.js'), help = editor.slice(editor.indexOf('function openHelp() {'), editor.indexOf('// ---------- 绘制 ----------'));
   assert.strictEqual((help.match(/h\('p',/g) || []).length, 3, '车间帮助不是三条');
-  assert(/左键/.test(help) && /右键/.test(help) && /出战/.test(help) && /按住左键稳住准星/.test(help));
+  // 帮助内容以正式 UI 配置为准，编辑器只保留键引用。
+  const ui = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/ui.json'), 'utf8')).messages;
+  const helpLines = ['editor_6be0c3108d82', 'editor_8fed129fc96c', 'editor_997f250d05a7'].map(key => {
+    assert(help.includes(key), `车间帮助未引用 ${key}`);
+    return ui[key];
+  }).join('\n');
+  assert(/左键/.test(helpLines) && /右键/.test(helpLines) && /出战/.test(helpLines) && /按住左键稳住准星/.test(helpLines));
   return { firstReward: SA.S.d.inv.tank_s, legacyBackfillOnce: true, tutorialParts: parts.length, firstStageFired: true, helpItems: 3 };
 }
 

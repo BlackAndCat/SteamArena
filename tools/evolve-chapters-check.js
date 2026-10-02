@@ -11,7 +11,7 @@ const rules = require('./evolve-stage-rules.json');
 
 async function run() {
   const { SA } = evolve.loadGame(), before = { ...config.population };
-  const stageFile = path.join(__dirname, '../js/stage-cars.js'), original = fs.readFileSync(stageFile);
+  const stageFile = path.join(__dirname, '../config/stage-cars.json'), original = fs.readFileSync(stageFile);
   const results = [], references = [];
   let anchors = 0, stages = 0, evaluations = 0;
   // 这四种奖励曾因侧挂支撑或炮口遮挡导致标尺为 null；其余关卡一并防回归。

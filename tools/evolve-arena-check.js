@@ -12,7 +12,7 @@ const { mergeReports, generate } = require('./evolve-service');
 
 async function run() {
   const { SA, context } = evolve.loadGame(), memory = new Map();
-  const stageFile = path.join(__dirname, '../js/stage-cars.js'), originalStageFile = fs.readFileSync(stageFile);
+  const stageFile = path.join(__dirname, '../config/stage-cars.json'), originalStageFile = fs.readFileSync(stageFile);
   memory.set('steam_arena_save', '正式存档哨兵');
   Object.assign(context, { crypto, TextEncoder, Event, dispatchEvent() {}, localStorage: {
     getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) } });

@@ -31,7 +31,7 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
 </style></head>
 <body>
 <h1>数值自测</h1>
-<p class="muted" style="margin:0 0 12px">无画面 AI 对 AI 批量对打，看战役节奏、胜率和评分准不准。玩家那一侧也由 AI 操作（瞄准可调，0.8 ≈ 一般玩家）。改完 <code>js/content.js</code> 或模块数值后刷新本页重跑。参考车定义在 <code>tools/sim.js</code> 的 <code>REF</code>。</p>
+<p class="muted" style="margin:0 0 12px">无画面 AI 对 AI 批量对打，看战役节奏、胜率和评分准不准。玩家那一侧也由 AI 操作（瞄准可调，0.8 ≈ 一般玩家）。改完 <code>config/content.json</code>、<code>config/modules.json</code> 或正式关卡车后刷新本页重跑。参考车定义在 <code>tools/sim.js</code> 的 <code>REF</code>。</p>
 <div class="ctl">
   <label>每组局数 <input id="games" type="number" min="2" max="200" value="50"></label>
   <label>玩家瞄准 <input id="aim" type="number" min="0.2" max="1" step="0.05" value="0.8"></label>
@@ -55,8 +55,8 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
 <div class="muted small" id="prog">&nbsp;</div>
 <div id="out"></div>
 
-<script src="../js/palette.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
-<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/state.js"></script><script src="../js/ui.js"></script>
+<script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/stage-cars.js"></script><script src="../js/state.js"></script><script src="../js/ui.js"></script>
 <script src="../js/camp.js"></script><script src="../js/camp-ui.js"></script><script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script><script src="../js/battle-view.js"></script><script src="../js/battle.js"></script>
 <script src="sim.js"></script>
 </body></html>

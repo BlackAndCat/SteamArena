@@ -154,18 +154,18 @@ function shareGarageCheck() {
 
 function lockedStageCheck() {
   const { SA } = evolve.loadGame();
-  const file = path.join(__dirname, '..', 'js', 'stage-cars.js');
+  const file = path.join(__dirname, '..', 'config', 'stage-cars.json');
   const before = fs.readFileSync(file);
   const original = SA.STAGE_CARS.records;
   const base = SA.CAMPAIGN[0].stages[0];
-  const v = SA.V.fromAscii('锁定夹具', base.rows, base.sides || [], base.mt || 1, base.elite || [], base.subs || []);
+  const v = base.vehicle || SA.V.fromAscii('锁定夹具', base.rows, base.sides || [], base.mt || 1, base.elite || [], base.subs || []);
   SA.STAGE_CARS.records = { '0:0': SA.StageCars.makeRecord(0, 0, base, v, { locked: true }) };
   let result;
   try { result = evolve.applyStagePatch(SA, 0, 0, { rows: ['........', '........', '........', '........', '...K....', '...TT...'] }); }
   finally { SA.STAGE_CARS.records = original; }
   const after = fs.readFileSync(file);
   if (!result || result.applied || result.reason !== '手工锁定，未改动') throw new Error(`锁定关卡补丁未拒绝：${JSON.stringify(result)}`);
-  if (!before.equals(after)) throw new Error('锁定关卡尝试补丁后 stage-cars.js 内容发生变化');
+  if (!before.equals(after)) throw new Error('锁定关卡尝试补丁后正式关卡配置发生变化');
   return { rejected: true, unchanged: true, reason: result.reason };
 }
 

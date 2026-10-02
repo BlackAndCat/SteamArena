@@ -72,19 +72,26 @@ function run() {
     assert.strictEqual(stage.rewardMoney, false, `序章 ${index + 1} 关发金币`);
     assert.strictEqual(stage.victoryRepairFree, true, `序章 ${index + 1} 关收费修理`);
   }
-  // 旧手工记录没有新字段时继承关卡模板；显式设置时以手工记录为准。
+  // 正式记录必须包含结算字段；显式修改时以该记录为准。
   const record = SA.StageCars.get(0, 0);
   assert(record, '缺少序章第一关的手工记录');
-  assert.strictEqual(record.rewardMoney, undefined);
-  assert.strictEqual(record.victoryRepairFree, undefined);
+  // 正式关卡记录必须完整保存结算字段；测试显式编辑后恢复原配置。
+  assert.strictEqual(typeof record.rewardMoney, 'boolean');
+  assert.strictEqual(typeof record.victoryRepairFree, 'boolean');
+  const savedRewardMoney = record.rewardMoney, savedRepairFree = record.victoryRepairFree;
   record.rewardMoney = true; record.victoryRepairFree = false;
   assert.strictEqual(SA.Camp.stage(0, 0).rewardMoney, true, '手工记录未开启金币');
   assert.strictEqual(SA.Camp.stage(0, 0).victoryRepairFree, false, '手工记录未关闭免费修理');
-  delete record.rewardMoney; delete record.victoryRepairFree;
-  assert.strictEqual(SA.Camp.stage(0, 0).rewardMoney, false, '旧手工记录没有继承不发金币');
-  assert.strictEqual(SA.Camp.stage(0, 0).victoryRepairFree, true, '旧手工记录没有继承免费修理');
-  assert.strictEqual(SA.Camp.stage(1, 0).rewardMoney !== false, true, '普通关默认应发金币');
-  assert.strictEqual(SA.Camp.stage(1, 0).victoryRepairFree === true, false, '普通关默认应收费修理');
+  record.rewardMoney = savedRewardMoney; record.victoryRepairFree = savedRepairFree;
+  assert.strictEqual(SA.Camp.stage(0, 0).rewardMoney, savedRewardMoney, '正式金币设置未恢复');
+  assert.strictEqual(SA.Camp.stage(0, 0).victoryRepairFree, savedRepairFree, '正式修理设置未恢复');
+  for (const key of SA.StageCars.targetKeys()) {
+    const [ci, si] = key.split(':').map(Number), settled = SA.Camp.stage(ci, si);
+    assert.strictEqual(typeof settled.rewardMoney, 'boolean', `${key} 缺少金币规则`);
+    assert.strictEqual(typeof settled.victoryRepairFree, 'boolean', `${key} 缺少修理规则`);
+  }
+  assert.strictEqual(SA.Camp.stage(1, 0).rewardMoney, true, '普通关应发金币');
+  assert.strictEqual(SA.Camp.stage(1, 0).victoryRepairFree, false, '普通关应收费修理');
 
   SA.S.reset();
   let entry = SA.S.arenaEntries('camp').find(row => row.next);
@@ -131,7 +138,7 @@ function run() {
 
   // 败北不享受免费修理；重打不结算奖金或战损。
   SA.S.reset();
-  delete record.rewardMoney; delete record.victoryRepairFree;
+  record.rewardMoney = savedRewardMoney; record.victoryRepairFree = savedRepairFree;
   result = play(SA.S.arenaEntries('camp').find(row => row.next), 'loss');
   SA.UI.afterBattle(result);
   assert(!button('免费全部修理'), '败北误用免费修理');

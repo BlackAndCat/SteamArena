@@ -3,34 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>作者设计预检与恢复</title>
-  <style>
-    body { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; font: 16px/1.5 sans-serif; color: #e7e1d5; background: #24221f; }
-    button, input { font: inherit; } button { padding: .4rem .7rem; margin: .2rem; cursor: pointer; }
-    section { margin: 1.2rem 0; padding: 1rem; border: 1px solid #766d5a; }
-    .row { display: flex; gap: .6rem; align-items: flex-start; padding: .5rem 0; border-top: 1px solid #514d45; }
-    .row div { min-width: 0; overflow-wrap: anywhere; } code { color: #eac687; } small { color: #b8b0a1; }
-    pre { overflow: auto; max-height: 10rem; background: #171614; padding: .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-    #status { white-space: pre-wrap; }
-  </style>
+  <title>正式配置编辑</title>
+  <meta http-equiv="refresh" content="0;url=config-editor.html">
+  <script>location.replace('config-editor.html' + location.search + location.hash);</script>
 </head>
 <body>
-  <h1>作者设计预检与恢复</h1>
-  <p>本机 HTTP 工作台保存成功后会更新项目正式文件，发行直接使用这些文件。本页用于核对正式内容，或恢复旧 <code>file:</code> 页面等其他浏览器来源中尚未归档的设计：从原来源导出作者包，再通过本机服务打开此页导入。此页只能看到当前来源的存储，无法扫描其他浏览器资料。</p>
-  <section>
-    <h2>来源</h2>
-    <button id="export">导出当前来源作者包</button>
-    <label>导入作者包或页面文字 JSON <input id="import" type="file" accept=".json,application/json" multiple></label>
-    <p id="sources"></p>
-  </section>
-  <section>
-    <h2>差异选择</h2>
-    <p>差异默认全部选中；不想归档的项目请取消勾选。未勾选内容不会覆盖正式文件。模块属性直接读取正式 <code>js/modules.js</code>，无需导入草稿。</p>
-    <div id="diffs"></div>
-  </section>
-  <button id="archive">归档所选项并生成发行回执</button>
-  <p id="status" role="status"></p>
-  <script src="author-content.js"></script>
-  <script src="publish-preflight.js"></script>
+  <p>工作台已迁至<a href="config-editor.html">正式配置编辑器</a>。</p>
 </body>
 </html>

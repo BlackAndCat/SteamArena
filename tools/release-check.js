@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { install: installConfig } = require('./config-node');
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGE = path.resolve(process.argv[2] && process.argv[2] !== '--campaign-length'
@@ -41,14 +42,19 @@ function runtime(release, memory = new Map(), textDocument = null) {
     localStorage: { getItem: key => memory.get(key) ?? null,
       setItem: (key, value) => memory.set(key, String(value)), removeItem: key => memory.delete(key) },
     sessionStorage: { getItem: () => null, setItem: noop },
-    fetch: async url => url === 'text/steam-arena/zh-CN.json' && textDocument
-      ? { ok: true, json: async () => textDocument }
-      : { ok: false, status: 404, json: async () => ({}) },
+    fetch: async () => ({ ok: false, status: 404, json: async () => ({}) }),
     btoa: value => Buffer.from(value, 'binary').toString('base64'),
     atob: value => Buffer.from(value, 'base64').toString('binary'),
     Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 } });
   context.window = context;
   context.globalThis = context;
+  const config = installConfig(context, release ? PACKAGE : ROOT);
+  if (textDocument) {
+    const text = copy(config.get('text'));
+    Object.assign(text.values, textDocument.values);
+    text.removedElements = textDocument.removedElements;
+    config.replace('text', text);
+  }
   const files = [
     'release.js', 'text-manager.js', 'yard-chat.js', 'palette.js', 'modules.js',
     'module-art.js', 'dynamics.js', 'sprites.js', 'legs.js', 'vehicle.js', 'content.js',
@@ -193,7 +199,7 @@ async function surfaceCheck() {
   SA.StoryDev.before({ key: '0,0', replay: false }, () => continued++);
   SA.StoryDev.after({ key: '0,0', replay: true }, () => continued++);
   assert.deepStrictEqual({ played, marked, continued }, { played: 1, marked: 1, continued: 2 });
-  const authored = JSON.parse(fs.readFileSync(path.join(PACKAGE, 'text', 'steam-arena', 'zh-CN.json'), 'utf8'));
+  const authored = JSON.parse(fs.readFileSync(path.join(PACKAGE, 'config', 'text.json'), 'utf8'));
   const keys = Object.keys(authored.values);
   assert(keys.length > 0 || authored.removedElements.length > 0, '发行作者内容为空');
   const actual = runtime(true, new Map(), authored);
@@ -226,8 +232,9 @@ function packageCheck() {
   const scriptPaths = scripts.map(checkedLink);
   const stylePaths = styles.map(checkedLink);
   assert.strictEqual(scriptPaths[0], 'js/release.js', '发行标志必须最先载入');
-  const expected = new Set(['index.html', '.gitattributes', 'release-manifest.json', 'text/steam-arena/zh-CN.json',
-    'js/stage-cars.js', ...stylePaths, ...scriptPaths]);
+  const configPaths = fs.readdirSync(path.join(dir, 'config')).filter(name => name.endsWith('.json')).map(name => `config/${name}`);
+  const expected = new Set(['index.html', '.gitattributes', 'release-manifest.json',
+    'js/stage-cars.js', ...configPaths, ...stylePaths, ...scriptPaths]);
   const found = [];
   function walk(folder) {
     for (const item of fs.readdirSync(folder, { withFileTypes: true })) {
@@ -250,16 +257,7 @@ function packageCheck() {
   assert.strictEqual(manifest.releaseVersion, SA.RELEASE_VERSION);
   assert.strictEqual(manifest.chapters, SA.RELEASE_CHAPTERS);
   assert.strictEqual(SA.Camp.chapterCount(), SA.RELEASE_CHAPTERS);
-  // 真实执行发行内容脚本，核对同步加载的关卡车使用当前版本 URL。
-  const written = [];
-  const context = vm.createContext({ SA: { RELEASE: true, RELEASE_VERSION: SA.RELEASE_VERSION, LEG_VARIANTS: [] },
-    document: { readyState: 'loading', currentScript: { src: 'https://example.invalid/js/content.js?v=old' },
-      write: html => written.push(html) }, URL, encodeURIComponent });
-  context.window = context;
-  vm.runInContext(source('content.js', true), context);
-  assert.deepStrictEqual(written,
-    [`<script src="https://example.invalid/js/stage-cars.js?v=${encodeURIComponent(SA.RELEASE_VERSION)}"></script>`],
-    '动态关卡车必须随发行版本更新 URL');
+  assert(scriptPaths.includes('js/stage-cars.js'), '关卡车脚本必须由首页按哈希直接加载');
   return { packageFiles: found.length, chapterCount: SA.RELEASE_CHAPTERS, version: SA.RELEASE_VERSION };
 }
 

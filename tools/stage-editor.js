@@ -3,7 +3,6 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const state = { ci: 0, si: 0, vehicle: null, base: null, record: null, tests: {} };
-  let exportedDraftBaseline = null;
   let arenaId = null;
   const styles = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' };
   const targetKeys = (SA.StageCars && SA.StageCars.targetKeys()) || SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci}:${si}`));
@@ -148,8 +147,6 @@
     return state.vehicle;
   }
   function syncAssemblyVehicle() { return currentVehicle(); }
-  // 仅当当前关卡确实改动时生成临时导出记录，避免浏览关卡就凭空新增手工车。
-  function draftSignature() { return JSON.stringify({ cells: cellsOf(syncAssemblyVehicle()), fields: readFields() }); }
   function setWorkingVehicle(vehicle) {
     if (!vehicle) return;
     if (assemblyOpen && SA.S?.d) {
@@ -269,8 +266,9 @@
     $('stage-list').innerHTML = targetKeys.map(key => {
       const [ci, si] = key.split(':').map(Number), base = stageAt(ci, si), rec = SA.StageCars.get(ci, si), selected = ci === state.ci && si === state.si;
       if (!base) return '';
-      const evolved = !rec && candidateNames.some(name => name.includes(base.name));
-      const source = rec ? `<span class="tag manual">手工</span>${rec.locked !== false ? '<span class="tag locked">锁定</span>' : '<span class="tag">可进化</span>'}` : `<span class="tag">原始</span>${evolved ? '<span class="tag">进化候选</span>' : ''}`;
+      const manual = rec?.source === 'manual';
+      const evolved = !manual && candidateNames.some(name => name.includes(base.name));
+      const source = manual ? `<span class="tag manual">手工</span>${rec.locked !== false ? '<span class="tag locked">锁定</span>' : '<span class="tag">可进化</span>'}` : `<span class="tag">原始</span>${evolved ? '<span class="tag">进化候选</span>' : ''}`;
       return `<button data-ci="${ci}" data-si="${si}" class="${selected ? 'selected' : ''}">${esc(ci === 0 ? `序章 ${si + 1}` : `第 ${ci} 章 ${si + 1}`)} · ${esc(rec?.name || base.name)}${source}</button>`;
     }).join('');
     $('stage-list').querySelectorAll('button').forEach(button => button.onclick = () => selectStage(+button.dataset.ci, +button.dataset.si));
@@ -340,7 +338,7 @@
 
   function fillFields(stage) {
     const rec = SA.StageCars.get(state.ci, state.si), base = stageAt(state.ci, state.si);
-    state.record = rec;
+    state.record = rec?.source === 'manual' ? rec : null;
     $('name').value = stage.name || '';
     $('vehicle-name').value = stage.vehicle?.name || stage.name || '';
     $('pilot').value = stage.pilot || '';
@@ -435,7 +433,6 @@
     $('test-result').textContent = '尚未测试。';
     // 选中左侧关卡后直接打开右侧车间，避免用户还要再按一次“开始 / 继续拼装”。
     openAssembly();
-    exportedDraftBaseline = draftSignature();
   }
 
   // 保存后只刷新工作台数据；拼装页保持打开，避免用户每保存一次就被踢回概览。
@@ -447,7 +444,6 @@
     fillFields(stage);
     state.vehicle = vehicle;
     renderList(); renderPreview(vehicle); renderStats(vehicle); renderProgress();
-    exportedDraftBaseline = draftSignature();
   }
 
   function parseImport(value) {
@@ -470,7 +466,7 @@
     const check = SA.Camp.dev.checkStageCar(state.ci, state.si, preview, vehicle);
     if (!check.ok) throw new Error(check.errors.join('；'));
 
-    // 统一走规则层保存接口：先写浏览器本机存档并广播给正式游戏页，再尽力同步 js/stage-cars.js。
+    // 规则层只在正式 JSON 成功落盘后更新当前页，失败时保留设计模式里的修改。
     const result = await SA.Camp.dev.saveStageCar(state.ci, state.si, meta);
     if (!result || !result.record) throw new Error('保存接口没有返回关卡车记录');
     const records = { ...(SA.STAGE_CARS.records || {}), [result.record.id]: result.record };
@@ -481,10 +477,7 @@
 
   function saveNotice(result, action) {
     const warning = result.check?.warnings?.length ? `\n警告：${result.check.warnings.join('；')}` : '';
-    if (result.filePersisted) return `已${action}，同时写入 js/stage-cars.js；正式游戏已立即应用，无需重启。${warning}`;
-    if (result.serverError) return `正式文件保存失败：${result.serverError.message}。当前编辑已留在${result.localPersisted ? '浏览器草稿' : '页面'}，请导出作者包备份。${warning}`;
-    if (result.localPersisted || result.channelSent) return `已${action}到本机草稿；尚未写入正式文件，请导出作者包并完成发行归档。${warning}`;
-    return `已${action}到当前页面，但浏览器禁止本机存档；保持正式游戏页面打开即可看到本次修改，关闭页面后不会保留。${warning}`;
+    return `已${action}并写入 config/stage-cars.json；正式游戏已立即应用。${warning}`;
   }
 
   function testVehicle() {
@@ -525,7 +518,7 @@
   document.addEventListener('input', event => {
     if (event.target.matches?.('.assembly-screen .plate-name')) {
       $('vehicle-name').value = event.target.value;
-      // 性能单的原车间直到失焦才重命名；导出按钮须立即拿到刚输入的车名。
+      // 性能单的原车间直到失焦才重命名；保存按钮须拿到刚输入的车名。
       const vehicle = syncAssemblyVehicle();
       if (vehicle) vehicle.name = event.target.value;
     }
@@ -538,23 +531,7 @@
   $('module-picker-cancel').onclick = closeModulePicker;
   $('module-picker-confirm').onclick = confirmModulePicker;
   $('save').onclick = async () => { try { const result = await saveRecord(); refreshAfterSave(result); showToast(saveNotice(result, '保存并锁定'), result.serverError ? 'bad' : result.filePersisted ? 'ok' : 'warn'); } catch (error) { showToast(`保存失败：${error.message}`, 'bad'); } };
-  // 本机保存与发行归档分开；文件直开时用作者包把当前来源的草稿带到 HTTP 预检页。
-  $('export-author').onclick = () => {
-    try {
-      let currentRecord = null;
-      if (targetKeys.includes(`${state.ci}:${state.si}`) && draftSignature() !== exportedDraftBaseline) {
-        const meta = readFields(), vehicle = SA.V.clone(syncAssemblyVehicle());
-        if (!meta.vehicleName) throw new Error('当前编辑的车名不能为空');
-        vehicle.name = meta.vehicleName;
-        // 原记录的附加字段原样带入，当前表单和拼装内容覆盖对应字段。
-        currentRecord = { ...(state.record || {}), ...SA.StageCars.makeRecord(state.ci, state.si, state.base, vehicle, meta), vehicleName: meta.vehicleName };
-      }
-      SAAuthorContent.download(currentRecord);
-      showToast('已导出当前生效关卡车和未保存的当前编辑；请到发行前归档页导入并逐项确认。', 'ok');
-    }
-    catch (error) { showToast(`导出失败：${error.message}`, 'bad'); }
-  };
-  // 擂台保存不经过 saveStageCar，不广播正式关卡变化，也不写 stage-cars.js。
+  // 擂台保存不经过 saveStageCar，也不写正式关卡配置。
   $('save-arena').onclick = () => {
     try {
       // 擂台使用拼装车间里的车名；关卡文字页的名称继续服务于正式关卡。

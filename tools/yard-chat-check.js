@@ -1,11 +1,14 @@
-/* 院子聊天数据与调度的隔离回归；只用内存文本存储，不触碰正式页面 JSON。 */
+/* 院子聊天数据与调度的隔离回归；复制正式配置到内存，不修改源文件。 */
 'use strict';
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const values = new Map(), channels = [];
+const configured = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/text.json'), 'utf8'));
+const values = new Map(Object.entries(configured.values)), channels = [];
+for (const key of values.keys()) if (key.startsWith('home:chat:pool:') && key !== 'home:chat:pool:default') values.delete(key);
+values.set('home:chat:settings', JSON.stringify({ intervalSec: 3.3, bubbleSec: 3.3, replySec: 3.3 }));
 let saveOk = true, loaded = 0;
 class Channel {
   constructor(name) { this.name = name; channels.push(this); }
@@ -16,10 +19,11 @@ const text = {
   ready: Promise.resolve(),
   get: (key, fallback = '') => values.get(key) ?? fallback,
   set: (key, value) => values.set(key, value),
+  remove: key => values.delete(key),
   save: async () => ({ ok: saveOk, document: saveOk ? { version: 1, game: 'steam-arena', locale: 'zh-CN', values: Object.fromEntries(values), removedElements: [] } : undefined }),
   load: async () => { loaded++; },
 };
-const SA = { Text: text, S: { d: { camp: { ch: 0, st: 0 } } }, CAMPAIGN: [{ stages: [{ name: '一关' }, { name: '二关' }] }, { stages: [{ name: '三关' }] }],
+const SA = { Text: text, Config: { get: () => configured }, S: { d: { camp: { ch: 0, st: 0 } } }, CAMPAIGN: [{ stages: [{ name: '一关' }, { name: '二关' }] }, { stages: [{ name: '三关' }] }],
   Camp: { current: () => ({ name: '当前敌手' }) } };
 const context = vm.createContext({ window: { SA }, SA, BroadcastChannel: Channel });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/yard-chat.js'), 'utf8'), context);
@@ -31,21 +35,12 @@ const group = (id, weight = 1, cooldownSec = 0, lines = [{ who: 'tom', text: id,
 async function run() {
   assert.strictEqual(chat.currentScope(), 'stage:0:0');
   assert.strictEqual(chat.read('stage:0:0').source, 'default');
-  assert(chat.read('global').groups.some(item => item.lines[0].text.includes('{关卡名}')));
-  // 用旧 Home 的 splice 规则生成期望，再逐句观察真实 player 输出，防止默认天气台词移位。
-  const original = [
-    '想当年在孟买，我们的蒸汽车能拖动一整个炮兵连！', '你那台车？早锈成门把手了。',
-    '师傅！锅炉又在漏气！', '拿扳手拧紧，别拿脑袋顶着。', '……', '谁？！谁在开炮？！',
-    '「当前敌手」？别慌，车顶住了就行。', '我在锅炉上画了个笑脸！',
-  ];
-  const weatherLines = {
-    sun: [],
-    rain: ['下雨天我这老寒腿就知道——要打仗了！', '师傅，雨什么时候停呀？', '雨天淬火，连水都不用挑。'],
-    night: ['我来守夜！……就是院子有点黑。', '夜里看火色最准。', '……呼……'],
-  };
-  for (const [weatherIndex, [weather, extras]] of Object.entries(weatherLines).entries()) {
-    const expected = original.slice();
-    extras.forEach((line, i) => expected.splice(1 + i * 3, 0, line));
+  const defaultGroups = JSON.parse(configured.values['home:chat:pool:default']);
+  assert.deepStrictEqual(plain(chat.read('global').groups), defaultGroups);
+  // 对照配置中各天气可播组的顺序，不把具体台词重复写进检查器。
+  for (const [weatherIndex, weather] of ['sun', 'rain', 'night'].entries()) {
+    const expected = defaultGroups.filter(item => item.weather === 'any' || item.weather === weather)
+      .map(item => item.lines[0].text.replaceAll('{关卡名}', '当前敌手'));
     const player = chat.createPlayer('global');
     const played = expected.map((_, i) => player.step(1000 + weatherIndex * 1000 + i * 3.4, weather).line.text);
     assert.deepStrictEqual(played, expected, `${weather} 默认台词没有保持旧院子的实际播放顺序`);
