@@ -159,6 +159,13 @@ async function surfaceCheck() {
   assert.strictEqual(SA.Battle.debug, undefined);
   assert.strictEqual(SA.S.reset, undefined);
   assert.strictEqual(SA.S.replaceWithStarter, undefined);
+  assert.strictEqual(typeof SA.S.restartGame, 'function', '发行应保留玩家重开接口');
+  const savedBeforeRestart = copy(SA.S.d), storageBeforeRestart = [...memory];
+  SA.Camp.isDesignMode = () => true;
+  assert.strictEqual(SA.S.restartGame(), false, '设计模式不得删除正式进度');
+  assert.deepStrictEqual(copy(SA.S.d), savedBeforeRestart);
+  assert.deepStrictEqual([...memory], storageBeforeRestart, '设计模式拒绝后不得写入任何存储');
+  SA.Camp.isDesignMode = () => false;
   for (const key of ['validateSettings', 'setSettings', 'validateGroups', 'write', 'inherit', 'save'])
     assert.strictEqual(SA.YardChat[key], undefined, `发行暴露院子编辑接口 ${key}`);
   for (const key of ['read', 'settings', 'createPlayer'])
