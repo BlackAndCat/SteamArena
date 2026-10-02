@@ -15,6 +15,9 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RELEASE_REMOTE = "https://github.com/BlackAndCat/steam-arena-release.git"
+
+
 class EntryParser(HTMLParser):
     """只收集首页实际加载的本地脚本与样式。"""
 
@@ -88,8 +91,56 @@ def remove_output(out, path):
         path.unlink()
 
 
+def release_git(directory, *args, capture=False):
+    """所有发行 Git 操作都锚定到独立发行目录，绝不落到主仓。"""
+    command = ["git", "-c", f"safe.directory={directory.as_posix()}", "-C", str(directory), *args]
+    if capture:
+        return subprocess.check_output(command, text=True).strip()
+    subprocess.run(command, check=True)
+
+
+def verify_release_repo(directory):
+    """校验仓库身份、分支与远端，防止嵌套目录误用父仓库。"""
+    if linked(directory / ".git") or not (directory / ".git").is_dir():
+        raise ValueError(f"发行目录没有独立 Git 仓库：{directory}")
+    if Path(release_git(directory, "rev-parse", "--show-toplevel", capture=True)).resolve() != directory.resolve():
+        raise ValueError(f"发行 Git 根目录不符：{directory}")
+    if release_git(directory, "branch", "--show-current", capture=True) != "main":
+        raise ValueError("发行仓必须位于 main 分支")
+    if release_git(directory, "remote", "get-url", "origin", capture=True) != RELEASE_REMOTE:
+        raise ValueError("发行仓 origin 与固定发行地址不符")
+
+
+def prepare_release_repo(out):
+    """首次发布保留旧产物并克隆发行仓；已有仓先同步远端。"""
+    directory = within(out, out / "release")
+    if directory.exists() and not (directory / ".git").exists():
+        # 旧的纯构包目录是用户产物，迁移时只改名保留，不删除。
+        backup = within(out, out / f"release-before-publish-{datetime.now():%Y%m%d-%H%M%S-%f}")
+        directory.rename(backup)
+        print(f"旧发行目录已保留：{backup}")
+    if not directory.exists():
+        subprocess.run(["git", "clone", "--branch", "main", RELEASE_REMOTE, str(directory)], check=True)
+    verify_release_repo(directory)
+    if release_git(directory, "status", "--porcelain", capture=True):
+        raise ValueError("发行仓有未提交修改，请先处理后重试")
+    release_git(directory, "pull", "--ff-only", "origin", "main")
+    verify_release_repo(directory)
+    return directory
+
+
+def publish_release_repo(directory, version):
+    """只提交本次构包产生的发行文件，并立即推送 main。"""
+    verify_release_repo(directory)
+    release_git(directory, "add", "--all")
+    release_git(directory, "commit", "-m", f"publish: {version}")
+    release_git(directory, "push", "origin", "main")
+    print(f"发行仓已推送：{release_git(directory, 'rev-parse', '--short', 'HEAD', capture=True)}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--publish", action="store_true", help="从当前主仓工作区构包并推送固定发行仓")
     parser.add_argument("--settings", type=Path, help="本机发行设置 JSON")
     parser.add_argument("--output-root", type=Path, help="发行输出根目录")
     parser.add_argument("--source-root", type=Path, help="统一运行源码根目录")
@@ -100,20 +151,23 @@ def main():
     if args.text_source:
         raise ValueError("--text-source 不再使用，请直接保存到 sourceRoot/config/text.json")
 
+    if args.publish and any((args.settings, args.output_root, args.source_root, args.chapters is not None)):
+        raise ValueError("--publish 固定使用当前主仓、tools/out 和开放 2 章，仅可指定 --version")
+
     settings_path = args.settings or ROOT / "tools/out/publish-settings.json"
-    settings = json.loads(settings_path.read_text(encoding="utf-8-sig")) if settings_path.exists() else {}
+    settings = json.loads(settings_path.read_text(encoding="utf-8-sig")) if settings_path.exists() and not args.publish else {}
     if not isinstance(settings, dict):
         raise ValueError("发行设置必须是 JSON 对象")
-    source_path = (args.source_root or Path(settings.get("sourceRoot") or ROOT)).absolute()
+    source_path = (ROOT if args.publish else args.source_root or Path(settings.get("sourceRoot") or ROOT)).absolute()
     if any(linked(part) for part in (source_path, *source_path.parents)):
         raise ValueError("sourceRoot 及其上级不能是符号链接或 junction")
     source_root = source_path.resolve()
-    out = (args.output_root or ROOT / "tools/out").absolute()
+    out = (ROOT / "tools/out" if args.publish else args.output_root or ROOT / "tools/out").absolute()
     if any(linked(part) for part in (out, *out.parents)):
         raise ValueError("发行输出根目录及其上级不能是符号链接或 junction")
     out.mkdir(parents=True, exist_ok=True)
     out = out.resolve()
-    chapters = args.chapters if args.chapters is not None else settings.get("chapters", 2)
+    chapters = 2 if args.publish else args.chapters if args.chapters is not None else settings.get("chapters", 2)
     if type(chapters) is not int or not 1 <= chapters <= 6:
         raise ValueError("开放章节数必须是 1～6 的整数")
     version = args.version or datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -154,6 +208,8 @@ def main():
     version_zip = within(out, out / f"release-{version}.zip")
     if version_zip.exists():
         raise ValueError(f"发行版本已存在：{version_zip}")
+    if args.publish:
+        prepare_release_repo(out)
     stage = Path(tempfile.mkdtemp(prefix=".release-build-", dir=out))
     within(out, stage)
     staged_dir = stage / "release"
@@ -253,6 +309,8 @@ def main():
         print(f"发行目录：{release_dir}\n发行 ZIP：{version_zip}\n兼容 ZIP：{latest_zip}")
         if preserve_backup:
             print(f"旧发行目录含版本记录，备份保留在：{stage}")
+        if args.publish:
+            publish_release_repo(release_dir, version)
     finally:
         if not preserve_backup:
             try:

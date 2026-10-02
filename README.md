@@ -12,7 +12,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 本地预览服务默认只监听 `127.0.0.1`。页面覆盖、关卡车与进化任务的写入接口只接受本机同源页面；本机命令行请求没有 `Origin` 时仍可使用。服务写入校验可运行 `python -m unittest tools/test_serve_security.py`。
 
-发行直接打包项目当前的 `config/*.json` 正式配置。运行 `tools/publish.cmd` 或 `python tools/package-release.py --settings <设置文件> --output-root <输出目录>`；包工具从同一 `sourceRoot` 复制首页、运行脚本、样式和配置文件，检查完成后更新发行目录与 ZIP。需要直接修改配置时，可在本机服务打开 `tools/config-editor.html`。旧作者缓存会在本机服务加载时迁入正式配置；页面提示保存成功后才算落盘。
+双击项目根目录的 `publish.cmd`，会从当前工作区打包正式配置与运行文件，更新 `tools/out` 中的发行目录和 ZIP，并提交、推送到发行仓 `main`。首次运行会在 `tools/out/release` 建立发行仓，原有非 Git 发行目录会保留为相邻备份；不要求先提交当前工作区的作者修改。仅需打包时，运行 `python tools/package-release.py`（可指定 `--settings`、`--output-root`）。需要直接修改配置时，可在本机服务打开 `tools/config-editor.html`。旧作者缓存会在本机服务加载时迁入正式配置；页面提示保存成功后才算落盘。
 
 普通游戏的「设置」可两次确认后删除当前进度并从开场重来；蓝图库和作者设计会保留，设计模式不显示此入口。
 
