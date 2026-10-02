@@ -848,17 +848,26 @@ SA.BattleView.create = function createBattleView(api) {
     hud.keys = h('div', { class: 'dash-keys' });
     hud.keySig = null;
     hud.vent = PXI().btn(SA.Config.text('battle_view_vent'), { kind: 'dng', title: SA.Config.text('battle_view_vent_title'), onclick: () => { if (api.vent()) { hud.vent.disabled = true; hud.vent.className = 'px-btn off'; } } });
-    return h('div', { class: 'bt-dash px-sk px-sk-iron' },
-      h('div', { class: 'dash-car' },
-        hud.gaugeFig = fig(hud.gauge, SA.Config.text('battle_view_boiler')), hud.tubeFig = fig(hud.tube, SA.Config.text('battle_view_water')),
-        h('div', { class: 'dash-hull' },
-          h('div', { class: 'dash-hp' }, h('span', {}, SA.Config.text('battle_view_armor')), hud.hpNum), hud.plates,
-          h('div', { class: 'dash-lamps' }, LAMPS.map((_, i) => h('div', { class: 'dash-lamp' }, hud.lamps[i], hud.lampLabels[i]))))),
+    const car = h('div', { class: 'dash-car' },
+      hud.gaugeFig = fig(hud.gauge, SA.Config.text('battle_view_boiler')), hud.tubeFig = fig(hud.tube, SA.Config.text('battle_view_water')),
+      h('div', { class: 'dash-hull' },
+        h('div', { class: 'dash-hp' }, h('span', {}, SA.Config.text('battle_view_armor')), hud.hpNum), hud.plates,
+        h('div', { class: 'dash-lamps' }, LAMPS.map((_, i) => h('div', { class: 'dash-lamp' }, hud.lamps[i], hud.lampLabels[i])))));
+    const act = h('div', { class: 'dash-act' },
+      h('div', { class: 'dash-vent' }, hud.vent, h('span', { class: 'px-cap' }, SA.Config.text('battle_view_once'))),
+      PXI().btn(SA.Config.text('battle_view_retreat'), { title: SA.Config.text('battle_view_retreat_title'), onclick: () => { if (!B.p.dead) SA.UI.dialog(SA.Config.text('battle_view_retreat_title_short'), h('p', {}, SA.Config.text('battle_view_retreat_confirm')), [{ label: SA.Config.text('battle_view_retreat'), primary: true, onClick: () => { endIntro(); api.retreat(); } }], SA.Config.text('battle_view_continue')); } }),
+      !SA.RELEASE ? speedSlider() : null);
+    // 手机：左栏 = 车况 + 左圈，右栏 = 泄压 / 撤退 + 武器键 + 右圈待命位，两栏各自从上往下排（css 的 .bt-rail）
+    if (touchUI) {
+      touchPads();
+      return h('div', { class: 'bt-dash px-sk px-sk-iron' },
+        h('div', { class: 'bt-rail l' }, car, hud.stick),
+        h('div', { class: 'dash-mid' }, hud.note),
+        h('div', { class: 'bt-rail r' }, act, hud.keys, hud.aimHome));
+    }
+    return h('div', { class: 'bt-dash px-sk px-sk-iron' }, car,
       h('div', { class: 'dash-mid' }, hud.note, hud.keys),
-      h('div', { class: 'dash-act' },
-        h('div', { class: 'dash-vent' }, hud.vent, h('span', { class: 'px-cap' }, SA.Config.text('battle_view_once'))),
-        PXI().btn(SA.Config.text('battle_view_retreat'), { title: SA.Config.text('battle_view_retreat_title'), onclick: () => { if (!B.p.dead) SA.UI.dialog(SA.Config.text('battle_view_retreat_title_short'), h('p', {}, SA.Config.text('battle_view_retreat_confirm')), [{ label: SA.Config.text('battle_view_retreat'), primary: true, onClick: () => { endIntro(); api.retreat(); } }], SA.Config.text('battle_view_continue')); } }),
-        !SA.RELEASE ? speedSlider() : null),
+      act,
       h('div', { class: 'bt-touch' },
         hud.move = h('div', { class: 'bt-move' }, holdBtn(SA.Config.text('battle_view_backward'), 'left'), holdBtn(SA.Config.text('battle_view_forward'), 'right')),
         hud.fireBtn = holdBtn(SA.Config.text('battle_view_fire'), 'fire', 'bt-fire')));
@@ -1017,6 +1026,111 @@ SA.BattleView.create = function createBattleView(api) {
         } finally { range.disabled = false; }
       } });
     return h('label', { class: 'bt-speed', title: SA.Config.text('battle_view_speed_title') }, SA.Config.text('battle_view_speed'), range, out, status);
+  }
+
+  // ---------- 手机双圈操作（.touchui）：左圈开车、右圈瞄准 + 开火 ----------
+  // 左圈固定在左下：按住往右推前进、往左拉倒车（只看横向），松手摇杆回中、车停下。
+  // 右圈不固定：左圈和按钮以外的战斗界面任意一处按下，圈就出现在手指下面、一直跟着手指；
+  //   手指在画面上 = 准星就在手指下（指哪打哪）；在画面外（两侧栏、竖屏下面的空地）= 像触控板一样拖着准星走。
+  //   按着就是按住开火（准星收紧，收满自动打，机枪一直打），抬手打出去。两个圈可以同时按。
+  // 整块战斗界面 touch-action: none（css），浏览器不会把双指 / 双击当成缩放。
+  function pxRing(r, w, col, fill) {
+    const n = r * 2 + 2, c = document.createElement('canvas'); c.width = c.height = n; c.className = 'px-img';
+    const x = c.getContext('2d');
+    for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) {
+      const dd = Math.hypot(px + 0.5 - n / 2, py + 0.5 - n / 2);
+      let col2 = null;
+      if (dd > r + 1) continue;
+      else if (dd > r) col2 = P.black;
+      else if (dd > r - w) col2 = dd > r - 1 && px + py < n ? P.brass[3] : col;
+      else if (dd > r - w - 1) col2 = P.black;
+      else col2 = fill;
+      if (!col2) continue;
+      x.fillStyle = col2; x.fillRect(px, py, 1, 1);
+    }
+    c.style.width = `${n * 2}px`; c.style.height = `${n * 2}px`;
+    return c;
+  }
+  const STICK_R = 26;
+  function touchPads() {
+    const base = pxRing(STICK_R, 3, P.brass[2], 'rgba(11,14,21,0.5)');
+    // 圈里左右两枚小三角：往哪边推就往哪边开
+    const bx = base.getContext('2d'), n = base.width;
+    for (const [col, grow] of [[P.black, 1], [P.brass[3], 0]]) for (const dir of [-1, 1]) for (let i = 0; i < 5; i++) {
+      const x0 = Math.round(n / 2 + dir * (STICK_R - 7) - dir * i), hh = 4 - i;
+      bx.fillStyle = col; bx.fillRect(x0 - grow, Math.round(n / 2) - hh - grow, 1 + grow * 2, hh * 2 + 1 + grow * 2);
+    }
+    hud.knob = pxRing(11, 11, P.brass[2]);
+    hud.knob.classList.add('bt-knob');
+    hud.stick = h('div', { class: 'bt-stick' }, base, hud.knob);
+    hud.move = hud.stick;
+    hud.aimHome = h('div', { class: 'bt-aimhome' }, h('i'), h('span', {}, SA.Config.text('battle_view_aim_pad')));
+    hud.aimRing = h('div', { class: 'bt-aimring' }, pxRing(22, 2, P.brass[2]));
+    hud.fireBtn = hud.aimHome;   // 教程讲开火时让右圈的待命位发光
+  }
+  // 右圈：没按时停在右下的待命位（半透明），按下就跳到手指下面
+  function placeAimRing(x, y, on) {
+    const r = hud.aimRing;
+    if (!r || !r.isConnected) return;
+    if (x == null) { const b = hud.aimHome.firstChild.getBoundingClientRect(); x = b.left + b.width / 2; y = b.top + b.height / 2; }
+    r.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    r.classList.toggle('on', !!on);
+  }
+  function bindTouch(root, toNative) {
+    let stick = null, aim = null;
+    const stickMove = (e) => {
+      const b = hud.stick.getBoundingClientRect(), R = b.width / 2 - 8;
+      const dx = clamp(e.clientX - (b.left + b.width / 2), -R, R);
+      hud.knob.style.transform = `translateX(${Math.round(dx / 2) * 2}px)`;
+      B.keys.left = dx < -R * 0.22; B.keys.right = dx > R * 0.22;
+      hud.stick.classList.toggle('on', B.keys.left || B.keys.right);
+    };
+    const stickEnd = () => { stick = null; if (B) B.keys.left = B.keys.right = false; hud.knob.style.transform = ''; hud.stick.classList.remove('on'); };
+    const inCanvas = (e) => { const rc = cv.getBoundingClientRect(); return e.clientX >= rc.left && e.clientX <= rc.right && e.clientY >= rc.top && e.clientY <= rc.bottom; };
+    root.addEventListener('pointerdown', (e) => {
+      if (!B || B.done) return;
+      if (hud.stick.contains(e.target)) {
+        e.preventDefault();
+        if (B.intro || stick != null) return;
+        stick = e.pointerId; try { root.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件没有活动指针 */ }
+        stickMove(e); return;
+      }
+      if (e.target.closest('button, input, a, select, .vn')) return;   // 武器键、泄压、撤退、对话框照常点
+      e.preventDefault();
+      if (B.intro) { if (B.intro.mode === 'cine') endIntro(); else if (B.intro.vn && B.intro.vn.advance) B.intro.vn.advance(); return; }
+      if (B.surrender === 'raising') { api.skipSurrenderAnimation(); return; }
+      if (aim) return;
+      const abs = inCanvas(e);
+      aim = { id: e.pointerId, abs, x: e.clientX, y: e.clientY };
+      try { root.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件没有活动指针 */ }
+      if (abs) B.aimScreen = toNative(e);
+      else if (!B.aimScreen) B.aimScreen = [W * 0.72, H * 0.62];
+      B.keys.fire = true;
+      placeAimRing(e.clientX, e.clientY, true);
+    });
+    root.addEventListener('pointermove', (e) => {
+      if (!B) return;
+      if (e.pointerId === stick) { stickMove(e); return; }
+      if (!aim || e.pointerId !== aim.id) return;
+      if (aim.abs) { const [x, y] = toNative(e); B.aimScreen = [clamp(x, 0, W), clamp(y, 0, H)]; }
+      else {
+        // 触控板：手指走多少，准星按画布比例走 1.6 倍
+        const k = 1.6 * W / Math.max(1, cv.getBoundingClientRect().width);
+        B.aimScreen = [clamp(B.aimScreen[0] + (e.clientX - aim.x) * k, 0, W), clamp(B.aimScreen[1] + (e.clientY - aim.y) * k, 0, H)];
+        aim.x = e.clientX; aim.y = e.clientY;
+      }
+      placeAimRing(e.clientX, e.clientY, true);
+    });
+    const end = (e) => {
+      if (e.pointerId === stick) { stickEnd(); return; }
+      if (aim && e.pointerId === aim.id) { aim = null; if (B) B.keys.fire = false; placeAimRing(null, null, false); }
+    };
+    root.addEventListener('pointerup', end);
+    root.addEventListener('pointercancel', end);
+    root.addEventListener('contextmenu', (e) => e.preventDefault());
+    // iOS Safari 的双指缩放手势不走 touch-action，单独拦一下；双击放大也拦掉
+    for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) root.addEventListener(ev, (e) => e.preventDefault());
+    requestAnimationFrame(() => placeAimRing(null, null, false));
   }
 
   function holdBtn(label, key, cls = '') {
@@ -1423,18 +1537,22 @@ SA.BattleView.create = function createBattleView(api) {
       h('span', { class: 'bt-plate px-sk px-sk-iron' }, B.e.name));
     hud.stage = h('div', { class: 'bt-stage' }, cv, hud.top);
     wrap = h('div', { class: 'bt-canvas-wrap' }, hud.stage);
+    touchUI = hasPX && isTouchUI();
+    hud.aimRing = null;
     hud.dash = hasPX ? dashboard() : null;
-    touchUI = isTouchUI();
-    screen.append(h('div', { class: `bt${touchUI && hud.dash ? ' touchui' : ''}` }, wrap, hud.dash || ''));
+    const btRoot = h('div', { class: `bt${touchUI ? ' touchui' : ''}` }, wrap, hud.dash || '', hud.aimRing || '');
+    screen.append(btRoot);
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();
       return [(e.clientX - rc.left) / rc.width * W, (e.clientY - rc.top) / rc.height * H];
     };
-    cv.addEventListener('pointermove', (e) => { B.aimScreen = toNative(e); });
-    cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') B.aimScreen = null; B.keys.fire = false; });
+    if (touchUI) bindTouch(btRoot, toNative);   // 手机：双圈操作接管整块战斗界面，画布自己的鼠标处理不再用
+    cv.addEventListener('pointermove', (e) => { if (!touchUI) B.aimScreen = toNative(e); });
+    cv.addEventListener('pointerleave', (e) => { if (touchUI) return; if (e.pointerType === 'mouse') B.aimScreen = null; B.keys.fire = false; });
     cv.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (touchUI) return;
       if (B.intro) { if (B.intro.mode === 'cine') endIntro(); else if (B.intro.vn && B.intro.vn.advance) B.intro.vn.advance(); return; }
       if (B.surrender === 'raising') { api.skipSurrenderAnimation(); return; }   // 点击跳过升旗，只打开确认框
       B.aimScreen = toNative(e);
@@ -1442,7 +1560,7 @@ SA.BattleView.create = function createBattleView(api) {
       B.keys.fire = true;
       cv.setPointerCapture(e.pointerId);
     });
-    cv.addEventListener('pointerup', () => { B.keys.fire = false; });
+    cv.addEventListener('pointerup', () => { if (!touchUI) B.keys.fire = false; });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
@@ -1481,6 +1599,7 @@ SA.BattleView.create = function createBattleView(api) {
     let ah = Math.max(240, window.innerHeight - (hud.dash ? hud.dash.offsetHeight : 140) - 28);
     // 手机布局：横屏时画面占中间一格（两边是仪表栏），竖屏时画面占满宽、控制件排在下面
     const touch = touchUI && wrap.parentElement && wrap.parentElement.classList.contains('touchui');
+    if (touch && hud.aimRing && !hud.aimRing.classList.contains('on')) requestAnimationFrame(() => placeAimRing(null, null, false));
     if (touch) { aw = wrap.clientWidth; ah = window.innerHeight > window.innerWidth ? aw * H / W : wrap.clientHeight; }
     let s = Math.min(aw / W, ah / H);
     const cw = Math.round(W * s), ch = Math.round(H * s), dpr = window.devicePixelRatio || 1;
