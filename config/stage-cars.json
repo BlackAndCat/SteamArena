@@ -149,7 +149,7 @@
       "rewardItems": [
         {
           "id": "plate",
-          "count": 1,
+          "count": 2,
           "mt": 1
         }
       ],
@@ -212,7 +212,7 @@
       "weakness": "",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-01T13:39:31.901Z",
+      "updatedAt": "2026-10-02T07:00:40.220Z",
       "rules": "2026-10-01-end-armor-chapter-bounds",
       "analysis": {
         "rating": 86,
@@ -361,14 +361,6 @@
       "cells": [
         [
           0,
-          7,
-          7,
-          "mg_s",
-          1,
-          0
-        ],
-        [
-          0,
           8,
           4,
           "boiler_s",
@@ -440,27 +432,29 @@
           0
         ]
       ],
-      "code": "SA2.eyJuIjoi6ZOB55qu572Q5aS0IiwiYiI6W1s3LDcsNDJdLFs4LDQsNDRdLFs4LDUsMThdLFs4LDYsMzVdLFs4LDcsMTddLFs5LDUsMThdLFs5LDYsMTZdLFs5LDcsMTddLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "code": "SA2.eyJuIjoi6ZOB55qu572Q5aS0IiwiYiI6W1s4LDQsNDRdLFs4LDUsMThdLFs4LDYsMzVdLFs4LDcsMTddLFs5LDUsMThdLFs5LDYsMTZdLFs5LDcsMTddLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
       "boss": false,
       "uniqueLoot": [],
       "weakness": "",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-01T09:24:02.852Z",
-      "rules": "2026-09-30-special-weapons-audit-damage",
+      "updatedAt": "2026-10-02T22:51:34.274Z",
+      "rules": "2026-10-02-crew-clearance-thermal",
       "analysis": {
-        "rating": 142,
-        "value": 624,
-        "weight": 3109.5,
-        "drive": 5.511102890625,
-        "water": 72,
+        "rating": 112,
+        "value": 576,
+        "weight": 2974,
+        "drive": 5.270950312499999,
+        "water": 54,
         "overheat": null,
-        "dps": 9.422446406052963,
-        "hp": 582
+        "dps": 5.846153846153845,
+        "hp": 518
       },
       "rewardMoney": true,
       "victoryRepairFree": false,
-      "vehicleName": "铁皮罐头"
+      "vehicleName": "铁皮罐头",
+      "rewardItems": [],
+      "repairFree": false
     },
     "1:1": {
       "name": "兄弟齐心",
