@@ -198,7 +198,7 @@ function workshopPanZoom() {
   // 回到适于点选的倍率，点击位置由绘制矩阵生成，不借助编辑器内部状态。
   // 缩小到底就是 1 倍（原来连续缩放时这里要滚回约 1 倍）；平移仍在，点选走的是变换后的矩阵
   m = tick();
-  const src = { layer: 'body', r: 8, c: 10 }, part = v.body[src.r][src.c];
+  const src = { layer: 'body', r: 8, c: 8 }, part = v.body[src.r][src.c];
   assert(part, '起始载具缺少用于交互回归的模块');
   const source = cell(m, src.r, src.c);
   pointer('pointerdown', source);
@@ -252,7 +252,85 @@ function workshopPanZoom() {
   assert.strictEqual(v.body[spot.r][spot.c], null, '变换后右键没有拆下模块');
   return { pan: true, zoom: true, anchor: true, move: true, inventory: true, dragOut: true, contextMenu: true };
 }
-function run() { return { bipeds: bipeds(), editor: editor(), workshopPanZoom: workshopPanZoom() }; }
+
+/** 走真实车间指针事件，检查 Shift 模式锁定、整车原子横移及取消时不保存。 */
+function workshopWholeShift() {
+  const { SA, doc, cv, tick, flushTimers } = workshopRuntime();
+  const v = SA.S.d.vehicle, C = SA.K.CELL, PADX = SA.SPR.PADX;
+  v.lim = { ...SA.S.d.camp.grid }; // 按真实新档的可编辑范围检查居中与边界。
+  const startRegion = SA.V.region(v), columns = [];
+  SA.V.each(v, (part, r, c) => columns.push(c, c + SA.fp(part.id).w - 1));
+  assert.strictEqual((Math.min(...columns) + Math.max(...columns)) / 2, (startRegion.c0 + startRegion.c1) / 2, '初始车没有位于新档可编辑区域中央');
+  v.side[8][7] = SA.newCell('radiator'); // 初始车本无侧挂；接上一件以覆盖真实指针拖动中的两层同移。
+  const matrix = tick();
+  const cell = (r, c) => ({ clientX: matrix[0] * (PADX + (c + 0.5) * C) + matrix[4],
+    clientY: matrix[3] * (r + 0.5) * C + matrix[5] });
+  const press = (r, c) => cv.dispatch('pointerdown', { ...cell(r, c), shiftKey: true });
+  const move = (r, c) => cv.dispatch('pointermove', { ...cell(r, c), shiftKey: false });
+  const up = (r, c) => { doc.dispatch('pointerup', { ...cell(r, c), shiftKey: false }); flushTimers(); };
+  const snapshot = () => JSON.stringify({ body: v.body, side: v.side, inv: SA.S.d.inv });
+  const beforeInv = JSON.stringify(SA.S.d.inv), before = [];
+  SA.V.each(v, (part, r, c, layer) => before.push({ part, r, c, layer }));
+  const start = before.find(x => x.layer === 'body' && x.part.id === 'boiler_s');
+  assert(start, '初始车缺少 Shift 抓取模块');
+  const dc = [1, -1].find(x => SA.V.translate(SA.V.clone(v), x).ok);
+  assert(dc, '初始车没有可测试的合法整车横移');
+  const layered = SA.V.clone(v), side = SA.newCell('radiator');
+  layered.side[start.r][start.c] = side;
+  assert(SA.V.translate(layered, dc).ok, '带侧挂模块的整车不能横移');
+  assert.strictEqual(layered.side[start.r][start.c + dc], side, '侧挂模块没有跟随主体同移');
+  const blocked = SA.V.clone(v), blockedBefore = JSON.stringify(blocked);
+  assert(!SA.V.translate(blocked, 8).ok, '整车越过改装范围仍被允许');
+  assert.strictEqual(JSON.stringify(blocked), blockedBefore, '整车越界失败后留下了部分修改');
+  let saves = 0;
+  SA.S.save = () => { saves++; return true; };
+
+  press(start.r, start.c); move(start.r, start.c + dc); tick(); up(start.r, start.c + dc);
+  for (const x of before) assert.strictEqual(v[x.layer][x.r][x.c + dc], x.part, '整车模块没有保持相同横移量');
+  assert.strictEqual(saves, 1, '合法整车拖动没有恰好保存一次');
+  assert.strictEqual(JSON.stringify(SA.S.d.inv), beforeInv, '整车拖动改动了库存');
+
+  const shifted = snapshot(), anchor = start.c + dc;
+  const edgeX = matrix[0] * (PADX + (anchor + 0.9) * C) + matrix[4], edgeY = cell(start.r, anchor).clientY;
+  cv.dispatch('pointerdown', { clientX: edgeX, clientY: edgeY, shiftKey: true });
+  cv.dispatch('pointermove', { clientX: edgeX + matrix[0] * C * 0.3, clientY: edgeY, shiftKey: false });
+  doc.dispatch('pointerup', { clientX: edgeX + matrix[0] * C * 0.3, clientY: edgeY, shiftKey: false });
+  flushTimers();
+  assert.strictEqual(snapshot(), shifted, '贴近子格边缘轻拖导致整车跳格');
+  assert.strictEqual(saves, 1, '未满半格的轻拖仍保存了存档');
+
+  const region = SA.V.region(v);
+  const rightmost = Math.max(...before.map(x => x.c + dc + SA.fp(x.part.id).w - 1));
+  assert(rightmost + (15 - anchor) > region.c1, '越界测试目标未越过改装范围');
+  press(start.r, anchor); move(start.r, 15); tick(); up(start.r, 15);
+  assert.strictEqual(snapshot(), shifted, '越过改装范围仍修改了整车');
+  assert.strictEqual(saves, 1, '越界拖动仍保存了存档');
+
+  press(start.r, anchor);
+  cv.dispatch('pointermove', { clientX: -20, clientY: cell(start.r, anchor).clientY, shiftKey: false });
+  doc.dispatch('pointerup', { clientX: -20, clientY: cell(start.r, anchor).clientY, shiftKey: false });
+  flushTimers();
+  assert.strictEqual(snapshot(), shifted, '画布外松手拆下了整车模块');
+  assert.strictEqual(saves, 1, '画布外取消仍保存了存档');
+
+  press(start.r, anchor); move(start.r, anchor - dc); tick();
+  doc.dispatch('keydown', { key: 'Escape' }); up(start.r, anchor - dc);
+  assert.strictEqual(snapshot(), shifted, 'Esc 取消后仍移动了整车');
+  assert.strictEqual(saves, 1, 'Esc 取消仍保存了存档');
+  // 从两格宽履带的右半格抓取，鼠标仅移动一格时整车也应只移一格。
+  const track = before.find(x => x.part.id === 'track'), grabC = track.c + dc + SA.fp('track').w - 1;
+  press(track.r, grabC); move(track.r, grabC - dc); tick(); up(track.r, grabC - dc);
+  for (const x of before) assert.strictEqual(v[x.layer][x.r][x.c], x.part, '从宽模块右半格抓取时发生位移偏差');
+  assert.strictEqual(saves, 2, '第二次合法位移没有恰好保存一次');
+
+  const restored = snapshot();
+  press(start.r, start.c); move(start.r, start.c + dc);
+  cv.dispatch('pointercancel'); up(start.r, start.c + dc);
+  assert.strictEqual(snapshot(), restored, 'pointercancel 后仍移动了整车');
+  assert.strictEqual(saves, 2, 'pointercancel 后仍保存了存档');
+  return { shiftedModules: before.length, saves, boundaryCancel: true, outsideCancel: true, escapeCancel: true, pointerCancel: true, wideModuleGrip: true };
+}
+function run() { return { bipeds: bipeds(), editor: editor(), workshopPanZoom: workshopPanZoom(), workshopWholeShift: workshopWholeShift() }; }
 module.exports = { run };
 if (require.main === module) {
   try { console.log(JSON.stringify(run(), null, 2)); }
