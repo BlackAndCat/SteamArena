@@ -29,6 +29,8 @@ SA.StoryDev = (() => {
     if (id === 'tutorial.intro') return '第一关教程 · 开场白';
     let m = /^tutorial\.parts\.(\d+)$/.exec(id);
     if (m) { const p = SA.STORY.tutorial.parts[+m[1]]; return `第一关教程 · 讲解${p ? p.label : m[1]}`; }
+    m = /^tutorial\.controls\.(\w+)\.(desktop|touch)$/.exec(id);
+    if (m) { const c = (SA.STORY.tutorial.controls || []).find(x => x.part === m[1]); return `第一关教程 · 操作${c ? c.label : m[1]}（${m[2] === 'touch' ? '手机' : '电脑'}）`; }
     m = /^stage\.(\d+,\d+)\.(win|lose)$/.exec(id);
     if (m) return `${stageName(m[1])} · ${m[2] === 'win' ? '胜利后提示' : '战败后提示'}`;
     m = /^feat\.(.+)$/.exec(id);

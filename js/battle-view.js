@@ -15,6 +15,9 @@ SA.BattleView.create = function createBattleView(api) {
   const step = api.step;
   let B = null, cv, g, dg, wc, wrap, hud = {};
   let DPX = 1;
+  // 触屏（手指为主的设备）：战斗换成手机布局（js 加 .touchui，css/style.css 排版），教程讲触屏操作
+  let touchUI = false;
+  const isTouchUI = () => !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
   const ZMIN = 0.62;
   const sync = () => { B = api.getState(); return B; };
   const part = (type, x, y, vx, vy, life, col) => emit('part', { type, x, y, vx, vy, life, col });
@@ -856,7 +859,9 @@ SA.BattleView.create = function createBattleView(api) {
         h('div', { class: 'dash-vent' }, hud.vent, h('span', { class: 'px-cap' }, SA.Config.text('battle_view_once'))),
         PXI().btn(SA.Config.text('battle_view_retreat'), { title: SA.Config.text('battle_view_retreat_title'), onclick: () => { if (!B.p.dead) SA.UI.dialog(SA.Config.text('battle_view_retreat_title_short'), h('p', {}, SA.Config.text('battle_view_retreat_confirm')), [{ label: SA.Config.text('battle_view_retreat'), primary: true, onClick: () => { endIntro(); api.retreat(); } }], SA.Config.text('battle_view_continue')); } }),
         !SA.RELEASE ? speedSlider() : null),
-      h('div', { class: 'bt-touch' }, holdBtn(SA.Config.text('battle_view_backward'), 'left'), holdBtn(SA.Config.text('battle_view_forward'), 'right'), holdBtn(SA.Config.text('battle_view_fire'), 'fire')));
+      h('div', { class: 'bt-touch' },
+        hud.move = h('div', { class: 'bt-move' }, holdBtn(SA.Config.text('battle_view_backward'), 'left'), holdBtn(SA.Config.text('battle_view_forward'), 'right')),
+        hud.fireBtn = holdBtn(SA.Config.text('battle_view_fire'), 'fire', 'bt-fire')));
   }
   // 你的车现在的警报（按紧急程度）：亮哪几盏灯 + 纸条上的红字
   function alertsOf(s) {
@@ -879,7 +884,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (p.dead) return ['alert', p.reason || SA.Config.text('battle_view_disabled')];
     const al = alertsOf(p);
     if (al.length) return ['alert', [...new Set(al.map(a => a[1]))].join(' · ')];
-    if (!p.sel) return ['warn', SA.Config.text('battle_view_no_weapon')];
+    if (!p.sel) return ['warn', SA.Config.text(touchUI ? 'battle_view_no_weapon_touch' : 'battle_view_no_weapon')];
     const pi = B.previewInfo, aimT = B.aim ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
     const alt = p.groups.includes('mortar') && p.sel !== 'mortar' ? SA.Config.text('battle_view_try_mortar') : '';
     if (pi && pi.blocked) return ['warn', SA.Config.text('battle_view_blocked')];
@@ -888,7 +893,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (aimT && pi && pi.cover && !pi.hit) return ['warn', pi.cover === 'crate' ? SA.Config.text('battle_view_crate_cover') : SA.Config.text('battle_view_hill_cover', alt || SA.Config.text('battle_view_try_mortar_alt'))];
     if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) return ['warn', SA.Config.text('battle_view_hit_other', M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name, alt)];
     if (p.spooling) return ['warn', SA.Config.text('battle_view_spooling')];
-    if (tutorialHint()) return ['tut', SA.Config.text('battle_view_tutorial_hint', p.groups.length > 1 ? SA.Config.text('battle_view_weapon_keys') : '')];
+    if (tutorialHint()) return ['tut', SA.Config.text(touchUI ? 'battle_view_tutorial_hint_touch' : 'battle_view_tutorial_hint', p.groups.length > 1 ? SA.Config.text(touchUI ? 'battle_view_weapon_keys_touch' : 'battle_view_weapon_keys') : '')];
     if (!aimT) return ['info', ''];
     const parts = [aimT.layer === 'side' ? SA.Config.text('battle_view_aim_side_cannon') : SA.Config.text('battle_view_aim_enemy', M[B.e.v[aimT.layer][aimT.r][aimT.c].id].name)];
     if (pi && pi.chance != null) parts.push(SA.Config.text('battle_view_hit_chance', pi.chance));
@@ -1014,8 +1019,8 @@ SA.BattleView.create = function createBattleView(api) {
     return h('label', { class: 'bt-speed', title: SA.Config.text('battle_view_speed_title') }, SA.Config.text('battle_view_speed'), range, out, status);
   }
 
-  function holdBtn(label, key) {
-    const b = h('button', { class: 'btn' }, label);
+  function holdBtn(label, key, cls = '') {
+    const b = h('button', { class: `btn ${cls}` }, label);
     const set = (v) => (e) => { e.preventDefault(); if (B) B.keys[key] = v; };
     b.addEventListener('pointerdown', set(true));
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, set(false));
@@ -1084,7 +1089,7 @@ SA.BattleView.create = function createBattleView(api) {
   function beginIntro(opts) {
     const I = { mode: 'cine', t: 0, clock: 0, home: { ...B.cam }, from: null, focus: null, arrows: null, puffs: [], vn: null, shook: {} };
     B.intro = I;
-    const tut = SA.Story && SA.Story.tutorial(opts);
+    const tut = SA.Story && SA.Story.tutorial(opts, touchUI ? 'touch' : 'desktop');
     if (!tut) { I.from = { cx: camCx(), z: B.cam.z, bot: camBottom() }; return; }
     I.mode = 'tutor';
     const box = sideBox(B.p);
@@ -1104,7 +1109,11 @@ SA.BattleView.create = function createBattleView(api) {
       if (!I.arrows.some(a => a.part === p.part)) continue;
       for (const L of p.lines) lines.push({ ...L, on: () => { I.focus = p.part; } });
     }
-    I.vn = SA.Story.talk(lines, { host: wrap, cls: 'vn-battle', onDone: () => {
+    // 操作教学（旁白）：开车 / 瞄准 / 开火 / 换武器，电脑和触屏各一套；画面上同步演示，对应的真按钮发光
+    const ctl = (tut.controls || []).filter(c => c.lines.length);
+    if (ctl.length && touchUI && window.innerHeight > window.innerWidth) lines.push({ text: SA.Config.text('battle_view_tutorial_rotate'), on: () => { I.focus = null; } });
+    for (const c of ctl) for (const L of c.lines) lines.push({ ...L, on: () => { if (I.focus !== CTL + c.part) I.ctlT = 0; I.focus = CTL + c.part; } });
+    I.vn = SA.Story.talk(lines, { host: wrap, cls: `vn-battle${touchUI ? ' vn-touch' : ''}`, onDone: () => {
       SA.Story.mark('tutorial');
       if (B.intro !== I) return;
       I.vn = null; I.mode = 'cine'; I.t = 0; I.from = { cx: camCx(), z: B.cam.z, bot: camBottom() };
@@ -1114,6 +1123,7 @@ SA.BattleView.create = function createBattleView(api) {
     const I = B.intro;
     if (!I) return;
     if (I.vn) { const vn = I.vn; I.vn = null; vn.close(); }
+    tutGlow(null);
     B.intro = null;
     B.keys.left = B.keys.right = B.keys.fire = false;
     B.shake = 0;
@@ -1131,10 +1141,15 @@ SA.BattleView.create = function createBattleView(api) {
     I.clock += dt;
     tick(dt);   // 粒子和震屏照常衰减
     if (I.mode === 'tutor') {
-      // 讲解部件时镜头推到玩家车上，旁白时回到全景。
-      const pb = sideBox(B.p);
+      // 讲解部件和开车时镜头推到玩家车上；旁白、瞄准、开火演示时回到全景（两辆车都看得见）。
+      const pb = sideBox(B.p), ctl = I.focus && I.focus.startsWith(CTL) ? I.focus.slice(CTL.length) : null;
+      I.ctlT = (I.ctlT || 0) + dt;
+      tutGlow(ctl);
       // 对话框压在画面上方，讲解时把车往画面下方放，给箭头和标签留出空间
-      const [tx, tz, tb] = I.focus ? [pb.cx, 2.2, GROUND + 22] : [I.home.x + I.home.w / 2, I.home.z, GROUND + 60];
+      const close = I.focus && (!ctl || ctl === 'move');
+      // 瞄准 / 开火演示：大屏看全景；手机上画面窄，推到对方车上，手指和准星才看得清
+      const foe = (ctl === 'aim' || ctl === 'fire') && legible() > 1.2 ? sideBox(B.e) : null;
+      const [tx, tz, tb] = close ? [pb.cx, tutZoom(), GROUND + 22] : foe ? [foe.cx - 40, tutZoom() * 0.8, GROUND + 22] : [I.home.x + I.home.w / 2, I.home.z, GROUND + 60];
       const k = Math.min(1, dt * 4);
       camAt(camCx() + (tx - camCx()) * k, B.cam.z + (tz - B.cam.z) * k, camBottom() + (tb - camBottom()) * k);
       return;
@@ -1180,6 +1195,115 @@ SA.BattleView.create = function createBattleView(api) {
     }
     return (arrowCache[key] = c);
   }
+  // ---------- 操作教学的演示（第一关教程讲完部件后，旁白讲操作）----------
+  const CTL = 'ctl:';
+  // 画布在屏幕上越窄，教程的箭头和铭牌越要放大才看得清：先把镜头推近一些（最多 1.5 倍），剩下的靠放大箭头和字
+  const legible = () => clamp(900 / Math.max(1, cv.clientWidth), 1, 3);
+  const tutZoom = () => 2.2 * Math.min(1.5, legible());
+  const tutL = () => legible() / Math.min(1.5, legible());
+  // 讲到哪一步，仪表台上对应的真按钮就发光（电脑上没有移动 / 开火键，只有武器键会亮）
+  function tutGlow(part) {
+    for (const [k, el] of [['move', hud.move], ['fire', hud.fireBtn], ['weapon', hud.keys]]) if (el) el.classList.toggle('tut-glow', k === part);
+  }
+  // 演示用的指针：电脑 = 鼠标箭头，触屏 = 白手套食指（指尖朝上，指尖就是瞄准点）。X 黑边 / w 亮 / s 暗
+  const POINTERS = {
+    mouse: { tip: [0, 0], rows: ['X', 'XX', 'XwX', 'XwwX', 'XwwwX', 'XwwwwX', 'XwwwwwX', 'XwwwwwwX', 'XwwwwwwwX', 'XwwwwwXXXX', 'XwwXwwX', 'XwX XwwX', 'XX  XwwX', '     XwwX', '      XX'] },
+    finger: { tip: [5, 0], rows: ['    XXX', '   XwwwX', '   XwwsX', '   XwwsX', '   XwwsXXX', '   XwwsXwwXX', ' XXXwwsXwsXwX', 'XwwXwwwwwwsXwX', 'XwsXwwwwwwwwsX', 'XwwwwwwwwwwwsX', ' XwwwwwwwwwwsX', '  XwwwwwwwwsX', '   XwwwwwwsX', '    XsssssX', '    XXXXXXX'] },
+  };
+  const pointerCache = {};
+  function pointerSprite(kind) {
+    if (pointerCache[kind]) return pointerCache[kind];
+    const def = POINTERS[kind], w = Math.max(...def.rows.map(r => r.length)), c = document.createElement('canvas');
+    c.width = w; c.height = def.rows.length;
+    const x = c.getContext('2d'), col = { X: P.black, w: '#f2ecdc', s: '#b9b09a' };
+    def.rows.forEach((row, y) => [...row].forEach((ch, i) => { if (col[ch]) { x.fillStyle = col[ch]; x.fillRect(i, y, 1, 1); } }));
+    return (pointerCache[kind] = { cv: c, tip: def.tip });
+  }
+  // 世界坐标 → 画面坐标（W × H）
+  const toScreen = (x, y) => [(x - B.cam.x) * B.cam.z, (y - B.cam.y) * B.cam.z];
+  // 黄铜小铭牌（同部件讲解的标签）；当前变换下画，字号跟着变换缩放。side：0 = x 是中心，1 = x 是左边，-1 = x 是右边
+  function brassTag(text, x, y, fs, side = 0) {
+    dg.font = `900 ${fs}px "Microsoft YaHei", "PingFang SC", sans-serif`;
+    const w = dg.measureText(text).width + fs, hh = Math.round(fs * 1.5), b = Math.max(1, Math.round(fs / 9));
+    x += side * w / 2;
+    dg.fillStyle = P.black; dg.fillRect(Math.round(x - w / 2) - b, Math.round(y - hh / 2) - b, Math.round(w) + b * 2, hh + b * 2);
+    dg.fillStyle = P.brass[2]; dg.fillRect(Math.round(x - w / 2), Math.round(y - hh / 2), Math.round(w), hh);
+    dg.fillStyle = '#2a1a05'; dg.textAlign = 'center'; dg.textBaseline = 'middle';
+    dg.fillText(text, x, y);
+    dg.textAlign = 'start'; dg.textBaseline = 'alphabetic';
+  }
+  function ctlDraw(I, part, Z) {
+    const t = I.ctlT || 0;
+    dg.imageSmoothingEnabled = false;
+    if (part === 'move') {
+      // 车两边各一支箭头：前进 / 后退轮流亮起、往外顶，旁边写上对应的键
+      const b = sideBox(B.p), y = Math.round(b.y1 - 14), fwd = Math.floor(t / 1.2) % 2 === 0, L = tutL();
+      dg.setTransform(Z, 0, 0, Z, -B.cam.x * Z, -B.cam.y * Z);
+      for (const [dir, on, label] of [[1, fwd, touchUI ? SA.Config.text('battle_view_forward') : 'D / →'], [-1, !fwd, touchUI ? SA.Config.text('battle_view_backward') : 'A / ←']]) {
+        // 箭头尾巴离车边 4 像素、尖朝外，亮着的那支往外顶；键名写在箭头上方、朝外摆，两边不会叠在车上
+        const bob = on ? 2 + 3 * Math.sin(I.clock * 7) : 0, edge = dir > 0 ? b.x1 : b.x0;
+        const mid = edge + dir * (18 + bob) * L, spr = arrowSprite(dir > 0 ? 0 : Math.PI);
+        dg.globalAlpha = on ? 1 : 0.35;
+        dg.drawImage(spr, Math.round(mid - spr.width * L / 2), Math.round(y - spr.height * L / 2), spr.width * L, spr.height * L);
+        brassTag(label, edge + dir * 6 * L, y - 20 * L, 9 * L, dir);
+        dg.globalAlpha = 1;
+      }
+      return;
+    }
+    if (part !== 'aim' && part !== 'fire') return;   // 换武器：只让仪表台的武器键发光
+    // 目标：对方驾驶舱（打掉就赢）
+    const at = findPart(B.e, 'cockpit');
+    const tb = at ? modBox(B.e, at.r, at.c, at.id) : sideBox(B.e);
+    const gx = (tb.x0 + tb.x1) / 2, gy = (tb.y0 + tb.y1) / 2;
+    let px = gx, py = gy, focus = 0, pressed = false, shot = -1;
+    if (part === 'aim') {
+      // 指针从两车中间上方滑到驾驶舱上，再在附近慢慢晃（按住拖动 / 移动鼠标挑部件）
+      const k = easeIO(clamp((t % 3.6) / 1.1, 0, 1)), sb = sideBox(B.p);
+      const sx = (sb.x1 + tb.x0) / 2, sy = Math.min(sb.y0, tb.y0) - 30;
+      const wob = clamp(((t % 3.6) - 1.1) / 0.4, 0, 1);
+      px = sx + (gx - sx) * k + wob * 5 * Math.sin(t * 2.4); py = sy + (gy - sy) * k + wob * 3 * Math.sin(t * 3.1);
+      pressed = touchUI && k > 0.02;
+    } else {
+      // 按住 → 准星收紧变绿 → 自动打出去 → 松开，循环
+      const c = t % 3.4;
+      pressed = c >= 0.4 && c < 2.1;
+      focus = pressed ? easeIO(clamp((c - 0.4) / 1.5, 0, 1)) : 0;
+      if (c >= 2.1) shot = c - 2.1;
+    }
+    dg.setTransform(Z, 0, 0, Z, -B.cam.x * Z, -B.cam.y * Z);
+    g = dg;
+    const near = Math.hypot(px - gx, py - gy) < 8;
+    if (near) {
+      cornerMark(Math.round(tb.x0) - 2, Math.round(tb.y0) - 2, tb.x1 - tb.x0 + 4, tb.y1 - tb.y0 + 4);
+      if (at) brassTag(M[at.id].name, tb.x0 - 8 * tutL(), gy - 14 * tutL(), 9 * tutL(), -1);   // 写在目标左边（两车中间是空地）
+    }
+    gearReticle(px, py, focus, null, { fast: false, ticks: 0, flash: 0, rl: null });
+    // 打出去的一下：命中点一颗白星芒 + 几粒火花
+    if (shot >= 0 && shot < 0.5) {
+      const k = shot / 0.5, L = Math.round(4 + 12 * Math.sin(Math.PI * Math.min(1, k * 1.6))), x = Math.round(gx), y = Math.round(gy);
+      dg.globalAlpha = 1 - k;
+      dg.fillStyle = P.white; dg.fillRect(x - L, y - 1, L * 2 + 1, 3); dg.fillRect(x - 1, y - L, 3, L * 2 + 1);
+      dg.fillStyle = P.fire[3];
+      for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.4, r = 6 + 22 * k; dg.fillRect(Math.round(x + Math.cos(a) * r) - 1, Math.round(y - Math.abs(Math.sin(a)) * r) - 1, 3, 3); }
+      dg.globalAlpha = 1;
+    }
+    g = wc.getContext('2d');
+    // 指针和提示字画在画面坐标里，大小跟着画布在屏幕上的实际宽度走（手机上不会小成一粒）
+    dg.setTransform(DPX, 0, 0, DPX, 0, 0);
+    const [sx, sy] = toScreen(px, py), k = clamp(Math.round(2.6 * W / Math.max(1, cv.clientWidth)), 2, 8);
+    const sp = pointerSprite(touchUI ? 'finger' : 'mouse');
+    if (pressed) {   // 按下：指尖外一圈涟漪
+      const r = k * (4 + 3 * ((I.clock * 1.6) % 1));
+      dg.globalAlpha = 0.8 - 0.6 * ((I.clock * 1.6) % 1); dg.strokeStyle = P.brass[3]; dg.lineWidth = k;
+      dg.beginPath(); dg.arc(sx, sy, r, 0, Math.PI * 2); dg.stroke(); dg.globalAlpha = 1;
+    }
+    const dy = pressed ? k : 0;
+    dg.drawImage(sp.cv, Math.round(sx - sp.tip[0] * k), Math.round(sy - sp.tip[1] * k + dy), sp.cv.width * k, sp.cv.height * k);
+    if (part === 'fire') {
+      const tag = shot >= 0 && shot < 0.8 ? SA.Config.text('battle_view_demo_release') : pressed ? SA.Config.text('battle_view_demo_hold') : '';
+      if (tag) brassTag(tag, sx + sp.cv.width * k + 8 * k, sy + 8 * k, 5 * k);
+    }
+  }
   function introDraw() {
     const I = B.intro;
     if (!I) return;
@@ -1189,26 +1313,22 @@ SA.BattleView.create = function createBattleView(api) {
     dg.setTransform(DPX, 0, 0, DPX, 0, 0);
     dg.fillStyle = P.black;
     dg.fillRect(0, 0, W, Math.round(44 * barK)); dg.fillRect(0, H - Math.round(44 * barK), W, Math.round(44 * barK));
+    if (I.mode === 'tutor' && I.focus && I.focus.startsWith(CTL)) { ctlDraw(I, I.focus.slice(CTL.length), Z); return; }
     if (I.mode === 'tutor' && I.arrows && I.focus) {
       dg.setTransform(Z, 0, 0, Z, -B.cam.x * Z, -B.cam.y * Z);
       dg.imageSmoothingEnabled = false;
       g = dg;
+      const L = tutL();
       for (const a of I.arrows) {
-        const on = a.part === I.focus, bob = on ? 3 + 3 * Math.sin(I.clock * 7) : 3;
-        // 箭头尖端贴着部件边缘，身子朝车外；精灵中心在尖端后 10 像素
+        const on = a.part === I.focus, bob = (on ? 3 + 3 * Math.sin(I.clock * 7) : 3) * L;
+        // 箭头尖端贴着部件边缘，身子朝车外；精灵中心在尖端后 10 像素（手机上整体放大 L 倍）
         const tx = a.mx + a.ox * (a.reach + bob), ty = a.my + a.oy * (a.reach + bob);
-        const spr = arrowSprite(Math.atan2(-a.oy, -a.ox)), ax = tx + a.ox * 10, ay = ty + a.oy * 10;
+        const spr = arrowSprite(Math.atan2(-a.oy, -a.ox)), ax = tx + a.ox * 10 * L, ay = ty + a.oy * 10 * L;
         dg.globalAlpha = on ? 1 : 0.35;
-        dg.drawImage(spr, Math.round(ax - spr.width / 2), Math.round(ay - spr.height / 2));
+        dg.drawImage(spr, Math.round(ax - spr.width * L / 2), Math.round(ay - spr.height * L / 2), spr.width * L, spr.height * L);
         if (on) {
           cornerMark(a.b.x0 - 2, a.b.y0 - 2, a.b.x1 - a.b.x0 + 4, a.b.y1 - a.b.y0 + 4);
-          const lx = tx + a.ox * 36, ly = ty + a.oy * 36;
-          dg.font = '900 9px "Microsoft YaHei", "PingFang SC", sans-serif';
-          const w = dg.measureText(a.label).width + 8;
-          dg.fillStyle = P.black; dg.fillRect(Math.round(lx - w / 2) - 1, Math.round(ly - 7) - 1, Math.round(w) + 2, 15);
-          dg.fillStyle = P.brass[2]; dg.fillRect(Math.round(lx - w / 2), Math.round(ly - 7), Math.round(w), 13);
-          dg.fillStyle = '#2a1a05'; dg.textAlign = 'center'; dg.textBaseline = 'middle';
-          dg.fillText(a.label, lx, ly);
+          brassTag(a.label, tx + a.ox * 36 * L, ty + a.oy * 36 * L, 9 * L);
         }
         dg.globalAlpha = 1;
       }
@@ -1304,7 +1424,8 @@ SA.BattleView.create = function createBattleView(api) {
     hud.stage = h('div', { class: 'bt-stage' }, cv, hud.top);
     wrap = h('div', { class: 'bt-canvas-wrap' }, hud.stage);
     hud.dash = hasPX ? dashboard() : null;
-    screen.append(h('div', { class: 'bt' }, wrap, hud.dash || ''));
+    touchUI = isTouchUI();
+    screen.append(h('div', { class: `bt${touchUI && hud.dash ? ' touchui' : ''}` }, wrap, hud.dash || ''));
 
     const toNative = (e) => {
       const rc = cv.getBoundingClientRect();
@@ -1314,7 +1435,7 @@ SA.BattleView.create = function createBattleView(api) {
     cv.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') B.aimScreen = null; B.keys.fire = false; });
     cv.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (B.intro) { if (B.intro.mode === 'cine') endIntro(); return; }
+      if (B.intro) { if (B.intro.mode === 'cine') endIntro(); else if (B.intro.vn && B.intro.vn.advance) B.intro.vn.advance(); return; }
       if (B.surrender === 'raising') { api.skipSurrenderAnimation(); return; }   // 点击跳过升旗，只打开确认框
       B.aimScreen = toNative(e);
       if (e.button !== 0) return;
@@ -1356,8 +1477,11 @@ SA.BattleView.create = function createBattleView(api) {
 
   function fit() {
     if (!wrap || !wrap.isConnected) return;
-    const aw = wrap.clientWidth - 16;
-    const ah = Math.max(240, window.innerHeight - (hud.dash ? hud.dash.offsetHeight : 140) - 28);
+    let aw = wrap.clientWidth - 16;
+    let ah = Math.max(240, window.innerHeight - (hud.dash ? hud.dash.offsetHeight : 140) - 28);
+    // 手机布局：横屏时画面占中间一格（两边是仪表栏），竖屏时画面占满宽、控制件排在下面
+    const touch = touchUI && wrap.parentElement && wrap.parentElement.classList.contains('touchui');
+    if (touch) { aw = wrap.clientWidth; ah = window.innerHeight > window.innerWidth ? aw * H / W : wrap.clientHeight; }
     let s = Math.min(aw / W, ah / H);
     const cw = Math.round(W * s), ch = Math.round(H * s), dpr = window.devicePixelRatio || 1;
     cv.style.width = `${cw}px`;
@@ -1365,7 +1489,7 @@ SA.BattleView.create = function createBattleView(api) {
     const bw = Math.round(cw * dpr), bh = Math.round(ch * dpr);
     if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
     DPX = bw / W;
-    if (hud.dash) hud.dash.style.width = `${Math.max(cw, Math.min(wrap.clientWidth, 1040))}px`;   // 仪表台和画面一样宽，窄屏时最少 1040
+    if (hud.dash) hud.dash.style.width = touch ? '' : `${Math.max(cw, Math.min(wrap.clientWidth, 1040))}px`;   // 仪表台和画面一样宽，窄屏时最少 1040
   }
 
   return {

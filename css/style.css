@@ -1168,3 +1168,75 @@ body[data-yard] #screen { min-height: 0; }
 .bt-touch { display: none; width: 100%; gap: 6px; }
 .bt-touch .btn { touch-action: none; user-select: none; -webkit-user-select: none; }
 @media (pointer: coarse) { .bt-touch { display: flex; } }
+.bt-move { display: flex; gap: 6px; flex: 2; }
+.bt-touch .btn { flex: 1; }
+/* 教程讲到这一步时，对应的真按钮一闪一闪（黄铜描边，按步跳，不渐变） */
+.tut-glow { animation: tut-glow .8s steps(2) infinite; }
+@keyframes tut-glow { 50% { box-shadow: 0 0 0 3px #0b0e15, 0 0 0 6px #f5d77a; } }
+.dash-keys.tut-glow { animation-name: tut-glow-keys; }
+@keyframes tut-glow-keys { 50% { outline: 4px solid #f5d77a; outline-offset: 3px; } }
+
+/* ---------- 手机布局（触屏设备，js 给 .bt 加 .touchui）----------
+   横屏：画面占中间，左栏 = 锅炉 / 水 / 装甲，右栏 = 泄压 / 撤退 + 武器键；最下面一排 = 移动键（左手）、纸条、开火（右手）。
+   竖屏：画面占满宽，下面依次是车况、纸条、武器键，最下面一排左移动、右开火。
+   警报灯在手机上收起来：同样的警报纸条上会用红字写出来。 */
+.bt.touchui { display: grid; gap: 6px; box-sizing: border-box; height: 100vh; height: 100dvh; width: 100%;
+  padding: 4px max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  grid-template-columns: 124px minmax(0, 1fr) 124px; grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "car cv act" "car cv keys" "move note fire";
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.bt.touchui .bt-dash, .bt.touchui .dash-mid, .bt.touchui .bt-touch { display: contents; }
+.bt.touchui .bt-canvas-wrap { grid-area: cv; position: relative; padding: 0; min-width: 0; min-height: 0; overflow: hidden; }
+.bt.touchui .dash-car { grid-area: car; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 4px 12px; }
+.bt.touchui .dash-hull { justify-items: center; gap: 4px; }
+.bt.touchui .dash-lamps { display: none; }
+.bt.touchui .dash-note { grid-area: note; align-self: center; justify-self: center; min-height: 0; padding: 4px 10px; font-size: 13px; }
+.bt.touchui .dash-note:empty { visibility: hidden; }
+.bt.touchui .dash-note[data-k="alert"] { font-size: 14px; }
+.bt.touchui .dash-keys { grid-area: keys; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; overflow-y: auto; min-height: 0; padding: 2px; }
+.bt.touchui .dash-key.empty { display: none; }
+.bt.touchui .dash-act { grid-area: act; gap: 4px; align-content: start; }
+.bt.touchui .dash-act .px-btn { min-height: 34px; font-size: 14px; padding: 1px 4px; }
+.bt.touchui .dash-act .px-cap, .bt.touchui .bt-speed { display: none; }
+.bt.touchui .bt-move { grid-area: move; gap: 6px; }
+.bt.touchui .bt-touch .bt-move .btn { white-space: normal; word-break: keep-all; line-height: 1.15; }   /* 窄键：箭头和字分两行 */
+.bt.touchui .bt-fire { grid-area: fire; }
+.bt.touchui .bt-touch .btn { min-height: 56px; padding: 2px; font-size: 17px; font-weight: 900; white-space: nowrap; touch-action: none; }
+.bt.touchui .bt-fire { font-size: 20px; letter-spacing: .2em; border-image: var(--sk-brass) 4 fill / 8px repeat; color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; }
+.bt.touchui .bt-fire:active { border-image: var(--sk-brassDn) 4 fill / 8px repeat; }
+.bt.touchui .bt-plate { font-size: 12px; }
+@media (orientation: portrait) {
+  .bt.touchui { height: auto; min-height: 100vh; min-height: 100dvh; align-content: start;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-areas: "cv cv" "car car" "note note" "act act" "keys keys" "move fire"; }
+  .bt.touchui .bt-canvas-wrap { overflow: visible; z-index: 2; }
+  .bt.touchui .dash-car { flex-wrap: nowrap; }
+  .bt.touchui .dash-lamps { display: flex; }
+  .bt.touchui .dash-act { display: flex; justify-content: center; }
+  .bt.touchui .dash-keys { grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
+  .bt.touchui .bt-move { align-self: end; }
+  .bt.touchui .bt-touch .bt-move .btn { white-space: nowrap; }
+  .bt.touchui .bt-fire { min-height: 64px; align-self: end; }
+  .bt.touchui .bt-touch .btn { min-height: 64px; }
+}
+/* 教程对话框在手机上：头像缩小，只留正在说话的那一位，字有地方排开；竖屏时压在画面下面，不挡车 */
+.vn-touch.vn-battle { padding: 10px 8px 8px; }
+.vn-touch .vn-dock { margin-top: 22px; }
+.vn-touch .vn-in { min-height: 0; gap: 8px; padding: 10px 26px 12px 10px; }
+.vn-touch .vn-portrait { width: 52px; height: 52px; padding: 2px; }
+.vn-touch .vn-face { width: 48px; height: 48px; }
+.vn-touch .vn-text { font-size: 14px; line-height: 1.6; min-height: 3.2em; }
+.vn-touch .vn-name { top: -22px; font-size: 13px; padding: 3px 10px 4px; }
+.vn-touch.vn-duo[data-who=uncle] .vn-portrait2, .vn-touch.vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2), .vn-touch.vn-duo[data-who=narr] .vn-portrait { display: none; }
+.vn-touch.vn-duo[data-who=smith] .vn-name { right: auto; left: 22px; }
+.vn-touch .vn-skip { bottom: auto; top: 4px; right: 8px; }
+@media (orientation: portrait) {
+  .vn-touch.vn-battle { inset: 100% 0 auto 0; padding-top: 4px; background: var(--bg0); }
+}
+/* 别的页面（菜单、对话框）在窄屏上也不让一句话挤成一列 */
+@media (max-width: 560px) {
+  .vn-duo .vn-portrait { width: 56px; height: 56px; padding: 2px; }
+  .vn-duo .vn-face { width: 52px; height: 52px; }
+  .vn-duo[data-who=uncle] .vn-portrait2, .vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2), .vn-duo[data-who=narr] .vn-portrait { display: none; }
+  .vn-duo[data-who=smith] .vn-name { right: auto; left: 22px; }
+}

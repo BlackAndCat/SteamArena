@@ -9,7 +9,11 @@ SA.STORY = (() => {
   const rows = key => JSON.parse(doc.values[`story:${key}`] || '[]');
   const data = { cast: doc.storyMeta.cast, opening: rows('opening'),
     tutorial: { intro: rows('tutorial.intro'), parts: doc.storyMeta.tutorialParts.map((part, i) =>
-      ({ ...part, lines: rows(`tutorial.parts.${i}`) })) }, stage: {}, before: {}, after: {}, feat: {} };
+      ({ ...part, lines: rows(`tutorial.parts.${i}`) })),
+      // 讲完部件后的操作教学：电脑和触屏各一套旁白（desktop / touch）
+      controls: (doc.storyMeta.tutorialControls || []).map(c =>
+        ({ ...c, lines: { desktop: rows(`tutorial.controls.${c.part}.desktop`), touch: rows(`tutorial.controls.${c.part}.touch`) } })) },
+    stage: {}, before: {}, after: {}, feat: {} };
   for (const key of Object.keys(doc.values)) {
     let match = /^story:stage\.(\d+,\d+)\.(win|lose)$/.exec(key);
     if (match) { (data.stage[match[1]] ||= {})[match[2]] = rows(key.slice(6)); continue; }
@@ -452,7 +456,7 @@ SA.Story = (() => {
     show(from);
     if (edit) edit.hidden = !canEditOpening();
     raf = requestAnimationFrame(frame);
-    return { close: () => finish(), cancel: () => finish(false), get index() { return i; } };
+    return { close: () => finish(), cancel: () => finish(false), advance, get index() { return i; } };
   }
 
   // 开场画面：480×270 画布，分镜随台词切换
@@ -551,14 +555,15 @@ SA.Story = (() => {
     const go = () => e.start();
     if (SA.StoryDev) SA.StoryDev.before({ key: e.key, replay: e.replay }, go); else go();
   }
-  // 战斗教程台词：只在第一关第一次开打时有；返回 null 就不演
-  function tutorial(opts) {
+  // 战斗教程台词：只在第一关第一次开打时有；返回 null 就不演。dev = 'desktop' | 'touch'，决定操作教学用哪一套
+  function tutorial(opts, dev = 'desktop') {
     if (seen('tutorial') || opts.mode !== 'campaign' || opts.replay) return null;
     const st = SA.Camp.current();
     if (!st || st.ci !== 0 || st.si !== 0) return null;
     // 每句还原成 { who, text }：老格式的纯字符串是远房亲戚说的；对象里没写 who 的就是旁白（编辑器里选的「旁白」）
     const T0 = SA.STORY.tutorial, rows = (id, fb) => lines(id, fb).map(l => (typeof l === 'string' ? { who: 'uncle', text: l } : { ...l }));
-    return { intro: rows('tutorial.intro', [].concat(T0.intro)), parts: T0.parts.map((p, i) => ({ ...p, lines: rows(`tutorial.parts.${i}`, p.lines) })) };
+    return { intro: rows('tutorial.intro', [].concat(T0.intro)), parts: T0.parts.map((p, i) => ({ ...p, lines: rows(`tutorial.parts.${i}`, p.lines) })),
+      controls: (T0.controls || []).map(c => ({ ...c, lines: rows(`tutorial.controls.${c.part}.${dev}`, c.lines[dev]) })) };
   }
   // 过关提示：at = 打的是哪一场（战役），newFeat = 这一场新开放的功能。每条只说一次
   function afterBattle({ key, win, newFeat = [] }, next) {

@@ -859,6 +859,7 @@ SA.StoryData = (() => {
   function list() {
     const ids = ['opening', 'tutorial.intro', 'before.current', 'after.current'];
     (story().tutorial?.parts || []).forEach((_, i) => ids.push(`tutorial.parts.${i}`));
+    (story().tutorial?.controls || []).forEach(c => ids.push(`tutorial.controls.${c.part}.desktop`, `tutorial.controls.${c.part}.touch`));
     for (const key of Object.keys(story().stage || {})) {
       if (!/^\d+,\d+$/.test(key)) continue;
       for (const outcome of ['win', 'lose']) if (story().stage[key][outcome]) ids.push(`stage.${key}.${outcome}`);
