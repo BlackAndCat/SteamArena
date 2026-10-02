@@ -30,3 +30,4 @@ SA.BUILD_VIS += '+yard-click-dialog'; // 院子人物点击显示可关闭对话
 SA.BUILD_VIS += '+back-alley-scene'; // 第一章后巷场景（熏黑的民房、酒馆、当铺三铜球、窗里和人行道上围观的煤球、庄家赔率黑板和放贷的）+ 场地两头的路障（后巷 / 铁匠铺 / 野地 / 竞技场各一种）
 SA.BUILD_VIS += '+opening-shock-gaze-wall-car'; // 开场震惊视线缓慢往返，战车驾驶舱藏在后墙下。
 SA.BUILD_VIS += '+console'; // 后台 tools/console.html：全部工具的统一入口（关卡工作区、剧情、院子闲聊、样机目录、游戏调试、Ctrl+K 搜索），开发者面板第一项。
+SA.BUILD_VIS += '+console-warm-garage'; // 后台改成暖色木纹 + 黄铜 + 纸面；关卡车拼装搬进「关卡」工作区（tools/console-garage.html 嵌游戏车间），文字与奖励、强度也在同一页编辑。

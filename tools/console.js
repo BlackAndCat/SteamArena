@@ -1,14 +1,15 @@
 // 蒸汽竞技场 · 后台：把分散在各页的工作台、剧情、院子闲聊、视觉样机和游戏调试收进一个页面。
-// 新界面（关卡、剧情、院子闲聊、游戏与调试、样机目录）直接调用后台维护的数据接口：
-//   SA.StageCars / SA.V（关卡车）、SA.StoryData（剧情）、SA.YardChat（院子闲聊）、SA.Text（共用文本文件）。
-// 还没重做的工作台（关卡车拼装、模块属性、进化擂台、数值自测）原样嵌在框里用。
-// 这里只做界面和流程；数据规则、校验和写文件都走原接口，不复制一份。
+// 新界面直接调用后台维护的数据接口：
+//   关卡车：嵌在「关卡 › 拼装」里的 console-garage.html（游戏车间编辑器 + 隔离设计存档 + SA.Camp.dev.saveStageCar）
+//   剧情：SA.StoryData　院子闲聊：SA.YardChat　共用文本文件：SA.Text
+// 还没重做的工作台（进化擂台、数值自测、模块属性）原样嵌在框里用。
+// 这里只做界面和流程；数据规则、校验和写文件都走原接口。
 (() => {
   'use strict';
   const PREF_KEY = 'steam_arena_console_v1';
   const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })();
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* 隐私模式：只在本页记住 */ } };
-  const clone = (v) => JSON.parse(JSON.stringify(v));
+  const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
   const $ = (sel, root = document) => root.querySelector(sel);
 
   // ---------- DOM 小工具：文字一律走 textContent ----------
@@ -44,8 +45,6 @@
     chev: '<path d="M3 5l5 6 5-6z"/>',
     left: '<path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
     right: '<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-    moon: '<path d="M11.5 10.5A5 5 0 0 1 5.5 4.5a5 5 0 1 0 6 6z"/>',
-    sun: '<circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
   };
   function icon(name) {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -74,22 +73,12 @@
   function toast(msg, kind = '') {
     const t = $('#toast');
     t.textContent = msg; t.className = `toast ${kind}`; t.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, kind === 'bad' ? 6000 : 2600);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, kind === 'bad' ? 7000 : kind === 'warn' ? 5000 : 3200);
   }
 
-  // ---------- 主题 ----------
-  function applyTheme() {
-    if (prefs.theme) document.documentElement.dataset.theme = prefs.theme;
-    else delete document.documentElement.dataset.theme;
-    const btn = $('#theme');
-    if (btn) { btn.replaceChildren(icon(isDark() ? 'sun' : 'moon')); btn.title = isDark() ? '换成浅色' : '换成深色'; }
-  }
-  const isDark = () => (prefs.theme ? prefs.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
-  function toggleTheme() { prefs.theme = isDark() ? 'light' : 'dark'; savePrefs(); applyTheme(); }
-
-  // ---------- 旧工作台和视觉页 ----------
+  // ---------- 还没重做的工作台、视觉页 ----------
   const TOOLS = {
-    'stage-editor': { name: '关卡车拼装', url: 'stage-editor.html', old: true, desc: '拼装关卡车，改关卡文字、奖励与强度，保存手工锁定版本' },
+    'stage-editor': { name: '关卡车工作台（旧版）', url: 'stage-editor.html', old: true, desc: '旧版关卡车工作台；拼装已经搬进「关卡」，这里留着备用' },
     'publish-preflight': { name: '发行前设计归档', url: 'publish-preflight.html', old: true, desc: '导入各来源作者包，逐项核对并写入正式文件' },
     evolve: { name: '进化擂台', url: 'evolve.html', old: true, desc: '关卡车进化生成器：选关、强度 × 表现散点、分类网格、候选库' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
@@ -106,7 +95,6 @@
     { items: [{ id: 'home', name: '总览', path: 'home' }] },
     { group: '战役', items: [
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
-      { id: 'stage-editor', name: '关卡车拼装', path: 'open/stage-editor', tag: 'old' },
       { id: 'publish-preflight', name: '发行前归档', path: 'open/publish-preflight', tag: 'old' },
       { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'old' },
       { id: 'selftest', name: '数值自测', path: 'open/selftest', tag: 'old' },
@@ -128,10 +116,11 @@
   ];
 
   // ---------- 战役数据 ----------
-  const STYLE = { rush: '冲锋', kite: '放风筝', turtle: '龟缩', rookie: '新手', wander: '游走', roam: '游走' };
+  const STYLE = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩', rookie: '新手', roam: '游走' };
   const chShort = (ch) => ch.name.split(' · ')[0];
   const chPlace = (ch) => ch.name.split(' · ')[1] || ch.place || '';
   const validKey = (k) => /^\d+,\d+$/.test(k || '') && !!SA.CAMPAIGN[+k.split(',')[0]]?.stages[+k.split(',')[1]];
+  const recordOf = (ci, si) => SA.STAGE_CARS?.records?.[`${ci}:${si}`] || null;
   function stageData(ci, si) {
     const ch = SA.CAMPAIGN[ci], base = ch && ch.stages[si];
     if (!base) return null;
@@ -139,6 +128,8 @@
     try { m = SA.StageCars ? SA.StageCars.merge(base, ci, si) : { ...base, source: 'original' }; } catch (e) { m = { ...base, source: 'original' }; }
     let v = m.vehicle;
     if (!v) try { v = SA.V.fromAscii(m.name, m.rows || [], m.sides || [], m.mt || 1, m.elite || [], m.subs || []); } catch (e) { v = null; }
+    const rec = recordOf(ci, si);
+    if (v && rec?.vehicleName) v.name = rec.vehicleName;   // 车名和关卡名分开存（规则层在游戏页里打的补丁，这里照着读）
     return { ...m, ci, si, key: `${ci},${si}`, code: `${ci}-${si + 1}`, chapter: ch, vehicle: v };
   }
   const stageLabel = (key) => {
@@ -146,6 +137,21 @@
     return st ? `${ci}-${si + 1} ${st.name}` : key;
   };
   const allStages = () => SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci},${si}`));
+  const carJson = (v) => { try { return v ? JSON.stringify(SA.StageCars.cellsOf(v)) : ''; } catch (e) { return ''; } };
+
+  // 手工关卡车存在浏览器本机、或别的页面刚保存时，本页跟着换成新记录
+  const LOCAL_CARS = 'steam_arena_stage_cars_local_v1';
+  function applyStageCars(records) {
+    if (!SA.STAGE_CARS || !SA.StageCars || !records) return;
+    SA.STAGE_CARS.records = { ...(SA.STAGE_CARS.records || {}), ...records };
+    try { SA.StageCars.applyToCampaign(); } catch (e) { console.warn(e); }
+  }
+  function applyLocalCars() {
+    try {
+      const local = JSON.parse(localStorage.getItem(LOCAL_CARS) || 'null');
+      if (local && local.records && (local.campaignLayout || 1) === SA.CAMPAIGN_LAYOUT) applyStageCars(local.records);
+    } catch (e) { /* 本机没有手工车 */ }
+  }
 
   // ---------- 剧情场景 ----------
   const OUTCOME = { win: '胜利', lose: '失败' };
@@ -187,53 +193,210 @@
   }
   let settingsDraft = null, clickDraft = null;
 
-  // ---------- 保存状态：剧情和闲聊共用一份文本文件，一次写完 ----------
-  const dirty = { story: new Set(), chat: new Set(), settings: false, tips: new Set() };
-  const isDirty = () => !!(dirty.story.size || dirty.chat.size || dirty.settings || dirty.tips.size);
+  // ---------- 关卡草稿：拼装台上的车 + 关卡资料（文字、奖励、解锁、锁定） ----------
+  const stageDrafts = new Map();   // key → { fields, cells, base, dirtyCar, dirtyFields, arenaId, test }
+  function fieldsFrom(st) {
+    const rec = recordOf(st.ci, st.si);
+    return {
+      name: st.name || '', vehicleName: rec?.vehicleName || st.vehicle?.name || st.name || '', pilot: st.pilot || '',
+      style: st.style || 'wander', aim: st.aim ?? 0.8, terrain: st.terrain || 'flat', boss: !!st.boss, prize: st.prize || 0,
+      rewardMoney: st.rewardMoney !== false, victoryRepairFree: st.victoryRepairFree === true,
+      blurb: st.blurb || '', weakness: st.weakness || '',
+      unlock: clone(st.unlock || null), rewardItems: clone(st.rewardItems || []), lootText: JSON.stringify(st.uniqueLoot || [], null, 2),
+      locked: rec ? rec.locked !== false : true,
+    };
+  }
+  function stageDraft(key) {
+    if (!stageDrafts.has(key)) {
+      const [ci, si] = key.split(',').map(Number), st = stageData(ci, si);
+      stageDrafts.set(key, { fields: fieldsFrom(st), cells: null, base: carJson(st.vehicle), dirtyCar: false, dirtyFields: false, arenaId: null, test: null });
+    }
+    return stageDrafts.get(key);
+  }
+  const stageDirty = (key) => { const d = stageDrafts.get(key); return !!(d && (d.dirtyCar || d.dirtyFields)); };
+  const dirtyStages = () => [...stageDrafts.entries()].filter(([, d]) => d.dirtyCar || d.dirtyFields).map(([k]) => k);
+  let liveCarState = null;   // 拼装页签开着时，工具条上的「改了」提示跟着刷新
+  function touchFields(key) { stageDraft(key).dirtyFields = true; refreshStatus(); markTree(); liveCarState?.(); }
+
+  // 资料 → 保存用的 meta：字段和旧工作台（tools/stage-editor.js readFields）一致，先在这里查一遍、说人话
+  function buildMeta(d) {
+    const f = d.fields;
+    if (!f.vehicleName.trim()) throw new Error('车名不能为空');
+    const rewardItems = (f.rewardItems || []).map((it, i) => {
+      const id = it.id, count = Number(it.count), mt = Number(it.mt);
+      if (!SA.MODULES[id] || SA.MODULES[id].retired) throw new Error(`第 ${i + 1} 项固定奖励还没选物品`);
+      if (!Number.isSafeInteger(count) || count < 1) throw new Error(`第 ${i + 1} 项固定奖励的数量要是正整数`);
+      if (!Number.isInteger(mt) || !SA.MATS[mt] || mt < SA.minMt(id) || mt > SA.maxMt(id)) throw new Error(`第 ${i + 1} 项固定奖励的材料不适用于「${SA.MODULES[id].name}」`);
+      return { id, count, mt };
+    });
+    let uniqueLoot;
+    try { uniqueLoot = f.lootText.trim() ? JSON.parse(f.lootText) : []; } catch (e) { throw new Error(`可缴获唯一件不是有效的 JSON：${e.message}`); }
+    let unlock = f.unlock ? clone(f.unlock) : null;
+    if (unlock) {
+      unlock.mods = (unlock.mods || []).filter((id) => SA.MODULES[id]);
+      unlock.feat = (unlock.feat || []).filter((x) => SA.FEATURES[x]);
+      if (!unlock.mat) delete unlock.mat; else unlock.mat = Math.max(1, Math.min(SA.MAT_MAX, Number(unlock.mat)));
+      if (!unlock.grid || !unlock.grid.cols || !unlock.grid.rows) delete unlock.grid;
+      else unlock.grid = { cols: Math.max(1, Math.min(8, Number(unlock.grid.cols))), rows: Math.max(1, Math.min(6, Number(unlock.grid.rows))) };
+      if (!unlock.note || !String(unlock.note).trim()) delete unlock.note;
+    }
+    return {
+      name: f.name.trim(), vehicleName: f.vehicleName.trim(), pilot: f.pilot.trim(), style: f.style, aim: Number(f.aim), terrain: f.terrain, boss: !!f.boss,
+      prize: Number(f.prize) || 0, unlock, uniqueLoot, rewardItems, rewardMoney: !!f.rewardMoney, victoryRepairFree: !!f.victoryRepairFree,
+      blurb: f.blurb, weakness: f.weakness, locked: f.locked !== false,
+    };
+  }
+
+  // ---------- 拼装台：整个后台只开一个 console-garage.html，切关、切页签都不重新载入 ----------
+  const garage = { layer: null, frame: null, ready: null, key: null, slot: null, ro: null, poll: 0 };
+  const garageApi = () => { try { return garage.frame?.contentWindow?.Garage || null; } catch (e) { return null; } };
+  function ensureGarage() {
+    if (garage.ready) return garage.ready;
+    if (!garage.layer) {
+      garage.frame = el('iframe', { src: 'console-garage.html', title: '拼装台' });
+      garage.layer = el('div#garage-layer', null, garage.frame);
+      hideGarage();
+      $('#main').append(garage.layer);
+    } else garage.frame.src = 'console-garage.html';
+    garage.key = null;
+    garage.ready = new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      const poll = () => {
+        const G = garageApi();
+        if (G && G.ready) resolve(G);
+        else if (Date.now() - t0 > 30000) reject(new Error('拼装台加载超时'));
+        else setTimeout(poll, 120);
+      };
+      poll();
+    });
+    garage.ready.catch(() => { garage.ready = null; });
+    return garage.ready;
+  }
+  // 不显示时也保留真实大小（挪到画面外），免得车间在 0 尺寸里排版
+  function hideGarage() {
+    if (!garage.layer) return;
+    Object.assign(garage.layer.style, { left: '-12000px', top: '0px', width: '1000px', height: '720px', visibility: 'hidden' });
+  }
+  function placeGarage() {
+    if (!garage.layer) return;
+    if (!garage.slot || !garage.slot.isConnected || !garageApi()) { hideGarage(); return; }
+    const m = $('#main').getBoundingClientRect(), r = garage.slot.getBoundingClientRect();
+    Object.assign(garage.layer.style, { left: `${r.left - m.left}px`, top: `${r.top - m.top}px`, width: `${r.width}px`, height: `${r.height}px`, visibility: 'visible' });
+  }
+  window.addEventListener('resize', placeGarage);
+  // 把拼装台上那一关的现状记进它的草稿
+  function captureGarage() {
+    const G = garageApi();
+    if (!G || !garage.key) return;
+    const d = stageDraft(garage.key), now = G.cellsJson();
+    d.dirtyCar = !!now && now !== d.base;
+    d.cells = d.dirtyCar ? now : null;
+  }
+  async function garageOpen(key) {
+    const G = await ensureGarage();
+    if (garage.key === key) return G;
+    captureGarage();
+    const [ci, si] = key.split(',').map(Number), d = stageDraft(key);
+    G.open(ci, si, d.cells ? JSON.parse(d.cells) : null, d.fields.vehicleName);
+    garage.key = key;
+    if (!d.cells) d.base = G.cellsJson();   // 以拼装台读到的样子为准，免得两边排列不同误报改动
+    return G;
+  }
+  // 车间铭牌上改了车名：记进草稿，工具条上的车名跟着变
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data || e.data.type !== 'garage-name' || !garage.key) return;
+    const d = stageDraft(garage.key);
+    d.fields.vehicleName = String(e.data.name || '');
+    touchFields(garage.key);
+    const input = $('.build-bar .name');
+    if (input && input.value !== d.fields.vehicleName) input.value = d.fields.vehicleName;
+  });
+
+  // ---------- 保存：关卡车走规则层的保存接口，剧情和闲聊写共用文本文件；Ctrl+S 一次存完 ----------
+  const textDirty = { story: new Set(), chat: new Set(), settings: false, tips: new Set() };
+  const isTextDirty = () => !!(textDirty.story.size || textDirty.chat.size || textDirty.settings || textDirty.tips.size);
+  const isDirty = () => isTextDirty() || dirtyStages().length > 0;
   function setStatus(state, detail) {
     const s = $('#status');
+    if (!s) return;
     s.dataset.state = state;
     const label = { clean: '已保存', dirty: '有改动 · Ctrl+S 保存', saving: '正在保存…', error: '保存失败 · 点此重试' }[state];
     s.replaceChildren(el('i'), label);
-    s.title = detail || (state === 'dirty' ? `待保存：${[dirty.story.size && `${dirty.story.size} 个剧情场景`, dirty.chat.size && `${dirty.chat.size} 个闲聊范围`, dirty.settings && '闲聊节奏', dirty.tips.size && '点击人物对话'].filter(Boolean).join('、')}` : SA.Text.file());
+    const n = dirtyStages().length;
+    const parts = [n && `${n} 关的关卡车或资料`, textDirty.story.size && `${textDirty.story.size} 幕剧情`, textDirty.chat.size && `${textDirty.chat.size} 个闲聊范围`,
+      textDirty.settings && '闲聊节奏', textDirty.tips.size && '点击人物对话'].filter(Boolean);
+    s.title = detail || (parts.length ? `待保存：${parts.join('、')}` : '全部已保存');
   }
   const refreshStatus = () => setStatus(isDirty() ? 'dirty' : 'clean');
+  function markTree() {
+    document.querySelectorAll('.st-item[data-key]').forEach((b) => {
+      const dot = b.querySelector('.dot'), on = stageDirty(b.dataset.key);
+      if (on && !dot) b.querySelector('.marks')?.prepend(el('span.dot', { title: '未保存' }));
+      if (!on && dot) dot.remove();
+    });
+  }
+  async function saveStage(key) {
+    const d = stageDraft(key), meta = buildMeta(d);
+    const G = await garageOpen(key);
+    const res = await G.save(meta);
+    applyStageCars({ [res.record.id]: res.record });
+    stageDrafts.delete(key);
+    stageDraft(key).base = G.cellsJson();
+    return res;
+  }
+  function stageNotice(res) {
+    const warn = res.warnings?.length ? `\n提醒：${res.warnings.join('；')}` : '';
+    if (res.filePersisted) return `已写进 js/stage-cars.js，开着的游戏页也换上了。${warn}`;
+    if (res.persisted) return `已存到本机浏览器，开着的游戏页也换上了；没写进 js/stage-cars.js（用 python tools/serve.py 打开后台才会写文件；发行前到「发行前归档」导入作者包）。${warn}`;
+    return `只在当前页面生效，关掉就没了：浏览器不让存本机。${warn}`;
+  }
   let saving = false;
   async function saveAll() {
     if (saving) return;
-    if (!isDirty()) { toast('没有需要保存的改动'); return; }
+    captureGarage();
+    if (!isDirty()) { toast('没有需要保存的改动'); refreshStatus(); return; }
     saving = true; setStatus('saving');
-    let staged = false;
+    const done = [], fails = [];
+    let soft = false;
     try {
-      // 先全部校验，免得一个范围出错时别的已经进了文本草稿
-      for (const scope of dirty.chat) { const d = chatDrafts.get(scope); if (d && d.mode !== 'inherit') SA.YardChat.validateGroups(d.groups); }
-      if (dirty.settings) SA.YardChat.validateSettings(settingsDraft);
-      for (const scope of dirty.chat) {
-        const d = chatDrafts.get(scope);
-        if (!d) continue;
-        if (d.mode === 'inherit') SA.YardChat.inherit(scope); else SA.YardChat.write(scope, d.groups);
-        staged = true;
+      for (const key of dirtyStages()) {
+        try {
+          const res = await saveStage(key);
+          done.push(`${stageLabel(key)}：${stageNotice(res)}`);
+          if (!res.filePersisted || res.warnings?.length) soft = true;
+        } catch (e) { fails.push(`${stageLabel(key)} 没保存：${e.message || e}`); }
       }
-      if (dirty.settings) { SA.YardChat.setSettings(settingsDraft); staged = true; }
-      for (const who of dirty.tips) { SA.Text.set(`home:tip:${who}`, clickDraft[who]); staged = true; }
-      const result = await SA.YardChat.save();   // 写共用文本文件，并通知开着的游戏页
-      // 支持文件选择的浏览器第一次保存要选一下文本文件（页面管理的既有做法），取消了就留着改动
-      if (result && result.cancelled) {
-        setStatus('dirty', '还没选文本文件');
-        toast(`第一次保存要在弹出的窗口里选 ${SA.Text.file()}，以后就不用再选。这次没选成，改动还在。`, 'bad');
-        return;
+      if (isTextDirty()) {
+        let staged = false;
+        try {
+          // 先全部校验，免得一个范围出错时别的已经进了文本草稿
+          for (const scope of textDirty.chat) { const c = chatDrafts.get(scope); if (c && c.mode !== 'inherit') SA.YardChat.validateGroups(c.groups); }
+          if (textDirty.settings) SA.YardChat.validateSettings(settingsDraft);
+          for (const scope of textDirty.chat) {
+            const c = chatDrafts.get(scope);
+            if (!c) continue;
+            if (c.mode === 'inherit') SA.YardChat.inherit(scope); else SA.YardChat.write(scope, c.groups);
+            staged = true;
+          }
+          if (textDirty.settings) { SA.YardChat.setSettings(settingsDraft); staged = true; }
+          for (const who of textDirty.tips) { SA.Text.set(`home:tip:${who}`, clickDraft[who]); staged = true; }
+          const result = await SA.YardChat.save();   // 写共用文本文件，并通知开着的游戏页
+          // 支持文件选择的浏览器第一次保存要选一下文本文件（文本管理的既有做法），取消了就留着改动
+          if (result && result.cancelled) fails.push(`剧情和闲聊：第一次保存要在弹出的窗口里选 ${SA.Text.file()}，以后就不用再选。这次没选成，改动还在。`);
+          else if (!result || !result.ok) throw result?.error || new Error('写入没有成功，草稿还在浏览器里');
+          else {
+            for (const scope of textDirty.chat) chatDrafts.delete(scope);
+            textDirty.story.clear(); textDirty.chat.clear(); textDirty.settings = false; textDirty.tips.clear();
+            done.push(`剧情和闲聊：已写进 ${SA.Text.file()}`);
+          }
+        } catch (e) {
+          fails.push(`剧情和闲聊：${staged ? '本机草稿已存，文件还没写入' : '没保存，改动还在页面上'}——${e.message || e}`);
+        }
       }
-      if (!result || !result.ok) throw result?.error || new Error('写入没有成功，草稿还在浏览器里');
-      for (const scope of dirty.chat) chatDrafts.delete(scope);
-      dirty.story.clear(); dirty.chat.clear(); dirty.settings = false; dirty.tips.clear();
-      setStatus(result.pending ? 'dirty' : 'clean');
-      toast(`已保存到 ${SA.Text.file()}`);
-      route(true);
-    } catch (e) {
-      const msg = e && e.message ? e.message : String(e);
-      setStatus('error', msg);
-      toast(staged ? `本机草稿已存，文件还没写入：${msg}` : `保存失败，改动还在页面上：${msg}`, 'bad');
     } finally { saving = false; }
+    if (fails.length) { setStatus(isDirty() ? 'error' : 'clean', fails.join('\n')); toast([...fails, ...done].join('\n'), 'bad'); }
+    else { refreshStatus(); toast(done.join('\n') || '已保存', soft ? 'warn' : ''); }
+    route(true);
   }
 
   // ---------- 剧情脚本编辑 ----------
@@ -254,7 +417,7 @@
       if (empty >= 0) { err = `第 ${empty + 1} 句还是空的，写完才会存进草稿`; showErr(); return; }
       try {
         SA.StoryData.set(id, lines.map((l) => ({ text: l.text, who: l.who || undefined, ...(id === 'opening' ? { scene: l.scene || undefined } : {}) })));
-        err = ''; dirty.story.add(id); refreshStatus();
+        err = ''; textDirty.story.add(id); refreshStatus();
       } catch (e) { err = e.message || String(e); }
       showErr();
     }
@@ -298,7 +461,7 @@
         el('h3', { text: sceneLabel(id) }), el('code', { text: id }),
         sceneEdited(id) ? el('span.chip.edited', { text: '已改' }) : el('span.chip', { text: '默认' }),
         el('span.grow'),
-        armedButton('恢复默认', '再点一次恢复', () => { SA.Text.set(`story:${id}`, ''); dirty.story.add(id); refreshStatus(); lines = sceneLines(id).map((l) => ({ ...l })); sel = 0; render(); toast('已恢复默认台词，保存后生效'); }, 'btn sm ghost'));
+        armedButton('恢复默认', '再点一次恢复', () => { SA.Text.set(`story:${id}`, ''); textDirty.story.add(id); refreshStatus(); lines = sceneLines(id).map((l) => ({ ...l })); sel = 0; render(); toast('已恢复默认台词，保存后生效'); }, 'btn sm ghost'));
       const list = lines.length ? lines.map(row) : [el('div.empty', null, el('b', { text: '这一幕还没有台词' }), '加一句试试。战前 / 战后为空时，游戏里就不插入剧情。')];
       const foot = el('div.script-foot', null,
         cast.map(([k, c]) => el('button.btn.sm', { type: 'button', on: { click: () => add(k) } }, icon('plus'), c.name)),
@@ -309,12 +472,12 @@
 
     const portraitCache = new Map();
     function portrait(who) {
-      const name = coalOf(who), k = `${who}`;
+      const name = coalOf(who);
       if (!name || !SA.Coal || !SA.Coal.byName[name]) return null;
-      if (!portraitCache.has(k)) {
-        try { portraitCache.set(k, SA.Coal.draw(SA.Coal.byName[name], { size: 'bust', expr: 'normal', cy: 62, look: who === 'smith' ? -1 : 1 })); } catch (e) { portraitCache.set(k, null); }
+      if (!portraitCache.has(who)) {
+        try { portraitCache.set(who, SA.Coal.draw(SA.Coal.byName[name], { size: 'bust', expr: 'normal', cy: 62, look: who === 'smith' ? -1 : 1 })); } catch (e) { portraitCache.set(who, null); }
       }
-      const src = portraitCache.get(k);
+      const src = portraitCache.get(who);
       if (!src) return null;
       const c = el('canvas', { width: src.width, height: src.height });
       c.getContext('2d').drawImage(src, 0, 0);
@@ -360,7 +523,7 @@
             : el('span.chip', { text: `沿用 · ${scopeName(d.source)}` }),
         el('span.muted', { text: inherited ? '这里显示的是上一级的闲聊；一改就变成这一范围自己的。' : '游戏里先用本关，再用本章，最后用全局。' }),
         el('span.grow'),
-        parent && d.mode !== 'inherit' && d.source === scope ? el('button.btn.sm.ghost', { type: 'button', on: { click: () => { d.mode = 'inherit'; d.groups = clone(SA.YardChat.read(parent).groups); d.dirty = true; dirty.chat.add(scope); refreshStatus(); render(); } } }, '恢复继承上一级') : null);
+        parent && d.mode !== 'inherit' && d.source === scope ? el('button.btn.sm.ghost', { type: 'button', on: { click: () => { d.mode = 'inherit'; d.groups = clone(SA.YardChat.read(parent).groups); d.dirty = true; textDirty.chat.add(scope); refreshStatus(); render(); } } }, '恢复继承上一级') : null);
       const groups = d.groups.map((g, gi) => groupCard(d, g, gi));
       const add = el('button.btn', { type: 'button', on: { click: () => {
         touch(d);
@@ -372,7 +535,7 @@
     }
     function touch(d) {
       if (d.mode === 'inherit') d.mode = 'write';
-      d.source = scope; d.dirty = true; dirty.chat.add(scope); refreshStatus();
+      d.source = scope; d.dirty = true; textDirty.chat.add(scope); refreshStatus();
     }
     function groupCard(d, g, gi) {
       const upd = (fn) => (e) => { touch(d); fn(e); };
@@ -418,27 +581,22 @@
 
   // ---------- 外框 ----------
   const lastBuild = (s) => (s ? String(s).split('+').pop().trim() : '—');
-  const main = () => $('#main');
   function buildShell() {
     const gear = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     gear.setAttribute('viewBox', '0 0 24 24'); gear.setAttribute('aria-hidden', 'true');
-    gear.innerHTML = '<g fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></g>';
-    gear.style.color = 'var(--brass)';
+    gear.innerHTML = '<g fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></g>';
     const top = el('header.top', null,
       el('a.brand', { href: '#/home' }, gear, '蒸汽竞技场', el('small', { text: '后台' })),
       el('button.search', { type: 'button', on: { click: openPalette } }, el('span', { text: '搜索关卡、剧情、闲聊、样机、模块…' }), el('kbd', { text: 'Ctrl K' })),
       el('div.spacer'),
-      el('button.status#status', { type: 'button', on: { click: () => saveAll() } }),
-      el('button.icon-btn#theme', { type: 'button', on: { click: toggleTheme } }));
+      el('button.status#status', { type: 'button', on: { click: () => saveAll() } }));
     const side = el('nav.side#nav', { 'aria-label': '后台导航' },
       NAV.map((g) => el('div.nav-group', null, g.group ? el('h4', { text: g.group }) : null,
         g.items.map((it) => el('a.nav-item', { href: `#/${it.path}`, dataset: { nav: it.id } }, it.name,
           it.tag ? el(`span.tag${it.tag === 'new' ? '.new' : ''}`, { text: it.tag === 'new' ? '新' : '旧版' }) : null)))),
-      el('div.side-foot', { title: `后台 ${SA.BUILD_SYS || ''}
-视觉 ${SA.BUILD_VIS || ''}` }, '最近一次构建',
+      el('div.side-foot', { title: `后台 ${SA.BUILD_SYS || ''}\n视觉 ${SA.BUILD_VIS || ''}` }, '最近一次构建',
         el('span.mono', { text: `视觉 · ${lastBuild(SA.BUILD_VIS)}` }), el('span.mono', { text: `后台 · ${lastBuild(SA.BUILD_SYS)}` })));
-    $('#app').replaceChildren(top, side, el('main.main#main'));
-    applyTheme();
+    $('#app').replaceChildren(top, side, el('main.main#main', null, el('div.view-root#view-root')));
     refreshStatus();
   }
 
@@ -453,9 +611,9 @@
   function route(keep) {
     const { view, rest } = parse();
     const fn = VIEWS[view] || VIEWS.home;
-    if (cleanup) { try { cleanup(); } catch (e) { /* 忽略 */ } cleanup = null; }
-    const m = main();
-    const keepScroll = keep && m.firstElementChild ? [...m.querySelectorAll('[data-keep-scroll]')].map((n) => n.scrollTop) : null;
+    if (cleanup) { try { cleanup(); } catch (e) { console.warn(e); } cleanup = null; }
+    const m = $('#view-root');
+    const keepScroll = keep ? [...m.querySelectorAll('[data-keep-scroll]')].map((n) => n.scrollTop) : null;
     m.replaceChildren();
     fn(rest, m);
     if (keepScroll) m.querySelectorAll('[data-keep-scroll]').forEach((n, i) => { n.scrollTop = keepScroll[i] || 0; });
@@ -464,6 +622,8 @@
     if (view !== 'home') { prefs.last = location.hash; prefs.lastLabel = document.title.replace(' · 后台', ''); savePrefs(); }
   }
   const setTitle = (t) => { document.title = `${t} · 后台`; };
+  // 视图切换时要收尾的事（解绑按键、收起拼装台……）串在一起，路由换页时一并执行
+  const onLeave = (fn) => { const prev = cleanup; cleanup = () => { fn(); if (prev) prev(); }; };
 
   // ---------- 视图 ----------
   const VIEWS = {};
@@ -477,32 +637,33 @@
     const cur = SA.LABS?.ITEMS.find((x) => x.id === 'current');
     const card = (path, title, big, p, meta) => el('a.card', { href: `#/${path}` }, el('h3', { text: title }), big != null ? el('div.big', { text: big }) : null, p ? el('p', { text: p }) : null, meta ? el('div.meta', { text: meta }) : null);
     const toolCard = (id) => { const t = TOOLS[id]; return el('a.card', { href: `#/open/${id}` }, el('h3', null, t.name, t.old ? el('span.chip', { text: '旧版' }) : null), el('p', { text: t.desc })); };
-    const last = prefs.last && !/^#\/?(home)?$/.test(prefs.last) ? el('a.continue', { href: prefs.last }, el('span.muted', { text: '接着上次：' }), el('b', { text: prefs.lastLabel || prefs.last })) : null;
+    const last = prefs.last && !/^#\/?(home)?$/.test(prefs.last) ? el('a.continue', { href: prefs.last }, el('span', { text: '接着上次：' }), el('b', { text: prefs.lastLabel || prefs.last })) : null;
     m.append(el('div.view', null, el('div.home', null,
-      el('div', null, el('h1', { text: '后台' }), el('p.lede', { text: '工作台、剧情、院子闲聊、视觉样机和游戏调试都在这里。按 Ctrl+K 搜任何一关、一幕剧情、一个样机。标「新」的是重做过的界面，标「旧版」的先原样嵌在框里用。' })),
+      el('div.home-head', null, el('h1', { text: '后台' }),
+        el('p.lede', { text: '关卡车、剧情、院子闲聊、视觉样机和游戏调试都在这里。按 Ctrl+K 搜任何一关、一幕剧情、一个样机；改完按 Ctrl+S 一次存好。标「新」的是重做过的界面，标「旧版」的先原样嵌着用。' })),
       last,
       el('div.section-h', null, el('h2', { text: '常用' })),
       el('div.cards', null,
-        card('stage', '关卡', `${stages.length} 关`, '一关一个工作区：车、剧情、闲聊、文字和奖励放在一起看。', `${manual} 辆手工关卡车`),
+        card('stage', '关卡', `${stages.length} 关`, '一关一个工作区：拼装关卡车、改文字和奖励、测强度、写剧情和闲聊。', `${manual} 辆手工关卡车`),
         card('story', '剧情', `${scenes.length} 幕`, '开场、教程、每关战前战后、功能开放。改完看对话框预览。', `${edited} 幕改过`),
         card('chat', '院子闲聊', `${ownChat} 个范围`, '全局、每章、每关的闲聊和多人对答。', '单独编排的范围'),
         cur ? card('open/current', '当前开发', null, cur.desc, `${cur.ver} · ${cur.date}`) : null,
         card('game', '游戏', null, '嵌着的游戏，加上一排调试按钮：全部解锁、加钱、跳章、清档、页面文字编辑、试驾场。', null)),
-      el('div.section-h', null, el('h2', { text: '还没重做的工作台' }), el('span', { text: '先嵌在后台里用，下一步逐个换成新界面' })),
-      el('div.cards', null, ['stage-editor', 'publish-preflight', 'evolve', 'selftest', 'modules'].map(toolCard)),
+      el('div.section-h', null, el('h2', { text: '还没重做的工作台' }), el('span', { text: '先嵌在后台里用，接下来逐个换成新界面' })),
+      el('div.cards', null, ['publish-preflight', 'evolve', 'selftest', 'modules'].map(toolCard)),
       el('div.section-h', null, el('h2', { text: '视觉' })),
       el('div.cards', null, card('labs', '样机目录', `${SA.LABS?.ITEMS.length || 0} 个`, '全部视觉样机，按类别和状态筛选。', null), ['candidates', 'spritesheet', 'style'].map(toolCard)))));
   };
 
-  // 关卡工作区：左边章节树，中间这一关，右边关卡信息
+  // 关卡工作区：左边章节树，中间这一关（拼装 / 文字与奖励 / 强度 / 剧情 / 院子闲聊），右边关卡信息
   VIEWS.stage = (rest, m) => {
-    let key = validKey(rest[0]) ? rest[0] : validKey(prefs.stageKey) ? prefs.stageKey : '0,0';
-    const TABS = { car: '车辆', story: '剧情', chat: '院子闲聊', text: '文字与奖励' };
-    const tab = TABS[rest[1]] ? rest[1] : TABS[prefs.stageTab] ? prefs.stageTab : 'car';
+    const key = validKey(rest[0]) ? rest[0] : validKey(prefs.stageKey) ? prefs.stageKey : '0,0';
+    const TABS = { build: '拼装', text: '文字与奖励', test: '强度', story: '剧情', chat: '院子闲聊' };
+    const tab = TABS[rest[1]] ? rest[1] : TABS[prefs.stageTab] ? prefs.stageTab : 'build';
     prefs.stageKey = key; prefs.stageTab = tab; savePrefs();
     const [ci, si] = key.split(',').map(Number);
-    const st = stageData(ci, si);
-    setTitle(`${st.code} ${st.name}`);
+    const st = stageData(ci, si), d = stageDraft(key), f = d.fields;
+    setTitle(`${st.code} ${f.name || st.name}`);
     const keys = allStages(), idx = keys.indexOf(key);
     const goStage = (k, t = tab) => go(`stage/${k}/${t}`);
 
@@ -514,17 +675,16 @@
       const q = filter.value.trim().toLowerCase();
       list.replaceChildren(...SA.CAMPAIGN.map((ch, c) => {
         const items = ch.stages.map((_, s) => {
-          const d = stageData(c, s), rec = SA.STAGE_CARS?.records?.[`${c}:${s}`];
-          const hay = `${d.code} ${d.name} ${d.pilot || ''}`.toLowerCase();
-          if (q && !hay.includes(q)) return null;
-          return el(`button.st-item${d.key === key ? '.on' : ''}`, { type: 'button', title: `${d.code} ${d.name} · ${d.pilot || ''}`, on: { click: () => goStage(d.key) } },
-            el('span.code', { text: d.code }), el('span.nm', null, d.name, el('small', { text: d.pilot || '' })),
-            el('span.marks', null, d.boss ? el('span.mark', { text: '★', title: 'Boss' }) : null,
+          const sd = stageData(c, s), rec = recordOf(c, s);
+          if (q && !`${sd.code} ${sd.name} ${sd.pilot || ''}`.toLowerCase().includes(q)) return null;
+          return el(`button.st-item${sd.key === key ? '.on' : ''}`, { type: 'button', dataset: { key: sd.key }, title: `${sd.code} ${sd.name} · ${sd.pilot || ''}`, on: { click: () => goStage(sd.key) } },
+            el('span.code', { text: sd.code }), el('span.nm', null, sd.name, el('small', { text: sd.pilot || '' })),
+            el('span.marks', null, stageDirty(sd.key) ? el('span.dot', { title: '未保存' }) : null, sd.boss ? el('span.mark', { text: '★', title: 'Boss' }) : null,
               rec ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '已锁定' }) : null));
         }).filter(Boolean);
         if (!items.length) return null;
         const closed = !q && prefs.closed[c] && c !== ci;
-        const h = el(`button.ch-h${closed ? '.closed' : ''}`, { type: 'button', on: { click: () => { prefs.closed[c] = !closed; savePrefs(); renderTree(); } } }, icon('chev'), `${chShort(ch)} · ${chPlace(ch)}`);
+        const h = el(`button.ch-h${closed ? '.closed' : ''}`, { type: 'button', title: ch.name, dataset: { short: chShort(ch) }, on: { click: () => { prefs.closed[c] = !closed; savePrefs(); renderTree(); } } }, icon('chev'), `${chShort(ch)} · ${chPlace(ch)}`);
         return el('div', null, h, closed ? null : items);
       }).filter(Boolean));
     }
@@ -533,16 +693,18 @@
     const tree = el('aside.tree', null, el('div.filter', null, filter), list);
 
     // 中：这一关
-    const rec = SA.STAGE_CARS?.records?.[`${ci}:${si}`];
+    const rec = recordOf(ci, si);
     const head = el('div.stage-head', null,
       el('div.code', { text: st.code }),
-      el('div', { style: 'min-width:0' }, el('h2', { text: st.name }),
-        el('div.who', null, st.pilot || '无名车手', st.boss ? el('span.chip.boss', { text: '★ Boss' }) : null,
-          rec ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }), rec && rec.locked !== false ? el('span.chip.locked', { text: '已锁定' }) : null)),
+      el('div', { style: 'min-width:0' }, el('h2', { text: f.name || st.name }),
+        el('div.who', null, f.pilot || '无名车手', f.boss ? el('span.chip.boss', { text: '★ Boss' }) : null,
+          rec ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
+          f.locked ? el('span.chip.locked', { text: '锁定' }) : el('span.chip', { text: '进化器可改' }),
+          stageDirty(key) ? el('span.chip.edited', { text: '有改动没保存' }) : null)),
       el('div.acts', null,
         el('button.btn.sm', { type: 'button', disabled: idx <= 0, title: '上一关（[）', on: { click: () => goStage(keys[idx - 1]) } }, icon('left'), '上一关'),
         el('button.btn.sm', { type: 'button', disabled: idx >= keys.length - 1, title: '下一关（]）', on: { click: () => goStage(keys[idx + 1]) } }, '下一关', icon('right')),
-        el('a.btn.sm.primary', { href: `#/open/stage-editor/${key}` }, '在关卡车拼装里改')));
+        el('button.btn.sm.primary', { type: 'button', title: '保存全部改动（Ctrl+S）', on: { click: () => saveAll() } }, '保存')));
     const sceneIds = new Set(SA.StoryData.list());
     const storySlots = [['before', `before.${key}`, '战前'], ['win', `stage.${key}.win`, '胜利'], ['lose', `stage.${key}.lose`, '失败'], ['after', `after.${key}`, '战后']];
     const storyCount = storySlots.filter(([, id]) => sceneIds.has(id) && sceneLines(id).length).length;
@@ -551,93 +713,275 @@
       k === 'story' ? el('span.count', { text: storyCount ? `${storyCount} 幕` : '' }) : k === 'chat' ? el('span.count', { text: scopeOwn(chatScope) ? '本关' : '继承' }) : null)));
     const body = el('div.stage-body', { 'data-keep-scroll': '' });
 
-    if (tab === 'car') {
-      const v = st.vehicle;
-      if (!v) body.append(el('div.empty', null, el('b', { text: '这一关还没有车' }), '去关卡车拼装里拼一台。'));
-      else {
-        let cv = null;
-        try { cv = carCanvas(v); } catch (e) { cv = null; }
-        const box = el('div.car-stage', null, el('span.cap', { text: rec?.vehicleName || st.vehicleName || st.name }), cv || el('div.muted', { text: '画不出这台车' }));
-        // 像素画只按整数倍放大：放得下就 2 倍，放不下 1 倍
-        if (cv) {
-          const fit = () => { const s = cv.width * 2 <= box.clientWidth - 32 ? 2 : 1; cv.style.width = `${cv.width * s}px`; cv.style.height = `${cv.height * s}px`; };
-          const ro = new ResizeObserver(fit); ro.observe(box);
-        }
-        body.append(box);
-        let s = null;
-        try { s = SA.V.stats(v); } catch (e) { s = null; }
-        if (s) {
-          const stat = (label, val) => el('div.stat', null, el('span', { text: label }), el('b', { text: val }));
-          body.append(el('div.stats', null, stat('评分', Math.round(s.rating || 0)), stat('价值', `£${Math.round(s.value || 0)}`), stat('耐久', Math.round(s.maxHp || s.hp || 0)),
-            stat('火力', `${(s.dps || 0).toFixed(1)}/s`), stat('重量', `${((s.weight || 0) / 1000).toFixed(1)} t`), stat('速度', Math.round(s.speed || 0)), stat('零件', s.count || 0)));
-        }
-        const counts = new Map();
-        SA.V.each(v, (cell) => { const k = `${cell.id}|${cell.mt || 1}|${cell.look || ''}`; counts.set(k, (counts.get(k) || 0) + 1); });
-        const parts = [...counts.entries()].map(([k, n]) => {
-          const [id, mt] = k.split('|'), mod = SA.MODULES[id];
-          let thumb = null;
-          try { thumb = SA.SPR.moduleCanvas(id, 1, +mt); } catch (e) { thumb = null; }
-          return el('div.part', null, el('div.thumb', null, thumb), el('div', { style: 'min-width:0' }, el('b', { text: mod ? mod.name : id }), el('span', { text: `${SA.MATS?.[+mt]?.name || `T${mt}`}${n > 1 ? ` × ${n}` : ''}` })));
-        });
-        body.append(el('div.block-h', null, el('h3', { text: '零件' }), el('span.muted', { text: `${counts.size} 种` })), el('div.parts', null, parts));
-      }
-    } else if (tab === 'story') {
+    if (tab === 'build') buildTab(body, key, st, d);
+    else if (tab === 'text') textTab(body, key, d);
+    else if (tab === 'test') testTab(body, key, st, d);
+    else if (tab === 'story') {
       const slot = storySlots.find(([k, id]) => k === prefs.storySlot && sceneIds.has(id)) || storySlots.find(([, id]) => sceneIds.has(id));
       const slots = el('div.slots', null, storySlots.map(([k, id, name]) => {
         const ok = sceneIds.has(id), n = ok ? sceneLines(id).length : 0;
         return el(`button.slot${slot && slot[0] === k ? '.on' : ''}${ok ? '' : '.off'}`, { type: 'button', disabled: !ok, title: ok ? id : '这一关还没有专属的胜负台词，需要后台开放这个场景',
           on: { click: () => { prefs.storySlot = k; savePrefs(); route(true); } } },
-          el('b', null, name, ok && sceneEdited(id) ? el('span.chip.edited', { text: '已改' }) : null, dirty.story.has(id) ? el('span.dot', { title: '未保存' }) : null),
+          el('b', null, name, ok && sceneEdited(id) ? el('span.chip.edited', { text: '已改' }) : null, textDirty.story.has(id) ? el('span.dot', { title: '未保存' }) : null),
           el('span', { text: ok ? (n ? `${n} 句` : '空 · 不插入剧情') : '未开放' }));
       }));
       body.append(slots, slot ? scriptEditor(slot[1]) : el('div.empty', { text: '没有可编辑的场景' }));
-    } else if (tab === 'chat') {
-      body.append(chatEditor(chatScope, { stageName: st.name }));
-    } else {
-      const u = st.unlock || {};
-      const pill = (t) => el('span.chip', { text: t });
-      const unlocks = [...(u.mods || []).map((id) => SA.MODULES[id]?.name || id), ...(u.feat || []).map((f) => SA.FEATURES[f] || f),
-        u.mat ? `材料 · ${SA.MATS?.[u.mat]?.name || u.mat}` : null, u.grid ? `改装台 ${u.grid.cols}×${u.grid.rows}` : null].filter(Boolean);
-      const field = (label, text) => el('div', { style: 'display:grid;gap:4px' }, el('div.muted', { style: 'font-size:12px', text: label }), el('div.note', { style: 'white-space:pre-wrap', text: text || '（空）' }));
-      body.append(el('div.note.warn', { text: '这一页先只读。要改文字、奖励和强度，点右上角「在关卡车拼装里改」——下一步会把这些表单搬到这里。' }),
-        field('对手简介（出战海报上的话）', st.blurb), field('弱点（线人手写）', st.weakness), field('过关提示', u.note),
-        el('div', { style: 'display:grid;gap:6px' }, el('div.muted', { style: 'font-size:12px', text: '解锁' }), el('div.reward-list', null, unlocks.length ? unlocks.map(pill) : pill('无'))),
-        field('设计意图', st.spec?.lesson));
-    }
+    } else body.append(chatEditor(chatScope, { stageName: f.name || st.name }));
     const center = el('section.stage', null, head, tabs, body);
 
-    // 右：关卡信息
-    const terrain = SA.TERRAINS[st.terrain || st.spec?.terrain || 'flat'] || SA.TERRAINS.flat;
+    // 右：关卡信息（拼装页签时收起，让拼装台宽一点）
+    const terrain = SA.TERRAINS[f.terrain || 'flat'] || SA.TERRAINS.flat;
     const kv = (pairs) => el('dl.kv', null, pairs.filter(([, v]) => v != null && v !== '').flatMap(([k, v]) => [el('dt', { text: k }), el('dd', null, v)]));
-    const rewards = [...(st.rewardItems || []).map((r) => `${SA.MODULES[r.id]?.name || r.id} × ${r.count}`), ...(st.uniqueLoot || []).map((r) => `唯一 · ${SA.MODULES[r.id]?.name || r.id}`), ...Object.entries(st.drop || {}).map(([k, n]) => `${SA.INGOTS?.[k]?.name || k} × ${n}`)];
+    const rewards = [...(f.rewardItems || []).filter((r) => SA.MODULES[r.id]).map((r) => `${SA.MODULES[r.id].name} × ${r.count}`),
+      ...(st.uniqueLoot || []).map((r) => `唯一 · ${SA.MODULES[r.id]?.name || r.id}`), ...Object.entries(st.drop || {}).map(([k, n]) => `${SA.INGOTS?.[k]?.name || k} × ${n}`)];
     const info = el('aside.info', null,
-      el('div', null, el('h3', { text: '关卡' }), kv([['章节', `${chShort(st.chapter)} · ${chPlace(st.chapter)}`], ['地形', terrain.name], ['性格', STYLE[st.style] || '游走'], ['枪法', st.aim != null ? String(st.aim) : null],
-        ['奖金', st.prize != null ? `£${st.prize}` : null], ['材料', SA.MATS?.[st.mt || 1]?.name], ['类型', st.boss ? 'Boss' : '普通']])),
+      el('div', null, el('h3', { text: '关卡' }), kv([['章节', `${chShort(st.chapter)} · ${chPlace(st.chapter)}`], ['地形', terrain.name], ['性格', STYLE[f.style] || '游走'], ['枪法', String(f.aim)],
+        ['奖金', f.rewardMoney ? `£${f.prize}` : '不发'], ['材料', SA.MATS?.[st.mt || 1]?.name], ['类型', f.boss ? 'Boss' : '普通']])),
       el('div', null, el('h3', { text: '地形' }), el('div.prose', { text: terrain.desc || '' })),
       rewards.length ? el('div', null, el('h3', { text: '固定奖励' }), el('div.reward-list', null, rewards.map((t) => el('span.chip', { text: t })))) : null,
-      el('div', null, el('h3', { text: '简介' }), el('div.prose', { text: st.blurb || '（空）' })));
+      el('div', null, el('h3', { text: '简介' }), el('div.prose', { text: f.blurb || '（空）' })),
+      st.spec?.lesson ? el('div', null, el('h3', { text: '设计意图' }), el('div.prose', { text: st.spec.lesson })) : null);
 
-    m.append(el('div.ws', null, tree, center, info));
+    m.append(el(`div.ws${tab === 'build' ? '.wide' : ''}`, null, tree, center, info));
     const onKey = (e) => {
-      if (e.target.closest('input, textarea, select, [contenteditable]') || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target.closest?.('input, textarea, select, [contenteditable]') || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === '[' && idx > 0) goStage(keys[idx - 1]);
       if (e.key === ']' && idx < keys.length - 1) goStage(keys[idx + 1]);
     };
     document.addEventListener('keydown', onKey);
-    cleanup = () => document.removeEventListener('keydown', onKey);
+    onLeave(() => document.removeEventListener('keydown', onKey));
     requestAnimationFrame(() => list.querySelector('.st-item.on')?.scrollIntoView({ block: 'nearest' }));
   };
 
-  function carCanvas(v) {
-    const src = SA.SPR.renderVehicle(v, { key: 'console', t: 0, heat: 0.45, water: 0.8 });
-    const g = src.getContext('2d'), { width: w, height: h } = src, d = g.getImageData(0, 0, w, h).data;
-    let x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    const out = document.createElement('canvas');
-    if (x1 < 0) { out.width = out.height = 1; return out; }
-    out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
-    out.getContext('2d').drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
-    return out;
+  // 拼装页签：上面一条工具条，下面是游戏车间（拼装台）
+  function buildTab(body, key, st, d) {
+    body.classList.add('build');
+    const f = d.fields;
+    const slot = el('div.garage-slot', null, el('div.loading', { text: '正在把车推上拼装台……' }));
+    // 只在有改动时亮出来；干净的时候不占地方
+    const carState = el('span.chip.edited', { hidden: true });
+    const showCarState = () => {
+      carState.textContent = d.dirtyCar && d.dirtyFields ? '车和资料都改了' : d.dirtyCar ? '车改了' : d.dirtyFields ? '资料改了' : '';
+      carState.hidden = !carState.textContent;
+    };
+    const withGarage = (fn) => async () => { try { const G = await garageOpen(key); await fn(G); } catch (e) { toast(e.message || String(e), 'bad'); } };
+    const changed = (msg) => { captureGarage(); refreshStatus(); markTree(); showCarState(); toast(msg); };
+
+    const name = el('input.name', { type: 'text', 'aria-label': '车名', placeholder: '车名', value: f.vehicleName,
+      on: { input: (e) => { f.vehicleName = e.target.value; touchFields(key); garageApi()?.setName(e.target.value); showCarState(); } } });
+    const lock = el('input', { type: 'checkbox', checked: f.locked, on: { change: (e) => { f.locked = e.target.checked; touchFields(key); showCarState(); } } });
+    const panel = el('div.build-panel', { hidden: true });
+    const cand = el('select', { 'aria-label': '进化候选车', title: '进化擂台里挑出来的候选车', style: 'width:150px' }, el('option', { value: '', text: '进化候选车…' }));
+    const togglePanel = () => {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) {
+        const ta = el('textarea', { rows: 3, class: 'mono', placeholder: 'SA2.… 分享码，或 [[层,行,列,id,材料,改装等级],…] 模块清单' });
+        panel.replaceChildren(el('label.field', null, '粘贴分享码或模块清单', ta), el('div.row', null,
+          el('button.btn.sm.primary', { type: 'button', on: { click: withGarage((G) => { G.importText(ta.value, f.vehicleName); panel.hidden = true; changed('已换上导入的车，记得保存'); requestAnimationFrame(placeGarage); }) } }, '换上这台车'),
+          el('button.btn.sm.ghost', { type: 'button', on: { click: () => { panel.hidden = true; requestAnimationFrame(placeGarage); } } }, '取消')));
+        ta.focus();
+      }
+      requestAnimationFrame(placeGarage);
+    };
+    const sep = () => el('span.bar-sep');
+    const bar = el('div.build-bar', null,
+      el('label.field.inline', null, '车名', name),
+      el('label.check', { title: '锁定后进化生成器不会改这辆车' }, lock, '锁定'),
+      sep(),
+      el('button.btn.sm', { type: 'button', title: '粘贴分享码或模块清单，换上那台车', on: { click: togglePanel } }, '导入…'),
+      cand,
+      el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(Number(cand.value)); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
+      sep(),
+      el('button.btn.sm', { type: 'button', title: '用拼装台上这台车去游戏的试驾场打一场', on: { click: withGarage((G) => { G.drivePick({ name: f.name, terrain: f.terrain, style: f.style }); go('game/drive'); }) } }, '试驾'),
+      el('button.btn.sm', { type: 'button', title: '交给进化生成器当种子，正式关卡不变', on: { click: withGarage((G) => { d.arenaId = G.saveArena(d.arenaId, { name: f.name, style: f.style, terrain: f.terrain }); toast('已存到进化擂台（正式关卡没动）'); }) } }, '存到进化擂台'),
+      el('span.grow'), carState,
+      armedButton('放弃改动', '再点一次放弃', () => {
+        stageDrafts.delete(key);
+        const G = garageApi();
+        if (G && garage.key === key) { G.open(st.ci, st.si); stageDraft(key).base = G.cellsJson(); }
+        refreshStatus(); route(true);
+      }, 'btn sm ghost'));
+    body.append(bar, panel, slot);
+    showCarState();
+    liveCarState = showCarState;
+
+    garage.slot = slot;
+    ensureGarage().then(async (G) => {
+      await garageOpen(key);
+      if (!slot.isConnected) return;
+      slot.replaceChildren();
+      placeGarage();
+      G.candidates().forEach((c) => cand.append(el('option', { value: c.i, text: c.from ? `${c.name} · ${c.from}` : c.name })));
+      if (garage.ro) garage.ro.disconnect();
+      garage.ro = new ResizeObserver(placeGarage);
+      garage.ro.observe(slot);
+      // 每秒看一眼拼装台：车动过就标上「没保存」，顺便对齐位置（工具条换行时拼装台跟着挪）
+      clearInterval(garage.poll);
+      garage.poll = setInterval(() => {
+        if (!slot.isConnected) { clearInterval(garage.poll); return; }
+        const was = d.dirtyCar;
+        captureGarage();
+        if (was !== d.dirtyCar) { refreshStatus(); markTree(); showCarState(); }
+        placeGarage();
+      }, 1000);
+    }).catch((e) => { if (slot.isConnected) slot.replaceChildren(el('div.loading', { text: `拼装台没能打开：${e.message || e}` })); });
+    onLeave(() => {
+      clearInterval(garage.poll);
+      captureGarage();
+      garage.slot = null;
+      liveCarState = null;
+      if (garage.ro) { garage.ro.disconnect(); garage.ro = null; }
+      hideGarage();
+    });
+  }
+
+  // 文字与奖励页签：关卡资料、出战海报、过关奖励、解锁
+  function textTab(body, key, d) {
+    const f = d.fields;
+    const upd = (fn) => (e) => { fn(e); touchFields(key); };
+    const text = (label, k, opts = {}) => el('label.field', { class: opts.wide ? 'wide' : null }, label,
+      opts.area ? autoGrow(el('textarea', { rows: opts.rows || 2, value: f[k], on: { input: upd((e) => { f[k] = e.target.value; }) } }))
+        : el('input', { type: opts.type || 'text', value: f[k], min: opts.min, max: opts.max, step: opts.step, on: { input: upd((e) => { f[k] = opts.type === 'number' ? Number(e.target.value) : e.target.value; }) } }));
+    const select = (label, k, entries) => {
+      const s = el('select', { on: { change: upd((e) => { f[k] = e.target.value; }) } }, entries.map(([v, t]) => el('option', { value: v, text: t })));
+      s.value = f[k];
+      return el('label.field', null, label, s);
+    };
+    const check = (label, k) => el('label.check', null, el('input', { type: 'checkbox', checked: f[k], on: { change: upd((e) => { f[k] = e.target.checked; }) } }), label);
+    const styles = Object.entries({ wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' });
+    if (STYLE[f.style] && !styles.some(([k]) => k === f.style)) styles.push([f.style, STYLE[f.style]]);
+
+    const basic = el('div.fs', null, el('h3', { text: '关卡' }), el('div.fgrid', null,
+      text('关卡名', 'name'), text('车名', 'vehicleName'), text('车手', 'pilot'),
+      select('性格（AI）', 'style', styles), text('枪法（0～1）', 'aim', { type: 'number', min: 0, max: 1, step: 0.05 }),
+      select('地形', 'terrain', Object.entries(SA.TERRAINS).map(([k, t]) => [k, t.name || k])),
+      el('div.row', { style: 'gap:16px' }, check('Boss', 'boss'), check('锁定（进化器不改）', 'locked'))));
+    const poster = el('div.fs', null, el('h3', { text: '出战海报' }), el('div.fgrid', null,
+      text('对手简介', 'blurb', { area: true, wide: true, rows: 3 }), text('弱点（线人手写）', 'weakness', { area: true, wide: true })));
+
+    // 固定奖励：一行一件，材料按物品能用的范围列
+    const items = el('div', { style: 'display:grid;gap:8px' });
+    const modIds = [...new Set((SA.MODULE_ORDER || []).concat(Object.keys(SA.MODULES)))].filter((id) => SA.MODULES[id] && !SA.MODULES[id].retired);
+    function renderItems() {
+      items.replaceChildren(...f.rewardItems.map((it, i) => {
+        const mod = el('select', { on: { change: upd((e) => { it.id = e.target.value; if (it.id) it.mt = Math.min(Math.max(Number(it.mt) || 1, SA.minMt(it.id)), SA.maxMt(it.id)); renderItems(); }) } },
+          el('option', { value: '', text: '选物品…' }), modIds.map((id) => el('option', { value: id, text: SA.MODULES[id].name })));
+        mod.value = it.id || '';
+        const mats = el('select', { on: { change: upd((e) => { it.mt = Number(e.target.value); }) } },
+          SA.MATS.map((mat, mt) => (mat && (!SA.MODULES[it.id] || (mt >= SA.minMt(it.id) && mt <= SA.maxMt(it.id))) ? el('option', { value: mt, text: mat.name }) : null)));
+        mats.value = String(it.mt ?? 1);
+        return el('div.ritem', null, el('label.field', null, '物品', mod),
+          el('label.field', null, '数量', el('input', { type: 'number', min: 1, step: 1, value: it.count ?? 1, on: { input: upd((e) => { it.count = Number(e.target.value); }) } })),
+          el('label.field', null, '材料', mats), miniBtn('x', '删掉这一项', () => { f.rewardItems.splice(i, 1); touchFields(key); renderItems(); }, 'del'));
+      }));
+    }
+    renderItems();
+    const prize = el('input', { type: 'number', min: 0, step: 10, value: f.prize, disabled: !f.rewardMoney, on: { input: upd((e) => { f.prize = Number(e.target.value); }) } });
+    const reward = el('div.fs', null, el('h3', { text: '过关奖励' }),
+      el('div.row', { style: 'gap:16px;align-items:end' },
+        el('label.check', null, el('input', { type: 'checkbox', checked: f.rewardMoney, on: { change: upd((e) => { f.rewardMoney = e.target.checked; prize.disabled = !e.target.checked; }) } }), '发奖金'),
+        el('label.field', { style: 'width:140px' }, '奖金（£）', prize), check('打赢免修理费', 'victoryRepairFree')),
+      el('div.muted', { style: 'font-size:12px', text: '固定奖励：首次通关一定发，和缴获分开算' }), items,
+      el('div.row', null, el('button.btn.sm', { type: 'button', on: { click: () => { f.rewardItems.push({ id: '', count: 1, mt: 1 }); touchFields(key); renderItems(); } } }, icon('plus'), '加一项')));
+
+    // 解锁：模块、功能、材料上限、改装台大小、过关提示
+    const U = () => (f.unlock = f.unlock || { mods: [], feat: [] });
+    const chips = el('div.reward-list');
+    const picker = el('div.picker', { hidden: true });
+    // 模块图自带行内尺寸，去掉后按这里的样式缩放
+    const modPic = (id) => { try { const c = SA.SPR.moduleCanvas(id, 1, 1); c.removeAttribute('style'); c.setAttribute('aria-hidden', 'true'); return c; } catch (e) { return null; } };
+    function renderChips() {
+      const ids = f.unlock?.mods || [];
+      chips.replaceChildren(...(ids.length ? ids.map((id) => el('span.chip', null, modPic(id), SA.MODULES[id]?.name || id)) : [el('span.muted', { style: 'font-size:12.5px', text: '不解锁模块' })]));
+    }
+    function renderPicker() {
+      const on = new Set(f.unlock?.mods || []);
+      picker.replaceChildren(...modIds.map((id) => {
+        const box = el('input', { type: 'checkbox', checked: on.has(id) });
+        const card = el(`label.pick${on.has(id) ? '.on' : ''}`, { title: SA.MODULES[id].desc || '' }, box, modPic(id), SA.MODULES[id].name);
+        box.addEventListener('change', () => {
+          const u = U(); u.mods = u.mods || [];
+          if (box.checked) { if (!u.mods.includes(id)) u.mods.push(id); } else u.mods = u.mods.filter((x) => x !== id);
+          card.classList.toggle('on', box.checked); touchFields(key); renderChips();
+        });
+        return card;
+      }));
+    }
+    renderChips();
+    const feats = el('div.feats', null, Object.entries(SA.FEATURES).map(([k, v]) => el('label.check', null,
+      el('input', { type: 'checkbox', checked: (f.unlock?.feat || []).includes(k), on: { change: (e) => {
+        const u = U(); u.feat = u.feat || [];
+        if (e.target.checked) { if (!u.feat.includes(k)) u.feat.push(k); } else u.feat = u.feat.filter((x) => x !== k);
+        touchFields(key);
+      } } }), v)));
+    const mat = el('select', { on: { change: (e) => { const u = U(); if (e.target.value) u.mat = Number(e.target.value); else delete u.mat; touchFields(key); } } },
+      el('option', { value: '', text: '不变' }), SA.MATS.map((m2, mt) => (m2 ? el('option', { value: mt, text: m2.name }) : null)));
+    mat.value = f.unlock?.mat ? String(f.unlock.mat) : '';
+    const gridIn = (k, max) => el('input', { type: 'number', min: 1, max, step: 1, placeholder: '—', 'aria-label': k === 'cols' ? '列' : '层', value: f.unlock?.grid?.[k] ?? '',
+      on: { input: (e) => {
+        const u = U(), v = e.target.value ? Number(e.target.value) : null;
+        u.grid = { ...(u.grid || {}), [k]: v };
+        if (!u.grid.cols && !u.grid.rows) delete u.grid;
+        touchFields(key);
+      } } });
+    const note = autoGrow(el('textarea', { rows: 2, value: f.unlock?.note || '', on: { input: (e) => { U().note = e.target.value; touchFields(key); } } }));
+    const unlock = el('div.fs', null, el('h3', { text: '解锁' }),
+      el('div.row', null, el('span.muted', { style: 'font-size:12px', text: '解锁模块' }), el('span.grow'),
+        el('button.btn.sm', { type: 'button', on: { click: () => { picker.hidden = !picker.hidden; if (!picker.hidden) renderPicker(); } } }, '选择模块…')),
+      chips, picker,
+      el('div.muted', { style: 'font-size:12px', text: '开放功能' }), feats,
+      el('div.fgrid', null, el('label.field', null, '材料上限', mat),
+        el('label.field', null, '改装台（列 × 层）', el('div.row', { style: 'flex-wrap:nowrap;gap:6px' }, gridIn('cols', 8), '×', gridIn('rows', 6)))),
+      el('label.field', null, '过关提示（解锁弹窗里的那段话）', note));
+    const loot = el('details.fs', null, el('summary', { text: '高级：可缴获的唯一件（JSON）' }),
+      autoGrow(el('textarea', { rows: 4, class: 'mono', value: f.lootText, on: { input: upd((e) => { f.lootText = e.target.value; }) } })));
+    body.append(el('div.note', { text: '这里的改动和拼装台上的车一起保存：按右上角「保存」或 Ctrl+S。' }), el('div.form', null, basic, poster, reward, unlock, loot));
+  }
+
+  // 强度页签：车的性能单 + 和前面几关对打的胜率（判定区间照旧工作台）
+  function testTab(body, key, st, d) {
+    const f = d.fields;
+    const sheet = el('div', { style: 'display:grid;gap:12px' }, el('div.muted', { text: '正在读拼装台上的车……' }));
+    const games = el('input', { type: 'number', min: 1, max: 200, step: 1, value: prefs.testGames || 20, style: 'width:80px', 'aria-label': '每对局数' });
+    const result = el('div');
+    const pct = (x) => `${(x * 100).toFixed(1)}%`;
+    function show(r) {
+      if (!r) { result.replaceChildren(el('div.note', { text: '还没测。对手是开局车和前面最近的几关，每对双方各当一次玩家。' })); return; }
+      const boss = !!f.boss, reward = !!(f.unlock?.mods?.length || st.spec?.reward);
+      const range = boss ? [0.45, 0.65] : reward ? [0.4, 0.7] : [0.35, 0.8], soft = boss ? [0.3, 0.78] : [0.2, 0.9];
+      const level = r.rate >= range[0] && r.rate <= range[1] ? 'ok' : r.rate >= soft[0] && r.rate <= soft[1] ? 'warn' : 'bad';
+      result.replaceChildren(el(`div.note.${level}`, null,
+        el('b', { text: level === 'ok' ? '在目标范围内' : level === 'warn' ? '接近目标，建议多测几局' : '偏离目标，需要调' }),
+        `：这台车胜率 ${pct(r.rate)}（95% 区间 ${pct(r.lo)}～${pct(r.hi)}），共 ${r.total} 局，平均 ${r.avg.toFixed(1)} 秒；`,
+        `目标 ${Math.round(range[0] * 100)}～${Math.round(range[1] * 100)}%（${boss ? 'Boss' : reward ? '带奖励模块' : '普通关'}）。对手：开局车和前面最近的 ${Math.max(0, r.refs - 1)} 关。`));
+    }
+    show(d.test);
+    const run = el('button.btn.primary', { type: 'button', on: { click: async () => {
+      run.disabled = true; run.textContent = '测试中…';
+      try {
+        prefs.testGames = Math.max(1, Math.min(200, Number(games.value) || 20)); savePrefs();
+        const G = await garageOpen(key);
+        await new Promise((r) => setTimeout(r, 40));   // 先让按钮变成「测试中」再开始算（算的时候页面会停一下）
+        d.test = G.test(prefs.testGames, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss });
+        show(d.test);
+      } catch (e) { toast(`测试失败：${e.message || e}`, 'bad'); }
+      finally { run.disabled = false; run.textContent = '开始测试'; }
+    } } }, '开始测试');
+    body.append(el('div.fs', null, el('h3', { text: '对打测试' }),
+      el('div.row', null, el('label.field', { style: 'grid-auto-flow:column;align-items:center;gap:6px' }, '每对局数', games), run,
+        el('span.muted', { style: 'font-size:12px', text: '测的是拼装台上现在这台车（含没保存的改动），性格、枪法、地形用「文字与奖励」里的' })), result), sheet);
+    garageOpen(key).then((G) => {
+      if (!sheet.isConnected) return;
+      const s = G.stats();
+      if (!s) { sheet.replaceChildren(el('div.muted', { text: '拼装台上没有车' })); return; }
+      const stat = (label, val) => el('div.stat', null, el('span', { text: label }), el('b', { text: val }));
+      const dist = (arr) => { const c = new Map(); arr.forEach((v) => c.set(v, (c.get(v) || 0) + 1)); return [...c.entries()].sort((a, b) => a[0] - b[0]).map(([v, n]) => `${v}×${n}`).join('、') || '无'; };
+      sheet.replaceChildren(el('div.block-h', null, el('h3', { text: '性能单' })),
+        el('div.stats', null, stat('评分', Math.round(s.rating)), stat('价值', `£${Math.round(s.value)}`), stat('重量', Math.round(s.weight)),
+          stat('动力 需/供', `${s.demand}/${s.supply}`), stat('水量', Math.round(s.water)), stat('烧干', s.overheat == null ? '不会' : `${Math.round(s.overheat)} 秒`), stat('秒伤', s.dps.toFixed(1))),
+        el(`div.note.${s.canDeploy ? 'ok' : 'bad'}`, { text: s.canDeploy ? '可以出战' : `不能出战：${s.problems.join('；')}` }),
+        el('div.note', { style: 'white-space:pre-wrap', text: `穿深分布：${dist(s.pen)}\n装甲厚度分布：${dist(s.thick)}` }));
+    }).catch((e) => { if (sheet.isConnected) sheet.replaceChildren(el('div.muted', { text: `拼装台没能打开：${e.message || e}` })); });
   }
 
   // 剧情总表：左边全部场景，右边脚本编辑
@@ -654,14 +998,14 @@
       ['非战役对战', ids.filter((x) => x.endsWith('.current'))],
     ];
     const filter = el('input', { type: 'text', placeholder: '筛选剧情', 'aria-label': '筛选剧情', value: prefs.storyFilter || '' });
-    const list = el('div', { 'data-keep-scroll': '' });
+    const list = el('div');
     function renderIndex() {
       const q = filter.value.trim();
       list.replaceChildren(...groups.map(([name, gids]) => {
         const items = gids.filter((x) => !q || sceneLabel(x).includes(q) || x.includes(q)).map((x) => {
           const n = sceneLines(x).length;
           return el(`button.idx-item${x === id ? '.on' : ''}`, { type: 'button', on: { click: () => go(`story/${x}`) } },
-            el('span', { text: sceneLabel(x) }), dirty.story.has(x) ? el('span.dot', { title: '未保存' }) : null,
+            el('span', { text: sceneLabel(x) }), textDirty.story.has(x) ? el('span.dot', { title: '未保存' }) : null,
             sceneEdited(x) ? el('span.chip.edited', { text: '已改' }) : null, el('small', { text: n ? `${n} 句` : '空' }));
         });
         return items.length ? el('div', null, el('div.idx-h', { text: name }), items) : null;
@@ -682,7 +1026,7 @@
     prefs.chatScope = scope; savePrefs();
     setTitle(`院子闲聊 · ${scope === 'settings' ? '整体设置' : scopeName(scope)}`);
     const item = (s, label, indent) => el(`button.idx-item${s === scope ? '.on' : ''}`, { type: 'button', style: indent ? 'padding-left:22px' : '', on: { click: () => go(`chat/${s}`) } },
-      el('span', { text: label }), dirty.chat.has(s) ? el('span.dot', { title: '未保存' }) : null, s !== 'settings' && scopeOwn(s) ? el('span.chip.manual', { text: '单独' }) : null);
+      el('span', { text: label }), textDirty.chat.has(s) ? el('span.dot', { title: '未保存' }) : null, s !== 'settings' && scopeOwn(s) ? el('span.chip.manual', { text: '单独' }) : null);
     const index = el('aside.index', { 'data-keep-scroll': '' },
       el('div.idx-h', { text: '设置' }), item('settings', '整体节奏 · 点击人物对话'),
       el('div.idx-h', { text: '闲聊范围' }), item('global', '全局默认'),
@@ -691,12 +1035,12 @@
     if (scope === 'settings') {
       settingsDraft = settingsDraft || clone(SA.YardChat.settings());
       clickDraft = clickDraft || { ...SA.YardChat.clickTips() };
-      const num = (k, label) => el('label.field', null, label, el('input', { type: 'number', min: 0, step: 0.1, value: settingsDraft[k], on: { input: (e) => { settingsDraft[k] = Number(e.target.value); dirty.settings = true; refreshStatus(); } } }));
+      const num = (k, label) => el('label.field', null, label, el('input', { type: 'number', min: 0, step: 0.1, value: settingsDraft[k], on: { input: (e) => { settingsDraft[k] = Number(e.target.value); textDirty.settings = true; refreshStatus(); } } }));
       pane.append(el('div.pane-h', null, el('h2', { text: '整体节奏' })),
         el('div.chat-top', null, num('intervalSec', '两组闲聊之间（秒）'), num('replySec', '对答两句之间（秒）'), num('bubbleSec', '气泡停留（秒）')),
         el('div.pane-h', null, el('h2', { text: '点击人物对话' }), el('span.muted', { text: '所有章节共用；一行一句' })),
         el('div.chat-top', null, Object.entries(CHAT_WHO).map(([who, name]) => el('label.field', null, name,
-          autoGrow(el('textarea', { rows: 3, value: clickDraft[who] || '', on: { input: (e) => { clickDraft[who] = e.target.value; dirty.tips.add(who); refreshStatus(); } } }))))));
+          autoGrow(el('textarea', { rows: 3, value: clickDraft[who] || '', on: { input: (e) => { clickDraft[who] = e.target.value; textDirty.tips.add(who); refreshStatus(); } } }))))));
     } else {
       const stageName = scope.startsWith('stage:') ? SA.CAMPAIGN[+scope.split(':')[1]]?.stages[+scope.split(':')[2]]?.name : null;
       pane.append(el('div.pane-h', null, el('h2', { text: scopeName(scope) }), el('span.muted', { text: '{关卡名} 会换成当时的关卡名' })), chatEditor(scope, { stageName }));
@@ -705,24 +1049,35 @@
     requestAnimationFrame(() => index.querySelector('.idx-item.on')?.scrollIntoView({ block: 'nearest' }));
   };
 
-  // 嵌入页：旧工作台、视觉页
-  function frameView(m, { title, url, chips = [], back }) {
+  // 嵌入页：还没重做的工作台、视觉页
+  function frameView(m, { title, url, chips = [], back, actions = [] }) {
     setTitle(title);
     const frame = el('iframe', { src: url, title });
-    m.append(el('div.frame-bar', null,
+    m.append(el('div.frame-bar.on-wood', null,
       back ? el('a.btn.sm.ghost', { href: `#/${back[0]}` }, icon('left'), back[1]) : null,
-      el('h2', { text: title }), chips, el('span.grow'),
+      el('h2', { text: title }), chips, el('span.grow'), actions,
       el('button.btn.sm.ghost', { type: 'button', title: '重新载入这一页', on: { click: () => { frame.src = url; } } }, icon('reload'), '刷新'),
       el('a.btn.sm', { href: url, target: '_blank', rel: 'noopener' }, '新标签打开', icon('ext'))),
     el('div.frame-wrap', null, frame));
     return frame;
+  }
+  // 作者包（tools/author-content.js）：把本页来源存在浏览器里的关卡车和文字草稿导成一个文件，交给发行前归档
+  function exportAuthor() {
+    if (!window.SAAuthorContent) { toast('没加载 tools/author-content.js', 'bad'); return; }
+    captureGarage();
+    try {
+      SAAuthorContent.download();
+      toast(isDirty() ? '已导出作者包。注意：还有没保存的改动，它们不在包里——先 Ctrl+S 再导出一次。' : '已导出作者包：在「发行前归档」里导入，逐项核对后写进正式文件。', isDirty() ? 'warn' : '');
+    } catch (e) { toast(`导出失败：${e.message || e}`, 'bad'); }
   }
   VIEWS.open = (rest, m) => {
     const t = TOOLS[rest[0]];
     if (!t) { VIEWS.home([], m); return; }
     let url = t.url;
     if (rest[0] === 'stage-editor' && validKey(rest[1])) url += `?stage=${encodeURIComponent(rest[1])}`;
-    frameView(m, { title: t.name, url, chips: t.old ? [el('span.chip', { text: '旧版 · 下一步重做' })] : [] });
+    const actions = rest[0] === 'publish-preflight'
+      ? [el('button.btn.sm', { type: 'button', title: '把这个浏览器里的关卡车和文字草稿导成作者包', on: { click: exportAuthor } }, '导出待发布设计')] : [];
+    frameView(m, { title: t.name, url, actions, chips: t.old ? [el('span.chip', { text: '旧版 · 接下来重做' })] : [] });
   };
 
   // 样机目录：从 tools/labs.js 读登记表
@@ -742,11 +1097,13 @@
       const s = L.STATUS[it.status] || {};
       return el('button.lab', { type: 'button', on: { click: () => go(`lab/${it.id}`) } },
         el('h3', { text: it.name }),
-        el('div.meta', null, el('span.st', null, el('i', { style: `background:${s.color || 'var(--rule-2)'}` }), s.name || it.status), el('span.mono', { text: it.ver }), el('span', { text: it.date })),
+        el('div.meta', null, el('span.st', null, el('i', { style: `background:${s.color || 'var(--line)'}` }), s.name || it.status), el('span.mono', { text: it.ver }), el('span', { text: it.date })),
         el('p', { text: it.desc || '' }));
     }));
-    m.append(el('div.view', null, el('div.labs', null, el('div.pane-h', null, el('h2', { text: '样机目录' }), el('span.muted', { text: `${items.length} / ${L.ITEMS.length}` })),
-      el('div.lab-filters', null, seg, el('span.grow'), stats), items.length ? grid : el('div.empty', { text: '这个筛选下没有样机' }))));
+    m.append(el('div.view', null, el('div.labs', null,
+      el('div.labs-head', null, el('div.pane-h', null, el('h2', { text: '样机目录' }), el('span.muted', { text: `${items.length} / ${L.ITEMS.length}` })),
+        el('div.lab-filters', null, seg, el('span.grow'), stats)),
+      items.length ? grid : el('div.empty', { text: '这个筛选下没有样机' }))));
   };
   VIEWS.lab = (rest, m) => {
     const it = SA.LABS?.ITEMS.find((x) => x.id === rest[0]);
@@ -755,11 +1112,11 @@
     frameView(m, { title: it.name, url: it.url, back: ['labs', '样机目录'], chips: [el('span.chip', { text: `${it.ver} · ${s.name || it.status}` })] });
   };
 
-  // 游戏：嵌着的游戏 + 一排调试按钮（原来藏在游戏里的开发者面板）
+  // 游戏：嵌着的游戏 + 一排调试按钮（原来藏在游戏里的开发者面板）；drive = 拼装台「试驾」送来的车
   VIEWS.game = (rest, m) => {
-    const textMode = rest[0] === 'text';
-    setTitle(textMode ? '页面文字' : '游戏');
-    const url = '../index.html';
+    const textMode = rest[0] === 'text', drive = rest[0] === 'drive';
+    setTitle(textMode ? '页面文字' : drive ? '试驾' : '游戏');
+    const url = drive ? '../index.html#sandbox=evolve' : '../index.html';
     const frame = el('iframe', { src: url, title: '游戏' });
     const G = () => { try { return frame.contentWindow && frame.contentWindow.SA; } catch (e) { return null; } };
     const call = (label, fn, reload) => () => {
@@ -769,8 +1126,10 @@
     };
     const chSel = el('select', { 'aria-label': '跳到的章节' }, SA.CAMPAIGN.map((ch, i) => el('option', { value: i, text: ch.name })));
     frame.addEventListener('load', () => { if (textMode) setTimeout(() => { try { G()?.Text?.enterEdit(); } catch (e) { /* 页面还没就绪 */ } }, 600); });
-    m.append(el('div.frame-bar', null,
-      el('h2', { text: textMode ? '页面文字' : '游戏' }),
+    const backToStage = drive && prefs.stageKey ? el('a.btn.sm.ghost', { href: `#/stage/${prefs.stageKey}/build` }, icon('left'), '回拼装台') : null;
+    m.append(el('div.frame-bar.on-wood', null,
+      backToStage,
+      el('h2', { text: textMode ? '页面文字' : drive ? '试驾 · 拼装台上的车' : '游戏' }),
       el('button.btn.sm.ghost', { type: 'button', on: { click: () => frame.contentWindow.location.reload() } }, icon('reload'), '刷新'),
       el('a.btn.sm.ghost', { href: url, target: '_blank', rel: 'noopener' }, '新标签打开', icon('ext')),
       el('span.sep'),
@@ -794,13 +1153,17 @@
     const add = (group, label, path, extra = '', run) => items.push({ group, label, path, extra, run, hay: `${label} ${extra}`.toLowerCase() });
     NAV.forEach((g) => g.items.forEach((it) => add('页面', it.name, it.path, g.group || '')));
     add('操作', '保存全部改动', null, 'Ctrl+S save', () => saveAll());
-    add('操作', '换深浅色', null, 'theme dark light', toggleTheme);
-    allStages().forEach((k) => { const [ci, si] = k.split(',').map(Number), st = stageData(ci, si); add('关卡', `${st.code} ${st.name}`, `stage/${k}`, `${st.pilot || ''} ${chShort(st.chapter)}`); });
+    add('操作', '导出待发布设计（作者包）', null, 'export author 发行 归档', exportAuthor);
+    allStages().forEach((k) => {
+      const [ci, si] = k.split(',').map(Number), st = stageData(ci, si);
+      add('关卡', `${st.code} ${st.name}`, `stage/${k}`, `${st.pilot || ''} ${chShort(st.chapter)} ${st.vehicle?.name || ''}`);
+    });
     SA.StoryData.list().forEach((id) => add('剧情', sceneLabel(id), `story/${id}`, id));
     add('院子闲聊', '整体节奏 · 点击人物对话', 'chat/settings', '设置');
     ['global', ...SA.CAMPAIGN.flatMap((ch, ci) => [`chapter:${ci}`, ...ch.stages.map((_, si) => `stage:${ci}:${si}`)])].forEach((s) => add('院子闲聊', scopeName(s), `chat/${s}`, s));
     (SA.LABS?.ITEMS || []).forEach((it) => add('样机', it.name, `lab/${it.id}`, `${it.ver} ${it.id}`));
-    Object.entries(SA.MODULES).filter(([, mod]) => !mod.hidden && mod.name).forEach(([id, mod]) => add('模块', mod.name, 'open/modules', id));
+    Object.entries(SA.MODULES).filter(([, mod]) => !mod.retired && mod.name).forEach(([id, mod]) => add('模块', mod.name, 'open/modules', id));
+    add('旧版', '关卡车工作台（旧版）', 'open/stage-editor', 'stage editor 关卡车拼装');
     return items;
   }
   function openPalette() {
@@ -856,12 +1219,24 @@
     if ((e.ctrlKey || e.metaKey) && k === 'k') { e.preventDefault(); if ($('#palette').hidden) openPalette(); }
     if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); document.activeElement?.blur?.(); saveAll(); }
   });
-  window.addEventListener('beforeunload', (e) => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+  window.addEventListener('beforeunload', (e) => { captureGarage(); if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+  // 关卡车在别的页面（旧工作台、另一个后台标签）保存后，本页的章节树和关卡资料跟着换
+  try {
+    const channel = new BroadcastChannel('steam-arena-stage-cars');
+    channel.onmessage = (e) => {
+      const p = e.data?.type === 'replace' && e.data.payload;
+      if (!p?.records || (p.campaignLayout || 1) !== SA.CAMPAIGN_LAYOUT) return;
+      applyStageCars(p.records);
+      palItems = null;
+      if (!saving && parse().view === 'stage') route(true);
+    };
+  } catch (e) { /* 不支持频道的浏览器只在本页更新 */ }
 
   async function boot() {
+    if (SA.PX?.init) SA.PX.init();   // 游戏里的像素木纹桌面（--px-desk）
+    applyLocalCars();
     buildShell();
-    main().append(el('div.empty', { text: '正在读取文本文件……' }));
+    $('#view-root').append(el('div.empty', { text: '正在读取文本文件……' }));
     SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', toolbar: false });
     await SA.Text.ready;
     window.addEventListener('hashchange', () => route());
@@ -869,6 +1244,6 @@
   }
   boot().catch((e) => {
     console.error(e);
-    main().replaceChildren(el('div.empty', null, el('b', { text: '后台没能启动' }), e && e.message ? e.message : String(e)));
+    $('#view-root')?.replaceChildren(el('div.empty', null, el('b', { text: '后台没能启动' }), e && e.message ? e.message : String(e)));
   });
 })();

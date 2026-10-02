@@ -6,7 +6,8 @@
   <title>蒸汽竞技场 · 后台</title>
   <link rel="stylesheet" href="console.css">
 </head>
-<body>
+<!-- data-yard-chat-editor：和旧院子聊天工作台一样，让页面文字管理（js/text-manager.js）不扫描、不接管后台自己的界面文字 -->
+<body data-yard-chat-editor>
   <!-- 蒸汽竞技场 · 后台：全部工作台、剧情、院子闲聊、视觉样机和游戏调试的统一入口（界面归 Opus，数据接口归后台）。 -->
   <div id="app" class="app"></div>
   <div id="palette" class="palette" hidden></div>
@@ -15,6 +16,7 @@
   <script src="../js/text-manager.js"></script>
   <script src="../js/yard-chat.js"></script>
   <script src="../js/palette.js"></script>
+  <script src="../js/ui-px.js"></script>
   <script src="../js/coal.js"></script>
   <script src="../js/modules.js"></script>
   <script src="../js/module-art.js"></script>
@@ -27,6 +29,7 @@
   <script src="../js/build-sys.js"></script>
   <script src="../js/build-vis.js"></script>
   <script src="labs.js"></script>
+  <script src="author-content.js"></script>
   <script src="console.js"></script>
 </body>
 </html>
