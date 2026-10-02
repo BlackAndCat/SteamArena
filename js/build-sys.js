@@ -30,3 +30,4 @@ SA.BUILD_SYS += '+rookie-free-repair'; // 教学 AI 与前三关全结果自动�
 SA.BUILD_SYS += '+wreck-chassis-grind'; // 撞击件顶进已毁底盘：不弹回，限速艰涩深入，按节拍减弱反震（用户授权 Opus 改）。
 SA.BUILD_SYS += '+centered-starter-shift-vehicle'; // 初始车居中，并支持 Shift 拖动已装模块整体横移。
 SA.BUILD_SYS += '+crew-clearance-heat-water-shop-progress'; // 驾驶员分摊、高抛净空、产热储水及商店进度门槛。
+SA.BUILD_SYS += '+campaign-layout-3-five-stages'; // 关卡布局 3：主线新增大铁壶、棉花包、圣堂侍从、四号样车「攻城臼炮」、寿辰前夜，第三～五章末关顺延一位（用户授权 Opus 改）。

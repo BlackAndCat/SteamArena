@@ -37,9 +37,15 @@ function supportStageVehicleName() {
   };
 }
 
-// 插入甲片关后，旧序章第二关仍是铲斗关，统一顺延到第三关；其他章不变。
+// 关卡布局升级时旧编号的去处，按版本逐级换算：
+// 1 → 2：序章插入甲片关，旧第二关（铲斗关）顺延到第三关；
+// 2 → 3：第三、四、五章在末关前各插入一关，旧末关（工厂缠斗王 / 铁甲圣堂 / 维多利亚女王号）顺延一位；
+//        第一、四章另在章末追加的新关不占旧编号。
 function migrateStageIndex(chapter, stage, layout) {
-  return (layout || 1) < SA.CAMPAIGN_LAYOUT && chapter === 0 && stage === 1 ? 2 : stage;
+  const from = layout || 1;
+  if (from < 2 && chapter === 0 && stage === 1) stage = 2;
+  if (from < 3 && chapter >= 3 && chapter <= 5 && stage === 2) stage = 3;
+  return stage;
 }
 function migrateStageRecords(records, layout) {
   const result = {};

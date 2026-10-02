@@ -66,7 +66,7 @@ for (let ci = 0; ci < SA.CAMPAIGN.length; ci++) for (let si = 0; si < SA.CAMPAIG
   if (ci === 0 && si === 0) near(explicitWater, 0);
   stageCount++;
 }
-assert.strictEqual(stageCount, 18, '战役关卡数量变化，需要更新水量检查范围');
+assert.strictEqual(stageCount, 23, '战役关卡数量变化，需要更新水量检查范围');
 
 // 锅炉供能不消耗储水，冷却蒸发才消耗储水。
 const base = { shaftKw: 60, heatKw: 75, weaponKw: 0, cool: 0, dryCool: 0, waterSave: 1, capacity: 50 };
