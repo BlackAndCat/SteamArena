@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -162,6 +163,7 @@ def main():
     staged_dir = stage / "release"
     staged_zip = stage / "release.zip"
     preserve_backup = False
+    published = False
     try:
         staged_dir.mkdir()
         for name, source in sources.items():
@@ -222,11 +224,21 @@ def main():
                 preserve_backup = True
                 raise RuntimeError(f"发行替换失败：{publish_error}；回滚失败：{rollback_error}；旧包备份保留在 {stage}") from rollback_error
             raise
+        published = True
+        # 旧包可能本身是 Git 工作树；版本记录作为备份保留，不递归清理只读对象。
+        if old_dir.exists() and any((old_dir / name).exists() for name in (".git", ".hg", ".svn")):
+            preserve_backup = True
         print(f"发行版本：{version}；开放章节：{chapters}；文件数：{len(files) + 1}")
         print(f"发行目录：{release_dir}\n发行 ZIP：{version_zip}\n兼容 ZIP：{latest_zip}")
+        if preserve_backup:
+            print(f"旧发行目录含版本记录，备份保留在：{stage}")
     finally:
         if not preserve_backup:
-            remove_output(out, stage)
+            try:
+                remove_output(out, stage)
+            except OSError as error:
+                state = "发行产物已成功写入" if published else "发行未完成"
+                print(f"{state}；临时目录清理失败，保留位置：{stage}；原因：{error}", file=sys.stderr)
 
 
 if __name__ == "__main__":
