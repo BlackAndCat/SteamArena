@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "steam-arena", "runtimeExecutable": "python", "runtimeArgs": ["tools/serve.py", "5173"], "port": 5173 },
-    { "name": "steam-arena-5180", "runtimeExecutable": "python", "runtimeArgs": ["tools/serve.py", "5180"], "port": 5180 }
+    { "name": "steam-arena-5180", "runtimeExecutable": "python", "runtimeArgs": ["tools/serve.py", "5180"], "port": 5180 },
+    { "name": "steam-arena-5190", "runtimeExecutable": "python", "runtimeArgs": ["tools/serve.py", "5190"], "port": 5190 }
   ]
 }

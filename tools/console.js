@@ -94,6 +94,7 @@
   const NAV = [
     { items: [{ id: 'home', name: '总览', path: 'home' }] },
     { group: '战役', items: [
+      { id: 'map', name: '战役地图', path: 'map', tag: 'new' },
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
       { id: 'config-editor', name: '正式配置', path: 'open/config-editor', tag: 'new' },
       { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'old' },
@@ -141,8 +142,10 @@
 
   // 手工关卡车存在浏览器本机、或别的页面刚保存时，本页跟着换成新记录
   const LOCAL_CARS = 'steam_arena_stage_cars_local_v1';
+  const silCache = new Map();   // 战役地图上车的剪影，关卡车一换就作废
   function applyStageCars(records) {
     if (!SA.STAGE_CARS || !SA.StageCars || !records) return;
+    silCache.clear();
     SA.STAGE_CARS.records = { ...(SA.STAGE_CARS.records || {}), ...records };
     try { SA.StageCars.applyToCampaign(); } catch (e) { console.warn(e); }
   }
@@ -700,15 +703,481 @@
       last,
       el('div.section-h', null, el('h2', { text: '常用' })),
       el('div.cards', null,
+        SA.CAMPAIGN_MAP ? card('map', '战役地图', `${SA.CAMPAIGN_MAP.chapters.reduce((n, ch) => n + ch.stages.length, 0)} + ${SA.CAMPAIGN_MAP.sides.reduce((n, s) => n + s.episodes.length, 0)} 关`,
+          '主线和三条支线画成一张图：悬浮看关名、车的剪影和奖励，点一下进工作台或剧情。', `设计稿 v${SA.CAMPAIGN_MAP.version} · 游戏里 ${stages.length} 关`) : null,
         card('stage', '关卡', `${stages.length} 关`, '一关一个工作区：拼装关卡车、改文字和奖励、测强度、写剧情和闲聊。', `${manual} 辆手工关卡车`),
         card('story', '剧情', `${scenes.length} 幕`, '开场、教程、每关战前战后、功能开放。改完看对话框预览。', `${edited} 幕改过`),
         card('chat', '院子闲聊', `${ownChat} 个范围`, '全局、每章、每关的闲聊和多人对答。', '单独编排的范围'),
         cur ? card('open/current', '当前开发', null, cur.desc, `${cur.ver} · ${cur.date}`) : null,
         card('game', '游戏', null, '嵌着的游戏，加上一排调试按钮：全部解锁、加钱、跳章、清档、页面文字编辑、试驾场。', null)),
-      el('div.section-h', null, el('h2', { text: '还没重做的工作台' }), el('span', { text: '先嵌在后台里用，接下来逐个换成新界面' })),
-      el('div.cards', null, ['publish-preflight', 'evolve', 'selftest', 'modules'].map(toolCard)),
+      el('div.section-h', null, el('h2', { text: '其他工作台' }), el('span', { text: '标「旧版」的先嵌在后台里用，接下来逐个换成新界面' })),
+      el('div.cards', null, ['config-editor', 'evolve', 'selftest', 'modules'].filter((id) => TOOLS[id]).map(toolCard)),
       el('div.section-h', null, el('h2', { text: '视觉' })),
       el('div.cards', null, card('labs', '样机目录', `${SA.LABS?.ITEMS.length || 0} 个`, '全部视觉样机，按类别和状态筛选。', null), ['candidates', 'spritesheet', 'style'].map(toolCard)))));
+  };
+
+  // ---------- 战役地图：设计稿（tools/campaign-map.js）的主线和支线画成一张图 ----------
+  // 列 = 设计稿的章；行 = 章头 / 主线 / 三条支线。游戏里已经做出来的关显示真关名、车的剪影和真奖励，点了进工作台；
+  // 还没做的关画虚线，悬浮看设计稿写的是什么。
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const mapKind = (role = '') => (/★★/.test(role) ? 'champ' : /★/.test(role) ? 'boss' : /爽关/.test(role) ? 'easy' : 'normal');
+  const MAP_KIND = { normal: '普通关', easy: '爽关', boss: '擂主 ★', champ: '区冠军 ★★', gate: '通关' };
+  const matName = (mt) => SA.MATS?.[mt]?.name || `T${mt}`;
+  const ingotName = (k) => SA.INGOTS?.[k]?.name || k;
+  // 关卡键按设计稿迁移以后（每章关数一样）按编号对，之前按 now 对
+  const mapMigrated = (plan) => plan.chapters.length === SA.CAMPAIGN.length && plan.chapters.every((ch, i) => SA.CAMPAIGN[i].stages.length === ch.stages.length);
+  function mapLink(plan, p) {
+    if (mapMigrated(plan)) { const [c, s] = p.code.split('-').map(Number); const k = `${c},${s - 1}`; return validKey(k) ? k : null; }
+    return validKey(p.now) ? p.now : null;
+  }
+  const storySlotsOf = (key) => [['before', `before.${key}`, '战前'], ['win', `stage.${key}.win`, '胜利'], ['lose', `stage.${key}.lose`, '失败'], ['after', `after.${key}`, '战后']];
+  function trimCanvas(src) {
+    const w = src.width, h = src.height, d = src.getContext('2d').getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const out = document.createElement('canvas');
+    if (x1 < 0) { out.width = out.height = 1; return out; }
+    out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    out.getContext('2d').drawImage(src, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+  // 车的剪影：游戏里的车整台画一遍，裁掉空边，再压成两种墨色——
+  // 大部分涂成深墨，原图里亮的地方（炮管、锅炉、铆钉的高光）留浅一档，方方的车身也看得出装了什么
+  function silhouette(key) {
+    if (silCache.has(key)) return silCache.get(key);
+    let out = null;
+    try {
+      const [ci, si] = key.split(',').map(Number), v = stageData(ci, si)?.vehicle;
+      if (v) {
+        out = trimCanvas(SA.SPR.renderVehicle(v, { key: 'console-map', t: 0, heat: 0, water: 0.8 }));
+        const g = out.getContext('2d'), img = g.getImageData(0, 0, out.width, out.height), px = img.data;
+        for (let i = 0; i < px.length; i += 4) {
+          if (!px[i + 3]) continue;
+          const lum = px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11;
+          const [r, gg, b] = lum > 140 ? [92, 64, 34] : [42, 26, 5];
+          px[i] = r; px[i + 1] = gg; px[i + 2] = b; px[i + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+      }
+    } catch (e) { out = null; }
+    silCache.set(key, out);
+    return out;
+  }
+  // 唯一腿型的样子：和 SA.SPR.moduleCanvas 同样的留边，只是多带一个外观
+  function legPic(key) {
+    const rule = (SA.LEG_VARIANTS || []).find((x) => x.key === key);
+    if (!rule) return null;
+    try {
+      const K = SA.K, S = K.CELL, C = K.ART, f = SA.fp(rule.id);
+      const ex = rule.id === 'quad' ? { l: 24, t: 18, r: 0 } : { l: 24, t: 4, r: 16 };
+      const fw = f.w * S, fh = f.h * S, W = Math.max(C, fw) + 32 + ex.l + ex.r, H = Math.max(C, fh) + 4 + ex.t;
+      const cv = el('canvas', { width: W, height: H });
+      SA.SPR.drawModule(cv.getContext('2d'), rule.id, 2 + ex.l, H - 2 - fh, { heat: 0.5, water: 0.7, t: 0, mt: rule.mt || 1, look: rule.look });
+      return { cv: trimCanvas(cv), rule };
+    } catch (e) { return null; }
+  }
+  // 这件唯一腿型现在挂在哪份数据上（游戏里的关、或者没开放的场外精英）
+  function lootHome(key) {
+    for (const k of allStages()) {
+      const [ci, si] = k.split(',').map(Number), st = SA.CAMPAIGN[ci].stages[si];
+      if ((st.uniqueLoot || []).some((r) => r.key === key || (r.look && `${r.id}:${r.look}` === key))) return `游戏里现在由 ${stageLabel(k)} 给`;
+    }
+    const side = (SA.SIDE_ENCOUNTERS || []).find((x) => x.reward?.key === key);
+    return side ? `数据里现在挂在场外精英「${side.name}」上（游戏里没开放）` : '';
+  }
+  function modChip(id, extra) {
+    let pic = null;
+    try { pic = SA.SPR.moduleCanvas(id, 1, 1); pic.removeAttribute('style'); pic.setAttribute('aria-hidden', 'true'); } catch (e) { pic = null; }
+    return el('span.chip', null, pic, SA.MODULES[id]?.name || id, extra ? el('small', { text: extra }) : null);
+  }
+  const textChip = (t) => el('span.chip', { text: t });
+  function unlockRows(u) {
+    if (!u) return [];
+    const rows = [];
+    if (u.mods?.length) rows.push(['解锁', u.mods.map((id) => modChip(id))]);
+    if (u.feat?.length) rows.push(['开放', u.feat.map((k) => textChip(SA.FEATURES[k] || k))]);
+    if (u.mat) rows.push(['材料', [textChip(`上限 → ${matName(u.mat)}`)]]);
+    if (u.grid) rows.push(['改装台', [textChip(`${u.grid.cols}×${u.grid.rows}`)]]);
+    if (u.ingots && Object.keys(u.ingots).length) rows.push(['锭', Object.entries(u.ingots).map(([k, n]) => textChip(`${ingotName(k)} ×${n}`))]);
+    return rows;
+  }
+  function stageRewardRows(st) {
+    const rows = unlockRows(st.unlock);
+    if (st.rewardItems?.length) rows.push(['固定奖励', st.rewardItems.map((r) => modChip(r.id, `×${r.count} · ${matName(r.mt || 1)}`))]);
+    if (st.uniqueLoot?.length) rows.push(['唯一件', st.uniqueLoot.map((r) => {
+      const leg = (SA.LEG_VARIANTS || []).find((x) => (r.key && x.key === r.key) || (r.look && x.id === r.id && x.look === r.look));
+      return leg ? textChip(`${leg.name} · ${matName(leg.mt)}`) : modChip(r.id, matName(r.mt || 5));
+    })]);
+    if (st.drop && Object.keys(st.drop).length) rows.push(['锭', Object.entries(st.drop).map(([k, n]) => textChip(`${ingotName(k)} ×${n}`))]);
+    rows.push(['结算', [textChip(st.rewardMoney !== false ? `奖金 £${st.prize || 0}` : '不发奖金'), st.victoryRepairFree ? textChip('打赢免修理费') : null].filter(Boolean)]);
+    return rows;
+  }
+  const kvRows = (rows) => el('div.mc-rows', null, rows.map(([k, kids]) => el('div.mc-row', null, el('span', { text: k }), el('div', null, kids))));
+
+  VIEWS.map = (rest, m) => {
+    setTitle('战役地图');
+    const plan = SA.CAMPAIGN_MAP;
+    if (!plan) { m.append(el('div.empty', { text: '没读到设计稿骨架 tools/campaign-map.js' })); return; }
+    const focusKey = validKey(rest[0]) ? rest[0] : null;
+    const cols = plan.chapters.length, lastCol = cols - 1;
+    const sceneIds = new Set(SA.StoryData.list());
+    const nodes = new Map();   // id → { el, d }
+    const wires = [];          // { a, b, kind, side }
+    const colEls = [];
+
+    // ---- 节点 ----
+    function nodeEl(id, d) {
+      const b = el(`button.mnode.k-${d.kind}${d.planned ? '.planned' : ''}${d.side ? `.s-${d.side}` : ''}${d.vert ? '.vert' : ''}`,
+        { type: 'button', dataset: { id }, 'aria-label': d.aria || `${d.code || ''} ${d.title}` },
+        el('span.medal', { text: d.medal || '' }),
+        // 第一行留给名字；编号、车手和小标记挤在第二行
+        d.vert ? el('span.mlabel', null, el('small.mcode', { text: d.code || '' }), el('b', { text: d.title }))
+          : el('span.mlabel', null, el('b', { text: d.title }), el('small', null, d.code ? el('span.mcode', { text: d.code }) : null, el('span.msub', { text: d.sub || '' }), d.marks?.length ? el('span.mmarks', null, d.marks) : null)));
+      nodes.set(id, { el: b, d });
+      b.addEventListener('pointerenter', () => hover(id));
+      b.addEventListener('pointerleave', unhover);
+      b.addEventListener('focus', () => { if (b.matches(':focus-visible')) show(id); });   // 只有键盘移过来时才弹卡片
+      b.addEventListener('blur', unhover);
+      b.addEventListener('click', () => activate(id));
+      return b;
+    }
+    const storyCount = (key) => storySlotsOf(key).filter(([, id]) => sceneIds.has(id) && sceneLines(id).length).length;
+    let done = 0;
+    const linkedKeys = new Set();
+
+    const grid = el('div.map', { style: `grid-template-columns: 96px repeat(${cols}, minmax(175px, 1fr))` });
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.classList.add('map-wires');
+    svg.setAttribute('aria-hidden', 'true');
+    grid.append(svg);
+
+    // 章头
+    grid.append(el('div.mcorner', null, el('b', { text: '设计稿' }), el('small', { text: `v${plan.version}` })));
+    plan.chapters.forEach((ch, c) => {
+      const now = [...new Set(ch.stages.map((p) => mapLink(plan, p)).filter(Boolean).map((k) => SA.CAMPAIGN[+k.split(',')[0]].name))];
+      const nowText = now.length ? `游戏里：${now.join('、')}` : '游戏里还没有这一章';
+      grid.append(el(`div.mhead${c % 2 ? '.alt' : ''}`, { title: `${ch.code} · ${ch.name}\n${ch.theme} · ${ch.days}\n${nowText}` },
+        el('div.mh-t', null, el('b', { text: ch.code }), ch.name),
+        el('div.mh-s', null, el('span', { text: ch.theme }), el('span.mdays', { text: ch.days })),
+        el('div.mh-now', { text: nowText })));
+    });
+
+    // 主线：每章一列，关一个接一个往下排，最后是通关
+    grid.append(el('div.mlane-h.main', null, el('b', { text: plan.main.name }), el('small', { text: plan.main.sub }), el('span.mcount')));
+    plan.chapters.forEach((ch, c) => {
+      const col = el(`div.mcol${c % 2 ? '.alt' : ''}`, { dataset: { col: c } });
+      colEls[c] = col;
+      ch.stages.forEach((p, i) => {
+        const key = mapLink(plan, p), kind = mapKind(p.role);
+        const st = key ? stageData(...key.split(',').map(Number)) : null;
+        if (key) { done++; linkedKeys.add(key); }
+        const marks = [];
+        if (key) {
+          if (stageDirty(key)) marks.push(el('span.dot', { title: '有改动没保存' }));
+          if (st.source === 'manual') marks.push(el('span.pip.manual', { title: '手工关卡车' }));
+          const n = storyCount(key);
+          if (n) marks.push(el('span.mtag', { text: `剧${n}`, title: `${n} 幕剧情有台词` }));
+        }
+        col.append(nodeEl(p.code, {
+          type: 'stage', kind, planned: !key, key, p, c,
+          medal: kind === 'champ' ? '★★' : kind === 'boss' ? '★' : String(i + 1),
+          code: p.code, title: key ? st.name : p.car, sub: key ? (st.pilot || '') : `${p.pilot} · 还没做`, marks,
+        }));
+        if (i > 0) wires.push({ a: ch.stages[i - 1].code, b: p.code, kind: 'main' });
+        // 擂主收尾一幕：后面还有关就画一道幕间线
+        if (kind === 'boss' && i < ch.stages.length - 1) col.append(el('div.mact', null, el('span', { text: '幕间' })));
+      });
+      const gateId = `gate-${c}`;
+      col.append(nodeEl(gateId, { type: 'gate', kind: 'gate', ch, c, title: c === lastCol ? '全部通关' : `${ch.code}通关`, sub: ch.clear.replace(/◆/g, '') }));
+      wires.push({ a: ch.stages[ch.stages.length - 1].code, b: gateId, kind: 'main' });
+      if (c < lastCol) wires.push({ a: gateId, b: plan.chapters[c + 1].stages[0].code, kind: 'chapter' });
+      grid.append(col);
+    });
+    grid.querySelector('.mlane-h.main .mcount').textContent = `${done} / ${plan.chapters.reduce((n, ch) => n + ch.stages.length, 0)} 做进游戏`;
+
+    // 支线：一条支线一行，每一集放在它开放时所在的那一章
+    plan.sides.forEach((side, sn) => {
+      const first = sn === 0 ? '.first' : '';   // 主线和支线之间画一道粗线
+      const cells = Array.from({ length: cols }, (_, c) => el(`div.mlane${c % 2 ? '.alt' : ''}${first}`, { dataset: { col: c } }));
+      let prevCol = 0;
+      side.episodes.forEach((e, i) => {
+        const id = `${side.id}-${i}`;
+        const col = e.open.after ? +e.open.after.split('-')[0] : e.open.clear != null ? Math.min(lastCol, e.open.clear + 1) : prevCol;
+        prevCol = col;
+        cells[col].append(nodeEl(id, { type: 'side', kind: e.final ? 'boss' : 'normal', planned: true, side: side.id, vert: true, e, i, sideInfo: side,
+          medal: e.final ? '★' : String(i + 1), code: e.code, title: e.name }));
+        if (e.open.after) wires.push({ a: e.open.after, b: id, kind: 'branch', side: side.id });
+        else if (e.open.clear != null) wires.push({ a: `gate-${e.open.clear}`, b: id, kind: 'branch', side: side.id });
+        if (i > 0) wires.push({ a: `${side.id}-${i - 1}`, b: id, kind: 'lane', side: side.id });
+      });
+      grid.append(el(`div.mlane-h.s-${side.id}${first}`, null, el('b', { text: side.name }), el('small', { text: side.sub }), el('span.mcount', { text: `0 / ${side.episodes.length} 做进游戏` })), ...cells);
+    });
+
+    // 游戏里有、设计稿里没写的关：也放上来，免得漏看
+    const extra = allStages().filter((k) => !linkedKeys.has(k));
+    if (extra.length) {
+      const cells = Array.from({ length: cols }, (_, c) => el(`div.mlane${c % 2 ? '.alt' : ''}`, { dataset: { col: c } }));
+      extra.forEach((k) => {
+        const [ci, si] = k.split(',').map(Number), st = stageData(ci, si);
+        cells[Math.min(lastCol, ci)].append(nodeEl(`x-${k}`, { type: 'stage', kind: st.boss ? 'boss' : 'normal', key: k, vert: true, medal: st.boss ? '★' : String(si + 1), code: st.code, title: st.name }));
+      });
+      grid.append(el('div.mlane-h.extra', null, el('b', { text: '设计稿里没有' }), el('small', { text: '游戏里有的关' }), el('span.mcount', { text: `${extra.length} 关` })), ...cells);
+    }
+
+    // ---- 连线（排版好以后按节点的真实位置画） ----
+    function drawWires() {
+      if (!grid.isConnected) return;
+      const R = grid.getBoundingClientRect();
+      svg.setAttribute('width', grid.scrollWidth); svg.setAttribute('height', grid.scrollHeight);
+      const box = (id) => {
+        const n = nodes.get(id);
+        if (!n) return null;
+        const r = n.el.getBoundingClientRect(), md = n.el.querySelector('.medal').getBoundingClientRect();
+        return { l: r.left - R.left, r: r.right - R.left, t: r.top - R.top, b: r.bottom - R.top,
+          mx: md.left + md.width / 2 - R.left, my: md.top + md.height / 2 - R.top, mt: md.top - R.top, mb: md.bottom - R.top, ml: md.left - R.left, mr: md.right - R.left };
+      };
+      const colRight = (c) => colEls[c].getBoundingClientRect().right - R.left;
+      const cellOf = (id) => nodes.get(id)?.el.parentElement.getBoundingClientRect();
+      const gutterUse = new Map(), laneUse = new Map();
+      const defs = document.createElementNS(SVGNS, 'defs');
+      ['main', 'rival', 'garden', 'deep'].forEach((k) => {
+        const mk = document.createElementNS(SVGNS, 'marker');
+        Object.entries({ id: `mk-${k}`, viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }).forEach(([a, v]) => mk.setAttribute(a, v));
+        const p = document.createElementNS(SVGNS, 'path');
+        p.setAttribute('d', 'M0 0L8 4L0 8z'); p.setAttribute('class', `mk mk-${k}`);
+        mk.append(p); defs.append(mk);
+      });
+      const paths = wires.map((w) => {
+        const a = box(w.a), b = box(w.b);
+        if (!a || !b) return null;
+        let d = '', cls = '', marker = '';
+        if (w.kind === 'main') {
+          d = `M${a.mx} ${a.mb}V${b.mt}`;
+          cls = `w-main${nodes.get(w.a).d.planned || nodes.get(w.b).d.planned ? ' planned' : ''}`;
+        } else if (w.kind === 'chapter') {
+          // 通关 → 下一章第一关：沿着两列之间的缝往上走
+          const c = nodes.get(w.a).d.c, x = colRight(c) - 3;
+          d = `M${a.mx} ${a.mb}V${a.mb + 10}H${x}V${b.my}H${b.ml}`;
+          cls = 'w-ch'; marker = 'main';
+        } else if (w.kind === 'branch') {
+          // 分叉：从这一行的右端出来，往下走到支线那一行上方再拐进去。
+          // 「某关之后」顺着本列右边的缝往下；「某章通关」先跨进下一章，顺着那一列左边的缝往下，两种不共用一条缝
+          const src = nodes.get(w.a).d, c = src.c, nextCol = src.type === 'gate';
+          const gk = `${c}:${nextCol ? 'L' : 'R'}`, g = gutterUse.get(gk) || 0; gutterUse.set(gk, g + 1);
+          const x = nextCol ? colEls[c + 1].getBoundingClientRect().left - R.left + 7 + g * 4 : colRight(c) - 8 - g * 4;
+          const cell = cellOf(w.b), lk = `${Math.round(cell.left)}:${Math.round(cell.top)}`;
+          const u = laneUse.get(lk) || 0; laneUse.set(lk, u + 1);
+          const y = cell.top - R.top + 5 + u * 5;
+          d = `M${a.r - 4} ${a.my}H${x}V${y}H${b.mx}V${b.mt}`;
+          cls = `w-branch s-${w.side}`; marker = w.side;
+        } else {
+          // 同一条支线前后两集：奖章之间横着连（名字在奖章下面，不压字）
+          const xm = Math.round((a.mr + b.ml) / 2);
+          d = `M${a.mr} ${a.my}H${xm}V${b.my}H${b.ml}`;
+          cls = `w-lane s-${w.side}`; marker = w.side;
+        }
+        const p = document.createElementNS(SVGNS, 'path');
+        p.setAttribute('d', d); p.setAttribute('class', cls);
+        if (marker) p.setAttribute('marker-end', `url(#mk-${marker})`);
+        p.dataset.a = w.a; p.dataset.b = w.b;
+        // 线头圆点：分叉从哪一关出来
+        if (w.kind === 'branch') {
+          const dot = document.createElementNS(SVGNS, 'circle');
+          dot.setAttribute('cx', a.r - 4); dot.setAttribute('cy', a.my); dot.setAttribute('r', 3);
+          dot.setAttribute('class', `w-dot s-${w.side}`); dot.dataset.a = w.a; dot.dataset.b = w.b;
+          return [p, dot];
+        }
+        return [p];
+      }).filter(Boolean).flat();
+      svg.replaceChildren(defs, ...paths);
+      if (cur) light(cur);
+    }
+
+    // ---- 悬浮卡片 ----
+    const card = el('div.mcard', { hidden: true, role: 'tooltip' });
+    let showT = 0, hideT = 0, cur = null, pinned = false;
+    function light(id) {
+      svg.querySelectorAll('.hot').forEach((p) => p.classList.remove('hot'));
+      grid.querySelectorAll('.mnode.rel').forEach((n) => n.classList.remove('rel'));
+      if (!id) return;
+      svg.querySelectorAll(`[data-a="${CSS.escape(id)}"], [data-b="${CSS.escape(id)}"]`).forEach((p) => {
+        if (p.classList.contains('w-main')) return;
+        p.classList.add('hot');
+        const other = p.dataset.a === id ? p.dataset.b : p.dataset.a;
+        nodes.get(other)?.el.classList.add('rel');
+      });
+    }
+    function hover(id) { clearTimeout(hideT); clearTimeout(showT); if (pinned) return; showT = setTimeout(() => show(id), cur ? 30 : 110); }
+    function unhover() { clearTimeout(showT); if (pinned) return; hideT = setTimeout(hide, 180); }
+    function hide() { card.hidden = true; cur = null; pinned = false; light(null); grid.querySelectorAll('.mnode.on').forEach((n) => n.classList.remove('on')); }
+    card.addEventListener('pointerenter', () => clearTimeout(hideT));
+    card.addEventListener('pointerleave', unhover);
+    function show(id) {
+      const n = nodes.get(id);
+      if (!n) return;
+      clearTimeout(hideT);
+      grid.querySelectorAll('.mnode.on').forEach((x) => x.classList.remove('on'));
+      n.el.classList.add('on');
+      cur = id;
+      card.replaceChildren(...cardBody(n.d));
+      card.classList.toggle('pinned', pinned);
+      card.hidden = false;
+      placeCard(n.el);
+      light(id);
+    }
+    function placeCard(anchor) {
+      const r = anchor.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+      card.style.left = '0px'; card.style.top = '0px';
+      const cw = card.offsetWidth, chh = card.offsetHeight;
+      let x = r.right + 10;
+      if (x + cw > vw - 8) x = r.left - cw - 10;
+      if (x < 8) x = Math.max(8, Math.min(vw - cw - 8, r.left));
+      let y = r.top - 6;
+      if (y + chh > vh - 8) y = vh - chh - 8;
+      card.style.left = `${Math.round(x)}px`; card.style.top = `${Math.round(Math.max(8, y))}px`;
+    }
+    // 点：游戏里有的关直接进工作台；还没做的关、通关、支线把卡片钉住（点空白处或 Esc 收起）
+    function activate(id) {
+      const d = nodes.get(id)?.d;
+      if (!d) return;
+      if (d.type === 'stage' && d.key) { go(`stage/${d.key}`); return; }
+      if (pinned && cur === id) { hide(); return; }
+      pinned = true;
+      show(id);
+    }
+    const jump = (label, path, cls = '') => el(`a.btn.sm${cls}`, { href: `#/${path}` }, label);
+
+    function cardBody(d) {
+      const out = [];
+      const chip = (t, cls = '') => el(`span.chip${cls}`, { text: t });
+      if (d.type === 'gate') {
+        const ch = d.ch;
+        out.push(el('div.mc-h', null, chip(ch.code), chip(d.c === lastCol ? '全部通关' : '通关', '.k-gate')));
+        out.push(el('h3.mc-title', { text: d.title }));
+        out.push(el('div.mc-plan', null, el('b', { text: '设计稿：' }), ch.clear));
+        // 游戏里现在：设计稿这一章最后一关正好是游戏里某一章的最后一关时，把那一章的通关奖励摆出来
+        const lk = mapLink(plan, ch.stages[ch.stages.length - 1]);
+        if (lk) {
+          const [ci, si] = lk.split(',').map(Number), gch = SA.CAMPAIGN[ci];
+          if (si === gch.stages.length - 1 && gch.unlock) {
+            out.push(el('div.mc-sec', { text: `游戏里现在：${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
+            const feats = (gch.unlock.feat || []).filter((k) => sceneIds.has(`feat.${k}`));
+            if (feats.length) out.push(el('div.mc-acts', null, feats.map((k) => jump(`剧情 · ${SA.FEATURES[k] || k}开放`, `story/feat.${k}`))));
+          }
+        }
+        const opens = plan.sides.flatMap((s) => s.episodes.filter((e) => e.open.clear === d.c).map((e) => `${e.code} ${e.name}`));
+        if (opens.length) out.push(el('div.mc-note', { text: `通关后开放支线：${opens.join('、')}` }));
+        return out;
+      }
+      if (d.type === 'side') {
+        const e = d.e, prev = d.i > 0 ? d.sideInfo.episodes[d.i - 1] : null;
+        const openText = e.open.after ? `主线 ${e.open.after} 之后` : e.open.clear != null ? `${plan.chapters[e.open.clear].code}通关以后` : `${prev ? prev.code : '上一集'}之后`;
+        out.push(el('div.mc-h', null, chip(d.sideInfo.name, `.s-${d.side}`), e.final ? chip('支线终章 ★', '.k-boss') : null, chip('设计稿 · 还没做进游戏', '.plan')));
+        out.push(el('h3.mc-title', null, `${e.code} `, e.name));
+        out.push(el('div.mc-sub', { text: `${e.car} · ${e.pilot}` }));
+        out.push(el('div.mc-sil.none', { text: '车还没拼' }));
+        out.push(kvRows([['开放', [chip(openText)]], ['地形', [chip(e.terrain)]], ['考点', [el('span', { text: e.test })]], ['奖励', [el('span', { text: e.reward })]]]));
+        if (e.loot) out.push(...lootBlock(e.loot));
+        return out;
+      }
+      // 主线的关
+      const p = d.p;
+      if (!d.key) {
+        out.push(el('div.mc-h', null, p ? chip(p.code) : null, chip(p ? p.role : MAP_KIND[d.kind], `.k-${d.kind}`), chip('设计稿 · 还没做进游戏', '.plan')));
+        out.push(el('h3.mc-title', { text: p.car }));
+        out.push(el('div.mc-sub', { text: `${p.pilot} · ${p.terrain} · 压力 ${p.pressure}` }));
+        out.push(el('div.mc-sil.none', { text: '车还没拼' }));
+        out.push(kvRows([['考题', [el('span', { text: p.test })]], ['奖励', [el('span', { text: p.reward })]]]));
+        if (p.loot) out.push(...lootBlock(p.loot));
+        out.push(el('div.mc-note', { text: '后台按设计稿落数据以后，这里会换成游戏里的真关卡（docs/campaign-plan.md §10.1）。' }));
+        return out;
+      }
+      const [ci, si] = d.key.split(',').map(Number), st = stageData(ci, si), gch = SA.CAMPAIGN[ci];
+      const terrain = SA.TERRAINS[st.terrain || 'flat'] || SA.TERRAINS.flat;
+      out.push(el('div.mc-h', null, chip(p ? p.code : st.code), chip(p ? p.role : (st.boss ? 'Boss' : '普通'), `.k-${d.kind}`),
+        el('span.grow'), el('span.mc-key', { text: `游戏里 ${st.code}`, title: `键 ${d.key} · ${gch.name}` })));
+      out.push(el('h3.mc-title', { text: st.name }));
+      const vname = st.vehicle?.name && st.vehicle.name !== st.name ? `车：${st.vehicle.name} · ` : '';
+      out.push(el('div.mc-sub', { text: `${vname}${st.pilot || '无名车手'}` }));
+      const sil = silhouette(d.key);
+      if (sil) {
+        const s = Math.max(1, Math.min(2, Math.floor(Math.min(288 / sil.width, 110 / sil.height))));
+        sil.style.width = `${sil.width * s}px`; sil.style.height = `${sil.height * s}px`;
+        out.push(el('div.mc-sil', null, sil));
+      } else out.push(el('div.mc-sil.none', { text: '这一关还没有车' }));
+      let rating = '';
+      try { rating = st.vehicle ? `评分 ${Math.round(SA.V.stats(st.vehicle).rating)}` : ''; } catch (e) { rating = ''; }
+      out.push(el('div.mc-stats', { text: [rating, `地形 ${terrain.name}`, STYLE[st.style] ? `性格 ${STYLE[st.style]}` : '', st.mt ? `材料 ${matName(st.mt)}` : ''].filter(Boolean).join(' · ') }));
+      out.push(el('div.mc-sec', { text: '奖励' }), kvRows(stageRewardRows(st)));
+      if (si === gch.stages.length - 1 && gch.unlock) out.push(el('div.mc-sec', { text: `打完这一关 = ${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
+      if (p && p.reward) out.push(el('div.mc-plan', null, el('b', { text: '设计稿奖励：' }), p.reward, p.car !== st.name ? el('span.muted', { text: `（设计稿车名：${p.car}）` }) : null));
+      // 去哪：工作台各页签 + 这一关的剧情
+      const slots = storySlotsOf(d.key).filter(([, id]) => sceneIds.has(id));
+      out.push(el('div.mc-sec', { text: '去' }),
+        el('div.mc-acts', null, jump('拼装', `stage/${d.key}/build`, '.primary'), jump('文字与奖励', `stage/${d.key}/text`), jump('强度', `stage/${d.key}/test`), jump('院子闲聊', `stage/${d.key}/chat`)),
+        slots.length ? el('div.mc-acts', null, slots.map(([, id, name]) => { const n = sceneLines(id).length; return jump(`${name}${n ? ` ${n}句` : ' 空'}`, `story/${id}`, n ? '' : '.ghost'); })) : null,
+        el('div.mc-note', { text: '点节点直接进工作台' }));
+      return out;
+    }
+    function lootBlock(key) {
+      const pic = legPic(key), home = lootHome(key), out = [];
+      if (pic) {
+        const s = Math.max(1, Math.min(2, Math.floor(Math.min(200 / pic.cv.width, 90 / pic.cv.height))));
+        pic.cv.style.width = `${pic.cv.width * s}px`; pic.cv.style.height = `${pic.cv.height * s}px`;
+        out.push(el('div.mc-loot', null, pic.cv, el('div', null, el('b', { text: pic.rule.name }), el('small', { text: `${pic.rule.id === 'quad' ? '四足' : '双足'} · ${matName(pic.rule.mt)}` }))));
+      }
+      if (home) out.push(el('div.mc-note', { text: home }));
+      return out;
+    }
+
+    // ---- 外框 ----
+    const dim = el('input', { type: 'checkbox', checked: !!prefs.mapDim, on: { change: (e) => { prefs.mapDim = e.target.checked; savePrefs(); grid.classList.toggle('dim', e.target.checked); } } });
+    grid.classList.toggle('dim', !!prefs.mapDim);
+    const legend = el('div.mlegend', null,
+      [['normal', '1', '普通'], ['easy', '2', '爽关'], ['boss', '★', '擂主'], ['champ', '★★', '区冠军'], ['gate', '', '通关']].map(([k, t, n]) => el('span', null, el(`i.medal.k-${k}`, { text: t }), n)),
+      el('span', null, el('i.medal.k-normal.planned', { text: '·' }), '虚线 = 还没做进游戏'));
+    const scroll = el('div.map-scroll', null, grid);
+    const view = el('div.mapv', null,
+      el('div.map-bar', null, el('h2', { text: '战役地图' }),
+        el('span.muted', { text: `主线 ${done} / ${plan.chapters.reduce((n, ch) => n + ch.stages.length, 0)} · 支线 0 / ${plan.sides.reduce((n, s) => n + s.episodes.length, 0)} 做进游戏` }),
+        el('span.grow'), legend, el('label.check', { title: '把还没做进游戏的关调淡，只看现在能玩的' }, dim, '淡化还没做的')),
+      scroll, card);
+    m.append(view);
+
+    // 拖空白处平移；滚动位置记住
+    let drag = null;
+    scroll.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('.mnode, a, button, input')) return;
+      drag = { x: e.clientX, y: e.clientY, l: scroll.scrollLeft, t: scroll.scrollTop };
+      try { scroll.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件没有真指针 */ }
+      scroll.classList.add('grab');
+    });
+    scroll.addEventListener('pointermove', (e) => { if (!drag) return; scroll.scrollLeft = drag.l - (e.clientX - drag.x); scroll.scrollTop = drag.t - (e.clientY - drag.y); });
+    const endDrag = () => { drag = null; scroll.classList.remove('grab'); };
+    scroll.addEventListener('pointerup', endDrag);
+    scroll.addEventListener('pointercancel', endDrag);
+    let saveT = 0;
+    scroll.addEventListener('scroll', () => {
+      if (pinned && cur) placeCard(nodes.get(cur).el);
+      else { clearTimeout(showT); if (!card.hidden) hide(); }
+      clearTimeout(saveT); saveT = setTimeout(() => { prefs.mapScroll = [scroll.scrollLeft, scroll.scrollTop]; savePrefs(); }, 200);
+    }, { passive: true });
+    const onKey = (e) => { if (e.key === 'Escape' && !card.hidden) { e.preventDefault(); hide(); } };
+    const onDown = (e) => { if (pinned && !e.target.closest('.mcard, .mnode')) hide(); };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown, true);
+    const ro = new ResizeObserver(() => requestAnimationFrame(drawWires));
+    ro.observe(grid);
+    onLeave(() => { ro.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onDown, true); clearTimeout(showT); clearTimeout(hideT); });
+    requestAnimationFrame(() => {
+      drawWires();
+      const target = focusKey && [...nodes.values()].find((n) => n.d.key === focusKey);
+      if (target) {
+        target.el.scrollIntoView({ block: 'center', inline: 'center' });
+        target.el.classList.add('focus');
+        target.el.focus({ preventScroll: true });
+      } else if (prefs.mapScroll) { [scroll.scrollLeft, scroll.scrollTop] = prefs.mapScroll; }
+    });
   };
 
   // 关卡工作区：左边章节树，中间这一关（拼装 / 文字与奖励 / 强度 / 剧情 / 院子闲聊），右边关卡信息
@@ -758,6 +1227,7 @@
           f.locked ? el('span.chip.locked', { text: '锁定' }) : el('span.chip', { text: '进化器可改' }),
           stageDirty(key) ? el('span.chip.edited', { text: '有改动没保存' }) : null)),
       el('div.acts', null,
+        el('a.btn.sm.ghost', { href: `#/map/${key}`, title: '在战役地图上看这一关' }, '地图'),
         el('button.btn.sm', { type: 'button', disabled: idx <= 0, title: '上一关（[）', on: { click: () => goStage(keys[idx - 1]) } }, icon('left'), '上一关'),
         el('button.btn.sm', { type: 'button', disabled: idx >= keys.length - 1, title: '下一关（]）', on: { click: () => goStage(keys[idx + 1]) } }, '下一关', icon('right')),
         el('button.btn.sm.primary', { type: 'button', title: '保存全部改动（Ctrl+S）', on: { click: () => saveAll() } }, '保存')));
@@ -1272,7 +1742,7 @@
       if (!p?.records || (p.campaignLayout || 1) !== SA.CAMPAIGN_LAYOUT) return;
       applyStageCars(p.records);
       palItems = null;
-      if (!saving && parse().view === 'stage') route(true);
+      if (!saving && ['stage', 'map'].includes(parse().view)) route(true);
     };
   } catch (e) { /* 不支持频道的浏览器只在本页更新 */ }
 

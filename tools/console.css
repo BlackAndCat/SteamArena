@@ -356,6 +356,135 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .toast.bad { background: var(--red); border-color: #5c1a0e; color: #fff4e0; }
 .toast.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--ink); }
 
+/* ---------- 战役地图 ---------- */
+/* 一张钉在木桌上的纸图：列是章，行是主线和三条支线；奖章的颜色分关的角色，虚线是还没做进游戏的关 */
+.mapv { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.map-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 16px; background: var(--paper-2); border-bottom: 2px solid var(--line-2); flex: none; }
+.map-bar h2 { margin: 0; font: 700 17px var(--song); }
+.mlegend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-2); }
+.mlegend span { display: inline-flex; align-items: center; gap: 5px; }
+.mlegend .medal { width: 18px; height: 18px; font-size: 10px; border-width: 1.5px; }
+.mlegend .medal.k-champ { width: 20px; height: 20px; font-size: 8px; }
+.mlegend .medal.k-gate { width: 11px; height: 11px; margin: 0 3px; }
+.map-scroll { flex: 1; min-height: 0; overflow: auto; cursor: default; }
+.map-scroll.grab { cursor: grabbing; user-select: none; }
+.map { position: relative; display: grid; margin: 10px 16px; min-width: 1150px; background: var(--paper); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.5); }
+.map-wires { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 0; }
+.map > div { position: relative; min-width: 0; }
+.mcorner { display: grid; align-content: end; gap: 2px; padding: 10px; background: var(--paper-3); border-right: 2px solid var(--line-2); border-bottom: 2px solid var(--line-2); color: var(--ink-3); font-size: 11.5px; }
+.mcorner b { font: 700 13px var(--song); color: var(--brass-dk); }
+.mhead { padding: 8px 12px 7px; border-bottom: 2px solid var(--line-2); border-left: 1px dashed var(--line); display: grid; gap: 4px; align-content: start; }
+.mhead.alt, .mcol.alt, .mlane.alt { background: rgba(181, 156, 108, 0.12); }
+.mh-t { font: 700 15px/1.3 var(--song); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mh-t b { color: var(--brass-dk); margin-right: 6px; }
+.mh-s { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-2); white-space: nowrap; min-width: 0; }
+.mh-s > span:first-child { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mh-s .mdays { flex: none; }
+.mdays { padding: 0 6px; height: 18px; display: inline-flex; align-items: center; background: var(--brass); border: 1px solid var(--brass-dk); color: var(--ink); font-size: 11px; box-shadow: inset 1px 1px 0 var(--brass-hi); }
+.mh-now { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mlane-h { display: grid; align-content: center; gap: 2px; padding: 10px; background: var(--paper-3); border-right: 2px solid var(--line-2); border-top: 1px dashed var(--line); }
+.mlane-h b { font: 700 13.5px var(--song); color: var(--ink); }
+.mlane-h small { font-size: 11px; color: var(--ink-3); }
+.mlane-h .mcount { font-size: 11px; color: var(--ink-2); font-family: var(--mono); }
+.mlane-h.main { border-top: 0; }
+.mlane-h.main b { color: var(--brass-dk); }
+.mlane-h.s-rival { box-shadow: inset 4px 0 0 #9a4a2a; }
+.mlane-h.s-garden { box-shadow: inset 4px 0 0 #4f7a35; }
+.mlane-h.s-deep { box-shadow: inset 4px 0 0 #3d6578; }
+.mlane-h.extra { box-shadow: inset 4px 0 0 var(--ink-3); }
+.mlane-h.first, .mlane.first { border-top: 2px solid var(--line-2); }
+.mcol { display: flex; flex-direction: column; gap: 1px; padding: 8px 18px 10px 6px; border-left: 1px dashed var(--line); }
+.mlane { display: flex; flex-wrap: wrap; align-content: center; justify-content: flex-start; gap: 4px 6px; min-height: 78px; padding: 8px 18px 5px 12px; border-left: 1px dashed var(--line); border-top: 1px dashed var(--line); }
+.mact { display: flex; align-items: center; gap: 6px; margin: 3px 0 3px 40px; font-size: 10.5px; color: var(--ink-3); }
+.mact::before, .mact::after { content: ''; flex: 1; border-top: 1px dashed var(--line-2); }
+
+.mnode { position: relative; z-index: 1; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 7px; width: 100%; min-height: 38px; padding: 2px 6px 2px 2px; border: 1px solid transparent; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.mnode:hover, .mnode.on, .mnode:focus-visible { background: var(--paper-hi); border-color: var(--line); outline: none; }
+.mnode.rel { background: rgba(217, 164, 65, 0.16); border-color: var(--brass-lo); }
+.mnode.focus .medal { animation: mfocus 1.2s ease-out 3; }
+@keyframes mfocus { 0% { box-shadow: 0 0 0 0 rgba(239, 122, 33, 0.8); } 100% { box-shadow: 0 0 0 12px rgba(239, 122, 33, 0); } }
+.medal { justify-self: center; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink-2); background: var(--paper-hi); color: var(--ink); font: 700 13px var(--mono); line-height: 1; box-shadow: inset 0 -2px 0 rgba(42, 26, 5, 0.18); }
+.k-easy .medal, .medal.k-easy { background: var(--ok-soft); border-color: #5d7a3a; color: #2f4a1a; }
+.k-boss .medal, .medal.k-boss { background: var(--brass); border-color: var(--brass-dk); color: var(--ink); box-shadow: inset 1px 1px 0 var(--brass-hi), inset -1px -1px 0 var(--brass-lo); font-size: 14px; }
+/* 区冠军 = 红火漆印 */
+.k-champ .medal, .medal.k-champ { width: 34px; height: 34px; background: var(--red); border-color: #5c1a0e; color: #ffe9c9; font-size: 11px; letter-spacing: -1px; box-shadow: inset 1px 1px 0 #e0623f, inset -2px -2px 0 #7a2410; }
+.k-gate .medal, .medal.k-gate { width: 16px; height: 16px; border-radius: 2px; transform: rotate(45deg); background: var(--copper); border-color: #5a2e14; box-shadow: inset 1px 1px 0 #d08a5a; }
+.k-gate .mlabel b { font-family: var(--song); color: var(--copper); }
+.planned .medal, .medal.planned { background: rgba(255, 250, 235, 0.4); border-style: dashed; color: var(--ink-3); box-shadow: none; }
+.planned.k-boss .medal { background: rgba(217, 164, 65, 0.18); color: var(--brass-dk); }
+.planned.k-champ .medal { background: rgba(184, 57, 27, 0.12); color: var(--red); border-color: var(--red); }
+.planned .mlabel b { color: var(--ink-2); font-weight: 400; }
+.mlabel { min-width: 0; display: grid; }
+.mlabel b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcode { font: 400 11px var(--mono); color: var(--ink-3); margin-right: 5px; }
+.mlabel small { display: flex; align-items: center; min-width: 0; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlabel small .mcode { flex: none; }
+.mmarks { display: inline-flex; gap: 3px; align-items: center; margin-left: 5px; flex: none; }
+.mtag { font: 10px var(--mono); line-height: 13px; color: var(--ink-2); padding: 0 3px; border: 1px solid var(--line); background: var(--paper-hi); }
+/* 支线的节点：奖章在上、名字在下，一格放得下两集 */
+.mnode.vert { grid-template-columns: 1fr; justify-items: center; text-align: center; width: 70px; gap: 2px; padding: 4px 1px; }
+.mnode.vert .mlabel { justify-items: center; max-width: 100%; }
+.mnode.vert .mlabel b { font-weight: 400; font-size: 12px; line-height: 1.3; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mnode.vert .mcode { margin: 0; font-size: 10.5px; }
+.s-rival .medal { border-color: #9a4a2a; }
+.s-garden .medal { border-color: #4f7a35; }
+.s-deep .medal { border-color: #3d6578; }
+.map.dim .planned { opacity: 0.32; }
+.map.dim .planned:hover, .map.dim .planned.on { opacity: 1; }
+
+/* 连线 */
+.w-main { fill: none; stroke: var(--brass-lo); stroke-width: 3; }
+.w-main.planned { stroke: var(--line-2); stroke-width: 2; stroke-dasharray: 4 4; }
+.w-ch { fill: none; stroke: var(--brass-lo); stroke-width: 2; opacity: 0.5; }
+.w-branch { fill: none; stroke-width: 1.6; stroke-dasharray: 5 4; opacity: 0.55; }
+.w-lane { fill: none; stroke-width: 2; opacity: 0.75; }
+.w-dot { stroke: none; opacity: 0.8; }
+.w-branch.s-rival, .w-lane.s-rival { stroke: #9a4a2a; }
+.w-branch.s-garden, .w-lane.s-garden { stroke: #4f7a35; }
+.w-branch.s-deep, .w-lane.s-deep { stroke: #3d6578; }
+.w-dot.s-rival, .mk-rival { fill: #9a4a2a; }
+.w-dot.s-garden, .mk-garden { fill: #4f7a35; }
+.w-dot.s-deep, .mk-deep { fill: #3d6578; }
+.mk-main { fill: var(--brass-lo); }
+.map-wires .hot { opacity: 1; stroke-width: 2.6; stroke-dasharray: none; }
+.map.dim .w-branch, .map.dim .w-lane { opacity: 0.2; }
+
+/* 悬浮卡片 */
+.mcard { position: fixed; z-index: 80; width: 320px; max-height: calc(100vh - 16px); overflow: auto; display: grid; gap: 8px; padding: 12px 13px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.45); font-size: 12.5px; color: var(--ink); }
+.mcard.pinned { border-color: var(--brass-dk); box-shadow: 0 0 0 2px var(--brass), 5px 5px 0 rgba(20, 10, 4, 0.45); }
+.mcard[hidden] { display: none; }
+.mc-h { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.mc-h .chip.k-boss { background: var(--brass); border-color: var(--brass-dk); color: var(--ink); }
+.mc-h .chip.k-champ { background: var(--red); border-color: #5c1a0e; color: #ffe9c9; }
+.mc-h .chip.k-easy { background: var(--ok-soft); border-color: #5d7a3a; color: #2f4a1a; }
+.mc-h .chip.k-gate { border-color: var(--copper); color: var(--copper); }
+.mc-h .chip.plan { border-style: dashed; color: var(--ink-3); }
+.mc-h .chip.s-rival { border-color: #9a4a2a; color: #9a4a2a; }
+.mc-h .chip.s-garden { border-color: #4f7a35; color: #4f7a35; }
+.mc-h .chip.s-deep { border-color: #3d6578; color: #3d6578; }
+.mc-key { font: 11px var(--mono); color: var(--ink-3); }
+.mc-title { margin: 0; font: 700 18px/1.3 var(--song); }
+.mc-sub { color: var(--ink-2); margin-top: -4px; }
+.mc-sil { display: grid; place-items: center; min-height: 64px; padding: 12px 8px 8px; background: linear-gradient(to bottom, transparent calc(100% - 9px), var(--line) calc(100% - 9px), var(--line) calc(100% - 7px), transparent calc(100% - 7px)), var(--paper-3); border: 1px solid var(--line); }
+.mc-sil canvas { image-rendering: pixelated; }
+.mc-sil.none { min-height: 48px; border-style: dashed; color: var(--ink-3); font-size: 12px; background: none; }
+.mc-stats { font-size: 11.5px; color: var(--ink-3); }
+.mc-sec { font: 700 12px var(--song); color: var(--brass-dk); letter-spacing: 0.06em; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+.mc-rows { display: grid; gap: 5px; }
+.mc-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px; align-items: start; }
+.mc-row > span { font-size: 11.5px; color: var(--ink-3); padding-top: 2px; }
+.mc-row > div { display: flex; flex-wrap: wrap; gap: 4px; line-height: 1.5; }
+.mc-row .chip small { color: var(--ink-3); margin-left: 3px; }
+.mc-plan { font-size: 12px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 6px; }
+.mc-plan b { color: var(--ink-3); font-weight: 400; }
+.mc-loot { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--brass-lo); background: rgba(217, 164, 65, 0.12); }
+.mc-loot canvas { image-rendering: pixelated; }
+.mc-loot div { display: grid; }
+.mc-loot small { color: var(--ink-3); }
+.mc-acts { display: flex; flex-wrap: wrap; gap: 4px; }
+.mc-note { font-size: 11.5px; color: var(--ink-3); }
+
 /* 关卡页中间栏较窄：预览挪到台词上面 */
 @container (max-width: 860px) {
   .script, .chat-wrap { grid-template-columns: minmax(0, 1fr); }
