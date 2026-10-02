@@ -122,6 +122,8 @@
         <button class="btn primary" id="save-arena">保存到进化擂台</button>
         <a class="btn" href="evolve.html#grid" id="back-arena">返回进化擂台</a>
         <button class="btn primary" id="save">保存为手工关卡车</button>
+        <button class="btn" id="export-author">导出待发布设计</button>
+        <a class="btn" href="publish-preflight.html">发行前归档</a>
         <button class="btn" id="unlock">解锁（允许进化器改）</button>
         <button class="btn" id="relock">重新锁定</button>
         <button class="btn" id="import">导入分享码 / 模块清单</button>
@@ -129,6 +131,7 @@
         <button class="btn" id="candidate-import">拿候选车作底稿</button>
         <button class="btn" id="drive">一键试驾</button>
       </div>
+      <p class="muted">普通保存可能只写入当前浏览器来源的本机草稿。发行前请导出待发布设计，并在本机 HTTP 预检页逐项归档。</p>
       <div id="import-box" class="notice" hidden>
         <label>粘贴 SA2 分享码或完整模块清单 JSON<textarea id="import-value" placeholder="SA2.… 或 [[层,行,列,id,材料,改装等级],…]"></textarea></label>
         <div class="buttons"><button class="btn primary" id="import-confirm">确认导入</button><button class="btn" id="import-cancel">取消</button></div>
@@ -233,6 +236,6 @@
   <script src="../js/scenes.js"></script>
   <script src="../js/battle-view.js"></script>
   <script src="../js/battle.js"></script>
-  <script src="../js/evolve-arena.js"></script><script src="stage-editor.js"></script>
+  <script src="../js/evolve-arena.js"></script><script src="author-content.js"></script><script src="stage-editor.js"></script>
 </body>
 </html>

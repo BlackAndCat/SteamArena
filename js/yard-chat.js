@@ -203,8 +203,8 @@ SA.YardChat = (() => {
     return { step, force };
   }
 
-  // 工作台保存后，正在运行的游戏重新读取页面管理数据并在下次进院子时采用新池。
-  if (typeof BroadcastChannel === 'function') {
+  // 发行包只读随包文案，忽略开发工作台的广播草稿。
+  if (!SA.RELEASE && typeof BroadcastChannel === 'function') {
     const channel = new BroadcastChannel('sa-yard-chat');
     channel.onmessage = event => {
       if (event.data?.type === 'saved' && event.data.document)
@@ -212,5 +212,6 @@ SA.YardChat = (() => {
     };
   }
 
-  return { currentScope, read, settings, validateSettings, setSettings, validateGroups, write, inherit, save, createPlayer, clickTips };
+  return SA.RELEASE ? { currentScope, read, settings, createPlayer, clickTips }
+    : { currentScope, read, settings, validateSettings, setSettings, validateGroups, write, inherit, save, createPlayer, clickTips };
 })();

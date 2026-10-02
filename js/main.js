@@ -39,10 +39,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape' && !document.querySelector('#modal').hidden) SA.UI.closeModal();
   });
   // 从进化报告页（tools/evolve.html）跳过来：直接打开试驾场，对手来源选"进化报告"
-  if (location.hash === '#sandbox=evolve') { history.replaceState(null, '', location.pathname); SA.Camp.dev.sandbox('evolve'); return; }
+  if (!SA.RELEASE && location.hash === '#sandbox=evolve') { history.replaceState(null, '', location.pathname); SA.Camp.dev.sandbox('evolve'); return; }
   // 开始界面：点「开始游戏」后，全新存档先演开场、直接进第一场；老存档回到原来的页面
   SA.Story.title(SA.Story.begin);
 });
 
 // 调试用：控制台输入 SA.reset() 重开存档
-SA.reset = () => { SA.S.reset(); SA.Story.reset(); SA.nav('home'); };
+if (!SA.RELEASE) SA.reset = () => { SA.S.reset(); SA.Story.reset(); SA.nav('home'); };

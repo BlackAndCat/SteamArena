@@ -527,6 +527,11 @@
   $('module-picker-cancel').onclick = closeModulePicker;
   $('module-picker-confirm').onclick = confirmModulePicker;
   $('save').onclick = async () => { try { const result = await saveRecord(); refreshAfterSave(result); showToast(saveNotice(result, '保存并锁定'), result.persisted ? 'ok' : 'warn'); } catch (error) { showToast(`保存失败：${error.message}`, 'bad'); } };
+  // 本机保存与发行归档分开；文件直开时用作者包把当前来源的草稿带到 HTTP 预检页。
+  $('export-author').onclick = () => {
+    try { SAAuthorContent.download(); showToast('已导出当前来源的待发布设计。普通保存若只落在浏览器草稿，仍需到发行前归档页导入并逐项确认。', 'ok'); }
+    catch (error) { showToast(`导出失败：${error.message}`, 'bad'); }
+  };
   // 擂台保存不经过 saveStageCar，不广播正式关卡变化，也不写 stage-cars.js。
   $('save-arena').onclick = () => {
     try {

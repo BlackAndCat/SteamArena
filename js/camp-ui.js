@@ -169,5 +169,5 @@ SA.CampUI = (() => {
       SA.Battle.start({ mode: 'friendly', enemyVehicle: st.vehicle, enemyName: st.name, aim: st.aim, style: st.style, terrain, hpMul: 1 });
   }
 
-  return { salvageDialog, unlockDialog, introIfNew, matChip, devPanel, sandbox, drive };
+  return { salvageDialog, unlockDialog, introIfNew, matChip, ...(!SA.RELEASE ? { devPanel, sandbox, drive } : {}) };
 })();

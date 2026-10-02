@@ -90,6 +90,7 @@
   // ---------- 旧工作台和视觉页 ----------
   const TOOLS = {
     'stage-editor': { name: '关卡车拼装', url: 'stage-editor.html', old: true, desc: '拼装关卡车，改关卡文字、奖励与强度，保存手工锁定版本' },
+    'publish-preflight': { name: '发行前设计归档', url: 'publish-preflight.html', old: true, desc: '导入各来源作者包，逐项核对并写入正式文件' },
     evolve: { name: '进化擂台', url: 'evolve.html', old: true, desc: '关卡车进化生成器：选关、强度 × 表现散点、分类网格、候选库' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
     modules: { name: '模块属性', url: 'module-editor.html', old: true, desc: '改模块的文字与玩法属性，保存到模块数据' },
@@ -106,6 +107,7 @@
     { group: '战役', items: [
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
       { id: 'stage-editor', name: '关卡车拼装', path: 'open/stage-editor', tag: 'old' },
+      { id: 'publish-preflight', name: '发行前归档', path: 'open/publish-preflight', tag: 'old' },
       { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'old' },
       { id: 'selftest', name: '数值自测', path: 'open/selftest', tag: 'old' },
     ] },
@@ -487,7 +489,7 @@
         cur ? card('open/current', '当前开发', null, cur.desc, `${cur.ver} · ${cur.date}`) : null,
         card('game', '游戏', null, '嵌着的游戏，加上一排调试按钮：全部解锁、加钱、跳章、清档、页面文字编辑、试驾场。', null)),
       el('div.section-h', null, el('h2', { text: '还没重做的工作台' }), el('span', { text: '先嵌在后台里用，下一步逐个换成新界面' })),
-      el('div.cards', null, ['stage-editor', 'evolve', 'selftest', 'modules'].map(toolCard)),
+      el('div.cards', null, ['stage-editor', 'publish-preflight', 'evolve', 'selftest', 'modules'].map(toolCard)),
       el('div.section-h', null, el('h2', { text: '视觉' })),
       el('div.cards', null, card('labs', '样机目录', `${SA.LABS?.ITEMS.length || 0} 个`, '全部视觉样机，按类别和状态筛选。', null), ['candidates', 'spritesheet', 'style'].map(toolCard)))));
   };

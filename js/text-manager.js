@@ -886,6 +886,19 @@ SA.Text = (() => {
     if (dirty) scheduleAutoSave();
   }
 
+  // 发行包只读取归档中的正式文本快照，不接触开发草稿和作者文件句柄。
+  async function loadRelease() {
+    const response = await fetch(fileName(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`发行文本 HTTP ${response.status}`);
+    const data = await response.json();
+    if (data && data.values && typeof data.values === 'object') replaceSnapshot(editedSnapshot(data));
+    loaded = true;
+    if (readyResolve) readyResolve(api);
+    scan();
+    notify('*');
+    if (startupStyle) { startupStyle.remove(); startupStyle = null; }
+  }
+
   // 其他标签页保存院子聊天后刷新已保存快照；当前页有草稿时不覆盖它。
   async function reload(savedDocument) {
     if (dirty) return false;
@@ -979,9 +992,10 @@ SA.Text = (() => {
   }
 
   function boot() {
-    if (config.toolbar) createToolbar();
+    if (!SA.RELEASE && config.toolbar) createToolbar();
     wrapCanvasText();
-    document.addEventListener('pointerover', event => {
+    if (!SA.RELEASE) {
+      document.addEventListener('pointerover', event => {
       if (editing && !isUiElement(event.target)) hovered = event.target;
     }, true);
     document.addEventListener('keydown', event => {
@@ -990,8 +1004,9 @@ SA.Text = (() => {
     }, true);
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('click', onClick, true);
-    for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
-      document.addEventListener(type, suppressPageEvent, true);
+      for (const type of ['pointerup', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'])
+        document.addEventListener(type, suppressPageEvent, true);
+    }
     observer = new MutationObserver(records => {
       if (records.every(record => isUiElement(record.target))) return;
       if (scanTimer) return;
@@ -1014,7 +1029,7 @@ SA.Text = (() => {
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
     else boot();
-    load().catch(error => {
+    (SA.RELEASE ? loadRelease() : load()).catch(error => {
       fileLoadError = `文本加载失败：${error.message}`;
       loaded = true;
       scan();
@@ -1023,7 +1038,10 @@ SA.Text = (() => {
     return api;
   }
 
-  const api = {
+  const api = SA.RELEASE ? {
+    init, ready, get, t: get, register, homeLines, homeTips, bindText, bindAttr, canvas, draw, onChange,
+    isEditing: () => false, file: fileName,
+  } : {
     init, ready, load: reload, get, t: get, set, register, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, export: exportJson, reset, onChange,
     versions: () => [{ id: 'original' }, { id: 'edited' }],
@@ -1125,5 +1143,6 @@ SA.StoryData = (() => {
   }
 
   async function save() { await SA.Text.ready; return SA.Text.save(); }
-  return { list, get, set, save, point };
+  // 发行包保留剧情读取与插入点，编辑和保存只向开发版开放。
+  return SA.RELEASE ? { list, get, point } : { list, get, set, save, point };
 })();

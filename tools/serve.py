@@ -2,6 +2,7 @@
 # 普通 http.server 不发缓存头，浏览器会凭经验缓存 JS，git pull 之后刷新页面可能还在跑旧代码。
 # 用法（仓库根目录）：python tools/serve.py        端口默认 5173，可传参数改：python tools/serve.py 8000
 import http.server
+import hashlib
 import json
 import math
 import os
@@ -9,6 +10,7 @@ import re
 import sys
 import tempfile
 import threading
+import shutil
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
 from evolve_service import EvolutionService
@@ -20,6 +22,11 @@ STAGE_CARS_FILE = os.path.join(ROOT, 'js', 'stage-cars.js')
 MODULES_FILE = os.path.join(ROOT, 'js', 'modules.js')
 MODULE_SCHEMA_FILE = os.path.join(ROOT, 'tools', 'module-editor-schema.js')
 MODULE_SAVE_LOCK = threading.Lock()
+PUBLISH_LOCK = threading.Lock()
+PUBLISH_RECEIPT = os.path.join(ROOT, 'tools', 'out', 'publish-preflight.json')
+PUBLISH_FILES = {'js/stage-cars.js': STAGE_CARS_FILE,
+                 'text/steam-arena/zh-CN.json': os.path.join(TEXT_ROOT, 'steam-arena', 'zh-CN.json'),
+                 'js/modules.js': MODULES_FILE}
 SAFE_PART = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
 MAX_BODY = 2 * 1024 * 1024
 EVOLUTION = EvolutionService(ROOT)
@@ -98,6 +105,194 @@ def _validate_module_overrides(fields, overrides, module_id, allowed_ids):
         raise ValueError('最低材料阶不能超过最高材料阶')
 
 
+
+def _stage_cars_content(payload):
+    """沿用原工作台的唯一 JS 生成器。"""
+    records = payload['records']
+    targets = payload.get('targets', [f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)])
+    # 仍开着的旧工作台可能提交旧序章编号；校验后将铲斗关顺延，保留其构筑。
+    if payload.get('campaignLayout', 1) == 1 and '0:1' in records:
+        records = dict(records)
+        old = records.pop('0:1')
+        records['0:2'] = dict(old, id='0:2') if old else old
+    data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': targets, 'records': records}, ensure_ascii=False, indent=2)
+    helper = r'''SA.StageCars = (() => {
+  const data = SA.STAGE_CARS;
+  const keyOf = (chapter, stage) => `${chapter}:${stage}`;
+  const targetKeys = () => [...(data.targets || [])];
+  const get = (chapter, stage) => data.records && data.records[keyOf(chapter, stage)] || null;
+  const isLocked = (chapter, stage) => !!get(chapter, stage)?.locked;
+  // 规则指纹只来自后台版本，不把用户的手工数据算进去。
+  const ruleFingerprint = () => String(SA.RULES_VERSION || SA.BUILD_SYS || 'rules-unknown');
+  function cellsOf(vehicle) {
+    const cells = [];
+    SA.V.each(vehicle, (cell, row, col, layer) => cells.push([layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0]));
+    return cells;
+  }
+  function vehicle(record, name) {
+    if (!record) return null;
+    if (Array.isArray(record.cells) && typeof SA.V.fromCells === 'function') return SA.V.fromCells(name || record.name || '手工关卡车', record.cells);
+    if (record.code && typeof SA.V.decode === 'function') return SA.V.decode(record.code);
+    return null;
+  }
+  function merge(base, chapter, stage) {
+    const record = get(chapter, stage);
+    if (!record) return { ...base, source: 'original', locked: false, stageCar: null };
+    const out = { ...base };
+    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (record[field] !== undefined) out[field] = record[field];
+    out.source = 'manual'; out.locked = record.locked !== false; out.stageCar = record; out.manualVersion = record.updatedAt || record.version || null; out.vehicle = vehicle(record, out.name);
+    return out;
+  }
+  function applyToCampaign() {
+    if (!Array.isArray(SA.CAMPAIGN)) return;
+    for (const key of targetKeys()) {
+      const [chapter, stage] = key.split(':').map(Number), record = get(chapter, stage), base = SA.CAMPAIGN[chapter]?.stages?.[stage];
+      if (!record || !base) continue;
+      const out = merge(base, chapter, stage);
+      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (out[field] !== undefined) base[field] = out[field];
+      base.vehicle = out.vehicle; base.source = 'manual'; base.locked = out.locked; base.stageCar = record;
+    }
+  }
+  function makeRecord(chapter, stage, base, vehicleValue, meta = {}) {
+    const stats = SA.V.stats(vehicleValue);
+    return {
+      version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
+      style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
+      prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
+      rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
+      rewardMoney: meta.rewardMoney === undefined ? (base.rewardMoney !== false) : !!meta.rewardMoney,
+      victoryRepairFree: meta.victoryRepairFree === undefined ? (base.victoryRepairFree === true) : !!meta.victoryRepairFree,
+      name: meta.name || base.name || vehicleValue.name, pilot: meta.pilot || base.pilot || '', blurb: meta.blurb ?? base.blurb ?? '', weakness: meta.weakness ?? base.weakness ?? '',
+      source: 'manual', locked: meta.locked !== false, updatedAt: new Date().toISOString(), rules: ruleFingerprint(),
+      analysis: { rating: stats.rating, value: stats.value, weight: stats.weight, drive: stats.drive, water: stats.water, overheat: stats.overheat, dps: stats.dps, hp: stats.hp },
+    };
+  }
+  function validate(record, chapter, stage, vehicleValue) {
+    const out = { ok: false, warnings: [], errors: [], stats: null };
+    if (!vehicleValue) { out.errors.push('没有可分析的载具'); return out; }
+    const stats = SA.V.stats(vehicleValue); out.stats = stats;
+    if (!stats.canDeploy) out.errors.push(...(stats.problems || ['载具不能出战']));
+    if (!record || !Array.isArray(record.cells) || !record.cells.length) out.errors.push('没有模块清单');
+    const allowed = new Set(SA.CAMP_START?.mods || []), base = SA.CAMPAIGN?.[chapter]?.stages?.[stage];
+    if (SA.STARTER && SA.V?.fromAscii) {
+      const starter = SA.V.fromAscii('开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+      SA.V.each(starter, cell => allowed.add(cell.id));
+    }
+    // 开局车的 ASCII 车体用 K 表示驾驶舱，正式模块清单使用 cockpit；两者都属于开局可用部件。
+    allowed.add('cockpit');
+    for (let ci = 0; ci <= chapter; ci++) {
+      const ch = SA.CAMPAIGN[ci], stop = ci === chapter ? stage : ch.stages.length;
+      for (let si = 0; si < stop; si++) for (const id of ch.stages[si].unlock?.mods || []) allowed.add(id);
+      if (ci < chapter) for (const id of ch.unlock?.mods || []) allowed.add(id);
+    }
+    for (const id of record?.unlock?.mods || []) allowed.add(id);
+    for (const loot of record?.uniqueLoot || []) if (loot?.id) allowed.add(loot.id);
+    if (base?.spec?.reward) allowed.add(base.spec.reward);
+    for (const row of base?.subs || []) if (row?.[2]) allowed.add(row[2]);
+    for (const cell of record?.cells || []) if (cell && SA.MODULES[cell[3]] && !allowed.has(cell[3]) && !record.boss) out.warnings.push(`使用了该关尚未解锁的模块：${cell[3]}`);
+    out.ok = out.errors.length === 0;
+    return out;
+  }
+  applyToCampaign();
+  return { data, keyOf, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
+})();
+'''
+    content = '// 关卡车手工设计数据（由 tools/stage-editor.html 写入，请勿手工编辑已保存记录）。\nwindow.SA = window.SA || {};\nSA.STAGE_CARS = ' + data + ';\n' + helper
+    return content
+
+
+def _file_hash(path):
+    """回执对正式文件的原始字节取指纹，打包工具按同一规则核对。"""
+    with open(path, 'rb') as stream:
+        return hashlib.sha256(stream.read()).hexdigest()
+
+
+def _stage_data():
+    """只解析既有生成器写出的固定 JSON 赋值，不执行 JS。"""
+    with open(STAGE_CARS_FILE, 'r', encoding='utf-8') as stream:
+        source = stream.read()
+    matched = re.search(r'\bSA\.STAGE_CARS\s*=\s*(\{.*?\})\s*;\s*SA\.StageCars\s*=', source, re.DOTALL)
+    if not matched:
+        raise ValueError('正式关卡车数据格式不合法')
+    return json.loads(matched.group(1))
+
+
+def _publish_state():
+    """返回预检页需要的固定正式数据和三个文件的 SHA-256。"""
+    with open(PUBLISH_FILES['text/steam-arena/zh-CN.json'], 'r', encoding='utf-8') as stream:
+        text_data = json.load(stream)
+    return {'stageCars': _stage_data(), 'text': text_data,
+            'files': {name: _file_hash(path) for name, path in PUBLISH_FILES.items()}}
+
+
+def _atomic_bytes(path, content):
+    """同目录临时文件替换，出错时不留下半份正式文件。"""
+    temporary = None
+    try:
+        fd, temporary = tempfile.mkstemp(prefix='.publish-', dir=os.path.dirname(path))
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(content)
+        os.replace(temporary, path)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def _validate_publish(payload, stage, text_data):
+    """写文件之前完整校验差异和来源，防止部分非法请求改动正式数据。"""
+    if not isinstance(payload, dict) or payload.get('version') != 1 or set(payload) != {'version', 'sources', 'stageRecords', 'textValues', 'removedElements'}:
+        raise ValueError('归档请求格式不合法')
+    sources = payload['sources']
+    if (not isinstance(sources, list) or len(sources) > 16 or
+            any(not isinstance(item, dict) or set(item) != {'kind', 'url', 'exportedAt'} or
+                item['kind'] not in ('current-origin', 'author-bundle', 'text-export', 'formal-files') or
+                not all(isinstance(item[k], str) and 0 < len(item[k]) <= 2048 for k in ('url', 'exportedAt'))
+                for item in sources)):
+        raise ValueError('来源清单不合法')
+    records = payload['stageRecords']
+    values = payload['textValues']
+    removed = payload['removedElements']
+    if not isinstance(records, dict) or len(records) > 18 or not isinstance(values, dict) or len(values) > 10000 or not isinstance(removed, dict) or len(removed) > 10000:
+        raise ValueError('差异清单格式不合法')
+    allowed = {f'{chapter}:{index}' for chapter in range(6) for index in range(3)}
+    for key, record in records.items():
+        if key not in allowed or (record is not None and
+                (not isinstance(record, dict) or record.get('source') != 'manual' or
+                 not isinstance(record.get('cells'), list) or len(record['cells']) > 256 or
+                 len(json.dumps(record, ensure_ascii=False, allow_nan=False)) > 500000)):
+            raise ValueError(f'关卡记录不合法：{key}')
+    for key, value in values.items():
+        if (not isinstance(key, str) or not key or len(key) > 240 or '..' in key or
+                any(ord(ch) < 32 for ch in key) or
+                value is not None and (not isinstance(value, str) or len(value) > 10000)):
+            raise ValueError(f'文本差异不合法：{key}')
+    for key, value in removed.items():
+        if (not isinstance(key, str) or not key or len(key) > 2048 or
+                any(ord(ch) < 32 for ch in key) or not isinstance(value, bool)):
+            raise ValueError('隐藏元素差异不合法')
+    merged_records = dict(stage.get('records', {}))
+    for key, record in records.items():
+        if record is None:
+            merged_records.pop(key, None)
+        else:
+            merged_records[key] = record
+    merged_stage = dict(stage, version=1, campaignLayout=2, records=merged_records) if records else stage
+    merged_values = dict(text_data.get('values', {}))
+    for key, value in values.items():
+        if value is None:
+            merged_values.pop(key, None)
+        else:
+            merged_values[key] = value
+    hidden = set(text_data.get('removedElements', []))
+    for key, value in removed.items():
+        (hidden.add if value else hidden.discard)(key)
+    merged_text = (dict(text_data, version=1, game='steam-arena', locale='zh-CN',
+                        values=merged_values, removedElements=sorted(hidden))
+                   if values or removed else text_data)
+    if values or removed:
+        merged_text.update(updatedAt=datetime.now(timezone.utc).isoformat(), edited=True)
+    return merged_stage, merged_text
+
 class NoCache(http.server.SimpleHTTPRequestHandler):
     """静态预览服务器，为文本、手工关卡车和进化任务提供受限 JSON 接口。"""
 
@@ -146,6 +341,14 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == '/__publish/state':
+            if not self._allow_local_write():
+                return
+            try:
+                self._json(200, _publish_state())
+            except (OSError, ValueError) as error:
+                self._json(500, {'error': str(error)})
+            return
         if parsed.path == '/__modules/status':
             self._json(200, {'ok': True})
             return
@@ -174,7 +377,10 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__evolve/run', '/__evolve/stop') and not self._allow_local_write():
+        if parsed.path in ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__evolve/run', '/__evolve/stop', '/__publish/archive') and not self._allow_local_write():
+            return
+        if parsed.path == '/__publish/archive':
+            self._publish_archive()
             return
         if parsed.path == '/__modules/save':
             self._save_modules()
@@ -391,94 +597,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 if len(record['cells']) > 256 or len(json.dumps(record, ensure_ascii=False)) > 500000:
                     self._json(413, {'error': f'{key} 记录过大'})
                     return
-        # 仍开着的旧工作台可能提交旧序章编号；校验后将铲斗关顺延，保留其构筑。
-        if payload.get('campaignLayout', 1) == 1 and '0:1' in records:
-            records = dict(records)
-            old = records.pop('0:1')
-            records['0:2'] = dict(old, id='0:2') if old else old
-        data = json.dumps({'version': 1, 'campaignLayout': 2, 'targets': targets, 'records': records}, ensure_ascii=False, indent=2)
-        helper = r'''SA.StageCars = (() => {
-  const data = SA.STAGE_CARS;
-  const keyOf = (chapter, stage) => `${chapter}:${stage}`;
-  const targetKeys = () => [...(data.targets || [])];
-  const get = (chapter, stage) => data.records && data.records[keyOf(chapter, stage)] || null;
-  const isLocked = (chapter, stage) => !!get(chapter, stage)?.locked;
-  // 规则指纹只来自后台版本，不把用户的手工数据算进去。
-  const ruleFingerprint = () => String(SA.RULES_VERSION || SA.BUILD_SYS || 'rules-unknown');
-  function cellsOf(vehicle) {
-    const cells = [];
-    SA.V.each(vehicle, (cell, row, col, layer) => cells.push([layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0]));
-    return cells;
-  }
-  function vehicle(record, name) {
-    if (!record) return null;
-    if (Array.isArray(record.cells) && typeof SA.V.fromCells === 'function') return SA.V.fromCells(name || record.name || '手工关卡车', record.cells);
-    if (record.code && typeof SA.V.decode === 'function') return SA.V.decode(record.code);
-    return null;
-  }
-  function merge(base, chapter, stage) {
-    const record = get(chapter, stage);
-    if (!record) return { ...base, source: 'original', locked: false, stageCar: null };
-    const out = { ...base };
-    for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (record[field] !== undefined) out[field] = record[field];
-    out.source = 'manual'; out.locked = record.locked !== false; out.stageCar = record; out.manualVersion = record.updatedAt || record.version || null; out.vehicle = vehicle(record, out.name);
-    return out;
-  }
-  function applyToCampaign() {
-    if (!Array.isArray(SA.CAMPAIGN)) return;
-    for (const key of targetKeys()) {
-      const [chapter, stage] = key.split(':').map(Number), record = get(chapter, stage), base = SA.CAMPAIGN[chapter]?.stages?.[stage];
-      if (!record || !base) continue;
-      const out = merge(base, chapter, stage);
-      for (const field of ['name', 'pilot', 'blurb', 'weakness', 'style', 'aim', 'terrain', 'boss', 'prize', 'unlock', 'uniqueLoot', 'rewardItems', 'rewardMoney', 'victoryRepairFree']) if (out[field] !== undefined) base[field] = out[field];
-      base.vehicle = out.vehicle; base.source = 'manual'; base.locked = out.locked; base.stageCar = record;
-    }
-  }
-  function makeRecord(chapter, stage, base, vehicleValue, meta = {}) {
-    const stats = SA.V.stats(vehicleValue);
-    return {
-      version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
-      style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
-      prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
-      rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
-      rewardMoney: meta.rewardMoney === undefined ? (base.rewardMoney !== false) : !!meta.rewardMoney,
-      victoryRepairFree: meta.victoryRepairFree === undefined ? (base.victoryRepairFree === true) : !!meta.victoryRepairFree,
-      name: meta.name || base.name || vehicleValue.name, pilot: meta.pilot || base.pilot || '', blurb: meta.blurb ?? base.blurb ?? '', weakness: meta.weakness ?? base.weakness ?? '',
-      source: 'manual', locked: meta.locked !== false, updatedAt: new Date().toISOString(), rules: ruleFingerprint(),
-      analysis: { rating: stats.rating, value: stats.value, weight: stats.weight, drive: stats.drive, water: stats.water, overheat: stats.overheat, dps: stats.dps, hp: stats.hp },
-    };
-  }
-  function validate(record, chapter, stage, vehicleValue) {
-    const out = { ok: false, warnings: [], errors: [], stats: null };
-    if (!vehicleValue) { out.errors.push('没有可分析的载具'); return out; }
-    const stats = SA.V.stats(vehicleValue); out.stats = stats;
-    if (!stats.canDeploy) out.errors.push(...(stats.problems || ['载具不能出战']));
-    if (!record || !Array.isArray(record.cells) || !record.cells.length) out.errors.push('没有模块清单');
-    const allowed = new Set(SA.CAMP_START?.mods || []), base = SA.CAMPAIGN?.[chapter]?.stages?.[stage];
-    if (SA.STARTER && SA.V?.fromAscii) {
-      const starter = SA.V.fromAscii('开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
-      SA.V.each(starter, cell => allowed.add(cell.id));
-    }
-    // 开局车的 ASCII 车体用 K 表示驾驶舱，正式模块清单使用 cockpit；两者都属于开局可用部件。
-    allowed.add('cockpit');
-    for (let ci = 0; ci <= chapter; ci++) {
-      const ch = SA.CAMPAIGN[ci], stop = ci === chapter ? stage : ch.stages.length;
-      for (let si = 0; si < stop; si++) for (const id of ch.stages[si].unlock?.mods || []) allowed.add(id);
-      if (ci < chapter) for (const id of ch.unlock?.mods || []) allowed.add(id);
-    }
-    for (const id of record?.unlock?.mods || []) allowed.add(id);
-    for (const loot of record?.uniqueLoot || []) if (loot?.id) allowed.add(loot.id);
-    if (base?.spec?.reward) allowed.add(base.spec.reward);
-    for (const row of base?.subs || []) if (row?.[2]) allowed.add(row[2]);
-    for (const cell of record?.cells || []) if (cell && SA.MODULES[cell[3]] && !allowed.has(cell[3]) && !record.boss) out.warnings.push(`使用了该关尚未解锁的模块：${cell[3]}`);
-    out.ok = out.errors.length === 0;
-    return out;
-  }
-  applyToCampaign();
-  return { data, keyOf, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
-})();
-'''
-        content = '// 关卡车手工设计数据（由 tools/stage-editor.html 写入，请勿手工编辑已保存记录）。\nwindow.SA = window.SA || {};\nSA.STAGE_CARS = ' + data + ';\n' + helper
+        content = _stage_cars_content(dict(payload, records=records, targets=targets))
         try:
             fd, temporary = tempfile.mkstemp(prefix='.stage-cars-', suffix='.js', dir=os.path.dirname(STAGE_CARS_FILE))
             with os.fdopen(fd, 'w', encoding='utf-8') as stream:
@@ -493,6 +612,67 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             self._json(500, {'error': f'写入关卡车失败：{error}'})
             return
         self._json(200, {'ok': True, 'file': 'js/stage-cars.js'})
+
+    def _publish_archive(self):
+        """逐条合并作者差异；备份、重读校验后才签发发行回执。"""
+        backups = {}
+        invalidated = False
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if length <= 0 or length > MAX_BODY:
+                raise ValueError('请求体过大或为空')
+            payload = json.loads(self.rfile.read(length).decode('utf-8'))
+            with PUBLISH_LOCK:
+                state = _publish_state()
+                stage, text_data = _validate_publish(payload, state['stageCars'], state['text'])
+                changed_stage = bool(payload['stageRecords'])
+                changed_text = bool(payload['textValues'] or payload['removedElements'])
+                stage_content = _stage_cars_content(stage).encode('utf-8') if changed_stage else None
+                text_content = (json.dumps(text_data, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8') if changed_text else None
+                # 旧回执先失效；若写入任一步失败，发行工具绝不会误认本次归档成功。
+                if os.path.exists(PUBLISH_RECEIPT):
+                    os.unlink(PUBLISH_RECEIPT)
+                invalidated = True
+                if changed_stage or changed_text:
+                    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+                    backup = os.path.join(ROOT, 'tools', 'out', 'publish-backups', stamp)
+                    os.makedirs(backup, exist_ok=True)
+                    for name in ('js/stage-cars.js', 'text/steam-arena/zh-CN.json'):
+                        if name.startswith('js/') and not changed_stage or name.startswith('text/') and not changed_text:
+                            continue
+                        target = os.path.join(backup, name)
+                        os.makedirs(os.path.dirname(target), exist_ok=True)
+                        shutil.copy2(PUBLISH_FILES[name], target)
+                        backups[name] = target
+                if stage_content is not None:
+                    _atomic_bytes(STAGE_CARS_FILE, stage_content)
+                if text_content is not None:
+                    _atomic_bytes(PUBLISH_FILES['text/steam-arena/zh-CN.json'], text_content)
+                after = _publish_state()
+                if after['stageCars'] != stage or after['text'] != text_data:
+                    raise OSError('写入后重读结果不一致')
+                receipt = {'version': 1, 'archivedAt': datetime.now(timezone.utc).isoformat(),
+                           'scope': '仅核对当前可见来源及显式导入的文件，不代表扫描了整台电脑的浏览器存储',
+                           'sources': payload['sources'], 'files': after['files']}
+                os.makedirs(os.path.dirname(PUBLISH_RECEIPT), exist_ok=True)
+                _atomic_bytes(PUBLISH_RECEIPT, (json.dumps(receipt, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+            self._json(200, {'ok': True, 'receipt': receipt, 'backup': os.path.relpath(backup, ROOT).replace(os.sep, '/') if changed_stage or changed_text else None})
+        except (OSError, ValueError, UnicodeDecodeError, TypeError, KeyError) as error:
+            # 后一道正式文件或回执写入失败时，把已动过的正式文件恢复到预检前。
+            for name, saved in backups.items():
+                try:
+                    with open(saved, 'rb') as stream:
+                        _atomic_bytes(PUBLISH_FILES[name], stream.read())
+                except OSError:
+                    pass
+            if invalidated:
+                try:
+                    if os.path.exists(PUBLISH_RECEIPT):
+                        os.unlink(PUBLISH_RECEIPT)
+                except OSError:
+                    pass
+            self._json(400 if isinstance(error, (ValueError, UnicodeDecodeError, TypeError, KeyError)) else 500,
+                       {'error': str(error)})
 
 
 if __name__ == '__main__':
