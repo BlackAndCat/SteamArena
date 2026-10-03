@@ -1199,7 +1199,7 @@
     "boss_lens": {
       "name": "公爵测距棱镜",
       "cat": "control",
-      "layer": "body",
+      "layer": "side",
       "w": 1,
       "h": 1,
       "unique": {
@@ -1456,7 +1456,7 @@
     "periscope": {
       "name": "观察镜",
       "cat": "control",
-      "layer": "body",
+      "layer": "side",
       "w": 1,
       "h": 1,
       "price": 90,
@@ -1471,7 +1471,7 @@
     "autoloader": {
       "name": "装弹机",
       "cat": "control",
-      "layer": "body",
+      "layer": "side",
       "w": 1,
       "h": 1,
       "price": 110,
@@ -1479,13 +1479,13 @@
       "kg": 60,
       "q": 1,
       "reloadMul": 0.85,
-      "desc": "实体辅助件：全车装填时间 ×0.85；被毁即失效。",
+      "desc": "侧挂于至少 1×2 的兼容武器：仅该武器装填时间 ×0.85；被毁即失效。",
       "repairRate": 0.19
     },
     "rangefinder": {
       "name": "测距仪",
       "cat": "control",
-      "layer": "body",
+      "layer": "side",
       "w": 1,
       "h": 1,
       "price": 100,
@@ -1499,7 +1499,7 @@
     "gyroscope": {
       "name": "陀螺仪",
       "cat": "control",
-      "layer": "body",
+      "layer": "side",
       "w": 1,
       "h": 1,
       "price": 90,
@@ -2902,7 +2902,7 @@
       "boss_lens": {
         "name": "公爵测距棱镜",
         "cat": "control",
-        "layer": "body",
+        "layer": "side",
         "w": 1,
         "h": 1,
         "unique": {
@@ -3159,7 +3159,7 @@
       "periscope": {
         "name": "观察镜",
         "cat": "control",
-        "layer": "body",
+        "layer": "side",
         "w": 1,
         "h": 1,
         "price": 90,
@@ -3174,7 +3174,7 @@
       "autoloader": {
         "name": "装弹机",
         "cat": "control",
-        "layer": "body",
+        "layer": "side",
         "w": 1,
         "h": 1,
         "price": 110,
@@ -3182,13 +3182,13 @@
         "kg": 60,
         "q": 1,
         "reloadMul": 0.85,
-        "desc": "实体辅助件：全车装填时间 ×0.85；被毁即失效。",
+        "desc": "侧挂于至少 1×2 的兼容武器：仅该武器装填时间 ×0.85；被毁即失效。",
         "repairRate": 0.19
       },
       "rangefinder": {
         "name": "测距仪",
         "cat": "control",
-        "layer": "body",
+        "layer": "side",
         "w": 1,
         "h": 1,
         "price": 100,
@@ -3202,7 +3202,7 @@
       "gyroscope": {
         "name": "陀螺仪",
         "cat": "control",
-        "layer": "body",
+        "layer": "side",
         "w": 1,
         "h": 1,
         "price": 90,

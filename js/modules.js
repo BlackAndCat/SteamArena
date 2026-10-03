@@ -177,14 +177,13 @@ SA.invKey = (id, mt = 1) => (mt > 1 ? `${id}@${mt}` : id);
 SA.parseKey = (k) => { const [id, t] = String(k).split('@'); return { id, mt: +t || 1 }; };
 
 // ---------- 实体辅助模块效果 ----------
-// 观察镜、装弹机、陀螺仪和测距仪都是普通 1×1 模块；只统计仍有耐久的实体。
+// 全车辅助效果只统计仍有耐久的实体；装弹机倍率按武器宿主由 vehicle.js 单独计算。
 SA.auxEffect = (cells) => {
-  const e = { aimSpeed: 0, aimShrink: 0, reload: 1, sway: 1, spread: 1 };
+  const e = { aimSpeed: 0, aimShrink: 0, sway: 1, spread: 1 };
   for (const cell of cells) {
     if (!(cell.hp > 0)) continue;
     const m = SA.mod(cell);
-    if (!m.reloadMul && !m.spreadMul && !m.swayMul) continue;
-    e.reload *= m.reloadMul || 1;
+    if (!m.spreadMul && !m.swayMul) continue;
     e.sway *= m.swayMul || 1;
     e.spread *= m.spreadMul || 1;
   }

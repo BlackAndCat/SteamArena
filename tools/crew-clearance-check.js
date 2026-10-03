@@ -127,14 +127,15 @@ assert.strictEqual(volley.p.events.fire, 6, '先装好的单炮未独立开火')
 assert.strictEqual(volley.p.reloadTotals[volley.p.weapons[0].key], volley.p.timers[volley.p.weapons[0].key], '重发炮未记录新周期');
 assert.strictEqual(SA.V.crewPlan(volley.p.weapons, 0, volley.p.sel).loaders, 0);
 
-// 自动装弹机缩短实际装填时间，但不改变一名驾驶员同时只装一门的上限。
-const assisted = vehicle(1, ['mortar_s', 'mortar_s']);
-assisted.body[6][0] = SA.newCell('autoloader', 6);
+// 装弹机只加速所挂的大型武器，不改变一名驾驶员同时只装一门的上限。
+const assisted = vehicle(1, ['mg_heavy', 'mg_heavy']);
+assisted.side[7][4] = SA.newCell('autoloader', 6);
 SA.S.reset(); SA.S.d.vehicle = assisted;
 SA.Battle.startState({ mode: 'friendly', enemyVehicle: vehicle(1, []), terrain: 'flat', boss: true });
 const assistState = SA.Battle.debug.B;
 assistState.headless = true;
-assert(assistState.p.weapons[0].m.reload < SA.mod('mortar_s', 6).reload);
+assert.strictEqual(assistState.p.weapons.filter(w => w.m.reload < SA.mod('mg_heavy', 6).reload).length, 1);
+assert.strictEqual(assistState.p.weapons.filter(w => w.m.reload === SA.mod('mg_heavy', 6).reload).length, 1);
 assistState.p.weapons.forEach(w => { assistState.p.timers[w.key] = 10; });
 SA.Battle.debug.step(1 / 60);
 near((10 - assistState.p.timers[assistState.p.weapons[0].key]) * 60 / assistState.p.power, 1);

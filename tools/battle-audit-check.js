@@ -23,7 +23,7 @@ function runtime() {
 }
 
 /** 建造静止的有效车辆，测试格之间互不重叠。 */
-function car(SA, { biped = false, weapon = 'cannon', aid = null, mat = 6 } = {}) {
+function car(SA, { biped = false, weapon = 'cannon', mat = 6 } = {}) {
   const v = SA.V.create('数值检查车');
   if (biped) v.body[SA.V.chassisRow('biped')][6] = SA.newCell('biped', mat);
   else for (let c = 2; c <= 12; c += 2) v.body[10][c] = SA.newCell('track', mat);
@@ -31,7 +31,6 @@ function car(SA, { biped = false, weapon = 'cannon', aid = null, mat = 6 } = {})
   v.body[8][8] = SA.newCell('water', mat);
   v.body[7][4] = SA.newCell('helmet', mat);
   if (weapon) v.body[6][4] = SA.newCell(weapon, mat);
-  if (aid) v.body[7][3] = SA.newCell(aid, mat);
   assert(SA.V.stats(v).canDeploy, `数值检查车不能出战：${JSON.stringify(SA.V.issues(v))}`);
   return v;
 }
@@ -155,27 +154,38 @@ function timeout(rt) {
 /** 单件与双件辅助模块均按纸面倍率生效，损坏后立即失效。 */
 function auxiliaries(rt) {
   const { SA } = rt, rows = [];
+  // 炮身为 2×2；其余小件由竖向铁装甲承托，两件时各占宿主一个子格。
+  const assistedCar = (aid, count, mat) => {
+    const v = car(SA, { mat });
+    v.body[7][4] = null; v.body[8][3] = SA.newCell('helmet', mat);
+    const c = aid === 'autoloader' ? 4 : 3;
+    if (c === 3) v.body[6][3] = SA.newCell('armor', mat);
+    for (let i = 0; i < count; i++) v.side[6 + i][c] = SA.newCell(aid, mat);
+    assert(SA.V.stats(v).canDeploy, `${aid} 夹具不能出战：${JSON.stringify(SA.V.issues(v))}`);
+    return v;
+  };
   for (const aid of ['autoloader', 'rangefinder']) for (const count of [1, 2]) {
-    const player = car(SA, { aid, mat: 4 });
-    if (count === 2) player.body[6][3] = SA.newCell(aid, 4);
+    const player = assistedCar(aid, count, 4);
     const B = start(rt, player, car(SA));
     const gun = B.p.weapons.find(w => w.cell.id === 'cannon');
     const key = aid === 'autoloader' ? 'reload' : 'spread';
     const expected = SA.mod(gun.cell)[key] * 0.85 ** count;
     assert(Math.abs(gun.m[key] - expected) < 1e-9, `${aid} ${count} 件重复计算`);
-    assert.strictEqual(SA.V.stats(player).aux[key], 0.85 ** count);
+    if (aid === 'autoloader') assert.strictEqual(SA.V.weaponReloadMul(player, 6, 4), 0.85 ** count);
+    else assert.strictEqual(SA.V.stats(player).aux[key], 0.85 ** count);
     const paper = SA.V.stats(player), salvo = gun.m.dmg / gun.m.reload * paper.power;
     assert.strictEqual(paper.blocked.length, 0, '辅助倍率夹具遮挡了炮口');
     assert(Math.abs(paper.salvoDps - salvo) < 1e-9, '纸面装填输出与战斗倍率不一致');
     assert(Math.abs(paper.dps - salvo * Math.max(0.4, 0.95 - gun.m.spread * 0.03 + paper.acc)) < 1e-9, '纸面散布输出与战斗倍率不一致');
-    const [ar, ac] = locate(SA, B.p, aid);
-    const aidCell = B.p.v.body[ar][ac];
-    hit(rt, B, B.e, B.p, ar, ac, aidCell.hp);
+    const mounted = [];
+    SA.V.each(B.p.v, (cell, r, c, layer) => { if (cell.id === aid && layer === 'side') mounted.push([r, c, cell]); });
+    const [ar, ac, aidCell] = mounted[0];
+    SA.Battle.debug.damage('p', ar, ac, 'side', aidCell.hp);
     const after = B.p.weapons.find(w => w.cell.id === 'cannon').m[key];
     assert(Math.abs(after - SA.mod(gun.cell)[key] * (count === 2 ? 0.85 : 1)) < 1e-9, `${aid} 毁后未失效`);
     rows.push([aid, count]);
   }
-  const gyro = car(SA, { aid: 'gyroscope' });
+  const gyro = assistedCar('gyroscope', 1, 6);
   assert(Math.abs(SA.V.stats(gyro).sway - SA.mod('track', 6).sway * SA.mod('gyroscope', 6).swayMul) < 1e-9, '纸面晃动倍率重复应用');
   return rows;
 }

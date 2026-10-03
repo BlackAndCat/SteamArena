@@ -34,6 +34,7 @@ const yardChat = require('./yard-chat-check');
 const yardChatSync = require('./yard-chat-sync-check');
 const specialWeapons = require('./special-weapons-check');
 const crewClearance = require('./crew-clearance-check');
+const sideMount = require('./side-mount-check');
 const cockpitPip = require('./cockpit-pip-check');
 const mortarSpread = require('./mortar-spread-check');
 const meleeRules = require('./melee-rules-check');
@@ -224,6 +225,7 @@ async function main() {
   result.yardChat = { scheduler: await yardChat.run(), sync: await yardChatSync.run() };
   result.specialWeapons = specialWeapons.run();
   result.crewClearance = crewClearance.run();
+  result.sideMount = sideMount.run();
   result.cockpitPip = cockpitPip.run();
   result.mortarSpread = mortarSpread.run();
   result.meleeRules = meleeRules.run();

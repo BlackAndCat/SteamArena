@@ -135,8 +135,9 @@ SA.Battle = (() => {
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
       const m = SA.mod(cell);
-      // 实体辅助件由 auxEffect 统一汇总，每件倍率只应用一次。
-      s.weapons.push({ cell, r, c, layer, m: ax.reload === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * ax.reload, spread: m.spread * ax.spread, ...(m.spreadMin != null ? { spreadMin: m.spreadMin * ax.spread } : {}) }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
+      // 装弹机只加速其下方的武器；测距仪仍影响全车散布。
+      const reloadMul = SA.V.weaponReloadMul(s.v, r, c, layer);
+      s.weapons.push({ cell, r, c, layer, m: reloadMul === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * reloadMul, spread: m.spread * ax.spread, ...(m.spreadMin != null ? { spreadMin: m.spreadMin * ax.spread } : {}) }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
         blocked: layer === 'body' && blocked.some(b => b.r === r && b.c === c) });
     });
     const crew = SA.V.crewPlan(s.weapons, cop, s.sel);
