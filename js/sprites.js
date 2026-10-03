@@ -2342,6 +2342,8 @@ SA.SPR = (() => {
     const off = (X) => (X >= x - 2 && X <= x + C + 2 ? Math.round(hAt(X - x)) : 0);
     const c0 = L ? x : x - LEFT, c1 = Rr ? x + C : x + C + 32;
     ctx.save(); ctx.beginPath(); ctx.rect(c0, y - TOP, c1 - c0, C + TOP + BOT); ctx.clip();
+    // 底板以下、下段链带以上：链带里侧的阴影（样机页面这里是深色底），别让中间透出背景
+    for (let cx = Math.max(x, rdT(cxL)); cx < Math.min(x + C, rdT(cxR)); cx++) R(cx, y + 36, 1, 7 + Math.max(0, th ? 0 : off(cx)), P.dark[1]);
     if (!th) {
       // 链带：按弧长等距摆木板条（节距约 4px），行驶时每走 4px 平移一块，24 帧无缝
       const fl = cxR - cxL, P2 = 2 * fl + 2 * Math.PI * rb, n = Math.round(P2 / 4), step = P2 / n, sh = (ph % 4) / 4 * step;
@@ -2801,8 +2803,9 @@ SA.SPR = (() => {
       const gof = (lx) => (lx < 24 ? g0 : g1);
       floor(x, y, o, 5);
       // 车体底板下面到履带顶之间补一层铁板，和上方模块的框架相接
-      const deckTo = [0, 12, 11, 19, 19, 19, 10][T];
-      R(x, y + 5, C, deckTo - 5, P.iron[1]); R(x, y + deckTo - 1, C, 1, P.iron[0]);
+      // 履带后面的车体框：定稿样机（tools/archive/track-tiers.html 的 strip）是先铺一块 y+6～y+36 的 iron[1] 底板、再把履带叠上去的，
+      // 链带里面、轮子之间看到的是这块板。游戏里原来只铺到 y+10～19，熟铁那种中间没有侧框的就整个透空了。
+      R(x, y + 5, C, 31, P.iron[1]);
       if (T === 1) trackT1(x, y, L, Rr, ph, th, g0, g1);
       else if (T === 2) {
         const pts = [];

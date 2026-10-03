@@ -44,3 +44,4 @@ SA.BUILD_VIS += '+track-center-wheels'; // 履带负重轮补齐：单节熟铁�
 SA.BUILD_VIS += '+dash-lamps-two-level'; // 仪表台指示灯分两级：常亮 = 留意（动力不足、水偏少、无水箱、偏热、底盘 / 武器受损），闪 = 危险；悬停看原因。
 SA.BUILD_VIS += '+wrought-track-rollers'; // 熟铁履带托轮加大提亮、吊杆伸到轮心，战斗里缩小看也认得出（多节履带同样）。
 SA.BUILD_VIS += '+wrought-track-prototype'; // 熟铁（T2）履带改回定稿样机画法：整条按体育场形路径摆木板条，吊杆、托轮按整条均分，每格裁出自己那段。
+SA.BUILD_VIS += '+track-backing-plate'; // 履带后面补上定稿样机的 y+6～y+36 车体底板（熟铁另加链带里侧阴影），中间不再透出背景。
