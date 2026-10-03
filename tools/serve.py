@@ -292,6 +292,8 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 current.pop('descTemplate', None)
             if current.get('minMt', 1) > current.get('maxMt', len(data['MATS']) - 1):
                 raise ValueError('最低材料阶不能超过最高材料阶')
+            if 'spreadMin' in current and current['spreadMin'] > current.get('spread', 0):
+                raise ValueError('抛射散布下限不能超过上限')
             _write_json(MODULES_FILE, data)
         return {'id': module_id, 'file': 'config/modules.json'}
 

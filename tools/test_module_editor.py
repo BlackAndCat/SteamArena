@@ -104,6 +104,17 @@ class ModuleEditorSaveTest(unittest.TestCase):
         self.assertEqual(403, self._foreign_origin_status())
         self.assertEqual(original, self.read())
 
+    def test_spread_bounds(self):
+        """抛射上下限既可分别保存，也不能绕过服务端写成倒置区间。"""
+        original = self.read()
+        for changes in ({'spreadMin': -1}, {'spreadMin': 13}, {'spread': 2}):
+            with self.subTest(changes=changes):
+                self.assertEqual(400, self.request({'id': 'mortar', 'changes': changes})[0])
+                self.assertEqual(original, self.read())
+        self.assertEqual(200, self.request({'id': 'mortar', 'changes': {'spreadMin': 4, 'spread': 10}})[0])
+        saved = json.loads(self.read())
+        self.assertEqual((4, 10), (saved['MODULES']['mortar']['spreadMin'], saved['MODULES']['mortar']['spread']))
+
     def _foreign_origin_status(self):
         port = self.server.server_port
         connection = http.client.HTTPConnection('127.0.0.1', port)

@@ -2,9 +2,26 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
 const { loadGame } = require('./evolve');
 function run() {
-const { SA } = loadGame();
+// 战斗脚本加载时捕获随机函数；测试可固定并列进度的抽签结果。
+const nativeRandom = Math.random;
+let forcedRandom = 0.99;
+let game;
+try {
+  Math.random = () => forcedRandom == null ? nativeRandom() : forcedRandom;
+  game = loadGame();
+} finally { Math.random = nativeRandom; }
+const { SA, context } = game;
+// 仅在测试 VM 中开放两个画面层局部函数，验证沙漏与组装填条读到的同一状态。
+const viewSource = fs.readFileSync(path.join(__dirname, '../js/battle-view.js'), 'utf8');
+const testViewSource = viewSource.replace(/  return \{\r?\n    supportsSurrenderAnimation:/, '  return { reloadFrac, groupReload,\n    supportsSurrenderAnimation:');
+assert.notStrictEqual(testViewSource, viewSource, '装填提示测试入口失效');
+vm.runInContext(testViewSource, context);
+const view = SA.BattleView.create({});
 
 /** 用相同的供能底座构造不同驾驶员和武器数量，避免装填比较混入动力差异。 */
 function vehicle(drivers, weapons) {
@@ -29,7 +46,7 @@ function rates(drivers, weapons, selected = null) {
   B.headless = true;
   assert(B.p.weapons.every(w => B.p.timers[w.key] === 0), '开场武器未满装');
   if (selected) B.p.sel = selected;
-  B.p.weapons.forEach(w => { B.p.timers[w.key] = 10; });
+  B.p.weapons.forEach(w => { B.p.timers[w.key] = B.p.reloadTotals[w.key] = 10; });
   SA.Battle.debug.step(1 / 60);
   return { side: B.p, rates: B.p.weapons.map(w => ({ id: w.cell.id, rate: (10 - B.p.timers[w.key]) * 60 / B.p.power })) };
 }
@@ -52,18 +69,39 @@ const switched = rates(2, ['mortar_s', 'mg', 'mg'], 'mg');
 near(switched.rates.find(w => w.id === 'mortar_s').rate, 1);
 switched.rates.filter(w => w.id === 'mg').forEach((w, i) => near(w.rate, i === 0 ? 1 : 0));
 
-// 完成即让位；同一门炮再次开火排到队尾，避免其他空炮一直等候。
-const fiveQueue = rates(1, Array(5).fill('mortar_s')).side;
-assert.deepStrictEqual(fiveQueue.reloadQueue, fiveQueue.weapons.map(w => w.key));
-const first = fiveQueue.weapons[0];
-fiveQueue.timers[first.key] = 0;
+// 跨武器及随机周期按已完成百分比挑选，不能只比较剩余秒数或出厂装填时间。
+const prioritised = rates(1, ['mortar_s', 'mg', 'mortar_s']).side;
+const [slow, quick, varied] = prioritised.weapons;
+prioritised.timers[slow.key] = 4; prioritised.reloadTotals[slow.key] = 10;   // 60%
+prioritised.timers[quick.key] = 1; prioritised.reloadTotals[quick.key] = 2; // 50%
+prioritised.timers[varied.key] = 3; prioritised.reloadTotals[varied.key] = 20; // 85%，周期含随机倍率
+assert(SA.Battle.reloadProgress(prioritised, varied) > SA.Battle.reloadProgress(prioritised, slow));
 SA.Battle.debug.step(1 / 60);
-assert(!fiveQueue.reloadQueue.includes(first.key));
-near((10 - fiveQueue.timers[fiveQueue.weapons[1].key]) * 60 / fiveQueue.power, 1);
-fiveQueue.timers[first.key] = 10;
+assert(prioritised.timers[varied.key] < 3, '最高真实完成百分比未优先装填');
+near(prioritised.timers[slow.key], 4);
+near(prioritised.timers[quick.key], 1);
+// 完成的武器不占驾驶员；并列时抽签，第二名驾驶员不会重复分配同一门。
+prioritised.timers[varied.key] = 0;
 SA.Battle.debug.step(1 / 60);
-assert.strictEqual(fiveQueue.reloadQueue.at(-1), first.key);
-near((10 - fiveQueue.timers[fiveQueue.weapons[2].key]) * 60 / fiveQueue.power, 0);
+assert(prioritised.timers[slow.key] < 4 && prioritised.timers[quick.key] === 1);
+const tied = rates(2, ['mortar_s', 'mortar_s', 'mortar_s']).side;
+tied.weapons.forEach(w => { tied.timers[w.key] = tied.reloadTotals[w.key] = 10; });
+forcedRandom = 0;
+SA.Battle.debug.step(1 / 60);
+near(tied.timers[tied.weapons[0].key], 10);
+assert(tied.timers[tied.weapons[1].key] < 10 && tied.timers[tied.weapons[2].key] < 10, '并列抽签未选后排两门或重复占用');
+forcedRandom = 0.99;
+const hudSide = rates(1, ['mortar_s', 'mortar_s']).side;
+hudSide.timers[hudSide.weapons[0].key] = 0;
+hudSide.timers[hudSide.weapons[1].key] = 7;
+near(view.groupReload(hudSide, 'mortar_s'), 1);
+assert.strictEqual(view.reloadFrac(hudSide), null, '组内有满装炮时仍显示沙漏');
+hudSide.weapons[0].blocked = true;
+near(view.groupReload(hudSide, 'mortar_s'), 1);
+assert.strictEqual(view.reloadFrac(hudSide), null, '被挡住但满装的炮被误判为未装弹');
+hudSide.timers[hudSide.weapons[0].key] = 5;
+near(view.reloadFrac(hudSide), 0.5);
+near(view.groupReload(hudSide, 'mortar_s'), 0.5);
 
 // 同组五门炮开场满装，手操首轮同时开火；之后只有占到驾驶员的空炮推进。
 const volleyVehicle = vehicle(1, []);
@@ -76,7 +114,7 @@ volley.aim = [500, 200];
 volley.p.release = true;
 SA.Battle.debug.step(1 / 60);
 assert.strictEqual(volley.p.events.fire, 5, '首轮五门炮没有同时开火');
-assert.strictEqual(volley.p.reloadQueue.length, 5);
+assert(volley.p.weapons.every(w => volley.p.reloadTotals[w.key] === volley.p.timers[w.key] && volley.p.timers[w.key] > 0), '齐射后未记录真实周期');
 volley.keys.fire = false;
 const beforeReload = volley.p.weapons.map(w => volley.p.timers[w.key]);
 SA.Battle.debug.step(1 / 60);
@@ -86,7 +124,7 @@ volley.p.release = true;
 volley.aim = [500, 200];
 SA.Battle.debug.step(1 / 60);
 assert.strictEqual(volley.p.events.fire, 6, '先装好的单炮未独立开火');
-assert.strictEqual(volley.p.reloadQueue.at(-1), volley.p.weapons[0].key, '重发炮未排到队尾');
+assert.strictEqual(volley.p.reloadTotals[volley.p.weapons[0].key], volley.p.timers[volley.p.weapons[0].key], '重发炮未记录新周期');
 assert.strictEqual(SA.V.crewPlan(volley.p.weapons, 0, volley.p.sel).loaders, 0);
 
 // 自动装弹机缩短实际装填时间，但不改变一名驾驶员同时只装一门的上限。
@@ -130,7 +168,7 @@ tickRates().forEach((w, i) => near(w.rate, i < 2 ? 1 : 0));
 const lostWeapon = state.p.weapons.find(w => w.cell.id === 'mg');
 SA.Battle.debug.damage('p', lostWeapon.r, lostWeapon.c, lostWeapon.layer, 10000);
 near(tickRates()[0].rate, 1);
-assert(!state.p.reloadQueue.includes(lostWeapon.key), '已毁武器仍占装填队列');
+assert(!state.p.weapons.some(w => w.key === lostWeapon.key), '已毁武器仍占驾驶员装填名额');
 
 const mixed = vehicle(2, ['mortar_s', 'mg']);
 const auto = SA.Battle.simulate({ p: mixed, e: mixed, terrain: 'flat', seed: 7 });

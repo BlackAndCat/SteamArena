@@ -1,4 +1,5 @@
 // 模块数值、外观和材料的唯一内容源是 config/modules.json；本文件只保留运行规则。
+// 抛射武器的 spread / spreadMin 分别是散布角度上、下限（度）；测距仪会同比缩放两端。
 window.SA = window.SA || {};
 const moduleConfig = SA.Config.get('modules');
 SA.K = moduleConfig.K;

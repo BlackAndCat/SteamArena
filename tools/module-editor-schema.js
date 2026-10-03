@@ -399,7 +399,13 @@ SA.MODULE_EDITOR_SCHEMA = {
       "min": 0
     },
     "spread": {
-      "label": "散布",
+      "label": "基础散布 / 抛射上限（°）",
+      "group": "武器与撞击",
+      "type": "number",
+      "min": 0
+    },
+    "spreadMin": {
+      "label": "抛射散布下限（°）",
       "group": "武器与撞击",
       "type": "number",
       "min": 0
@@ -616,5 +622,9 @@ SA.validateModuleOverrides = (id, overrides) => {
   if (!errors.length) visit(overrides, '');
   const defaults = SA.MODULE_DEFAULTS?.[id];
   if (defaults && (overrides?.minMt ?? defaults.minMt ?? 1) > (overrides?.maxMt ?? defaults.maxMt ?? 6)) errors.push('最低材料阶不能超过最高材料阶');
+  const current = SA.MODULES?.[id];
+  const spreadMin = overrides?.spreadMin ?? current?.spreadMin;
+  const spread = overrides?.spread ?? current?.spread;
+  if (Number.isFinite(spreadMin) && Number.isFinite(spread) && spreadMin > spread) errors.push('抛射散布下限不能超过上限');
   return { ok: errors.length === 0, errors };
 };

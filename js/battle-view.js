@@ -314,17 +314,17 @@ SA.BattleView.create = function createBattleView(api) {
     g.fillStyle = full ? hi : P.white; g.fillRect(x - 1, y - 1, 3, 3);
   }
 
-  // 当前武器组的装填进度（0 → 1）：齐射要等最慢的那门炮，所以取最小值；全部装好才返回 null
+  // 当前组任一门炮满装即可单独开火；全组空炮时显示最接近完成的一门。
   function reloadFrac(s) {
     if (s.dead || !s.sel) return null;
-    let worst = null;
+    let next = null;
     for (const w of s.weapons) {
-      if (w.cell.id !== s.sel || w.blocked) continue;
-      const left = Math.max(0, s.timers[w.key] || 0);
-      const f = 1 - left / w.m.reload;
-      if (worst == null || f < worst) worst = f;
+      if (w.cell.id !== s.sel) continue;
+      if ((s.timers[w.key] || 0) <= 0) return null;
+      const f = SA.Battle.reloadProgress(s, w);
+      if (next == null || f > next) next = f;
     }
-    return worst == null || worst >= 1 ? null : clamp(worst, 0, 1);
+    return next;
   }
   // 跟着准星走的小沙漏：上半沙子漏到下半 = 装填进度
   function hourglass(x, y, f) {
@@ -974,9 +974,13 @@ SA.BattleView.create = function createBattleView(api) {
   // 名字写在键上（不另外占地方），键底一条装填条，选中的键按下去（黄铜），整组打不了是暗铁
   const keyOf = (i) => (i === 9 ? '0' : String(i + 1));
   function groupReload(p, id) {
-    let worst = 1;
-    for (const w of p.weapons) { if (w.cell.id !== id || w.blocked) continue; worst = Math.min(worst, 1 - Math.max(0, p.timers[w.key] || 0) / w.m.reload); }
-    return clamp(worst, 0, 1);
+    let next = 0;
+    for (const w of p.weapons) {
+      if (w.cell.id !== id) continue;
+      if ((p.timers[w.key] || 0) <= 0) return 1;
+      next = Math.max(next, SA.Battle.reloadProgress(p, w));
+    }
+    return next;
   }
   function renderKeys() {
     const p = B.p, co = p.coGroups || [], stop = cantFire(p);

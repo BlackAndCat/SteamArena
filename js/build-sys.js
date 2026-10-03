@@ -34,3 +34,4 @@ SA.BUILD_SYS += '+campaign-layout-3-five-stages'; // 关卡布局 3：主线新�
 SA.BUILD_SYS += '+rush-contact-repeat'; // 纯近战短撤再撞；混合武装撞后游走开火再冲锋。
 SA.BUILD_SYS += '+single-weapon-reload'; // 每名驾驶员同一时间只装填一门炮，开局全部满装。
 SA.BUILD_SYS += '+campaign-layout-4-trim'; // 关卡布局 4：只留序章三关和第一章前三关，每章只记计划关数（3/7/6/6/6/6），没做完的章节打完已有的关就停在章内（用户要求 Opus 改）。
+SA.BUILD_SYS += '+progress-priority-mortar-spread-melee-recoil'; // 逐门优先装填、臼炮可调散布与近战反震。
