@@ -724,8 +724,8 @@
   const MAP_KIND = { normal: '普通关', easy: '爽关', boss: '擂主 ★', champ: '区冠军 ★★', gate: '通关' };
   const matName = (mt) => SA.MATS?.[mt]?.name || `T${mt}`;
   const ingotName = (k) => SA.INGOTS?.[k]?.name || k;
-  // 关卡键按设计稿迁移以后（每章关数一样）按编号对，之前按 now 对
-  const mapMigrated = (plan) => plan.chapters.length === SA.CAMPAIGN.length && plan.chapters.every((ch, i) => SA.CAMPAIGN[i].stages.length === ch.stages.length);
+  // 关卡键按设计稿迁移以后（每章计划关数一样，关卡布局 4 起）按编号对，之前按 now 对
+  const mapMigrated = (plan) => plan.chapters.length === SA.CAMPAIGN.length && plan.chapters.every((ch, i) => Math.max(SA.CAMPAIGN[i].stages.length, SA.CAMPAIGN[i].plannedStages || 0) === ch.stages.length);
   function mapLink(plan, p) {
     if (mapMigrated(plan)) { const [c, s] = p.code.split('-').map(Number); const k = `${c},${s - 1}`; return validKey(k) ? k : null; }
     return validKey(p.now) ? p.now : null;

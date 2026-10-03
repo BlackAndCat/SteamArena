@@ -123,7 +123,7 @@ SA.UI = (() => {
     const cur = SA.current, has = SA.Camp.has;
     const fix = SA.V.stats(d.vehicle).problems.length;
     const st = SA.Camp.current(), ch = SA.CAMPAIGN[SA.Camp.chIndex()];
-    const where = st ? ch.name : SA.Config.text("ui_977e74339430", `${d.round + 1}`);
+    const where = st || SA.Camp.pending() ? ch.name : SA.Config.text("ui_977e74339430", `${d.round + 1}`);
     const nav = (key, label, extra) => UI.btn(label, { kind: cur === key ? 'pri' : 'sec', gear: cur === key, onclick: () => SA.nav(key), title: extra || null });
     const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     const counter = UI.counter({ money: d.money, rep: d.rep, ingotList: ingots, onclick: has('bank') });
