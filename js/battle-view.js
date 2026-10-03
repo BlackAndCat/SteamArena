@@ -680,20 +680,28 @@ SA.BattleView.create = function createBattleView(api) {
   // 一条弹道：返回折线点、终点和撞到的东西（'tail' = 淡出尾巴走完，'out' = 飞出画面）
   function fanTrace(ctx, jit) {
     const L = fanLaunch(ctx.s, ctx.w, ctx.deg, jit);
-    const pts = [[L.x0, L.y0]];
+    // 第三项记录飞行时间，供相邻弹道按同一时刻拼接；碰撞后的终点仍停在真实入射时刻。
+    const pts = [[L.x0, L.y0, 0]];
     let [px, py] = pts[0];
     for (let i = 1; i <= T.PREVIEW_STEPS; i++) {
       const [x, y] = fanAt(L, i * FAN_STEP), hit = fanSeg(ctx, px, py, x, y);
       if (hit) {
         const e = [px + (x - px) * hit[0], py + (y - py) * hit[0]];
-        pts.push(e);
+        const t = (i - 1 + hit[0]) * FAN_STEP;
+        if (t > pts[pts.length - 1][2]) pts.push([e[0], e[1], t]);
         return { jit, pts, end: e, key: hit[1] };
       }
-      if (i % 3 === 0) pts.push([x, y]);
-      if (y > H + 100 || (B.cam && (x < B.cam.x - 200 || x > B.cam.x + B.cam.w + 200))) { pts.push([x, y]); return { jit, pts, end: [x, y], key: 'out' }; }
+      if (y > H + 100 || (B.cam && (x < B.cam.x - 200 || x > B.cam.x + B.cam.w + 200))) { pts.push([x, y, i * FAN_STEP]); return { jit, pts, end: [x, y], key: 'out' }; }
+      if (i % 3 === 0) pts.push([x, y, i * FAN_STEP]);
       px = x; py = y;
     }
     return { jit, pts, end: [px, py], key: 'out' };
+  }
+  // 在已采样的折线上取同一飞行时刻的位置；一条弹道先撞上目标时，后续固定在入射点。
+  function fanPoint(pts, i, t) {
+    if (i >= pts.length - 1) return pts[pts.length - 1];
+    const a = pts[i], b = pts[i + 1], f = (t - a[2]) / (b[2] - a[2]);
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
   }
   // 准星处的法平面：不受阻挡的中心弹道上离准星最近的点 + 那里的飞行方向。
   // 参数 t 做轻微平滑，高抛弧线两段都靠近准星时也不会在两处之间跳
@@ -732,17 +740,56 @@ SA.BattleView.create = function createBattleView(api) {
       refine(a, m, depth + 1); rays.push(m); refine(m, b, depth + 1);
     };
     for (let i = 0; i < N - 1; i++) { refine(base[i], base[i + 1], 0); rays.push(base[i + 1]); }
-    // 相邻两条弹道之间围成条带，全部放进同一条路径一次填满（nonzero，重叠处不叠深）；
+    // 整条弹道闭合成条带会在高抛轨迹交叉处产生正负绕数，相互抵消后漏掉中间弹道。
+    // 按飞行时间拆片，连续同向的片合并成一条边界；转向处统一绕向后一次填满，重叠处仍不叠深。
     // 填充用沿弹道方向的渐变：准星法平面之前是正常浓度，之后 FAN_TAIL 像素内淡到 0
     const pl = ctx.plane, gr = g.createLinearGradient(pl.x, pl.y, pl.x + pl.dx * FAN_TAIL, pl.y + pl.dy * FAN_TAIL);
     gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(244,247,238,0)');
     g.save(); g.globalAlpha = 0.16; g.fillStyle = gr; g.beginPath();
+    const triangle = (a, b, c) => {
+      const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      if (Math.abs(cross) < 0.001) return;
+      g.moveTo(a[0], a[1]);
+      if (cross > 0) { g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); }
+      else { g.lineTo(c[0], c[1]); g.lineTo(b[0], b[1]); }
+      g.closePath();
+    };
     for (let i = 0; i < rays.length - 1; i++) {
       const a = rays[i].pts, b = rays[i + 1].pts;
-      g.moveTo(a[0][0], a[0][1]);
-      for (let k = 1; k < a.length; k++) g.lineTo(a[k][0], a[k][1]);
-      for (let k = b.length - 1; k >= 0; k--) g.lineTo(b[k][0], b[k][1]);
-      g.closePath();
+      let ai = 0, bi = 0, a0 = a[0], b0 = b[0];
+      let sign = 0, as = [], bs = [];
+      const flush = () => {
+        if (!sign) return;
+        g.moveTo(as[0][0], as[0][1]);
+        if (sign > 0) {
+          for (const p of bs) g.lineTo(p[0], p[1]);
+          for (let k = as.length - 1; k > 0; k--) g.lineTo(as[k][0], as[k][1]);
+        } else {
+          for (let k = 1; k < as.length; k++) g.lineTo(as[k][0], as[k][1]);
+          for (let k = bs.length - 1; k >= 0; k--) g.lineTo(bs[k][0], bs[k][1]);
+        }
+        g.closePath(); sign = 0;
+      };
+      while (ai < a.length - 1 || bi < b.length - 1) {
+        const at = ai < a.length - 1 ? a[ai + 1][2] : Infinity;
+        const bt = bi < b.length - 1 ? b[bi + 1][2] : Infinity;
+        const t = Math.min(at, bt);
+        if (at === t) ai++;
+        if (bt === t) bi++;
+        const a1 = fanPoint(a, ai, t), b1 = fanPoint(b, bi, t);
+        const c1 = (b0[0] - a0[0]) * (b1[1] - a0[1]) - (b0[1] - a0[1]) * (b1[0] - a0[0]);
+        const c2 = (b1[0] - a0[0]) * (a1[1] - a0[1]) - (b1[1] - a0[1]) * (a1[0] - a0[0]);
+        const s1 = Math.abs(c1) < 0.001 ? 0 : Math.sign(c1), s2 = Math.abs(c2) < 0.001 ? 0 : Math.sign(c2);
+        if (s1 && s2 && s1 !== s2) {
+          flush(); triangle(a0, b0, b1); triangle(a0, b1, a1);
+        } else if (s1 || s2) {
+          const next = s1 || s2;
+          if (sign !== next) { flush(); sign = next; as = [a0]; bs = [b0]; }
+          as.push(a1); bs.push(b1);
+        } else flush();
+        a0 = a1; b0 = b1;
+      }
+      flush();
     }
     g.fill('nonzero'); g.restore();
   }
