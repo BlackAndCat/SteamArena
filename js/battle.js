@@ -35,7 +35,7 @@ SA.Battle = (() => {
 
   // ---------- 阵营 ----------
   function makeSide(v, name, isAI, aim, x) {
-    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '', failureType: null, failureAt: null,
+    const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, reloadQueue: [], anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '', failureType: null, failureAt: null,
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
@@ -47,6 +47,8 @@ SA.Battle = (() => {
     settle(s, 1);
     s.water = s.waterMax;
     refresh(s); // 开局按满水质量计算驱动需求与碰撞质量。
+    // 开战时每门存活武器都已装满，首次发射后才进入装填队列。
+    for (const w of s.weapons) s.timers[w.key] = 0;
     s.startHp = SA.V.maxHp ? SA.V.stats(s.v).maxHp : 0;
     s.maxHeat = 0;
     s.minWater = s.water;
@@ -983,18 +985,16 @@ SA.Battle = (() => {
     s.coGroups = crew.autoGroups;
     const coPt = s.coGroups.length && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
     const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
-    // 装填：先把所有炮的装填计时推进一步
-    for (let i = 0; i < s.weapons.length; i++) {
-      const w = s.weapons[i];
-      if (w.blocked) continue;
-      if (s.timers[w.key] == null) s.timers[w.key] = rnd(T.COPILOT_RELOAD_MIN, T.COPILOT_RELOAD_MAX) * w.m.reload;
-      s.timers[w.key] -= dt * s.power * crew.rates[i];
+    // 空炮按入队顺序占用驾驶员；完成后立即离队，重复发射排至队尾。
+    const weaponByKey = new Map(s.weapons.map(w => [w.key, w]));
+    s.reloadQueue = s.reloadQueue.filter(key => weaponByKey.has(key) && s.timers[key] > 0);
+    for (const w of s.weapons) {
+      if (s.timers[w.key] == null) s.timers[w.key] = 0;
+      if (s.timers[w.key] > 0 && !s.reloadQueue.includes(w.key)) s.reloadQueue.push(w.key);
     }
-    // 手操的这一组是齐射：组里每门炮都装好了才一起开火（其他驾驶员管的组照旧各打各的）
-    const salvo = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);
-    const salvoReady = salvo.length > 0 && salvo.every(w => s.timers[w.key] <= 0);
-    const salvoGo = salvoReady && firing && salvo.every(w => ready(w) && indirectReady(s, w, aimPt, dt));
-    const again = rnd(T.SALVO_FACTOR_MIN, T.SALVO_FACTOR_MAX);   // 同一轮齐射用同一个装填时间，下一轮还是一起好
+    for (const key of s.reloadQueue.slice(0, crew.loaders)) s.timers[key] -= dt * s.power;
+    s.reloadQueue = s.reloadQueue.filter(key => s.timers[key] > 0);
+    const again = rnd(T.SALVO_FACTOR_MIN, T.SALVO_FACTOR_MAX);
     for (const w of s.weapons) {
       if (w.blocked) continue;
       const mine = w.cell.id === s.sel, co = !mine && s.coGroups.includes(w.cell.id);
@@ -1004,9 +1004,9 @@ SA.Battle = (() => {
       s.elev[w.key] = cur + clamp(want - cur, -w.m.slew * dt, w.m.slew * dt);
       if (s.timers[w.key] > 0) continue;
       if (mine) {
-        if (salvoGo) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * again; s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
+        if (firing && ready(w) && indirectReady(s, w, aimPt, dt)) { fire(s, o, w, side); s.timers[w.key] = w.m.reload * again; s.reloadQueue.push(w.key); s.kick = w.m.reload < K.FAST_RELOAD ? K.FOCUS_KICK_FAST : K.FOCUS_KICK; }
         else s.timers[w.key] = 0;
-      } else if (co && coPt && Math.abs(want - cur) < T.AIM_TURN_THRESHOLD && indirectReady(s, w, coPt, dt)) { fire(s, o, w, !!coAt && coAt.layer === 'side', T.COPILOT_FOCUS); s.timers[w.key] = w.m.reload * rnd(T.COPILOT_RELOAD_FACTOR_MIN, T.COPILOT_RELOAD_FACTOR_MAX); }
+      } else if (co && coPt && Math.abs(want - cur) < T.AIM_TURN_THRESHOLD && indirectReady(s, w, coPt, dt)) { fire(s, o, w, !!coAt && coAt.layer === 'side', T.COPILOT_FOCUS); s.timers[w.key] = w.m.reload * rnd(T.COPILOT_RELOAD_FACTOR_MIN, T.COPILOT_RELOAD_FACTOR_MAX); s.reloadQueue.push(w.key); }
       else s.timers[w.key] = 0;
     }
     if (s.kick) { s.focus *= s.kick; s.kick = 0; }   // 后坐力把准星震开（快枪只震掉一点）

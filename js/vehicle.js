@@ -546,16 +546,12 @@ SA.V = (() => {
     return out;
   }
 
-  // 纯计算：每个自动武器组独占一名驾驶员并在组内按实体炮分摊；其他活炮共用剩余人手。
-  // blocked 炮仍占操作量，避免靠遮挡或切组获得额外装填速度；单炮封顶 200%。
+  // 武器组只决定瞄准和自动开火归属；装填由全部存活驾驶员共用，每人同时负责一门炮。
   function crewPlan(weapons, drivers, selected) {
     const groups = GROUP_ORDER.filter(id => weapons.some(w => w.cell.id === id));
     const sel = groups.includes(selected) ? selected : groups[0] || null;
     const autoGroups = groups.filter(id => id !== sel).slice(0, Math.max(0, drivers - 1));
-    const counts = new Map(autoGroups.map(id => [id, weapons.filter(w => w.cell.id === id).length]));
-    const shared = weapons.length - [...counts.values()].reduce((n, count) => n + count, 0);
-    const sharedRate = shared ? Math.min(2, Math.max(0, drivers - counts.size) / shared) : 0;
-    return { groups, selected: sel, autoGroups, rates: weapons.map(w => counts.has(w.cell.id) ? 1 / counts.get(w.cell.id) : sharedRate) };
+    return { groups, selected: sel, autoGroups, loaders: Math.max(0, drivers) };
   }
 
   function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw) {
@@ -632,14 +628,13 @@ SA.V = (() => {
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     const weapons = [];
     each(v, (cell, r, c, layer) => { if (alive(cell) && SA.mod(cell).dmg) weapons.push({ cell, r, c, layer }); });
-    // 纸面以开战默认首组手操估算持续火力，使用和战斗同一套驾驶员分配倍率。
+    // 纸面持续产出按可并发装填人数折算；这只是总产出估算，单门炮实际始终按原速装填。
     const crew = crewPlan(weapons, s.drivers, null);
+    const crewRate = weapons.length ? Math.min(crew.loaders, weapons.length) / weapons.length : 0;
     let weaponHeat = 0;
-    let weaponIndex = 0;
     each(v, (cell, r, c, layer) => {
       const m = SA.mod(cell);
       if (!alive(cell) || !m.dmg) return;
-      const crewRate = crew.rates[weaponIndex++];
       s.weapons++;
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
       // 与战斗共用辅助件汇总倍率，纸面输出不再重复应用装弹、散布和晃动收益。
