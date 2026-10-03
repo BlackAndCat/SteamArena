@@ -368,6 +368,21 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .mlegend .medal.k-gate { width: 11px; height: 11px; margin: 0 3px; }
 .map-scroll { flex: 1; min-height: 0; overflow: auto; cursor: default; }
 .map-scroll.grab { cursor: grabbing; user-select: none; }
+/* 地图下方的 47 件模块按可用宽度自动排布，窄屏在区内滚动。 */
+.map-modules { flex: none; height: auto; min-height: 188px; display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); grid-auto-rows: 49px; gap: 3px; align-content: start; padding: 7px 12px; background: var(--wood); border-top: 3px solid var(--brass-dk); }
+.map-module { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 16px; justify-items: center; min-width: 0; padding: 2px; border: 1px solid transparent; background: rgba(255, 242, 203, .08); color: var(--cream); font: inherit; cursor: pointer; }
+.map-module:hover, .map-module:focus-visible { border-color: var(--brass); background: rgba(255, 242, 203, .18); outline: none; }
+.map-module-art { display: grid; place-items: center; min-width: 0; min-height: 0; }
+.map-module-art canvas { max-width: 100%; max-height: 27px; width: auto; height: auto; object-fit: contain; image-rendering: pixelated; }
+.map-module.locked .map-module-art canvas { filter: brightness(0); opacity: .36; }
+.map-module-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; line-height: 16px; }
+.map-module-orphan { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border: 1.5px solid #ff5b40; border-radius: 50%; background: transparent; box-shadow: 0 0 3px #ff5b40, 0 0 6px rgba(255, 44, 16, .65); }
+.map-module-tip { position: fixed; z-index: 90; width: min(300px, calc(100vw - 16px)); max-height: min(420px, calc(100vh - 16px)); overflow: auto; padding: 12px; border: 2px solid var(--brass-dk); background: var(--paper-hi); color: var(--ink); box-shadow: 4px 4px 0 rgba(20, 10, 4, .6); pointer-events: none; }
+.map-module-tip[hidden] { display: none; }
+.map-module-tip-art { display: grid; place-items: center; min-height: 130px; margin-bottom: 9px; background: var(--paper-3); }
+.map-module-tip-art canvas { max-width: 100%; max-height: 180px; width: auto; height: auto; object-fit: contain; image-rendering: pixelated; }
+.map-module-tip b { font: 700 17px var(--song); }
+.map-module-tip p { margin: 6px 0 0; white-space: pre-wrap; line-height: 1.5; font-size: 12.5px; }
 .map { position: relative; display: grid; margin: 10px 16px; min-width: 1150px; background: var(--paper); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.5); }
 .map-wires { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; z-index: 0; }
 .map > div { position: relative; min-width: 0; }

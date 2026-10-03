@@ -48,3 +48,4 @@ SA.BUILD_VIS += '+track-backing-plate'; // 履带后面补上定稿样机的 y+6
 SA.BUILD_VIS += '+arena-stages-wip'; // 出战黑板在没做完的章节末尾写「还有 N 关 · 制作中」；后台战役地图按计划关数直接按编号对齐。
 SA.BUILD_VIS += '+wrought-track-road-wheels'; // 熟铁（T2）履带中间补上真正的负重轮：驱动轮轴到诱导轮轴一根下梁，9×9 铸铁负重轮挂在下梁下压住链带，吊杆吊住下梁；板条恢复熟铁色（09-29 用户定）。
 SA.BUILD_VIS += '+group-ready-reload-hud'; // 任一同组武器满装即隐藏沙漏并点亮装填条。
+SA.BUILD_VIS += '+campaign-module-preview'; // 战役地图下方展示全模块，并随节点预览累计解锁。

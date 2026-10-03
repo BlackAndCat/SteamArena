@@ -120,11 +120,37 @@
   const STYLE = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩', rookie: '新手', roam: '游走' };
   const chShort = (ch) => ch.name.split(' · ')[0];
   const chPlace = (ch) => ch.name.split(' · ')[1] || ch.place || '';
-  const validKey = (k) => /^\d+,\d+$/.test(k || '') && !!SA.CAMPAIGN[+k.split(',')[0]]?.stages[+k.split(',')[1]];
+  const newStageDrafts = new Map();
+  const validKey = (k) => /^\d+,\d+$/.test(k || '') && (newStageDrafts.has(k) || !!SA.CAMPAIGN[+k.split(',')[0]]?.stages[+k.split(',')[1]] && !SA.CAMPAIGN[+k.split(',')[0]].stages[+k.split(',')[1]].unfinished);
+  // 新关卡只在内存里建立底稿；用户保存后才会写入正式配置。
+  function createStageDraft(ci, si) {
+    const ch = SA.CAMPAIGN[ci], key = `${ci},${si}`;
+    if (!ch || !Number.isSafeInteger(si) || si < 0 || si >= ch.plannedStages) { toast('这个编号不在现有计划内', 'bad'); return; }
+    if (validKey(key)) { toast('这一关已经存在', 'warn'); go(`stage/${key}/build`); return; }
+    const plan = SA.CAMPAIGN_MAP?.chapters?.[ci]?.stages?.[si];
+    const name = plan?.car || `新关卡 ${ci}-${si + 1}`;
+    const vehicle = SA.V.fromAscii(name, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+    const st = { name, pilot: plan?.pilot || '', vehicle, style: 'wander', aim: 0.8, terrain: 'flat', boss: false,
+      prize: 0, unlock: null, uniqueLoot: [], rewardItems: [], rewardMoney: true, victoryRepairFree: false, blurb: '', weakness: '', source: 'manual', newDraft: true };
+    newStageDrafts.set(key, st);
+    const d = stageDraft(key);
+    d.dirtyFields = true;
+    refreshStatus();
+    go(`stage/${key}/build`);
+  }
+  function nextStageSlot(ci) {
+    for (let n = 0; n < SA.CAMPAIGN.length; n++) {
+      const c = (ci + n) % SA.CAMPAIGN.length, ch = SA.CAMPAIGN[c];
+      for (let s = 0; s < (ch.plannedStages || 0); s++) if (!validKey(`${c},${s}`)) return [c, s];
+    }
+    return null;
+  }
   const recordOf = (ci, si) => SA.STAGE_CARS?.records?.[`${ci}:${si}`] || null;
   function stageData(ci, si) {
+    const draft = newStageDrafts.get(`${ci},${si}`);
+    if (draft) return { ...draft, ci, si, key: `${ci},${si}`, code: `${ci}-${si + 1}`, chapter: SA.CAMPAIGN[ci] };
     const ch = SA.CAMPAIGN[ci], base = ch && ch.stages[si];
-    if (!base) return null;
+    if (!base || base.unfinished) return null;
     let m;
     try { m = SA.StageCars ? SA.StageCars.merge(base, ci, si) : { ...base, source: 'original' }; } catch (e) { m = { ...base, source: 'original' }; }
     let v = m.vehicle;
@@ -134,10 +160,11 @@
     return { ...m, ci, si, key: `${ci},${si}`, code: `${ci}-${si + 1}`, chapter: ch, vehicle: v };
   }
   const stageLabel = (key) => {
-    const [ci, si] = key.split(',').map(Number), st = SA.CAMPAIGN[ci]?.stages[si];
+    const [ci, si] = key.split(',').map(Number), st = stageData(ci, si);
     return st ? `${ci}-${si + 1} ${st.name}` : key;
   };
-  const allStages = () => SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((_, si) => `${ci},${si}`));
+  const allStages = () => [...SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((st, si) => st.unfinished ? null : `${ci},${si}`).filter(Boolean)), ...newStageDrafts.keys()];
+  window.ConsoleNewStage = { get: (ci, si) => newStageDrafts.get(`${ci},${si}`) || null };
   const carJson = (v) => { try { return v ? JSON.stringify(SA.StageCars.cellsOf(v)) : ''; } catch (e) { return ''; } };
 
   // 手工关卡车存在浏览器本机、或别的页面刚保存时，本页跟着换成新记录
@@ -345,7 +372,8 @@
   async function saveStage(key) {
     const d = stageDraft(key), meta = buildMeta(d);
     const G = await garageOpen(key);
-    const res = await G.save(meta);
+    const res = newStageDrafts.has(key) ? await G.saveNew(meta) : await G.save(meta);
+    if (newStageDrafts.has(key)) { newStageDrafts.delete(key); stageDrafts.delete(key); if (garage.key === key) garage.key = null; return { ...res, created: true }; }
     applyStageCars({ [res.record.id]: res.record });
     stageDrafts.delete(key);
     stageDraft(key).base = G.cellsJson();
@@ -353,7 +381,7 @@
   }
   function stageNotice(res) {
     const warn = res.warnings?.length ? `\n提醒：${res.warnings.join('；')}` : '';
-    if (res.filePersisted) return `已写进 js/stage-cars.js，开着的游戏页也换上了。${warn}`;
+    if (res.filePersisted) return `已写进关卡配置，刷新后即可使用。${warn}`;
     if (res.persisted) return `只存到了本机浏览器，尚未写入正式配置；请用 python tools/serve.py 打开后台并重试保存。${warn}`;
     return `只在当前页面生效，关掉就没了：浏览器不让存本机。${warn}`;
   }
@@ -364,11 +392,12 @@
     if (!isDirty()) { toast('没有需要保存的改动'); refreshStatus(); return; }
     saving = true; setStatus('saving');
     const done = [], fails = [];
-    let soft = false;
+    let soft = false, created = false;
     try {
       for (const key of dirtyStages()) {
         try {
           const res = await saveStage(key);
+          if (res.created) created = true;
           done.push(`${stageLabel(key)}：${stageNotice(res)}`);
           if (!res.filePersisted || res.warnings?.length) soft = true;
         } catch (e) { fails.push(`${stageLabel(key)} 没保存：${e.message || e}`); }
@@ -401,6 +430,7 @@
     } finally { saving = false; }
     if (fails.length) { setStatus(isDirty() ? 'error' : 'clean', fails.join('\n')); toast([...fails, ...done].join('\n'), 'bad'); }
     else { refreshStatus(); toast(done.join('\n') || '已保存', soft ? 'warn' : ''); }
+    if (created && !fails.length) { location.reload(); return; }
     route(true);
   }
 
@@ -727,8 +757,8 @@
   // 关卡键按设计稿迁移以后（每章计划关数一样，关卡布局 4 起）按编号对，之前按 now 对
   const mapMigrated = (plan) => plan.chapters.length === SA.CAMPAIGN.length && plan.chapters.every((ch, i) => Math.max(SA.CAMPAIGN[i].stages.length, SA.CAMPAIGN[i].plannedStages || 0) === ch.stages.length);
   function mapLink(plan, p) {
-    if (mapMigrated(plan)) { const [c, s] = p.code.split('-').map(Number); const k = `${c},${s - 1}`; return validKey(k) ? k : null; }
-    return validKey(p.now) ? p.now : null;
+    if (mapMigrated(plan)) { const [c, s] = p.code.split('-').map(Number); const k = `${c},${s - 1}`; return SA.CAMPAIGN[c]?.stages[s - 1] && !SA.CAMPAIGN[c].stages[s - 1].unfinished ? k : null; }
+    return p.now && validKey(p.now) && !newStageDrafts.has(p.now) ? p.now : null;
   }
   const storySlotsOf = (key) => [['before', `before.${key}`, '战前'], ['win', `stage.${key}.win`, '胜利'], ['lose', `stage.${key}.lose`, '失败'], ['after', `after.${key}`, '战后']];
   function trimCanvas(src) {
@@ -844,6 +874,62 @@
     const wires = [];          // { a, b, kind, side }
     const colEls = [];
 
+    // 预览只按结构化解锁表累计；支线只经过当前集及其前置集，不顺带领取别的支线。
+    const plannedMods = (entry) => entry?.unlockMods || [];
+    const stageMods = (p) => {
+      const key = mapLink(plan, p);
+      if (!key) return plannedMods(p);
+      const [ci, si] = key.split(',').map(Number);
+      return stageDrafts.get(key)?.fields.unlock?.mods || stageData(ci, si)?.unlock?.mods || [];
+    };
+    const chapterMods = (c) => {
+      const ch = plan.chapters[c], current = SA.CAMPAIGN[c];
+      return [...new Set([...plannedMods(ch), ...(current?.unlock?.mods || [])])];
+    };
+    const allPlannedMods = new Set();
+    plan.chapters.forEach((ch, c) => {
+      ch.stages.forEach((p) => stageMods(p).forEach((id) => allPlannedMods.add(id)));
+      chapterMods(c).forEach((id) => allPlannedMods.add(id));
+    });
+    plan.sides.forEach((side) => side.episodes.forEach((e) => plannedMods(e).forEach((id) => allPlannedMods.add(id))));
+    const mainThrough = (c, si, gate) => {
+      const unlocked = new Set();
+      plan.chapters.forEach((ch, ci) => {
+        if (ci > c) return;
+        ch.stages.forEach((p, i) => { if (ci < c || i <= si) stageMods(p).forEach((id) => unlocked.add(id)); });
+        if (ci < c || gate) chapterMods(ci).forEach((id) => unlocked.add(id));
+      });
+      return unlocked;
+    };
+    const sideThrough = (d) => {
+      const episodes = d.sideInfo.episodes;
+      let main = new Set(), unlocked = new Set();
+      for (let i = 0; i <= d.i; i++) {
+        const e = episodes[i];
+        let path;
+        if (e.open.after) { const [c, n] = e.open.after.split('-').map(Number); path = mainThrough(c, n - 1, false); }
+        else if (e.open.clear != null) { const c = e.open.clear; path = mainThrough(c, plan.chapters[c].stages.length - 1, true); }
+        else path = main;
+        path.forEach((id) => unlocked.add(id));
+        plannedMods(e).forEach((id) => unlocked.add(id));
+        main = path;
+      }
+      return unlocked;
+    };
+    const previewMods = (d) => {
+      if (!d) return allPlannedMods;
+      if (d.type === 'side') return sideThrough(d);
+      if (d.type === 'gate') return mainThrough(d.c, d.ch.stages.length - 1, true);
+      if (d.p) { const [c, n] = d.p.code.split('-').map(Number); return mainThrough(c, n - 1, false); }
+      return allPlannedMods;
+    };
+    let gallery = null;
+    function previewAt(id) {
+      if (!gallery) return;
+      const unlocked = previewMods(nodes.get(id)?.d);
+      gallery.querySelectorAll('.map-module').forEach((item) => item.classList.toggle('locked', !unlocked.has(item.dataset.module)));
+    }
+
     // ---- 节点 ----
     function nodeEl(id, d) {
       const b = el(`button.mnode.k-${d.kind}${d.planned ? '.planned' : ''}${d.side ? `.s-${d.side}` : ''}${d.vert ? '.vert' : ''}`,
@@ -853,9 +939,9 @@
         d.vert ? el('span.mlabel', null, el('small.mcode', { text: d.code || '' }), el('b', { text: d.title }))
           : el('span.mlabel', null, el('b', { text: d.title }), el('small', null, d.code ? el('span.mcode', { text: d.code }) : null, el('span.msub', { text: d.sub || '' }), d.marks?.length ? el('span.mmarks', null, d.marks) : null)));
       nodes.set(id, { el: b, d });
-      b.addEventListener('pointerenter', () => hover(id));
+      b.addEventListener('pointerenter', () => { previewAt(id); hover(id); });
       b.addEventListener('pointerleave', unhover);
-      b.addEventListener('focus', () => { if (b.matches(':focus-visible')) show(id); });   // 只有键盘移过来时才弹卡片
+      b.addEventListener('focus', () => { previewAt(id); if (b.matches(':focus-visible')) show(id); });   // 只有键盘移过来时才弹卡片
       b.addEventListener('blur', unhover);
       b.addEventListener('click', () => activate(id));
       return b;
@@ -1109,7 +1195,10 @@
       return out;
     }
     function planCard(d, x, { chips, title, sub, rows, note }) {
-      const left = el('div.mc-left', null, el('div.mc-car.none', { text: '车还没拼' }));
+      const image = d.type === 'stage'
+        ? el('button.mc-car.none', { type: 'button', title: `新增 ${d.p.code} 并进入关卡工作台`, on: { click: () => { const [ci, num] = d.p.code.split('-').map(Number); createStageDraft(ci, num - 1); } } }, '车还没拼 · 点击新增关卡')
+        : el('div.mc-car.none', { text: '车还没拼' });
+      const left = el('div.mc-left', null, image);
       if (x.loot) left.append(...lootBlock(x.loot));
       return [
         el('div.mc-top', null, el('div.mc-h', null, chips), el('h3.mc-title', { text: title }), el('div.mc-sub', { text: sub })),
@@ -1220,12 +1309,42 @@
     const legend = el('div.mlegend', null,
       [['normal', '1', '普通'], ['easy', '2', '爽关'], ['boss', '★', '擂主'], ['champ', '★★', '区冠军'], ['gate', '', '通关']].map(([k, t, n]) => el('span', null, el(`i.medal.k-${k}`, { text: t }), n)),
       el('span', null, el('i.medal.k-normal.planned', { text: '·' }), '虚线 = 还没做进游戏'));
+    // 模块区只放图和名字；大图及完整说明在悬浮窗中展示。
+    const moduleTip = el('div.map-module-tip', { hidden: true, role: 'tooltip' });
+    const moduleItems = (SA.MODULE_ORDER || []).filter((id) => SA.MODULES[id]).map((id) => {
+      const mod = SA.MODULES[id], pic = SA.SPR.moduleCanvas(id, 1, 1);
+      pic.removeAttribute('style'); pic.setAttribute('aria-hidden', 'true');
+      const item = el('button.map-module', { type: 'button', dataset: { module: id }, 'aria-label': mod.name,
+        on: {
+          pointerenter: () => showModuleTip(item, id),
+          pointerleave: () => { moduleTip.hidden = true; },
+          focus: () => showModuleTip(item, id),
+          blur: () => { moduleTip.hidden = true; },
+          click: () => go(`open/modules/${encodeURIComponent(id)}`),
+        } }, el('span.map-module-art', null, pic), el('span.map-module-name', { text: mod.name }),
+        !allPlannedMods.has(id) ? el('span.map-module-orphan', { 'aria-label': '未安排在战役地图解锁', title: '未安排在战役地图解锁' }) : null);
+      return item;
+    });
+    gallery = el('div.map-modules', { 'aria-label': '模块解锁预览' }, moduleItems);
+    function showModuleTip(anchor, id) {
+      // 裁掉绘图留白再按整数倍放大，小件看得清，大件仍完整留在画框内。
+      if (!pinned) hide();
+      const mod = SA.MODULES[id], pic = trimCanvas(SA.SPR.moduleCanvas(id, 1, 1));
+      fitPixels(pic, 268, 170, 4);
+      pic.setAttribute('aria-hidden', 'true');
+      moduleTip.replaceChildren(el('div.map-module-tip-art', null, pic), el('b', { text: mod.name }), el('p', { text: mod.desc || '' }));
+      moduleTip.hidden = false;
+      const rect = anchor.getBoundingClientRect(), width = moduleTip.offsetWidth, height = moduleTip.offsetHeight;
+      moduleTip.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, rect.left + rect.width / 2 - width / 2))}px`;
+      moduleTip.style.top = `${Math.max(8, rect.top - height - 8)}px`;
+    }
+    previewAt(null);
     const scroll = el('div.map-scroll', null, grid);
     const view = el('div.mapv', null,
       el('div.map-bar', null, el('h2', { text: '战役地图' }),
         el('span.muted', { text: `主线 ${done} / ${plan.chapters.reduce((n, ch) => n + ch.stages.length, 0)} · 支线 0 / ${plan.sides.reduce((n, s) => n + s.episodes.length, 0)} 做进游戏` }),
         el('span.grow'), legend, el('label.check', { title: '把还没做进游戏的关调淡，只看现在能玩的' }, dim, '淡化还没做的')),
-      scroll, card);
+      scroll, gallery, card, moduleTip);
     m.append(view);
 
     // 拖空白处平移；滚动位置记住
@@ -1283,7 +1402,9 @@
     function renderTree() {
       const q = filter.value.trim().toLowerCase();
       list.replaceChildren(...SA.CAMPAIGN.map((ch, c) => {
-        const items = ch.stages.map((_, s) => {
+        const count = Math.max(ch.stages.length, ...[...newStageDrafts.keys()].filter(k => +k.split(',')[0] === c).map(k => +k.split(',')[1] + 1), 0);
+        const items = Array.from({ length: count }, (_, s) => {
+          if (!validKey(`${c},${s}`)) return null;
           const sd = stageData(c, s), rec = recordOf(c, s);
           if (q && !`${sd.code} ${sd.name} ${sd.pilot || ''}`.toLowerCase().includes(q)) return null;
           return el(`button.st-item${sd.key === key ? '.on' : ''}`, { type: 'button', dataset: { key: sd.key }, title: `${sd.code} ${sd.name} · ${sd.pilot || ''}`, on: { click: () => goStage(sd.key) } },
@@ -1299,7 +1420,8 @@
     }
     filter.addEventListener('input', () => { prefs.stageFilter = filter.value; savePrefs(); renderTree(); });
     renderTree();
-    const tree = el('aside.tree', null, el('div.filter', null, filter), list);
+    const add = el('button.btn.sm', { type: 'button', on: { click: () => { const slot = nextStageSlot(ci); if (slot) createStageDraft(...slot); else toast('现有计划关卡都已建立', 'warn'); } } }, icon('plus'), '新增关卡');
+    const tree = el('aside.tree', null, el('div.filter', null, filter, add), list);
 
     // 中：这一关
     const rec = recordOf(ci, si);
@@ -1669,6 +1791,7 @@
     if (!t) { VIEWS.home([], m); return; }
     let url = t.url;
     if (rest[0] === 'stage-editor' && validKey(rest[1])) url += `?stage=${encodeURIComponent(rest[1])}`;
+    if (rest[0] === 'modules' && SA.MODULES[rest[1]]) url += `?module=${encodeURIComponent(rest[1])}`;
     frameView(m, { title: t.name, url, actions: [], chips: t.old ? [el('span.chip', { text: '旧版 · 接下来重做' })] : [] });
   };
 

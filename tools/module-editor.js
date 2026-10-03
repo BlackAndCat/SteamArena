@@ -182,7 +182,9 @@
       }
     }, true);
     window.addEventListener('beforeunload', event => { if (changed() && !saving) { event.preventDefault(); event.returnValue = ''; } });
-    select(sessionStorage.getItem('module-editor-selected') || ids[0]);
+    // 地图可用 URL 精确定位模块；普通打开仍沿用上次在工作台选中的模块。
+    const requested = new URLSearchParams(location.search).get('module');
+    select(ids.includes(requested) ? requested : sessionStorage.getItem('module-editor-selected') || ids[0]);
     try {
       const response = await fetch('/__modules/status', { cache: 'no-store' });
       if (!response.ok || !(await response.json()).ok) throw new Error('本机模块保存服务不可用。');
