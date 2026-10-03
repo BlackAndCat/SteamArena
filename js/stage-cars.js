@@ -82,7 +82,7 @@ SA.StageCars = (() => {
     allowed.add('cockpit');
     for (let ci = 0; ci <= chapter; ci++) {
       const ch = SA.CAMPAIGN[ci], stop = ci === chapter ? stage : ch.stages.length;
-      for (let si = 0; si < stop; si++) for (const id of ch.stages[si].unlock?.mods || []) allowed.add(id);
+      for (let si = 0; si < stop; si++) for (const id of ch.stages[si]?.unlock?.mods || []) allowed.add(id);
       if (ci < chapter) for (const id of ch.unlock?.mods || []) allowed.add(id);
     }
     for (const id of record?.unlock?.mods || []) allowed.add(id);

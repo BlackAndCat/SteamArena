@@ -107,12 +107,12 @@ SA.Camp = (() => {
   const chIndex = () => Math.min(c().ch, chapterCount() - 1);
   // 每章计划的关数（content.json 的 plannedStages）；已做出的关比计划少，这一章就还没做完
   const plannedStages = (ch) => Math.max(ch.stages.length, ch.plannedStages || 0);
-  const unfinished = (ch) => ch.stages.length < plannedStages(ch);
+  const unfinished = (ch) => ch.stages.length < plannedStages(ch) || ch.stages.some(st => st.unfinished);
   // 进度能走到的最远位置：第一个没做完的章节里、已做出的最后一关之后；全部做完时为 null
   function frontier() {
     for (let ci = 0; ci < chapterCount(); ci++) {
       const ch = SA.CAMPAIGN[ci];
-      if (unfinished(ch)) return { ch: ci, st: ch.stages.length };
+      if (unfinished(ch)) return { ch: ci, st: ch.stages.findIndex(st => st.unfinished) < 0 ? ch.stages.length : ch.stages.findIndex(st => st.unfinished) };
     }
     return null;
   }
@@ -154,7 +154,7 @@ SA.Camp = (() => {
   function stage(ci = c().ch, si = c().st) {
     if (SA.RELEASE && (ci < 0 || ci >= chapterCount())) return null;
     const ch = SA.CAMPAIGN[ci], o = ch && ch.stages[si];
-    if (!o) return null;
+    if (!o || o.unfinished) return null;
     const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
     if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
     return { ...merged, ci, si, chapter: ch };
@@ -221,7 +221,7 @@ SA.Camp = (() => {
       for (const k in st.drop) out.lines.push(SA.Config.text('camp_drop_ingot', SA.INGOTS[k].name, st.drop[k]));
     }
     C.st++;
-    if (C.st >= st.chapter.stages.length) {
+    if (C.st >= st.chapter.stages.length || st.chapter.stages[C.st]?.unfinished) {
       // 这一章还没做完：停在已有的关之后，不发通关奖励，等后续关卡做进来
       if (unfinished(st.chapter)) return out;
       applyUnlock(st.chapter.unlock);

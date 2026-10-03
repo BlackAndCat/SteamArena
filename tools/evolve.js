@@ -109,7 +109,7 @@ function loadGame({ contextify = false } = {}) {
 function stageFor(SA, chapter, stage) {
   if (SA.Camp?.stage) return SA.Camp.stage(chapter, stage);
   const base = SA.CAMPAIGN[chapter]?.stages?.[stage];
-  if (!base) return null;
+  if (!base || base.unfinished) return null;
   const merged = SA.StageCars ? SA.StageCars.merge(base, chapter, stage) : { ...base, source: 'original', locked: false };
   if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
   return merged;
@@ -218,6 +218,7 @@ function stageSpec(SA, chapter, stage) {
 function campaignSpecCheck(SA) {
   const errors = [];
   SA.CAMPAIGN.forEach((chapter, chapterIndex) => chapter.stages.forEach((stage, stageIndex) => {
+    if (stage.unfinished) return;
     const spec = stage.spec;
     const label = `第 ${chapterIndex + 1} 章第 ${stageIndex + 1} 关 ${stage.name}`;
     if (!spec || typeof spec !== 'object') { errors.push(`${label} 缺少 spec`); return; }
@@ -1006,6 +1007,7 @@ function run(options = {}) {
     const manualBossStage = manualBossIndex >= 0 ? stageFor(SA, chapter, manualBossIndex) : null;
     let chapterBoss = manualBossStage ? { vehicle: manualBossStage.vehicle, ...manualCandidateRecord(SA, manualBossStage, chapter, manualBossIndex, fingerprint) } : null;
     for (let stage = 0; stage < (options.firstStageOnly ? 1 : SA.CAMPAIGN[chapter].stages.length); stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage]?.unfinished) continue;
       const spec = stageSpec(SA, chapter, stage);
       const actual = stageFor(SA, chapter, stage);
       if (actual?.source === 'manual' && actual.locked) {
@@ -1103,7 +1105,7 @@ async function runAsync(options = {}) {
   // 开跑前确定实际范围和合法种子数，避免跨代归零，或种子扩容后才改变总步数。
   // 一次候选评估算一步，每关整理与筛选各一步，Boss 标尺选择另计一步；锁定关仅整理一步。
   const stagePlans = chapterIndexes.map(chapter => {
-    const indexes = scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i);
+    const indexes = (scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i)).filter(i => !SA.CAMPAIGN[chapter].stages[i]?.unfinished);
     const stages = indexes.map(stage => {
       const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
       const locked = actual?.source === 'manual' && actual.locked && !scope;
@@ -1244,6 +1246,7 @@ function check() {
   let previousVehicle = SA.V.fromAscii('起始车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage]?.unfinished) continue;
       const item = stageFor(SA, chapter, stage);
       const v = item.vehicle;
       const result = SA.Battle.simulate({ p: previousVehicle, e: v, terrain: item.terrain || 'flat', bounds: SA.CAMPAIGN[chapter].bounds, pStyle: 'wander', eStyle: item.style || 'wander', eBoss: !!item.boss, seed: chapter * 100 + stage });

@@ -20,6 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_ROOT = os.path.join(ROOT, 'text')
 CONFIG_ROOT = os.path.join(ROOT, 'config')
 STAGE_CARS_FILE = os.path.join(CONFIG_ROOT, 'stage-cars.json')
+CONTENT_FILE = os.path.join(CONFIG_ROOT, 'content.json')
 MODULES_FILE = os.path.join(CONFIG_ROOT, 'modules.json')
 TEXT_FILE = os.path.join(CONFIG_ROOT, 'text.json')
 MIGRATION_STATE = os.path.join(ROOT, 'tools', '.config-migration-state.json')
@@ -249,7 +250,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         endpoint = urlparse(self.path).path
-        allowed = ('/__text/save', '/__stage-cars/save', '/__modules/save', '/__battle-speed/save', '/__config/save',
+        allowed = ('/__text/save', '/__stage-cars/save', '/__stage-cars/create', '/__modules/save', '/__battle-speed/save', '/__config/save',
                    '/__config/migrate', '/__evolve/run', '/__evolve/stop', '/__publish/archive')
         if endpoint not in allowed:
             self._json(404, {'error': '接口不存在'})
@@ -266,6 +267,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             if endpoint == '/__modules/save': result = self._save_modules(payload)
             elif endpoint == '/__battle-speed/save': result = self._save_battle_speed(payload)
             elif endpoint == '/__stage-cars/save': result = self._save_stage_cars(payload)
+            elif endpoint == '/__stage-cars/create': result = self._create_stage_car(payload)
             elif endpoint == '/__text/save': result = self._save_text(payload)
             elif endpoint == '/__config/save': result = self._save_config(payload)
             else: result = self._migrate(payload)
@@ -332,6 +334,45 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 data['records'][key].pop(field, None)
             _write_json(STAGE_CARS_FILE, data)
         return {'id': key, 'file': 'config/stage-cars.json'}
+
+    def _create_stage_car(self, payload):
+        """只在首次保存时登记指定计划空位；两份配置写入失败时恢复原始字节。"""
+        record = payload.get('record')
+        if not isinstance(record, dict) or not isinstance(record.get('id'), str):
+            raise ValueError('关卡记录不合法')
+        match = re.fullmatch(r'(0|[1-9]\d*):(0|[1-9]\d*)', record['id'])
+        if not match or record.get('source') != 'manual' or not isinstance(record.get('cells'), list) or not record['cells'] or len(record['cells']) > 256:
+            raise ValueError('新关卡记录不合法')
+        ci, si = map(int, match.groups())
+        if len(json.dumps(record, ensure_ascii=False, allow_nan=False)) > 500000:
+            raise ValueError('关卡记录过大')
+        with MODULE_SAVE_LOCK:
+            content = _json_file(CONTENT_FILE)
+            cars = _json_file(STAGE_CARS_FILE)
+            chapters = content['CAMPAIGN']
+            if ci >= len(chapters) or si >= chapters[ci].get('plannedStages', 0):
+                raise ValueError('关卡编号不在现有计划内')
+            stages = chapters[ci]['stages']
+            if si < len(stages) and not stages[si].get('unfinished'):
+                raise ValueError('该关卡已经存在，不能覆盖')
+            if record['id'] in cars.get('records', {}) or record['id'] in cars.get('targets', []):
+                raise ValueError('该关卡已有记录，不能覆盖')
+            for index in range(len(stages), si + 1):
+                stages.append({'stageRef': f'{ci}:{index}', 'unfinished': True})
+            stages[si] = {'stageRef': record['id']}
+            cars['targets'].append(record['id'])
+            cars['records'][record['id']] = record
+            original = {path: open(path, 'rb').read() for path in (CONTENT_FILE, STAGE_CARS_FILE)}
+            written = []
+            try:
+                for path, data in ((CONTENT_FILE, content), (STAGE_CARS_FILE, cars)):
+                    _write_json(path, data)
+                    written.append(path)
+            except OSError:
+                for path in written:
+                    _atomic_bytes(path, original[path])
+                raise
+        return {'id': record['id'], 'file': 'config/content.json + config/stage-cars.json'}
 
     def _save_text(self, payload):
         """只接受当前文本稿，不按历史版本回放覆盖新稿。"""

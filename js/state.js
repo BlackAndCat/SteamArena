@@ -336,6 +336,7 @@ SA.S = (() => {
     if (mode === 'camp') {
       const C = D.camp, over = SA.Camp.done();
       return SA.CAMPAIGN.slice(0, SA.Camp.chapterCount()).flatMap((chapter, chapterIndex) => chapter.stages.flatMap((o, i) => {
+        if (o.unfinished) return [];
         const beaten = over || chapterIndex < C.ch || (chapterIndex === C.ch && i < C.st);
         const next = !over && chapterIndex === C.ch && i === C.st;
         if (!beaten && !next) return [];

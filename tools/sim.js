@@ -117,6 +117,7 @@
     effectTotals = Object.fromEntries(SA.MODULE_ORDER.map(id => [id, { active: 0, fire: 0, hit: 0, tether: 0, energy: 0, waterSaved: 0, dryCool: 0 }]));
     const rows = [], jobs = [];
     SA.CAMPAIGN.forEach((ch, ci) => ch.stages.forEach((o, si) => {
+      if (o.unfinished) return;
       // 正式关卡记录优先使用完整载具；旧格式仍可从字符图读取。
       const ev = o.vehicle ? SA.V.clone(o.vehicle) : SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []);
       // 战役检验沿用章节的场地边界；普通对战矩阵不设置边界。
@@ -176,8 +177,8 @@
     const k = $('#pool').value;
     const list = [];
     if (k === 'ref' || k === 'mix') REF.forEach(r => list.push({ name: r.name, v: refVeh(r), style: r.style }));
-    if (k === 'boss' || k === 'mix') SA.CAMPAIGN.forEach(ch => ch.stages.filter(o => o.boss).forEach(o => list.push({ name: o.name, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []), style: o.style })));
-    if (k === 'all') SA.CAMPAIGN.forEach(ch => ch.stages.forEach(o => list.push({ name: o.name, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []), style: o.style })));
+    if (k === 'boss' || k === 'mix') SA.CAMPAIGN.forEach(ch => ch.stages.filter(o => !o.unfinished && o.boss).forEach(o => list.push({ name: o.name, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []), style: o.style })));
+    if (k === 'all') SA.CAMPAIGN.forEach(ch => ch.stages.filter(o => !o.unfinished).forEach(o => list.push({ name: o.name, v: o.vehicle || SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []), style: o.style })));
     if (k === 'bp') SA.OFFICIAL_BLUEPRINTS.forEach(b => list.push({ name: b.name, v: SA.V.fromAscii(b.name, b.rows, b.sides || []) }));
     const mine = myCar();
     if ($('#mine').checked && mine) list.unshift({ name: `我的车 · ${mine.name}`, v: mine });
@@ -334,6 +335,7 @@
     let cash = 300, stageNo = 0, lastBuy = 0;
     const available = new Set(SA.CAMP_START.mods || []), owned = new Set(SA.CAMP_START.mods || []), rows = [];
     SA.CAMPAIGN.forEach((ch) => ch.stages.forEach((stage, si) => {
+      if (stage.unfinished) return;
       stageNo++;
       cash += stage.prize || 0;
       for (const id of stage.unlock?.mods || []) available.add(id);
@@ -355,7 +357,7 @@
       const budget = funds;
       const pool = buildCandidates(ci, budget);
       const rows = pool.map(c => ({ c, acc: blank() }));
-      ch.stages.forEach(stage => rows.forEach(row => {
+      ch.stages.filter(stage => !stage.unfinished).forEach(stage => rows.forEach(row => {
         const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
         for (let k = 0; k < n; k++) jobs.push(duel(row.acc, { v: row.c.v, aim, style: row.c.style }, e));
       }));
@@ -373,7 +375,7 @@
           const top = Object.entries(r.acc.reasons).filter(x => x[0].startsWith('我方：')).sort((a, b) => b[1] - a[1])[0];
           const c = improveCandidate(r.c, top ? top[0] : '', ci); const row = { c, acc: blank() }; improved.push({ ch, budget, row, before: r }); return row;
         });
-        ch.stages.forEach(stage => next.forEach(row => {
+        ch.stages.filter(stage => !stage.unfinished).forEach(stage => next.forEach(row => {
           const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
           for (let k = 0; k < n; k++) improvedJobs.push(duel(row.acc, { v: row.c.v, aim, style: row.c.style }, e));
         }));

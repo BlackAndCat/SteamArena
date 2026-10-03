@@ -96,8 +96,8 @@ SA.CampUI = (() => {
   const STYLES = [['', SA.Config.text("camp_ui_2c2210ed86d7")], ['roam', SA.Config.text("camp_ui_ddb2fe50fb4b")], ['rush', SA.Config.text("camp_ui_c0d497cf61ab")], ['kite', SA.Config.text("camp_ui_2662eea55207")], ['turtle', SA.Config.text("camp_ui_91ed0ccb46f7")], ['rookie', SA.Config.text('camp_ui_rookie_style')]];
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
   function foeList(src) {
-    if (src === 'camp') return SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((o, si) => ({ key: `${ci},${si}`, name: `${ch.name.split(' · ')[0]} · ${o.name}${o.boss ? '【Boss】' : ''}`,
-      make: () => ({ v: stage(ci, si).vehicle, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss }) })));
+    if (src === 'camp') return SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.flatMap((o, si) => o.unfinished ? [] : [{ key: `${ci},${si}`, name: `${ch.name.split(' · ')[0]} · ${o.name}${o.boss ? '【Boss】' : ''}`,
+      make: () => ({ v: stage(ci, si).vehicle, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss }) }]));
     if (src === 'tour') return SA.OPPONENTS.map((o, i) => ({ key: String(i), name: SA.Config.text("state_f98b29d88349", `${i + 1}`, `${o.name}`),
       make: () => { const op = SA.S.opponent(i); return { v: op.vehicle, aim: op.aim, terrain: SA.TERRAIN_ORDER[i % SA.TERRAIN_ORDER.length], boss: i === SA.OPPONENTS.length - 1 }; } }));
     if (src === 'bp') return SA.OFFICIAL_BLUEPRINTS.map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromAscii(b.name, b.rows, b.sides || []), aim: 0.8 }) }));

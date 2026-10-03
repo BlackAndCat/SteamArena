@@ -14,11 +14,11 @@
   SA.PX.init();
   SA.Camp.dev.designMode();
 
-  const stageAt = (ci, si) => SA.CAMPAIGN[ci]?.stages?.[si] || null;
+  const stageAt = (ci, si) => parent.ConsoleNewStage?.get(ci, si) || SA.CAMPAIGN[ci]?.stages?.[si] || null;
   function actualStage(ci, si) {
     const base = stageAt(ci, si);
-    if (!base) return null;
-    const out = SA.StageCars ? SA.StageCars.merge(base, ci, si) : { ...base };
+    if (!base || base.unfinished) return null;
+    const out = base.newDraft ? { ...base } : SA.StageCars ? SA.StageCars.merge(base, ci, si) : { ...base };
     out.vehicle = out.vehicle || SA.V.fromAscii(out.name, out.rows, out.sides || [], out.mt || 1, out.elite || [], out.subs || []);
     return out;
   }
@@ -63,6 +63,20 @@
     return JSON.parse(JSON.stringify({ record: result.record, warnings: check.warnings || [], filePersisted: !!result.filePersisted,
       localPersisted: !!result.localPersisted, channelSent: !!result.channelSent, persisted: !!result.persisted }));
   }
+  // 新关卡沿用同一套拼装校验，只在保存成功后请求服务登记该编号。
+  async function saveNew(meta) {
+    if (!cur || !stageAt(cur.ci, cur.si)?.newDraft) throw new Error('新关卡草稿不存在');
+    if (!meta?.vehicleName) throw new Error('车名不能为空');
+    const v = car(), st = actualStage(cur.ci, cur.si);
+    v.name = meta.vehicleName;
+    const record = SA.StageCars.makeRecord(cur.ci, cur.si, st, v, meta);
+    const check = SA.StageCars.validate(record, cur.ci, cur.si, v);
+    if (!check.ok) throw new Error(check.errors.join('；'));
+    const response = await fetch('/__stage-cars/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record }) });
+    const saved = await response.json();
+    if (!response.ok || !saved.ok) throw new Error(saved.error || `新关卡保存失败（HTTP ${response.status}）`);
+    return { record, warnings: check.warnings, filePersisted: true };
+  }
 
   function stats() {
     const v = car();
@@ -104,7 +118,10 @@
     const v = car(), { ci, si } = cur, bounds = SA.CAMPAIGN[ci].bounds;
     const n = Math.max(1, Math.min(200, Math.round(games) || 20));
     const refs = [SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || [])];
-    for (let c = 0; c <= ci; c++) for (let s = 0; s < SA.CAMPAIGN[c].stages.length; s++) if (c < ci || s < si) refs.push(actualStage(c, s).vehicle);
+    for (let c = 0; c <= ci; c++) for (let s = 0; s < SA.CAMPAIGN[c].stages.length; s++) if (c < ci || s < si) {
+      const previous = actualStage(c, s);
+      if (previous?.vehicle) refs.push(previous.vehicle);
+    }
     const counts = { p: 0, e: 0, draw: 0 };
     let wins = 0, total = 0, time = 0;
     refs.slice(-4).forEach((ref, ri) => {
@@ -169,6 +186,6 @@
     if (e.target.matches?.('.plate-name') && window.parent !== window) window.parent.postMessage({ type: 'garage-name', name: e.target.value }, location.origin);
   });
 
-  window.Garage = { ready: true, open, info, cellsJson, setName, save, stats, importText, candidates, useCandidate, test, saveArena, drivePick };
+  window.Garage = { ready: true, open, info, cellsJson, setName, save, saveNew, stats, importText, candidates, useCandidate, test, saveArena, drivePick };
   if (window.parent !== window) window.parent.postMessage({ type: 'garage-ready' }, location.origin);
 })();
