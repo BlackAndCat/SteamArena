@@ -23,7 +23,17 @@ async function run() {
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   SA.S.reset();
-  const ci = SA.CAMPAIGN.length - 1, si = SA.CAMPAIGN[ci].stages.length - 1;
+  // 关卡布局 4 只留下六辆合规的黄铜关卡车：在内存里把末关换成一台带悬空甲片、有熟铁件的原车，复现「原车已有构筑问题」
+  const keys = SA.StageCars.targetKeys(), [ci, si] = keys[keys.length - 1].split(':').map(Number);
+  const brokenCar = SA.V.clone(SA.Camp.stage(ci, si).vehicle);
+  assert(!SA.V.occ(brokenCar, 'body')[0][0], '左上角被占，放不下悬空甲片');
+  brokenCar.body[0][0] = SA.newCell('plate', 1);
+  let upgraded = false;
+  SA.V.each(brokenCar, cell => {
+    if (!upgraded && cell.id !== 'plate' && SA.minMt(cell.id) <= 1 && SA.maxMt(cell.id) >= 2) { cell.mt = 2; SA.fixCell(cell); upgraded = true; }
+  });
+  SA.STAGE_CARS.records[`${ci}:${si}`] = { ...SA.STAGE_CARS.records[`${ci}:${si}`], cells: SA.StageCars.cellsOf(brokenCar), code: SA.V.encode(brokenCar) };
+  SA.StageCars.applyToCampaign();
   const original = SA.Camp.stage(ci, si);
   const baseline = SA.StageCars.makeRecord(ci, si, original, original.vehicle);
   assert(!SA.StageCars.validate(baseline, ci, si, original.vehicle).ok, '末关原始车应能复现已有构筑问题');

@@ -180,7 +180,8 @@ async function main() {
   const impact = evolve.impactCheck();
   const cache = evolve.cacheCheck();
   const modules = coverage.run();
-  if (modules.found !== modules.total) throw new Error(`模块覆盖不完整：${modules.found}/${modules.total}`);
+  // 只要求有解锁档位的模块都能生成；还没有档位的（所在关卡在布局 4 里删了）单独列出
+  if (modules.found !== modules.total - modules.untiered.length) throw new Error(`模块覆盖不完整：${modules.found}/${modules.total - modules.untiered.length}`);
   const ai = calibration.selfCheck();
   const auxiliaryAim = auxiliaryAimCheck();
   const chassis = chassisRuleCheck();
@@ -194,7 +195,7 @@ async function main() {
   const runtime = evolveRuntime.run();
   const selection = evolveSelection.run();
   const firstStage = await evolveFirstStage.run();
-  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing }, auxiliaryAim, chassis, ai, selectedView };
+  const result = { check: { fingerprint: check.fingerprint, campaign: check.campaign, legalMutations: check.legalMutations, mutationOps: check.mutationOps, share: check.share }, parallel, impact, modules: { total: modules.total, found: modules.found, missing: modules.missing, untiered: modules.untiered }, auxiliaryAim, chassis, ai, selectedView };
   result.unique = unique;
   result.removedModes = removedModes;
   result.replay = replay;

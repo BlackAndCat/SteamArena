@@ -32,7 +32,7 @@ function specsFor(SA, id) {
 
 function inspectModule(SA, id) {
   const specs = specsFor(SA, id);
-  if (!specs.length) return { module: id, found: false, reason: '没有解锁档位' };
+  if (!specs.length) return { module: id, found: false, specs: 0, reason: '没有解锁档位' };
   for (const spec of specs) for (let attempt = 0; attempt < 80; attempt++) {
       const rng = new RNG(9000 + attempt * 97 + id.length + spec.chapter * 101 + spec.stage);
       const vehicle = randomVehicle(SA, spec, rng, id) || minimalVehicle(SA, spec, id);
@@ -49,7 +49,9 @@ function inspectModule(SA, id) {
 function run() {
   const { SA } = loadGame();
   const rows = Object.keys(SA.MODULES).filter(id => !SA.MODULES[id].retired).sort().map(id => inspectModule(SA, id));
-  return { rules: SA.RULES_VERSION || null, modules: rows, total: rows.length, found: rows.filter(row => row.found).length, missing: rows.filter(row => !row.found).map(row => row.module) };
+  // 关卡布局 4 删掉后面的关以后，不少模块暂时没有解锁档位：单独列出，不算生成失败
+  const untiered = rows.filter(row => row.specs === 0).map(row => row.module);
+  return { rules: SA.RULES_VERSION || null, modules: rows, total: rows.length, found: rows.filter(row => row.found).length, missing: rows.filter(row => !row.found).map(row => row.module), untiered };
 }
 
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));

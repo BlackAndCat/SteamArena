@@ -135,7 +135,14 @@ function endingCheck() {
   const finalStage = SA.Camp.current();
   assert(finalStage && finalStage.ci === limit - 1);
   SA.Camp.win();
-  if (limit < SA.CAMPAIGN.length) {
+  const chapter = SA.CAMPAIGN[limit - 1], unfinished = SA.Camp.unfinished(chapter);
+  if (unfinished) {
+    // 关卡布局 4：开放的最后一章还没做完，打完已有的关就停在章内等后续关卡，不算通关
+    assert.strictEqual(C.ch, limit - 1);
+    assert.strictEqual(C.st, chapter.stages.length);
+    assert.strictEqual(C.done, false);
+    assert.strictEqual(SA.Camp.pending(), true);
+  } else if (limit < SA.CAMPAIGN.length) {
     assert.strictEqual(C.ch, limit);
     assert.strictEqual(C.st, 0);
     assert.strictEqual(C.done, false);
@@ -143,7 +150,7 @@ function endingCheck() {
     assert.strictEqual(C.ch, limit - 1);
     assert.strictEqual(C.done, true);
   }
-  assert.strictEqual(SA.Camp.done(), true);
+  assert.strictEqual(SA.Camp.done(), !unfinished);
   assert.strictEqual(SA.Camp.current(), null);
   assert.strictEqual(SA.S.arenaEntries('camp').some(e => e.next), false);
   SA.S.save();

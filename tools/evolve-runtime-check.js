@@ -32,7 +32,8 @@ function run(full = false) {
   rows.forEach((row, i) => assert.strictEqual(JSON.stringify(SA.Battle.simulate({ ...row.options, p: row.player, e: row.enemy })), JSON.stringify(expected[i]), `第 ${i + 1} 局完整摘要变化`));
   const currentMs = performance.now() - after;
   // 同时检查随机生成和变异没有因运行环境变化而改变 RNG 消耗顺序。
-  const oldSpec = evolve.stageSpec(oldSA, 2, 0), spec = evolve.stageSpec(SA, 2, 0);
+  // 关卡布局 4 只到第一章第 3 关，用这一关的模块池（最大的一个）
+  const oldSpec = evolve.stageSpec(oldSA, 1, 2), spec = evolve.stageSpec(SA, 1, 2);
   const oldRng = new evolve.RNG(91), rng = new evolve.RNG(91);
   const oldVehicle = evolve.randomVehicle(oldSA, oldSpec, oldRng), vehicle = evolve.randomVehicle(SA, spec, rng);
   assert.strictEqual(JSON.stringify(oldVehicle), JSON.stringify(vehicle), '随机车辆发生变化');

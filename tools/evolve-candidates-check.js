@@ -22,8 +22,9 @@ function run(file = DEFAULT_REPORT) {
   const report = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8'));
   const view = api.normalizeReport(report);
   if (view.status !== 'complete') throw new Error(`报告状态不是 complete：${view.status}`);
-  if (view.chapters.length !== 6) throw new Error(`章节数量错误：${view.chapters.length}`);
-  if (view.stages.length !== 17) throw new Error(`关卡数量错误：${view.stages.length}`);
+  // 关卡布局 4 删掉了后面的关，预演报告只留序章两关和第一章前三关
+  if (view.chapters.length !== 2) throw new Error(`章节数量错误：${view.chapters.length}`);
+  if (view.stages.length !== 5) throw new Error(`关卡数量错误：${view.stages.length}`);
 
   let selected = 0, cells = 0, modules = 0;
   for (const [index, stage] of view.stages.entries()) {

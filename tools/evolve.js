@@ -1346,9 +1346,10 @@ function outcomeSummary(SA, rows) {
 function healthCheck(games = 4) {
   const { SA } = loadGame();
   const anchors = [
+    // 关卡布局 4 只留序章和第一章前三关
     stageFor(SA, 0, 0).vehicle,
+    stageFor(SA, 1, 0).vehicle,
     stageFor(SA, 1, 2).vehicle,
-    stageFor(SA, 3, 2).vehicle,
   ];
   const allRows = [];
   const pairs = [];
@@ -1371,7 +1372,8 @@ function healthCheck(games = 4) {
   const kite = SA.V.clone(normal); kite.name = '风筝水车';
   for (let i = 0; i < 4; i++) tryPlace(SA, kite, 'tank_s', 1, new RNG(1500 + i));
   const drag = { turtle: duel(SA, turtle, anchors[2], { terrain: 'flat', style: 'turtle' }, 16000, games), kite: duel(SA, kite, anchors[2], { terrain: 'flat', style: 'kite' }, 17000, games) };
-  const heatSpec = stageSpec(SA, 3, 0), heatModule = heatSpec.availableMods.includes('flamer') ? 'flamer' : 'steamjet';
+  // 关卡布局 4 以后没有关卡开放喷火器 / 蒸汽喷射器：在第一章第 3 关的模块池里临时加上蒸汽喷射器
+  const lastSpec = stageSpec(SA, 1, 2), heatModule = 'steamjet', heatSpec = { ...lastSpec, availableMods: [...new Set([...lastSpec.availableMods, heatModule])] };
   let heatVehicle = null;
   for (let i = 0; i < 80 && !heatVehicle; i++) heatVehicle = randomVehicle(SA, heatSpec, new RNG(18001 + i * 31), heatModule) || minimalVehicle(SA, heatSpec, heatModule);
   const heatRows = heatVehicle ? healthRows(SA, heatVehicle, normal, { terrain: 'flat', style: 'rush' }, 18000, games) : [];

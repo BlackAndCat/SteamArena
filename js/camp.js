@@ -41,6 +41,8 @@ function supportStageVehicleName() {
 // 1 → 2：序章插入甲片关，旧第二关（铲斗关）顺延到第三关；
 // 2 → 3：第三、四、五章在末关前各插入一关，旧末关（工厂缠斗王 / 铁甲圣堂 / 维多利亚女王号）顺延一位；
 //        第一、四章另在章末追加的新关不占旧编号。
+// 3 → 4：章节改成设计稿的 34 关结构（每章只记计划关数 plannedStages），只留序章三关和第一章前三关，
+//        留下的六关编号不变；其余关卡删除，指向它们的旧记录由各读取方按「关卡不存在」丢弃。
 function migrateStageIndex(chapter, stage, layout) {
   const from = layout || 1;
   if (from < 2 && chapter === 0 && stage === 1) stage = 2;
@@ -103,6 +105,30 @@ SA.Camp = (() => {
   const done = () => !!(c().done || (SA.RELEASE && c().ch >= chapterCount()));
   // 当前章节序号（通关后停在最后一章）
   const chIndex = () => Math.min(c().ch, chapterCount() - 1);
+  // 每章计划的关数（content.json 的 plannedStages）；已做出的关比计划少，这一章就还没做完
+  const plannedStages = (ch) => Math.max(ch.stages.length, ch.plannedStages || 0);
+  const unfinished = (ch) => ch.stages.length < plannedStages(ch);
+  // 进度能走到的最远位置：第一个没做完的章节里、已做出的最后一关之后；全部做完时为 null
+  function frontier() {
+    for (let ci = 0; ci < chapterCount(); ci++) {
+      const ch = SA.CAMPAIGN[ci];
+      if (unfinished(ch)) return { ch: ci, st: ch.stages.length };
+    }
+    return null;
+  }
+  // 已做出的关都打完了，正停在没做完的章节里等后续关卡
+  function pending() {
+    const C = c(), f = frontier();
+    return !done() && !!f && C.ch === f.ch && C.st >= f.st;
+  }
+  // 关卡删减后（关卡布局 4），旧档的进度可能落在还没做出来的关上：夹回最远位置。已有的解锁、库存原样保留。
+  function clampProgress() {
+    const C = c(), f = frontier();
+    if (!f || !(C.done || C.ch > f.ch || (C.ch === f.ch && C.st > f.st))) return false;
+    Object.assign(C, { ch: f.ch, st: f.st, done: false, intro: Math.min(C.intro, f.ch) });
+    SA.S.save();
+    return true;
+  }
 
   // 商店以当前战役坐标重新计算可售模块，避免旧档或开发者解锁写入的 C.mods 提前泄漏未来章节。
   // 已通关关卡、已完成章节与本章作者白名单可售；背包和一般解锁仍照常使用 C.mods。
@@ -156,6 +182,7 @@ SA.Camp = (() => {
   // 读档时补发：已经打过的关卡 / 章节，按现在的数据重新发一遍解锁（以后新加的解锁内容老存档也能拿到；锭不重复发）
   function backfill() {
     const C = c();
+    clampProgress();
     SA.CAMPAIGN.slice(0, chapterCount()).forEach((ch, ci) => {
       ch.stages.forEach((raw, si) => { const s = stage(ci, si) || raw; if (C.done || ci < C.ch || (ci === C.ch && si < C.st)) applyUnlock(s.unlock, true); });
       if (C.done || ci < C.ch) applyUnlock(ch.unlock, true);
@@ -195,6 +222,8 @@ SA.Camp = (() => {
     }
     C.st++;
     if (C.st >= st.chapter.stages.length) {
+      // 这一章还没做完：停在已有的关之后，不发通关奖励，等后续关卡做进来
+      if (unfinished(st.chapter)) return out;
       applyUnlock(st.chapter.unlock);
       out.unlocks.push({ title: SA.Config.text('camp_chapter_clear', st.chapter.name), u: st.chapter.unlock });
       if (C.ch + 1 >= SA.CAMPAIGN.length) { C.done = true; C.st = st.chapter.stages.length; }
@@ -361,9 +390,15 @@ SA.Camp = (() => {
         applyUnlock(SA.CAMPAIGN[i].unlock);
       }
       Object.assign(C, { ch: Math.min(ci, SA.CAMPAIGN.length - 1), st: 0, intro: -1, done: ci >= SA.CAMPAIGN.length });
+      clampProgress();
       SA.S.save(); SA.nav('arena');
     },
-    unlockAll() { dev.goto(SA.CAMPAIGN.length); },
+    // 关卡删减后章节奖励发不全：全部解锁直接开放全部功能、模块、材料和满格改装台，进度停在最远位置
+    unlockAll() {
+      dev.goto(SA.CAMPAIGN.length);
+      applyUnlock({ feat: Object.keys(SA.FEATURES || {}), mods: Object.keys(M).filter(id => !M[id].retired), mat: Math.max(1, (SA.MATS || []).length - 1), grid: { cols: 8, rows: 6 } }, true);
+      SA.S.save(); SA.UI?.topbar?.();
+    },
     money(n = 1000) { d().money += n; SA.S.save(); SA.UI.topbar(); },
     ingots(n = 3) { SA.S.addIngots({ wootz: n, aether: n }); SA.S.save(); SA.UI.topbar(); },
     sandbox: (...args) => SA.CampUI.sandbox(...args),
@@ -377,7 +412,7 @@ SA.Camp = (() => {
     resetVehicle: () => SA.S.replaceWithStarter(),
   };
 
-  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, shopMods, maxMat, grid, chapterCount, done, chIndex, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
+  return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, shopMods, maxMat, grid, chapterCount, done, chIndex, plannedStages, unfinished, frontier, pending, clampProgress, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
 })();
 if (!SA.RELEASE) SA.dev = SA.Camp.dev;
 if (SA.StageCars) {

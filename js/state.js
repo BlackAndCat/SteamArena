@@ -462,6 +462,7 @@ SA.S = (() => {
           for (const u of r.unlocks) pre.push({ kind: 'unlock', unlock: u });
           const st = SA.Camp.current();
           d.news = SA.Camp.done() ? (SA.RELEASE ? SA.Config.text("state_09092100c0bb", `${d.vehicle.name}`) : SA.Config.text("state_dacfe49efade", `${d.vehicle.name}`))
+            : !st ? SA.Config.text("state_campaign_pending", `${d.vehicle.name}`, `${res.enemyName}`)
             : SA.Config.text("state_affd2276d447", `${d.vehicle.name}`, `${res.enemyName}`, `${SA.CAMPAIGN[st.ci].name}`, `${st.name}`);
         } else {
           d.round++;

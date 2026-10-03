@@ -1,6 +1,7 @@
 'use strict';
 
 // 非序章生成回归：逐关检查奖励保底与全部标尺，再走真实 worker、跨代、Boss 筛选和报告路径。
+// 关卡布局 4 起只有做出来的关参加；还没有关的章节跳过。
 // 这里只验证生成能力；胜率、地形和奖励效果是否达标另列，不把小样本结果当作平衡定稿。
 const assert = require('assert');
 const fs = require('fs');
@@ -36,6 +37,7 @@ async function run() {
   try {
     Object.assign(config.population, { size: 4, generations: 2 });
     for (let chapter = 1; chapter < SA.CAMPAIGN.length; chapter++) {
+      if (!SA.CAMPAIGN[chapter].stages.length) continue;
       const report = await evolve.runAsync({ scope: { chapter }, seed: 20260929, games: 1, workers: 2, references });
       assert.strictEqual(report.status, 'complete');
       assert.strictEqual(report.chapters.length, 1);
@@ -63,7 +65,7 @@ async function run() {
     const broken = rules.find(row => row.chapter === 1 && row.stage === 2), budget = broken.budget, events = [];
     try {
       broken.budget = 100;
-      await assert.rejects(evolve.runAsync({ scope: { chapter: 1 }, workers: 2, games: 1, onProgress: event => events.push(event) }), /后巷.*第 3 关.*合法标尺车.*£100/);
+      await assert.rejects(evolve.runAsync({ scope: { chapter: 1 }, workers: 2, games: 1, onProgress: event => events.push(event) }), /伦敦东区.*第 3 关.*合法标尺车.*£100/);
       assert.strictEqual(events.length, 0, '构筑预检没有在评估开始前失败');
     } finally { broken.budget = budget; }
   } finally { Object.assign(config.population, before); }

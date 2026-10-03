@@ -4,8 +4,8 @@ const assert = require('assert');
 const evolve = require('./evolve');
 
 function run() {
-  // 第二章已开放 2×2 重装甲，水箱可合法替换，保证对照分支实际跑到。
-  const { SA } = evolve.loadGame(), spec = evolve.stageSpec(SA, 2, 0);
+  // 第一章第 3 关已开放 2×2 重装甲，水箱可合法替换，保证对照分支实际跑到（关卡布局 4 只到这一关）。
+  const { SA } = evolve.loadGame(), spec = evolve.stageSpec(SA, 1, 2);
   const base = evolve.minimalVehicle(SA, spec, 'water');
   assert(base, '无法构造奖励车夹具');
   // 对照会拆掉奖励水箱，显式保留一只小水罐维持冷却；不能依赖生成器错误地重复添加水箱。

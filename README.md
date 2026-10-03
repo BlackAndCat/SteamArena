@@ -30,7 +30,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 院子聊天工作台：从「开发者」面板打开 `tools/yard-chat-editor.html`，默认定位当前关卡，也可切到全局、章节或任意关卡。可编排单句与成套对答，调整每组出现权重、独立冷却和天气条件，并设置整体聊天间隔、对答句间隔、气泡留存时间。切换范围会保留本页未保存的编辑；点「一键保存」或按 Ctrl+S 将全部待保存范围写入 `config/text.json`。关卡或章节可选择「恢复继承上一级」。
 
-进化任务开始前会预检所选全部关卡的标尺构筑，失败提示对应章节、关卡、奖励和预算。`node tools/evolve-chapters-check.js` 用小种群检查第一至第五章共 15 关的奖励保底、90 台标尺及完整生成流程，已接入 `node tools/evolve-check.js`；生成成功与胜率 / 地形 / 奖励效果达标分别报告。
+进化任务开始前会预检所选全部关卡的标尺构筑，失败提示对应章节、关卡、奖励和预算。`node tools/evolve-chapters-check.js` 用小种群检查第一章已做的 3 关（关卡布局 4 只留序章和第一章前三关，没有关的章节跳过）的奖励保底、90 台标尺及完整生成流程，已接入 `node tools/evolve-check.js`；生成成功与胜率 / 地形 / 奖励效果达标分别报告。
 
 审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。
 

@@ -66,7 +66,8 @@ for (let ci = 0; ci < SA.CAMPAIGN.length; ci++) for (let si = 0; si < SA.CAMPAIG
   if (ci === 0 && si === 0) near(explicitWater, 0);
   stageCount++;
 }
-assert.strictEqual(stageCount, 23, '战役关卡数量变化，需要更新水量检查范围');
+// 关卡布局 4：序章三关 + 第一章前三关
+assert.strictEqual(stageCount, 6, '战役关卡数量变化，需要更新水量检查范围');
 
 // 锅炉供能不消耗储水，冷却蒸发才消耗储水。
 const base = { shaftKw: 60, heatKw: 75, weaponKw: 0, cool: 0, dryCool: 0, waterSave: 1, capacity: 50 };
@@ -124,4 +125,4 @@ const firstFight = SA.Battle.simulate({ p: starter, e: firstStage.vehicle, terra
 assert(firstFight.events.p.fire > 0 || firstFight.events.e.fire > 0, '战役第一关未能开火');
 const dryFirstFight = SA.Battle.simulate({ p: dryStarter, e: firstStage.vehicle, terrain: firstStage.terrain || 'flat', dt: 1 / 60, seed: 8 });
 assert(dryFirstFight.events.p.fire > 0 && dryFirstFight.events.e.fire > 0, '双方零储水的战役第一关未能交火');
-console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS；无储水仍可开火，18 关初始水量正确；样车满水 ${SA.tons(stats.weight)}。`);
+console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS；无储水仍可开火，${stageCount} 关初始水量正确；样车满水 ${SA.tons(stats.weight)}。`);

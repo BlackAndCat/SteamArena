@@ -135,7 +135,7 @@ def _migrate_stage(current, raw):
     records = dict(current['records'])
     for key, record in payload['records'].items():
         ci, sep, si = key.partition(':')
-        if not sep or not ci.isdigit() or not si.isdigit() or int(ci) >= 6 or int(si) >= 3:
+        if not sep or not ci.isdigit() or not si.isdigit():
             raise ValueError('旧关卡编号不合法')
         layout = payload.get('campaignLayout') or 1
         if layout < 2 and key == '0:1':
@@ -143,7 +143,8 @@ def _migrate_stage(current, raw):
         # 布局 2 → 3：第三、四、五章末关前插入新关，旧末关顺延一位（与 js/camp.js migrateStageIndex 一致）
         if layout < 3 and key in ('3:2', '4:2', '5:2'):
             key = key[:2] + '3'
-        if record is None:
+        # 布局 3 → 4：只留序章三关和第一章前三关，已删除关卡的旧缓存直接丢弃
+        if record is None or key not in records:
             continue
         if not isinstance(record, dict) or not isinstance(record.get('cells'), list):
             raise ValueError('旧关卡记录不合法')

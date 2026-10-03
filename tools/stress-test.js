@@ -59,8 +59,9 @@ function randomizeUpgrades(SA, vehicle, rng) {
 }
 
 function chassisFixtures(SA) {
-  // 真双足由生成器在第 3 章以上的合法规格中生成，确认 2×4 子格与腿区规则。
-  const bipedSpec = evolve.stageSpec(SA, 2, 1);
+  // 真双足由生成器在合法规格中生成，确认 2×4 子格与腿区规则。关卡布局 4 以后没有关卡开放双足，
+  // 在第一章第 3 关的模块池里临时加上双足。
+  const last = evolve.stageSpec(SA, 1, 2), bipedSpec = { ...last, availableMods: [...last.availableMods, 'biped'] };
   const biped = evolve.randomVehicle(SA, bipedSpec, new RNG(9026), 'biped');
   if (!biped || !SA.V.stats(biped).canDeploy) throw new Error('真双足夹具无法生成合法车');
 
@@ -122,7 +123,7 @@ function main() {
   try {
     const fixtures = chassisFixtures(SA);
     for (const [name, vehicle] of Object.entries(fixtures)) {
-      const opponent = evolve.randomVehicle(SA, evolve.stageSpec(SA, 2, 1), new RNG(seed + name.length));
+      const opponent = evolve.randomVehicle(SA, evolve.stageSpec(SA, 1, 2), new RNG(seed + name.length));
       const result = SA.Battle.simulate({ p: vehicle, e: opponent, terrain: 'flat', pStyle: 'wander', eStyle: 'rush', seed: seed + 70000 + name.length });
       assertFinite(result, `夹具 ${name}`);
       report.coverage.fixtures[name] = { winner: result.winner, seconds: result.t, issues: SA.V.stats(vehicle).issues };
@@ -133,7 +134,10 @@ function main() {
   }
 
   // 每个可部署模块至少强制尝试一次；之后再按随机规格大量生成构筑。
-  const deployableIds = Object.keys(SA.MODULES).filter(id => !SA.MODULES[id].retired);
+  // 关卡布局 4 删掉后面的关以后，不少模块暂时没有解锁档位：单独列出，不算缺失
+  const tiered = new Set(specs.flatMap(spec => spec.availableMods));
+  const deployableIds = Object.keys(SA.MODULES).filter(id => !SA.MODULES[id].retired && tiered.has(id));
+  report.coverage.untiered = Object.keys(SA.MODULES).filter(id => !SA.MODULES[id].retired && !tiered.has(id)).sort();
   for (const id of deployableIds) {
     const forced = vehicleForModule(SA, specs, id, rng);
     if (!forced) report.coverage.missingModules.push(id);

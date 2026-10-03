@@ -44,8 +44,10 @@ function run() {
   C.st = 2;
   assert(SA.S.buyable('cockpit_pair'), '上一关解锁未售卖');
   denied(SA, 'mortar');
-  C.ch = 2; C.st = 0;
-  assert(SA.S.buyable('mortar') && SA.S.buyable('quad'), '完成第一章后的解锁未售卖');
+  // 关卡布局 4：第一章只做了前三关、没有章节通关奖励；打完这三关停在章内，只开放这三关的解锁
+  C.st = 3;
+  assert(SA.S.buyable('mortar'), '第一章已通过关卡的解锁未售卖');
+  denied(SA, 'quad');
 
   // 作者白名单只属于当前章；未通关关卡的 unlock 不能被误当作白名单。
   C.ch = 0; C.st = 0;
@@ -62,7 +64,7 @@ function run() {
   assert(SA.uniqueRule('quad') === null && SA.LEG_VARIANTS.some(x => x.id === 'quad'));
 
   C.done = true; C.mat = 6;
-  assert(SA.S.buyable('rocket_rack') && SA.S.buyable('water_l'), '全战役完成后遗漏已解锁模块');
+  assert(SA.S.buyable('mortar') && SA.S.buyable('cockpit_pair'), '全战役完成后遗漏已解锁模块');
   denied(SA, 'cannon_giant');
   denied(SA, 'boss_ram');
   C.feat = [];
