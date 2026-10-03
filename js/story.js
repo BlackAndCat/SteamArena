@@ -37,7 +37,10 @@ SA.Story = (() => {
   try { flags = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { flags = {}; }
   const seen = (k) => !!flags[k];
   function mark(k) { flags[k] = 1; try { localStorage.setItem(KEY, JSON.stringify(flags)); } catch (e) { /* 隐私模式：只在本页记住 */ } }
-  function reset() { flags = {}; try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } }
+  function reset() { flags = {}; pipStoryActive = false; try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ } }
+  // 皮普是否在车上只看当前实际装配；库存中的双人舱不改变院子人物。
+  const pipInVehicle = () => !!SA.S?.d?.vehicle && !!SA.V.countIds(SA.S.d.vehicle).cockpit_pair;
+  let pipStoryActive = false;
   // 全新存档：还在序章第一场、车间没开
   const isFresh = () => { const C = SA.S.d.camp; return C.ch === 0 && C.st === 0 && !C.done && !SA.Camp.has('garage'); };
 
@@ -538,6 +541,18 @@ SA.Story = (() => {
   // ---------- 流程 ----------
   // 台词一律经 SA.StoryData.get 读；SA.STORY 只是同一配置的结构化运行时视图。
   const lines = (id, fb) => { try { return SA.StoryData ? SA.StoryData.get(id) : fb; } catch (e) { return fb; } };
+  // 首次装上双人舱后，从车间去出战或回院子都先留在院子听完这段；在播时重复导航不能绕开。
+  function enterPipStory(name) {
+    if (name !== 'home' && name !== 'arena') return false;
+    if (pipStoryActive) { if (SA.current !== 'home') SA.Home.open(); return true; }
+    if (!pipInVehicle() || seen('pip_pair')) return false;
+    pipStoryActive = true;
+    SA.Home.open();
+    SA.Story.talk(lines('feat.pip_pair', SA.STORY.feat.pip_pair), { cls: 'vn-hint', onDone: () => {
+      mark('pip_pair'); pipStoryActive = false;
+    } });
+    return true;
+  }
   // 开场试播使用正式分镜，但结束后只执行编辑器回调，不写进度或进入战斗。
   function previewOpening(rows, next, o = {}) {
     if (!rows.length) { next(); return; }
@@ -582,5 +597,5 @@ SA.Story = (() => {
     talk(out, { onDone: next, cls: 'vn-hint' });
   }
 
-  return { title, begin, talk, previewOpening, tutorial, afterBattle, emblem, portrait, exprs, seen, mark, reset, isFresh };
+  return { title, begin, talk, previewOpening, tutorial, afterBattle, emblem, portrait, exprs, seen, mark, reset, isFresh, pipInVehicle, enterPipStory };
 })();

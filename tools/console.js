@@ -206,7 +206,7 @@
   const sceneLines = (id) => { try { return SA.StoryData.get(id); } catch (e) { return []; } };
 
   // ---------- 院子闲聊 ----------
-  const CHAT_WHO = { rel: '远房亲戚', tom: '铁匠 老汤姆', tim: '学徒 小提米' };
+  const CHAT_WHO = { rel: '远房亲戚', tom: '铁匠 老汤姆', tim: '学徒 皮普' };
   const ACTIONS = { talk: '说话', yelp: '惊叫', sleep: '打盹', jolt: '惊醒' };
   const WEATHER = { any: '任何天气', rain: '雨天', night: '夜里' };
   function scopeName(scope) {

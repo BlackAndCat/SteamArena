@@ -94,7 +94,7 @@ def run():
             evaluate("document.querySelector('.title')?.remove(); document.querySelector('#modal').hidden=true; SA.Home.open('sun')")
             for weather in ('sun', 'rain', 'night'):
                 evaluate(f"SA.Home.open('{weather}')")
-                for index, key, name in ((0, 'rel', '远房亲戚'), (1, 'tom', '铁匠 老汤姆'), (2, 'tim', '学徒 小提米')):
+                for index, key, name in ((0, 'rel', '远房亲戚'), (1, 'tom', '铁匠 老汤姆'), (2, 'tim', '学徒 皮普')):
                     probe = evaluate("(()=>{const e=[...document.querySelectorAll('.home-stage > .ab.px-hot')].filter(x=>!x.classList.contains('home-vane'))[" + str(index) + "];const r=e.getBoundingClientRect(),cv=e.querySelector('canvas');let x=Math.floor(r.left+r.width/2),y=Math.floor(r.top+r.height/2),pixel=null;if(cv){const a=cv.getContext('2d').getImageData(0,0,56,56).data;let best=1e9;for(let py=12;py<49;py++)for(let px=18;px<38;px++){if(a[(py*56+px)*4+3]<20)continue;const score=(px-28)**2+(py-26)**2;if(score<best){best=score;pixel=[px,py]}}if(pixel){const cr=cv.getBoundingClientRect();x=Math.floor(cr.left+(pixel[0]+.5)*cr.width/56);y=Math.floor(cr.top+(pixel[1]+.5)*cr.height/56)}}const t=document.elementFromPoint(x,y);return {x,y,pixel,hit:e===t||e.contains(t),target:t?.className,tag:t?.tagName,outer:t?.outerHTML?.slice(0,240),actor:e.className,rect:[r.left,r.top,r.width,r.height]}})()")
                     pointer(probe['x'], probe['y'])
                     visible = evaluate("!document.querySelector('#modal').hidden")

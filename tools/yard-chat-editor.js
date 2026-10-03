@@ -112,7 +112,7 @@
       const lines = element('div', { class: 'lines' });
       group.lines.forEach((line, lineIndex) => {
         const row = element('div', { class: 'line' });
-        const who = select(line.who, 'who', [['rel', '瑞尔'], ['tom', '老汤姆'], ['tim', '小提米']], index, lineIndex);
+        const who = select(line.who, 'who', [['rel', '瑞尔'], ['tom', '老汤姆'], ['tim', '皮普']], index, lineIndex);
         const text = element('textarea', { 'data-field': 'text', 'data-group': index, 'data-line': lineIndex, 'aria-label': `第 ${index + 1} 组第 ${lineIndex + 1} 句` });
         text.value = line.text;
         const tag = element('span', { class: 'muted' }, `第 ${lineIndex + 1} 句`);

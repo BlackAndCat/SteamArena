@@ -17,7 +17,7 @@ SA.CAMPAIGN_MAP = {
     {
       code: '序章', name: '铁匠铺后院', theme: '学会开车', days: '距寿辰 120 天',
       stages: [
-        { code: '0-1', unlockMods: ['tank_s'], car: '破铜烂铁号', pilot: '学徒 小提米', role: '教学', pressure: 1, terrain: '平地 · 新手', test: '开车、瞄准，驾驶舱被毁就输', reward: '◆车间、小水罐', now: '0,0' },
+        { code: '0-1', unlockMods: ['tank_s'], car: '破铜烂铁号', pilot: '学徒 皮普', role: '教学', pressure: 1, terrain: '平地 · 新手', test: '开车、瞄准，驾驶舱被毁就输', reward: '◆车间、小水罐', now: '0,0' },
         { code: '0-2', unlockMods: ['plate'], car: '补丁号', pilot: '铆工 小艾达', role: '普通', pressure: 2, terrain: '平地 · 龟缩', test: '甲片挡住的地方打不动 → 找它没挡住的缝', reward: '甲片', now: '0,1' },
         { code: '0-3', unlockMods: ['bucket'], car: '锈钉子号', pilot: '铁匠 老汤姆', role: '★ 结业考', pressure: 4, terrain: '平地', test: '机炮扫要害、铲斗推人 → 装甲护住要害，用铲斗贴身', reward: '◆铲斗', now: '0,2' },
       ],

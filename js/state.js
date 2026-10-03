@@ -265,7 +265,7 @@ SA.S = (() => {
       for (let mt = SA.MAT_MAX; mt >= 1; mt--) stock[key].push(...stockOptions(id, mt).filter(x => identity(x) === key));
       const miss = Math.max(0, need[key] - (pool[key] || []).length - stock[key].length);
       if (miss && SA.isUnique(cell)) blocked.push(SA.Config.text("state_d1bd62c1d982", `${SA.uniqueRule(cell).name || M[id].name}`));
-      else if (miss && ['steamjet', 'flamer'].includes(id) && !SA.S.buyable(id)) blocked.push(SA.Config.text("state_6514d6c49044", `${M[id].name}`));
+      else if (miss && (SA.isCockpit(id) || ['steamjet', 'flamer'].includes(id)) && !SA.S.buyable(id)) blocked.push(SA.Config.text("state_6514d6c49044", `${M[id].name}`));
       else if (miss) { buy[id] = (buy[id] || 0) + miss; buyCost += miss * SA.buyPrice(id); }
     }
     // 用不上的受损模块要修好才能放回库存
@@ -275,7 +275,7 @@ SA.S = (() => {
 
   // 付款确认后按原计划组装，库存、回收款与车辆变更统一在逻辑层处理。
   function applyPlan(p) {
-      if (p.blocked.length || Object.keys(p.buy).some(id => ['steamjet', 'flamer'].includes(id) && !SA.S.buyable(id))) return false;
+      if (p.blocked.length || Object.keys(p.buy).some(id => (SA.isCockpit(id) || ['steamjet', 'flamer'].includes(id)) && !SA.S.buyable(id))) return false;
       for (const id in p.buy) SA.S.addInv(id, p.buy[id], SA.buyMt(id));
       for (const { cell, r, c, layer, stock } of p.requests) {
         const key = p.identity(cell), reuse = p.pool[key] && p.pool[key].shift();
@@ -534,9 +534,9 @@ SA.S = (() => {
   }
 
   // 编辑器操作：付款在原确认入口扣除，其余模块变更在此执行。
-  // 商店只卖本进度已解锁或当前章节作者指定的有效模块；旧存档的宽泛解锁不能越级售卖。
+  // 商店只卖本进度已解锁或当前章节作者指定的有效模块；所有驾驶舱只靠初始装备和缴获获得。
   const buyable = (id) => typeof id === 'string' && Object.hasOwn(SA.MODULES, id) && !Object.hasOwn(SA.RETIRED, id)
-    && SA.Camp.has('shop') && SA.Camp.shopMods().has(id)
+    && !SA.isCockpit(id) && SA.Camp.has('shop') && SA.Camp.shopMods().has(id)
     && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
   function payAmount(amount) { d.money -= amount; save(); }
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }
