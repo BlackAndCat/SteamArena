@@ -1102,14 +1102,19 @@ SA.Battle = (() => {
     s.fireHeld = !!s.target;
     // 移动：按性格来。默认 = 有撞击武器就周期性冲撞，否则在交战距离内游走；
     // rush 冲锋：几乎一直在冲，退也只退一小段助跑；kite 放风筝：保持远距离，很少冲撞；turtle 龟缩：守在出发点附近
+    const rushMelee = s.style === 'rush' && canMelee(s);
+    const pureMeleeRush = rushMelee && s.weapons.length === 0;
+    // 混合武装在火力段失去最后一门炮时，立即改用近战短撤步节奏。
+    if (pureMeleeRush && !s.charge) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME);
     s.moveT -= dt;
     if (s.moveT <= 0) {
       const sty = s.style;
-      s.charge = canMelee(s) && sty !== 'turtle' && (sty === 'rush' ? !s.charge || random() < T.AI_CHARGE_RUSH_CHANCE : !s.charge && random() < (sty === 'kite' ? T.AI_CHARGE_KITE_CHANCE : T.AI_CHARGE_DEFAULT_CHANCE));
+      // 未接触前持续冲锋；纯近战可继续顶推，混合武装接触后必定转入火力段。
+      s.charge = canMelee(s) && sty !== 'turtle' && (sty === 'rush' ? !s.charge || !B.contact || (pureMeleeRush && random() < T.AI_CHARGE_RUSH_CHANCE) : !s.charge && random() < (sty === 'kite' ? T.AI_CHARGE_KITE_CHANCE : T.AI_CHARGE_DEFAULT_CHANCE));
       const [lo, hi] = sty === 'kite' ? T.AI_MOVE_RANGE_KITE : sty === 'rush' ? T.AI_MOVE_RANGE_RUSH : T.AI_MOVE_RANGE_DEFAULT;
       const fwd = isP(s) ? 1 : -1, gap = fwd * (frontEdge(o) - frontEdge(s));   // 两车车头之间的距离
       s.goalX = sty === 'turtle' ? s.homeX + rnd(-T.AI_TURTLE_OFFSET, T.AI_TURTLE_OFFSET) : s.x + fwd * (gap - rnd(lo, hi));
-      s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
+      s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : pureMeleeRush ? T.AI_CONTACT_MOVE_TIME : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
     }
     const selected = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
     // 高抛炮只对超出有效射界或炮口后方的目标后退；前方近点可竖直高抛。
@@ -1118,7 +1123,9 @@ SA.Battle = (() => {
     const lob = aimPt ? aimAngle(s, selected, aimPt[0], aimPt[1]) : null;
     const fwd = isP(s) ? 1 : -1;
     const gapNow = selected && selected.m.range ? Math.abs(frontEdge(o) - frontEdge(s)) : 0;
-    if (lob && (lob.behind || lob.over === 'high')) s.dir = -fwd;
+    // 冲锋阶段优先接敌；纯近战火力段改成定向短撤步，混合武装沿用原站位开火。
+    if (rushMelee && (s.charge || pureMeleeRush)) { s.dir = s.charge ? fwd : -fwd; if (s.charge && B.contact && Math.abs(s.vx) < T.AI_CONTACT_SPEED) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME); }
+    else if (lob && (lob.behind || lob.over === 'high')) s.dir = -fwd;
     else if (lob && (!lob.reach || lob.over === 'low')) s.dir = fwd;
     else if (selected && selected.m.range && gapNow > selected.m.range * T.AI_RANGE_MARGIN) s.dir = fwd;
     else if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < T.AI_CONTACT_SPEED) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME); }

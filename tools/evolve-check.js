@@ -37,6 +37,7 @@ const crewClearance = require('./crew-clearance-check');
 const auditBattle = require('./battle-audit-check');
 const auditShare = require('./share-audit-check');
 const auditVisual = require('./visual-audit-check');
+const aiRush = require('./ai-rush-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -220,6 +221,7 @@ async function main() {
   result.specialWeapons = specialWeapons.run();
   result.crewClearance = crewClearance.run();
   result.audit = audit;
+  result.aiRush = aiRush.run();
   console.log(JSON.stringify(result, null, 2));
 }
 
