@@ -1582,6 +1582,14 @@
       sep(),
       el('button.btn.sm', { type: 'button', title: '用拼装台上这台车去游戏的试驾场打一场', on: { click: withGarage((G) => { G.drivePick({ name: f.name, terrain: f.terrain, style: f.style }); go('game/drive'); }) } }, '试驾'),
       el('button.btn.sm', { type: 'button', title: '交给进化生成器当种子，正式关卡不变', on: { click: withGarage((G) => { d.arenaId = G.saveArena(d.arenaId, { name: f.name, style: f.style, terrain: f.terrain }); toast('已存到进化擂台（正式关卡没动）'); }) } }, '存到进化擂台'),
+      el('button.btn.sm', { type: 'button', title: '用当前拼装台车辆为本关生成候选，并到进化擂台查看进度', on: { click: withGarage((G) => {
+        const car = G.info();
+        if (!car.cells.length) throw new Error('拼装台上没有可生成的车');
+        // 一次性交接当前未保存车辆；目标页先查询服务状态，忙碌时留待手动启动。
+        sessionStorage.setItem('steam_arena_evolve_handoff', JSON.stringify({ chapter: st.ci, stage: st.si,
+          originVehicle: { name: f.vehicleName || car.name, cells: car.cells } }));
+        go('open/evolve');
+      }) } }, '生成本关候选'),
       el('span.grow'), carState,
       armedButton('放弃改动', '再点一次放弃', () => {
         stageDrafts.delete(key);

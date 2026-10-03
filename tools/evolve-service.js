@@ -35,10 +35,14 @@ function mergeReports(base, fresh) {
 
 function catalog() {
   const { SA } = evolve.loadGame();
+  const route = evolve.plannedRoute(SA);
   return { defaults: { population: config.population.size, generations: config.population.generations, games: config.evaluation.quickGames, workers: 4 },
-    chapters: SA.CAMPAIGN.map((ch, ci) => ({ chapter: ci, name: ch.name, stages: ch.stages.map((stage, si) => {
-      const spec = evolve.stageSpec(SA, ci, si);
-      return { stage: si, name: spec.name, budget: spec.budget, status: spec.budgetStatus, modules: spec.availableMods.map(id => SA.MODULES[id]?.name || id) };
+    chapters: SA.CAMPAIGN.map((ch, ci) => ({ chapter: ci, name: ch.name, stages: route.filter(row => row.chapter === ci).map(({ stage: si }) => {
+      const spec = evolve.previewStageSpec(SA, ci, si);
+      return { stage: si, name: spec.name, budget: spec.budget, status: spec.budgetStatus,
+        previewRuleSource: spec.previewRuleSource || null, hasVehicle: !!evolve.stageFor(SA, ci, si)?.vehicle,
+        maxAfter: route.length - route.findIndex(row => row.chapter === ci && row.stage === si) - 1,
+        modules: spec.availableMods.map(id => SA.MODULES[id]?.name || id) };
     }) })) };
 }
 
@@ -50,9 +54,16 @@ async function generate(request, emit = () => {}) {
   const workers = integer(request.workers, 4, 1, 12, '并行数');
   const seed = integer(request.seed, 20260929, 1, 2147483647, '种子');
   const scope = request.scope;
-  if (!scope || !Number.isInteger(scope.chapter)) throw new Error('请选择要生成的章节');
+  if (!scope || scope.type !== 'route-after' && (scope.type != null || !Number.isInteger(scope.chapter))) throw new Error('请选择要生成的章节');
+  const { SA } = evolve.loadGame();
+  if (scope.type === 'route-after') evolve.routeAfter(SA, scope.origin, scope.count);
   const seeds = request.seeds || [];
   if (!Array.isArray(seeds) || seeds.length > 128 || seeds.some(rec => !Array.isArray(rec.cells) || rec.cells.length > 256)) throw new Error('种子车数量或模块清单不合法');
+  const originVehicle = request.originVehicle;
+  if (originVehicle != null && (!originVehicle || typeof originVehicle !== 'object' || !Array.isArray(originVehicle.cells) || !originVehicle.cells.length || originVehicle.cells.length > 256))
+    throw new Error('原点车辆模块清单不合法');
+  if (scope.type === 'route-after' && !originVehicle && !evolve.stageFor(SA, scope.origin.chapter, scope.origin.stage)?.vehicle)
+    throw new Error('原点没有关卡车；请先保存原点车辆');
   let base = null;
   if (request.baseReport != null && request.baseReport !== '') {
     if (typeof request.baseReport !== 'string' || !/^out\/evolve-\d+\.json$/.test(request.baseReport)) throw new Error('只能续接本工具的运行报告');
@@ -63,7 +74,7 @@ async function generate(request, emit = () => {}) {
   }
   const references = (base?.chapters || []).flatMap(ch => ch.stages.map(stage => stage.selected).filter(Boolean));
   // 总步骤保留最后的报告落盘，评估和筛选结束时不会提前显示 100%。
-  const fresh = await evolve.runAsync({ scope, games, workers, seed, seeds, references,
+  const fresh = await evolve.runAsync({ scope, originVehicle, games, workers, seed, seeds, references,
     onProgress: event => emit({ type: 'progress', ...event, totalSteps: event.totalSteps + 1 }) });
   const report = mergeReports(base, fresh);
   const saved = storage.writeReport(report);

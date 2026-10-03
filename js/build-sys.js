@@ -38,3 +38,4 @@ SA.BUILD_SYS += '+progress-priority-mortar-spread-melee-recoil'; // 逐门优先
 SA.BUILD_SYS += '+stage-create-shortcuts'; // 控制台从关卡工作台或战役地图新增计划关卡，保存时登记稳定编号。
 SA.BUILD_SYS += '+cockpit-pip-rules'; // 驾驶舱禁售；双人舱装车与首次剧情共用实际装配判定。
 SA.BUILD_SYS += '+stage-create-budget-rollback'; // 新建关卡同时登记逐关预算（按设计稿序号每关 ×1.2），三份文件任一写失败都回滚；检查跳过占位空关。
+SA.BUILD_SYS += '+evolve-route-after'; // 进化擂台按真实原点车预演后续主线计划关，并支持工作台交接。

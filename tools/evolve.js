@@ -29,7 +29,7 @@ const { install: installConfig } = require('./config-node');
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'out');
 // 指纹只纳入后台规则文件；视觉拆分文件不会让候选车报告失效。
-const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
+const RULE_FILES = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/campaign-map.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
   ...fs.readdirSync(path.join(ROOT, 'config')).filter(name => name.endsWith('.json')).sort().map(name => `config/${name}`)];
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
@@ -100,7 +100,7 @@ function loadGame({ contextify = false } = {}) {
   // Node 诊断只需要规则层；不加载 battle-view，避免 debug.step 的无画面检查误触发精灵绘制。
   // 浏览器页面仍按 index / tools/sim.html 的脚本顺序加载 battle-view.js。
   const files = ['js/palette.js', 'js/modules.js', 'js/module-art.js', 'js/dynamics.js', 'js/sprites.js', 'js/legs.js', 'js/vehicle.js',
-    'js/content.js', 'js/build-sys.js', 'js/stage-cars.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle.js'];
+    'js/content.js', 'tools/campaign-map.js', 'js/build-sys.js', 'js/stage-cars.js', 'js/state.js', 'js/ui.js', 'js/camp.js', 'js/camp-ui.js', 'js/terrain-art.js', 'js/battle.js'];
   for (const file of files) vm.runInContext(fs.readFileSync(path.join(ROOT, file), 'utf8'), context, { filename: file });
   return { context, SA: context.SA };
 }
@@ -212,6 +212,49 @@ function stageSpec(SA, chapter, stage) {
     availableMods: available.filter(id => !['steamjet', 'flamer'].includes(id) || (SA.minMt(id) <= progress.mat && progress.mat <= SA.maxMt(id))),
     target: { bossWinRate: design.targetStrength || (actual.boss ? [0.6, 0.7] : [0.65, 0.8]) },
   };
+}
+
+// 路线图序号是预演范围的唯一坐标；未创建的计划关不写入正式战役数组。
+function plannedRoute(SA) {
+  const plan = SA.CAMPAIGN_MAP?.chapters || [];
+  if (plan.length !== SA.CAMPAIGN.length || plan.some((ch, ci) => ch.stages.length !== SA.CAMPAIGN[ci].plannedStages))
+    throw new Error('战役路线图与计划关数不一致');
+  return plan.flatMap((ch, chapter) => ch.stages.map((entry, stage) => ({ chapter, stage, entry })));
+}
+
+function routeAfter(SA, origin, count) {
+  const route = plannedRoute(SA);
+  const index = route.findIndex(row => row.chapter === origin?.chapter && row.stage === origin?.stage);
+  if (index < 0 || !Number.isSafeInteger(count) || count < 1 || index + count >= route.length)
+    throw new Error(`后续关卡范围无效；该原点最多可选 ${Math.max(0, route.length - index - 1)} 关`);
+  return route.slice(index + 1, index + count + 1);
+}
+
+// 正式构筑规则优先；缺规则的计划关仅在进化运行内继承已配置关的结构和预算。
+function previewStageSpec(SA, chapter, stage) {
+  if (stageRules.some(row => row.chapter === chapter && row.stage === stage)) return stageSpec(SA, chapter, stage);
+  const route = plannedRoute(SA), index = route.findIndex(row => row.chapter === chapter && row.stage === stage);
+  if (index < 0) throw new Error('预演关卡不在路线图内');
+  const source = [...route.slice(0, index + 1)].reverse().find(row => stageRules.some(rule => rule.chapter === row.chapter && rule.stage === row.stage));
+  if (!source) throw new Error('没有可继承的已配置关卡规则');
+  const inherited = stageSpec(SA, source.chapter, source.stage), entry = route[index].entry;
+  // 敌车候选池可试用目标关引入的新件；玩家库存仍按通关前的原解锁规则计算。
+  const unlocked = new Set([...(SA.CAMP_START?.mods || []), ...inherited.availableMods]);
+  route.slice(0, index + 1).forEach((row, i) => {
+    if (i && row.stage === 0) for (const id of SA.CAMPAIGN_MAP.chapters[row.chapter - 1].unlockMods || []) unlocked.add(id);
+    for (const id of row.entry.unlockMods || []) unlocked.add(id);
+  });
+  const ids = [...unlocked].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired);
+  const mat = Math.min(SA.MAT_MAX, Math.max(inherited.mat, ...ids.map(id => SA.minMt(id))));
+  const actual = stageFor(SA, chapter, stage);
+  const terrain = Object.entries(SA.TERRAINS).find(([, value]) => entry.terrain?.includes(value.name))?.[0];
+  return { ...inherited, chapter, stage, name: actual?.name || entry.car, terrain: actual?.terrain || terrain || inherited.terrain,
+    bounds: SA.CAMPAIGN[chapter].bounds || inherited.bounds, boss: actual?.boss ?? /★/.test(entry.role || ''),
+    chapterHasBoss: SA.CAMPAIGN_MAP.chapters[chapter].stages.some(row => /★/.test(row.role || '')),
+    rewardModule: null, uniqueLoot: actual?.uniqueLoot || [], mat,
+    availableMods: ids.filter(id => SA.minMt(id) <= mat && mat <= SA.maxMt(id)),
+    budgetStatus: 'inherited-preview', previewRuleSource: { chapter: source.chapter, stage: source.stage },
+    target: { bossWinRate: /★/.test(entry.role || '') ? [0.6, 0.7] : [0.65, 0.8] } };
 }
 
 // 每一关的规格是战役意图的单一数据入口；这里只验字段完整性，不把探索稿的数值门槛强行改写进搜索。
@@ -938,9 +981,9 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
   return { scored: [], archive: { buckets: {}, toxic: [], odd: [] } };
 }
 
-function campaignOpponents(SA, chapter, stage) {
+function campaignOpponents(SA, chapter, stage, previewSpec = null) {
   // 评分标尺也按本关预算和模块表构筑，不能继续拿旧的越级关卡车评估新手区段。
-  const spec = stageSpec(SA, chapter, stage);
+  const spec = previewSpec || stageSpec(SA, chapter, stage);
   return Array.from({ length: config.evaluation.anchorCount }, (_, i) => {
     const v = i < 2 ? minimalVehicle(SA, spec, i === 1 ? spec.rewardModule : null) :
       randomVehicle(SA, spec, new RNG(731001 + chapter * 1009 + stage * 101 + i)) || minimalVehicle(SA, spec);
@@ -1093,24 +1136,36 @@ async function runAsync(options = {}) {
   // 页面定向模拟属于预演：可显式选择尚待审阅的规格，但不写正式战役。
   // 原有批量 / 正式入口继续执行审阅门槛。
   const scope = options.scope;
-  if (scope && (!Number.isInteger(scope.chapter) || !SA.CAMPAIGN[scope.chapter] ||
-    (scope.stage != null && (!Number.isInteger(scope.stage) || !SA.CAMPAIGN[scope.chapter].stages[scope.stage])))) throw new Error('生成范围不是有效的章 / 关');
+  const route = scope?.type === 'route-after' ? routeAfter(SA, scope.origin, scope.count) : null;
+  if (scope && !route && (scope.type != null || !Number.isInteger(scope.chapter) || !SA.CAMPAIGN[scope.chapter] ||
+    (scope.stage != null && (!Number.isInteger(scope.stage) || !plannedRoute(SA).some(row => row.chapter === scope.chapter && row.stage === scope.stage)))))
+    throw new Error('生成范围不是有效的章 / 关');
   if (!scope) requireReviewedRange(chapters);
-  const chapterIndexes = scope ? [scope.chapter] : Array.from({ length: chapters }, (_, i) => i);
+  const chapterIndexes = route ? [...new Set(route.map(row => row.chapter))] : scope ? [scope.chapter] : Array.from({ length: chapters }, (_, i) => i);
   const seed = options.seed || 20260925, workerCount = Math.max(1, Math.floor(options.workers || Math.min(4, os.availableParallelism?.() || os.cpus().length || 1)));
   const rng = new RNG(seed), all = [], chapterReports = [], selectionFailures = [], duelCache = createDuelCache(SA);
   const telemetry = { startedAt: Date.now(), workerCount, completedCandidates: 0, completedStages: 0, completedChapters: 0, completedSteps: 0, totalSteps: 0 };
-  let previous = [], previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) }, status = 'complete';
+  const sourceStage = route ? stageFor(SA, scope.origin.chapter, scope.origin.stage) : null;
+  if (route && !options.originVehicle && !sourceStage?.vehicle) throw new Error('原点没有关卡车；请先保存原点车辆或从工作台明确传入');
+  const originVehicle = options.originVehicle ? SA.V.fromCells(options.originVehicle.name || '原点关卡车', options.originVehicle.cells) : sourceStage?.vehicle || null;
+  if (options.originVehicle) {
+    // fromCells 会跳过坏模块与坐标；原点父本必须与工作台提交的车完全一致。
+    const order = cells => cells.map(cell => JSON.stringify(cell)).sort();
+    if (JSON.stringify(order(options.originVehicle.cells)) !== JSON.stringify(order(SA.StageCars.cellsOf(originVehicle))))
+      throw new Error('原点车辆包含无效模块或布局，不能静默跳过');
+  }
+  if (originVehicle && !SA.V.stats(originVehicle).canDeploy) throw new Error('原点车辆不能出战');
+  let previous = originVehicle ? [originVehicle] : [], previousBoss = { vehicle: minimalVehicle(SA, stageSpec(SA, 0, 0)) }, status = 'complete';
   const seedWarnings = [];
   // 开跑前确定实际范围和合法种子数，避免跨代归零，或种子扩容后才改变总步数。
   // 一次候选评估算一步，每关整理与筛选各一步，Boss 标尺选择另计一步；锁定关仅整理一步。
   const stagePlans = chapterIndexes.map(chapter => {
-    const indexes = (scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i)).filter(i => !SA.CAMPAIGN[chapter].stages[i]?.unfinished);
+    const indexes = (route ? route.filter(row => row.chapter === chapter).map(row => row.stage) : scope?.stage != null ? [scope.stage] : Array.from({ length: options.firstStageOnly ? 1 : options.firstTwoStages ? 2 : SA.CAMPAIGN[chapter].stages.length }, (_, i) => i)).filter(i => route || !SA.CAMPAIGN[chapter].stages[i]?.unfinished);
     const stages = indexes.map(stage => {
-      const spec = stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
+      const spec = scope ? previewStageSpec(SA, chapter, stage) : stageSpec(SA, chapter, stage), actual = stageFor(SA, chapter, stage);
       const locked = actual?.source === 'manual' && actual.locked && !scope;
       // 先预检所选范围的全部标尺，构筑条件不成立时立即指出具体关卡，避免跑到中途才失败。
-      const opponents = locked ? null : campaignOpponents(SA, chapter, stage);
+      const opponents = locked ? null : campaignOpponents(SA, chapter, stage, spec);
       const seeds = [], seedKeys = new Set();
       if (!locked) for (const rec of options.seeds || []) {
         if (rec.spec?.chapter !== chapter || rec.spec?.stage !== stage) continue;
@@ -1135,15 +1190,16 @@ async function runAsync(options = {}) {
   });
   // 局部重跑优先沿用工作报告中的 Boss；没有可用记录时使用该档合法标尺。
   const reference = (chapter, stage) => {
-    const spec = stageSpec(SA, chapter, stage);
+    const spec = previewStageSpec(SA, chapter, stage);
     const record = (options.references || []).find(rec => rec.spec?.chapter === chapter && rec.spec?.stage === stage);
     const vehicle = record?.cells && SA.V.fromCells(record.name, record.cells);
     return { vehicle: vehicle && legalVehicle(SA, vehicle, spec) ? vehicle : minimalVehicle(SA, spec) };
   };
-  if (scope?.chapter > 0) {
-    const ci = scope.chapter - 1, stages = SA.CAMPAIGN[ci].stages;
+  if (chapterIndexes[0] > 0) {
+    const ci = chapterIndexes[0] - 1, stages = SA.CAMPAIGN[ci].stages;
     const bossIndex = stages.findIndex(row => row.boss);
-    previousBoss = reference(ci, bossIndex >= 0 ? bossIndex : stages.length - 1);
+    const fallback = [...plannedRoute(SA)].reverse().find(row => row.chapter === ci && stageRules.some(rule => rule.chapter === ci && rule.stage === row.stage));
+    previousBoss = reference(ci, bossIndex >= 0 ? bossIndex : fallback?.stage ?? 0);
     if (!previousBoss.vehicle) throw new Error('上一章缺少可用标尺，请先生成上一章');
   }
   const pool = createEvaluationPool(workerCount);
@@ -1203,7 +1259,11 @@ async function runAsync(options = {}) {
         const hardConditions = { construction: selection.evidence?.construction === true, modulePool: selection.evidence?.modulePool === true, budget: selection.evidence?.budget === true, reward: !spec.rewardModule || !!selection.evidence?.rewardPresent, nonToxic: !!selection.selected && selection.selected.performance >= config.archive.toxicPerformanceBelow, target: selection.evidence?.targetPass !== false, terrain: selection.evidence?.terrainPass !== false, bossGeneric: selection.evidence?.bossGenericPass !== false, previousBoss: selection.evidence?.previousBossPass !== false, rewardLowerBound: selection.evidence?.rewardLowerBoundPass !== false, rewardCrushGuard: selection.evidence?.rewardCrushGuardPass !== false, rewardEffect: selection.evidence?.rewardEffectPass !== false, rewardContrast: selection.evidence?.rewardContrastPass !== false };
         const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key); if (!selection.selected || failed.length) selectionFailures.push({ chapter, stage, name: spec.name, failed });
         progress({ phase: 'selection-end', chapter, stage });
-        return { spec, count: entry.count, selected: records[selectedIndex] || null, selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
+        const againstOrigin = originVehicle && selection.selected ? duel(SA, selection.selected.vehicle, originVehicle, spec, seed + chapter * 10000 + stage * 101 + 17001, quickGames, duelCache) : null;
+        const originComparison = againstOrigin ? { origin: scope?.origin || { chapter, stage }, name: originVehicle.name,
+          winRate: againstOrigin.winRate, games: againstOrigin.n, wins: againstOrigin.wins, draws: againstOrigin.draws } : null;
+        return { spec, count: entry.count, selected: records[selectedIndex] || null, originComparison,
+          selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions, failed, selectedIndex }, top: records, archive: entry.archive };
       });
       chapterReports.push({ chapter, name: SA.CAMPAIGN[chapter].name, stages }); telemetry.completedChapters++;
       progress({ phase: 'chapter-end', chapter, completed: telemetry.completedChapters, total: chapterIndexes.length }); checkpoint(null);
@@ -1516,4 +1576,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, plannedRoute, routeAfter, previewStageSpec, campaignSpecCheck, randomVehicle, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

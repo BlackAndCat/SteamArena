@@ -22,6 +22,7 @@
     manualReview: '手工修改，待重新模拟',
   };
   const PICKS_KEY = 'steam_arena_evolve_picks';   // 和 js/camp.js 试驾场的 evolve 来源共用
+  const HANDOFF_KEY = 'steam_arena_evolve_handoff'; // 控制台工作台一次性交给本页的当前车
   const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
   const fix = (x, d = 0) => (x == null || !Number.isFinite(+x) ? '—' : (+x).toFixed(d));
   const terrainName = (k) => (SA.TERRAINS[k] ? SA.TERRAINS[k].name : k || '平地');
@@ -39,7 +40,7 @@
     ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v);
   async function currentFingerprint() {
     const names = (await fetch('/__config/list', { cache: 'no-store' }).then(r => r.json())).names;
-    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
+    const files = ['js/modules.js', 'js/vehicle.js', 'js/content.js', 'js/state.js', 'js/camp.js', 'js/battle.js', 'tools/campaign-map.js', 'tools/evolve-stage-rules.json', 'tools/evolve-config.js',
       ...names.slice().sort().map(name => `config/${name}.json`)];
     const texts = await Promise.all([...files.map(f => `../${f}`), 'evolve-config.js'].map(u => fetch(u, { cache: 'no-store' }).then(r => r.text())));
     const module = { exports: {} };
@@ -240,12 +241,18 @@
         rows.push(h('tr', { class: spec.boss ? 'boss' : '' },
           h('td', {}, chapterShort(ch.chapter)),
           h('td', {}, spec.name || stageName(ch.chapter, spec.stage ?? si), spec.boss ? h('span', { class: 'chip' }, 'Boss') : null,
-            spec.rewardModule ? h('span', { class: 'chip' }, `奖励：${(SA.MODULES[spec.rewardModule] || {}).name || spec.rewardModule}`) : null),
+            spec.rewardModule ? h('span', { class: 'chip' }, `奖励：${(SA.MODULES[spec.rewardModule] || {}).name || spec.rewardModule}`) : null,
+            spec.previewRuleSource ? h('span', { class: 'chip', title: '预算与结构限制临时继承，正式关卡配置未修改' },
+              `临时继承 ${chapterShort(spec.previewRuleSource.chapter)}第 ${spec.previewRuleSource.stage + 1} 关`) : null),
           h('td', {}, terrainName(spec.terrain)),
           h('td', {}, sel ? thumb(sel) : h('span', { class: 'bad' }, '没有选出车')),
           h('td', {}, sel ? `${STYLE[sel.style] || sel.style || '—'} · ${CHASSIS[sel.chassis] || sel.chassis || '—'}` : '—'),
           h('td', { class: 'num' }, sel ? `${fix(sel.strength)} ± ${fix(sel.strengthCi)}` : '—'),
           h('td', { class: 'num' }, sel ? winText(sel) : '—'),
+          h('td', { class: 'num' }, s.originComparison ? [
+            `${pct(s.originComparison.winRate)} · ${s.originComparison.games} 局`, h('br'),
+            h('span', { class: 'muted small' }, `${s.originComparison.name} · ${chapterShort(s.originComparison.origin.chapter)}第 ${s.originComparison.origin.stage + 1} 关`)
+          ] : '—'),
           h('td', { class: 'num' }, sel ? fix(sel.performance) : '—'),
           h('td', { class: 'small' }, evidence(spec, ev)),
           h('td', {}, failed.length ? failed.map(k => h('span', { class: 'chip bad' }, COND[k] || k)) : h('span', { class: 'ok' }, '全部满足'))));
@@ -254,7 +261,7 @@
     return h('section', { id: 'picks' }, h('h2', {}, '选关结果'),
       h('p', { class: 'muted small' }, '胜率来自同档标尺的换边实战，平局计半胜；与强度分使用同一批样本。旧报告没有记录时显示“未记录”，手工改车后需重新模拟。'),
       h('div', { class: 'scroll' }, h('table', {},
-        h('tr', {}, ['章', '关卡', '场地', '选中的车', '性格 · 底盘', '强度分', '胜率', '表现分', '关键数据', '硬条件'].map(t => h('th', {}, t))), rows)));
+        h('tr', {}, ['章', '关卡', '场地', '选中的车', '性格 · 底盘', '强度分', '同档胜率', '对原点车胜率', '表现分', '关键数据', '硬条件'].map(t => h('th', {}, t))), rows)));
   }
   function evidence(spec, ev) {
     const parts = [];
@@ -519,7 +526,7 @@
   window.addEventListener('evolve-arena-change', refreshArena);
   window.addEventListener('storage', event => { if (event.key === SA.EvolveArena.KEY) refreshArena(); });
 
-  let runCatalog = null, pollTimer = null, finishedJob = null;
+  let runCatalog = null, pollTimer = null, finishedJob = null, handoff = null;
   async function service(url, payload) {
     const response = await fetch(`/__evolve/${url}`, payload === undefined ? { cache: 'no-store' } :
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -529,14 +536,30 @@
     return data;
   }
   function scopeInfo() {
+    if ($('#run-mode').value === 'route-after') {
+      const [chapter, stage] = $('#run-origin').value.split(',').map(Number);
+      const origin = runCatalog.chapters[chapter]?.stages.find(row => row.stage === stage);
+      const count = $('#run-after-count');
+      count.max = origin?.maxAfter || 0;
+      $('#scope-info').textContent = origin ? `从 ${runCatalog.chapters[chapter].name} · ${origin.name} 之后生成；最多 ${origin.maxAfter} 关。未配置关使用临时继承规则，不修改正式关卡。` : '请选择已有车辆的原点关卡。';
+      return;
+    }
     const chapter = runCatalog.chapters[+$('#run-chapter').value];
     const stages = $('#run-stage').value === 'all' ? chapter.stages : chapter.stages.filter(s => s.stage === +$('#run-stage').value);
-    $('#scope-info').textContent = stages.map(s => `${s.name}：£${s.budget}${s.status === 'draft' ? '（审阅草案）' : ''}`).join('；') +
+    $('#scope-info').textContent = stages.map(s => `${s.name}：£${s.budget}${s.status === 'draft' ? '（审阅草案）' : s.previewRuleSource ? `（临时继承 ${chapterShort(s.previewRuleSource.chapter)}第 ${s.previewRuleSource.stage + 1} 关）` : ''}`).join('；') +
       (stages.length === 1 ? `。可用模块：${stages[0].modules.join('、')}` : '。各关使用各自预算与模块表。');
   }
   function runStages() {
     const chapter = runCatalog.chapters[+$('#run-chapter').value];
     $('#run-stage').replaceChildren(h('option', { value: 'all' }, '整章'), ...chapter.stages.map(s => h('option', { value: s.stage }, `${s.stage + 1} · ${s.name}`)));
+    scopeInfo();
+  }
+  function runMode() {
+    const route = $('#run-mode').value === 'route-after';
+    $('#run-chapter').parentElement.hidden = route;
+    $('#run-stage').parentElement.hidden = route;
+    $('#run-origin').parentElement.hidden = !route;
+    $('#run-after-count').parentElement.hidden = !route;
     scopeInfo();
   }
   // 剩余时间是实测速度估计，向上取整避免尚未结束时显示“0 秒”。
@@ -561,7 +584,9 @@
         const phase = { start: '准备', 'stage-start': '准备本关', 'generation-start': '评估', candidate: '评估', 'generation-end': '完成本代', 'stage-end': '完成本关整理', 'boss-start': '筛选 Boss 标尺', 'boss-end': '完成 Boss 标尺', 'selection-start': '筛选关卡车', 'selection-end': '完成本关筛选', 'chapter-end': '选关完成', complete: '正在保存报告' }[p.phase] || '准备';
         const generation = p.generation == null ? '' : `第 ${p.generation + 1} 代 · 本代 ${p.completed ?? 0}/${p.total ?? '—'} 台`;
         const remaining = Number.isFinite(job.remainingMs) ? `预计剩余约 ${duration(job.remainingMs)}` : '剩余时间估算中';
-        $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}`;
+        $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}` +
+          (handoff && (!handoff.running || handoff.jobId !== job.id) ? '。工作台请求已保留，当前任务结束后可点击“启动待生成”。' : '');
+        if (handoff) $('#generate').disabled = true;
         pollTimer = setTimeout(pollJob, 1500);
       } else if (job.status === 'complete' && finishedJob !== job.id) {
         finishedJob = job.id;
@@ -569,8 +594,14 @@
         $('#generation-status').textContent = `生成完成：${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。` +
           (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
         await refreshList(result.file);
+        if (handoff?.running && job.id === handoff.jobId) { handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告'; }
       } else if (job.status === 'failed') $('#generation-status').textContent = `生成失败：${job.error} · ${overallProgress(job.progress || {})}`;
       else if (job.status === 'cancelled') $('#generation-status').textContent = `已停止生成：${overallProgress(job.progress || {})}，之前的报告和保留车型仍可查看。`;
+      if ((job.status === 'failed' || job.status === 'cancelled') && handoff?.running && job.id === handoff.jobId) {
+        handoff.running = false;
+        sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
+      }
+      if (!busy && handoff) { $('#generate').textContent = '启动待生成'; $('#generate').disabled = false; }
     } catch (error) {
       $('#generation-status').textContent = error.message;
       $('#generate').disabled = !runCatalog;
@@ -583,10 +614,29 @@
         const field = $(`#run-${key}`); if (!field.checkValidity()) throw new Error(`请检查${field.parentElement.textContent.trim()}的取值`);
         return [key, +field.value];
       }));
-      const scope = { chapter: +$('#run-chapter').value, stage: $('#run-stage').value === 'all' ? null : +$('#run-stage').value };
+      const current = handoff;
+      const route = !current && $('#run-mode').value === 'route-after';
+      const [chapter, stage] = $('#run-origin').value.split(',').map(Number);
+      const scope = current ? { chapter: current.chapter, stage: current.stage }
+        : route ? { type: 'route-after', origin: { chapter, stage }, count: +$('#run-after-count').value }
+        : { chapter: +$('#run-chapter').value, stage: $('#run-stage').value === 'all' ? null : +$('#run-stage').value };
+      if (route && !runCatalog.chapters[chapter]?.stages.some(row => row.stage === stage && row.hasVehicle))
+        throw new Error('请选择已有车辆的原点关卡');
+      if (route && (!$('#run-after-count').checkValidity() || !Number.isInteger(scope.count)))
+        throw new Error(`后续关数无效；该原点最多可选 ${runCatalog.chapters[chapter]?.stages[stage]?.maxAfter || 0} 关`);
       const seeds = SA.EvolveArena.read().filter(row => (row.favorite || row.manual) && row.participate !== false &&
-        row.record.spec?.chapter === scope.chapter && (scope.stage == null || row.record.spec.stage === scope.stage)).map(row => row.record);
-      await service('run', { ...params, scope, seeds, baseReport: /^out\/evolve-\d+\.json$/.test(st.source || '') ? st.source : null });
+        row.record.spec?.chapter === (route ? chapter : scope.chapter) && (route || scope.stage == null || row.record.spec.stage === scope.stage)).map(row => row.record);
+      if (current) seeds.push({ ...current.originVehicle, spec: { chapter: current.chapter, stage: current.stage } });
+      const request = current?.request || { ...params, scope, seeds, originVehicle: current?.originVehicle || null,
+        baseReport: /^out\/evolve-\d+\.json$/.test(st.source || '') ? st.source : null };
+      const started = await service('run', request);
+      if (handoff) {
+        handoff.waiting = true;
+        handoff.running = true;
+        handoff.request = request;
+        handoff.jobId = started.id;
+        sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
+      }
       await pollJob();
     } catch (error) { $('#generation-status').textContent = error.message; $('#generate').disabled = false; }
   };
@@ -597,8 +647,33 @@
     try {
       runCatalog = await service('config');
       $('#run-chapter').replaceChildren(...runCatalog.chapters.map(ch => h('option', { value: ch.chapter }, ch.name)));
+      $('#run-origin').replaceChildren(...runCatalog.chapters.flatMap(ch => ch.stages.filter(row => row.hasVehicle).map(row =>
+        h('option', { value: `${ch.chapter},${row.stage}` }, `${ch.name} · ${row.name}`))));
       for (const [key, value] of Object.entries(runCatalog.defaults)) $(`#run-${key}`).value = value;
-      $('#run-chapter').onchange = runStages; $('#run-stage').onchange = scopeInfo; runStages();
+      // 修改目标关即放弃待重试的旧车，避免把先前草稿误投到新范围。
+      const targetChanged = () => {
+        if (handoff && !handoff.running) {
+          handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告';
+        }
+      };
+      $('#run-chapter').onchange = () => { targetChanged(); runStages(); };
+      $('#run-stage').onchange = () => { targetChanged(); scopeInfo(); };
+      $('#run-mode').onchange = () => { targetChanged(); runMode(); };
+      $('#run-origin').onchange = () => { targetChanged(); scopeInfo(); };
+      $('#run-after-count').onchange = targetChanged;
+      runStages(); runMode();
+      // 首次交接在空闲时自动启动；忙碌或刷新后的交接只显示待启动操作，防止重复运行。
+      const stored = sessionStorage.getItem(HANDOFF_KEY);
+      if (stored) {
+        try { handoff = JSON.parse(stored); } catch (_) { sessionStorage.removeItem(HANDOFF_KEY); }
+        if (handoff) {
+          $('#run-mode').value = 'single'; $('#run-chapter').value = String(handoff.chapter); runStages();
+          $('#run-stage').value = String(handoff.stage); runMode();
+          const job = await service('job');
+          sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ ...handoff, waiting: true }));
+          if (job.status !== 'running' && !handoff.waiting && !handoff.running && !handoff.jobId) { await $('#generate').onclick(); }
+        }
+      }
       await pollJob();
     } catch (error) { $('#scope-info').textContent = error.message; }
   }
