@@ -2349,18 +2349,16 @@ SA.SPR = (() => {
   function trackFrame(T, x, y, L, Rr, fx0, fx1, ph, g0, g1, gof) {
     const each = (step, off, lo, hi, fn) => { for (let k = x; k < x + C; k++) if (((k - x) % step) === off && k >= lo && k <= hi) fn(k); };
     const spin = (i) => ph / 24 * TAUT + i, solo = !L && !Rr;   // solo：单节履带，下段链带是平的
-    if (T === 2) {   // 上梁 + 吊杆 + 铸铁小托轮
+    if (T === 2) {   // 上梁 + 吊杆 + 铸铁托轮：吊杆一直伸到托轮轮心，托轮压在下段链带上（战斗里缩小看也要认得出来）
       const a = L ? x : x + 14, b = Rr ? x + C : x + 34;
       R(a, y + 11, b - a, 4, P.iron[0]); R(a, y + 12, b - a, 2, P.iron[3]); R(a, y + 12, b - a, 1, P.iron[4]);
       each(8, 3, a + 2, b - 4, (k) => tBolt(k, y + 12));
-      for (const lx of [8, 24, 40]) if (x + lx >= a + 3 && x + lx <= b - 3) { R(x + lx - 1, y + 15, 3, 12, P.iron[0]); R(x + lx, y + 15, 1, 12, P.iron[3]); }
-      if (solo) {   // 单节：两只大轮之间只剩一只托轮，加大、提亮，压在平直的下段链带上
-        const cx = x + 24, wy = y + 39;
-        R(cx - 1, y + 27, 3, 9, P.iron[0]); R(cx, y + 27, 1, 9, P.iron[3]);
+      for (const lx of [8, 24, 40]) {
+        if (x + lx < a + 3 || x + lx > b - 3) continue;
+        const cx = x + lx, wy = y + 39 + (solo ? 0 : gof(lx));
+        R(cx - 1, y + 15, 3, wy - y - 15, P.iron[0]); R(cx, y + 15, 1, wy - y - 15, P.iron[3]);
         disc(cx, wy, 4.4, P.dark[0]); disc(cx, wy, 3.6, P.iron[3]); disc(cx - 0.5, wy - 0.5, 2.4, P.iron[4]); disc(cx, wy, 1.4, P.iron[1]);
-        return;
       }
-      for (const lx of [8, 24, 40]) if (x + lx >= a + 4 && x + lx <= b - 4) { const wy = y + 40 + gof(lx), cx = x + lx; disc(cx, wy, 3.4, P.dark[0]); disc(cx, wy, 2.6, P.iron[2]); px(cx - 1, wy - 1, P.iron[4]); }
       return;
     }
     if (T === 3) {   // 铆接铁板侧框（竖肋）+ 成对负重轮
