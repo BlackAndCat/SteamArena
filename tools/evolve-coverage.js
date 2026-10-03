@@ -12,6 +12,7 @@ const { loadGame, stageSpec, RNG, randomVehicle, minimalVehicle } = require('./e
 function firstSpec(SA, id) {
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
       const spec = stageSpec(SA, chapter, stage);
       if (spec.availableMods.includes(id)) return spec;
     }
@@ -23,6 +24,7 @@ function specsFor(SA, id) {
   const out = [];
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
       const spec = stageSpec(SA, chapter, stage);
       if (spec.availableMods.includes(id)) out.push(spec);
     }

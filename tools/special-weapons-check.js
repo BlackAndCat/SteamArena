@@ -195,6 +195,7 @@ function materials(SA) {
   assert.strictEqual(SA.S.d.vehicle.body[7][8].id, 'steamjet');
   SA.S.save(); const saved = JSON.stringify(SA.S.d); SA.S.load(); assert.strictEqual(JSON.stringify(SA.S.d), saved);
   for (let ci = 0; ci < SA.CAMPAIGN.length; ci++) for (let si = 0; si < SA.CAMPAIGN[ci].stages.length; si++) {
+    if (SA.CAMPAIGN[ci].stages[si].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
     const spec = evolve.stageSpec(SA, ci, si);
     assert(!spec.availableMods.includes(spec.mat < 4 ? 'flamer' : 'steamjet'));
     SA.V.each(evolve.stageFor(SA, ci, si).vehicle, cell => {

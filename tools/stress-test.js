@@ -109,7 +109,7 @@ function main() {
   const terrains = SA.TERRAIN_ORDER.slice();
   const specs = [];
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
-    for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) specs.push(evolve.stageSpec(SA, chapter, stage));
+    for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) if (!SA.CAMPAIGN[chapter].stages[stage].unfinished) specs.push(evolve.stageSpec(SA, chapter, stage));
   }
   const report = {
     version: 2, seed, requested, completed: 0, errors: [],

@@ -6,8 +6,12 @@ const rules = require('./evolve-stage-rules.json');
 
 function run() {
   const { SA } = evolve.loadGame();
-  assert.strictEqual(rules.length, SA.CAMPAIGN.reduce((n, ch) => n + ch.stages.length, 0));
+  // 每个做出来的关一行预算（占位的空关不算）
+  assert.strictEqual(rules.length, SA.CAMPAIGN.reduce((n, ch) => n + ch.stages.filter(st => !st.unfinished).length, 0));
   const keys = new Set();
+  // 全战役序号按每章计划关数排；中间空着的关也算步数，后台可以跳过去先做后面的关
+  const planned = ch => Math.max(ch.stages.length, ch.plannedStages || 0);
+  const ordinal = row => SA.CAMPAIGN.slice(0, row.chapter).reduce((n, ch) => n + planned(ch), 0) + row.stage;
   rules.forEach((row, i) => {
     const key = `${row.chapter}:${row.stage}`;
     assert(!keys.has(key), `规则重复：${key}`); keys.add(key);
@@ -15,8 +19,10 @@ function run() {
     if (!SA.StageCars.get(row.chapter, row.stage)) assert.strictEqual(row.name, SA.CAMPAIGN[row.chapter].stages[row.stage].name);
     assert(row.budget > 0 && Number.isFinite(row.budget));
     if (i) {
-      const growth = row.budget / rules[i - 1].budget - 1;
-      assert(growth >= 0.15 - 1e-9 && growth <= 0.30 + 1e-9, `${key} 预算增幅超出 15%～30%`);
+      const steps = ordinal(row) - ordinal(rules[i - 1]);
+      assert(steps >= 1, `${key} 规则行没有按战役顺序排列`);
+      const growth = (row.budget / rules[i - 1].budget) ** (1 / steps) - 1;
+      assert(growth >= 0.15 - 2e-3 && growth <= 0.30 + 2e-3, `${key} 预算每关增幅超出 15%～30%`);
     }
     assert.strictEqual(row.status, i < 3 ? 'preview' : 'draft');
     for (const id of [...row.addMods, ...(row.stageMods || [])]) assert(SA.MODULES[id] && !SA.MODULES[id].retired, `未知模块 ${id}`);

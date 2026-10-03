@@ -21,6 +21,10 @@ TEXT_ROOT = os.path.join(ROOT, 'text')
 CONFIG_ROOT = os.path.join(ROOT, 'config')
 STAGE_CARS_FILE = os.path.join(CONFIG_ROOT, 'stage-cars.json')
 CONTENT_FILE = os.path.join(CONFIG_ROOT, 'content.json')
+STAGE_RULES_FILE = os.path.join(ROOT, 'tools', 'evolve-stage-rules.json')
+# 新建关卡的构筑预算：没有前一关时用首关上限，否则按战役序号每关 ×1.2（逐关表要求每关增长 15%～30%）
+FIRST_STAGE_BUDGET = 360
+STAGE_BUDGET_GROWTH = 1.2
 MODULES_FILE = os.path.join(CONFIG_ROOT, 'modules.json')
 TEXT_FILE = os.path.join(CONFIG_ROOT, 'text.json')
 MIGRATION_STATE = os.path.join(ROOT, 'tools', '.config-migration-state.json')
@@ -127,6 +131,23 @@ def _merge_fields(target, changes):
             _merge_fields(target[key], value)
         else:
             target[key] = value
+
+
+def _stage_order(key):
+    ci, _, si = key.partition(':')
+    return int(ci), int(si)
+
+
+def _ordinal(campaign, ci, si):
+    """按每章计划关数排出的全战役序号；中间空着的关也算，预算按序号差连续增长。"""
+    return sum(max(len(ch.get('stages', [])), int(ch.get('plannedStages') or 0)) for ch in campaign[:ci]) + si
+
+
+def _write_rules(path, rows):
+    """逐关表保持一行一关的手写格式。"""
+    def line(row):
+        return '{ ' + ', '.join(f'{json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}' for k, v in row.items()) + ' }'
+    _atomic_bytes(path, ('[\n' + ',\n'.join('  ' + line(row) for row in rows) + '\n]\n').encode('utf-8'))
 
 
 def _migrate_stage(current, raw):
@@ -336,7 +357,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         return {'id': key, 'file': 'config/stage-cars.json'}
 
     def _create_stage_car(self, payload):
-        """只在首次保存时登记指定计划空位；两份配置写入失败时恢复原始字节。"""
+        """只在首次保存时登记指定计划空位，并给进化生成器补一行逐关预算；三份文件任一写入失败都恢复原始字节。"""
         record = payload.get('record')
         if not isinstance(record, dict) or not isinstance(record.get('id'), str):
             raise ValueError('关卡记录不合法')
@@ -349,6 +370,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         with MODULE_SAVE_LOCK:
             content = _json_file(CONTENT_FILE)
             cars = _json_file(STAGE_CARS_FILE)
+            rules = _json_file(STAGE_RULES_FILE)
             chapters = content['CAMPAIGN']
             if ci >= len(chapters) or si >= chapters[ci].get('plannedStages', 0):
                 raise ValueError('关卡编号不在现有计划内')
@@ -357,22 +379,38 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 raise ValueError('该关卡已经存在，不能覆盖')
             if record['id'] in cars.get('records', {}) or record['id'] in cars.get('targets', []):
                 raise ValueError('该关卡已有记录，不能覆盖')
+            order = lambda row: (row['chapter'], row['stage'])
+            if any(order(row) == (ci, si) for row in rules):
+                raise ValueError('该关卡已有构筑预算，不能覆盖')
+            before = sorted((row for row in rules if order(row) < (ci, si)), key=order)
+            if before:
+                steps = _ordinal(chapters, ci, si) - _ordinal(chapters, before[-1]['chapter'], before[-1]['stage'])
+                budget = int(round(before[-1]['budget'] * STAGE_BUDGET_GROWTH ** steps / 5) * 5)
+            else:
+                budget = FIRST_STAGE_BUDGET
+            name = str(record.get('name') or record['id']).strip()
+            rule = {'chapter': ci, 'stage': si, 'name': name, 'budget': budget, 'status': 'draft', 'addMods': []}
             for index in range(len(stages), si + 1):
                 stages.append({'stageRef': f'{ci}:{index}', 'unfinished': True})
             stages[si] = {'stageRef': record['id']}
-            cars['targets'].append(record['id'])
-            cars['records'][record['id']] = record
-            original = {path: open(path, 'rb').read() for path in (CONTENT_FILE, STAGE_CARS_FILE)}
+            records = {**cars.get('records', {}), record['id']: record}
+            cars['targets'] = sorted([*cars.get('targets', []), record['id']], key=_stage_order)
+            cars['records'] = {key: records[key] for key in sorted(records, key=_stage_order)}
+            original = {}
+            for path in (CONTENT_FILE, STAGE_CARS_FILE, STAGE_RULES_FILE):
+                with open(path, 'rb') as stream: original[path] = stream.read()
             written = []
             try:
-                for path, data in ((CONTENT_FILE, content), (STAGE_CARS_FILE, cars)):
-                    _write_json(path, data)
+                for path, write in ((CONTENT_FILE, lambda: _write_json(CONTENT_FILE, content)),
+                                    (STAGE_CARS_FILE, lambda: _write_json(STAGE_CARS_FILE, cars)),
+                                    (STAGE_RULES_FILE, lambda: _write_rules(STAGE_RULES_FILE, sorted([*rules, rule], key=order)))):
+                    write()
                     written.append(path)
-            except OSError:
+            except Exception:
                 for path in written:
                     _atomic_bytes(path, original[path])
                 raise
-        return {'id': record['id'], 'file': 'config/content.json + config/stage-cars.json'}
+        return {'id': record['id'], 'rule': rule, 'file': 'config/content.json + config/stage-cars.json + tools/evolve-stage-rules.json'}
 
     def _save_text(self, payload):
         """只接受当前文本稿，不按历史版本回放覆盖新稿。"""

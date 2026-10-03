@@ -22,7 +22,7 @@ function collect() {
   };
   vm.runInContext(source, context, { filename: 'js/vehicle.js' });
   for (let ch = 0; ch < SA.CAMPAIGN.length; ch++) {
-    for (let st = 0; st < SA.CAMPAIGN[ch].stages.length; st++) SA.V.stats(evolve.stageFor(SA, ch, st).vehicle);
+    for (let st = 0; st < SA.CAMPAIGN[ch].stages.length; st++) if (!SA.CAMPAIGN[ch].stages[st].unfinished) SA.V.stats(evolve.stageFor(SA, ch, st).vehicle);
   }
   // 历史已筛选车覆盖不同材料、改装和模块组合；按当前规则重新计算，不沿用旧统计。
   const preview = JSON.parse(fs.readFileSync(path.join(__dirname, 'evolve-preview.json'), 'utf8'));

@@ -37,3 +37,4 @@ SA.BUILD_SYS += '+campaign-layout-4-trim'; // 关卡布局 4：只留序章三�
 SA.BUILD_SYS += '+progress-priority-mortar-spread-melee-recoil'; // 逐门优先装填、臼炮可调散布与近战反震。
 SA.BUILD_SYS += '+stage-create-shortcuts'; // 控制台从关卡工作台或战役地图新增计划关卡，保存时登记稳定编号。
 SA.BUILD_SYS += '+cockpit-pip-rules'; // 驾驶舱禁售；双人舱装车与首次剧情共用实际装配判定。
+SA.BUILD_SYS += '+stage-create-budget-rollback'; // 新建关卡同时登记逐关预算（按设计稿序号每关 ×1.2），三份文件任一写失败都回滚；检查跳过占位空关。

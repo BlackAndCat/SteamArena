@@ -15,6 +15,7 @@ function run(full = false) {
   let vehicleChecks = 0;
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
       const a = evolve.stageFor(oldSA, chapter, stage), b = evolve.stageFor(SA, chapter, stage);
       assert.strictEqual(JSON.stringify(oldSA.V.stats(a.vehicle)), JSON.stringify(SA.V.stats(b.vehicle)), '车辆统计发生变化');
       vehicleChecks++;

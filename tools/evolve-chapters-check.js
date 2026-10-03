@@ -18,6 +18,7 @@ async function run() {
   // 这四种奖励曾因侧挂支撑或炮口遮挡导致标尺为 null；其余关卡一并防回归。
   for (let chapter = 1; chapter < SA.CAMPAIGN.length; chapter++) {
     for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
+      if (SA.CAMPAIGN[chapter].stages[stage].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
       const spec = evolve.stageSpec(SA, chapter, stage);
       const minimum = evolve.minimalVehicle(SA, spec, spec.rewardModule);
       assert(minimum && evolve.legalVehicle(SA, minimum, spec), `${chapter}:${stage} 奖励保底车非法`);
@@ -37,12 +38,13 @@ async function run() {
   try {
     Object.assign(config.population, { size: 4, generations: 2 });
     for (let chapter = 1; chapter < SA.CAMPAIGN.length; chapter++) {
-      if (!SA.CAMPAIGN[chapter].stages.length) continue;
+      const made = SA.CAMPAIGN[chapter].stages.filter(stage => !stage.unfinished).length;
+      if (!made) continue;
       const report = await evolve.runAsync({ scope: { chapter }, seed: 20260929, games: 1, workers: 2, references });
       assert.strictEqual(report.status, 'complete');
       assert.strictEqual(report.chapters.length, 1);
       assert.strictEqual(report.chapters[0].chapter, chapter);
-      assert.strictEqual(report.chapters[0].stages.length, SA.CAMPAIGN[chapter].stages.length);
+      assert.strictEqual(report.chapters[0].stages.length, made);
       assert.strictEqual(report.telemetry.completedSteps, report.telemetry.totalSteps);
       for (const stage of report.chapters[0].stages) {
         assert(stage.selected, `${chapter}:${stage.spec.stage} 没有生成可供审阅的入选车`);

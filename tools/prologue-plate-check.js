@@ -55,8 +55,8 @@ function run() {
   assert.strictEqual(arena.read()[0].record.spec.stage, 2, '再次读取导致重复顺延');
   assert.strictEqual(arena.merge(oldReport).candidates.length, 1, '旧收藏和旧报告合并后重复');
 
-  // 正式关卡由配置中的六条最终记录组成（布局 4 只留序章三关和第一章前三关）；旧手工缓存只在服务端迁移一次。
-  assert.strictEqual(SA.StageCars.targetKeys().length, 6);
+  // 正式关卡的最终记录和做出来的关一一对应（后台新建关卡时一起登记，占位的空关不算）；旧手工缓存只在服务端迁移一次。
+  assert.strictEqual(SA.StageCars.targetKeys().length, SA.CAMPAIGN.reduce((n, ch) => n + ch.stages.filter(st => !st.unfinished).length, 0));
   assert(SA.StageCars.targetKeys().every(key => SA.STAGE_CARS.records[key]?.id === key));
   return { stages: 3, rewardOnce: true, budget: SA.V.stats(vehicle).value, reportMigration: true, favoriteMigration: true, configComplete: true };
 }

@@ -14,6 +14,8 @@ from html5_game_mcp import CDP
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+# 关卡工作台第一章的「＋ 补上 / 新建 1-4」行
+ADD_SLOT = 'aside.tree .st-add[data-slot="1,3"]'
 
 
 class IsolatedHandler(serve.NoCache):
@@ -31,6 +33,11 @@ class IsolatedHandler(serve.NoCache):
         pass
 
 
+class Server(serve.http.server.ThreadingHTTPServer):
+    # 默认监听队列只有 5：Windows 上 Chrome 一次开的连接多于 5 时会被直接拒绝，后台首屏的同步配置请求随之失败
+    request_queue_size = 64
+
+
 def evaluate(cdp, expression):
     result = cdp.call('Runtime.evaluate', {'expression': expression, 'returnByValue': True})
     if 'exceptionDetails' in result:
@@ -38,8 +45,8 @@ def evaluate(cdp, expression):
     return result['result']['value']
 
 
-def wait(cdp, expression):
-    for _ in range(120):
+def wait(cdp, expression, tries=120):
+    for _ in range(tries):
         if evaluate(cdp, expression):
             return
         time.sleep(.1)
@@ -51,11 +58,15 @@ def run():
     with tempfile.TemporaryDirectory(prefix='stage-create-') as directory:
         content_file = pathlib.Path(directory, 'content.json')
         cars_file = pathlib.Path(directory, 'stage-cars.json')
+        rules_file = pathlib.Path(directory, 'evolve-stage-rules.json')
         content_file.write_bytes((ROOT / 'config/content.json').read_bytes())
         cars_file.write_bytes((ROOT / 'config/stage-cars.json').read_bytes())
+        rules_file.write_bytes((ROOT / 'tools/evolve-stage-rules.json').read_bytes())
         before = (content_file.read_bytes(), cars_file.read_bytes())
-        with patch.object(serve, 'CONTENT_FILE', str(content_file)), patch.object(serve, 'STAGE_CARS_FILE', str(cars_file)):
-            server = serve.http.server.ThreadingHTTPServer(('127.0.0.1', 0), IsolatedHandler)
+        # 新建关卡同时写逐关预算表，也换成临时副本
+        with patch.object(serve, 'CONTENT_FILE', str(content_file)), patch.object(serve, 'STAGE_CARS_FILE', str(cars_file)), \
+                patch.object(serve, 'STAGE_RULES_FILE', str(rules_file)):
+            server = Server(('127.0.0.1', 0), IsolatedHandler)
             threading.Thread(target=server.serve_forever, daemon=True).start()
             browser = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
                 '--remote-allow-origins=*', f'--remote-debugging-port={19000 + server.server_port % 20000}',
@@ -73,8 +84,8 @@ def run():
                 cdp = CDP(page['webSocketDebuggerUrl'])
                 url = f'http://127.0.0.1:{server.server_port}/tools/console.html'
                 cdp.call('Page.navigate', {'url': url + '#/stage/1,2/build'})
-                wait(cdp, '!!document.querySelector("aside.tree .filter button") && !!window.SA?.CAMPAIGN')
-                evaluate(cdp, '(document.querySelector("aside.tree .filter button").click(), true)')
+                wait(cdp, f'!!document.querySelector({json.dumps(ADD_SLOT)}) && !!window.SA?.CAMPAIGN')
+                evaluate(cdp, f'(document.querySelector({json.dumps(ADD_SLOT)}).click(), true)')
                 wait(cdp, 'location.hash.includes("stage/1,3") && !!ConsoleNewStage.get(1,3)')
                 first = evaluate(cdp, 'JSON.stringify(ConsoleNewStage.get(1,3), (k,v) => k === "vehicle" ? undefined : v)')
                 assert (content_file.read_bytes(), cars_file.read_bytes()) == before
@@ -88,10 +99,14 @@ def run():
                 wait(cdp, 'location.hash.includes("stage/1,5") && !!ConsoleNewStage.get(1,5)')
                 second = evaluate(cdp, 'JSON.stringify(ConsoleNewStage.get(1,5), (k,v) => k === "vehicle" ? undefined : v)')
                 assert (content_file.read_bytes(), cars_file.read_bytes()) == before
-                assert json.loads(first)['aim'] == json.loads(second)['aim'] == .8
+                # 默认值照设计稿同一位置：1-4 大铁壶「平地 · 龟缩」，1-6 独角兽「平地 · 冲锋」；考题拆成赛前介绍和线人手写
+                first_draft, second_draft = json.loads(first), json.loads(second)
+                assert (first_draft['name'], first_draft['terrain'], first_draft['style']) == ('大铁壶', 'flat', 'turtle'), first
+                assert (second_draft['name'], second_draft['terrain'], second_draft['style']) == ('独角兽', 'flat', 'rush'), second
+                assert all(d['blurb'] and d['weakness'] and d['spec']['lesson'] and d['prize'] > 0 and 0 < d['aim'] < 1 for d in (first_draft, second_draft))
                 wait(cdp, '!!document.querySelector("#garage-layer iframe")?.contentWindow?.Garage?.ready')
                 evaluate(cdp, '(document.querySelector("button#status").click(), true)')
-                for _ in range(120):
+                for _ in range(300):
                     if '1:5' in json.loads(cars_file.read_text(encoding='utf-8'))['records']:
                         break
                     time.sleep(.1)
@@ -108,8 +123,8 @@ def run():
                 assert evaluate(cdp, 'document.querySelector("#garage-layer iframe").contentWindow.SA.Camp.frontier().ch === 1 && document.querySelector("#garage-layer iframe").contentWindow.SA.Camp.frontier().st === 3')
                 # 同一页保留两个草稿，一次保存应按原编号分别建立两关。
                 cdp.call('Page.navigate', {'url': url + '?multicheck=1#/stage/1,2/build'})
-                wait(cdp, '!!document.querySelector("aside.tree .filter button") && !!window.SA?.CAMPAIGN')
-                evaluate(cdp, '(document.querySelector("aside.tree .filter button").click(), true)')
+                wait(cdp, f'!!document.querySelector({json.dumps(ADD_SLOT)}) && !!window.SA?.CAMPAIGN')
+                evaluate(cdp, f'(document.querySelector({json.dumps(ADD_SLOT)}).click(), true)')
                 wait(cdp, 'location.hash.includes("stage/1,3") && !!ConsoleNewStage.get(1,3)')
                 evaluate(cdp, '(location.hash="#/map", true)')
                 wait(cdp, "!!document.querySelector(\".mnode[data-id='1-7']\")")
@@ -118,13 +133,14 @@ def run():
                 evaluate(cdp, '(document.querySelector(".mcard button.mc-car.none").click(), true)')
                 wait(cdp, 'location.hash.includes("stage/1,6") && !!ConsoleNewStage.get(1,6)')
                 evaluate(cdp, '(document.querySelector("button#status").click(), true)')
-                for _ in range(120):
+                for _ in range(300):
                     records = json.loads(cars_file.read_text(encoding='utf-8'))['records']
                     if '1:3' in records and '1:6' in records:
                         break
                     time.sleep(.1)
                 else:
-                    raise AssertionError('连续草稿保存未完整写入隔离配置')
+                    detail = evaluate(cdp, 'JSON.stringify({hash:location.hash,status:document.querySelector("#status")?.title,toast:document.querySelector("#toast")?.textContent,drafts:[...(window.ConsoleNewStage ? [[1,3],[1,6]].map(([c,s]) => !!ConsoleNewStage.get(c,s)) : [])]})')
+                    raise AssertionError(f'连续草稿保存未完整写入隔离配置：{detail}')
                 wait(cdp, '!!window.SA?.CAMPAIGN?.[1]?.stages?.[6]?.vehicle')
                 assert evaluate(cdp, 'SA.CAMPAIGN[1].stages[3].vehicle && SA.CAMPAIGN[1].stages[4].unfinished && SA.CAMPAIGN[1].stages[5].vehicle && SA.CAMPAIGN[1].stages[6].vehicle')
                 cdp.call('Page.navigate', {'url': url.replace('/tools/console.html', '/index.html') + '?gapcheck=1'})
@@ -137,10 +153,14 @@ def run():
                 except AssertionError:
                     raise AssertionError('模拟页未载入：' + evaluate(cdp, 'JSON.stringify({url:location.href,title:document.title,body:document.body?.textContent.slice(0,160),config:window.SA_CONFIG_ERROR,sa:!!window.SA})'))
                 evaluate(cdp, '(document.querySelector("#games").value=2, document.querySelector("#run-camp").click(), true)')
-                wait(cdp, 'document.querySelector("#out h2")?.textContent === "战役关卡检验"')
+                wait(cdp, 'document.querySelector("#out h2")?.textContent === "战役关卡检验"', tries=600)
                 assert evaluate(cdp, 'document.querySelector("#out table").rows.length === 10 && !/NaN|Infinity/.test(document.querySelector("#out").textContent)'), evaluate(cdp, 'JSON.stringify({rows:document.querySelector("#out table").rows.length,text:document.querySelector("#out").textContent.slice(0,500)})')
                 cdp.close()
-                return {'workbenchDefault': json.loads(first)['name'], 'mapDefault': json.loads(second)['name'], 'savedSlots': ['1:5', '1:3', '1:6']}
+                rules = json.loads(rules_file.read_text(encoding='utf-8'))
+                assert [(r['chapter'], r['stage']) for r in rules][-3:] == [(1, 3), (1, 5), (1, 6)], rules
+                assert json.loads(cars_file.read_text(encoding='utf-8'))['records']['1:5']['spec']['lesson']
+                return {'workbenchDefault': json.loads(first)['name'], 'mapDefault': json.loads(second)['name'], 'savedSlots': ['1:5', '1:3', '1:6'],
+                        'budgets': {f"{r['chapter']}:{r['stage']}": r['budget'] for r in rules[-3:]}}
             finally:
                 browser.terminate()
                 browser.wait(timeout=10)
