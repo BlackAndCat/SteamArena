@@ -925,7 +925,7 @@ body[data-screen=garage] #screen, body[data-screen=arena] #screen { min-height: 
 .ed-main { display: flex; flex-direction: column; gap: 10px; min-height: 0; background: none; }
 .ed-stage { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; padding: 12px; background: none; border: 12px solid transparent; border-image: var(--sk-iron) 6 fill / 12px repeat; image-rendering: pixelated; }
 .ed-stage > canvas { box-shadow: 0 0 0 2px #10233a, 0 0 0 4px #3a5875; }
-.ed-view { top: 6px; right: auto; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
+.ed-view { top: 6px; right: auto; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; width: max-content; max-width: calc(100% - 16px); }
 .ed-help { border-radius: 0; background: none; border: 8px solid transparent; border-image: var(--sk-ironBtn) 4 fill / 8px repeat; color: #e4e0d6; }
 .ed-tip { background: none; border: 12px solid transparent; border-image: var(--sk-paper) 6 fill / 12px repeat; color: #2a1a05; font: 13px SimSun, serif; padding: 0 6px; box-shadow: none; }
 .ed-tip.err { color: #b8391b; border-color: transparent; }
