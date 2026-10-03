@@ -49,3 +49,5 @@ SA.BUILD_VIS += '+arena-stages-wip'; // 出战黑板在没做完的章节末尾�
 SA.BUILD_VIS += '+wrought-track-road-wheels'; // 熟铁（T2）履带中间补上真正的负重轮：驱动轮轴到诱导轮轴一根下梁，9×9 铸铁负重轮挂在下梁下压住链带，吊杆吊住下梁；板条恢复熟铁色（09-29 用户定）。
 SA.BUILD_VIS += '+group-ready-reload-hud'; // 任一同组武器满装即隐藏沙漏并点亮装填条。
 SA.BUILD_VIS += '+campaign-module-preview'; // 战役地图下方展示全模块，并随节点预览累计解锁。
+SA.BUILD_VIS += '+campaign-module-status-glow'; // 已解锁模块浅绿发光，未解锁普通剪影整体调淡。
+SA.BUILD_VIS += '+pip-yard-story'; // 双人舱上的皮普离开院子，首次装车在院子播放专门剧情。
