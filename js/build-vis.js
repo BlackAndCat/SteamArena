@@ -46,3 +46,4 @@ SA.BUILD_VIS += '+wrought-track-rollers'; // 熟铁履带托轮加大提亮、�
 SA.BUILD_VIS += '+wrought-track-prototype'; // 熟铁（T2）履带改回定稿样机画法：整条按体育场形路径摆木板条，吊杆、托轮按整条均分，每格裁出自己那段。
 SA.BUILD_VIS += '+track-backing-plate'; // 履带后面补上定稿样机的 y+6～y+36 车体底板（熟铁另加链带里侧阴影），中间不再透出背景。
 SA.BUILD_VIS += '+arena-stages-wip'; // 出战黑板在没做完的章节末尾写「还有 N 关 · 制作中」；后台战役地图按计划关数直接按编号对齐。
+SA.BUILD_VIS += '+wrought-track-road-wheels'; // 熟铁（T2）履带中间补上真正的负重轮：驱动轮轴到诱导轮轴一根下梁，9×9 铸铁负重轮挂在下梁下压住链带，吊杆吊住下梁；板条恢复熟铁色（09-29 用户定）。

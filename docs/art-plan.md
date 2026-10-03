@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|
 | 中炮 | `cannon_m` | 2×1 | 开局 | 六档：敞开炮架 → 方平顶炮廓 → 斜板炮廓 | `tools/gun-family-lab.html` |
 | 小炮 | `cannon_s` | 1×1 | 开局 | 卡隆短炮，只靠剪影分档 | `gun-family-lab.html`（早期探索 `cannon-s-lab.html`，已归档） |
-| 履带 | `track` | 2×2 | 开局 | 三个阶段 | `spritesheet.html` |
+| 履带 | `track` | 2×2 | 开局 | 六档：博伊德尔脚板轮 → 熟铁板条链带（下梁挂铸铁负重轮）→ 霍尔特铁链节 → 减重孔钢框 → 桁架转向架 → 全包裙板 | `archive/track-tiers.html` |
 | 直射火炮 | `cannon` | 2×2 | 第一章 | 六档，零件库 | `cannon-lab.html` → `gun-family-lab.html` |
 | 侧炮 | `side_cannon` | 2×2 侧挂 | 第一章 | 挂板 + 吊臂 + 长炮 | `gun-family-lab.html` |
 | 高抛火炮（臼炮） | `mortar` | 2×2 | 第二章 | 短粗炮管 + 活动大齿轮 | `gun-family-lab.html` |

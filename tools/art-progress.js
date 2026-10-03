@@ -45,8 +45,8 @@ SA.ARTPLAN = {
       hist: [['2026-09-27', '臼炮 v1 + 齿轮 v6', 'gun-family-lab.html', 'shipped']] },
     cannon_giant: { status: 'done', ch: 5, note: '攻城臼炮阵地：象牙白炮口箍、弹簧底座、龙门吊、燃煤仓、操作员。高抛机制已接入，射界 55°～85°、静止 75°',
       hist: [['2026-09-27', '夜间候选 v1', 'module-candidates.html#cannon_giant', 'archived'], ['2026-09-27', '巨炮 v1～v5', 'gun-family-lab.html', 'archived'], ['2026-09-28', '巨炮 v6 进游戏', 'gun-family-lab.html', 'shipped']] },
-    track: { status: 'done', ch: 0, note: '六档（2026-09-29 进游戏）：T1 博伊德尔铰接脚板轮（无履带）→ T2 木板链带 → T3 霍尔特铁链节 → T4 Mark IV 减重孔钢框 → T5 桁架转向架 → T6 全包裙板；档位 = 材料',
-      hist: [['2026-09-26', '履带三阶段', 'spritesheet.html', 'live']] },
+    track: { status: 'done', ch: 0, note: '六档（2026-09-29 进游戏）：T1 博伊德尔铰接脚板轮（无履带）→ T2 熟铁板条链带（下梁挂铸铁负重轮，2026-10-02 补）→ T3 霍尔特铁链节 → T4 Mark IV 减重孔钢框 → T5 桁架转向架 → T6 全包裙板；档位 = 材料',
+      hist: [['2026-09-26', '履带三阶段', 'spritesheet.html', 'archived'], ['2026-09-29', '履带六档', 'archive/track-tiers.html', 'shipped']] },
 
     // ---------- 第 1 档：底盘细分支 ----------
     quad: { status: 'done', ch: 1, note: '六档（2026-09-29 进游戏）：T1 工装 Mk.II → T2 桁架爬机 → T3 板簧拖车 → T4 曲柄步行机（温室 + 常春藤高膝）→ T5 汽锤步行机 → T6 哥特教堂（燕尾旗）；9 种唯一变体已注册、等获得方式；步幅随车速加大、机身按步态起伏',
