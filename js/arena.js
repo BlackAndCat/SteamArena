@@ -84,7 +84,7 @@ SA.Arena = (() => {
         rows.push(h('button', { class: `ch-head ${open ? 'open' : ''}`, 'data-page-key': `chapter:${ci}`, onclick: () => { if (open) st.openCh.delete(ci); else st.openCh.add(ci); render(); } }, open ? '▾ ' : '▸ ', SA.CAMPAIGN[ci].name));
         if (open) rows.push(...rs.map(line));
         // 这一章还没做完：已有的关下面写一行「还有几关 · 制作中」
-        const chapter = SA.CAMPAIGN[ci], left = SA.Camp.plannedStages(chapter) - chapter.stages.length;
+        const chapter = SA.CAMPAIGN[ci], left = SA.Camp.plannedStages(chapter) - chapter.stages.filter(x => !x.unfinished).length;
         if (open && left > 0) rows.push(h('div', { class: 'ch-row lock' }, h('span', { class: 'ck' }, '…'), h('span', { class: 'nm' }, SA.Config.text('arena_stages_wip', left))));
       }
       const nextCh = SA.CAMPAIGN[SA.Camp.chIndex() + 1];

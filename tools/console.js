@@ -122,28 +122,49 @@
   const chPlace = (ch) => ch.name.split(' · ')[1] || ch.place || '';
   const newStageDrafts = new Map();
   const validKey = (k) => /^\d+,\d+$/.test(k || '') && (newStageDrafts.has(k) || !!SA.CAMPAIGN[+k.split(',')[0]]?.stages[+k.split(',')[1]] && !SA.CAMPAIGN[+k.split(',')[0]].stages[+k.split(',')[1]].unfinished);
+  const STYLE_BY_NAME = { 龟缩: 'turtle', 冲锋: 'rush', 风筝: 'kite', 放风筝: 'kite', 游走: 'wander', 新手: 'rookie' };
+  const planStage = (ci, si) => SA.CAMPAIGN_MAP?.chapters?.[ci]?.stages?.[si] || null;
+  const newStageName = (ci, si) => planStage(ci, si)?.car || `新关卡 ${ci}-${si + 1}`;
+  // 战役顺序里排在 (ci, si) 前面、已经做出来的最后一关（占位的空关不算）
+  function stageBefore(ci, si) {
+    for (let c = ci; c >= 0; c--) for (let s = (c === ci ? si : Math.max(SA.CAMPAIGN[c].stages.length, SA.CAMPAIGN[c].plannedStages || 0)) - 1; s >= 0; s--) {
+      const st = stageData(c, s);
+      if (st) return st;
+    }
+    return null;
+  }
+  // 新关的默认值：车名、车手、地形、性格、Boss、赛前介绍（考题）、线人手写（解法）照设计稿同一位置；
+  // 枪法、奖金比前面最近的关略高；车先抄前面最近的关（没有就用开局车）；奖励和解锁留空
+  function newStageDefaults(ci, si) {
+    const p = planStage(ci, si), prev = stageBefore(ci, si);
+    const terrains = Object.fromEntries(Object.entries(SA.TERRAINS).map(([k, t]) => [t.name, k]));
+    const [terrainName, styleName] = String(p?.terrain || '').split(' · ').map((t) => t.trim());
+    const [ask, answer] = String(p?.test || '').split('→').map((t) => t.trim());
+    const boss = /★/.test(p?.role || ''), name = newStageName(ci, si), terrain = terrains[terrainName] || prev?.terrain || 'flat';
+    let paid = null;
+    for (let st = prev; st && !paid; st = stageBefore(st.ci, st.si)) if (st.prize > 0) paid = st;
+    const vehicle = prev?.vehicle ? SA.V.clone(prev.vehicle) : SA.V.fromAscii(name, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+    vehicle.name = name;
+    return { name, pilot: p?.pilot || '', vehicle, terrain, boss, style: STYLE_BY_NAME[styleName] || 'wander',
+      aim: Math.min(0.95, Math.round(((prev?.aim ?? 0.6) + (boss ? 0.08 : 0.03)) * 100) / 100),
+      prize: paid ? Math.round(paid.prize * (boss ? 1.4 : 1.15) / 10) * 10 : 100,
+      unlock: null, uniqueLoot: [], rewardItems: [], rewardMoney: true, victoryRepairFree: false, blurb: ask || '', weakness: answer || '',
+      // 进化生成器按 spec 读这一关的考点和强度目标
+      spec: { terrain, reward: null, lesson: p ? `${p.role}：${p.test}` : '新关卡：设计意图待填', targetStrength: boss ? [0.6, 0.7] : [0.65, 0.8], performanceMin: 35 },
+      copiedFrom: prev ? `${prev.code} ${prev.name}` : '开局车' };
+  }
   // 新关卡只在内存里建立底稿；用户保存后才会写入正式配置。
   function createStageDraft(ci, si) {
     const ch = SA.CAMPAIGN[ci], key = `${ci},${si}`;
     if (!ch || !Number.isSafeInteger(si) || si < 0 || si >= ch.plannedStages) { toast('这个编号不在现有计划内', 'bad'); return; }
     if (validKey(key)) { toast('这一关已经存在', 'warn'); go(`stage/${key}/build`); return; }
-    const plan = SA.CAMPAIGN_MAP?.chapters?.[ci]?.stages?.[si];
-    const name = plan?.car || `新关卡 ${ci}-${si + 1}`;
-    const vehicle = SA.V.fromAscii(name, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
-    const st = { name, pilot: plan?.pilot || '', vehicle, style: 'wander', aim: 0.8, terrain: 'flat', boss: false,
-      prize: 0, unlock: null, uniqueLoot: [], rewardItems: [], rewardMoney: true, victoryRepairFree: false, blurb: '', weakness: '', source: 'manual', newDraft: true };
+    const st = { ...newStageDefaults(ci, si), source: 'manual', newDraft: true };
+    toast(`新关 ${ci}-${si + 1} ${st.name}：资料照设计稿填好，车先抄了 ${st.copiedFrom}。点保存才会登记。`);
     newStageDrafts.set(key, st);
     const d = stageDraft(key);
     d.dirtyFields = true;
     refreshStatus();
     go(`stage/${key}/build`);
-  }
-  function nextStageSlot(ci) {
-    for (let n = 0; n < SA.CAMPAIGN.length; n++) {
-      const c = (ci + n) % SA.CAMPAIGN.length, ch = SA.CAMPAIGN[c];
-      for (let s = 0; s < (ch.plannedStages || 0); s++) if (!validKey(`${c},${s}`)) return [c, s];
-    }
-    return null;
   }
   const recordOf = (ci, si) => SA.STAGE_CARS?.records?.[`${ci}:${si}`] || null;
   function stageData(ci, si) {
@@ -163,7 +184,9 @@
     const [ci, si] = key.split(',').map(Number), st = stageData(ci, si);
     return st ? `${ci}-${si + 1} ${st.name}` : key;
   };
-  const allStages = () => [...SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((st, si) => st.unfinished ? null : `${ci},${si}`).filter(Boolean)), ...newStageDrafts.keys()];
+  // 按战役顺序排：没保存的新关草稿插在它该在的位置（上一关 / 下一关、[ ] 键都按这个走）
+  const allStages = () => [...SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.map((st, si) => st.unfinished ? null : `${ci},${si}`).filter(Boolean)), ...newStageDrafts.keys()]
+    .sort((a, b) => { const [x, y] = [a, b].map((k) => k.split(',').map(Number)); return x[0] - y[0] || x[1] - y[1]; });
   window.ConsoleNewStage = { get: (ci, si) => newStageDrafts.get(`${ci},${si}`) || null };
   const carJson = (v) => { try { return v ? JSON.stringify(SA.StageCars.cellsOf(v)) : ''; } catch (e) { return ''; } };
 
@@ -286,6 +309,7 @@
   const garageApi = () => { try { return garage.frame?.contentWindow?.Garage || null; } catch (e) { return null; } };
   function ensureGarage() {
     if (garage.ready) return garage.ready;
+    const stale = garageApi();   // 重新载入时旧页面的接口在卸掉之前还在，不能把它当成新页面
     if (!garage.layer) {
       garage.frame = el('iframe', { src: 'console-garage.html', title: '拼装台' });
       garage.layer = el('div#garage-layer', null, garage.frame);
@@ -297,7 +321,7 @@
       const t0 = Date.now();
       const poll = () => {
         const G = garageApi();
-        if (G && G.ready) resolve(G);
+        if (G && G.ready && G !== stale) resolve(G);
         else if (Date.now() - t0 > 30000) reject(new Error('拼装台加载超时'));
         else setTimeout(poll, 120);
       };
@@ -326,7 +350,16 @@
     d.dirtyCar = !!now && now !== d.base;
     d.cells = d.dirtyCar ? now : null;
   }
-  async function garageOpen(key) {
+  // 拼装台同一时间只做一件事：「打开某关」和「打开 + 保存」排队执行，
+  // 免得还没开完的另一关插进来，把拼装台上的当前关换掉、把资料存到别的关上
+  let garageQueue = Promise.resolve();
+  function garageTask(fn) {
+    const run = garageQueue.then(fn, fn);
+    garageQueue = run.catch(() => {});
+    return run;
+  }
+  function garageOpen(key) { return garageTask(() => garageOpenNow(key)); }
+  async function garageOpenNow(key) {
     const G = await ensureGarage();
     if (garage.key === key) return G;
     captureGarage();
@@ -370,9 +403,12 @@
     });
   }
   async function saveStage(key) {
-    const d = stageDraft(key), meta = buildMeta(d);
-    const G = await garageOpen(key);
-    const res = newStageDrafts.has(key) ? await G.saveNew(meta) : await G.save(meta);
+    const d = stageDraft(key), meta = buildMeta(d), [ci, si] = key.split(',').map(Number);
+    const res = await garageTask(async () => {
+      const G = await garageOpenNow(key);
+      return newStageDrafts.has(key) ? G.saveNew(meta, { ci, si }) : G.save(meta, { ci, si });
+    });
+    const G = garageApi();
     if (newStageDrafts.has(key)) { newStageDrafts.delete(key); stageDrafts.delete(key); if (garage.key === key) garage.key = null; return { ...res, created: true }; }
     applyStageCars({ [res.record.id]: res.record });
     stageDrafts.delete(key);
@@ -1167,7 +1203,7 @@
         chips: [chip(d.p.code), chip(d.p.role, `.k-${d.kind}`), chip('设计稿 · 还没做进游戏', '.plan')],
         title: d.p.car, sub: `${d.p.pilot} · ${d.p.terrain} · 压力 ${d.p.pressure}`,
         rows: [['考题', [el('span', { text: d.p.test })]], ['奖励', [el('span', { text: d.p.reward })]]],
-        note: '后台按设计稿落数据以后，这里会换成游戏里的真关卡（docs/campaign-plan.md §10.1）。',
+        note: '点左边的空白车图：按设计稿开一个新关草稿，进关卡工作台；在那里点保存才会登记。奖励和解锁要自己填。',
       });
       return stageCard(d);
     }
@@ -1194,10 +1230,17 @@
       if (opens.length) out.push(el('div.mc-note', { text: `通关后开放支线：${opens.join('、')}` }));
       return out;
     }
+    // 空白车图 = 新建这一关；前面还有没做的关时说清楚它们会先空着
+    function newCarButton(p) {
+      const [ci, num] = p.code.split('-').map(Number), si = num - 1, ch = SA.CAMPAIGN[ci];
+      const gaps = ch ? Array.from({ length: si }, (_, s) => s).filter((s) => !validKey(`${ci},${s}`)).map((s) => `${ci}-${s + 1}`) : [];
+      return el('button.mc-car.none.mc-new', { type: 'button', title: `新建 ${p.code} 并进入关卡工作台`, on: { click: () => createStageDraft(ci, si) } },
+        el('b.mc-new-t', { text: '＋ 新建这一关' }),
+        el('small', { text: gaps.length ? `前面 ${gaps.join('、')} 还没做：先空着，战役打到那里会停住，之后再补` : '车名、车手、地形、考题照设计稿；车先抄前面最近的关' }),
+        el('span.mc-new-go', null, '进关卡工作台', icon('right')));
+    }
     function planCard(d, x, { chips, title, sub, rows, note }) {
-      const image = d.type === 'stage'
-        ? el('button.mc-car.none', { type: 'button', title: `新增 ${d.p.code} 并进入关卡工作台`, on: { click: () => { const [ci, num] = d.p.code.split('-').map(Number); createStageDraft(ci, num - 1); } } }, '车还没拼 · 点击新增关卡')
-        : el('div.mc-car.none', { text: '车还没拼' });
+      const image = d.type === 'stage' ? newCarButton(d.p) : el('div.mc-car.none', { text: '车还没拼' });
       const left = el('div.mc-left', null, image);
       if (x.loot) left.append(...lootBlock(x.loot));
       return [
@@ -1404,7 +1447,7 @@
       list.replaceChildren(...SA.CAMPAIGN.map((ch, c) => {
         const count = Math.max(ch.stages.length, ...[...newStageDrafts.keys()].filter(k => +k.split(',')[0] === c).map(k => +k.split(',')[1] + 1), 0);
         const items = Array.from({ length: count }, (_, s) => {
-          if (!validKey(`${c},${s}`)) return null;
+          if (!validKey(`${c},${s}`)) return q ? null : addRow(c, s, true);
           const sd = stageData(c, s), rec = recordOf(c, s);
           if (q && !`${sd.code} ${sd.name} ${sd.pilot || ''}`.toLowerCase().includes(q)) return null;
           return el(`button.st-item${sd.key === key ? '.on' : ''}`, { type: 'button', dataset: { key: sd.key }, title: `${sd.code} ${sd.name} · ${sd.pilot || ''}`, on: { click: () => goStage(sd.key) } },
@@ -1412,16 +1455,28 @@
             el('span.marks', null, stageDirty(sd.key) ? el('span.dot', { title: '未保存' }) : null, sd.boss ? el('span.mark', { text: '★', title: 'Boss' }) : null,
               rec?.source === 'manual' ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '已锁定' }) : null));
         }).filter(Boolean);
+        // 章末一行「＋ 新建」（筛选时不显示）；跳过去先做的关前面空着的位置，上面已经就地显示成「补上」
+        if (!q && count < ch.plannedStages) items.push(addRow(c, count, false));
         if (!items.length) return null;
         const closed = !q && prefs.closed[c] && c !== ci;
-        const h = el(`button.ch-h${closed ? '.closed' : ''}`, { type: 'button', title: ch.name, dataset: { short: chShort(ch) }, on: { click: () => { prefs.closed[c] = !closed; savePrefs(); renderTree(); } } }, icon('chev'), `${chShort(ch)} · ${chPlace(ch)}`);
+        const made = ch.stages.filter((x) => !x.unfinished).length;
+        const h = el(`button.ch-h${closed ? '.closed' : ''}`, { type: 'button', title: ch.name, dataset: { short: chShort(ch) }, on: { click: () => { prefs.closed[c] = !closed; savePrefs(); renderTree(); } } }, icon('chev'), `${chShort(ch)} · ${chPlace(ch)}`,
+          el('span.ch-n', { text: `${made}/${ch.plannedStages}`, title: `已做 ${made} 关 / 计划 ${ch.plannedStages} 关` }));
         return el('div', null, h, closed ? null : items);
       }).filter(Boolean));
     }
+    // 新建 / 补上一关：点了只在本页开新关草稿，点保存才登记
+    function addRow(c, s, gap) {
+      return el('button.st-item.st-add', { type: 'button', dataset: { slot: `${c},${s}` },
+        title: `${gap ? '补上' : '新建'} ${c}-${s + 1}：车名、车手、地形、性格、考题照设计稿填好，车先抄前面最近的关；点保存才会登记`,
+        on: { click: () => createStageDraft(c, s) } },
+        el('span.code', { text: `${c}-${s + 1}` }),
+        el('span.nm', null, `＋ ${gap ? '补上' : '新建'} ${newStageName(c, s)}`,
+          el('small', { text: gap ? '空着 · 战役打到这里会停住' : `第 ${s + 1} / ${SA.CAMPAIGN[c].plannedStages} 关 · 默认值照设计稿` })));
+    }
     filter.addEventListener('input', () => { prefs.stageFilter = filter.value; savePrefs(); renderTree(); });
     renderTree();
-    const add = el('button.btn.sm', { type: 'button', on: { click: () => { const slot = nextStageSlot(ci); if (slot) createStageDraft(...slot); else toast('现有计划关卡都已建立', 'warn'); } } }, icon('plus'), '新增关卡');
-    const tree = el('aside.tree', null, el('div.filter', null, filter, add), list);
+    const tree = el('aside.tree', null, el('div.filter', null, filter), list);
 
     // 中：这一关
     const rec = recordOf(ci, si);
@@ -1429,7 +1484,8 @@
       el('div.code', { text: st.code }),
       el('div', { style: 'min-width:0' }, el('h2', { text: f.name || st.name }),
         el('div.who', null, f.pilot || '无名车手', f.boss ? el('span.chip.boss', { text: '★ Boss' }) : null,
-          rec?.source === 'manual' ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
+          newStageDrafts.has(key) ? el('span.chip.edited', { text: '新关 · 保存才登记', title: '这一关还只在本页；点保存才写进关卡配置' })
+            : rec?.source === 'manual' ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
           f.locked ? el('span.chip.locked', { text: '锁定' }) : el('span.chip', { text: '进化器可改' }),
           stageDirty(key) ? el('span.chip.edited', { text: '有改动没保存' }) : null)),
       el('div.acts', null,

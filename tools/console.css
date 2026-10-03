@@ -171,6 +171,11 @@ button.card { text-align: left; cursor: pointer; font: inherit; }
 .st-item .code { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .st-item .nm { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13.5px; }
 .st-item .nm small { display: block; color: var(--ink-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+/* 章节头右边的「已做 / 计划」；「＋ 新建 / 补上」行 */
+.ch-h .ch-n { margin-left: auto; font: 400 11px var(--mono); color: var(--ink-3); letter-spacing: 0; }
+.st-add { margin-top: 3px; border: 1px dashed var(--line); color: var(--brass-dk); }
+.st-add .nm { font-weight: 700; }
+.st-add:hover { background: var(--paper-hi); border-color: var(--brass-lo); }
 .st-item .marks { display: flex; gap: 3px; align-items: center; }
 .mark { font-size: 11px; line-height: 1; color: var(--brass-lo); }
 .pip { width: 6px; height: 6px; border: 1px solid rgba(0, 0, 0, 0.3); }
@@ -477,6 +482,13 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
 .mc-car { display: grid; place-items: center; min-height: 150px; padding: 14px 10px 12px; background: linear-gradient(to bottom, transparent calc(100% - 13px), var(--line) calc(100% - 13px), var(--line) calc(100% - 11px), transparent calc(100% - 11px)), var(--paper-3); border: 1px solid var(--line); }
 .mc-car canvas { image-rendering: pixelated; }
 .mc-car.none { min-height: 120px; border-style: dashed; color: var(--ink-3); font-size: 12.5px; background: none; }
+/* 战役地图卡片：设计稿里还没做的关，空白车图就是「新建这一关」 */
+.mc-new { width: 100%; align-content: center; gap: 4px; text-align: center; cursor: pointer; }
+.mc-new .mc-new-t { font: 700 15px var(--song); color: var(--brass-dk); letter-spacing: 0.04em; }
+.mc-new small { max-width: 32ch; color: var(--ink-3); font-size: 11.5px; line-height: 1.45; }
+.mc-new .mc-new-go { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 12px; color: var(--copper); }
+.mc-new .mc-new-go svg { width: 12px; height: 12px; }
+.mc-new:hover { border-color: var(--brass-lo); background: rgba(245, 215, 122, 0.2); }
 .mc-tabs { display: flex; gap: 2px; border-bottom: 2px solid var(--line-2); }
 .mc-tab { padding: 5px 10px 4px; border: 1px solid transparent; border-bottom: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -2px; }
 .mc-tab:hover { color: var(--ink); background: var(--paper); }
@@ -549,6 +561,8 @@ label.field.inline { grid-auto-flow: column; align-items: center; gap: 6px; font
   .ws.wide .tree .ch-h { font-size: 0; padding: 8px 4px 3px; gap: 2px; white-space: nowrap; }
   .ws.wide .tree .ch-h svg { width: 8px; height: 8px; flex: none; }
   .ws.wide .tree .ch-h::after { content: attr(data-short); font-size: 11px; letter-spacing: 0; }
+  .ws.wide .tree .ch-n { display: none; }
+  .ws.wide .tree .st-add .code::before { content: "+"; }
   .ws.wide .tree .st-item { grid-template-columns: minmax(0, 1fr) auto; gap: 2px; padding: 6px 4px 6px 7px; }
   .ws.wide .tree .marks { flex-direction: column; gap: 2px; }
 }

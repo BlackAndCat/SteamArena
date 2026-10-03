@@ -52,3 +52,4 @@ SA.BUILD_VIS += '+campaign-module-preview'; // 战役地图下方展示全模块
 SA.BUILD_VIS += '+campaign-module-status-glow'; // 已解锁模块浅绿发光，未解锁普通剪影整体调淡。
 SA.BUILD_VIS += '+pip-yard-story'; // 双人舱上的皮普离开院子，首次装车在院子播放专门剧情。
 SA.BUILD_VIS += '+material-upgrade-mode'; // 升级材质改成画布上方单独的按钮（熟铁解锁后出现）：按下后点模块逐件升一级，悬停金色闪烁；Shift + 点击 = 全部升级（只升材料最低的那一批，弹窗确认，按住 Shift 预览这一批）。
+SA.BUILD_VIS += '+stage-create-defaults'; // 新关草稿按设计稿填好默认参数、车抄前一关；工作台每章「＋ 新建 / 补上」行；地图空白车图做成新建按钮；拼装台打开与保存排队，防止存错关。

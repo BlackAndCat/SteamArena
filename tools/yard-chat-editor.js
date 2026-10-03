@@ -199,7 +199,7 @@
     scopes.add(new Option('全局默认', 'global'));
     SA.CAMPAIGN.forEach((chapter, ci) => {
       scopes.add(new Option(chapter.name, `chapter:${ci}`));
-      chapter.stages.forEach((stage, si) => scopes.add(new Option(`　${chapter.name} · 第 ${si + 1} 关 · ${stage.name}`, `stage:${ci}:${si}`)));
+      chapter.stages.forEach((stage, si) => { if (!stage.unfinished) scopes.add(new Option(`　${chapter.name} · 第 ${si + 1} 关 · ${stage.name}`, `stage:${ci}:${si}`)); });
     });
     const requested = params.get('scope');
     currentScope = requested && validScope(requested) ? requested : savedScope();

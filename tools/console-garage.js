@@ -49,8 +49,11 @@
   const setName = (name) => { if (car()) car().name = name; const plate = document.querySelector('.plate-name'); if (plate && plate.value !== name) plate.value = name; };
 
   // 保存：先按工作台的老规矩校验，再交给规则层写本机存档、广播正式游戏页、同步 js/stage-cars.js
-  async function save(meta) {
+  // 调用方写明要存哪一关；拼装台上不是这一关就拒绝，绝不把资料存到别的关上
+  const sameStage = (at) => !at || (cur && cur.ci === at.ci && cur.si === at.si);
+  async function save(meta, at) {
     if (!cur) throw new Error('拼装台还没打开这一关');
+    if (!sameStage(at)) throw new Error('拼装台上不是要保存的这一关，请再保存一次');
     if (!meta || !meta.vehicleName) throw new Error('车名不能为空');
     const v = car();
     v.name = meta.vehicleName;
@@ -64,12 +67,15 @@
       localPersisted: !!result.localPersisted, channelSent: !!result.channelSent, persisted: !!result.persisted }));
   }
   // 新关卡沿用同一套拼装校验，只在保存成功后请求服务登记该编号。
-  async function saveNew(meta) {
+  async function saveNew(meta, at) {
+    if (!sameStage(at)) throw new Error('拼装台上不是要保存的这一关，请再保存一次');
     if (!cur || !stageAt(cur.ci, cur.si)?.newDraft) throw new Error('新关卡草稿不存在');
     if (!meta?.vehicleName) throw new Error('车名不能为空');
     const v = car(), st = actualStage(cur.ci, cur.si);
     v.name = meta.vehicleName;
     const record = SA.StageCars.makeRecord(cur.ci, cur.si, st, v, meta);
+    // 草稿里按设计稿填好的考点和强度目标一起登记（makeRecord 只沿用已有记录的字段）
+    if (st.spec) record.spec = JSON.parse(JSON.stringify(st.spec));
     const check = SA.StageCars.validate(record, cur.ci, cur.si, v);
     if (!check.ok) throw new Error(check.errors.join('；'));
     const response = await fetch('/__stage-cars/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record }) });

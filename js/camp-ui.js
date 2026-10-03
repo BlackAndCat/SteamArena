@@ -40,7 +40,7 @@ SA.CampUI = (() => {
     if (!ch) return false;
     SA.UI.dialog(ch.name, [
       h('p', { style: 'margin-top:0' }, ch.blurb),
-      h('div', { class: 'unlocks' }, ch.stages.map((s, i) => h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' },
+      h('div', { class: 'unlocks' }, ch.stages.map((s, i) => s.unfinished ? null : h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' },
         h('b', {}, SA.Config.text("camp_ui_0f586f7648f7", `${i + 1}`, `${s.name}`)), s.boss ? ' 【Boss】' : '', h('span', { class: 'muted' }, ` · ${s.pilot}`)))),
       h('p', { class: 'muted' }, SA.Config.text("camp_ui_d4b04a2fc66d")),
     ], [{ label: SA.Config.text("camp_ui_efdc22fca1c6"), primary: true, onClick: () => {} }], false);
