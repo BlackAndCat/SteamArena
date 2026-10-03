@@ -852,7 +852,7 @@ SA.BattleView.create = function createBattleView(api) {
       hud.gaugeFig = fig(hud.gauge, SA.Config.text('battle_view_boiler')), hud.tubeFig = fig(hud.tube, SA.Config.text('battle_view_water')),
       h('div', { class: 'dash-hull' },
         h('div', { class: 'dash-hp' }, h('span', {}, SA.Config.text('battle_view_armor')), hud.hpNum), hud.plates,
-        h('div', { class: 'dash-lamps' }, LAMPS.map((_, i) => h('div', { class: 'dash-lamp' }, hud.lamps[i], hud.lampLabels[i])))));
+        h('div', { class: 'dash-lamps' }, hud.lampBox = LAMPS.map((_, i) => h('div', { class: 'dash-lamp' }, hud.lamps[i], hud.lampLabels[i])))));
     const act = h('div', { class: 'dash-act' },
       h('div', { class: 'dash-vent' }, hud.vent, h('span', { class: 'px-cap' }, SA.Config.text('battle_view_once'))),
       PXI().btn(SA.Config.text('battle_view_retreat'), { title: SA.Config.text('battle_view_retreat_title'), onclick: () => { if (!B.p.dead) SA.UI.dialog(SA.Config.text('battle_view_retreat_title_short'), h('p', {}, SA.Config.text('battle_view_retreat_confirm')), [{ label: SA.Config.text('battle_view_retreat'), primary: true, onClick: () => { endIntro(); api.retreat(); } }], SA.Config.text('battle_view_continue')); } }),
@@ -884,6 +884,33 @@ SA.BattleView.create = function createBattleView(api) {
     if (s.thrown) out.push(['track', SA.Config.text('battle_view_alert_track')]);
     if (!s.weapons.some(w => !w.blocked)) out.push(['gun', SA.Config.text('battle_view_alert_no_weapon')]);
     return out;
+  }
+  // 仪表台五盏灯：0 灭 / 1 常亮（有问题，留意）/ 2 闪（危险）；悬停灯看原因。
+  // 纸条红字只报 alertsOf 的危险项，灯把「已经在拖后腿」的状况也亮出来（动力不足、水偏少、部件受损）
+  const LAMP_WARN = { heat: 0.5, water: 0.45, power: 0.995, part: 0.5 };
+  function lampsOf(s) {
+    const L = { heat: [0, ''], water: [0, ''], power: [0, ''], track: [0, ''], gun: [0, ''] }, pct = (v) => Math.round(clamp(v, 0, 1) * 100);
+    if (s.dead) return L;
+    const set = (id, lv, text) => { if (lv > L[id][0]) L[id] = [lv, text]; };
+    for (const [id, text] of alertsOf(s)) set(id, 2, text);
+    const heat = s.heat / s.heatMax;
+    if (heat > LAMP_WARN.heat) set('heat', 1, SA.Config.text('battle_view_lamp_heat_warn', pct(heat)));
+    if (!s.waterMax) set('water', 1, SA.Config.text('battle_view_lamp_no_tank'));
+    else if (s.water / s.waterMax < LAMP_WARN.water) set('water', 1, SA.Config.text('battle_view_lamp_water_warn', pct(s.water / s.waterMax)));
+    // 动力：锅炉供不上设备 + 满速行驶的需求时，装填按比例变慢、也跑不到全速；不到一半算危险
+    if (s.supply > 0 && s.power < LAMP_WARN.power) set('power', s.power < 0.5 ? 2 : 1, SA.Config.text('battle_view_lamp_power_warn', pct(s.power)));
+    // 底盘：动不了算危险（掉链、腿断、失衡），有一段伤过半算留意
+    let chHp = 0, chMax = 0, worst = 1, gunDead = 0;
+    SA.V.each(s.v, (cell) => {
+      const m = M[cell.id];
+      if (m.layer === 'chassis') { const mx = SA.V.maxHp(cell); chHp += Math.max(0, cell.hp); chMax += mx; worst = Math.min(worst, Math.max(0, cell.hp) / Math.max(1, mx)); }
+      else if (m.dmg && cell.hp <= 0) gunDead++;
+    });
+    if (chMax && s.speed <= 0) set('track', 2, SA.Config.text('battle_view_lamp_chassis_stuck'));
+    else if (chMax && worst < LAMP_WARN.part) set('track', 1, SA.Config.text('battle_view_lamp_chassis_warn', pct(chHp / chMax)));
+    const blocked = s.weapons.filter(w => w.blocked).length;
+    if (gunDead || blocked) set('gun', 1, SA.Config.text('battle_view_lamp_weapon_warn', gunDead, blocked));
+    return L;
   }
   // 操作提示属于教程：目前只在序章第一关出现
   const tutorialHint = () => B.opts.mode === 'campaign' && B.opts.storyKey === '0,0';
@@ -926,11 +953,14 @@ SA.BattleView.create = function createBattleView(api) {
     const hp = a / Math.max(1, m), pct = Math.round(hp * 100);
     paint(hud.hpNum, `${pct}`, () => X.num(`${pct}%`, pct <= 25 ? '#ff8a5c' : '#e4e0d6', { shadow: P.dark[0] }));
     paint(hud.plates, `${Math.ceil(hp * 10)}`, () => X.plates(Math.ceil(hp * 10 - 1e-6), 10));
-    const on = new Set(alertsOf(p).map(x => x[0]));
-    LAMPS.forEach(([id, , col], i) => {
-      const lit = on.has(id) && (blink || id === 'power' || id === 'track');
+    const lamps = lampsOf(p);
+    LAMPS.forEach(([id, nm, col], i) => {
+      const [lv, why] = lamps[id], lit = lv === 1 || (lv === 2 && blink);
       paint(hud.lamps[i], `${lit}`, () => X.lamp(lit, col));
-      hud.lampLabels[i].classList.toggle('on', on.has(id));
+      hud.lampLabels[i].classList.toggle('on', lv === 1);
+      hud.lampLabels[i].classList.toggle('crit', lv === 2);
+      const title = why ? `${nm}：${why}` : SA.Config.text('battle_view_lamp_ok', nm);
+      if (hud.lampBox[i].title !== title) hud.lampBox[i].title = title;
     });
     const [kind, text] = noteOf();
     if (hud.note.dataset.k !== kind || hud.note.textContent !== text) { hud.note.dataset.k = kind; hud.note.textContent = text; }
