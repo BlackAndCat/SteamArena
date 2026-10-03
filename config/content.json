@@ -1475,6 +1475,10 @@
     {
       "name": "第二章 · 兰开夏工业联赛",
       "place": "兰开夏纺织厂",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
       "plannedStages": 6,
       "stages": []
     },

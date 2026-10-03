@@ -91,7 +91,7 @@ SA.CampUI = (() => {
 
   // ---------- 试驾场：任选场地和对手 ----------
   // 对手来源：战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 分享码示例 / 随机街头车；可以改材料、AI 性格、枪法。
-  const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '', scene: '' };   // 记住上一次的选择
+  const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '', scene: '', bounds: '' };   // 记住上一次的选择
   const SRC = [['camp', SA.Config.text("camp_ui_aef74652a522")], ['tour', SA.Config.text("camp_ui_481666d112b2")], ['bp', SA.Config.text("camp_ui_09cf3953e6fb")], ['mine', SA.Config.text("camp_ui_77209467c816")], ['cloud', SA.Config.text("camp_ui_564d439aeaf1")], ['evolve', SA.Config.text("camp_ui_82481210220a")], ['street', SA.Config.text("camp_ui_61da76cd5798")]];
   const STYLES = [['', SA.Config.text("camp_ui_2c2210ed86d7")], ['roam', SA.Config.text("camp_ui_ddb2fe50fb4b")], ['rush', SA.Config.text("camp_ui_c0d497cf61ab")], ['kite', SA.Config.text("camp_ui_2662eea55207")], ['turtle', SA.Config.text("camp_ui_91ed0ccb46f7")], ['rookie', SA.Config.text('camp_ui_rookie_style')]];
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
@@ -138,6 +138,7 @@ SA.CampUI = (() => {
         field(SA.Config.text("camp_ui_4ea064c4d27d"), L.length ? sel(L.map(f => [f.key, f.name]), SB.foe, (v) => { SB.foe = v; }) : h('span', { class: 'muted' }, SA.Config.text("camp_ui_a3fe69faec8c"))),
         field(SA.Config.text("camp_ui_e1d28b717f1e"), sel([['', SA.Config.text("camp_ui_2c2210ed86d7")], ...SA.TERRAIN_ORDER.map(k => [k, SA.TERRAINS[k].name])], SB.terrain, (v) => { SB.terrain = v; })),
         field(SA.Config.text("camp_ui_7f72f06a8877"), sel([['', SA.Config.text("camp_ui_9cda7385a1f3")], ...Object.entries(SA.Scenes.NAMES).filter(([k]) => k !== 'qual')], SB.scene, (v) => { SB.scene = v; })),
+        field(SA.Config.text('camp_ui_trial_bounds'), sel([['', SA.Config.text('camp_ui_trial_bounds_off')], ['1', SA.Config.text('camp_ui_trial_bounds_on')]], SB.bounds, (v) => { SB.bounds = v; })),   // 两头摆路障（和战役同一套边界），看场景的路障用
         field(SA.Config.text("camp_ui_6e17d786b77d"), sel([[0, SA.Config.text("camp_ui_90b59fe7f8ac")], ...SA.MATS.slice(1).map((m, i) => [i + 1, m.rank ? `${m.rank} · ${m.name}` : m.name])], SB.mt, (v) => { SB.mt = +v; })),
         field(SA.Config.text("camp_ui_b4566d6d030d"), sel(STYLES, SB.style, (v) => { SB.style = v; })),
         field(SA.Config.text("camp_ui_f787b4997419"), sel([['', SA.Config.text("camp_ui_2c2210ed86d7")], ...[0.3, 0.5, 0.65, 0.8, 0.9, 1].map(a => [a, SA.Config.text("camp_ui_c8ae3a7850bc", `${a}`)])], SB.aim, (v) => { SB.aim = v; }))));
@@ -154,7 +155,7 @@ SA.CampUI = (() => {
         h('div', { class: 'dialog-actions', style: 'padding:10px 0 0;justify-content:flex-start' },
           h('button', { class: 'btn primary', disabled: !me.canDeploy, onclick: () => {
             SA.UI.closeModal();
-            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1, scene: SB.scene || undefined });
+            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1, scene: SB.scene || undefined, bounds: SB.bounds ? { left: 0, right: 1280 } : undefined });
           } }, SA.Config.text("camp_ui_308605e6e972")),
           SB.src === 'street' ? h('button', { class: 'btn', onclick: () => draw() }, SA.Config.text("camp_ui_2f07427ad654")) : null));
     }
