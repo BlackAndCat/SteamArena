@@ -2231,8 +2231,7 @@ SA.SPR = (() => {
   // ---------- 履带六档的零件（DRAW.track 用；样机 tools/archive/track-tiers.html）----------
   const TAUT = Math.PI * 2, rdT = Math.round;
   const BRASST = [P.brass[0], P.brass[1], P.brass[2], P.brass[3]];   // T1 黄铜：轮辋、车台
-  const WROUGHT = [P.iron[0], P.iron[1], P.iron[2], P.iron[3]];      // T2 熟铁：锻铁板条
-  function tSeg(cx, cy, a, len, w, col) {
+    function tSeg(cx, cy, a, len, w, col) {
     const dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2;
     line(rdT(cx - dx), rdT(cy - dy), rdT(cx + dx), rdT(cy + dy), w, col);
   }
@@ -2241,28 +2240,16 @@ SA.SPR = (() => {
   // 铁链节（弧形段用）：黑描边 + 交替明暗 + 外侧高光 + 黄铜链销 + 抓地齿 / 导向齿
   function tLink(T, X, Y, a, i, pin) {
     const nx = -Math.sin(a), ny = Math.cos(a);
-    if (T === 2) {   // 锻铁板条：垂直于行进方向摆，一块块铆在链上，每三块加一条抓地条
-      tSeg(X, Y, a + Math.PI / 2, 4.2, 3, P.iron[0]); tSeg(X, Y, a + Math.PI / 2, 3.2, 2, i % 2 ? P.iron[2] : P.iron[3]);
-      px(rdT(X - nx * 1.2 - 0.5), rdT(Y - ny * 1.2 - 0.5), P.iron[4]);
-      if (i % 3 === 0) tSeg(X - nx * 2.6, Y - ny * 2.6, a + Math.PI / 2, 3, 1, P.iron[4]);
-      return;
-    }
     tSeg(X, Y, a, 5.8, 3, P.iron[0]); tSeg(X, Y, a, 4.6, 2, i % 2 ? P.iron[3] : P.iron[2]);
     px(rdT(X - nx * 1.2 - 0.5), rdT(Y - ny * 1.2 - 0.5), P.iron[4]);
     px(rdT(X - Math.cos(a) * 2.6 - 0.5), rdT(Y - Math.sin(a) * 2.6 - 0.5), pin);
     if (i % 2 === 0) { tSeg(X - nx * 2.6, Y - ny * 2.6, a + Math.PI / 2, 2, 1, P.iron[0]); px(rdT(X - nx * 3.6 - 0.5), rdT(Y - ny * 3.6 - 0.5), P.iron[4]); }
     if (T >= 4 && i % 2 === 1) R(rdT(X + nx * 2.6 - 1), rdT(Y + ny * 2.6 - 1), 2, 2, P.iron[4]);
   }
-  // 直段链带（逐列画）：t = 带顶 y；dir = 1 下段（向左滚，+ph）/ -1 上段（向右滚，-ph）；节距 6（木板 4），格宽 48 是节距的整数倍，跨格不错位
+  // 直段链带（逐列画，T3～T6）：t = 带顶 y；dir = 1 下段（向左滚，+ph）/ -1 上段（向右滚，-ph）；节距 6，格宽 48 是节距的整数倍，跨格不错位
   function trackCol(T, cx, t, ph, dir) {
-    const slat = T === 2, pitch = slat ? 4 : 6, u = cx + ph * dir, p = ((u % pitch) + pitch) % pitch, idx = Math.floor(u / pitch);
+    const pitch = 6, u = cx + ph * dir, p = ((u % pitch) + pitch) % pitch, idx = Math.floor(u / pitch);
     const out = dir > 0 ? 1 : -1;   // 外侧（抓地）朝下 / 朝上
-    if (slat) {
-      R(cx, t, 1, 4, P.iron[0]);
-      if (p !== 3) { R(cx, t + 1, 1, 2, idx % 2 ? P.iron[2] : P.iron[3]); if (p === 0) px(cx, t + 1, P.iron[4]); if (p === 2 && idx % 2 === 0) px(cx, t + 1, P.iron[4]); }   // 板面 + 一颗铆钉
-      if (idx % 3 === 0 && p >= 1 && p <= 2) R(cx, out > 0 ? t + 4 : t - 2, 1, 2, P.iron[4]);
-      return;
-    }
     R(cx, t, 1, 4, P.iron[0]);
     if (p === 5) R(cx, t + 1, 1, 2, T >= 4 ? P.brass[3] : P.brass[2]);
     else { R(cx, t + 1, 1, 2, idx % 2 ? P.iron[3] : P.iron[2]); if (p === 0) px(cx, out > 0 ? t + 1 : t + 2, P.iron[4]); }
@@ -2271,7 +2258,7 @@ SA.SPR = (() => {
   }
   // 端头圆弧：side = -1 左端（驱动轮，从下段绕过左边到上段）/ 1 右端（诱导轮，从上段绕过右边到下段）；半径 12，链节沿弧长等距、随 ph 转
   function trackArc(T, cx, cy, side, ph) {
-    const r = 12, pitch = T === 2 ? 4 : 6, n = Math.round(Math.PI * r / pitch), step = Math.PI * r / n, pin = T >= 4 ? P.brass[3] : P.brass[2];
+    const r = 12, pitch = 6, n = Math.round(Math.PI * r / pitch), step = Math.PI * r / n, pin = T >= 4 ? P.brass[3] : P.brass[2];
     for (let k = 0; k < n; k++) {
       const s = (((k + ph / pitch) % n) + 0.5) * step, ang = side < 0 ? Math.PI / 2 + s / r : -Math.PI / 2 + s / r;
       tLink(T, cx + r * Math.cos(ang), cy + r * Math.sin(ang), ang + Math.PI / 2, k, pin);
@@ -2345,22 +2332,50 @@ SA.SPR = (() => {
       for (let k = x + 3; k < x + C - 5; k += 8) { R(k, y + 44, 7, 3, P.iron[0]); R(k + 1, y + 45, 5, 1, k % 16 ? P.iron[2] : P.iron[3]); px(k + 3, y + 45, P.brass[3]); }
     }
   }
+  // T2 木板链带（隆巴德 1901 / 霍恩斯比 1904），照搬定稿样机 tools/archive/track-tiers.js 的画法：
+  // 整条履带（ri / rn = 本格在连续段里的序号 / 段长）按一条「体育场形」路径摆木板条，左右半圆绕驱动轮和诱导轮；
+  // 吊杆、托轮、上梁也按整条均分。每一格把整条画一遍、只裁出自己那一段，所以几节拼起来和样机一模一样。
+  // 游戏里多一样：下段链带和托轮跟着本格的悬挂 hAt 上下（裁剪区只露出本格，用本格的 hAt 即可）
+  const WOODT = [P.leather[0], P.leather[1], P.leather[2], P.leather[3]];
+  function trackT2(x, y, L, Rr, ph, th, sn, ri, rn, hAt) {
+    const X0 = x - ri * C, W = rn * C, rb = 12, cy = y + 33, cxL = X0 + rb + 2, cxR = X0 + W - rb - 2;
+    const off = (X) => (X >= x - 2 && X <= x + C + 2 ? Math.round(hAt(X - x)) : 0);
+    const c0 = L ? x : x - LEFT, c1 = Rr ? x + C : x + C + 32;
+    ctx.save(); ctx.beginPath(); ctx.rect(c0, y - TOP, c1 - c0, C + TOP + BOT); ctx.clip();
+    if (!th) {
+      // 链带：按弧长等距摆木板条（节距约 4px），行驶时每走 4px 平移一块，24 帧无缝
+      const fl = cxR - cxL, P2 = 2 * fl + 2 * Math.PI * rb, n = Math.round(P2 / 4), step = P2 / n, sh = (ph % 4) / 4 * step;
+      for (let i = 0; i < n; i++) {
+        const sp = (i * step + sh) % P2;
+        let X, Y, a, bot = false;
+        if (sp < fl) { X = cxL + sp; Y = cy - rb; a = 0; }
+        else if (sp < fl + Math.PI * rb) { const t = -Math.PI / 2 + (sp - fl) / rb; X = cxR + rb * Math.cos(t); Y = cy + rb * Math.sin(t); a = t + Math.PI / 2; }
+        else if (sp < 2 * fl + Math.PI * rb) { X = cxR - (sp - fl - Math.PI * rb); Y = cy + rb + off(cxR - (sp - fl - Math.PI * rb)); a = Math.PI; bot = true; }
+        else { const t = Math.PI / 2 + (sp - 2 * fl - Math.PI * rb) / rb; X = cxL + rb * Math.cos(t); Y = cy + rb * Math.sin(t); a = t + Math.PI / 2; }
+        tSeg(X, Y, a + Math.PI / 2, 4.2, 3, WOODT[0]);
+        tSeg(X, Y, a + Math.PI / 2, 3.2, 2, i % 2 ? WOODT[1] : WOODT[2]);
+        if (i % 3 === 0) tSeg(X, Y, a + Math.PI / 2, 4.2, 1, P.iron[2]);   // 铁包头抓地条
+        if (bot && i % 2) px(rdT(X), rdT(Y + 2), P.iron[0]);
+      }
+    } else trackGround(2, x, y, L, Rr, sn);
+    // 驱动轮 / 诱导轮（垫一圈暗底），托轮，上梁 + 三根吊杆
+    if (!L) disc(cxL, cy, rb - 3, P.dark[1]);
+    if (!Rr) disc(cxR, cy, rb - 3, P.dark[1]);
+    trackSprockets(2, x, y, L, Rr, th ? 0 : ph);
+    const nr = Math.floor((cxR - cxL) / 16);
+    for (let i = 1; i <= nr; i++) {
+      const rx = cxL + i * (cxR - cxL) / (nr + 1), wy = cy + rb - 5 + (th ? 0 : off(rdT(rx)));
+      disc(rx, wy, 3.4, P.dark[0]); disc(rx, wy, 2.6, P.iron[2]); px(rdT(rx - 1), rdT(wy - 1), P.iron[4]);
+    }
+    R(cxL, y + 11, cxR - cxL, 4, P.iron[0]); R(cxL, y + 12, cxR - cxL, 2, P.iron[3]); R(cxL, y + 12, cxR - cxL, 1, P.iron[4]);
+    for (const bx of [cxL + 4, (cxL + cxR) / 2, cxR - 4]) { R(rdT(bx) - 1, y + 15, 3, cy - y - 21, P.iron[0]); R(rdT(bx), y + 15, 1, cy - y - 21, P.iron[3]); }
+    for (let k = cxL + 3; k < cxR - 2; k += 9) tBolt(rdT(k), y + 12);
+    ctx.restore();
+  }
   // 侧框 + 负重轮（T2～T6），fx0 / fx1 = 本格里侧框的左右端；图案按格内绝对 x 排，跨格不错位
   function trackFrame(T, x, y, L, Rr, fx0, fx1, ph, g0, g1, gof) {
     const each = (step, off, lo, hi, fn) => { for (let k = x; k < x + C; k++) if (((k - x) % step) === off && k >= lo && k <= hi) fn(k); };
     const spin = (i) => ph / 24 * TAUT + i, solo = !L && !Rr;   // solo：单节履带，下段链带是平的
-    if (T === 2) {   // 上梁 + 吊杆 + 铸铁托轮：吊杆一直伸到托轮轮心，托轮压在下段链带上（战斗里缩小看也要认得出来）
-      const a = L ? x : x + 14, b = Rr ? x + C : x + 34;
-      R(a, y + 11, b - a, 4, P.iron[0]); R(a, y + 12, b - a, 2, P.iron[3]); R(a, y + 12, b - a, 1, P.iron[4]);
-      each(8, 3, a + 2, b - 4, (k) => tBolt(k, y + 12));
-      for (const lx of [8, 24, 40]) {
-        if (x + lx < a + 3 || x + lx > b - 3) continue;
-        const cx = x + lx, wy = y + 39 + (solo ? 0 : gof(lx));
-        R(cx - 1, y + 15, 3, wy - y - 15, P.iron[0]); R(cx, y + 15, 1, wy - y - 15, P.iron[3]);
-        disc(cx, wy, 4.4, P.dark[0]); disc(cx, wy, 3.6, P.iron[3]); disc(cx - 0.5, wy - 0.5, 2.4, P.iron[4]); disc(cx, wy, 1.4, P.iron[1]);
-      }
-      return;
-    }
     if (T === 3) {   // 铆接铁板侧框（竖肋）+ 成对负重轮
       tPlate(fx0, y + 22, fx1 - fx0, 12, [P.iron[0], P.iron[1], P.iron[2], P.iron[3]]);
       each(8, 5, fx0 + 2, fx1 - 3, (k) => { R(k, y + 24, 1, 8, P.iron[1]); R(k + 1, y + 24, 1, 8, P.iron[4]); });
@@ -2776,7 +2791,7 @@ SA.SPR = (() => {
     },
     track(x, y, o) {
       // 履带六档（2026-09-29 用户定：全部采用；样机 tools/archive/track-tiers.html）。档位 = 材料 1～6（module-art 的 vis），每档一个真实的历史节点：
-      // ① 博伊德尔铰接脚板轮（1846，无履带）② 熟铁板条链带（隆巴德 / 霍恩斯比）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
+      // ① 博伊德尔铰接脚板轮（1846，无履带）② 木板链带（隆巴德 / 霍恩斯比，铁包头抓地条；整条按样机路径画，见 trackT2）③ 霍尔特铁链节 + 竖肋侧框 ④ Mark IV 减重孔钢框 + 导向齿
       // ⑤ 维克斯桁架 + 板簧转向架 ⑥ 全包裙板。一格 48 宽；两端各一只半径 12 的圆弧（驱动轮在左、诱导轮在右），中间格是直段。
       // 悬挂：module-art 的 susp.pts = [13, 37]，g0 / g1 是这两个接地点的伸缩，负重轮和下段链带一起上下；gL / gR 是相邻格的偏移，跨格接成一条。
       // th = 掉链子（任意一段被毁，整条履带脱落）：链条摊在地上，sn = 被打断的那一段；T1 的脚板一起掉下来
@@ -2789,7 +2804,15 @@ SA.SPR = (() => {
       const deckTo = [0, 12, 11, 19, 19, 19, 10][T];
       R(x, y + 5, C, deckTo - 5, P.iron[1]); R(x, y + deckTo - 1, C, 1, P.iron[0]);
       if (T === 1) trackT1(x, y, L, Rr, ph, th, g0, g1);
-      else {
+      else if (T === 2) {
+        const pts = [];
+        if (L) pts.push([0, gL + (g0 - gL) * 0.4], [6, g0], [20, g0]); else pts.push([14, 0]);
+        if (Rr) pts.push([30, g1], [44, g1], [48, g1 + (gR - g1) * 0.4]);
+        else if (L) pts.push([26, g0 * 0.5], [34, 0]); else pts.push([34, 0]);
+        // 段长缺省时（图标、旧调用只给了左右相连）按左右相连推一个
+        const rn = o.rn || 1 + (L ? 1 : 0) + (Rr ? 1 : 0), ri = o.rn ? o.ri || 0 : (L ? 1 : 0);
+        trackT2(x, y, L, Rr, ph, th, o.sn, ri, rn, polyAt(pts));
+      } else {
         if (!th) {
           const pts = [];
           if (L) pts.push([0, gL + (g0 - gL) * 0.4], [6, g0], [20, g0]); else pts.push([14, 0]);
@@ -2871,7 +2894,7 @@ SA.SPR = (() => {
       case 'mortar': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 55); break;
       case 'cannon_giant': q.k = SA.Dyn.quant(o.recoil, 8); q.a = angQ(o.a, 75); break;   // 没有仰角（车间、图标）时按静止 75° 画
       case 'mg': case 'mg2': case 'mg_s': case 'mg_heavy': q.k = SA.Dyn.quant(o.recoil, 8); q.f = SA.Dyn.frame(o.feed, 12); q.a = angQ(o.a, 0); break;
-      case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; gndQ(q, o); break;
+      case 'track': q.ph = o.thrown ? 0 : SA.Dyn.frame(o.phase, 24); q.connL = !!o.connL; q.connR = !!o.connR; q.top = !!o.top; q.th = !!o.thrown; q.sn = !!o.snap; if (o.rn > 1) { q.ri = o.ri; q.rn = o.rn; } gndQ(q, o); break;
       case 'quad': {   // 整件四足：步态角 12 档、步幅 4px 一档、四只脚的悬挂 2px 一档
         const A = o.gait || 0;
         q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 14) / 2) * 2;
