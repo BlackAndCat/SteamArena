@@ -1234,6 +1234,131 @@
       }
     }
   ],
+  "SIDE_LINES": [
+    {
+      "id": "martha",
+      "name": "玛莎的复仇",
+      "episodes": [
+        {
+          "id": "martha.1",
+          "name": "拦路",
+          "open": {
+            "ambush": "2,0"
+          },
+          "scene": "suburb",
+          "terrain": "flat",
+          "pilot": "玛莎·布莱克",
+          "vehicleName": "煤灰寡妇",
+          "aim": 0.75,
+          "style": "wander",
+          "boss": false,
+          "prize": 0,
+          "rewardMoney": false,
+          "rewardItems": [],
+          "uniqueLoot": [],
+          "blurb": "还是后巷那辆煤灰寡妇：零件全换成了熟铁，车头两块装甲换成了钢。",
+          "cells": [
+            [
+              0,
+              6,
+              4,
+              "mortar",
+              2,
+              0
+            ],
+            [
+              1,
+              6,
+              7,
+              "rangefinder",
+              2,
+              0
+            ],
+            [
+              0,
+              6,
+              7,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              6,
+              "helmet",
+              2,
+              0
+            ],
+            [
+              0,
+              8,
+              4,
+              "boiler_s",
+              2,
+              0
+            ],
+            [
+              0,
+              8,
+              5,
+              "tank_s",
+              2,
+              0
+            ],
+            [
+              0,
+              8,
+              6,
+              "tank_tall",
+              2,
+              0
+            ],
+            [
+              0,
+              8,
+              7,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              5,
+              "tank_s",
+              2,
+              0
+            ],
+            [
+              0,
+              10,
+              4,
+              "track",
+              2,
+              0
+            ],
+            [
+              0,
+              10,
+              6,
+              "track",
+              2,
+              0
+            ]
+          ]
+        },
+        {
+          "id": "martha.2",
+          "name": "",
+          "open": {
+            "after": "2,2"
+          },
+          "unfinished": true
+        }
+      ]
+    }
+  ],
   "CAMPAIGN_LAYOUT": 4,
   "CLOUD_PRESETS": [
     {

@@ -40,3 +40,4 @@ SA.BUILD_SYS += '+cockpit-pip-rules'; // 驾驶舱禁售；双人舱装车与首
 SA.BUILD_SYS += '+stage-create-budget-rollback'; // 新建关卡同时登记逐关预算（按设计稿序号每关 ×1.2），三份文件任一写失败都回滚；检查跳过占位空关。
 SA.BUILD_SYS += '+evolve-route-after'; // 进化擂台按真实原点车预演后续主线计划关，并支持工作台交接。
 SA.BUILD_SYS += '+side-mount-host-rules'; // 侧挂完整承托于装甲，装弹机只增强兼容宿主武器。
+SA.BUILD_SYS += '+side-lines-martha'; // 支线系统（SA.Side，content.json SIDE_LINES）：拦路关 / 打完某主线关开放；支线战斗照常带回战损，首胜发固定奖励并缴获，赢过以后按重打；「玛莎的复仇」两关（用户要求 Opus 改）。

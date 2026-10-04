@@ -1456,8 +1456,8 @@ SA.Battle = (() => {
   }
 
   function start(opts) {
-    // 已取消的遭遇战不能从旧页面或脚本绕过出战入口启动。
-    if (opts?.mode === 'side') return false;
+    // 支线只能打已经开放的关（拦路那一场只在它该出现时）；已取消的遭遇战不能从旧页面或脚本绕过出战入口启动。
+    if (opts?.mode === 'side' && !SA.Side?.canStart(opts)) return false;
     // 发行包在实际开战入口核对开放范围，旧页面不能启动后续章节。
     if (SA.RELEASE && opts?.mode === 'campaign') {
       const key = /^(\d+),(\d+)$/.exec(String(opts.storyKey || ''));

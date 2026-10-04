@@ -414,6 +414,113 @@ SA.Camp = (() => {
 
   return { migrateStageIndex, migrateEvolutionReport, backfill, owns, salvageOptions, has, hasMod, shopMods, maxMat, grid, chapterCount, done, chIndex, plannedStages, unfinished, frontier, pending, clampProgress, syncLim, stage, current, prepareTrialVehicle, win, applyUnlock, unlockLines, takeIntro, claimSalvage, claimReward, salvageDialog, unlockDialog, introIfNew, matChip, isDesignMode, ...(!SA.RELEASE ? { dev } : {}) };
 })();
+// 支线：竞技场外的系列遭遇战（content.json 的 SIDE_LINES）。每条线若干关，按主线进度开放：
+// open.ambush = 第一次开打这一主线关（「章,关」）时，先在路上被这一关拦住（过场 + 正式战斗）；打完不算过那一关，只开放这条支线；
+// open.after = 打完这一主线关以后开放；open.prev = 还要先赢下同一条线的上一关。unfinished = 还没做车，只占位。
+// 存档 camp.side = { met: { 关 id: 1 }（拦路已经演过）, won: { 关 id: 1 }（赢过，首胜奖励已发、以后按重打算） }。
+SA.Side = (() => {
+  const lines = () => SA.SIDE_LINES || [];
+  const rec = () => { const C = SA.S.d.camp; C.side ||= {}; C.side.met ||= {}; C.side.won ||= {}; return C.side; };
+  const parse = (key) => String(key || '').split(',').map(Number);
+  // 主线这一关已经打过
+  function beaten(key) {
+    const [ci, si] = parse(key), C = SA.S.d.camp;
+    if (!Number.isInteger(ci) || !Number.isInteger(si)) return false;
+    return SA.Camp.done() || ci < C.ch || (ci === C.ch && si < C.st);
+  }
+  function find(id) {
+    for (const line of lines()) {
+      const i = line.episodes.findIndex(ep => ep.id === id);
+      if (i >= 0) return { line, ep: line.episodes[i], i };
+    }
+    return null;
+  }
+  function isOpen(line, i) {
+    const ep = line.episodes[i], o = ep.open || {}, R = rec();
+    if (R.won[ep.id] || R.met[ep.id]) return true;
+    // 拦路关：拦过才开放；旧档已经越过那一关、没被拦过的，也直接开放
+    if (o.ambush && !beaten(o.ambush)) return false;
+    if (o.after && !beaten(o.after)) return false;
+    if (o.prev && i > 0 && !R.won[line.episodes[i - 1].id]) return false;
+    return i === 0 || isOpen(line, 0);
+  }
+  const playable = (ep) => !ep.unfinished && Array.isArray(ep.cells) && ep.cells.length > 0;
+  const lineOpen = (line) => line.episodes.length > 0 && isOpen(line, 0);
+  const anyOpen = () => lines().some(lineOpen);
+  const won = (id) => !!rec().won[id];
+  const met = (id) => !!rec().met[id];
+  // 第一次开打主线 stageKey 时要先演的拦路；没有就 null
+  function ambushAt(stageKey) {
+    for (const line of lines()) for (let i = 0; i < line.episodes.length; i++) {
+      const ep = line.episodes[i];
+      if (ep.open?.ambush === stageKey && playable(ep) && !met(ep.id) && !won(ep.id) && !beaten(stageKey)) return { line, ep, i };
+    }
+    return null;
+  }
+  const storyId = (ep) => `side.${ep.id}.ambush`;
+  const title = (line, i) => SA.Config.text('state_side_title', line.name, i + 1, line.episodes[i].name);
+  function vehicle(ep) {
+    const v = SA.V.fromCells(ep.vehicleName || ep.name, ep.cells);
+    v.name = ep.vehicleName || ep.name;
+    return v;
+  }
+  // 开战参数：拦路那一场带 ambush（过场台词的剧情编号）；赢过以后再打按重打（不奖不罚）
+  function battleOpts(found, ambush = false) {
+    const { line, ep } = found, done = won(ep.id);
+    const ch = SA.CAMPAIGN[parse(ep.open?.ambush || ep.open?.after)[0]];
+    return { mode: 'side', sideId: ep.id, sideLine: line.id, replay: done && !ambush, ambush: ambush ? { story: storyId(ep) } : null,
+      enemyVehicle: vehicle(ep), enemyName: ep.vehicleName || ep.name, aim: ep.aim, style: ep.style, terrain: ep.terrain || 'flat',
+      bounds: ep.bounds || ch?.bounds || null, scene: ep.scene || null, boss: !!ep.boss, hpMul: 1,
+      prize: done || !ep.rewardMoney ? 0 : (ep.prize || 0), rewardMoney: !!ep.rewardMoney, uniqueLoot: done ? [] : (ep.uniqueLoot || []) };
+  }
+  function canStart(opts) {
+    const f = opts && find(opts.sideId);
+    if (!f || !playable(f.ep)) return false;
+    return opts.ambush ? !!ambushAt(f.ep.open?.ambush) : isOpen(f.line, f.i);
+  }
+  function start(id, ambush = false) {
+    const f = find(id);
+    if (!f) return false;
+    return SA.Battle.start(battleOpts(f, ambush));
+  }
+  // 出战黑板「支线」页签：能打的关（和战役列表同一种条目）
+  function entries() {
+    const out = [];
+    for (const line of lines()) {
+      if (!lineOpen(line)) continue;
+      line.episodes.forEach((ep, i) => {
+        if (!isOpen(line, i) || !playable(ep)) return;
+        const v = vehicle(ep), replay = won(ep.id);
+        out.push({ key: ep.id, line: line.id, index: i, name: ep.name, pilot: ep.pilot, blurb: ep.blurb, v, raw: v, hpMul: 1, rating: SA.V.stats(v).rating,
+          prize: replay || !ep.rewardMoney ? 0 : (ep.prize || 0), boss: !!ep.boss, terrain: ep.terrain || 'flat', replay, next: !replay,
+          tag: replay ? ['ok', SA.Config.text('state_f75385ead4d2')] : ['next', SA.Config.text('state_6439bf33ade5')],
+          title: title(line, i), lock: null, start: () => start(ep.id) });
+      });
+    }
+    return out;
+  }
+  // 黑板上每条已开放支线的行：开放的关、还没做好的关、下一关的开放条件（只透露条件，不透露对手）
+  function board() {
+    return lines().filter(lineOpen).map(line => {
+      const rows = [];
+      for (let i = 0; i < line.episodes.length; i++) {
+        const ep = line.episodes[i];
+        if (isOpen(line, i)) { rows.push({ ep, i, state: playable(ep) ? 'open' : 'wip' }); continue; }
+        rows.push({ ep, i, state: 'locked', after: ep.open?.after || null });
+        break;
+      }
+      return { line, rows };
+    });
+  }
+  // 结算用：记下拦路已演过 / 首胜
+  function markMet(id) { rec().met[id] = 1; }
+  function markWon(id) { rec().won[id] = 1; }
+  // 主线推进前后对比：新开放、能打的关
+  const openIds = () => lines().flatMap(line => line.episodes.filter((ep, i) => playable(ep) && isOpen(line, i)).map(ep => ep.id));
+  const newlyOpen = (before) => openIds().filter(id => !before.includes(id)).map(find);
+  return { lines, find, isOpen, lineOpen, anyOpen, playable, won, met, ambushAt, storyId, title, vehicle, battleOpts, canStart, start, entries, board, markMet, markWon, openIds, newlyOpen };
+})();
+
 if (!SA.RELEASE) SA.dev = SA.Camp.dev;
 if (SA.StageCars) {
   supportStageVehicleName();

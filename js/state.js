@@ -353,6 +353,7 @@ SA.S = (() => {
           } }];
       }));
     }
+    if (mode === 'side') return SA.Side ? SA.Side.entries() : [];
     if (mode === 'tour') return SA.OPPONENTS.map((o, i) => {
       const op = SA.S.opponent(i);
       const bv = SA.V.battleCopy(op.vehicle, op.hpMul, true);
@@ -391,8 +392,8 @@ SA.S = (() => {
       SA.V.each(d.vehicle, cell => { if (cell.hp < SA.V.maxHp(cell)) { cell.hp = SA.V.maxHp(cell); count++; } });
       return count;
     };
-    // 旧链接或脚本传入已取消的遭遇战时，不结算战损、奖励或旧档进度。
-    if (res.mode === 'side') return { lines, pre, money0 };
+    // 支线（SA.Side）单独结算；旧链接或脚本传入已取消的遭遇战（没有支线编号）时，不结算战损、奖励或旧档进度。
+    if (res.mode === 'side') return settleSide(res, { lines, pre, money0 });
     // 发行版拒绝越过开放章节的伪造结算，避免修改战损、经济与进度。
     if (SA.RELEASE && res.mode === 'campaign') {
       const key = /^(\d+),(\d+)$/.exec(String(res.opts?.storyKey || ''));
@@ -446,6 +447,7 @@ SA.S = (() => {
         if (d.bet) { d.money += d.bet.amount; lines.push(SA.Config.text("state_eff3661cdc95", `${formatMoney(d.bet.amount)}`)); }
         d.news = SA.Config.text("state_dbdf2560827e", `${d.vehicle.name}`, `${res.enemyName}`);
       } else if (res.win) {
+        const sideBefore = camp && SA.Side ? SA.Side.openIds() : null;
         if (rewardMoney) d.money += res.prize;
         d.wins++;
         const rep = (res.flawless ? TOUR.flawlessReputation : TOUR.winReputation) + (res.surrendered ? TOUR.surrenderReputation : 0);
@@ -461,6 +463,8 @@ SA.S = (() => {
           const r = SA.Camp.win();
           lines.push(...r.lines);
           for (const u of r.unlocks) pre.push({ kind: 'unlock', unlock: u });
+          // 主线推进后新开放的支线关
+          if (sideBefore) for (const f of SA.Side.newlyOpen(sideBefore)) pre.push({ kind: 'unlock', unlock: { title: SA.Config.text('state_side_open_title'), u: { lines: [SA.Config.text('state_side_episode_open', f.line.name, f.i + 1)] } } });
           const st = SA.Camp.current();
           d.news = SA.Camp.done() ? (SA.RELEASE ? SA.Config.text("state_09092100c0bb", `${d.vehicle.name}`) : SA.Config.text("state_dacfe49efade", `${d.vehicle.name}`))
             : !st ? SA.Config.text("state_campaign_pending", `${d.vehicle.name}`, `${res.enemyName}`)
@@ -487,6 +491,50 @@ SA.S = (() => {
     }
     SA.S.save();
     return { lines, pre, money0, repairFree, repaired };
+  }
+
+  // 支线（竞技场外）：没有观众，不计声望、不下注、不计利息；战损照常带回车间。
+  // 首胜发关卡写好的固定奖励（奖金只在 rewardMoney 时发），并照常从对手车上缴获一件；赢过以后再打按重打（不奖不罚）。
+  // 拦路那一场不论输赢都算「拦过了」：这条支线从此开放，主线那一关照旧没过。
+  function settleSide(res, out) {
+    const { lines, pre } = out;
+    const found = SA.Side && SA.Side.find(res.opts?.sideId);
+    if (!found) return out;
+    const { line, ep } = found, firstMeet = !!res.opts.ambush && !SA.Side.met(ep.id) && !SA.Side.won(ep.id);
+    if (res.opts.ambush) SA.Side.markMet(ep.id);
+    const me = d.vehicle.name, foe = res.enemyName;
+    if (res.replay) {
+      d.news = res.win ? SA.Config.text('state_418ea32bb605', me, foe) : SA.Config.text('state_fff0caf5f77d', me, foe);
+      save();
+      return out;
+    }
+    d.battles++;
+    SA.V.each(d.vehicle, (cell, r, c, layer) => {
+      if (cell.hp <= 0) return;
+      const b = res.playerVehicle[layer][r][c];
+      cell.hp = b ? Math.max(0, b.hp) : 0;
+    });
+    if (res.draw) d.news = SA.Config.text('state_side_draw', me, foe);
+    else if (res.win) {
+      d.wins++;
+      if (ep.rewardMoney && res.prize) { d.money += res.prize; lines.push(SA.Config.text('state_290a6c1d1bac', formatMoney(res.prize))); }
+      for (const item of ep.rewardItems || []) {
+        addInv(item.id, item.count || 1, item.mt);
+        lines.push(SA.Config.text('camp_reward_item', SA.MODULES[item.id].name, item.count || 1));
+      }
+      const loot = SA.Camp.salvageOptions(res.survivors || []);
+      if (loot.length) pre.push({ kind: 'salvage', survivors: res.survivors || [] });
+      else lines.push(SA.Config.text('state_af3d68d7645f'));
+      SA.Side.markWon(ep.id);
+      d.news = SA.Config.text('state_side_win', me, foe);
+    } else {
+      d.losses++;
+      d.news = SA.Config.text('state_side_lose', me, foe);
+    }
+    // 单独弹一张「支线开放」（和新功能开放同一种弹窗），排在缴获之后
+    if (firstMeet) pre.push({ kind: 'unlock', unlock: { title: SA.Config.text('state_side_open_title'), u: { lines: [SA.Config.text('state_side_open', line.name)] } } });
+    save();
+    return out;
   }
 
   function stashCell(cell) {

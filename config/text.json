@@ -135,6 +135,10 @@
       "smith": {
         "name": "铁匠 老汤姆",
         "coal": "铁匠 老汤姆"
+      },
+      "martha": {
+        "name": "玛莎·布莱克",
+        "coal": "玛莎·布莱克"
       }
     },
     "tutorialParts": [

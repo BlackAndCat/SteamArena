@@ -934,6 +934,21 @@
     "blueprints_3f1f91257f45": "车上现有的模块会先拆回库存，再按蓝图「{{0}}」重新组装。",
     "blueprints_4cc91b2dcf71": "用不上的受损模块修好后放回库存：{{0}}",
     "blueprints_3bf632c1c10b": "应用蓝图",
-    "blueprints_fcfecbaed27e": "库存够用，不需要花钱。"
+    "blueprints_fcfecbaed27e": "库存够用，不需要花钱。",
+    "arena_side_tab": "支线",
+    "arena_side_where": "支线 · {{0}} · 第 {{1}} 关",
+    "arena_side_row": "第 {{0}} 关 · {{1}}",
+    "arena_side_after": "第 {{0}} 关 · 打完「{{1}}」后开放",
+    "arena_side_wip": "第 {{0}} 关 · 制作中",
+    "arena_side_stage": "第 {{0}} 章第 {{1}} 关",
+    "arena_side_foot": "竞技场外：没有奖金和声望，打过的可以重打",
+    "state_side_title": "{{0}} · 第 {{1}} 关 · {{2}}",
+    "state_side_open": "支线「{{0}}」开放：出战黑板上多了「支线」页签，随时可以再打这一场。",
+    "state_side_episode_open": "支线「{{0}}」第 {{1}} 关开放。",
+    "state_side_win": "「{{0}}」在竞技场外击败了「{{1}}」。",
+    "state_side_lose": "「{{0}}」在竞技场外输给了「{{1}}」。",
+    "state_side_draw": "「{{0}}」和「{{1}}」在竞技场外打成平手。",
+    "battle_view_ambush_dev_hint": "（开发者提示：这段拦路过场还没有台词。点右下角「编排剧情」来写；不写的话玩家会直接看到开战。）",
+    "state_side_open_title": "支线开放"
   }
 }

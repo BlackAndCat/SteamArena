@@ -869,6 +869,8 @@ SA.StoryData = (() => {
     (SA.CAMPAIGN || []).forEach((chapter, ci) => chapter.stages.forEach((_, si) => {
       ids.push(`before.${ci},${si}`, `after.${ci},${si}`);
     }));
+    // 支线的拦路过场（SA.Side.storyId）
+    for (const line of SA.SIDE_LINES || []) for (const ep of line.episodes || []) if (ep.open?.ambush) ids.push(`side.${ep.id}.ambush`);
     return ids;
   }
 
