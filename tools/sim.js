@@ -166,7 +166,7 @@
   // a 对 b 打 n 局，结果累加到 acc
   function duel(acc, a, b) {
     return () => {
-      const r = SA.Battle.simulate({ p: a.v, e: b.v, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style, eBoss: b.boss, terrain: b.terrain || a.terrain || $('#ter').value || 'flat', bounds: b.bounds });
+      const r = SA.Battle.simulate({ p: a.v, e: b.v, pStatMultipliers: a.statMultipliers, eStatMultipliers: b.statMultipliers, pAim: a.aim, eAim: b.aim, pStyle: a.style, eStyle: b.style, eBoss: b.boss, terrain: b.terrain || a.terrain || $('#ter').value || 'flat', bounds: b.bounds });
       acc.n++; acc.t += r.t;
       if (r.winner === 'p') acc.w++; else if (r.winner === 'draw') acc.d++;
       const who = r.winner === 'p' ? '对方' : r.winner === 'e' ? '我方' : '平手';
@@ -188,7 +188,7 @@
       // 正式关卡记录优先使用完整载具；旧格式仍可从字符图读取。
       const ev = o.vehicle ? SA.V.clone(o.vehicle) : SA.V.fromAscii(o.name, o.rows, o.sides || [], o.mt || 1, o.elite || [], o.subs || []);
       // 战役检验沿用章节的场地边界；普通对战矩阵不设置边界。
-      const e = { v: ev, aim: o.aim, style: o.style, boss: o.boss, terrain: $('#ter').value || o.terrain || 'flat', bounds: ch.bounds };
+      const e = { v: ev, statMultipliers: o.statMultipliers, aim: o.aim, style: o.style, boss: o.boss, terrain: $('#ter').value || o.terrain || 'flat', bounds: ch.bounds };
       const cur = REF[ci], prev = REF[ci - 1];
       const curVeh = refVeh(cur, ci, si), missing = missingMods(curVeh, ci, si);
       const row = { ci, si, o, er: rating(ev), cur: blank(), prev: prev && o.boss ? blank() : null, missing };
@@ -425,7 +425,7 @@
       const pool = buildCandidates(ci, budget);
       const rows = pool.map(c => ({ c, acc: blank() }));
       ch.stages.filter(stage => !stage.unfinished).forEach(stage => rows.forEach(row => {
-        const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
+        const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), statMultipliers: stage.statMultipliers, aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
         for (let k = 0; k < n; k++) jobs.push(duel(row.acc, { v: row.c.v, aim, style: row.c.style }, e));
       }));
       chapters.push({ ch, ci, budget, rows });
@@ -443,7 +443,7 @@
           const c = improveCandidate(r.c, top ? top[0] : '', ci); const row = { c, acc: blank() }; improved.push({ ch, budget, row, before: r }); return row;
         });
         ch.stages.filter(stage => !stage.unfinished).forEach(stage => next.forEach(row => {
-          const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
+          const e = { v: stage.vehicle || SA.V.fromAscii(stage.name, stage.rows, stage.sides || [], stage.mt || 1, stage.elite || [], stage.subs || []), statMultipliers: stage.statMultipliers, aim: stage.aim, style: stage.style, boss: stage.boss, terrain: $('#ter').value || stage.terrain || 'flat', bounds: ch.bounds };
           for (let k = 0; k < n; k++) improvedJobs.push(duel(row.acc, { v: row.c.v, aim, style: row.c.style }, e));
         }));
       });

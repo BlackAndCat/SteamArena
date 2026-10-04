@@ -99,7 +99,7 @@ SA.CampUI = (() => {
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
   function foeList(src) {
     if (src === 'camp') return SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.flatMap((o, si) => o.unfinished ? [] : [{ key: `${ci},${si}`, name: `${ch.name.split(' · ')[0]} · ${o.name}${o.boss ? '【Boss】' : ''}`,
-      make: () => ({ v: stage(ci, si).vehicle, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss }) }]));
+      make: () => ({ v: stage(ci, si).vehicle, aim: o.aim, style: o.style, terrain: o.terrain, boss: o.boss, statMultipliers: stage(ci, si).statMultipliers }) }]));
     if (src === 'tour') return SA.OPPONENTS.map((o, i) => ({ key: String(i), name: SA.Config.text("state_f98b29d88349", `${i + 1}`, `${o.name}`),
       make: () => { const op = SA.S.opponent(i); return { v: op.vehicle, aim: op.aim, terrain: SA.TERRAIN_ORDER[i % SA.TERRAIN_ORDER.length], boss: i === SA.OPPONENTS.length - 1 }; } }));
     if (src === 'bp') return SA.OFFICIAL_BLUEPRINTS.map((b, i) => ({ key: String(i), name: b.name, make: () => ({ v: SA.V.fromAscii(b.name, b.rows, b.sides || []), aim: 0.8 }) }));
@@ -157,7 +157,7 @@ SA.CampUI = (() => {
         h('div', { class: 'dialog-actions', style: 'padding:10px 0 0;justify-content:flex-start' },
           h('button', { class: 'btn primary', disabled: !me.canDeploy, onclick: () => {
             SA.UI.closeModal();
-            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, hpMul: 1, scene: SB.scene || undefined, bounds: SB.bounds ? { left: 0, right: 1280 } : undefined });
+            SA.Battle.start({ mode: 'friendly', enemyVehicle: foe.v, enemyName: foe.name, aim: foe.aim, style: foe.style, terrain: foe.terrain, boss: foe.boss, statMultipliers: foe.statMultipliers, hpMul: 1, scene: SB.scene || undefined, bounds: SB.bounds ? { left: 0, right: 1280 } : undefined });
           } }, SA.Config.text("camp_ui_308605e6e972")),
           SB.src === 'street' ? h('button', { class: 'btn', onclick: () => draw() }, SA.Config.text("camp_ui_2f07427ad654")) : null));
     }
@@ -169,7 +169,7 @@ SA.CampUI = (() => {
   function drive(terrain = 'crates', foe = '1,0') {
       const [ci, si] = String(foe).split(',').map(Number), st = stage(ci, si);
       if (!st) return;
-      SA.Battle.start({ mode: 'friendly', enemyVehicle: st.vehicle, enemyName: st.name, aim: st.aim, style: st.style, terrain, hpMul: 1 });
+      SA.Battle.start({ mode: 'friendly', enemyVehicle: st.vehicle, enemyName: st.name, aim: st.aim, style: st.style, terrain, statMultipliers: st.statMultipliers, hpMul: 1 });
   }
 
   return { salvageDialog, unlockDialog, introIfNew, matChip, ...(!SA.RELEASE ? { devPanel, sandbox, drive } : {}) };

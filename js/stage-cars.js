@@ -17,6 +17,17 @@ SA.StageCars = (() => {
   const isLocked = (chapter, stage) => !!get(chapter, stage)?.locked;
   // 规则指纹只来自后台版本，不把用户的手工数据算进去。
   const ruleFingerprint = () => String(SA.RULES_VERSION || SA.BUILD_SYS || 'rules-unknown');
+  // 关卡整车倍率只保存四项独立规则；缺省为原始数值，非法倍率拒绝进入战斗或落盘。
+  function statMultipliers(value = {}) {
+    value = value ?? {};
+    const out = {};
+    for (const key of ['hp', 'damage', 'speed', 'brake']) {
+      const n = value[key] === undefined ? 1 : Number(value[key]);
+      if (!Number.isFinite(n) || n < 0.0001 || n > 100) throw new Error('关卡整车增减范围为 -99.99%～+9900%：' + key);
+      out[key] = n;
+    }
+    return out;
+  }
   function cellsOf(vehicle) {
     const cells = [];
     SA.V.each(vehicle, (cell, row, col, layer) => cells.push([layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0]));
@@ -63,6 +74,7 @@ SA.StageCars = (() => {
     return {
       ...preserved,
       version: 1, id: keyOf(chapter, stage), cells: cellsOf(vehicleValue), code: SA.V.encode(vehicleValue),
+      statMultipliers: statMultipliers(meta.statMultipliers ?? base.statMultipliers),
       style: meta.style ?? base.style ?? 'wander', aim: Number.isFinite(+meta.aim) ? +meta.aim : (base.aim ?? 0.8), terrain: meta.terrain || base.terrain || 'flat', boss: meta.boss === undefined ? !!base.boss : !!meta.boss,
       prize: Number.isFinite(+meta.prize) ? +meta.prize : (base.prize || 0), unlock: meta.unlock === undefined ? (base.unlock || null) : meta.unlock, uniqueLoot: meta.uniqueLoot === undefined ? (base.uniqueLoot || []) : meta.uniqueLoot,
       rewardItems: meta.rewardItems === undefined ? (base.rewardItems || []) : meta.rewardItems,
@@ -101,5 +113,5 @@ SA.StageCars = (() => {
     return out;
   }
   applyToCampaign();
-  return { data, keyOf, migrateStageIndex, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
+  return { data, keyOf, migrateStageIndex, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint, statMultipliers };
 })();

@@ -789,7 +789,8 @@ SA.V = (() => {
     const b = create(v.name);
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
-      const max = Math.round(maxHp(cell) * hpMul);
+      // 极小的正倍率仍保留至少一点最大耐久，避免 max=0 被当成缺省值回退。
+      const max = Math.max(1, Math.round(maxHp(cell) * hpMul));
       b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
       if (cell.look) b[layer][r][c].look = cell.look;
       if (cell.unique) b[layer][r][c].unique = cell.unique;

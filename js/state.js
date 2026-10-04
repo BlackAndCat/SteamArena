@@ -353,7 +353,7 @@ SA.S = (() => {
           start: () => {
             const latest = SA.Camp.stage(chapterIndex, i);
             // 本场经济规则随战斗选项固定，结算时不再读取可能已被工作台修改的关卡。
-            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, bounds: latest.chapter.bounds, boss: latest.boss, hpMul: 1, prize: replay || !latest.rewardMoney ? 0 : latest.prize, rewardMoney: latest.rewardMoney, victoryRepairFree: latest.victoryRepairFree, repairFree: latest.repairFree === true, uniqueLoot: latest.uniqueLoot || [] });
+            SA.Battle.start({ mode: 'campaign', storyKey: `${chapterIndex},${i}`, replay, enemyVehicle: latest.vehicle, enemyName: latest.vehicle?.name || latest.name, aim: latest.aim, style: latest.style, terrain: latest.terrain, bounds: latest.chapter.bounds, boss: latest.boss, statMultipliers: latest.statMultipliers, hpMul: 1, prize: replay || !latest.rewardMoney ? 0 : latest.prize, rewardMoney: latest.rewardMoney, victoryRepairFree: latest.victoryRepairFree, repairFree: latest.repairFree === true, uniqueLoot: latest.uniqueLoot || [] });
           } }];
       }));
     }

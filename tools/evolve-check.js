@@ -18,6 +18,7 @@ const evolveCandidates = require('./evolve-candidates-check');
 const campaignReplay = require('./campaign-replay-check');
 const stageSettlement = require('./stage-settlement-check');
 const stageMetadata = require('./stage-metadata-check');
+const stageStatMultipliers = require('./stage-stat-multipliers-check');
 const firstStageFix = require('./first-stage-fix-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
@@ -227,6 +228,7 @@ async function main() {
   result.replay = replay;
   result.stageSettlement = stageSettlement.run();
   result.stageMetadata = await stageMetadata.run();
+  result.stageStatMultipliers = stageStatMultipliers.run();
   result.firstStageFix = firstStageFix.run();
   result.shareGarage = shareGarage;
   result.locked = locked;

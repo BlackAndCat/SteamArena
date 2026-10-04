@@ -218,18 +218,18 @@
     if (cur?.kind !== 'stage') throw new Error('拼装台还没打开这一关');
     const v = car(), { ci, si } = cur, bounds = SA.CAMPAIGN[ci].bounds;
     const n = Math.max(1, Math.min(200, Math.round(games) || 20));
-    const refs = [SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || [])];
+    const refs = [{ vehicle: SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []) }];
     for (let c = 0; c <= ci; c++) for (let s = 0; s < SA.CAMPAIGN[c].stages.length; s++) if (c < ci || s < si) {
       const previous = actualStage(c, s);
-      if (previous?.vehicle) refs.push(previous.vehicle);
+      if (previous?.vehicle) refs.push(previous);
     }
     const counts = { p: 0, e: 0, draw: 0 };
     let wins = 0, total = 0, time = 0;
     refs.slice(-4).forEach((ref, ri) => {
       for (let i = 0; i < n; i++) {
         const seed = 0x5eed + ci * 10000 + si * 1000 + ri * 100 + i;
-        const a = SA.Battle.simulate({ p: ref, e: v, pAim: 0.8, eAim: f.aim, pStyle: 'wander', eStyle: f.style, terrain: f.terrain, bounds, eBoss: f.boss, seed });
-        const b = SA.Battle.simulate({ p: v, e: ref, pAim: f.aim, eAim: 0.8, pStyle: f.style, eStyle: 'wander', terrain: f.terrain, bounds, seed: seed + 1 });
+        const a = SA.Battle.simulate({ p: ref.vehicle, e: v, pStatMultipliers: ref.statMultipliers, eStatMultipliers: f.statMultipliers, pAim: 0.8, eAim: f.aim, pStyle: 'wander', eStyle: f.style, terrain: f.terrain, bounds, eBoss: f.boss, seed });
+        const b = SA.Battle.simulate({ p: v, e: ref.vehicle, pStatMultipliers: f.statMultipliers, eStatMultipliers: ref.statMultipliers, pAim: f.aim, eAim: 0.8, pStyle: f.style, eStyle: 'wander', terrain: f.terrain, bounds, seed: seed + 1 });
         for (const [r, side] of [[a, 'e'], [b, 'p']]) { const w = r.winner || 'draw'; counts[w] = (counts[w] || 0) + 1; if (w === side) wins++; total++; time += r.t || 0; }
       }
     });

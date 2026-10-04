@@ -47,5 +47,7 @@ SA.BUILD_SYS += '+ai-styles-15'; // 十五种性格、统一等级目录及固�
 SA.BUILD_SYS += '+evolve-progression-diversity-v1'; // 逐关强度、解锁约束和形态多样性进化筛选。
 SA.BUILD_SYS += '+armor-speed-cache'; // 装甲罚速随损毁刷新，避免逐帧重复遍历车身。
 SA.BUILD_SYS += '+evolve-f32-heat-split-duel'; // 进化预热使用近似 f32 热量预测，最终复测按双向种子对并行拆包。
+SA.BUILD_SYS += '+stage-stat-multipliers-no-zero-text'; // 关卡敌车四项倍率与零伤害数字过滤。
+
 // 原点车出战失败时报告本关范围、违规部件与具体位置。
 SA.BUILD_SYS += '+stage-deploy-diagnostics';

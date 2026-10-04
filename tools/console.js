@@ -260,6 +260,7 @@
     return {
       name: st.name || '', vehicleName: rec?.vehicleName || st.vehicle?.name || st.name || '', pilot: st.pilot || '',
       style: st.style || 'wander', aim: st.aim ?? 0.8, terrain: st.terrain || 'flat', boss: !!st.boss, prize: st.prize || 0,
+      statMultipliers: SA.StageCars.statMultipliers(st.statMultipliers),
       rewardMoney: st.rewardMoney !== false, victoryRepairFree: st.victoryRepairFree === true,
       blurb: st.blurb || '', weakness: st.weakness || '',
       unlock: clone(st.unlock || null), rewardItems: clone(st.rewardItems || []), lootText: JSON.stringify(st.uniqueLoot || [], null, 2),
@@ -302,6 +303,7 @@
     }
     return {
       name: f.name.trim(), vehicleName: f.vehicleName.trim(), pilot: f.pilot.trim(), style: f.style, aim: Number(f.aim), terrain: f.terrain, boss: !!f.boss,
+      statMultipliers: SA.StageCars.statMultipliers(f.statMultipliers),
       prize: Number(f.prize) || 0, unlock, uniqueLoot, rewardItems, rewardMoney: !!f.rewardMoney, victoryRepairFree: !!f.victoryRepairFree,
       blurb: f.blurb, weakness: f.weakness, locked: f.locked !== false,
     };
@@ -1402,7 +1404,7 @@
         try {
           const G = await garageOpen(key);
           await new Promise((r) => setTimeout(r, 40));
-          d.test = G.test(prefs.testGames || 20, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss });
+          d.test = G.test(prefs.testGames || 20, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss, statMultipliers: SA.StageCars.statMultipliers(f.statMultipliers) });
           result.replaceChildren(testVerdict(d.test, !!f.boss, !!(f.unlock?.mods?.length || st.spec?.reward)));
         } catch (e) { result.replaceChildren(el('div.note.bad', { text: `测试失败：${e.message || e}` })); }
         finally { run.disabled = false; run.textContent = '再测一次'; }
@@ -1798,6 +1800,13 @@
       el('div.row', { style: 'gap:16px' }, check('Boss', 'boss'), check('锁定（进化器不改）', 'locked'))));
     const poster = el('div.fs', null, el('h3', { text: '出战海报' }), el('div.fgrid', null,
       text('对手简介', 'blurb', { area: true, wide: true, rows: 3 }), text('弱点（线人手写）', 'weakness', { area: true, wide: true })));
+    // 编辑增减百分比，保存与模拟统一传倍率；空值暂存 NaN，让保存校验明确提示。
+    const globalStats = el('div.fs', null, el('h3', { text: '当前关卡敌方整车数值' }),
+      el('div.note', { text: '填写增减百分比：0 为原值，20 为提高 20%，-20 为降低 20%；仅作用于本关敌车，保存后生效。' }),
+      el('div.fgrid', null, [['hp', '耐久'], ['damage', '伤害'], ['speed', '最高速度'], ['brake', '制动能力']].map(([k, label]) =>
+        el('label.field', null, `${label}增减（%）`, el('input', { type: 'number', min: -99.99, max: 9900, step: 0.01,
+          value: Math.round((f.statMultipliers[k] - 1) * 1000000) / 10000,
+          on: { input: upd((e) => { f.statMultipliers[k] = e.target.value === '' ? NaN : 1 + Number(e.target.value) / 100; d.test = null; }) } })))));
 
     // 固定奖励：一行一件，材料按物品能用的范围列
     const items = el('div', { style: 'display:grid;gap:8px' });
@@ -1875,7 +1884,7 @@
       el('label.field', null, '过关提示（解锁弹窗里的那段话）', note));
     const loot = el('details.fs', null, el('summary', { text: '高级：可缴获的唯一件（JSON）' }),
       autoGrow(el('textarea', { rows: 4, class: 'mono', value: f.lootText, on: { input: upd((e) => { f.lootText = e.target.value; }) } })));
-    body.append(el('div.note', { text: '这里的改动和拼装台上的车一起保存：按右上角「保存」或 Ctrl+S。' }), el('div.form', null, basic, poster, reward, unlock, loot));
+    body.append(el('div.note', { text: '这里的改动和拼装台上的车一起保存：按右上角「保存」或 Ctrl+S。' }), el('div.form', null, basic, globalStats, poster, reward, unlock, loot));
   }
 
   // 强度页签：车的性能单 + 和前面几关对打的胜率（判定区间照旧工作台）
@@ -1895,7 +1904,7 @@
         prefs.testGames = Math.max(1, Math.min(200, Number(games.value) || 20)); savePrefs();
         const G = await garageOpen(key);
         await new Promise((r) => setTimeout(r, 40));   // 先让按钮变成「测试中」再开始算（算的时候页面会停一下）
-        d.test = G.test(prefs.testGames, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss });
+        d.test = G.test(prefs.testGames, { aim: Number(f.aim), style: f.style, terrain: f.terrain, boss: !!f.boss, statMultipliers: SA.StageCars.statMultipliers(f.statMultipliers) });
         show(d.test);
       } catch (e) { toast(`测试失败：${e.message || e}`, 'bad'); }
       finally { run.disabled = false; run.textContent = '开始测试'; }

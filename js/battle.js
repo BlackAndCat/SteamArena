@@ -41,7 +41,7 @@ SA.Battle = (() => {
   }
 
   // ---------- 阵营 ----------
-  function makeSide(v, name, isAI, aim, x) {
+  function makeSide(v, name, isAI, aim, x, multipliers) {
     const s = { v, name, isAI, aim, x, vx: 0, heat: 0, water: 0, effects: {}, events: { fire: 0, hit: 0, ricochet: 0, chargedHit: 0, ram: 0, kick: 0, knock: 0, terrainBlock: 0, highHit: 0, downhillRam: 0, destroyed: 0 }, timers: {}, reloadTotals: {}, anim: SA.Dyn.animator(), co: { target: null, err: { x: 0, y: 0 }, retarget: 0 }, punch: {}, punchT: {}, tether: null, dead: false, reason: '', failureType: null, failureAt: null,
       vented: false, hold: false, dealt: 0, taken: 0, smokeT: 0, dir: 0, phase: 0, moving: false,
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
@@ -49,6 +49,7 @@ SA.Battle = (() => {
       focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: null, bipedHipHp: null, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0,
       holdSeconds: 0, fireHeldSeconds: 0, ventCount: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
+    s.statMultipliers = SA.StageCars.statMultipliers(multipliers);
     s.occ = SA.V.occ(v, 'body'); s.occS = SA.V.occ(v, 'side');   // 占格表：战斗中模块不会挪位置，开局算一次
     refresh(s);
     settle(s, 1);
@@ -269,7 +270,10 @@ SA.Battle = (() => {
     c.hp -= dmg;
     c.shake = 0.2;
     const x = (c.x0 + c.x1) / 2, y = (c.y0 + c.y1) / 2;
-    if (!crush) emit('text', { str: String(Math.round(dmg)), x: x + rnd(-9, 9), y: c.y0 - 10, col: '#d9b27a' });
+    if (!crush) {
+      const rounded = Math.round(dmg), textX = x + rnd(-9, 9);
+      if (rounded > 0) emit('text', { str: String(rounded), x: textX, y: c.y0 - 10, col: '#d9b27a' });
+    }
     if (!crush || random() < 0.25) for (let i = 0; i < (crush ? 2 : 6); i++) emit('part', { type: 'debris', x: x, y: y, vx: rnd(-120, 120), vy: rnd(-180, -40), life: rnd(0.4, 0.8), col: P.leather[1] });
     if (c.hp <= 0) {
       c.dead = true;
@@ -479,6 +483,8 @@ SA.Battle = (() => {
   }
 
   function damage(def, att, imp, dmg) {
+    // 输出倍率只在实际受击入口应用一次；分摊仍按原预算分份，返回实际扣血供反震记账。
+    dmg *= att ? att.statMultipliers.damage : 1;
     if (!(dmg > 0)) return 0;
     const cell = def.v[imp.layer][imp.r][imp.c];
     if (!alive(cell)) return 0;
@@ -498,7 +504,9 @@ SA.Battle = (() => {
     dmg = before - cell.hp;
     def.taken += dmg; if (att) att.dealt += dmg;
     const [x, y0] = modCenter(def, imp.layer, imp.r, imp.c), y = y0 - 6;
-    emit('text', { str: String(Math.round(dmg)), x: x + rnd(-9, 9), y: y - 18, col: imp.layer === 'side' ? P.magenta : P.white });
+    // 微小扣血保留精度与账本，但不发出四舍五入为 0 的伤害数字。
+    const rounded = Math.round(dmg), textX = x + rnd(-9, 9);
+    if (rounded > 0) emit('text', { str: String(rounded), x: textX, y: y - 18, col: imp.layer === 'side' ? P.magenta : P.white });
     for (let i = 0; i < 6; i++) emit('part', { type: 'spark', x: x, y: y + 6, vx: rnd(-130, 130), vy: rnd(-160, 0), life: rnd(0.15, 0.35), col: undefined });
     if (cell.id === 'biped' ? (def.bipedLegDead && def.bipedHipDead) : cell.hp <= 0) destroy(def, att, imp);
     return dmg;
@@ -660,13 +668,14 @@ SA.Battle = (() => {
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可按 K.SPEED_BOOST 超速）
     // 地形：泥地减速、上坡慢下坡快
     const tk = terrainK(s, dir || Math.sign(s.vx));
-    const top = dir * s.speed * (s.speedMul || 0) * tk.top;
+    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
     const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
-    const own = s.speed * (s.speedMul || 0) * tk.top;
+    const own = s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
     const skid = braking && Math.abs(s.vx) > own * T.SKID_SPEED_MULT + T.SKID_SPEED_OFFSET;
-    let acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) : K.ACCEL * s.accelK * tk.acc) * k;
+    // 制动倍率同时覆盖正常刹车和被撞飞后的打滑减速，不改变起步加速度。
+    let acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) * s.statMultipliers.brake : K.ACCEL * s.accelK * tk.acc) * k;
     if (!braking && dir) {
       const [left, right] = span(s), front = dir > 0 ? right : left, back = dir > 0 ? left : right;
       const grade = (groundAt(back) - groundAt(front)) / Math.max(1, right - left);
@@ -1137,7 +1146,7 @@ SA.Battle = (() => {
       for (const sh of shots) for (let t = 0.15; t <= 1.2; t += 0.1) {
         const x = sh.x + sh.vx * t, y = sh.y + sh.vy * t + sh.g * t * t / 2;
         if (y < VY - 180 || y > groundAt(s.x + VW / 2) + 20) continue;
-        const carX = s.x + VW / 2 + s.vx * t + dir * Math.min(80, s.speed * t * t * 0.35);
+        const carX = s.x + VW / 2 + s.vx * t + dir * Math.min(80, s.speed * s.statMultipliers.speed * t * t * 0.35);
         const dist = Math.abs(x - carX);
         if (dist < 110) hits++;
         clearance += Math.min(200, dist);
@@ -1228,7 +1237,7 @@ SA.Battle = (() => {
       const [lo, hi] = sty === 'kite' ? T.AI_MOVE_RANGE_KITE : sty === 'rush' ? T.AI_MOVE_RANGE_RUSH : T.AI_MOVE_RANGE_DEFAULT;
       const fwd = isP(s) ? 1 : -1, gap = fwd * (frontEdge(o) - frontEdge(s));   // 两车车头之间的距离
       s.goalX = sty === 'turtle' ? s.homeX + rnd(-T.AI_TURTLE_OFFSET, T.AI_TURTLE_OFFSET) : s.x + fwd * (gap - rnd(lo, hi));
-      s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : pureMeleeRush ? T.AI_CONTACT_MOVE_TIME : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
+      s.moveT = s.charge ? rnd(T.AI_CHARGE_TIME[0], T.AI_CHARGE_TIME[1]) : pureMeleeRush ? T.AI_CONTACT_MOVE_TIME : rnd(T.AI_MOVE_TIME[0], T.AI_MOVE_TIME[1]) * (s.speed * s.statMultipliers.speed > T.AI_FAST_SPEED ? T.AI_FAST_MOVE_FACTOR : 1);
     }
     const selected = s.weapons.find(w => w.cell.id === s.sel && !w.blocked);
     // 高抛炮只对超出有效射界或炮口后方的目标后退；前方近点可竖直高抛。
@@ -1625,11 +1634,12 @@ SA.Battle = (() => {
     const d = SA.S.d;
     const pShift = frontShift(d.vehicle);
     const pv = shiftVeh(SA.V.battleCopy(d.vehicle, 1, opts.mode === 'friendly'), pShift);
-    const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, opts.hpMul || 1, true), frontShift(opts.enemyVehicle));
+    const enemyStats = SA.StageCars.statMultipliers(opts.statMultipliers);
+    const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, (opts.hpMul || 1) * enemyStats.hp, true), frontShift(opts.enemyVehicle));
     B = { opts, pShift, bounds: opts.bounds || null, ter: makeTerrain(opts.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       speed: view ? view.gameSpeed() : K.GAME_SPEED, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
-    B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
+    B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX, enemyStats);
     B.e.style = normalizeAiStyle(opts.style);
     B.e.boss = !!opts.boss;
     return B;
@@ -1734,10 +1744,12 @@ SA.Battle = (() => {
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
       const profileAim = Number.isFinite(o.aiProfile?.aim) ? o.aiProfile.aim : null;
-      B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, profileAim ?? o.pAim ?? 0.8, W / 2 - 200 - PADX - K.COLS * C);
+      // 双向对打时倍率随关卡车辆所在阵营传入；每场从原车建立副本，不叠乘上场数值。
+      const pStats = SA.StageCars.statMultipliers(o.pStatMultipliers), eStats = SA.StageCars.statMultipliers(o.eStatMultipliers);
+      B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, pStats.hp, true), pS), 'A', true, profileAim ?? o.pAim ?? 0.8, W / 2 - 200 - PADX - K.COLS * C, pStats);
       B.p.style = normalizeAiStyle(o.pStyle);
       B.p.aiProfile = o.aiProfile || null;
-      B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, profileAim ?? o.eAim ?? 0.8, W / 2 + 200 - PADX);
+      B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, eStats.hp, true), eS), 'B', true, profileAim ?? o.eAim ?? 0.8, W / 2 + 200 - PADX, eStats);
       B.e.style = normalizeAiStyle(o.eStyle);
       B.e.aiProfile = o.aiProfile || null;
       B.e.boss = !!o.eBoss;
