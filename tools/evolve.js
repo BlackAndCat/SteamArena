@@ -1391,6 +1391,22 @@ function applyStagePatch(SA, chapter, stage, patch = {}) {
   return { applied: true, stage: target };
 }
 
+// 同步与并行生成共用原点拒绝提示；坐标按整张工作台子格从左上角 1 起算，便于逐件修正。
+function requireOriginDeployable(SA, vehicle, grid, stats) {
+  if (stats.canDeploy) return;
+  // 原点按关卡范围校验；宽工作台未必标红，也不应引导关卡作者推进玩家战役。
+  const problems = stats.problems.map(problem => problem.replace('（车间里红色闪烁）', ''));
+  const lockedReason = SA.Config.text('vehicle_bd09be8e512a');
+  const details = stats.issues.map(issue => {
+    const cell = vehicle[issue.layer][issue.r][issue.c], name = SA.MODULES[cell.id].name;
+    const reason = issue.reason === lockedReason ? '超出本关进化可用范围' : issue.reason;
+    return `${issue.layer === 'side' ? '侧挂层' : '主体层'}·${name}·子格第 ${issue.c + 1} 列、第 ${issue.r + 1} 行：${reason}`;
+  });
+  throw new Error(`上一关不能出战：原点车「${vehicle.name}」；校验范围 ${grid.cols}列×${grid.rows}层。${problems.join('；')}` +
+    (details.length ? `。模块问题（子格从工作台左上角 1 起算）：${details.join('；')}` : '') +
+    '。测试副本需显式修正并记录');
+}
+
 function run(options = {}) {
   const { SA } = loadGame(), fingerprint = ruleFingerprint(SA);
   const scope = options.scope, route = scope?.type === 'route-after' ? routeAfter(SA, scope.origin, scope.count) : null;
@@ -1413,7 +1429,7 @@ function run(options = {}) {
     if (options.originVehicle && !exactCells(SA, vehicle, options.originVehicle.cells))
       throw new Error('原点车辆包含无效模块或布局，不能静默丢弃');
     vehicle.lim = { ...sourceSpec.grid };
-    if (!SA.V.stats(vehicle).canDeploy) throw new Error('上一关不能出战；测试副本需显式修正并记录');
+    requireOriginDeployable(SA, vehicle, sourceSpec.grid, SA.V.stats(vehicle));
     origin = { vehicle, style: options.originVehicle?.style || actual?.style || 'wander' };
   }
   let reference = origin, previous = origin ? [origin.vehicle] : [], recent = origin ? [origin] : [], status = 'complete';
@@ -1577,7 +1593,7 @@ async function runAsync(options = {}) {
     if (options.originVehicle && !exactCells(SA, vehicle, options.originVehicle.cells))
       throw new Error('原点车辆包含无效模块或布局，不能静默丢弃');
     vehicle.lim = { ...sourceSpec.grid };
-    if (!SA.V.stats(vehicle, { deferHeat: true }).canDeploy) throw new Error('上一关不能出战；测试副本需显式修正并记录');
+    requireOriginDeployable(SA, vehicle, sourceSpec.grid, SA.V.stats(vehicle, { deferHeat: true }));
     origin = { vehicle, style: options.originVehicle?.style || actual?.style || 'wander' };
   }
   const preheater = await createThermalPreheater(SA, options, telemetry);

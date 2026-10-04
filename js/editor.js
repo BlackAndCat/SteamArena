@@ -27,6 +27,8 @@ SA.Editor = (() => {
   const stageWorkbench = () => !!document.querySelector('#assembly-screen > #screen');
   function saveCat() { if (stageWorkbench()) return; try { localStorage.setItem('steam_arena_cat_v1', st.cat || ''); } catch (e) { /* ignore */ } }
   let cv, g, stage, tipEl, viewEl, ctxEl, toolsEl, invEl, dockEl, tabsEl, plateEl, ghost, ro, frame = null, sheetEl = null, leverEl = null;
+  // 工具页工单共用本轮性能单诊断，避免重复计算；普通车间始终为 null。
+  let sheetDiagnosis = null;
 
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
@@ -521,7 +523,10 @@ SA.Editor = (() => {
     return out;
   }
   function renderPlate() {
-    const s = st.stats, UI = SA.PX.ui;
+    // 关卡工具页可提供只读进化范围诊断；画布、摆放与普通玩家性能单仍使用原车。
+    const diagnosis = SA.WorkbenchDiagnostics?.(veh());
+    sheetDiagnosis = diagnosis || null;
+    const s = diagnosis?.stats || st.stats, sheetVehicle = diagnosis?.vehicle || veh(), UI = SA.PX.ui;
     plateEl.innerHTML = '';
     const nameIn = h('input', { type: 'text', class: 'plate-name px-sk px-sk-brass', value: veh().name, maxLength: 20, 'aria-label': SA.Config.text("editor_9f9462db7694"),
       onchange: () => { SA.S.renameVehicle(nameIn.value); } });
@@ -529,13 +534,14 @@ SA.Editor = (() => {
     const cost = hurtList.reduce((a, x) => a + SA.S.repairCost(x), 0);
     // 拿着库存里的零件：算一遍装上以后的数，性能单上用棋盘点标出变化
     let preview = null;
-    if (st.sel) { try { preview = SA.V.statsWith(veh(), kid(st.sel), kmt(st.sel)); } catch (e) { preview = null; } }
+    if (st.sel) { try { preview = SA.V.statsWith(sheetVehicle, kid(st.sel), kmt(st.sel)); } catch (e) { preview = null; } }
     plateEl.append(...[
       h('div', { class: 'ed-sheet-t px-h2' }, SA.Config.text("editor_2ae16e5d3bc6")),
       nameIn,
+      diagnosis?.summary,
       h('div', { class: 'ed-sheet-row' }, h('span', {}, SA.Config.text("editor_9566c6f70a0d"), UI.num(s.rating)), s.problems.length ? UI.hand(SA.Config.text("editor_1e9ad60f3353", `${s.problems.length}`), 15) : h('span', { class: 'px-small' }, SA.Config.text("editor_4163fd6a7d4d"))),
       hurtList.length ? UI.btn(SA.Config.text("editor_fc849e6f69c5", `${hurtList.length}`, `${money(cost)}`), { sm: true, title: SA.UI.repairBrief(hurtList), onclick: () => repair(hurtList) }) : null,
-      SA.UI.pxStats(s, veh(), preview)].filter(Boolean));
+      SA.UI.pxStats(diagnosis?.displayStats || s, sheetVehicle, preview)].filter(Boolean));
     // 车间的出口（拉闸只留给黑板上真正开打那一下）：放在改装台下面那条工单的右端——回院子 / 出战（也是回院子，再把出战黑板拉下来）
     leverEl.innerHTML = '';
     leverEl.append(UI.btn(SA.Config.text("arena_702c1bd28416"), { sm: true, onclick: () => SA.nav('home') }),
@@ -615,7 +621,9 @@ SA.Editor = (() => {
     // 什么都没选：告诉玩家现在该做什么
     const s = st.stats;
     ctxEl.append(h('div', { class: 'info' },
-      s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, SA.Config.text("editor_4a8a8b3676e1")), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
+      s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, sheetDiagnosis ? '编辑范围内车已就绪；进化资格见性能单' : SA.Config.text("editor_4a8a8b3676e1")), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
+      // 资格摘要是关键状态，不能使用横屏低高度时会被全局样式隐藏的 sub 类。
+      sheetDiagnosis ? h('div', { class: `garage-deploy-summary ${sheetDiagnosis.grid && sheetDiagnosis.stats.canDeploy ? '' : 'err'}`, 'data-page-key': 'evolution-deploy-summary' }, sheetDiagnosis.compactText) : null,
       h('div', { class: 'sub' }, SA.Config.text("editor_4b7b7942d0e0"))),
     '');
   }
