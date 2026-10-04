@@ -1,22 +1,25 @@
-// 进化报告页：读取 tools/evolve.js 的运行报告（tools/out/evolve-*.json）或候选车库（tools/evolve-candidates.json），
-// 展示选关结果、强度 × 表现散点图、分类网格、毒瘤车与奇特构筑，以及单台车的详情、种子复现和试驾入口。
-// 原报告只读；擂台收藏 / 手工车独立保存，定向模拟只新增报告，不写正式关卡。
+// 进化擂台：读取 tools/evolve.js 的运行报告（tools/out/evolve-*.json）或候选车库（tools/evolve-candidates.json）。
+// 第一屏是「选关结果」：每关一张卡，大图画出选中的车，旁边是强度、胜率、表现和硬条件；没选出车的关画出最接近的一台。
+// 往下翻依次是逐关筛选（全部候选、性格 × 底盘分格）、强度 × 表现散点、毒瘤车与奇特构筑、报告信息。
+// 原报告只读；擂台收藏 / 手工车独立保存，定向模拟只新增报告，不写正式关卡。外观同后台（tools/console.css）。
 (() => {
   const h = SA.h;
   const $ = (s) => document.querySelector(s);
   const out = $('#out');
 
-  // 三类存档：颜色经过深色背景下的色盲校验，另外用形状区分，不单靠颜色
+  // 三类存档：纸面上也分得开的三种颜色，另外用形状区分，不单靠颜色
   const CLASS = {
-    normal: { name: '常规', color: '#b0802c', shape: 'circle' },
-    odd: { name: '奇特构筑', color: '#139aa3', shape: 'diamond' },
-    toxic: { name: '毒瘤车', color: '#a94cc4', shape: 'square' },
+    normal: { name: '常规', color: '#9a6b1d', shape: 'circle', glyph: '●' },
+    odd: { name: '奇特构筑', color: '#127f87', shape: 'diamond', glyph: '◆' },
+    toxic: { name: '毒瘤车', color: '#8d3aa6', shape: 'square', glyph: '■' },
   };
-  const STYLE = { rush: '冲锋', kite: '风筝', turtle: '龟缩', wander: '游走' };
+  // 性格名和战斗规则共用 SA.AI_STYLES；旧报告里的四种老名字照旧能显示
+  const STYLE = Object.fromEntries([['rush', '冲锋'], ['kite', '风筝'], ['turtle', '龟缩'], ['wander', '游走'], ['roam', '游走'],
+    ...(SA.AI_STYLES || []).map(s => [s.id, s.name])]);
   const CHASSIS = { track: '履带', quad: '四足', biped: '双足' };
   const COND = {
-    construction: '构筑合法', modulePool: '本关模块', budget: '财富上限',
-    reward: '带奖励件', nonToxic: '不是毒瘤车', target: '目标强度', terrain: '地形条件', bossGeneric: 'Boss 通用型',
+    construction: '构筑合法', modulePool: '本关模块', budget: '财富上限', grid: '车间格子', materials: '材料',
+    reward: '带奖励件', nonToxic: '不是毒瘤车', target: '对上一关胜率', terrain: '地形条件', bossGeneric: 'Boss 通用型',
     previousBoss: '上一档 Boss 打它 < 30%', rewardLowerBound: '奖励车打上一档 Boss ≥ 60%', rewardCrushGuard: '防碾压：上一档 Boss 打它 ≥ 15%',
     rewardEffect: '奖励件生效', rewardContrast: '对照测试（换成甲片后胜率下降）',
     manualReview: '手工修改，待重新模拟',
@@ -26,12 +29,17 @@
   const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
   const fix = (x, d = 0) => (x == null || !Number.isFinite(+x) ? '—' : (+x).toFixed(d));
   const terrainName = (k) => (SA.TERRAINS[k] ? SA.TERRAINS[k].name : k || '平地');
+  const styleName = (k) => STYLE[k] || k || '—';
+  const chassisName = (k) => CHASSIS[k] || SA.MODULES[k]?.name || k || '—';
+  const targetText = (t) => (Array.isArray(t) ? `${Math.round(t[0] * 100)}–${Math.round(t[1] * 100)}%` : '—');
   const stageName = (ci, si) => {
     const raw = SA.CAMPAIGN[ci] && SA.CAMPAIGN[ci].stages[si];
     const s = raw && SA.StageCars ? SA.StageCars.merge(raw, ci, si) : raw;
     return s ? s.name : `第 ${ci + 1} 章第 ${si + 1} 关`;
   };
   const chapterShort = (ci) => (SA.CAMPAIGN[ci] ? SA.CAMPAIGN[ci].name.split(' · ')[0] : `第 ${ci + 1} 章`);
+  const chapterPlace = (ci) => (SA.CAMPAIGN[ci] ? SA.CAMPAIGN[ci].name.split(' · ')[1] || '' : '');
+  const stageCode = (ci, si) => `${ci}-${si + 1}`;   // 和后台关卡列表同一种编号
 
   // 页面记忆仅保存选择；运行报告仍从服务器读取，不复制报告或自动发起模拟。
   const MEMORY_KEY = 'steam_arena_evolve_page_v1';
@@ -118,7 +126,7 @@
     try {
       const data = await fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
       st.source = url; use(normalize(data), label);
-    } catch (e) { banner(`读取失败：${label}（${e.message}）`, 'stale'); out.innerHTML = ''; }
+    } catch (e) { banner(`读取失败：${label}（${e.message}）`, 'stale'); out.replaceChildren(h('div', { class: 'sheet' }, emptyState(`读取失败：${label}（${e.message}）。点上面的「刷新列表」再试，或换一份报告。`))); }
   }
   function use(report, label) {
     st.rawReport = report; st.report = report; st.label = label; st.grid = st.source === memory.source ? memory.grid : null;
@@ -143,14 +151,6 @@
       const row = arenaRow(rec) || SA.EvolveArena.remember(rec);
       location.href = `console.html#/candidate/${encodeURIComponent(row.id)}/build`;
     } catch (error) { banner(error.message, 'stale'); }
-  }
-  function candidateCard(rec) {
-    const row = arenaRow(rec), missing = SA.EvolveArena.missingReward(rec);
-    return h('div', { class: 'candidate-card' }, thumb(rec),
-      h('div', { class: 'small' }, `胜率 ${winText(rec)}${missing ? ` · 缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关` : ''}`, row?.manual ? h('span', { class: 'chip' }, '手工修改') : null),
-      h('div', { class: 'row-btns' },
-        h('button', { class: 'btn', 'aria-pressed': String(!!row?.favorite), onclick: () => toggleFavorite(rec) }, row?.favorite ? '★ 已收藏' : '☆ 收藏保留'),
-        h('button', { class: 'btn', onclick: () => editCandidate(rec) }, '去工作台修改')));
   }
 
   // ---------- 车辆 ----------
@@ -181,12 +181,61 @@
     return vcache.get(key);
   }
   const exact = (rec) => !!rec.cells;
-  function thumb(rec, caption) {
+
+  // ---------- 车图：和后台战役地图同一种画法（透明底、裁掉空边、整数倍放大） ----------
+  const pics = new Map();
+  function trimCanvas(src) {
+    const w = src.width, ht = src.height, d = src.getContext('2d').getImageData(0, 0, w, ht).data;
+    let x0 = w, y0 = ht, x1 = -1, y1 = -1;
+    for (let y = 0; y < ht; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const c = document.createElement('canvas');
+    if (x1 < 0) { c.width = c.height = 1; return c; }
+    c.width = x1 - x0 + 1; c.height = y1 - y0 + 1;
+    c.getContext('2d').drawImage(src, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+    return c;
+  }
+  // 放得下就按整数倍放大（最多 max 倍，画成真的大画布）；盒子比车小时由样式缩小，缩小的那张改用平滑缩放（见 softenPics）
+  function carPic(rec, w, ht, max = 3) {
     const v = vehicleOf(rec);
-    const box = h('button', { class: 'thumb', title: '点开看详情', onclick: () => openDetail(rec) });
-    if (v) box.append(SA.UI.vehiclePreview(v, 1)); else box.append(h('span', { class: 'bad small' }, '分享码无法解析'));
-    box.append(h('span', { class: 'cap' }, caption != null ? caption : `强 ${fix(rec.strength)} · 表 ${fix(rec.performance)}`));
-    return box;
+    if (!v) return null;
+    const key = rec.cells ? JSON.stringify(rec.cells) : rec.code;
+    if (!pics.has(key)) {
+      let src = null;
+      try { src = trimCanvas(SA.SPR.renderVehicle(v, { key: 'evolve-report', t: 0, heat: 0.45, water: 0.8 })); } catch (e) { src = null; }
+      pics.set(key, src);
+    }
+    const src = pics.get(key);
+    if (!src) return null;
+    const s = Math.max(1, Math.min(max, Math.floor(Math.min(w / src.width, ht / src.height))));
+    const cv = document.createElement('canvas');
+    cv.width = src.width * s; cv.height = src.height * s;
+    const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, cv.width, cv.height);
+    return cv;
+  }
+  function softenPics() {
+    for (const c of document.querySelectorAll('#out canvas, #detail canvas')) c.classList.toggle('soft', c.clientHeight < c.height - 0.5 || c.clientWidth < c.width - 0.5);
+  }
+  // 第一屏尽量放下全部选关卡片：按窗口高度算车图框高（最多两三排；排数再多就用默认高度往下翻）
+  function fitBoard() {
+    const grid = document.querySelector('.picks'), cards = grid ? [...grid.querySelectorAll('.pk')] : [];
+    if (!cards.length) return;
+    grid.style.removeProperty('--carh');
+    const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length, rows = Math.ceil(cards.length / cols);
+    const css = getComputedStyle(grid), gap = parseFloat(css.rowGap) || 0, padB = parseFloat(css.paddingBottom) || 0;
+    const top = grid.getBoundingClientRect().top + scrollY + (parseFloat(css.paddingTop) || 0);
+    const rest = Math.max(...cards.map(c => c.offsetHeight - (c.querySelector('.pk-car')?.offsetHeight || 0)));
+    const carH = Math.floor((innerHeight - top - padB - (rows - 1) * gap) / rows - rest);
+    grid.style.setProperty('--carh', `${rows <= 3 && carH >= 96 ? Math.min(carH, 184) : 132}px`);
+    softenPics();
+  }
+
+  const unreadable = () => h('span', { class: 'bad', style: 'font-size:12px' }, '分享码无法解析');
+  function thumb(rec, caption) {
+    return h('button', { type: 'button', class: 'thumb', title: `${rec.name || '候选车'} · 点开看详情`, onclick: () => openDetail(rec) },
+      carPic(rec, 150, 64, 2) || unreadable(),
+      h('span', { class: 'cap' }, caption != null ? caption : `强 ${fix(rec.strength)} · 表 ${fix(rec.performance)}`));
   }
   const classOf = (rec) => CLASS[rec.archiveClass] || CLASS.normal;
   function markSvg(cls, size = 12) {
@@ -200,14 +249,19 @@
     const ns = 'http://www.w3.org/2000/svg';
     let el;
     if (kind === 'diamond') { el = document.createElementNS(ns, 'path'); el.setAttribute('d', `M${x} ${y - r * 1.25}L${x + r * 1.25} ${y}L${x} ${y + r * 1.25}L${x - r * 1.25} ${y}Z`); }
-    else if (kind === 'square') { el = document.createElementNS(ns, 'rect'); el.setAttribute('x', x - r); el.setAttribute('y', y - r); el.setAttribute('width', r * 2); el.setAttribute('height', r * 2); el.setAttribute('rx', 1); }
+    else if (kind === 'square') { el = document.createElementNS(ns, 'rect'); el.setAttribute('x', x - r); el.setAttribute('y', y - r); el.setAttribute('width', r * 2); el.setAttribute('height', r * 2); }
     else { el = document.createElementNS(ns, 'circle'); el.setAttribute('cx', x); el.setAttribute('cy', y); el.setAttribute('r', r); }
     el.setAttribute('fill', color);
     return el;
   }
+  const emptyState = (text) => h('div', { class: 'empty-state' }, text);
 
   // ---------- 页面 ----------
-  function banner(text, cls = '') { const b = $('#banner'); b.className = `banner ${cls}`; b.textContent = text; }
+  // 顶栏右边的规则指纹牌：放不下的完整说明放在悬停提示里
+  function banner(text, cls = '', short) {
+    const b = $('#banner');
+    b.className = `rule ${cls}`; b.textContent = short || text; b.title = text;
+  }
   function inChapter(ci) { return st.chapter === 'all' || +st.chapter === ci; }
   function allRecords() {
     const r = st.report;
@@ -218,81 +272,140 @@
     for (const ch of st.report.chapters || []) for (const s of ch.stages || []) if (s.selected) set.add(s.selected.code);
     return set;
   }
+  // 当前章节下的全部关；报告里没有、但生成器目录里有的关作为「未生成」空位补上
+  function stageRows(withGhosts = false) {
+    const rows = [];
+    for (const ch of st.report.chapters || []) {
+      if (!inChapter(ch.chapter)) continue;
+      const have = new Set();
+      (ch.stages || []).forEach((s, i) => { const si = s.spec?.stage ?? i; have.add(si); rows.push({ ci: ch.chapter, si, s }); });
+      if (withGhosts && runCatalog) for (const row of catalogChapter(ch.chapter)?.stages || []) if (!have.has(row.stage)) rows.push({ ci: ch.chapter, si: row.stage, ghost: row });
+    }
+    return rows.sort((a, b) => a.ci - b.ci || a.si - b.si);
+  }
 
+  const chapterList = () => [...new Set([...(st.report.chapters || []).map(ch => ch.chapter), ...(st.report.candidates || []).map(c => c.spec && c.spec.chapter)]
+    .filter(x => x != null))].sort((a, b) => a - b);
   function render() {
     st.report = SA.EvolveArena.merge(st.rawReport);
     const r = st.report;
-    // 章节筛选
-    const chaps = [...new Set((r.candidates || []).map(c => c.spec && c.spec.chapter).filter(x => x != null))].sort((a, b) => a - b);
-    const sel = $('#chap');
-    sel.innerHTML = '';
-    sel.append(h('option', { value: 'all' }, '全部'), ...chaps.map(ci => h('option', { value: ci, selected: String(st.chapter) === String(ci) }, SA.CAMPAIGN[ci] ? SA.CAMPAIGN[ci].name : `第 ${ci + 1} 章`)));
-    if (st.chapter !== 'all' && !chaps.includes(+st.chapter)) st.chapter = 'all';
+    if (st.chapter !== 'all' && !chapterList().includes(+st.chapter)) st.chapter = 'all';
     // 规则指纹
     const same = st.fingerprint && r.rules === st.fingerprint && !(r.candidates || []).some(rec => rec.rules && rec.rules !== st.fingerprint);
-    banner(!r.rules ? `${st.label}：报告里没有规则指纹，无法判断是否过期。`
-      : !st.fingerprint ? `${st.label} · 规则指纹 ${r.rules}（当前规则的指纹计算失败，无法比较）`
-      : same ? `${st.label} · 规则指纹 ${r.rules}，和当前规则一致。`
-      : `部分数据过期，需要复核：当前规则是 ${st.fingerprint}。可在上方选择相应章 / 关重新模拟；其余关卡保留原有结果。`,
-      !r.rules || !st.fingerprint ? '' : same ? 'fresh' : 'stale');
-    const sections = r.lite
-      ? [['scatter', '强度 × 表现'], ['archive', '毒瘤车与奇特构筑']]
-      : [['overview', '概览'], ['picks', '选关结果'], ['scatter', '强度 × 表现'], ['grid', '分类网格'], ['archive', '毒瘤车与奇特构筑']];
-    const nav = $('#nav'); nav.innerHTML = '';
-    nav.append(...sections.map(([id, name]) => h('a', { href: `#${id}` }, name)));
-    out.innerHTML = '';
-    if (!r.lite) out.append(overview(), picks());
-    else out.append(h('p', { class: 'muted' }, '这是候选车库（只有分享码、标签和分数），没有选关结果和分类网格。要看完整内容，请选一份 tools/out/ 里的运行报告。'));
-    out.append(scatter());
+    if (!r.rules) banner(`${st.label}：报告里没有规则指纹，无法判断是否过期。`, '', '规则指纹：报告里没有');
+    else if (!st.fingerprint) banner(`${st.label} · 规则指纹 ${r.rules}（当前规则的指纹计算失败，无法比较）`, '', `规则指纹 ${r.rules} · 无法比较`);
+    else if (same) banner(`${st.label} · 规则指纹 ${r.rules}，和当前规则一致。`, 'fresh', '规则和当前一致');
+    else banner(`部分数据过期，需要复核：当前规则是 ${st.fingerprint}，报告是 ${r.rules}。可在上方选择相应章 / 关重新模拟；其余关卡保留原有结果。`, 'stale', '规则已改：部分数据过期，需复核');
+    out.replaceChildren(picks());
     if (!r.lite) out.append(grid());
-    out.append(archiveSection());
+    out.append(scatter(), archiveSection(), reportInfo());
     rememberPage();
+    fitBoard();
   }
 
-  function overview() {
-    const r = st.report, fails = (r.selectionFailures || []).filter(f => inChapter(f.chapter));
-    const stages = (r.chapters || []).filter(ch => inChapter(ch.chapter)).reduce((a, ch) => a + (ch.stages || []).length, 0);
-    const tile = (k, v) => h('div', { class: 'tile' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v));
-    return h('section', { id: 'overview' }, h('h2', {}, '概览'),
-      h('p', { class: 'muted small' }, `生成于 ${r.generatedAt ? new Date(r.generatedAt).toLocaleString() : '—'} · 随机种子 ${r.seed ?? '—'}`),
-      h('div', { class: 'tiles' }, tile('关卡', stages), tile('候选车', allRecords().length), tile('选关未达标', fails.length)),
-      fails.length ? h('div', {}, h('h3', {}, '未达标的关卡'),
-        h('table', {}, h('tr', {}, ['关卡', '没满足的条件'].map(t => h('th', {}, t))),
-          fails.map(f => h('tr', {}, h('td', {}, `${chapterShort(f.chapter)} · ${f.name || stageName(f.chapter, f.stage)}`),
-            h('td', {}, (f.failed || []).length ? f.failed.map(k => h('span', { class: 'chip bad' }, COND[k] || k)) : '没有选出车'))))) : null);
-  }
-
+  // ---------- 第一屏：选关结果 ----------
   function picks() {
-    const r = st.report, rows = [];
-    for (const ch of r.chapters || []) {
-      if (!inChapter(ch.chapter)) continue;
-      (ch.stages || []).forEach((s, si) => {
-        const sel = s.selected, ev = s.selection || {}, spec = s.spec || {};
-        const failed = ev.failed || [];
-        rows.push(h('tr', { class: spec.boss ? 'boss' : '' },
-          h('td', {}, chapterShort(ch.chapter)),
-          h('td', {}, spec.name || stageName(ch.chapter, spec.stage ?? si), spec.boss ? h('span', { class: 'chip' }, 'Boss') : null,
-            spec.rewardModule ? h('span', { class: 'chip' }, `奖励：${(SA.MODULES[spec.rewardModule] || {}).name || spec.rewardModule}`) : null,
-            spec.previewRuleSource ? h('span', { class: 'chip', title: '预算与结构限制临时继承，正式关卡配置未修改' },
-              `临时继承 ${chapterShort(spec.previewRuleSource.chapter)}第 ${spec.previewRuleSource.stage + 1} 关`) : null),
-          h('td', {}, terrainName(spec.terrain)),
-          h('td', {}, sel ? thumb(sel) : h('span', { class: 'bad' }, '没有选出车')),
-          h('td', {}, sel ? `${STYLE[sel.style] || sel.style || '—'} · ${CHASSIS[sel.chassis] || sel.chassis || '—'}` : '—'),
-          h('td', { class: 'num' }, sel ? `${fix(sel.strength)} ± ${fix(sel.strengthCi)}` : '—'),
-          h('td', { class: 'num' }, sel ? winText(sel) : '—'),
-          h('td', { class: 'num' }, s.originComparison ? [
-            `${pct(s.originComparison.winRate)} · ${s.originComparison.games} 局`, h('br'),
-            h('span', { class: 'muted small' }, originComparisonLabel(s.originComparison))
-          ] : '—'),
-          h('td', { class: 'num' }, sel ? fix(sel.performance) : '—'),
-          h('td', { class: 'small' }, evidence(spec, ev)),
-          h('td', {}, failed.length ? failed.map(k => h('span', { class: 'chip bad' }, COND[k] || k)) : h('span', { class: 'ok' }, '全部满足'))));
-      });
-    }
-    return h('section', { id: 'picks' }, h('h2', {}, '选关结果'),
-      h('p', { class: 'muted small' }, '胜率来自同档标尺的换边实战，平局计半胜；与强度分使用同一批样本。旧报告没有记录时显示“未记录”，手工改车后需重新模拟。'),
-      h('div', { class: 'scroll' }, h('table', {},
-        h('tr', {}, ['章', '关卡', '场地', '选中的车', '性格 · 底盘', '强度分', '同档胜率', '对原点车胜率', '表现分', '关键数据', '硬条件'].map(t => h('th', {}, t))), rows)));
+    const r = st.report, rows = stageRows(true), real = rows.filter(x => !x.ghost), chaps = chapterList();
+    const picked = real.filter(x => x.s.selected).length;
+    const seg = chaps.length > 1 ? h('nav', { class: 'seg', 'aria-label': '章节' },
+      [['all', '全部'], ...chaps.map(ci => [String(ci), chapterShort(ci)])].map(([v, name]) =>
+        h('button', { type: 'button', class: String(st.chapter) === v ? 'on' : '', onclick: () => { st.chapter = v; render(); } }, name))) : null;
+    const sum = r.lite ? h('span', { class: 'sum' }, `候选车库 · ${allRecords().length} 台`)
+      : h('span', { class: 'sum' }, h('b', {}, real.length), ' 关 · 选出 ', h('b', {}, picked),
+        real.length - picked ? [' · ', h('span', { class: 'warn' }, `没选出 ${real.length - picked}`)] : null,
+        ' · 候选 ', h('b', {}, allRecords().length), ' 台',
+        r.generatedAt ? ` · 生成于 ${new Date(r.generatedAt).toLocaleString()}` : null);
+    const sec = h('section', { id: 'picks' }, h('div', { class: 'board-h' }, h('h2', {}, '选关结果'), seg, sum));
+    const cards = h('div', { class: 'picks' });
+    if (r.lite) cards.append(emptyState('这是候选车库（只有分享码、标签和分数），没有选关结果和逐关筛选。要看每关选出的车，请在上面选一份 tools/out/ 里的运行报告。'));
+    else if (!rows.length) cards.append(emptyState('这份报告里还没有关卡。在上面的「定向模拟」选好章 / 关，点「模拟并生成报告」，选出的车会一关一张卡排在这里。'));
+    let lastCi = null;
+    for (const x of rows) { cards.append(x.ghost ? ghostCard(x, x.ci !== lastCi) : pickCard(x, x.ci !== lastCi)); lastCi = x.ci; }
+    sec.append(cards);
+    return sec;
+  }
+  const chapterTab = (ci) => h('div', { class: 'pk-tab' }, chapterShort(ci), chapterPlace(ci) ? h('small', {}, chapterPlace(ci)) : null);
+  // 没选出车时，筛选里离目标最近的那一台（生成器用它的证据写失败原因）
+  function diagnosticOf(s) {
+    const ev = s.selection || {};
+    const row = (ev.verified || []).find(v => v.validationSeed != null && v.validationSeed === ev.validationSeed);
+    return row ? (s.top || []).find(rec => rec.name === row.name) || null : null;
+  }
+  let runCatalog = null;   // 生成器目录（initGeneration 读取）；卡片上的「重跑」和「未生成」空位要用
+  function canAim(ci, si) { return !!(runCatalog && catalogChapter(ci)?.stages.some(row => row.stage === si)); }
+  const aimButton = (ci, si, label = '重跑') => h('button', { type: 'button', class: 'btn sm ghost aim', disabled: !canAim(ci, si),
+    title: canAim(ci, si) ? '把上面的生成范围设成这一关，再点「模拟并生成报告」开跑' : '生成器目录里没有这一关', onclick: () => aimAt(ci, si) }, `↻ ${label}`);
+  function pickCard({ ci, si, s }, first) {
+    const spec = s.spec || {}, sel = s.selected, ev = s.selection || {}, failed = ev.failed || [];
+    // 选关卡片只用文字和车图：tools/evolve-report-origin-check.js 在没有擂台库和 SVG 的最小页面里渲染它
+    const shown = sel || diagnosticOf(s), row = sel && SA.EvolveArena ? arenaRow(sel) : null, name = spec.name || stageName(ci, si);
+    const state = sel ? (failed.length ? 'warn' : 'ok') : 'bad';
+    const verdict = sel ? (failed.length ? (ev.status || '待复核') : '✓ 选出') : '✗ 没选出';
+    const missing = sel && SA.EvolveArena ? SA.EvolveArena.missingReward(sel) : null;
+    const terrain = spec.terrain && spec.terrain !== 'flat' ? terrainName(spec.terrain) : null;
+    const nums = shown ? h('div', { class: 'pk-nums' },
+      h('div', { class: 'pk-num', title: '实战测出的强度分（1000 = 和标尺车打平）' }, h('small', {}, '强度'), h('b', {}, fix(shown.strength)), shown.strengthCi != null ? h('em', {}, `±${fix(shown.strengthCi)}`) : null),
+      h('div', { class: 'pk-num', title: `同档胜率：${winText(shown)}（平局计半胜）` }, h('small', {}, '同档胜率'),
+        shown.needsEvaluation ? h('b', {}, '待测') : Number.isFinite(shown.winRate) && shown.games ? [h('b', {}, `${Math.round(shown.winRate * 100)}%`), h('em', {}, `${shown.games}局`)] : h('b', {}, '—')),
+      h('div', { class: 'pk-num', title: '表现分（观众算法，0～100）' }, h('small', {}, '表现'), h('b', {}, fix(shown.performance)))) : null;
+    const chips = [
+      spec.boss ? h('span', { class: 'chip boss' }, 'Boss') : null,
+      spec.rewardModule ? h('span', { class: 'chip', title: '这一关的奖励件，选出的车必须带着' }, `奖励 ${SA.MODULES[spec.rewardModule]?.name || spec.rewardModule}`) : null,
+      terrain ? h('span', { class: 'chip' }, terrain) : null,
+      spec.previewRuleSource ? h('span', { class: 'chip', title: '预算与结构限制临时继承，正式关卡配置未修改' }, `临时继承 ${stageCode(spec.previewRuleSource.chapter, spec.previewRuleSource.stage)}`) : null,
+      shown && shown.archiveClass && shown.archiveClass !== 'normal' ? h('span', { class: 'chip' }, h('span', { style: `color:${classOf(shown).color}` }, classOf(shown).glyph), classOf(shown).name) : null,
+      ...failed.filter(k => k !== 'target' || ev.previousWinRate == null).map(k => h('span', { class: 'chip bad' }, COND[k] || k)),
+      missing ? h('span', { class: 'chip bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}`) : null,
+    ].filter(Boolean);
+    const verified = ev.verified || [], pass = verified.filter(v => !(v.failed || []).length).length;
+    const oc = s.originComparison;
+    return h('article', { class: `pk${spec.boss ? ' boss' : ''}${sel ? '' : ' miss'}`, 'data-stage': `${ci},${si}` },
+      first ? chapterTab(ci) : null,
+      h('div', { class: 'pk-head' },
+        h('span', { class: 'pk-code' }, stageCode(ci, si)),
+        h('h3', { class: 'pk-name', title: name }, name),
+        h('span', { class: `verdict ${state}` }, verdict),
+        sel ? h('button', { type: 'button', class: `star${row?.favorite ? ' on' : ''}`, 'aria-pressed': String(!!row?.favorite),
+          title: row?.favorite ? '已收藏：重跑时保留这台车（点一下取消）' : '收藏这台车，重跑时保留', onclick: () => toggleFavorite(sel) }, row?.favorite ? '★' : '☆') : null),
+      shown ? h('button', { type: 'button', class: `pk-car${sel ? '' : ' miss'}`, title: `${shown.name || '候选车'} · 点开看详情`, onclick: () => openDetail(shown) },
+        carPic(shown, 230, 184, 2) || unreadable(), sel ? null : h('span', { class: 'cap' }, '最接近的一台'),
+        h('span', { class: 'who' }, `${styleName(shown.style)} · ${chassisName(shown.chassis)}${shown.stats?.value != null ? ` · £${fix(shown.stats.value)}` : ''}`))
+        : h('div', { class: 'pk-car none' }, '没有选出车'),
+      nums,
+      ev.previousWinRate != null ? h('div', { class: 'pk-line', title: `${ev.previousName || '上一关的车'}和它换边对打 ${ev.previousGames || '—'} 局；目标是这台车赢 ${targetText(ev.target)}` },
+        '打上一关车 ', h('b', { class: ev.targetPass ? 'ok' : 'bad' }, pct(ev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(ev.target)}`)) : null,
+      oc ? h('div', { class: 'pk-line', title: originComparisonLabel(oc) }, '对原点车胜率 ', h('b', {}, `${pct(oc.winRate)} · ${oc.games} 局`), h('span', { class: 'muted' }, ` · ${originComparisonLabel(oc)}`)) : null,
+      chips.length ? h('div', { class: 'pk-tags' }, chips) : null,
+      h('div', { class: 'pk-foot' },
+        h('button', { type: 'button', class: 'screen', title: `这一关筛选了 ${verified.length} 台候选，${pass} 台满足全部硬条件；点一下往下看每一台`, onclick: () => focusStage(ci, si) },
+          verified.length ? [h('span', { class: 'dots', 'aria-hidden': 'true' }, verified.slice(0, 12).map(v => h('i', { class: sel && v.name === sel.name ? 'chosen' : (v.failed || []).length ? '' : 'y' }))),
+            `达标 ${pass} / ${verified.length}`] : `候选 ${(s.top || []).length} 台`),
+        aimButton(ci, si)));
+  }
+  function ghostCard({ ci, si, ghost }, first) {
+    return h('article', { class: 'pk ghost', 'data-stage': `${ci},${si}` },
+      first ? chapterTab(ci) : null,
+      h('div', { class: 'pk-head' }, h('span', { class: 'pk-code' }, stageCode(ci, si)), h('h3', { class: 'pk-name', title: ghost.name }, ghost.name), h('span', { class: 'verdict none' }, '未生成')),
+      h('div', { class: 'pk-car none' }, '这份报告里没有这一关'),
+      h('div', { class: 'pk-line muted' }, `预算 £${ghost.budget}${ghost.status === 'draft' ? ' · 审阅草案' : ''}${ghost.hasVehicle ? '' : ' · 游戏里还没有关卡车'}`),
+      h('div', { class: 'pk-foot' }, aimButton(ci, si, '设为生成目标')));
+  }
+  // 卡片上的「重跑这关」：只把生成范围设好，开跑仍要点「模拟并生成报告」
+  function aimAt(ci, si) {
+    if (!canAim(ci, si)) return;
+    const set = (key, value) => { const f = $(`#run-${key}`); f.value = String(value); f.dispatchEvent(new Event('change')); };
+    set('mode', 'single'); set('chapter', ci); set('stage', si);
+    const gen = $('#gen');
+    gen.classList.remove('flash'); void gen.offsetWidth; gen.classList.add('flash');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('#generate').focus({ preventScroll: true });
+  }
+  function focusStage(ci, si) {
+    st.grid = `${ci},${si}`;
+    $('#grid')?.replaceWith(grid());
+    rememberPage();
+    softenPics();
+    $('#grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   // 生成器的旧报告只记录原点车名；没有明确章关时保留车名，不推断来源关卡。
   function originComparisonLabel(comparison) {
@@ -313,16 +426,72 @@
       if (ev.rewardControl != null) parts.push(`换甲片后 ${pct(ev.rewardControl)}`);
     }
     if (ev.terrainDelta != null && spec.terrain && spec.terrain !== 'flat') parts.push(`地形专长 ${ev.terrainDelta >= 0 ? '+' : ''}${fix(ev.terrainDelta)}`);
-    return parts.length ? parts.join(' · ') : '—';
+    return parts.join(' · ');
   }
 
-  // ---------- 散点图：强度分（横）× 表现分（纵） ----------
+  // ---------- 往下翻 1：逐关筛选 ----------
+  function grid() {
+    const rows = stageRows();
+    const sec = h('section', { id: 'grid', class: 'sheet' },
+      h('h2', {}, '逐关筛选', h('small', {}, '参加这一关筛选的全部候选，按筛选顺序排；金框是选中的车')));
+    if (!rows.length) { sec.append(emptyState('这份报告没有关卡数据。')); return sec; }
+    if (!st.grid || !rows.some(x => `${x.ci},${x.si}` === st.grid)) st.grid = `${rows[0].ci},${rows[0].si}`;
+    const pick = h('select', { onchange: (e) => { st.grid = e.target.value; $('#grid').replaceWith(grid()); rememberPage(); softenPics(); } },
+      rows.map(x => h('option', { value: `${x.ci},${x.si}`, selected: st.grid === `${x.ci},${x.si}` }, `${stageCode(x.ci, x.si)} · ${(x.s.spec && x.s.spec.name) || stageName(x.ci, x.si)}`)));
+    const cur = rows.find(x => `${x.ci},${x.si}` === st.grid), s = cur.s, spec = s.spec || {}, ev = s.selection || {};
+    const top = s.top || [], arch = s.archive || {};
+    sec.append(h('div', { class: 'ctl' }, h('label', { class: 'fld' }, '关卡', pick),
+      h('span', { class: 'muted' }, [`场地 ${terrainName(spec.terrain)}`, spec.budget != null ? `预算 £${spec.budget}` : null, `候选 ${s.count ?? top.length} 台`,
+        `存档覆盖 ${arch.buckets ?? '—'} 格`, s.diversity ? `${s.diversity.clusterCount} 个造型簇` : null, ev.warning].filter(Boolean).join(' · '))));
+    const extra = evidence(spec, ev);
+    if (spec.lesson || extra) sec.append(h('p', { class: 'hint' }, spec.lesson ? `考题：${spec.lesson}` : null, spec.lesson && extra ? ' · ' : null, extra || null));
+    // 筛选顺序来自 selection.verified；报告只保存每关前几名的完整车，按名字对上
+    const byName = new Map(top.map(rec => [rec.name, rec])), seen = new Set();
+    const cards = (ev.verified || []).map((v, i) => { const rec = byName.get(v.name); if (rec) seen.add(rec); return candCard(rec || { name: v.name, codeOnly: true }, v, i, s); });
+    const rest = top.filter(rec => !seen.has(rec));
+    if (cards.length || rest.length) sec.append(h('div', { class: 'cands' }, cards, rest.map(rec => candCard(rec, null, null, s))));
+    else sec.append(emptyState('这一关没有保存候选车。'));
+    // 性格 × 底盘分格：只列这一关真的出现过的性格和底盘
+    const styles = [...new Set(top.map(rec => rec.style).filter(Boolean))], chassis = [...new Set(top.map(rec => rec.chassis).filter(Boolean))];
+    if (styles.length && chassis.length) sec.append(h('details', { class: 'fold', open: !!st.foldOpen, ontoggle: (e) => { st.foldOpen = e.target.open; } },
+      h('summary', {}, `按性格 × 底盘分格（存档覆盖 ${arch.buckets ?? '—'} 格）`),
+      h('p', { class: 'hint', style: 'margin-top:6px' }, '报告只保存每关前几名的完整数据，所以格子里只显示这些车；覆盖的格子数来自完整存档。'),
+      h('div', { class: 'scroll' }, h('table', { class: 'gridtbl' },
+        h('tr', {}, h('th', {}, '性格 \\ 底盘'), chassis.map(c => h('th', {}, chassisName(c)))),
+        styles.map(sy => h('tr', {}, h('th', {}, styleName(sy)), chassis.map(cz => {
+          const cell = top.filter(rec => rec.style === sy && rec.chassis === cz);
+          return cell.length ? h('td', {}, cell.map(rec => thumb(rec))) : h('td', { class: 'empty' }, '—');
+        })))))));
+    return sec;
+  }
+  function candCard(rec, v, i, s) {
+    const isPick = !!s.selected && !rec.codeOnly && s.selected.code === rec.code;
+    const fail = v ? v.failed || [] : [], other = fail.filter(k => k !== 'target');
+    const row = rec.codeOnly ? null : arenaRow(rec), missing = rec.cells ? SA.EvolveArena.missingReward(rec) : null;
+    const verdict = isPick ? h('span', { class: 'verdict ok' }, '选中') : v ? h('span', { class: `verdict ${fail.length ? 'bad' : 'none'}` }, fail.length ? '未达标' : '达标')
+      : row?.manual ? h('span', { class: 'verdict warn' }, '手工') : row?.favorite ? h('span', { class: 'verdict none' }, '收藏') : null;
+    return h('div', { class: `cand${isPick ? ' chosen' : ''}${fail.length ? ' fail' : ''}` },
+      h('div', { class: 'cand-head' }, i != null ? h('span', { class: 'rank' }, `#${i + 1}`) : null, h('span', { class: 'nm', title: rec.name || '' }, rec.name || '候选车'), verdict),
+      rec.codeOnly ? h('div', { class: 'pk-car none' }, '报告没存这台车') :
+        h('button', { type: 'button', class: 'pk-car', title: '点开看详情', onclick: () => openDetail(rec) }, carPic(rec, 180, 80, 2) || unreadable()),
+      h('div', { class: 'cand-info' },
+        `${styleName(rec.style)} · ${chassisName(rec.chassis)}${rec.archiveClass && rec.archiveClass !== 'normal' ? ` · ${classOf(rec).name}` : ''}`, h('br'),
+        '强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}`,
+        v && v.previousWinRate != null ? [h('br'), '打上一关车 ', h('b', { class: v.targetPass ? 'ok' : 'bad' }, pct(v.previousWinRate)), ` · 目标 ${targetText(v.target)}`] : null,
+        other.length ? [h('br'), other.map(k => h('span', { class: 'chip bad' }, COND[k] || k))] : null,
+        missing ? [h('br'), h('span', { class: 'bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关`)] : null),
+      rec.codeOnly ? null : h('div', { class: 'cand-btns' },
+        h('button', { type: 'button', class: 'btn sm', 'aria-pressed': String(!!row?.favorite), onclick: () => toggleFavorite(rec) }, row?.favorite ? '★ 已收藏' : '☆ 收藏保留'),
+        h('button', { type: 'button', class: 'btn sm', onclick: () => editCandidate(rec) }, '去工作台修改')));
+  }
+
+  // ---------- 散点图：强度分（横）× 表现分（纵），往下翻第 2 块 ----------
   function scatter() {
     const recs = allRecords().filter(c => Number.isFinite(+c.strength) && Number.isFinite(+c.performance));
     const wrap = h('div', { class: 'chart-wrap' });
-    const sec = h('section', { id: 'scatter' }, h('h2', {}, '强度 × 表现'),
-      h('p', { class: 'muted small' }, '横轴是实战测出的强度分（1000 = 和标尺车打平），纵轴是表现分（观众算法，0～100）。右下角 = 强但难看，毒瘤车在那里。带圈的是选关选中的车。悬停看数据，点击看详情。'));
-    if (!recs.length) { sec.append(h('div', { class: 'empty-state' }, '这份数据里没有带分数的车。')); return sec; }
+    const sec = h('section', { id: 'scatter', class: 'sheet' }, h('h2', {}, '强度 × 表现', h('small', {}, `${recs.length} 台车`)),
+      h('p', { class: 'hint' }, '横轴是实战测出的强度分（1000 = 和标尺车打平），纵轴是表现分（观众算法，0～100）。右下角 = 强但难看，毒瘤车在那里。带圈的是选关选中的车。悬停看数据，点击看详情。'));
+    if (!recs.length) { sec.append(emptyState('这份数据里没有带分数的车。')); return sec; }
     const ns = 'http://www.w3.org/2000/svg', W = 900, H = 420, L = 52, R = 16, T = 12, B = 40;
     const xs = recs.map(c => +c.strength), lo = Math.floor(Math.min(...xs) / 50) * 50, hi = Math.ceil(Math.max(...xs) / 50) * 50 || lo + 100;
     const xmin = lo === hi ? lo - 50 : lo, xmax = lo === hi ? hi + 50 : hi;
@@ -331,20 +500,20 @@
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', `强度分和表现分散点图，共 ${recs.length} 台车`);
-    const line = (x1, y1, x2, y2, color) => { const l = document.createElementNS(ns, 'line'); Object.entries({ x1, y1, x2, y2, stroke: color, 'stroke-width': 1 }).forEach(([k, v]) => l.setAttribute(k, v)); svg.append(l); };
-    const text = (x, y, s, anchor = 'middle', color = '#a8a39a') => { const t = document.createElementNS(ns, 'text'); Object.entries({ x, y, fill: color, 'font-size': 11, 'text-anchor': anchor }).forEach(([k, v]) => t.setAttribute(k, v)); t.textContent = s; svg.append(t); };
+    const line = (x1, y1, x2, y2, color, dash) => { const l = document.createElementNS(ns, 'line'); Object.entries({ x1, y1, x2, y2, stroke: color, 'stroke-width': 1, 'stroke-dasharray': dash || null }).forEach(([k, v]) => v != null && l.setAttribute(k, v)); svg.append(l); };
+    const text = (x, y, s, anchor = 'middle', color = '#6b553a') => { const t = document.createElementNS(ns, 'text'); Object.entries({ x, y, fill: color, 'font-size': 11, 'text-anchor': anchor }).forEach(([k, v]) => t.setAttribute(k, v)); t.textContent = s; svg.append(t); };
     // 网格与刻度（横纵各一套，只有一条纵轴）
     const step = (xmax - xmin) / 50 > 10 ? 100 : 50;
-    for (let v = xmin; v <= xmax + 0.1; v += step) { line(X(v), T, X(v), H - B, '#1d2230'); text(X(v), H - B + 16, v); }
-    for (let v = 0; v <= 100; v += 20) { line(L, Y(v), W - R, Y(v), '#1d2230'); text(L - 8, Y(v) + 4, v, 'end'); }
-    line(L, H - B, W - R, H - B, '#343c4e');
+    for (let v = xmin; v <= xmax + 0.1; v += step) { line(X(v), T, X(v), H - B, '#e7d8b1'); text(X(v), H - B + 16, v); }
+    for (let v = 0; v <= 100; v += 20) { line(L, Y(v), W - R, Y(v), '#e7d8b1'); text(L - 8, Y(v) + 4, v, 'end'); }
+    line(L, H - B, W - R, H - B, '#8e6238');
     text((L + W - R) / 2, H - 6, '强度分');
     text(14, (T + H - B) / 2, '表现分', 'middle');
     svg.lastChild.setAttribute('transform', `rotate(-90 14 ${(T + H - B) / 2})`);
     // 毒瘤线：表现分低于它、强度又在前列的算毒瘤车
     const toxicLine = (st.report.config && st.report.config.archive && st.report.config.archive.toxicPerformanceBelow) || 35;
-    line(L, Y(toxicLine), W - R, Y(toxicLine), '#5a3a6a');
-    text(W - R - 4, Y(toxicLine) - 4, `毒瘤线 ${toxicLine}`, 'end', '#a8a39a');
+    line(L, Y(toxicLine), W - R, Y(toxicLine), CLASS.toxic.color, '5 4');
+    text(W - R - 4, Y(toxicLine) - 4, `毒瘤线 ${toxicLine}`, 'end', CLASS.toxic.color);
     // 点：常规在下层，奇特和毒瘤在上层
     const chosen = selectedCodes();
     const order = { normal: 0, odd: 1, toxic: 2 };
@@ -353,8 +522,8 @@
       const c = classOf(rec), x = X(+rec.strength), y = Y(+rec.performance);
       const g = document.createElementNS(ns, 'g');
       g.style.cursor = 'pointer';
-      if (chosen.has(rec.code)) { const ring = document.createElementNS(ns, 'circle'); Object.entries({ cx: x, cy: y, r: 9, fill: 'none', stroke: '#e4e0d6', 'stroke-width': 1.5 }).forEach(([k, v]) => ring.setAttribute(k, v)); g.append(ring); }
-      const halo = shape(c.shape, x, y, 6, '#0b0e15');   // 2px 表面色描边，重叠时分得开
+      if (chosen.has(rec.code)) { const ring = document.createElementNS(ns, 'circle'); Object.entries({ cx: x, cy: y, r: 9, fill: 'none', stroke: '#2a1a05', 'stroke-width': 1.5 }).forEach(([k, v]) => ring.setAttribute(k, v)); g.append(ring); }
+      const halo = shape(c.shape, x, y, 6, '#f8f1dc');   // 2px 纸色描边，重叠时分得开
       const dot = shape(c.shape, x, y, 4, c.color);
       const hit = document.createElementNS(ns, 'circle'); Object.entries({ cx: x, cy: y, r: 10, fill: 'transparent' }).forEach(([k, v]) => hit.setAttribute(k, v));
       g.append(halo, dot, hit);
@@ -362,8 +531,8 @@
         tip.hidden = false; tip.innerHTML = '';
         const sp = rec.spec || {};
         tip.append(h('b', {}, rec.name || '候选车'), h('br'),
-          `${sp.chapter != null ? `${chapterShort(sp.chapter)} · ${stageName(sp.chapter, sp.stage)}` : ''}`, h('br'),
-          `${c.name} · ${STYLE[rec.style] || rec.style || '—'} · ${CHASSIS[rec.chassis] || rec.chassis || '—'}`, h('br'),
+          `${sp.chapter != null ? `${stageCode(sp.chapter, sp.stage)} · ${stageName(sp.chapter, sp.stage)}` : ''}`, h('br'),
+          `${c.name} · ${styleName(rec.style)} · ${chassisName(rec.chassis)}`, h('br'),
           `强度 ${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''} · 表现 ${fix(rec.performance)}`);
         const box = wrap.getBoundingClientRect(), pt = svg.getBoundingClientRect(), sx = pt.width / W;
         tip.style.left = `${Math.min(box.width - 220, x * sx + 14)}px`;
@@ -381,35 +550,11 @@
     return sec;
   }
 
-  // ---------- 分类网格：性格 × 底盘，一关一张 ----------
-  function grid() {
-    const r = st.report, stages = [];
-    for (const ch of r.chapters || []) if (inChapter(ch.chapter)) (ch.stages || []).forEach((s, si) => stages.push({ ci: ch.chapter, si: s.spec?.stage ?? si, s }));
-    const sec = h('section', { id: 'grid' }, h('h2', {}, '分类网格'),
-      h('p', { class: 'muted small' }, '每一关的候选按"性格 × 底盘"分格（场地是这一关的场地）。报告只保存每关前几名的完整数据，所以格子里只显示这些车；覆盖的格子数来自完整存档。'));
-    if (!stages.length) { sec.append(h('div', { class: 'empty-state' }, '这份报告没有关卡数据。')); return sec; }
-    if (!st.grid || !stages.some(x => `${x.ci},${x.si}` === st.grid)) st.grid = `${stages[0].ci},${stages[0].si}`;
-    const pick = h('select', { onchange: (e) => { st.grid = e.target.value; const old = $('#grid'); old.replaceWith(grid()); rememberPage(); } },
-      stages.map(x => h('option', { value: `${x.ci},${x.si}`, selected: st.grid === `${x.ci},${x.si}` }, `${chapterShort(x.ci)} · ${(x.s.spec && x.s.spec.name) || stageName(x.ci, x.si)}`)));
-    const cur = stages.find(x => `${x.ci},${x.si}` === st.grid);
-    const top = cur.s.top || [], arch = cur.s.archive || {};
-    const styles = Object.keys(STYLE), chassis = Object.keys(CHASSIS);
-    sec.append(h('div', { class: 'ctl', style: 'margin-bottom:6px' }, h('label', {}, '关卡 ', pick),
-      h('span', { class: 'muted small' }, `场地：${terrainName(cur.s.spec && cur.s.spec.terrain)} · 候选 ${cur.s.count ?? top.length} 台 · 存档覆盖 ${arch.buckets ?? '—'} 格`)));
-    sec.append(h('div', { class: 'scroll' }, h('table', { class: 'gridtbl' },
-      h('tr', {}, h('th', {}, '性格 \\ 底盘'), chassis.map(c => h('th', {}, CHASSIS[c]))),
-      styles.map(sy => h('tr', {}, h('th', {}, STYLE[sy]), chassis.map(cz => {
-        const cell = top.filter(rec => rec.style === sy && rec.chassis === cz);
-        return cell.length ? h('td', {}, cell.map(rec => candidateCard(rec))) : h('td', { class: 'empty' }, '—');
-      }))))));
-    return sec;
-  }
-
-  // ---------- 毒瘤车与奇特构筑 ----------
+  // ---------- 往下翻 3：毒瘤车与奇特构筑 ----------
   function archiveSection() {
     const r = st.report;
-    const sec = h('section', { id: 'archive' }, h('h2', {}, '毒瘤车与奇特构筑'),
-      h('p', { class: 'muted small' }, '毒瘤车：强度在本档前列、表现分低于毒瘤线，不会用于关卡，保留下来给你看它是怎么赢的。奇特构筑：特征明显偏离常规、强度不低于中位数。'));
+    const sec = h('section', { id: 'archive', class: 'sheet' }, h('h2', {}, '毒瘤车与奇特构筑'),
+      h('p', { class: 'hint' }, '毒瘤车：强度在本档前列、表现分低于毒瘤线，不会用于关卡，保留下来给你看它是怎么赢的。奇特构筑：特征明显偏离常规、强度不低于中位数。'));
     const groups = [];
     if (r.lite) {
       const rows = allRecords().filter(c => c.archiveClass === 'toxic' || c.archiveClass === 'odd');
@@ -423,18 +568,33 @@
           const a = s.archive || {};
           const toxic = (a.toxicCodes || []).map((code, i) => recOf(code, 'toxic', (a.toxicCells || [])[i]));
           const odd = (a.oddCodes || []).map((code, i) => recOf(code, 'odd', (a.oddCells || [])[i]));
-          if (toxic.length || odd.length) groups.push({ title: `${chapterShort(ch.chapter)} · ${(s.spec && s.spec.name) || stageName(ch.chapter, si)}`, toxic, odd });
+          const sti = s.spec?.stage ?? si;
+          if (toxic.length || odd.length) groups.push({ title: `${stageCode(ch.chapter, sti)} · ${(s.spec && s.spec.name) || stageName(ch.chapter, sti)}`, toxic, odd });
         });
       }
     }
-    if (!groups.length) { sec.append(h('div', { class: 'empty-state' }, '这份数据里没有毒瘤车或奇特构筑。')); return sec; }
+    if (!groups.length) { sec.append(emptyState('这份数据里没有毒瘤车或奇特构筑。')); return sec; }
     const cap = (rec) => (rec.codeOnly ? '只有分享码' : `强 ${fix(rec.strength)} · 表 ${fix(rec.performance)}`);
-    for (const g of groups) {
-      sec.append(h('h3', {}, g.title));
-      if (g.toxic.length) sec.append(h('div', {}, h('span', { class: 'small muted' }, markSvg('toxic'), `毒瘤车 ${g.toxic.length}`), h('div', {}, g.toxic.map(rec => thumb(rec, cap(rec))))));
-      if (g.odd.length) sec.append(h('div', {}, h('span', { class: 'small muted' }, markSvg('odd'), `奇特构筑 ${g.odd.length}`), h('div', {}, g.odd.map(rec => thumb(rec, cap(rec))))));
-    }
+    // 一关一块，横着排开
+    sec.append(h('div', { class: 'arch-wrap' }, groups.map(g => h('div', { class: 'arch-group' }, h('h3', {}, g.title),
+      g.toxic.length ? h('div', {}, h('div', { class: 'small' }, markSvg('toxic'), ` 毒瘤车 ${g.toxic.length}`), g.toxic.map(rec => thumb(rec, cap(rec)))) : null,
+      g.odd.length ? h('div', {}, h('div', { class: 'small' }, markSvg('odd'), ` 奇特构筑 ${g.odd.length}`), g.odd.map(rec => thumb(rec, cap(rec)))) : null))));
     return sec;
+  }
+
+  // ---------- 往下翻 4：报告信息与说明 ----------
+  function reportInfo() {
+    const r = st.report, fails = (r.selectionFailures || []).filter(f => inChapter(f.chapter));
+    const fact = (k, v) => [h('dt', {}, k), h('dd', {}, v)];
+    return h('section', { id: 'report-info', class: 'sheet' }, h('h2', {}, '报告信息'),
+      h('dl', { class: 'facts' },
+        fact('报告', st.label || '—'),
+        fact('生成于', r.generatedAt ? new Date(r.generatedAt).toLocaleString() : '—'),
+        fact('随机种子', String(r.seed ?? '—')),
+        fact('规则指纹', h('span', {}, '报告 ', h('code', {}, r.rules || '—'), ' · 当前 ', h('code', {}, st.fingerprint || '—'))),
+        fails.length ? fact('没选出车的关', fails.map(f => `${stageCode(f.chapter, f.stage)} ${f.name || stageName(f.chapter, f.stage)}：${(f.failed || []).map(k => COND[k] || k).join('、') || '没有选出车'}`).join('；')) : null),
+      h('p', { class: 'hint', style: 'margin:10px 0 0' }, '关卡车进化生成器（', h('code', {}, 'tools/evolve.js'), '）的结果：每一关选出的车、强度分和表现分的分布、分类存档、毒瘤车和奇特构筑。点任意一台车看大图、分享码和典型对局，可以按种子复现，也可以去试驾场和它打一场。规则见 ',
+        h('code', {}, 'docs/evolve-plan.md'), '。胜率来自同档标尺的换边实战，平局计半胜；与强度分使用同一批样本。旧报告没有记录时显示「未记录」，手工改车后需重新模拟。'));
   }
 
   // ---------- 详情 ----------
@@ -470,59 +630,74 @@
     const done = () => { const old = btn.textContent; btn.textContent = '已复制'; setTimeout(() => { btn.textContent = old; }, 1200); };
     if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {});
   }
+  // 这台车在它那一关筛选里的记录（打上一关车的胜率、没满足的条件）
+  function screeningOf(rec) {
+    const sp = rec.spec || {};
+    const s = (st.report.chapters || []).find(ch => ch.chapter === sp.chapter)?.stages.find(x => x.spec?.stage === sp.stage);
+    return s && rec.name ? (s.selection?.verified || []).find(v => v.name === rec.name) || null : null;
+  }
   function openDetail(rec) {
-    const v = vehicleOf(rec), c = classOf(rec), sp = rec.spec || {}, s = rec.stats || {};
+    const v = vehicleOf(rec), c = classOf(rec), sp = rec.spec || {}, s = rec.stats || {}, scr = screeningOf(rec);
     const box = $('#detail'); box.innerHTML = '';
-    const close = h('button', { class: 'btn', onclick: closeDetail }, '关闭');
-    const replayOut = h('span', { class: 'small' });
+    const close = h('button', { type: 'button', class: 'btn', onclick: closeDetail }, '关闭');
+    const replayOut = h('span', { style: 'font-size:12.5px' });
     const kv = (k, val) => h('tr', {}, h('th', {}, k), h('td', {}, val));
     box.append(
-      h('div', { class: 'detail-head' }, h('h2', {}, markSvg(rec.archiveClass || 'normal', 14), ' ', rec.name || '候选车'), close),
+      h('div', { class: 'detail-head' }, h('h2', { title: rec.name || '' }, markSvg(rec.archiveClass || 'normal', 14), rec.name || '候选车'),
+        sp.chapter != null ? h('span', { class: 'chip' }, `${stageCode(sp.chapter, sp.stage)} · ${stageName(sp.chapter, sp.stage)}`) : null, close),
       h('div', { class: 'detail-body' },
-        h('div', { class: 'detail-pic' }, v ? SA.UI.vehiclePreview(v, 3) : h('span', { class: 'bad' }, '分享码无法解析')),
+        h('div', { class: 'detail-pic' }, (v && carPic(rec, 400, 300, 4)) || unreadable()),
         h('div', { class: 'detail-info' },
           h('table', {},
             kv('来源', sp.chapter != null ? `${chapterShort(sp.chapter)} · ${stageName(sp.chapter, sp.stage)} · ${terrainName(sp.terrain)}` : '—'),
-            kv('分类', `${c.name} · ${STYLE[rec.style] || rec.style || '—'} · ${CHASSIS[rec.chassis] || rec.chassis || '—'}`),
-            kv('胜率（同档标尺）', `${winText(rec)}${rec.opponentCount ? ` · ${rec.opponentCount} 台标尺 · 平局计半胜` : ''}${rec.evaluationStyle ? ` · 实测性格：${STYLE[rec.evaluationStyle] || rec.evaluationStyle}` : ''}`),
+            kv('分类', `${c.name} · ${styleName(rec.style)} · ${chassisName(rec.chassis)}`),
+            kv('胜率（同档标尺）', `${winText(rec)}${rec.opponentCount ? ` · ${rec.opponentCount} 台标尺 · 平局计半胜` : ''}${rec.evaluationStyle ? ` · 实测性格：${styleName(rec.evaluationStyle)}` : ''}`),
+            scr ? kv('本关筛选', h('span', {}, scr.previousWinRate != null ? ['打上一关车 ', h('b', { class: scr.targetPass ? 'ok' : 'bad' }, pct(scr.previousWinRate)), ` · 目标 ${targetText(scr.target)}`] : '第一关不比上一关',
+              (scr.failed || []).length ? ` · 没满足：${scr.failed.map(k => COND[k] || k).join('、')}` : ' · 硬条件全部满足')) : null,
             kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
             kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约原分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
             kv('选车综合分', rec.ranking ? `${fix(rec.ranking.total, 2)} = 节约 ${fix(rec.ranking.efficiency, 1)} × 60% + 强度 ${fix(rec.ranking.strength, 1)} × 40%（均按 0～100 计）` : '待按新权重模拟'),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
-          rec.styleTrials && rec.styleTrials.length ? h('div', {}, h('h3', {}, '四种性格试跑'),
-            h('table', {}, h('tr', {}, ['性格', '表现分', '胜率'].map(t => h('th', {}, t))),
-              rec.styleTrials.map(x => h('tr', {}, h('td', {}, STYLE[x.style] || x.style, x.style === rec.style ? h('span', { class: 'chip' }, '绑定') : null), h('td', { class: 'num' }, fix(x.performance, 1)), h('td', { class: 'num' }, pct(x.winRate)))))) : null,
-          h('h3', {}, '典型对局'),
-          rec.typical ? h('p', { class: 'small' }, `对手：${rec.typical.opponent?.name || '这一关的原车'} · ${winnerName(rec.typical.winner)} · ${fix(rec.typical.t, 1)} 秒 · ${rec.typical.reason || '—'} · 种子 ${rec.typical.seed ?? '—'}`) : h('p', { class: 'muted small' }, '报告里没有记录典型对局。'),
           h('div', { class: 'row-btns' },
-            h('button', { class: 'btn', onclick: () => { toggleFavorite(rec); openDetail(rec); } }, arenaRow(rec)?.favorite ? '取消收藏' : '收藏并保留'),
-            h('button', { class: 'btn', disabled: !v || sp.chapter == null, onclick: () => editCandidate(rec) }, '去关卡车工作台修改'),
-            h('label', { class: 'small' }, h('input', { type: 'checkbox', checked: arenaRow(rec)?.participate !== false, onchange: e => {
+            h('button', { type: 'button', class: 'btn primary', disabled: !v, onclick: () => testDrive(rec) }, '去试驾场和它打一场'),
+            h('button', { type: 'button', class: 'btn', disabled: !v || sp.chapter == null, onclick: () => editCandidate(rec) }, '去关卡车工作台修改'),
+            h('button', { type: 'button', class: 'btn', onclick: () => { toggleFavorite(rec); openDetail(rec); } }, arenaRow(rec)?.favorite ? '★ 取消收藏' : '☆ 收藏并保留'),
+            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: arenaRow(rec)?.participate !== false, onchange: e => {
               const row = arenaRow(rec) || SA.EvolveArena.remember(rec, { favorite: true });
               SA.EvolveArena.update(row.id, { participate: e.target.checked });
-            } }), '作为后续进化种子'),
-            h('button', { class: 'btn', disabled: !(rec.typical && rec.typical.seed != null && stageOpponent(rec)), onclick: () => {
+            } }), '作为后续进化种子')),
+          rec.styleTrials && rec.styleTrials.length ? h('div', {}, h('h3', {}, '各性格试跑'),
+            h('table', {}, h('tr', {}, ['性格', '表现分', '胜率'].map(t => h('th', {}, t))),
+              rec.styleTrials.map(x => h('tr', {}, h('td', {}, styleName(x.style), x.style === rec.style ? h('span', { class: 'chip', style: 'margin-left:6px' }, '绑定') : null), h('td', { class: 'num' }, fix(x.performance, 1)), h('td', { class: 'num' }, pct(x.winRate)))))) : null,
+          h('h3', {}, '典型对局'),
+          rec.typical ? h('p', { style: 'margin:0;font-size:12.5px' }, `对手：${rec.typical.opponent?.name || '这一关的原车'} · ${winnerName(rec.typical.winner)} · ${fix(rec.typical.t, 1)} 秒 · ${rec.typical.reason || '—'} · 种子 ${rec.typical.seed ?? '—'}`) : h('p', { class: 'muted', style: 'margin:0;font-size:12.5px' }, '报告里没有记录典型对局。'),
+          h('div', { class: 'row-btns' },
+            h('button', { type: 'button', class: 'btn sm', disabled: !(rec.typical && rec.typical.seed != null && stageOpponent(rec)), onclick: () => {
               const res = replay(rec);
-              if (!res) { replayOut.textContent = '无法复现：缺少种子或对手。'; replayOut.className = 'small bad'; return; }
+              if (!res) { replayOut.textContent = '无法复现：缺少种子或对手。'; replayOut.className = 'bad'; return; }
               const same = res.winner === rec.typical.winner && Math.abs(res.t - rec.typical.t) < 0.05 && res.reason === rec.typical.reason;
-              replayOut.className = `small ${same ? 'ok' : 'bad'}`;
+              replayOut.className = same ? 'ok' : 'bad';
               replayOut.textContent = `${same ? '✓ 复现一致' : exact(rec) ? '✗ 结果不同（规则可能已改）' : '✗ 结果不同：这份老报告没有完整模块清单，改装等级无法还原'}：${winnerName(res.winner)} · ${fix(res.t, 1)} 秒 · ${res.reason || '—'}`;
             } }, '按种子复现'),
-            h('button', { class: 'btn primary', disabled: !v, onclick: () => testDrive(rec) }, '去试驾场和它打一场'),
             replayOut),
           h('h3', {}, '分享码'),
-          h('textarea', { class: 'code', readonly: true }, rec.code || ''),
-          h('div', { class: 'row-btns' }, h('button', { class: 'btn', onclick: (e) => copyText(rec.code || '', e.currentTarget) }, '复制分享码')),
+          h('textarea', { class: 'code', readOnly: true }, rec.code || ''),
+          h('div', { class: 'row-btns' }, h('button', { type: 'button', class: 'btn sm', onclick: (e) => copyText(rec.code || '', e.currentTarget) }, '复制分享码')),
           rec.patch ? h('div', {}, h('h3', {}, '导出补丁（只替换车的数据）'),
-            h('textarea', { class: 'code', readonly: true, style: 'min-height:120px' }, JSON.stringify(rec.patch, null, 2)),
-            h('div', { class: 'row-btns' }, h('button', { class: 'btn', onclick: (e) => copyText(JSON.stringify(rec.patch, null, 2), e.currentTarget) }, '复制补丁'))) : null)));
+            h('textarea', { class: 'code', readOnly: true, style: 'min-height:120px' }, JSON.stringify(rec.patch, null, 2)),
+            h('div', { class: 'row-btns' }, h('button', { type: 'button', class: 'btn sm', onclick: (e) => copyText(JSON.stringify(rec.patch, null, 2), e.currentTarget) }, '复制补丁'))) : null)));
     $('#overlay').hidden = false;
     close.focus();
+    softenPics();
   }
   function closeDetail() { $('#overlay').hidden = true; }
+  let fitQueued = 0;
+  addEventListener('resize', () => { cancelAnimationFrame(fitQueued); fitQueued = requestAnimationFrame(fitBoard); });
   $('#overlay').addEventListener('pointerdown', (e) => { if (e.target.id === 'overlay') closeDetail(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDetail(); $('#gen-more').open = false; } });
+  // 「参数」小窗：点外面收起
+  document.addEventListener('pointerdown', (e) => { const more = $('#gen-more'); if (more.open && !more.contains(e.target)) more.open = false; });
 
   // ---------- 启动 ----------
   async function refreshList(keep) {
@@ -544,7 +719,6 @@
   }
   $('#src').onchange = (e) => load(e.target.value, e.target.selectedOptions[0].textContent);
   $('#reload').onclick = () => refreshList($('#src').value);
-  $('#chap').onchange = (e) => { st.chapter = e.target.value; render(); };
   $('#file').onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -556,7 +730,7 @@
     rememberPage();
     const selftest = location.hash === '#selftest';
     $('#lab-evolve').hidden = selftest; $('#lab-selftest').hidden = !selftest;
-    $('#tab-evolve').classList.toggle('primary', !selftest); $('#tab-selftest').classList.toggle('primary', selftest);
+    $('#tab-evolve').classList.toggle('on', !selftest); $('#tab-selftest').classList.toggle('on', selftest);
     if (selftest && !$('#selftest-frame').getAttribute('src')) $('#selftest-frame').src = 'sim.html?embedded=1';
   }
   $('#tab-evolve').onclick = () => { location.hash = 'overview'; };
@@ -566,7 +740,22 @@
   window.addEventListener('evolve-arena-change', refreshArena);
   window.addEventListener('storage', event => { if (event.key === SA.EvolveArena.KEY) refreshArena(); });
 
-  let runCatalog = null, pollTimer = null, finishedJob = null, handoff = null;
+  // 生成进度条：读状态文字里的百分比（文字仍由下面的轮询写），「停止生成」能点 = 正在跑
+  function syncMeter() {
+    const text = $('#generation-status').textContent, m = /（(\d+)%）/.exec(text), busy = !$('#stop-generation').disabled;
+    // 结束时按结果上色：完成 = 满格绿；失败 = 红；停止 = 灰（生成器的总步数是预估，完成时不一定数到 100%）
+    const end = busy ? '' : /^生成完成/.test(text) ? 'done' : /^生成失败/.test(text) ? 'failed' : /^已停止/.test(text) ? 'stopped' : '';
+    $('#gen').classList.toggle('busy', busy);
+    $('#gen').dataset.end = end;
+    $('#gen-meter').hidden = !busy && !end;
+    $('#gen-meter').firstElementChild.style.width = `${end === 'done' ? 100 : m ? Math.min(100, +m[1]) : 0}%`;
+    $('#generation-status').title = text;
+  }
+  new MutationObserver(syncMeter).observe($('#generation-status'), { childList: true, characterData: true, subtree: true });
+  new MutationObserver(syncMeter).observe($('#stop-generation'), { attributes: true, attributeFilter: ['disabled'] });
+  new MutationObserver(() => { $('#scope-info').title = $('#scope-info').textContent; }).observe($('#scope-info'), { childList: true, characterData: true, subtree: true });
+
+  let pollTimer = null, finishedJob = null, handoff = null;
   // 目录可能过滤缺配置章节和关卡，原始 ID 不能作为数组下标。
   const catalogChapter = chapter => runCatalog.chapters.find(row => row.chapter === chapter);
   async function service(url, payload) {
@@ -738,5 +927,7 @@
   }
   currentFingerprint().then(fp => { st.fingerprint = fp; }).catch(() => { st.fingerprint = null; }).finally(async () => {
     await refreshList(); await initGeneration();
+    // 生成器目录到了以后再画一遍：卡片上的「重跑这关」和「未生成」空位要用它
+    if (st.rawReport) render();
   });
 })();

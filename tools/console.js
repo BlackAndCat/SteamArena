@@ -2,7 +2,7 @@
 // 新界面直接调用后台维护的数据接口：
 //   关卡车和候选车：共用隔离车间，各自按明确目标保存。
 //   剧情：SA.StoryData　院子闲聊：SA.YardChat　共用文本文件：SA.Text
-// 还没重做的工作台（进化擂台、数值自测、模块属性）原样嵌在框里用。
+// 还没重做的工作台（数值自测、模块属性）原样嵌在框里用；进化擂台已按后台外观重做，仍是嵌入页。
 // 这里只做界面和流程；数据规则、校验和写文件都走原接口。
 (() => {
   'use strict';
@@ -79,7 +79,7 @@
   // ---------- 还没重做的工作台、视觉页 ----------
   const TOOLS = {
     'config-editor': { name: '正式配置编辑', url: 'config-editor.html', desc: '直接读取并保存 config 目录里的正式 JSON' },
-    evolve: { name: '进化擂台', url: 'evolve.html', old: true, desc: '关卡车进化生成器：选关、强度 × 表现散点、分类网格、候选库' },
+    evolve: { name: '进化擂台', url: 'evolve.html', desc: '关卡车进化生成器：第一屏看每关选出的车，往下是逐关筛选、强度 × 表现散点、毒瘤 / 奇特车' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
     modules: { name: '模块属性', url: 'module-editor.html', old: true, desc: '改模块的文字与玩法属性，保存到模块数据' },
     'yard-legacy': { name: '院子聊天（旧版）', url: 'yard-chat-editor.html', old: true, desc: '旧版院子聊天工作台' },
@@ -96,7 +96,7 @@
       { id: 'map', name: '战役地图', path: 'map', tag: 'new' },
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
       { id: 'config-editor', name: '正式配置', path: 'open/config-editor', tag: 'new' },
-      { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'old' },
+      { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'new' },
       { id: 'selftest', name: '数值自测', path: 'open/selftest', tag: 'old' },
     ] },
     { group: '剧情与对话', items: [

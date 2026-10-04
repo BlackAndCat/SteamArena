@@ -1,108 +1,239 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>进化擂台与数值自测</title>
-<link rel="stylesheet" href="../css/style.css">
+<title>进化擂台</title>
+<!-- 外观和后台（tools/console.html）同一套：木头桌面、纸、黄铜是能点的、炉火橙只给「开跑」。
+     第一屏只放每关选出的车；筛选明细、散点、毒瘤 / 奇特车和报告信息往下翻。 -->
+<link rel="stylesheet" href="console.css">
 <style>
-html, body { height: auto; overflow: auto; }
-body { padding: 16px; max-width: 1400px; margin: 0 auto; }
-h1 { color: var(--brass2); margin: 0 0 4px; font-size: 22px; }
-h2 { color: var(--brass3); font-size: 16px; margin: 22px 0 6px; }
-h3 { color: var(--brass2); font-size: 13px; margin: 14px 0 6px; }
-.small { font-size: 11px; }
-.ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 12px; background: var(--dark1); border: 1px solid var(--dark3); }
-.ctl label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
-.ctl select { background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 4px 6px; font: inherit; }
-.ctl input[type=number] { width: 92px; background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); padding: 4px; }
-.candidate-card { display: inline-block; margin: 4px; vertical-align: top; }
-.candidate-card .row-btns { margin: 2px; }
-.candidate-card .btn { font-size: 11px; padding: 3px 6px; }
-.lab-tabs { display: flex; gap: 8px; margin: 10px 0; }
-#lab-selftest iframe { width: 100%; height: 1100px; border: 0; }
-.grp { display: inline-flex; gap: 6px; align-items: center; padding-left: 12px; border-left: 1px solid var(--dark3); }
-.nav { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 0; font-size: 13px; }
-.nav a { color: var(--brass2); text-decoration: none; }
-.nav a:hover { text-decoration: underline; }
-.banner { margin: 10px 0 0; padding: 8px 12px; border: 1px solid var(--dark3); background: var(--dark1); font-size: 13px; }
-.banner.stale { border-color: var(--fire2); color: var(--fire3); }
-.banner.fresh { border-color: var(--gauge1); }
-.tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
-.tile { background: var(--dark1); border: 1px solid var(--dark3); padding: 8px 14px; min-width: 120px; }
-.tile .k { color: var(--muted); font-size: 12px; }
-.tile .v { color: var(--text); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-table { border-collapse: collapse; font-size: 12px; margin: 6px 0 12px; }
-th, td { border: 1px solid var(--dark3); padding: 4px 8px; text-align: left; vertical-align: middle; }
-th { background: var(--dark2); color: var(--muted); font-weight: 700; white-space: nowrap; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-tr.boss td { background: rgba(217, 164, 65, 0.06); }
+html, body { height: auto; min-height: 100%; }
+body { min-height: 100vh; }
+code { font-family: var(--mono); font-size: 12px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+.embedded .standalone { display: none !important; }
+
+/* ---------- 顶栏：报告、规则指纹、页签 ---------- */
+.evo-top { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 7px 16px; background: var(--paper-2); border-bottom: 2px solid var(--line-2); }
+.evo-top h1 { margin: 0; font-size: 18px; white-space: nowrap; }
+.seg { display: inline-flex; flex: none; border: 2px solid var(--line-2); background: var(--paper-hi); box-shadow: 2px 2px 0 rgba(42, 26, 5, 0.25); }
+.seg button { height: 26px; padding: 0 11px; border: 0; background: none; color: var(--ink-2); font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { color: var(--ink); background: #fff8e4; }
+.seg button.on { background: var(--brass); color: var(--ink); font-weight: 700; box-shadow: inset 1px 1px 0 var(--brass-hi), inset -1px -1px 0 var(--brass-lo); }
+.seg button .n { margin-left: 4px; font: 400 11px var(--mono); color: var(--ink-3); }
+.fld { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+.fld select { width: auto; max-width: 300px; height: 28px; padding: 2px 6px; }
+.fld input[type="number"] { width: 84px; height: 28px; }
+.vsep { width: 1px; height: 22px; background: var(--line); flex: none; }
+.rule { display: inline-flex; align-items: center; gap: 6px; max-width: min(46ch, 100%); height: 26px; padding: 0 9px; border: 1px solid var(--line); background: var(--paper-hi); color: var(--ink-2); font-size: 12.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rule::before { content: ""; flex: none; width: 8px; height: 8px; background: var(--line); border: 1px solid rgba(0, 0, 0, 0.3); }
+.rule.fresh { border-color: var(--ok); background: var(--ok-soft); color: var(--ink); }
+.rule.fresh::before { background: var(--ok); }
+.rule.stale { border-color: var(--fire); background: var(--warn-soft); color: var(--ink); }
+.rule.stale::before { background: var(--fire); }
+
+/* ---------- 生成栏 ---------- */
+.gen { position: relative; display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding: 7px 16px 6px; background: var(--paper-3); border-bottom: 2px solid var(--line-2); }
+.gen-h { font: 700 13px var(--song); color: var(--brass-dk); letter-spacing: 0.08em; white-space: nowrap; }
+.gen.flash { animation: flash 1.2s 2; }
+@keyframes flash { 50% { background: var(--brass-hi); } }
+.gen-more { position: relative; }
+.gen-more > summary { list-style: none; }
+.gen-more > summary::-webkit-details-marker { display: none; }
+.gen-more > summary svg { width: 10px; height: 10px; }
+.gen-more[open] > summary { background: var(--paper); }
+.gen-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 330px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 12px 14px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 4px 4px 0 rgba(20, 10, 4, 0.45); }
+.gen-pop .fld { justify-content: space-between; }
+.gen-pop p { grid-column: 1 / -1; margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.gen-go { display: flex; gap: 6px; align-items: center; }
+.gen-go .btn.act:disabled { background: var(--paper-hi); border-color: var(--line-2); color: var(--ink-3); }
+.gen-state { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
+.gen-state #generation-status { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.meter { flex: none; width: 110px; height: 12px; padding: 1px; border: 1px solid var(--line-2); background: var(--paper-hi); }
+.meter i { display: block; height: 100%; width: 0; background: var(--fire); transition: width 0.4s; }
+.gen[data-end="done"] .meter i { background: var(--ok); }
+.gen[data-end="failed"] .meter i { background: var(--bad); }
+.gen[data-end="stopped"] .meter i { background: var(--line-2); }
+#scope-info { flex-basis: 100%; margin: 0; font-size: 11.5px; color: var(--ink-3); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ---------- 选关结果：一关一张卡，钉在木桌上 ---------- */
+.board-h { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 9px 16px 0; }
+.board-h h2 { margin: 0; font-size: 16px; color: var(--brass-hi); text-shadow: 1px 1px 0 var(--desk); white-space: nowrap; }
+.board-h .sum { color: var(--cream-2); font-size: 12.5px; text-shadow: 1px 1px 0 var(--desk); }
+.board-h .sum b { color: var(--cream); font-family: var(--mono); }
+.board-h .sum .warn { color: #ffb36b; }
+.board-h .seg { box-shadow: 2px 2px 0 rgba(20, 10, 4, 0.5); }
+.picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 28px 12px; padding: 28px 16px 12px; }
+.picks > .empty-state { grid-column: 1 / -1; background: var(--paper); border: 2px dashed var(--line-2); }
+.pk { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 2px solid var(--line-2); box-shadow: var(--hard); }
+.pk.boss { border-color: var(--brass-dk); box-shadow: inset 0 0 0 2px var(--brass), var(--hard); }
+.pk.ghost { background: var(--paper-3); border-style: dashed; border-color: var(--line); box-shadow: none; }
+.pk.ghost .pk-name { color: var(--ink-2); }
+.pk.ghost .pk-code { background: var(--ink-3); }
+.pk-tab { position: absolute; left: -2px; bottom: calc(100% + 2px); display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; background: var(--brass); border: 2px solid var(--brass-dk); color: var(--ink); font: 700 12.5px var(--song); letter-spacing: 0.06em; white-space: nowrap; box-shadow: inset 1px 1px 0 var(--brass-hi); }
+.pk-tab small { font: 400 11px var(--sans); color: var(--brass-dk); letter-spacing: 0; }
+.pk-head { display: flex; align-items: center; gap: 5px; padding: 5px 7px 4px; min-width: 0; }
+.pk-code { flex: none; padding: 0 5px; background: var(--ink-2); color: var(--paper-hi); font: 700 12px/18px var(--mono); }
+.pk-name { flex: 1; min-width: 0; margin: 0; font: 700 15px/1.3 var(--song); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.verdict { flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 6px; font-size: 11.5px; font-weight: 700; border: 1px solid; white-space: nowrap; }
+.verdict.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.verdict.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.verdict.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.verdict.none { color: var(--ink-3); border-color: var(--line); background: none; font-weight: 400; }
+.star { flex: none; width: 24px; height: 22px; padding: 0; border: 1px solid transparent; background: none; color: var(--ink-3); font-size: 15px; line-height: 1; cursor: pointer; }
+.star:hover { border-color: var(--line); background: var(--paper-hi); color: var(--brass-dk); }
+.star.on { color: var(--brass-dk); }
+/* 车图框：车站在地面线上，线下面是一行小字（性格 · 底盘 · 造价）；框高由 fitBoard 按窗口算（--carh） */
+.pk-car { position: relative; display: flex; align-items: flex-end; justify-content: center; height: var(--carh, 132px); margin: 0 7px; padding: 5px 5px 18px; border: 1px solid var(--line); cursor: zoom-in; overflow: hidden;
+  background: linear-gradient(to bottom, transparent calc(100% - 17px), var(--line-2) calc(100% - 17px), var(--line-2) calc(100% - 16px), var(--paper-2) calc(100% - 16px)), var(--paper-3); }
+.pk-car:hover, .pk-car:focus-visible { border-color: var(--brass-lo); background-color: var(--paper-hi); outline: none; }
+.pk-car canvas { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; image-rendering: pixelated; }
+canvas.soft, .pk-car canvas.soft { image-rendering: auto; }
+.pk-car .cap { position: absolute; left: 5px; top: 3px; font-size: 11px; color: var(--ink-3); }
+.pk-car .who { position: absolute; left: 6px; right: 6px; bottom: 0; font-size: 11px; line-height: 16px; color: var(--ink-2); text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pk-car.miss canvas { opacity: 0.42; filter: grayscale(0.7); }
+.pk-car.none { align-items: center; cursor: default; border-style: dashed; background: none; padding: 5px; color: var(--ink-3); font-size: 12.5px; text-align: center; }
+.pk-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 4px 7px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.pk-num { padding: 2px 2px 1px; text-align: center; min-width: 0; white-space: nowrap; }
+.pk-num + .pk-num { border-left: 1px dotted var(--line-2); }
+.pk-num small { display: block; font-size: 11px; color: var(--ink-3); line-height: 1.25; }
+.pk-num b { font: 700 16px/1.25 var(--mono); color: var(--ink); }
+.pk-num em { font: normal 10.5px var(--mono); color: var(--ink-3); margin-left: 2px; }
+.pk.miss .pk-num b { color: var(--ink-3); }
+.pk-tags { display: flex; flex-wrap: wrap; gap: 3px 4px; padding: 4px 7px 0; }
+.pk-tags .chip { height: 19px; font-size: 11px; padding: 0 5px; }
+.chip.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.chip.ok { border-color: var(--ok); color: var(--ok); }
+.pk-line { padding: 3px 7px 0; font-size: 12px; color: var(--ink-2); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-line b { font-family: var(--mono); }
+.pk-line .muted { font-size: 11.5px; }
+.pk-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; padding: 5px 7px 5px; }
+.pk-foot .btn.sm { height: 24px; padding: 0 7px; font-size: 12px; }
+.screen { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; padding: 0; border: 0; background: none; color: var(--ink-2); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.screen:hover { color: var(--ink); text-decoration: underline; }
+.dots { display: inline-flex; gap: 2px; }
+.dots i { width: 6px; height: 9px; border: 1px solid rgba(42, 26, 5, 0.45); background: var(--bad-soft); }
+.dots i.y { background: var(--ok); }
+.dots i.chosen { background: var(--brass); border-color: var(--brass-dk); }
+.aim { margin-left: auto; }
+.aim svg { width: 12px; height: 12px; }
+
+/* ---------- 往下翻：纸页 ---------- */
+.sheet { margin: 14px 16px 18px; padding: 12px 16px 16px; background: var(--paper); border: 2px solid var(--line-2); box-shadow: var(--hard); scroll-margin-top: 10px; min-width: 0; }
+.sheet > h2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 4px; font-size: 16px; }
+.sheet > h2 small { font: 400 12px var(--sans); color: var(--ink-3); letter-spacing: 0; }
+.sheet .hint { margin: 0 0 10px; max-width: 96ch; font-size: 12.5px; color: var(--ink-3); }
+.sheet h3 { margin: 14px 0 6px; font-size: 13.5px; color: var(--brass-dk); display: flex; align-items: center; gap: 6px; }
+.sheet .ctl { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; margin: 0 0 10px; }
+.sheet .ctl .muted { font-size: 12.5px; }
+.empty-state { padding: 16px; border: 1px dashed var(--line-2); color: var(--ink-3); font-size: 13px; line-height: 1.7; }
+.cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 10px; }
+.cand { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line-2); background: var(--paper-hi); }
+.cand.chosen { border: 2px solid var(--brass-dk); box-shadow: inset 0 0 0 1px var(--brass); }
+.cand.fail { background: var(--paper); }
+.cand-head { display: flex; align-items: center; gap: 5px; padding: 4px 6px; font-size: 12px; }
+.cand-head .rank { font: 700 12px var(--mono); color: var(--ink-3); }
+.cand-head .nm { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-2); }
+.cand .pk-car { height: 100px; margin: 0 6px; }
+.cand.fail .pk-car canvas { opacity: 0.55; }
+.cand-info { padding: 4px 6px 0; font-size: 11.5px; color: var(--ink-2); line-height: 1.5; }
+.cand-info b { font-family: var(--mono); }
+.cand-btns { display: flex; gap: 4px; flex-wrap: wrap; padding: 5px 6px 6px; margin-top: auto; }
+.cand-btns .btn { height: 24px; padding: 0 7px; font-size: 11.5px; }
+details.fold { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+details.fold > summary { cursor: pointer; font: 700 13.5px var(--song); color: var(--brass-dk); }
+.thumb { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; margin: 2px; background: var(--paper-3); border: 1px solid var(--line); cursor: zoom-in; vertical-align: top; }
+.thumb:hover, .thumb:focus-visible { border-color: var(--brass-lo); background: var(--paper-hi); outline: none; }
+.thumb canvas { display: block; max-width: 150px; max-height: 64px; width: auto; height: auto; image-rendering: pixelated; }
+.thumb .cap { font: 11px var(--mono); color: var(--ink-3); white-space: nowrap; }
 .scroll { overflow-x: auto; }
-.ok { color: var(--gauge2); } .bad { color: #ff5a4a; }
-.chip { display: inline-block; padding: 0 6px; border: 1px solid var(--dark3); border-radius: 2px; font-size: 11px; line-height: 18px; margin: 1px 2px 1px 0; white-space: nowrap; }
-.chip.bad { border-color: #8a2b22; }
-.thumb { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; margin: 2px; background: var(--dark0); border: 1px solid var(--dark3); cursor: pointer; vertical-align: top; }
-.thumb:hover, .thumb:focus-visible { border-color: var(--brass2); outline: none; }
-.thumb canvas { height: 64px; width: auto; image-rendering: pixelated; }
-.thumb .cap { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mark { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
-.gridtbl td { min-width: 150px; }
-.gridtbl td.empty { color: var(--dark3); text-align: center; }
-.chart-wrap { position: relative; background: var(--dark0); border: 1px solid var(--dark3); padding: 8px; }
-.chart-wrap svg { display: block; width: 100%; height: auto; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; margin: 6px 0 0; }
+table { border-collapse: collapse; font-size: 12.5px; }
+th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: middle; }
+th { background: var(--paper-2); color: var(--ink-2); font-weight: 700; white-space: nowrap; }
+td.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
+.gridtbl td { min-width: 120px; background: var(--paper-hi); }
+.gridtbl td.empty { color: var(--line); text-align: center; background: none; padding: 4px 8px; }
+.chart-wrap { position: relative; padding: 8px; background: var(--paper-hi); border: 1px solid var(--line); }
+.chart-wrap svg { display: block; width: 100%; height: auto; max-height: 460px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; font-size: 12px; color: var(--ink-2); }
 .legend svg { vertical-align: -2px; margin-right: 4px; }
-.tip { position: absolute; pointer-events: none; background: var(--dark1); border: 1px solid var(--dark3); padding: 6px 8px; font-size: 12px; line-height: 1.5; white-space: nowrap; z-index: 5; }
-.tip b { color: var(--text); }
-.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; overflow: auto; z-index: 20; }
-.overlay[hidden] { display: none; }
-.detail { background: var(--dark1); border: 1px solid var(--dark3); max-width: 980px; width: 100%; padding: 14px 16px; }
-.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.detail-head h2 { margin: 0; }
-.detail-body { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; }
-.detail-pic { background: var(--dark0); border: 1px solid var(--dark3); padding: 8px; align-self: flex-start; }
-.detail-pic canvas { width: auto; height: 220px; image-rendering: pixelated; }
-.detail-info { flex: 1 1 360px; min-width: 0; }
-.code { width: 100%; min-height: 60px; background: var(--dark0); color: var(--text); border: 1px solid var(--dark3); font: 11px/1.4 monospace; padding: 6px; resize: vertical; word-break: break-all; }
-.row-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.empty-state { margin: 16px 0; padding: 16px; border: 1px dashed var(--dark3); color: var(--muted); font-size: 13px; line-height: 1.7; }
-.empty-state code { color: var(--brass3); }
-@media (max-width: 640px) { body { padding: 10px; } .detail-pic canvas { height: 150px; } }
+.tip { position: absolute; z-index: 5; pointer-events: none; padding: 6px 9px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 3px 3px 0 rgba(20, 10, 4, 0.35); font-size: 12px; line-height: 1.5; white-space: nowrap; color: var(--ink); }
+.arch-wrap { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+.arch-group { min-width: 0; padding: 0 10px 8px; border: 1px solid var(--line); background: var(--paper-hi); }
+.arch-group h3 { margin: 8px 0 4px; }
+.arch-group .small { font-size: 12px; color: var(--ink-3); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: 12.5px; }
+.facts dt { color: var(--ink-3); }
+.facts dd { margin: 0; color: var(--ink-2); word-break: break-all; }
+.facts code { color: var(--ink); }
+
+/* ---------- 单台车详情 ---------- */
+.overlay { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px; overflow: auto; background: rgba(20, 10, 4, 0.62); }
+.detail { width: 100%; max-width: 1000px; padding: 14px 18px 16px; background: var(--paper-hi); border: 2px solid var(--line-2); box-shadow: 5px 5px 0 rgba(20, 10, 4, 0.5); }
+.detail-head { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+.detail-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 19px; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.detail-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; margin-top: 12px; align-items: start; }
+.detail-pic { display: grid; place-items: center; min-height: 240px; padding: 14px 10px 20px; border: 1px solid var(--line);
+  background: linear-gradient(to bottom, transparent calc(100% - 16px), var(--line) calc(100% - 16px), var(--line) calc(100% - 14px), transparent calc(100% - 14px)), var(--paper-3); }
+.detail-pic canvas { display: block; max-width: 100%; height: auto; image-rendering: pixelated; }
+.detail-info { min-width: 0; }
+.detail-info table { width: 100%; }
+.detail-info th { width: 8.6em; white-space: nowrap; }
+.detail h3 { margin: 14px 0 6px; font-size: 14px; color: var(--brass-dk); }
+.row-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+.code { width: 100%; min-height: 60px; font: 11px/1.4 var(--mono); word-break: break-all; }
+
+#lab-selftest iframe { display: block; width: 100%; height: calc(100vh - 48px); border: 0; background: var(--paper); }
+@media (max-width: 760px) {
+  .evo-top, .gen, .board-h { padding-left: 10px; padding-right: 10px; }
+  .picks { padding-left: 10px; padding-right: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .sheet { margin-left: 10px; margin-right: 10px; }
+  .detail-body { grid-template-columns: minmax(0, 1fr); }
+  .gen-pop { width: min(330px, calc(100vw - 20px)); }
+}
 </style></head>
 <body>
-<h1>进化擂台与数值自测</h1>
-<nav class="lab-tabs" aria-label="数值工具"><button class="btn primary" id="tab-evolve">进化报告</button><button class="btn" id="tab-selftest">数值自测</button><a class="btn" href="console.html">关卡控制台</a></nav>
+<header class="evo-top" id="overview">
+  <h1 class="standalone">进化擂台</h1>
+  <nav class="seg" aria-label="数值工具"><button type="button" id="tab-evolve">进化报告</button><button type="button" id="tab-selftest">数值自测</button></nav>
+  <span class="vsep"></span>
+  <label class="fld">报告 <select id="src"></select></label>
+  <button type="button" class="btn sm ghost" id="reload" title="重新读取 tools/out/ 里的报告列表">刷新列表</button>
+  <label class="btn sm ghost" for="file" style="cursor:pointer" title="读一份本机的报告 JSON（只看，不保存）">打开本地文件</label><input id="file" type="file" accept=".json,application/json" hidden>
+  <span class="grow"></span>
+  <div id="banner" class="rule">正在读取……</div>
+  <a class="btn sm ghost standalone" href="console.html">后台</a>
+</header>
 <section id="lab-evolve">
-<p class="muted" style="margin:0 0 12px">关卡车进化生成器（<code>tools/evolve.js</code>）的结果：每一关选出的车、强度分和表现分的分布、分类存档、毒瘤车和奇特构筑。点任意一台车看大图、分享码和典型对局，可以按种子复现，也可以去试驾场和它打一场。规则见 <code>docs/evolve-plan.md</code>。</p>
-<details class="banner" open><summary>定向模拟与重新生成</summary>
-  <div class="ctl">
-    <label>生成范围 <select id="run-mode" aria-label="生成范围"><option value="single">指定章／关</option><option value="route-after">原点后的主线关卡</option></select></label>
-    <label>生成章节 <select id="run-chapter" aria-label="生成章节"></select></label>
-    <label>生成关卡 <select id="run-stage" aria-label="生成关卡"></select></label>
-    <label>原点关卡车 <select id="run-origin" aria-label="原点关卡车"></select></label>
-    <label>后续关数 <input id="run-after-count" type="number" min="1" value="1"></label>
-    <label>种群 <input id="run-population" type="number" min="4" max="96" value="24"></label>
-    <label>代数 <input id="run-generations" type="number" min="1" max="20" value="4"></label>
-    <label>每对局数 <input id="run-games" type="number" min="1" max="40" value="6"></label>
-    <label>并行数 <input id="run-workers" type="number" min="1" max="14" value="4"></label>
-    <label>随机种子 <input id="run-seed" type="number" min="1" max="2147483647" value="20260929"></label>
-    <button class="btn primary" id="generate" disabled>模拟并生成报告</button><button class="btn" id="stop-generation" disabled>停止生成</button>
+  <div class="gen" id="gen" aria-label="定向模拟与重新生成">
+    <span class="gen-h">定向模拟</span>
+    <label class="fld">范围 <select id="run-mode" aria-label="生成范围"><option value="single">指定章／关</option><option value="route-after">原点后的主线关卡</option></select></label>
+    <label class="fld">章 <select id="run-chapter" aria-label="生成章节"></select></label>
+    <label class="fld">关 <select id="run-stage" aria-label="生成关卡"></select></label>
+    <label class="fld">原点关卡车 <select id="run-origin" aria-label="原点关卡车"></select></label>
+    <label class="fld">后续关数 <input id="run-after-count" type="number" min="1" value="1"></label>
+    <details class="gen-more" id="gen-more">
+      <summary class="btn sm" title="种群、代数、对局数、并行数、随机种子">参数 <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3 5l5 6 5-6z"/></svg></summary>
+      <div class="gen-pop">
+        <label class="fld">种群 <input id="run-population" type="number" min="4" max="96" value="24"></label>
+        <label class="fld">代数 <input id="run-generations" type="number" min="1" max="20" value="4"></label>
+        <label class="fld">每对局数 <input id="run-games" type="number" min="1" max="40" value="6"></label>
+        <label class="fld">并行数 <input id="run-workers" type="number" min="1" max="14" value="4"></label>
+        <label class="fld" style="grid-column:1/-1">随机种子 <input id="run-seed" type="number" min="1" max="2147483647" value="20260929" style="width:150px"></label>
+        <p>仅更新所选范围；收藏与手工车保留，并可参与后续进化。草案关卡可以预演，结果保存在擂台中。</p>
+        <p>每台候选每代评估计 1 步，另计关卡整理、筛选与报告保存；剩余时间每 5 秒按本次累计平均速度估算。</p>
+      </div>
+    </details>
+    <span class="gen-go"><button type="button" class="btn act" id="generate" disabled>模拟并生成报告</button><button type="button" class="btn sm" id="stop-generation" disabled>停止生成</button></span>
+    <span class="gen-state"><span class="meter" id="gen-meter" hidden><i></i></span><span id="generation-status" role="status" aria-live="polite">尚未运行。</span></span>
+    <p id="scope-info">正在读取当前设定……</p>
   </div>
-  <p class="small muted" id="scope-info">正在读取当前设定……</p>
-  <p class="small muted">仅更新所选范围；收藏与手工车保留，并可参与后续进化。草案关卡可以预演，结果保存在擂台中。</p>
-  <p class="small muted">每台候选每代评估计 1 步，另计关卡整理、筛选与报告保存；剩余时间每 5 秒按本次累计平均速度估算。</p>
-  <div id="generation-status" role="status" aria-live="polite">尚未运行。</div>
-</details>
-<div class="ctl">
-  <label>报告 <select id="src"></select></label>
-  <span class="grp"><button class="btn" id="reload">刷新列表</button><label class="btn" for="file" style="cursor:pointer">打开本地文件</label><input id="file" type="file" accept=".json,application/json" hidden></span>
-  <span class="grp"><label>章节 <select id="chap"></select></label></span>
-</div>
-<div id="banner" class="banner muted">正在读取……</div>
-<nav class="nav" id="nav"></nav>
-<div id="out"></div>
+  <div id="out"></div>
 </section>
 <section id="lab-selftest" hidden><iframe id="selftest-frame" title="数值自测"></iframe></section>
 <div class="overlay" id="overlay" hidden><div class="detail" id="detail" role="dialog" aria-modal="true"></div></div>
 
-<script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+<script>document.documentElement.classList.toggle('embedded', window.top !== window);</script>
+<script src="../js/palette.js"></script><script src="../js/ui-px.js"></script><script src="../js/config.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/stage-cars.js"></script><script src="../js/state.js"></script><script src="../js/ui.js"></script>
 <script src="../js/camp.js"></script><script src="../js/camp-ui.js"></script><script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script><script src="../js/battle-view.js"></script><script src="../js/battle.js"></script>
 <script src="../js/evolve-arena.js"></script><script src="evolve-report.js"></script>
