@@ -10,7 +10,7 @@ const { loadGame, ruleFingerprint } = require('./evolve');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(__dirname, 'out');
-const STYLES = ['rush', 'kite', 'turtle', 'wander'];
+const stylesOf = SA => SA.Battle.aiStyles.map(item => item.id);
 const TERRAIN_KEYS = ['flat', 'crates', 'mud', 'hills', 'yard', 'mine'];
 
 function clone(SA, v) { return SA.V.clone(v); }
@@ -26,7 +26,7 @@ function buildRepresentatives(SA) {
     quad:  ['........', '........', '...P....', '..KOH...', '..WAAAA.', '..Q.....'],
     biped: ['........', '........', '...P....', '..KOH...', '..WAAAA.', '..B.....'],
   };
-  return Object.entries(rows).flatMap(([chassis, data]) => STYLES.map(style => ({
+  return Object.entries(rows).flatMap(([chassis, data]) => stylesOf(SA).map(style => ({
     chassis, style, v: SA.V.fromAscii(`${chassis}-${style}`, data, [], 1, [], [[7, 7, 'helmet']]),
   })));
 }
@@ -64,7 +64,7 @@ function health(SA, games) {
   }
   const total = Math.max(1, count * 2); dist.avgSeconds = times.reduce((s, x) => s + x, 0) / total;
   const rate = key => dist[key] / total;
-  return { games: count, simulatedDuels: total, representatives: reps.length, terrains: TERRAIN_KEYS, styles: STYLES, distribution: dist,
+  return { games: count, simulatedDuels: total, representatives: reps.length, terrains: TERRAIN_KEYS, styles: stylesOf(SA), distribution: dist,
     rates: { dry: rate('dry'), dryCI95: ci95(rate('dry'), total), timeout: rate('timeout'), timeoutCI95: ci95(rate('timeout'), total), draw: rate('draws'), drawCI95: ci95(rate('draws'), total), overheat: rate('overheat'), overheatCI95: ci95(rate('overheat'), total), averageSecondsCI95: meanCI95(times.map(t => ({ t }))) },
     targets: { dry: '<0.30', timeout: '<0.10', draw: '<0.05', averageSeconds: '30-60' }, samples: rows };
 }

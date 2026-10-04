@@ -36,14 +36,28 @@ function mergeReports(base, fresh) {
 function catalog() {
   const { SA } = evolve.loadGame();
   const route = evolve.plannedRoute(SA);
-  return { defaults: { population: config.population.size, generations: config.population.generations, games: config.evaluation.quickGames, workers: 4 },
-    chapters: SA.CAMPAIGN.map((ch, ci) => ({ chapter: ci, name: ch.name, stages: route.filter(row => row.chapter === ci).map(({ stage: si }) => {
-      const spec = evolve.previewStageSpec(SA, ci, si);
-      return { stage: si, name: spec.name, budget: spec.budget, status: spec.budgetStatus,
-        previewRuleSource: spec.previewRuleSource || null, hasVehicle: !!evolve.stageFor(SA, ci, si)?.vehicle,
-        maxAfter: route.length - route.findIndex(row => row.chapter === ci && row.stage === si) - 1,
-        modules: spec.availableMods.map(id => SA.MODULES[id]?.name || id) };
-    }) })) };
+  const rows = route.map(({ chapter, stage, entry }) => {
+    let spec = null, error = null;
+    try { spec = evolve.previewStageSpec(SA, chapter, stage); }
+    catch (caught) {
+      if (caught.code !== 'EVOLVE_STAGE_CONFIG_MISSING') throw caught;
+      error = caught.message;
+    }
+    const actual = evolve.stageFor(SA, chapter, stage);
+    return { chapter, stage, name: spec?.name || actual?.name || entry.car,
+      hasVehicle: !!actual?.vehicle, spec, error };
+  });
+  return { defaults: { population: config.population.size, generations: config.population.generations, games: config.evaluation.quickGames, workers: config.defaultWorkers },
+    chapters: SA.CAMPAIGN.map((ch, ci) => ({ chapter: ci, name: ch.name, stages: rows.flatMap((row, index) => {
+      if (row.chapter !== ci || !row.spec) return [];
+      // 路线只能从已配置关连续向后生成，不能跨过未配置关延伸数量上限。
+      let maxAfter = 0;
+      while (rows[index + maxAfter + 1]?.spec) maxAfter++;
+      return [{ stage: row.stage, name: row.name, budget: row.spec.budget, status: row.spec.budgetStatus,
+        previewRuleSource: row.spec.previewRuleSource || null, hasVehicle: row.hasVehicle, maxAfter,
+        modules: row.spec.availableMods.map(id => SA.MODULES[id]?.name || id) }];
+    }) })).filter(ch => ch.stages.length),
+    unavailableStages: rows.filter(row => !row.spec).map(({ chapter, stage, name, error }) => ({ chapter, stage, name, error })) };
 }
 
 async function generate(request, emit = () => {}) {
@@ -51,7 +65,7 @@ async function generate(request, emit = () => {}) {
   config.population.size = integer(request.population, 24, 4, 96, '种群数量');
   config.population.generations = integer(request.generations, 4, 1, 20, '进化代数');
   const games = integer(request.games, 6, 1, 40, '每对局数');
-  const workers = integer(request.workers, 4, 1, 12, '并行数');
+  const workers = integer(request.workers, config.defaultWorkers, 1, config.maxWorkers, '并行数');
   const seed = integer(request.seed, 20260929, 1, 2147483647, '种子');
   const scope = request.scope;
   if (!scope || scope.type !== 'route-after' && (scope.type != null || !Number.isInteger(scope.chapter))) throw new Error('请选择要生成的章节');
@@ -74,7 +88,7 @@ async function generate(request, emit = () => {}) {
   }
   const references = (base?.chapters || []).flatMap(ch => ch.stages.map(stage => stage.selected).filter(Boolean));
   // 总步骤保留最后的报告落盘，评估和筛选结束时不会提前显示 100%。
-  const fresh = await evolve.runAsync({ scope, originVehicle, games, workers, seed, seeds, references,
+  const fresh = await evolve.runAsync({ scope, originVehicle, games, workers, seed, seeds, references, gpu: request.gpu !== false,
     onProgress: event => emit({ type: 'progress', ...event, totalSteps: event.totalSteps + 1 }) });
   const report = mergeReports(base, fresh);
   const saved = storage.writeReport(report);

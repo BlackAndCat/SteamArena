@@ -128,16 +128,17 @@ function losesGun(rt, side) {
   return { dir: s.dir, moveT: s.moveT };
 }
 
-/** 其他性格及失去近战能力的冲锋车仍按原目标位置移动。 */
+/** 游走仍按目标位置移动；失去近战的冲锋车改为主动进入近距炮战。 */
 function otherStyles(rt) {
-  for (const [style, noMelee] of [['wander', false], ['rush', true]]) {
-    const B = scene(rt, 'e');
-    B.e.style = style;
-    if (noMelee) B.e.rams = 0;
-    B.e.moveT = 1; B.e.charge = false; B.e.goalX = B.e.x;
-    rt.api.step(1 / 60);
-    assert.strictEqual(B.e.dir, 0, `${style} 非近战分支未保持原有目标位置行为`);
-  }
+  const B = scene(rt, 'e');
+  B.e.style = 'wander'; B.e.moveT = 1; B.e.charge = false; B.e.goalX = B.e.x;
+  rt.api.step(1 / 60);
+  assert.strictEqual(B.e.dir, 0, 'wander 未保持原有目标位置行为');
+  const rush = scene(rt, 'e');
+  rush.e.style = 'rush'; rush.e.rams = 0; rush.e.moveT = 1; rush.e.charge = false; rush.e.goalX = rush.e.x;
+  rt.api.step(1 / 60);
+  assert.strictEqual(rush.e.dir, -1, '失去近战后没有接近至近距炮战');
+  assert.strictEqual(rush.e.charge, false, '失去近战后仍触发近战冲锋');
   return true;
 }
 

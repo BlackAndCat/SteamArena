@@ -47,14 +47,17 @@ class WriteSecurityTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         root = Path(self.temp.name)
-        (root / 'text' / 'demo').mkdir(parents=True)
-        (root / 'js').mkdir()
-        self.text_file = root / 'text' / 'demo' / 'zh.json'
-        self.stage_file = root / 'js' / 'stage-cars.js'
-        self.text_file.write_text('原文本', encoding='utf-8')
-        self.stage_file.write_text('原关卡', encoding='utf-8')
+        (root / 'config').mkdir()
+        self.text_file = root / 'config' / 'text.json'
+        self.stage_file = root / 'config' / 'stage-cars.json'
+        self.text_file.write_text(json.dumps({'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN',
+                                             'values': {}, 'removedElements': []}), encoding='utf-8')
+        self.text_original = self.text_file.read_bytes()
+        self.stage_file.write_bytes((Path(__file__).resolve().parent.parent / 'config' / 'stage-cars.json').read_bytes())
+        self.stage_original = self.stage_file.read_bytes()
         self.module.ROOT = str(root)
         self.module.TEXT_ROOT = str(root / 'text')
+        self.module.TEXT_FILE = str(self.text_file)
         self.module.STAGE_CARS_FILE = str(self.stage_file)
         self.module.EVOLUTION = FakeEvolution(str(root))
 
@@ -98,8 +101,9 @@ class WriteSecurityTests(unittest.TestCase):
 
     def payloads(self):
         return {
-            '/__text/save': {'game': 'demo', 'locale': 'zh', 'values': {'title': '新文本'}},
-            '/__stage-cars/save': {'version': 1, 'campaignLayout': 2, 'records': {}},
+            '/__text/save': {'game': 'steam-arena', 'locale': 'zh-CN', 'values': {'title': '新文本'}, 'removedElements': []},
+            '/__stage-cars/save': {'workbenchVersion': 1, 'target': {'kind': 'stage', 'id': '0:1'},
+                                   'record': {'id': '0:1', 'source': 'manual', 'cells': [], 'name': '测试关'}},
             '/__evolve/run': {'candidate': 'demo'},
             '/__evolve/stop': {'reason': 'test'},
         }
@@ -119,8 +123,8 @@ class WriteSecurityTests(unittest.TestCase):
             for headers in rejected_headers:
                 with self.subTest(endpoint=endpoint, headers=headers):
                     self.assertEqual(self.post(endpoint, payload, headers), 403)
-                    self.assertEqual(self.text_file.read_text(encoding='utf-8'), '原文本')
-                    self.assertEqual(self.stage_file.read_text(encoding='utf-8'), '原关卡')
+                    self.assertEqual(self.text_file.read_bytes(), self.text_original)
+                    self.assertEqual(self.stage_file.read_bytes(), self.stage_original)
                     self.assertEqual(self.module.EVOLUTION.calls, [])
 
     def test_same_origin_saves_text_and_stage_cars(self):
@@ -130,32 +134,40 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(self.post('/__text/save', payloads['/__text/save'], {'Origin': origin}), 200)
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8'))['values']['title'], '新文本')
         self.assertEqual(self.post('/__stage-cars/save', payloads['/__stage-cars/save'], {'Origin': origin}), 200)
-        self.assertIn('SA.STAGE_CARS =', self.stage_file.read_text(encoding='utf-8'))
+        self.assertEqual(json.loads(self.stage_file.read_text(encoding='utf-8'))['records']['0:1']['name'], '测试关')
 
     def test_all_campaign_stages_can_be_saved(self):
-        """末章末关与旧序章记录同源保存，并写出完整的六章目标表。"""
+        """只更新指定关卡，并保留其余正式记录及目标表。"""
         origin = f'http://127.0.0.1:{self.server.server_port}'
-        records = {key: {'source': 'manual', 'cells': []} for key in ('0:0', '5:2')}
-        payload = {'version': 1, 'campaignLayout': 2, 'records': records}
+        before = json.loads(self.stage_file.read_text(encoding='utf-8'))
+        payload = {'workbenchVersion': 1, 'target': {'kind': 'stage', 'id': '0:1'},
+                   'record': {'id': '0:1', 'source': 'manual', 'cells': [], 'name': '新关名'}}
         self.assertEqual(self.post('/__stage-cars/save', payload, {'Origin': origin}), 200)
-        content = self.stage_file.read_text(encoding='utf-8')
-        saved = json.loads(content.split('SA.STAGE_CARS = ', 1)[1].split(';\n', 1)[0])
-        self.assertEqual(saved['records'], records)
-        self.assertEqual(saved['targets'], [f'{chapter}:{stage}' for chapter in range(6) for stage in range(3)])
+        saved = json.loads(self.stage_file.read_text(encoding='utf-8'))
+        self.assertEqual(saved['records']['0:1']['name'], '新关名')
+        self.assertEqual(saved['records']['0:0'], before['records']['0:0'])
+        self.assertEqual(saved['targets'], before['targets'])
 
     def test_stage_keys_outside_campaign_leave_file_unchanged(self):
-        """拒绝越界与异常键，失败请求不得触碰已保存的关卡文件。"""
+        """拒绝旧协议、错目标与越界关卡，失败请求不得触碰正式配置。"""
         origin = f'http://127.0.0.1:{self.server.server_port}'
-        for key in ('6:0', '5:3', '../5:2', '05:2', '__proto__'):
-            with self.subTest(key=key):
-                payload = {'version': 1, 'campaignLayout': 2,
-                           'records': {key: {'source': 'manual', 'cells': []}}}
+        valid = self.payloads()['/__stage-cars/save']
+        invalid = [
+            {'version': 1, 'campaignLayout': 2, 'records': {'0:1': valid['record']}},
+            {**valid, 'workbenchVersion': 2},
+            {**valid, 'target': {'kind': 'candidate', 'id': '0:1'}},
+            {**valid, 'target': {'kind': 'stage', 'id': '0:0'}},
+        ]
+        invalid += [{**valid, 'target': {'kind': 'stage', 'id': key},
+                     'record': {**valid['record'], 'id': key}} for key in ('6:0', '5:3', '../5:2', '05:2', '__proto__')]
+        for payload in invalid:
+            with self.subTest(payload=payload):
                 self.assertEqual(self.post('/__stage-cars/save', payload, {'Origin': origin}), 400)
-                self.assertEqual(self.stage_file.read_text(encoding='utf-8'), '原关卡')
+                self.assertEqual(self.stage_file.read_bytes(), self.stage_original)
 
     def test_element_deletion_round_trip_and_invalid_list(self):
         """旧版文案协议可附带页面删除清单，非法路径不能覆盖已保存文件。"""
-        payload = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': ''},
+        payload = {'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN', 'values': {'title': ''},
                    'removedElements': ['/index.html::screen:arena::div#screen/div:n1']}
         self.assertEqual(self.post('/__text/save', payload), 200)
         saved = json.loads(self.text_file.read_text(encoding='utf-8'))
@@ -166,8 +178,8 @@ class WriteSecurityTests(unittest.TestCase):
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
 
     def test_text_history_round_trip_and_legacy_file(self):
-        """旧历史文案按时间并入唯一编辑稿，元素取当前显隐，非法历史不得覆盖文件。"""
-        old = {'version': 1, 'game': 'demo', 'locale': 'zh', 'values': {'title': '旧版'},
+        """当前文本稿直接覆盖旧值；历史字段不能把旧值重新回放。"""
+        old = {'version': 1, 'game': 'steam-arena', 'locale': 'zh-CN', 'values': {'title': '旧版'},
                'removedElements': []}
         self.assertEqual(self.post('/__text/save', old), 200)
         legacy = json.loads(self.text_file.read_text(encoding='utf-8'))
@@ -180,12 +192,12 @@ class WriteSecurityTests(unittest.TestCase):
         newer = {**old, 'values': {'title': '新版'}, 'activeVersion': current, 'history': history}
         self.assertEqual(self.post('/__text/save', newer), 200)
         saved = json.loads(self.text_file.read_text(encoding='utf-8'))
-        self.assertEqual(saved['values'], {'title': '新版', 'first': '前项', 'kept': '后项'})
+        self.assertEqual(saved['values'], {'title': '新版'})
         self.assertEqual(saved['removedElements'], [])
         self.assertTrue(saved['edited'])
         self.assertNotIn('activeVersion', saved)
         self.assertNotIn('history', saved)
-        newer['history'] = [{**history[0], 'values': {'../bad': '非法'}}]
+        newer['values'] = {'': '非法'}
         self.assertEqual(self.post('/__text/save', newer), 400)
         self.assertEqual(json.loads(self.text_file.read_text(encoding='utf-8')), saved)
 

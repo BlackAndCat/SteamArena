@@ -1,0 +1,231 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><pre id="result">基准运行中</pre><script>
+/* 独立数值轨迹核：不是 Battle 实现，也不读写正式车辆。 */
+(async () => {
+  const sustained = new URLSearchParams(location.search).has('sustained');
+  const episodes = sustained ? 20 : 1;
+  const result = { kind: 'evolve-gpu-numeric-benchmark', status: 'running',
+    mode: sustained ? 'sustained' : 'short', episodes,
+    cases: [{ count: 65536, steps: 256, rounds: 3 },
+      { count: 1048576, steps: 128, rounds: 2 }],
+    arithmetic: 'CPU 使用 JS Number 中间值、每轮写入 Float32Array；GPU 使用 WGSL f32',
+    absoluteTolerance: 0.005, stepBatch: 32 };
+  const now = () => performance.now();
+  const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  const makeInput = count => {
+    const values = new Float32Array(count * 4);
+    for (let i = 0; i < count; i++) {
+      const p = i * 4;
+      values[p] = ((i % 1009) - 504) / 256;
+      values[p + 1] = ((i * 17 % 503) - 251) / 512;
+      values[p + 2] = ((i * 23 % 127) - 63) / 8192;
+      values[p + 3] = (i * 37 % 257) / 256;
+    }
+    return values;
+  };
+  // 每条轨迹在局部变量完成所有步，再按轮写回；避免刻意用逐步 typedarray 写入拖慢 CPU。
+  function advanceCpu(values, steps, rounds) {
+    const count = values.length / 4;
+    for (let i = 0; i < count; i++) {
+      const p = i * 4, phase = values[p + 3];
+      let x = values[p], v = values[p + 1], a = values[p + 2];
+      for (let round = 0; round < rounds; round++) {
+        for (let step = 0; step < steps; step++) {
+          const drive = (((step + i) % 11) - 5) * 0.00007 + phase * 0.0001;
+          a = a * 0.997 + drive - x * 0.00003;
+          v = v * 0.999 + a * 0.016;
+          x += v * 0.016;
+          if (x > 4) { x = 8 - x; v = -v * 0.85; }
+          else if (x < -4) { x = -8 - x; v = -v * 0.85; }
+        }
+        x = Math.fround(x); v = Math.fround(v); a = Math.fround(a);
+      }
+      values[p] = x; values[p + 1] = v; values[p + 2] = a;
+    }
+  }
+  function compare(cpu, gpu, tolerance) {
+    let maxAbsError = 0, mismatchCount = 0;
+    for (let i = 0; i < cpu.length; i++) {
+      const error = Math.abs(cpu[i] - gpu[i]);
+      if (error > maxAbsError) maxAbsError = error;
+      if (!Number.isFinite(error) || error > tolerance) mismatchCount++;
+    }
+    return { values: cpu.length, maxAbsError, mismatchCount, pass: mismatchCount === 0 };
+  }
+  const code = `
+struct Params { count: u32, steps: u32, startStep: u32, pad: u32 };
+@group(0) @binding(0) var<storage, read_write> states: array<vec4<f32>>;
+@group(0) @binding(1) var<uniform> params: Params;
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  let i = id.x;
+  if (i >= params.count) { return; }
+  var state = states[i];
+  var x = state.x; var v = state.y; var a = state.z;
+  let phase = state.w;
+  for (var local: u32 = 0u; local < params.steps; local = local + 1u) {
+    let step = params.startStep + local;
+    let drive = (f32((step + i) % 11u) - 5.0) * 0.00007 + phase * 0.0001;
+    a = a * 0.997 + drive - x * 0.00003;
+    v = v * 0.999 + a * 0.016;
+    x = x + v * 0.016;
+    if (x > 4.0) { x = 8.0 - x; v = -v * 0.85; }
+    else if (x < -4.0) { x = -8.0 - x; v = -v * 0.85; }
+  }
+  states[i] = vec4<f32>(x, v, a, phase);
+}`;
+  let device;
+  try {
+    if (!navigator.gpu) throw new Error('navigator.gpu 不可用');
+    const adapterStart = now();
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    result.adapterRequestMs = now() - adapterStart;
+    if (!adapter) throw new Error('requestAdapter 返回空');
+    result.adapter = { vendor: adapter.info?.vendor || '', architecture: adapter.info?.architecture || '',
+      device: adapter.info?.device || '', description: adapter.info?.description || '' };
+    result.fallback = adapter.isFallbackAdapter ?? null;
+    const adapterName = Object.values(result.adapter).join(' ').toLowerCase();
+    result.softwareAdapter = result.fallback === true || /swiftshader|llvmpipe|software adapter|warp/.test(adapterName);
+    result.hardwareConfirmed = !result.softwareAdapter && /nvidia|amd|intel/.test(result.adapter.vendor.toLowerCase());
+    if (!result.hardwareConfirmed) throw new Error('未确认硬件 GPU，拒绝发布性能结果');
+    const deviceStart = now();
+    device = await adapter.requestDevice();
+    result.deviceRequestMs = now() - deviceStart;
+    const shaderStart = now();
+    const shader = device.createShaderModule({ code });
+    const errors = (await shader.getCompilationInfo()).messages.filter(row => row.type === 'error');
+    if (errors.length) throw new Error('WGSL 编译失败：' + errors.map(row => row.message).join('; '));
+    result.shaderCompileMs = now() - shaderStart;
+    const pipelineStart = now();
+    const pipeline = await device.createComputePipelineAsync({ layout: 'auto', compute: { module: shader, entryPoint: 'main' } });
+    result.pipelineMs = now() - pipelineStart;
+    const params = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const paramsData = new Uint32Array(4);
+    function buffers(count) {
+      const size = count * 16;
+      const state = device.createBuffer({ size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
+      const initial = device.createBuffer({ size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
+      const readback = device.createBuffer({ size, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+      const samples = device.createBuffer({ size: result.episodes * 256, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+      const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: state } }, { binding: 1, resource: { buffer: params } }] });
+      return { state, initial, readback, samples, bind, size, count };
+    }
+    async function dispatch(target, steps, rounds) {
+      const times = [];
+      for (let round = 0; round < rounds; round++) {
+        const begin = now();
+        for (let start = 0; start < steps; start += result.stepBatch) {
+          paramsData[0] = target.count; paramsData[1] = Math.min(result.stepBatch, steps - start);
+          paramsData[2] = start;
+          device.queue.writeBuffer(params, 0, paramsData);
+          const encoder = device.createCommandEncoder(), pass = encoder.beginComputePass();
+          pass.setPipeline(pipeline); pass.setBindGroup(0, target.bind);
+          pass.dispatchWorkgroups(Math.ceil(target.count / 256)); pass.end();
+          device.queue.submit([encoder.finish()]);
+          await device.queue.onSubmittedWorkDone();
+        }
+        times.push(now() - begin);
+      }
+      return times;
+    }
+    async function readback(target) {
+      const begin = now(), encoder = device.createCommandEncoder();
+      encoder.copyBufferToBuffer(target.state, 0, target.readback, 0, target.size);
+      device.queue.submit([encoder.finish()]);
+      await target.readback.mapAsync(GPUMapMode.READ);
+      const output = new Float32Array(target.readback.getMappedRange()).slice();
+      target.readback.unmap();
+      return { values: output, ms: now() - begin };
+    }
+    async function resetAndSample(target, episode, sample) {
+      const encoder = device.createCommandEncoder();
+      if (sample) encoder.copyBufferToBuffer(target.state, 0, target.samples, episode * 256, 256);
+      else encoder.copyBufferToBuffer(target.initial, 0, target.state, 0, target.size);
+      device.queue.submit([encoder.finish()]);
+      await device.queue.onSubmittedWorkDone();
+    }
+    // 先完成所有 GPU 工作并打时间戳，冷启动总耗时不会混入后续 CPU 对照。
+    const gpuWarmStart = now(), warmInput = makeInput(4096), warm = buffers(4096);
+    device.queue.writeBuffer(warm.state, 0, warmInput);
+    await dispatch(warm, 32, 1); await readback(warm);
+    warm.state.destroy(); warm.initial.destroy(); warm.readback.destroy(); warm.samples.destroy();
+    result.gpuWarmupMs = now() - gpuWarmStart;
+    const gpuRows = [];
+    for (const config of result.cases) {
+      const inputStart = now(), input = makeInput(config.count);
+      const inputGenerationMs = now() - inputStart;
+      const target = buffers(config.count), gpuStart = now(), uploadStart = now();
+      device.queue.writeBuffer(target.initial, 0, input);
+      const residentUploadMs = now() - uploadStart;
+      const hotRoundsMs = [], hotEpisodesMs = [];
+      for (let episode = 0; episode < result.episodes; episode++) {
+        const episodeStart = now();
+        await resetAndSample(target, episode, false);
+        hotRoundsMs.push(...await dispatch(target, config.steps, config.rounds));
+        await resetAndSample(target, episode, true);
+        hotEpisodesMs.push(now() - episodeStart);
+      }
+      const residentRead = await readback(target);
+      const samplesStart = now();
+      await target.samples.mapAsync(GPUMapMode.READ);
+      const sampleValues = new Float32Array(target.samples.getMappedRange()).slice();
+      target.samples.unmap();
+      const sampleReadbackMs = now() - samplesStart, gpuResidentMs = now() - gpuStart;
+      const gpuEndStart = now(), batchUploadStart = now();
+      device.queue.writeBuffer(target.state, 0, input);
+      const batchUploadMs = now() - batchUploadStart;
+      const batchComputeMs = (await dispatch(target, config.steps, 1))[0];
+      const batchRead = await readback(target), gpuEndToEndMs = now() - gpuEndStart;
+      target.state.destroy(); target.initial.destroy(); target.readback.destroy(); target.samples.destroy();
+      gpuRows.push({ config, input, inputGenerationMs, residentRead, batchRead, gpuResidentMs, residentUploadMs,
+        hotRoundsMs, hotEpisodesMs, sampleValues, sampleReadbackMs, gpuEndToEndMs, batchUploadMs, batchComputeMs });
+    }
+    result.gpuTaskDoneEpochMs = performance.timeOrigin + now();
+    // CPU 使用 JS Number 局部变量完成每条轨迹，只有每轮写回为 Float32。
+    const cpuWarmStart = now();
+    advanceCpu(makeInput(4096), 32, 1);
+    result.cpuWarmupMs = now() - cpuWarmStart;
+    result.measurements = [];
+    for (const row of gpuRows) {
+      const { config, input, inputGenerationMs, residentRead, batchRead, gpuResidentMs, residentUploadMs,
+        hotRoundsMs, hotEpisodesMs, sampleValues, sampleReadbackMs, gpuEndToEndMs, batchUploadMs, batchComputeMs } = row;
+      let cpuResident;
+      const cpuSamples = new Float32Array(result.episodes * 64), cpuStart = now();
+      for (let episode = 0; episode < result.episodes; episode++) {
+        cpuResident = input.slice();
+        advanceCpu(cpuResident, config.steps, config.rounds);
+        cpuSamples.set(cpuResident.subarray(0, 64), episode * 64);
+      }
+      const cpuResidentMs = now() - cpuStart;
+      const cpuEndStart = now(), cpuBatch = input.slice();
+      advanceCpu(cpuBatch, config.steps, 1);
+      const cpuBatchOutput = cpuBatch.slice(), cpuEndToEndMs = now() - cpuEndStart;
+      const validationResident = compare(cpuResident, residentRead.values, result.absoluteTolerance);
+      const validationEpisodes = compare(cpuSamples, sampleValues, result.absoluteTolerance);
+      const validationEndToEnd = compare(cpuBatchOutput, batchRead.values, result.absoluteTolerance);
+      result.measurements.push({ ...config, episodes: result.episodes,
+        stateStepsResident: config.count * config.steps * config.rounds * result.episodes,
+        stateStepsEndToEnd: config.count * config.steps, inputGenerationMs,
+        cpu: { residentMs: cpuResidentMs, endToEndMs: cpuEndToEndMs, fullWorkloadMs: cpuResidentMs + cpuEndToEndMs },
+        gpu: { residentMs: gpuResidentMs, residentUploadMs, residentDispatchWaitMs: hotRoundsMs.reduce((a, b) => a + b, 0),
+          residentReadbackMs: residentRead.ms + sampleReadbackMs, hotRoundsMs, hotRoundMedianMs: median(hotRoundsMs),
+          hotEpisodesMs, hotEpisodeMedianMs: median(hotEpisodesMs),
+          endToEndMs: gpuEndToEndMs, endToEndUploadMs: batchUploadMs, endToEndDispatchWaitMs: batchComputeMs,
+          endToEndReadbackMs: batchRead.ms, fullWorkloadMs: gpuResidentMs + gpuEndToEndMs },
+        validationResident, validationEpisodes, validationEndToEnd });
+    }
+    params.destroy();
+    result.totalStateSteps = result.measurements.reduce((sum, row) => sum + row.stateStepsResident + row.stateStepsEndToEnd, 0);
+    result.sharedInputGenerationMs = result.measurements.reduce((sum, row) => sum + row.inputGenerationMs, 0);
+    result.totalCpuWorkloadMs = result.measurements.reduce((sum, row) => sum + row.cpu.fullWorkloadMs, 0);
+    result.totalGpuWorkloadMs = result.measurements.reduce((sum, row) => sum + row.gpu.fullWorkloadMs, 0);
+    result.totalCpuTaskWallMs = result.sharedInputGenerationMs + result.totalCpuWorkloadMs;
+    result.totalGpuTaskWallMs = result.sharedInputGenerationMs + result.totalGpuWorkloadMs;
+    result.allValidated = result.measurements.every(row => row.validationResident.pass && row.validationEpisodes.pass && row.validationEndToEnd.pass);
+    result.status = result.allValidated ? 'ok' : 'mismatch';
+  } catch (error) { result.status = 'error'; result.error = String(error?.message || error); }
+  finally { if (device) device.destroy(); }
+  document.querySelector('#result').textContent = JSON.stringify(result);
+  document.documentElement.dataset.done = 'true';
+})();
+</script></html>

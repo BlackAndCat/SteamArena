@@ -175,8 +175,8 @@ SA.StoryDev = (() => {
   }
   function openWorkshop(at) {
     const key = workshopKey(at);
-    // 独立窗口编辑关卡车，当前战前控制台和继续开战的回调保持原位。
-    window.open(`tools/stage-editor.html${key ? `?stage=${key}` : ''}`, '_blank');
+    // 独立窗口编辑正式关卡；当前战前控制台和继续开战的回调保持原位。
+    window.open(`tools/console.html${key ? `#/stage/${key}/build` : ''}`, '_blank');
   }
   function hook(phase, at, next) {
     let id;

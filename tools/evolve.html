@@ -68,7 +68,7 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
 </style></head>
 <body>
 <h1>进化擂台与数值自测</h1>
-<nav class="lab-tabs" aria-label="数值工具"><button class="btn primary" id="tab-evolve">进化报告</button><button class="btn" id="tab-selftest">数值自测</button><a class="btn" href="stage-editor.html">关卡车工作台</a></nav>
+<nav class="lab-tabs" aria-label="数值工具"><button class="btn primary" id="tab-evolve">进化报告</button><button class="btn" id="tab-selftest">数值自测</button><a class="btn" href="console.html">关卡控制台</a></nav>
 <section id="lab-evolve">
 <p class="muted" style="margin:0 0 12px">关卡车进化生成器（<code>tools/evolve.js</code>）的结果：每一关选出的车、强度分和表现分的分布、分类存档、毒瘤车和奇特构筑。点任意一台车看大图、分享码和典型对局，可以按种子复现，也可以去试驾场和它打一场。规则见 <code>docs/evolve-plan.md</code>。</p>
 <details class="banner" open><summary>定向模拟与重新生成</summary>
@@ -81,7 +81,7 @@ tr.boss td { background: rgba(217, 164, 65, 0.06); }
     <label>种群 <input id="run-population" type="number" min="4" max="96" value="24"></label>
     <label>代数 <input id="run-generations" type="number" min="1" max="20" value="4"></label>
     <label>每对局数 <input id="run-games" type="number" min="1" max="40" value="6"></label>
-    <label>并行数 <input id="run-workers" type="number" min="1" max="12" value="4"></label>
+    <label>并行数 <input id="run-workers" type="number" min="1" max="14" value="4"></label>
     <label>随机种子 <input id="run-seed" type="number" min="1" max="2147483647" value="20260929"></label>
     <button class="btn primary" id="generate" disabled>模拟并生成报告</button><button class="btn" id="stop-generation" disabled>停止生成</button>
   </div>

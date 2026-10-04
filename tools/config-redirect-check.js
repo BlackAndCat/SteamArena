@@ -1,4 +1,4 @@
-// 旧 file: 作者缓存自动转到本机服务并迁入正式配置；全程不写浏览器缓存。
+// 旧 file: 文本缓存转到本机服务；旧关卡缓存保留在浏览器但不再回灌。
 'use strict';
 const assert = require('assert');
 const fs = require('fs');
@@ -12,11 +12,11 @@ const cache = new Map([['steam_arena_stage_cars_local_v1', oldStage], ['sa-text-
 let redirected = '', storageWrites = 0;
 const storage = { getItem: key => cache.get(key) || null, setItem: () => { storageWrites++; } };
 const filePage = { currentScript: { src: 'file:///Z:/SteamArena/js/config.js' }, title: '测试页' };
-const fileLocation = { href: 'file:///Z:/SteamArena/tools/stage-editor.html?ch=0#original', protocol: 'file:',
+const fileLocation = { href: 'file:///Z:/SteamArena/tools/console.html?ch=0#original', protocol: 'file:',
   search: '?ch=0', hash: '#original', replace: url => { redirected = url; } };
 vm.runInNewContext(source, { window: { SA: {} }, document: filePage, location: fileLocation,
   localStorage: storage, URL, Map, XMLHttpRequest: class {} });
-assert(redirected.startsWith('http://localhost:5173/tools/stage-editor.html?ch=0#sa-config-migrate='));
+assert(redirected.startsWith('http://localhost:5173/tools/console.html?ch=0#sa-config-migrate='));
 
 const incoming = new URL(redirected);
 let requestBody, cleaned = '';
@@ -31,9 +31,10 @@ const httpLocation = { href: incoming.href, protocol: 'http:', hostname: 'localh
 const httpWindow = { SA: {} };
 vm.runInNewContext(source, { window: httpWindow, document: httpPage, location: httpLocation,
   localStorage: storage, history: { replaceState: (_, __, url) => { cleaned = url; } }, URL, Map, XMLHttpRequest: Request });
-assert.strictEqual(requestBody['steam_arena_stage_cars_local_v1'], oldStage);
+assert.strictEqual(requestBody['steam_arena_stage_cars_local_v1'], undefined);
 assert.strictEqual(requestBody['sa-text-steam-arena-zh-CN'], oldText);
-assert.strictEqual(cleaned, '/tools/stage-editor.html?ch=0#original');
+assert.strictEqual(cache.get('steam_arena_stage_cars_local_v1'), oldStage);
+assert.strictEqual(cleaned, '/tools/console.html?ch=0#original');
 assert.strictEqual(storageWrites, 0);
 
 // 写入失败时保留迁移片段供重试，不能误称已同步或擦除旧作者缓存。

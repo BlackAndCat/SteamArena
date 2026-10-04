@@ -3256,35 +3256,35 @@ SA.SPR = (() => {
     const waist = (c0) => { for (let r = CH; r < CH + 2; r++) for (let c = c0; c < c0 + 2; c++) { const x = c >= 0 && c < K.COLS && O[r][c]; if (x && x.cell.id !== 'biped') return true; } return false; };
 
     const modOpts = (cell, r, c) => {
-      const m = SA.MODULES[cell.id];
-      const row = veh.body[r], w = SA.fp(cell.id).w;
-      const same = (k) => k >= 0 && k < K.COLS && row[k] && row[k].id === cell.id;
-      // 正上方紧贴着（非撞击件的）模块：底盘据此画出承托
-      let above = null;
-      if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
-      return {
-        t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt, up: cell.lv || 0, look: ['quad', 'biped'].includes(cell.id) ? cell.look : undefined,
-        gnd: o.gnd && m.layer === 'chassis' ? o.gnd[`${r},${c}`] || [0, 0] : null,   // 悬挂：每格两个接地点各自上下（像素，正 = 往下伸）
-        gL: o.gnd && same(c - w) && o.gnd[`${r},${c - w}`] ? o.gnd[`${r},${c - w}`][1] : 0,   // 左右相邻同类底盘靠近本格的那个接地点（履带连成一条）
-        gR: o.gnd && same(c + w) && o.gnd[`${r},${c + w}`] ? o.gnd[`${r},${c + w}`][0] : 0,
-        recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
-        feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
-        flash: dyn ? dyn.flashOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,   // 喷射器 / 喷火器：正在喷
-        out: !!(o.tetherCell && o.tetherCell === cell),   // 鱼叉：已射出、绳子拴着对手
-        store: o.store,   // 蓄压罐：全车存量 0～1
-        a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
-        punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
-        phase, gait: phase, stride,
-        g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
-        g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
-        wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
-        connL: same(c - w),
-        connR: same(c + w),
-        ...run(row, c, cell.id),
-        top: !!(above && !SA.isRam(above.id)),
-        thrown, snap: cell.id === 'track' && cell.hp <= 0,
-      };
-    };
+          const m = SA.MODULES[cell.id];
+          const row = veh.body[r], w = SA.fp(cell.id).w;
+          const same = (k) => k >= 0 && k < K.COLS && row[k] && row[k].id === cell.id;
+          // 正上方紧贴着（非撞击件的）模块：底盘据此画出承托
+          let above = null;
+          if (r > 0) for (let k = c; k < c + w; k++) { const a = O[r - 1][k]; if (a && !SA.isRam(a.cell.id)) above = a.cell; }
+          return {
+            t, heat: o.heat || 0, water: o.water, moving: o.moving, seed: r * 3 + c, bd, mt: cell.mt, up: cell.lv || 0, look: ['quad', 'biped'].includes(cell.id) ? cell.look : undefined,
+            gnd: o.gnd && m.layer === 'chassis' ? o.gnd[`${r},${c}`] || [0, 0] : null,   // 悬挂：每格两个接地点各自上下（像素，正 = 往下伸）
+            gL: o.gnd && same(c - w) && o.gnd[`${r},${c - w}`] ? o.gnd[`${r},${c - w}`][1] : 0,   // 左右相邻同类底盘靠近本格的那个接地点（履带连成一条）
+            gR: o.gnd && same(c + w) && o.gnd[`${r},${c + w}`] ? o.gnd[`${r},${c + w}`][0] : 0,
+            recoil: dyn ? dyn.recoilOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
+            feed: dyn ? dyn.feedOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,
+            flash: dyn ? dyn.flashOf(`${r},${c},${m.layer === 'side' ? 's' : 'b'}`) : 0,   // 喷射器 / 喷火器：正在喷
+            out: !!(o.tetherCell && o.tetherCell === cell),   // 鱼叉：已射出、绳子拴着对手
+            store: o.store,   // 蓄压罐：全车存量 0～1
+            a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
+            punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
+            phase, gait: phase, stride,
+            g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
+            g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
+            wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
+            connL: same(c - w),
+            connR: same(c + w),
+            ...(row && row[c] ? run(row, c, cell.id) : {}),
+            top: !!(above && !SA.isRam(above.id)),
+            thrown, snap: cell.id === 'track' && cell.hp <= 0,
+          };
+        };
     // 同类底盘连续段：本格在段内的序号与段长（腿按整段分配）。侧挂件下面的主体格可能是空的或别的模块，按单独一段算
     const run = (row, c, id) => {
       if (!row[c] || row[c].id !== id) return { ri: 0, rn: 1 };

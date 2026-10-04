@@ -59,11 +59,13 @@ function randomizeUpgrades(SA, vehicle, rng) {
 }
 
 function chassisFixtures(SA) {
-  // 真双足由生成器在合法规格中生成，确认 2×4 子格与腿区规则。关卡布局 4 以后没有关卡开放双足，
-  // 在第一章第 3 关的模块池里临时加上双足。
-  const last = evolve.stageSpec(SA, 1, 2), bipedSpec = { ...last, availableMods: [...last.availableMods, 'biped'] };
-  const biped = evolve.randomVehicle(SA, bipedSpec, new RNG(9026), 'biped');
-  if (!biped || !SA.V.stats(biped).canDeploy) throw new Error('真双足夹具无法生成合法车');
+  // 双足专项使用离线合法车，隔离关卡必带奖励的影响，并确保实战确实覆盖双足。
+  const biped = SA.V.fromAscii('真双足夹具', [
+    '........', '........', '........', '........', '..KOL...', '..B.....',
+  ]);
+  const bipedStats = SA.V.stats(biped);
+  if (!bipedStats.canDeploy || bipedStats.byId.biped !== 1 || !bipedStats.byId.cannon_s || bipedStats.issues.length)
+    throw new Error(`真双足夹具非法：${JSON.stringify({ issues: bipedStats.issues, problems: bipedStats.problems })}`);
 
   // 两件四足使用 Q.Q：每件 4×2 子格，首尾相连且没有空子格；其余模块放在上方。
   const quad = SA.V.fromAscii('四足蜈蚣夹具', [
@@ -105,7 +107,7 @@ function main() {
   const seed = Number(process.argv[3] || 20260927);
   const { SA } = evolve.loadGame();
   const rng = new RNG(seed);
-  const styles = ['wander', 'rush', 'kite', 'turtle'];
+  const styles = SA.Battle.aiStyles.map(item => item.id);
   const terrains = SA.TERRAIN_ORDER.slice();
   const specs = [];
   for (let chapter = 0; chapter < SA.CAMPAIGN.length; chapter++) {
@@ -113,7 +115,7 @@ function main() {
   }
   const report = {
     version: 2, seed, requested, completed: 0, errors: [],
-    counts: { timeout: 0, overLimit: 0, stuck: 0, bounds: 0, durability: 0, nonFinite: 0, outOfArena: 0, shareMismatch: 0, migration: 0, illegal: 0 },
+    counts: { timeout: 0, overLimit: 0, stuck: 0, bounds: 0, durability: 0, nonFinite: 0, outOfArena: 0, shareMismatch: 0, migration: 0, illegal: 0, generationMisses: 0 },
     coverage: { modules: [], missingModules: [], terrains: [], styles: [], materials: [], upgrades: [], chassis: [], fixtures: {} },
     maxBattleSeconds: 0,
   };
@@ -123,7 +125,7 @@ function main() {
   try {
     const fixtures = chassisFixtures(SA);
     for (const [name, vehicle] of Object.entries(fixtures)) {
-      const opponent = evolve.randomVehicle(SA, evolve.stageSpec(SA, 1, 2), new RNG(seed + name.length));
+      const opponent = fixtures[name === 'biped' ? 'quad' : 'biped'];
       const result = SA.Battle.simulate({ p: vehicle, e: opponent, terrain: 'flat', pStyle: 'wander', eStyle: 'rush', seed: seed + 70000 + name.length });
       assertFinite(result, `夹具 ${name}`);
       report.coverage.fixtures[name] = { winner: result.winner, seconds: result.t, issues: SA.V.stats(vehicle).issues };
@@ -152,9 +154,16 @@ function main() {
     const gameSeed = seed + i;
     try {
       const spec = specs[rng.int(specs.length)];
-      const a = evolve.randomVehicle(SA, spec, rng);
-      const b = evolve.randomVehicle(SA, spec, rng);
-      if (!a || !b) throw new Error('随机合法车生成失败');
+      // 单次随机生成允许返回 null；有限重抽后仍无车才算该规格不可用。
+      const make = () => {
+        for (let attempt = 0; attempt < 128; attempt++) {
+          const vehicle = evolve.randomVehicle(SA, spec, rng);
+          if (vehicle) return vehicle;
+          report.counts.generationMisses++;
+        }
+        throw new Error(`随机合法车连续 128 次生成失败：${spec.chapter}:${spec.stage}`);
+      };
+      const a = make(), b = make();
       randomizeUpgrades(SA, a, rng); randomizeUpgrades(SA, b, rng);
       const sa = SA.V.stats(a), sb = SA.V.stats(b);
       if (!sa.canDeploy || !sb.canDeploy || sa.issues.length || sb.issues.length) {
@@ -168,7 +177,8 @@ function main() {
         const chassis = Object.keys(SA.V.countIds(vehicle)).find(id => SA.MODULES[id]?.layer === 'chassis');
         if (chassis) actualChassis.add(chassis);
       }
-      const terrain = rng.pick(terrains), pStyle = rng.pick(styles), eStyle = rng.pick(styles);
+      // 按目录轮转主侧性格，足够局数时保证每种性格至少实战一次；另一侧仍随机交叉。
+      const terrain = rng.pick(terrains), pStyle = styles[i % styles.length], eStyle = rng.pick(styles);
       actualTerrains.add(terrain); actualStyles.add(pStyle); actualStyles.add(eStyle);
       const result = SA.Battle.simulate({ p: a, e: b, terrain, pStyle, eStyle, seed: gameSeed });
       try { assertFinite(result, '战斗结果'); } catch (error) { report.counts.nonFinite++; throw error; }
@@ -192,7 +202,7 @@ function main() {
       report.completed++;
     } catch (error) {
       report.errors.push({ seed: gameSeed, message: error.message });
-      if (report.errors.length >= 100) break;
+      if (report.errors.length >= 100 || /连续 128 次生成失败/.test(error.message)) break;
     }
   }
 

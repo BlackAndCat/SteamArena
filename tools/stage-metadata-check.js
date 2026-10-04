@@ -19,7 +19,11 @@ async function run() {
   context.fetch = async (url, options) => {
     assert.strictEqual(url, '/__stage-cars/save');
     assert.strictEqual(options.method, 'POST');
-    assert(JSON.parse(options.body).record);
+    const packet = JSON.parse(options.body);
+    assert(packet.record);
+    assert.strictEqual(packet.workbenchVersion, 1);
+    assert.strictEqual(packet.target.kind, 'stage');
+    assert.strictEqual(packet.target.id, packet.record.id);
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   };
   SA.S.reset();

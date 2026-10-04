@@ -43,12 +43,7 @@ function supportStageVehicleName() {
 //        第一、四章另在章末追加的新关不占旧编号。
 // 3 → 4：章节改成设计稿的 34 关结构（每章只记计划关数 plannedStages），只留序章三关和第一章前三关，
 //        留下的六关编号不变；其余关卡删除，指向它们的旧记录由各读取方按「关卡不存在」丢弃。
-function migrateStageIndex(chapter, stage, layout) {
-  const from = layout || 1;
-  if (from < 2 && chapter === 0 && stage === 1) stage = 2;
-  if (from < 3 && chapter >= 3 && chapter <= 5 && stage === 2) stage = 3;
-  return stage;
-}
+const migrateStageIndex = (chapter, stage, layout) => SA.StageCars.migrateStageIndex(chapter, stage, layout);
 function migrateStageRecords(records, layout) {
   const result = {};
   for (const [key, record] of Object.entries(records || {})) {
@@ -84,7 +79,7 @@ function stageCarsChannel() {
       Object.assign(SA.STAGE_CARS, fresh);
       SA.StageCars.applyToCampaign();
       if (SA.current === 'arena' && SA.Arena?.open) SA.Arena.open(undefined, true);
-      else if (SA.current === 'garage' && SA.Editor?.open) SA.Editor.open();
+      else if (SA.current === 'garage' && !SA.Camp?.isDesignMode?.() && SA.Editor?.open) SA.Editor.open();
       SA.UI?.topbar?.();
     } catch (error) { console.error('关卡配置刷新失败', error); }
   };
@@ -372,7 +367,8 @@ SA.Camp = (() => {
     if (check.warnings.length) console.warn(`关卡车保存警告（允许保存）：${check.warnings.join('；')}`);
     // 磁盘写入成功才替换当前页关卡；失败时编辑车辆留在设计模式中供重试。
     const response = await fetch('/__stage-cars/save', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workbenchVersion: 1, target: { kind: 'stage', id: record.id }, record }),
     });
     const saved = await response.json();
     if (!response.ok || !saved.ok) throw new Error(saved.error || `关卡配置保存失败（HTTP ${response.status}）`);

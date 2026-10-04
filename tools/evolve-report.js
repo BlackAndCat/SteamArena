@@ -33,7 +33,37 @@
   };
   const chapterShort = (ci) => (SA.CAMPAIGN[ci] ? SA.CAMPAIGN[ci].name.split(' · ')[0] : `第 ${ci + 1} 章`);
 
-  const st = { report: null, rawReport: null, label: '', chapter: 'all', fingerprint: null, grid: null, source: null };
+  // 页面记忆仅保存选择；运行报告仍从服务器读取，不复制报告或自动发起模拟。
+  const MEMORY_KEY = 'steam_arena_evolve_page_v1';
+  const RUN_FIELDS = ['mode', 'chapter', 'stage', 'origin', 'after-count', 'population', 'generations', 'games', 'workers', 'seed'];
+  const PAGE_HASHES = ['#overview', '#picks', '#scatter', '#grid', '#archive', '#selftest'];
+  let memory = {}, generationReady = false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(MEMORY_KEY));
+    if (saved?.version === 1) memory = saved;
+  } catch (_) { /* 损坏或禁用的存储回到页面默认值。 */ }
+  const st = { report: null, rawReport: null, label: '', chapter: memory.chapter ?? 'all', fingerprint: null, grid: null, source: null };
+  function rememberPage() {
+    memory = { ...memory, version: 1 };
+    if (st.rawReport && st.source) { memory.chapter = st.chapter; memory.grid = st.grid; }
+    if (st.rawReport) memory.source = st.source;
+    if (PAGE_HASHES.includes(location.hash)) memory.hash = location.hash;
+    // 异步目录尚未建立时保留历史参数，避免默认空选项覆盖它们。
+    if (generationReady) memory.run = Object.fromEntries(RUN_FIELDS.map(key => [key, $(`#run-${key}`).value]));
+    try { localStorage.setItem(MEMORY_KEY, JSON.stringify(memory)); } catch (_) { /* 存储不可用不影响生成和查看。 */ }
+  }
+  function restoreField(key, value) {
+    const field = $(`#run-${key}`);
+    if (value == null) return;
+    if (field.tagName === 'SELECT') {
+      if ([...field.options].some(option => option.value === String(value))) field.value = String(value);
+    } else {
+      const fallback = field.value;
+      field.value = String(value);
+      if (!field.value || !Number.isInteger(+field.value) || !field.checkValidity()) field.value = fallback;
+    }
+  }
+  if (!location.hash && PAGE_HASHES.includes(memory.hash)) location.hash = memory.hash;
 
   // ---------- 规则指纹：和 tools/evolve.js 的 ruleFingerprint 同一算法 ----------
   const stable = (v) => (Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
@@ -91,7 +121,7 @@
     } catch (e) { banner(`读取失败：${label}（${e.message}）`, 'stale'); out.innerHTML = ''; }
   }
   function use(report, label) {
-    st.rawReport = report; st.report = report; st.label = label; st.grid = null;
+    st.rawReport = report; st.report = report; st.label = label; st.grid = st.source === memory.source ? memory.grid : null;
     render();
   }
 
@@ -111,7 +141,7 @@
   function editCandidate(rec) {
     try {
       const row = arenaRow(rec) || SA.EvolveArena.remember(rec);
-      location.href = `stage-editor.html?arena=${encodeURIComponent(row.id)}`;
+      location.href = `console.html#/candidate/${encodeURIComponent(row.id)}/build`;
     } catch (error) { banner(error.message, 'stale'); }
   }
   function candidateCard(rec) {
@@ -216,6 +246,7 @@
     out.append(scatter());
     if (!r.lite) out.append(grid());
     out.append(archiveSection());
+    rememberPage();
   }
 
   function overview() {
@@ -251,7 +282,7 @@
           h('td', { class: 'num' }, sel ? winText(sel) : '—'),
           h('td', { class: 'num' }, s.originComparison ? [
             `${pct(s.originComparison.winRate)} · ${s.originComparison.games} 局`, h('br'),
-            h('span', { class: 'muted small' }, `${s.originComparison.name} · ${chapterShort(s.originComparison.origin.chapter)}第 ${s.originComparison.origin.stage + 1} 关`)
+            h('span', { class: 'muted small' }, originComparisonLabel(s.originComparison))
           ] : '—'),
           h('td', { class: 'num' }, sel ? fix(sel.performance) : '—'),
           h('td', { class: 'small' }, evidence(spec, ev)),
@@ -262,6 +293,13 @@
       h('p', { class: 'muted small' }, '胜率来自同档标尺的换边实战，平局计半胜；与强度分使用同一批样本。旧报告没有记录时显示“未记录”，手工改车后需重新模拟。'),
       h('div', { class: 'scroll' }, h('table', {},
         h('tr', {}, ['章', '关卡', '场地', '选中的车', '性格 · 底盘', '强度分', '同档胜率', '对原点车胜率', '表现分', '关键数据', '硬条件'].map(t => h('th', {}, t))), rows)));
+  }
+  // 生成器的旧报告只记录原点车名；没有明确章关时保留车名，不推断来源关卡。
+  function originComparisonLabel(comparison) {
+    const origin = comparison.origin, name = comparison.name || '原点车';
+    return Number.isInteger(origin?.chapter) && origin.chapter >= 0 &&
+      Number.isInteger(origin?.stage) && origin.stage >= 0
+      ? `${name} · ${chapterShort(origin.chapter)}第 ${origin.stage + 1} 关` : name;
   }
   function evidence(spec, ev) {
     const parts = [];
@@ -351,7 +389,7 @@
       h('p', { class: 'muted small' }, '每一关的候选按"性格 × 底盘"分格（场地是这一关的场地）。报告只保存每关前几名的完整数据，所以格子里只显示这些车；覆盖的格子数来自完整存档。'));
     if (!stages.length) { sec.append(h('div', { class: 'empty-state' }, '这份报告没有关卡数据。')); return sec; }
     if (!st.grid || !stages.some(x => `${x.ci},${x.si}` === st.grid)) st.grid = `${stages[0].ci},${stages[0].si}`;
-    const pick = h('select', { onchange: (e) => { st.grid = e.target.value; const old = $('#grid'); old.replaceWith(grid()); } },
+    const pick = h('select', { onchange: (e) => { st.grid = e.target.value; const old = $('#grid'); old.replaceWith(grid()); rememberPage(); } },
       stages.map(x => h('option', { value: `${x.ci},${x.si}`, selected: st.grid === `${x.ci},${x.si}` }, `${chapterShort(x.ci)} · ${(x.s.spec && x.s.spec.name) || stageName(x.ci, x.si)}`)));
     const cur = stages.find(x => `${x.ci},${x.si}` === st.grid);
     const top = cur.s.top || [], arch = cur.s.archive || {};
@@ -489,6 +527,7 @@
   // ---------- 启动 ----------
   async function refreshList(keep) {
     const src = $('#src');
+    keep ??= memory.source;
     const reports = await listReports(), cand = await hasCandidates();
     const opts = [...reports.map(n => [`out/${n}`, `运行报告 · ${new Date(+n.match(/\d+/)[0]).toLocaleString()}`]), ...(cand ? [['evolve-candidates.json', '候选车库（evolve-candidates.json）']] : [])];
     src.innerHTML = '';
@@ -514,6 +553,7 @@
   };
   // 数值自测复用原页面，页签切换不销毁它，正在运行的检验和结果均保留。
   function toolTab() {
+    rememberPage();
     const selftest = location.hash === '#selftest';
     $('#lab-evolve').hidden = selftest; $('#lab-selftest').hidden = !selftest;
     $('#tab-evolve').classList.toggle('primary', !selftest); $('#tab-selftest').classList.toggle('primary', selftest);
@@ -527,6 +567,8 @@
   window.addEventListener('storage', event => { if (event.key === SA.EvolveArena.KEY) refreshArena(); });
 
   let runCatalog = null, pollTimer = null, finishedJob = null, handoff = null;
+  // 目录可能过滤缺配置章节和关卡，原始 ID 不能作为数组下标。
+  const catalogChapter = chapter => runCatalog.chapters.find(row => row.chapter === chapter);
   async function service(url, payload) {
     const response = await fetch(`/__evolve/${url}`, payload === undefined ? { cache: 'no-store' } :
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -538,19 +580,20 @@
   function scopeInfo() {
     if ($('#run-mode').value === 'route-after') {
       const [chapter, stage] = $('#run-origin').value.split(',').map(Number);
-      const origin = runCatalog.chapters[chapter]?.stages.find(row => row.stage === stage);
+      const chapterRow = catalogChapter(chapter);
+      const origin = chapterRow?.stages.find(row => row.stage === stage);
       const count = $('#run-after-count');
       count.max = origin?.maxAfter || 0;
-      $('#scope-info').textContent = origin ? `从 ${runCatalog.chapters[chapter].name} · ${origin.name} 之后生成；最多 ${origin.maxAfter} 关。未配置关使用临时继承规则，不修改正式关卡。` : '请选择已有车辆的原点关卡。';
+      $('#scope-info').textContent = origin ? `从 ${chapterRow.name} · ${origin.name} 之后生成；最多 ${origin.maxAfter} 关。未配置关使用临时继承规则，不修改正式关卡。` : '请选择已有车辆的原点关卡。';
       return;
     }
-    const chapter = runCatalog.chapters[+$('#run-chapter').value];
+    const chapter = catalogChapter(+$('#run-chapter').value);
     const stages = $('#run-stage').value === 'all' ? chapter.stages : chapter.stages.filter(s => s.stage === +$('#run-stage').value);
     $('#scope-info').textContent = stages.map(s => `${s.name}：£${s.budget}${s.status === 'draft' ? '（审阅草案）' : s.previewRuleSource ? `（临时继承 ${chapterShort(s.previewRuleSource.chapter)}第 ${s.previewRuleSource.stage + 1} 关）` : ''}`).join('；') +
       (stages.length === 1 ? `。可用模块：${stages[0].modules.join('、')}` : '。各关使用各自预算与模块表。');
   }
   function runStages() {
-    const chapter = runCatalog.chapters[+$('#run-chapter').value];
+    const chapter = catalogChapter(+$('#run-chapter').value);
     $('#run-stage').replaceChildren(h('option', { value: 'all' }, '整章'), ...chapter.stages.map(s => h('option', { value: s.stage }, `${s.stage + 1} · ${s.name}`)));
     scopeInfo();
   }
@@ -574,7 +617,7 @@
     if (!(p.totalSteps > 0)) return '正在统计总步数';
     return `总进度 ${p.completedSteps || 0} / ${p.totalSteps} 步（${Math.floor((p.completedSteps || 0) / p.totalSteps * 100)}%）`;
   }
-  async function pollJob() {
+  async function pollJob(restoring = false) {
     clearTimeout(pollTimer);
     try {
       const job = await service('job'), busy = job.status === 'running';
@@ -593,7 +636,9 @@
         const result = job.result;
         $('#generation-status').textContent = `生成完成：${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。` +
           (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
-        await refreshList(result.file);
+        // 刷新只是恢复当前查看位置；此前已完成的任务不能覆盖手选报告。
+        // 后续轮询观察到任务完成时，仍自动展示该任务的新报告。
+        if (!restoring) await refreshList(result.file);
         if (handoff?.running && job.id === handoff.jobId) { handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告'; }
       } else if (job.status === 'failed') $('#generation-status').textContent = `生成失败：${job.error} · ${overallProgress(job.progress || {})}`;
       else if (job.status === 'cancelled') $('#generation-status').textContent = `已停止生成：${overallProgress(job.progress || {})}，之前的报告和保留车型仍可查看。`;
@@ -620,10 +665,11 @@
       const scope = current ? { chapter: current.chapter, stage: current.stage }
         : route ? { type: 'route-after', origin: { chapter, stage }, count: +$('#run-after-count').value }
         : { chapter: +$('#run-chapter').value, stage: $('#run-stage').value === 'all' ? null : +$('#run-stage').value };
-      if (route && !runCatalog.chapters[chapter]?.stages.some(row => row.stage === stage && row.hasVehicle))
+      const origin = catalogChapter(chapter)?.stages.find(row => row.stage === stage);
+      if (route && !origin?.hasVehicle)
         throw new Error('请选择已有车辆的原点关卡');
       if (route && (!$('#run-after-count').checkValidity() || !Number.isInteger(scope.count)))
-        throw new Error(`后续关数无效；该原点最多可选 ${runCatalog.chapters[chapter]?.stages[stage]?.maxAfter || 0} 关`);
+        throw new Error(`后续关数无效；该原点最多可选 ${origin?.maxAfter || 0} 关`);
       const seeds = SA.EvolveArena.read().filter(row => (row.favorite || row.manual) && row.participate !== false &&
         row.record.spec?.chapter === (route ? chapter : scope.chapter) && (route || scope.stage == null || row.record.spec.stage === scope.stage)).map(row => row.record);
       if (current) seeds.push({ ...current.originVehicle, spec: { chapter: current.chapter, stage: current.stage } });
@@ -656,12 +702,24 @@
           handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告';
         }
       };
-      $('#run-chapter').onchange = () => { targetChanged(); runStages(); };
-      $('#run-stage').onchange = () => { targetChanged(); scopeInfo(); };
-      $('#run-mode').onchange = () => { targetChanged(); runMode(); };
-      $('#run-origin').onchange = () => { targetChanged(); scopeInfo(); };
-      $('#run-after-count').onchange = targetChanged;
-      runStages(); runMode();
+      $('#run-chapter').onchange = () => { targetChanged(); runStages(); rememberPage(); };
+      $('#run-stage').onchange = () => { targetChanged(); scopeInfo(); rememberPage(); };
+      $('#run-mode').onchange = () => { targetChanged(); runMode(); rememberPage(); };
+      $('#run-origin').onchange = () => { targetChanged(); scopeInfo();
+        const count = $('#run-after-count');
+        if (!count.checkValidity()) count.value = Math.max(+count.min, Math.min(+count.value || +count.min, +count.max));
+        rememberPage(); };
+      $('#run-after-count').onchange = () => { targetChanged(); rememberPage(); };
+      // 章节决定关卡选项，原点决定后续关数上限；必须按依赖顺序恢复。
+      const savedRun = memory.run && typeof memory.run === 'object' ? memory.run : {};
+      restoreField('chapter', savedRun.chapter);
+      runStages();
+      for (const key of ['stage', 'mode', 'origin']) restoreField(key, savedRun[key]);
+      runMode();
+      for (const key of ['after-count', 'population', 'generations', 'games', 'workers', 'seed']) restoreField(key, savedRun[key]);
+      generationReady = true;
+      for (const key of RUN_FIELDS) $(`#run-${key}`).addEventListener('input', rememberPage);
+      rememberPage();
       // 首次交接在空闲时自动启动；忙碌或刷新后的交接只显示待启动操作，防止重复运行。
       const stored = sessionStorage.getItem(HANDOFF_KEY);
       if (stored) {
@@ -674,7 +732,8 @@
           if (job.status !== 'running' && !handoff.waiting && !handoff.running && !handoff.jobId) { await $('#generate').onclick(); }
         }
       }
-      await pollJob();
+      rememberPage();
+      await pollJob(true);
     } catch (error) { $('#scope-info').textContent = error.message; }
   }
   currentFingerprint().then(fp => { st.fingerprint = fp; }).catch(() => { st.fingerprint = null; }).finally(async () => {

@@ -4,6 +4,69 @@
   const h = SA.h, M = SA.MODULES;
   const $ = (s) => document.querySelector(s);
   const out = $('#out');
+  // 自测记忆与游戏存档、蓝图完全分开；只保留设置和最后完成的表格，不保存模拟对象。
+  const MEMORY_KEY = 'steam_arena_sim_memory_v1';
+  const fields = ['games', 'aim', 'ter', 'pool', 'mine', 'mat'];
+  const testTypes = ['campaign', 'matrix', 'value', 'build'];
+  const resultTags = new Set(['h2', 'p', 'div', 'table', 'tr', 'th', 'td', 'span']);
+  let memory = {}, lastTest = 'value';
+  function saveSettings() {
+    memory.settings = Object.fromEntries(fields.map(key => [key, key === 'mine' ? $('#mine').checked : $(`#${key}`).value]));
+    memory.lastTest = lastTest;
+    try {
+      const text = JSON.stringify(memory);
+      if (text.length <= 1000000) localStorage.setItem(MEMORY_KEY, text);
+    } catch (_) { /* 浏览器禁用存储或配额不足时，自测仍可正常运行。 */ }
+  }
+  // 仅序列化本页结果使用的标签、文本和静态描述；恢复时不接收 HTML、事件、链接或样式。
+  function resultTree(node) {
+    if (node.nodeType === 3) return node.textContent;
+    const tag = node.tagName?.toLowerCase();
+    if (!resultTags.has(tag)) throw new Error('不支持的自测结果标签');
+    return { tag, cls: node.className || '', title: node.getAttribute('title') || '',
+      children: [...node.childNodes].map(resultTree) };
+  }
+  function saveCompleted() {
+    const previous = memory.result;
+    try {
+      memory.result = { type: lastTest, nodes: [...out.childNodes].map(resultTree) };
+      // 大矩阵超过存储上限时保留上一份较小结果，新的设置仍然可保存。
+      if (JSON.stringify(memory).length > 1000000) memory.result = previous;
+    } catch (_) { memory.result = previous; }
+    saveSettings();
+  }
+  function restoreMemory() {
+    try {
+      const text = localStorage.getItem(MEMORY_KEY);
+      if (!text || text.length > 1000000) return false;
+      const saved = JSON.parse(text);
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return false;
+      memory = saved;
+      lastTest = testTypes.includes(saved.lastTest) ? saved.lastTest : 'value';
+      for (const key of fields) {
+        const field = $(`#${key}`), candidate = saved.settings?.[key];
+        if (key === 'mine') { if (typeof candidate === 'boolean' && !field.disabled) field.checked = candidate; continue; }
+        if (typeof candidate !== 'string') continue;
+        if (field.tagName === 'SELECT' && ![...field.options].some(option => option.value === candidate)) continue;
+        const before = field.value;
+        field.value = candidate;
+        if (!field.checkValidity() || (field.tagName !== 'SELECT' && !field.value)) field.value = before;
+      }
+      if (!testTypes.includes(saved.result?.type) || !Array.isArray(saved.result?.nodes)) return false;
+      let count = 0;
+      const restore = (node, depth = 0) => {
+        if (++count > 20000 || depth > 12) throw new Error('自测结果超过范围');
+        if (typeof node === 'string') return node;
+        if (!node || !resultTags.has(node.tag) || !Array.isArray(node.children) ||
+            typeof node.cls !== 'string' || typeof node.title !== 'string') throw new Error('自测结果格式无效');
+        return h(node.tag, { class: node.cls, title: node.title }, node.children.map(child => restore(child, depth + 1)));
+      };
+      const nodes = saved.result.nodes.map(node => restore(node));
+      out.replaceChildren(...nodes);
+      $('#prog').textContent = '已恢复上次完成的自测结果（未重新运行）';
+      return true;
+    } catch (_) { memory = {}; return false; }
+  }
 
   // 每章的「参考玩家车」：玩家打这一章时、用前面各章的解锁能造出来的一台正常水平的车
   // 第 n 章的检验 = REF[n] 打本章各关（应该大多能赢）+ REF[n-1] 打本章 Boss（应该很难赢，逼玩家升级）
@@ -92,7 +155,11 @@
       bar.style.width = `${(i / jobs.length) * 100}%`;
       label.textContent = `${i} / ${jobs.length} 局 · ${((performance.now() - t0) / 1000).toFixed(1)} 秒`;
       if (i < jobs.length) setTimeout(tick, 0);   // 不用 rAF：标签页在后台时也继续跑
-      else { running = false; onDone(); }
+      else {
+        running = false; onDone();
+        // 构筑淘汰有两轮；第一轮回调开始第二轮后仍在运行，只保存最后完整结果。
+        if (!running) saveCompleted();
+      }
     };
     tick();
   }
@@ -408,13 +475,21 @@
   }
 
   // ---------- 界面 ----------
-  $('#run-camp').onclick = campaign;
-  $('#run-matrix').onclick = matrix;
-  $('#run-value').onclick = value;
-  $('#run-build').onclick = buildSim;
+  const startTest = (type, test) => () => {
+    if (running) return;
+    lastTest = type; saveSettings(); test();
+    if (type === 'value') saveCompleted();
+  };
+  $('#run-camp').onclick = startTest('campaign', campaign);
+  $('#run-matrix').onclick = startTest('matrix', matrix);
+  $('#run-value').onclick = startTest('value', value);
+  $('#run-build').onclick = startTest('build', buildSim);
   $('#mat').append(...SA.MATS.slice(1).map((m, i) => h('option', { value: i + 1 }, m.name)));
   $('#ter').append(...SA.TERRAIN_ORDER.map(k => h('option', { value: k }, `全部用「${SA.TERRAINS[k].name}」`)));
-  $('#mat').onchange = value;
+  $('#mat').onchange = startTest('value', value);
   if (!myCar()) { $('#mine').disabled = true; $('#mine').parentElement.title = '本机还没有存档'; }
-  value();
+  const restored = restoreMemory();
+  for (const key of fields) $(`#${key}`).addEventListener('change', saveSettings);
+  window.addEventListener('pagehide', saveSettings);
+  if (!restored) { value(); saveCompleted(); }
 })();

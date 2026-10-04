@@ -58,7 +58,6 @@ SA.CampUI = (() => {
     { url: 'tools/console.html', name: SA.Config.text("camp_ui_539b6bdddbc8"), desc: SA.Config.text("camp_ui_47cf65196c5f") },
     { url: 'tools/sim.html', name: SA.Config.text("camp_ui_97d149dcb1be"), desc: SA.Config.text("camp_ui_6cfad2f5dc0c") },
     { url: 'tools/evolve.html', name: SA.Config.text("camp_ui_82481210220a"), desc: SA.Config.text("camp_ui_0a4e01b272bd") },
-    { url: 'tools/stage-editor.html', name: SA.Config.text("camp_ui_7c11cb3c2917"), desc: SA.Config.text("camp_ui_272139c80a1e") },
     { url: 'tools/module-editor.html', name: SA.Config.text("camp_ui_fb225353439f"), desc: SA.Config.text("camp_ui_b3c7072a567e") },
     { url: () => `tools/yard-chat-editor.html?scope=${encodeURIComponent(SA.YardChat.currentScope())}`, name: SA.Config.text("camp_ui_bab1744a894a"), desc: SA.Config.text("camp_ui_d33460ac22da") },
     { url: 'tools/module-candidates.html', name: SA.Config.text("camp_ui_31ed0912659c"), desc: SA.Config.text("camp_ui_c7fbdda8d1f8") },
@@ -94,7 +93,9 @@ SA.CampUI = (() => {
   // 对手来源：战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 分享码示例 / 随机街头车；可以改材料、AI 性格、枪法。
   const SB = { src: 'camp', foe: '1,0', terrain: '', mt: 0, style: '', aim: '', scene: '', bounds: '' };   // 记住上一次的选择
   const SRC = [['camp', SA.Config.text("camp_ui_aef74652a522")], ['tour', SA.Config.text("camp_ui_481666d112b2")], ['bp', SA.Config.text("camp_ui_09cf3953e6fb")], ['mine', SA.Config.text("camp_ui_77209467c816")], ['cloud', SA.Config.text("camp_ui_564d439aeaf1")], ['evolve', SA.Config.text("camp_ui_82481210220a")], ['street', SA.Config.text("camp_ui_61da76cd5798")]];
-  const STYLES = [['', SA.Config.text("camp_ui_2c2210ed86d7")], ['roam', SA.Config.text("camp_ui_ddb2fe50fb4b")], ['rush', SA.Config.text("camp_ui_c0d497cf61ab")], ['kite', SA.Config.text("camp_ui_2662eea55207")], ['turtle', SA.Config.text("camp_ui_91ed0ccb46f7")], ['rookie', SA.Config.text('camp_ui_rookie_style')]];
+  // 试驾选择框在打开时读取战斗规则目录；空值沿用对手性格，roam 仍表示默认游走。
+  const STYLES = () => [['', SA.Config.text("camp_ui_2c2210ed86d7")], ['roam', SA.Config.text("camp_ui_ddb2fe50fb4b")],
+    ...SA.AI_STYLES.filter(item => item.id !== 'wander').map(item => [item.id, `${item.name} · ${['初级', '中级', '高级'][item.tier - 1]}${item.training ? ' · 教学' : ''}`])];
   // 某个来源的对手列表：{ key, name, make() → { v, aim, style, terrain, boss } }
   function foeList(src) {
     if (src === 'camp') return SA.CAMPAIGN.flatMap((ch, ci) => ch.stages.flatMap((o, si) => o.unfinished ? [] : [{ key: `${ci},${si}`, name: `${ch.name.split(' · ')[0]} · ${o.name}${o.boss ? '【Boss】' : ''}`,
@@ -141,7 +142,7 @@ SA.CampUI = (() => {
         field(SA.Config.text("camp_ui_7f72f06a8877"), sel([['', SA.Config.text("camp_ui_9cda7385a1f3")], ...Object.entries(SA.Scenes.NAMES).filter(([k]) => k !== 'qual')], SB.scene, (v) => { SB.scene = v; })),
         field(SA.Config.text('camp_ui_trial_bounds'), sel([['', SA.Config.text('camp_ui_trial_bounds_off')], ['1', SA.Config.text('camp_ui_trial_bounds_on')]], SB.bounds, (v) => { SB.bounds = v; })),   // 两头摆路障（和战役同一套边界），看场景的路障用
         field(SA.Config.text("camp_ui_6e17d786b77d"), sel([[0, SA.Config.text("camp_ui_90b59fe7f8ac")], ...SA.MATS.slice(1).map((m, i) => [i + 1, m.rank ? `${m.rank} · ${m.name}` : m.name])], SB.mt, (v) => { SB.mt = +v; })),
-        field(SA.Config.text("camp_ui_b4566d6d030d"), sel(STYLES, SB.style, (v) => { SB.style = v; })),
+        field(SA.Config.text("camp_ui_b4566d6d030d"), sel(STYLES(), SB.style, (v) => { SB.style = v; })),
         field(SA.Config.text("camp_ui_f787b4997419"), sel([['', SA.Config.text("camp_ui_2c2210ed86d7")], ...[0.3, 0.5, 0.65, 0.8, 0.9, 1].map(a => [a, SA.Config.text("camp_ui_c8ae3a7850bc", `${a}`)])], SB.aim, (v) => { SB.aim = v; }))));
       if (!foe) { body.append(h('p', { class: 'muted' }, SA.Config.text("camp_ui_d44831886e06"))); return; }
       const t = SA.TERRAINS[foe.terrain], st = SA.V.stats(foe.v), me = SA.V.stats(d().vehicle);
@@ -150,7 +151,7 @@ SA.CampUI = (() => {
         h('div', { class: 'sb-info' },
           h('b', {}, foe.name, foe.boss ? ' 【Boss】' : ''),
           h('div', {}, h('span', { class: 'chip' }, SA.Config.text("camp_ui_3c474f64f788", `${st.rating}`)), ' ', h('span', { class: 'chip' }, SA.Config.text("camp_ui_fa293fb5cc44", `${me.rating}`)), ' ',
-            h('span', { class: 'chip' }, SA.Config.text("camp_ui_e5e3905101d7", `${(STYLES.find(x => x[0] === (foe.style || 'roam')) || STYLES[1])[1]}`)), ' ', h('span', { class: 'chip' }, SA.Config.text("camp_ui_c8ae3a7850bc", `${foe.aim}`))),
+            h('span', { class: 'chip' }, SA.Config.text("camp_ui_e5e3905101d7", `${(STYLES().find(x => x[0] === (foe.style || 'roam')) || STYLES()[1])[1]}`)), ' ', h('span', { class: 'chip' }, SA.Config.text("camp_ui_c8ae3a7850bc", `${foe.aim}`))),
           h('div', { class: 'terrain-note' }, h('b', {}, SA.Config.text("camp_ui_33c84e18e918", `${t.name}`)), h('span', { class: 'muted' }, t.desc)),
           !me.canDeploy ? h('div', { class: 'warn bad' }, SA.Config.text("camp_ui_c972b6b78afa", `${me.problems[0]}`)) : null)),
         h('div', { class: 'dialog-actions', style: 'padding:10px 0 0;justify-content:flex-start' },

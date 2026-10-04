@@ -7,7 +7,9 @@
     "0:2",
     "1:0",
     "1:1",
-    "1:2"
+    "1:2",
+    "1:3",
+    "1:4"
   ],
   "records": {
     "0:0": {
@@ -213,8 +215,8 @@
     "0:2": {
       "name": "初出茅庐",
       "pilot": "铁匠 老汤姆",
-      "prize": 120,
-      "rewardMoney": false,
+      "prize": 200,
+      "rewardMoney": true,
       "victoryRepairFree": true,
       "aim": 0.6,
       "blurb": "老汤姆的机炮从不卡壳，专扫你没有装甲的锅炉和驾驶舱；车头铲斗会把你推出去。用装甲护住要害，再贴近它。",
@@ -233,7 +235,9 @@
           "bucket"
         ],
         "note": "缴获铲斗：前期瞄准困难时，先用动力和铲斗贴近解决战斗。",
-        "feat": []
+        "feat": [
+          "shop"
+        ]
       },
       "version": 1,
       "id": "0:2",
@@ -295,14 +299,14 @@
       "weakness": "",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-02T03:46:51.023Z",
-      "rules": "2026-10-01-end-armor-chapter-bounds",
+      "updatedAt": "2026-10-03T06:54:24.376Z",
+      "rules": "2026-10-02-crew-clearance-thermal",
       "analysis": {
         "rating": 91,
         "value": 434,
-        "weight": 2343.5,
-        "drive": 4.153487578125,
-        "water": 36,
+        "weight": 2334.5,
+        "drive": 4.137536484374999,
+        "water": 27,
         "overheat": null,
         "dps": 0,
         "hp": 554
@@ -331,7 +335,6 @@
       },
       "unlock": {
         "feat": [
-          "street",
           "bank"
         ],
         "note": "街头赛和银行开放：先用短赛补足改装预算，再决定把钱投到武器还是冷却。",
@@ -421,16 +424,16 @@
       "weakness": "",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-02T22:51:34.274Z",
+      "updatedAt": "2026-10-03T06:54:28.863Z",
       "rules": "2026-10-02-crew-clearance-thermal",
       "analysis": {
-        "rating": 112,
+        "rating": 101,
         "value": 576,
         "weight": 2974,
         "drive": 5.270950312499999,
         "water": 54,
         "overheat": null,
-        "dps": 5.846153846153845,
+        "dps": 3.6307692307692303,
         "hp": 518
       },
       "rewardMoney": true,
@@ -441,7 +444,7 @@
     },
     "1:1": {
       "name": "兄弟齐心",
-      "pilot": "扒手 机灵杰克",
+      "pilot": "扒手兄弟",
       "prize": 150,
       "aim": 0.65,
       "style": "kite",
@@ -557,19 +560,21 @@
       "boss": false,
       "uniqueLoot": [],
       "weakness": "",
-      "updatedAt": "2026-10-01T09:24:20.154Z",
-      "rules": "2026-09-30-special-weapons-audit-damage",
+      "updatedAt": "2026-10-03T06:53:48.384Z",
+      "rules": "2026-10-02-crew-clearance-thermal",
       "analysis": {
-        "rating": 144,
+        "rating": 129,
         "value": 825,
-        "weight": 4020,
-        "drive": 7.124821874999999,
-        "water": 75,
-        "overheat": null,
+        "weight": 4001.3,
+        "drive": 7.091679046874999,
+        "water": 56.3,
+        "overheat": 29.5,
         "dps": 6.56891495601173,
         "hp": 769
       },
-      "vehicleName": "双管哨兵"
+      "vehicleName": "双管哨兵",
+      "rewardItems": [],
+      "repairFree": false
     },
     "1:2": {
       "name": "煤灰寡妇",
@@ -625,7 +630,275 @@
           0,
           6,
           6,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          1,
+          6,
+          6,
           "rangefinder",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi54Wk54Gw5a+h5aaHIiwiYiI6W1s2LDQsOV0sWzYsNiwxN10sWzYsNyw2XSxbNyw2LDE2XSxbOCw0LDQ0XSxbOCw1LDE4XSxbOCw2LDE5XSxbOCw3LDZdLFs5LDUsMThdLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W1s2LDYsNDBdXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "style": "wander",
+      "weakness": "",
+      "updatedAt": "2026-10-03T12:34:29.963Z",
+      "rules": "2026-10-03-ai-styles",
+      "analysis": {
+        "rating": 133,
+        "value": 862,
+        "weight": 4382.8,
+        "drive": 7.767828187499999,
+        "water": 110.3,
+        "overheat": null,
+        "dps": 5.045079714128643,
+        "hp": 785
+      },
+      "vehicleName": "煤灰寡妇",
+      "rewardItems": [],
+      "repairFree": false
+    },
+    "1:3": {
+      "version": 1,
+      "id": "1:3",
+      "cells": [
+        [
+          0,
+          7,
+          2,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          4,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          5,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          2,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "boiler",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          2,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          5,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          11,
+          6,
+          "plate",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi5aSn6ZOB5aO2IiwiYiI6W1s3LDIsMTddLFs3LDMsMTddLFs3LDQsMTddLFs3LDUsNl0sWzgsMiwxOF0sWzgsMyw0XSxbOCw2LDE3XSxbOSwyLDE2XSxbOSw1LDIwXSxbMTAsMiwwXSxbMTAsNCwwXSxbMTAsNiwxN10sWzExLDYsMTddXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "turtle",
+      "aim": 0.78,
+      "terrain": "flat",
+      "boss": false,
+      "prize": 250,
+      "unlock": {
+        "mods": [
+          "cannon_m"
+        ],
+        "feat": []
+      },
+      "uniqueLoot": [],
+      "rewardItems": [],
+      "rewardMoney": true,
+      "victoryRepairFree": false,
+      "repairFree": false,
+      "name": "大铁壶",
+      "pilot": "铸工 莫莉",
+      "blurb": "第一辆熟铁车：正面硬，顶上空着；直射炮压不低，贴到脸上就打不着你",
+      "weakness": "侧炮打顶，或者贴脸",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-10-04T08:07:25.030Z",
+      "rules": "2026-10-03-ai-styles",
+      "analysis": {
+        "rating": 154,
+        "value": 788,
+        "weight": 4307,
+        "drive": 7.633484531249998,
+        "water": 27,
+        "overheat": 74.5,
+        "dps": 7.94181818181818,
+        "hp": 909
+      },
+      "vehicleName": "大铁壶",
+      "spec": {
+        "terrain": "flat",
+        "reward": null,
+        "lesson": "爽关 · 幕二开篇：第一辆熟铁车：正面硬，顶上空着；直射炮压不低，贴到脸上就打不着你 → 侧炮打顶，或者贴脸",
+        "targetStrength": [
+          0.65,
+          0.8
+        ],
+        "performanceMin": 35
+      }
+    },
+    "1:4": {
+      "version": 1,
+      "id": "1:4",
+      "cells": [
+        [
+          0,
+          6,
+          4,
+          "mortar",
           1,
           0
         ],
@@ -702,22 +975,47 @@
           0
         ]
       ],
-      "code": "SA2.eyJuIjoi54Wk54Gw5a+h5aaHIiwiYiI6W1s2LDQsOV0sWzYsNiw0MF0sWzYsNyw2XSxbNyw2LDE2XSxbOCw0LDQ0XSxbOCw1LDE4XSxbOCw2LDE5XSxbOCw3LDZdLFs5LDUsMThdLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
-      "style": "wander",
-      "weakness": "",
-      "updatedAt": "2026-10-01T09:23:35.670Z",
-      "rules": "2026-09-30-special-weapons-audit-damage",
+      "code": "SA2.eyJuIjoi5o6o5Zyf5py6IiwiYiI6W1s2LDQsOV0sWzYsNyw2XSxbNyw2LDE2XSxbOCw0LDQ0XSxbOCw1LDE4XSxbOCw2LDE5XSxbOCw3LDZdLFs5LDUsMThdLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "rush",
+      "aim": 0.81,
+      "terrain": "mud",
+      "boss": false,
+      "prize": 290,
+      "unlock": null,
+      "uniqueLoot": [],
+      "rewardItems": [],
+      "rewardMoney": true,
+      "victoryRepairFree": false,
+      "repairFree": false,
+      "name": "推土机",
+      "pilot": "码头工 大块头比尔",
+      "blurb": "宽履带铲斗冲锋，车尾挂小臼炮",
+      "weakness": "泥地拖住它，躲在货箱后面高抛",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-10-03T12:38:34.889Z",
+      "rules": "2026-10-03-ai-styles",
       "analysis": {
-        "rating": 147,
-        "value": 850,
-        "weight": 4267,
-        "drive": 7.562590781249998,
-        "water": 147,
+        "rating": 125,
+        "value": 750,
+        "weight": 4127.8,
+        "drive": 7.3158805312499995,
+        "water": 110.3,
         "overheat": null,
-        "dps": 7.477216238608119,
-        "hp": 843
+        "dps": 4.676679182311223,
+        "hp": 710
       },
-      "vehicleName": "煤灰寡妇"
+      "vehicleName": "推土机",
+      "spec": {
+        "terrain": "mud",
+        "reward": null,
+        "lesson": "练习：宽履带铲斗冲锋，车尾挂小臼炮 → 泥地拖住它，躲在货箱后面高抛",
+        "targetStrength": [
+          0.65,
+          0.8
+        ],
+        "performanceMin": 35
+      }
     }
   }
 }

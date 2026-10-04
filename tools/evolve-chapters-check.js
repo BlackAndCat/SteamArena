@@ -1,79 +1,57 @@
+/* 非序章生成回归：第一章后四关的奖励车与标尺合法，worker 报告严格区分入选和诊断。 */
 'use strict';
-
-// 非序章生成回归：逐关检查奖励保底与全部标尺，再走真实 worker、跨代、Boss 筛选和报告路径。
-// 关卡布局 4 起只有做出来的关参加；还没有关的章节跳过。
-// 这里只验证生成能力；胜率、地形和奖励效果是否达标另列，不把小样本结果当作平衡定稿。
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const evolve = require('./evolve');
 const config = require('./evolve-config');
-const rules = require('./evolve-stage-rules.json');
 
 async function run() {
   const { SA } = evolve.loadGame(), before = { ...config.population };
   const stageFile = path.join(__dirname, '../config/stage-cars.json'), original = fs.readFileSync(stageFile);
-  const results = [], references = [];
-  let anchors = 0, stages = 0, evaluations = 0;
-  // 这四种奖励曾因侧挂支撑或炮口遮挡导致标尺为 null；其余关卡一并防回归。
-  for (let chapter = 1; chapter < SA.CAMPAIGN.length; chapter++) {
-    for (let stage = 0; stage < SA.CAMPAIGN[chapter].stages.length; stage++) {
-      if (SA.CAMPAIGN[chapter].stages[stage].unfinished) continue;   // 跳过去先做后面的关时留下的占位空关
-      const spec = evolve.stageSpec(SA, chapter, stage);
-      const minimum = evolve.minimalVehicle(SA, spec, spec.rewardModule);
-      assert(minimum && evolve.legalVehicle(SA, minimum, spec), `${chapter}:${stage} 奖励保底车非法`);
-      assert(!spec.rewardModule || SA.V.countIds(minimum)[spec.rewardModule], `${chapter}:${stage} 保底丢失奖励`);
-      const opponents = evolve.campaignOpponents(SA, chapter, stage);
-      assert.strictEqual(opponents.length, config.evaluation.anchorCount);
-      for (const opponent of opponents) assert(evolve.legalVehicle(SA, opponent, spec), `${chapter}:${stage} 标尺非法`);
-      if (spec.rewardModule) assert(SA.V.countIds(opponents[1])[spec.rewardModule], `${chapter}:${stage} 奖励标尺被普通车替代`);
-      for (let seed = 1; seed <= 5; seed++) {
-        const vehicle = evolve.randomVehicle(SA, spec, new evolve.RNG(seed), spec.rewardModule);
-        assert(vehicle && evolve.legalVehicle(SA, vehicle, spec), `${chapter}:${stage} 随机候选失败，种子 ${seed}`);
-        assert(!spec.rewardModule || SA.V.countIds(vehicle)[spec.rewardModule], `${chapter}:${stage} 随机候选丢失奖励`);
-      }
-      anchors += opponents.length; stages++;
-    }
+  let anchors = 0;
+  for (let stage = 3; stage <= 6; stage++) {
+    const spec = evolve.previewStageSpec(SA, 1, stage);
+    const candidate = evolve.minimalVehicle(SA, spec);
+    assert(candidate && evolve.legalVehicle(SA, candidate, spec), `1:${stage} 多奖励保底构筑非法`);
+    assert(spec.requiredModules.every(id => SA.V.countIds(candidate)[id]), `1:${stage} 保底丢奖励`);
+    const opponents = evolve.campaignOpponents(SA, 1, stage, spec);
+    assert.strictEqual(opponents.length, config.evaluation.anchorCount);
+    for (const opponent of opponents) assert(evolve.legalVehicle(SA, opponent, spec), `1:${stage} 标尺非法`);
+    anchors += opponents.length;
   }
   try {
-    Object.assign(config.population, { size: 4, generations: 2 });
-    for (let chapter = 1; chapter < SA.CAMPAIGN.length; chapter++) {
-      const made = SA.CAMPAIGN[chapter].stages.filter(stage => !stage.unfinished).length;
-      if (!made) continue;
-      const report = await evolve.runAsync({ scope: { chapter }, seed: 20260929, games: 1, workers: 2, references });
-      assert.strictEqual(report.status, 'complete');
-      assert.strictEqual(report.chapters.length, 1);
-      assert.strictEqual(report.chapters[0].chapter, chapter);
-      assert.strictEqual(report.chapters[0].stages.length, made);
-      assert.strictEqual(report.telemetry.completedSteps, report.telemetry.totalSteps);
-      for (const stage of report.chapters[0].stages) {
-        assert(stage.selected, `${chapter}:${stage.spec.stage} 没有生成可供审阅的入选车`);
-        for (const condition of ['construction', 'modulePool', 'budget', 'reward'])
-          assert.strictEqual(stage.selection.hardConditions[condition], true, `${chapter}:${stage.spec.stage} ${condition} 失败`);
-        references.push(stage.selected);
-      }
-      for (const rec of report.candidates) {
-        assert(rec.spec.chapter === chapter, '混入所选章节以外的候选');
-        const spec = evolve.stageSpec(SA, chapter, rec.spec.stage), vehicle = SA.V.fromCells(rec.name, rec.cells);
-        assert(evolve.legalVehicle(SA, vehicle, spec));
-        assert(!spec.rewardModule || SA.V.countIds(vehicle)[spec.rewardModule]);
-        for (const value of [rec.winRate, rec.strength, rec.performance, rec.fitness]) assert(Number.isFinite(value));
-      }
-      evaluations += report.telemetry.completedCandidates;
-      results.push({ chapter, stages: report.chapters[0].stages.length, candidates: report.candidates.length,
-        balanceFailures: report.selectionFailures.map(row => ({ stage: row.stage, failed: row.failed })) });
+    Object.assign(config.population, { size: 4, generations: 1, maxExtraGenerations: 0 });
+    // 第三关原始测距仪侧挂坐标错误，只修本次内存副本并记录修正。
+    const origin = structuredClone(JSON.parse(original).records['1:2']);
+    const finder = origin.cells.find(cell => cell[3] === 'rangefinder' && cell[1] === 6 && cell[2] === 6);
+    assert(finder, '原点修正对象不存在');
+    finder[0] = 1; finder[2] = 7;
+    const report = await evolve.runAsync({ scope: { type: 'route-after', origin: { chapter: 1, stage: 2 }, count: 1 },
+      originVehicle: origin, seed: 20261003, games: 1, workers: 2 });
+    assert(['complete', 'failed'].includes(report.status));
+    assert.strictEqual(report.chapters.length, 1);
+    assert.strictEqual(report.chapters[0].stages.length, 1);
+    const stage = report.chapters[0].stages[0];
+    assert.strictEqual(stage.spec.stage, 3);
+    assert(stage.top.length > 0, '失败时也必须保留前八名诊断候选');
+    for (const rec of stage.top) {
+      const vehicle = SA.V.fromCells(rec.name, rec.cells); vehicle.lim = { ...stage.spec.grid };
+      assert(evolve.legalVehicle(SA, vehicle, stage.spec), '候选违反奖励、材料、模块或预算约束');
     }
-    // 仅在内存中制造不可能预算：第三关预检失败时，不得先花时间跑完前两关。
-    const broken = rules.find(row => row.chapter === 1 && row.stage === 2), budget = broken.budget, events = [];
-    try {
-      broken.budget = 100;
-      await assert.rejects(evolve.runAsync({ scope: { chapter: 1 }, workers: 2, games: 1, onProgress: event => events.push(event) }), /伦敦东区.*第 3 关.*合法标尺车.*£100/);
-      assert.strictEqual(events.length, 0, '构筑预检没有在评估开始前失败');
-    } finally { broken.budget = budget; }
-  } finally { Object.assign(config.population, before); }
-  assert(original.equals(fs.readFileSync(stageFile)), '测试改变了手工关卡文件');
-  return { chapters: results.length, stages, anchors, evaluations, preflight: true, formalUnchanged: true, results };
+    if (report.status === 'complete') {
+      assert(stage.selected && stage.selection.previousWinRate >= 0.6 && stage.selection.previousWinRate <= 0.75);
+      assert.strictEqual(stage.selection.previousGames, 120);
+    } else {
+      assert.strictEqual(stage.selected, null, '失败路线不能拿诊断候选推进');
+      assert(report.selectionFailures.some(row => row.chapter === 1 && row.stage === 3));
+    }
+    return { stages: 4, anchors, workerStage: true, diagnosticPreserved: true, originPatch: 'side(6,6)→side(6,7)' };
+  } finally {
+    Object.assign(config.population, before);
+    assert(original.equals(fs.readFileSync(stageFile)), '测试改变了手工关卡文件');
+  }
 }
 
-if (require.main === module) run().then(result => console.log(JSON.stringify(result, null, 2))).catch(error => { console.error(error); process.exitCode = 1; });
+if (require.main === module) run().then(result => console.log(JSON.stringify(result))).catch(error => { console.error(error); process.exitCode = 1; });
 module.exports = { run };

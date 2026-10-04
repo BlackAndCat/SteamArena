@@ -5,6 +5,13 @@ SA.StageCars = (() => {
   const data = SA.STAGE_CARS;
   // 每关只有一条最终记录；手工作者字段与原始关卡字段已在迁移时合并。
   const keyOf = (chapter, stage) => `${chapter}:${stage}`;
+  // 历史布局的关卡索引换算是纯规则，候选库在不加载玩家存档的后台页也要使用。
+  function migrateStageIndex(chapter, stage, layout) {
+    const from = layout || 1;
+    if (from < 2 && chapter === 0 && stage === 1) stage = 2;
+    if (from < 3 && chapter >= 3 && chapter <= 5 && stage === 2) stage = 3;
+    return stage;
+  }
   const targetKeys = () => [...(data.targets || [])];
   const get = (chapter, stage) => data.records && data.records[keyOf(chapter, stage)] || null;
   const isLocked = (chapter, stage) => !!get(chapter, stage)?.locked;
@@ -94,5 +101,5 @@ SA.StageCars = (() => {
     return out;
   }
   applyToCampaign();
-  return { data, keyOf, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
+  return { data, keyOf, migrateStageIndex, targetKeys, get, isLocked, merge, applyToCampaign, vehicle, cellsOf, makeRecord, validate, ruleFingerprint };
 })();

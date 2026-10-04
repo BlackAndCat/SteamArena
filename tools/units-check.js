@@ -126,4 +126,5 @@ const firstFight = SA.Battle.simulate({ p: starter, e: firstStage.vehicle, terra
 assert(firstFight.events.p.fire > 0 || firstFight.events.e.fire > 0, '战役第一关未能开火');
 const dryFirstFight = SA.Battle.simulate({ p: dryStarter, e: firstStage.vehicle, terrain: firstStage.terrain || 'flat', dt: 1 / 60, seed: 8 });
 assert(dryFirstFight.events.p.fire > 0 && dryFirstFight.events.e.fire > 0, '双方零储水的战役第一关未能交火');
+require('./battle-armor-speed-cache-check')(SA);
 console.log(`单位检查通过：标准锅炉 ${P.kwToPs(60).toFixed(1)} PS；无储水仍可开火，${stageCount} 关初始水量正确；样车满水 ${SA.tons(stats.weight)}。`);

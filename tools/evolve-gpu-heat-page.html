@@ -1,0 +1,238 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><script>
+/* 当前 thermalStep 的保守 f32 区间证明核；-1 必须交回原 CPU 规则。 */
+(() => {
+  const shaderCode = `
+struct Params { count: u32, pad0: u32, pad1: u32, pad2: u32 };
+@group(0) @binding(0) var<storage, read> inputs: array<vec2<f32>>;
+@group(0) @binding(1) var<storage, read_write> outputs: array<i32>;
+@group(0) @binding(2) var<uniform> params: Params;
+
+// f32 输入已从 double 双向包围；加减乘每端外扩 8 ULP，除法外扩 16 ULP。
+// 极小值扩至正规数邻域，兼容设备 flush-to-zero；越界/NaN 不认证。
+fn down(v: f32, n: u32) -> f32 {
+  if (abs(v) < 0x1p-120f) { return -0x1p-120f; }
+  return bitcast<f32>(select(bitcast<u32>(v) - n, bitcast<u32>(v) + n, v < 0.0));
+}
+fn up(v: f32, n: u32) -> f32 {
+  if (abs(v) < 0x1p-120f) { return 0x1p-120f; }
+  return bitcast<f32>(select(bitcast<u32>(v) + n, bitcast<u32>(v) - n, v < 0.0));
+}
+fn zero(a: vec2<f32>) -> bool { return all(a == vec2(0.0)); }
+fn add(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+  if (zero(a)) { return b; }
+  if (zero(b)) { return a; }
+  return vec2(down(a.x + b.x, 8u), up(a.y + b.y, 8u));
+}
+fn sub(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+  if (zero(b)) { return a; }
+  return vec2(down(a.x - b.y, 8u), up(a.y - b.x, 8u));
+}
+fn mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+  if (zero(a) || zero(b)) { return vec2(0.0); }
+  let v = vec4(a.x * b.x, a.x * b.y, a.y * b.x, a.y * b.y);
+  return vec2(down(min(min(v.x, v.y), min(v.z, v.w)), 8u), up(max(max(v.x, v.y), max(v.z, v.w)), 8u));
+}
+fn div(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+  let v = vec4(a.x / b.x, a.x / b.y, a.y / b.x, a.y / b.y);
+  return vec2(down(min(min(v.x, v.y), min(v.z, v.w)), 16u), up(max(max(v.x, v.y), max(v.z, v.w)), 16u));
+}
+fn nonnegative(a: vec2<f32>) -> vec2<f32> { return max(a, vec2(0.0)); }
+fn temp(heat: vec2<f32>, capacity: vec2<f32>) -> vec2<f32> {
+  return add(vec2(20.0), div(heat, max(capacity, vec2(1.0))));
+}
+fn safe(a: vec2<f32>) -> bool {
+  return a.x == a.x && a.y == a.y && abs(a.x) < 1e30 && abs(a.y) < 1e30 && a.x <= a.y;
+}
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  let i = id.x;
+  if (i >= params.count) { return; }
+  let base = i * 11u;
+  let water0 = inputs[base];
+  let shaft = inputs[base + 1u];
+  let heatKw = inputs[base + 2u];
+  let weaponKw = inputs[base + 3u];
+  let cool = inputs[base + 4u];
+  let dryCool = inputs[base + 5u];
+  let waterSave = inputs[base + 6u];
+  let capacity = inputs[base + 7u];
+  let idleHeat = inputs[base + 8u];
+  let dissipate = inputs[base + 9u];
+  let coolFull = inputs[base + 10u];
+  if (waterSave.x <= 0.0 || coolFull.x <= 0.0 || !safe(waterSave) || !safe(capacity)) {
+    outputs[i] = -2; return;
+  }
+  let gain = add(add(select(vec2(0.0), heatKw, shaft.x > 0.0), weaponKw),
+    select(vec2(0.0), idleHeat, shaft.x > 0.0));
+  let threshold = mul(vec2(100.0), capacity);
+  var heat = vec2(0.0);
+  var water = water0;
+  for (var step: u32 = 1u; step <= 600u; step = step + 1u) {
+    heat = nonnegative(add(heat, mul(gain, vec2(0.5))));
+    let passiveRate = mul(add(dissipate, dryCool),
+      nonnegative(div(sub(temp(heat, capacity), vec2(20.0)), vec2(30.0))));
+    let passiveRaw = mul(passiveRate, vec2(0.5));
+    if (passiveRaw.x >= heat.y) { heat = vec2(0.0); }
+    else { heat = sub(heat, min(heat, passiveRaw)); }
+    let rate = nonnegative(min(vec2(1.0), div(sub(temp(heat, capacity), vec2(20.0)), coolFull)));
+    let coolByRate = mul(mul(cool, rate), vec2(0.5));
+    let coolByWater = div(mul(water, vec2(2257.0)), waterSave);
+    let cooled = min(min(heat, coolByRate), coolByWater);
+    if (coolByRate.x >= heat.y && coolByWater.x >= heat.y) { heat = vec2(0.0); }
+    else { heat = sub(heat, cooled); }
+    water = nonnegative(sub(water, mul(div(cooled, vec2(2257.0)), waterSave)));
+    heat = nonnegative(heat);
+    if (!safe(heat) || !safe(water) || !safe(threshold)) { outputs[i] = -3; return; }
+    if (heat.x >= threshold.y) { outputs[i] = i32(step); return; }
+    if (heat.y >= threshold.x) { outputs[i] = -4; return; }
+  }
+  outputs[i] = 0;
+}
+
+// 直接 f32 路径逐步执行同一热方程；结果是近似预测，不能写入认证缓存。
+@compute @workgroup_size(64)
+fn main_f32(@builtin(global_invocation_id) id: vec3<u32>) {
+  let i = id.x;
+  if (i >= params.count) { return; }
+  let base = i * 11u;
+  var water = inputs[base].x;
+  let shaft = inputs[base + 1u].x;
+  let heatKw = inputs[base + 2u].x;
+  let weaponKw = inputs[base + 3u].x;
+  let cool = inputs[base + 4u].x;
+  let dryCool = inputs[base + 5u].x;
+  let waterSave = inputs[base + 6u].x;
+  let capacity = inputs[base + 7u].x;
+  let idleHeat = inputs[base + 8u].x;
+  let dissipate = inputs[base + 9u].x;
+  let coolFull = inputs[base + 10u].x;
+  if (waterSave <= 0.0 || capacity <= 0.0 || coolFull <= 0.0) { outputs[i] = -1; return; }
+  var heat = 0.0;
+  for (var step: u32 = 1u; step <= 600u; step = step + 1u) {
+    heat = max(0.0, heat + (select(0.0, heatKw, shaft > 0.0) + weaponKw + select(0.0, idleHeat, shaft > 0.0)) * 0.5);
+    let passive = min(heat, (dissipate + dryCool) * max(0.0, (20.0 + heat / max(1.0, capacity) - 20.0) / 30.0) * 0.5);
+    heat = heat - passive;
+    let coolRate = cool * max(0.0, min(1.0, (20.0 + heat / max(1.0, capacity) - 20.0) / coolFull));
+    let cooled = min(min(heat, coolRate * 0.5), water * 2257.0 / waterSave);
+    heat = max(0.0, heat - cooled);
+    water = max(0.0, water - cooled / 2257.0 * waterSave);
+    if (heat >= 100.0 * capacity) { outputs[i] = i32(step); return; }
+  }
+  outputs[i] = 0;
+}`;
+
+  const fields = ['water', 'shaftKw', 'heatKw', 'weaponKw', 'cool', 'dryCool', 'waterSave',
+    'capacity', 'idleHeat', 'dissipate', 'coolFull'];
+  const f32 = new Float32Array(1), bits = new Uint32Array(f32.buffer);
+  function bounds(value, out, offset) {
+    const near = Math.fround(value);
+    f32[0] = near;
+    out[offset] = near; out[offset + 1] = near;
+    if (near > value) { bits[0] += near > 0 ? -1 : 1; out[offset] = f32[0]; }
+    else if (near < value) { bits[0] += near >= 0 ? 1 : -1; out[offset + 1] = f32[0]; }
+  }
+  function supported(row) {
+    return fields.every((name, index) => {
+      const value = row?.[name];
+      if (!Number.isFinite(value) || value < 0 || value > 1e6 || (value !== 0 && value < 1e-20)) return false;
+      if ((index === 6 || index === 10) && value < 1e-6) return false;
+      if (index === 7 && value <= 0) return false;
+      return true;
+    }) && (row.shaftKw === 0 || row.shaftKw >= 1e-6) &&
+      row.idleHeat === 40 && row.dissipate === 60 && row.coolFull === 30;
+  }
+  // 近似核用最近可表示值；认证核保留双向包围，不能把向下界当作 f32 输入。
+  function packInputs(rows, precision) {
+    const packed = new Float32Array(rows.length * 22), unsupported = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (!supported(rows[i])) { unsupported.push(i); continue; }
+      for (let j = 0; j < fields.length; j++) {
+        const offset = i * 22 + j * 2, value = rows[i][fields[j]];
+        if (precision === 'f32') packed[offset] = packed[offset + 1] = Math.fround(value);
+        else bounds(value, packed, offset);
+      }
+    }
+    return { packed, unsupported };
+  }
+  let device, pipelines, uniform, inputBuffer, outputBuffer, readback, binds, capacity = 0, adapterInfo;
+  async function initialize() {
+    if (!navigator.gpu) throw new Error('WebGPU 不可用');
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) throw new Error('没有 WebGPU adapter');
+    adapterInfo = { vendor: adapter.info?.vendor || '', architecture: adapter.info?.architecture || '',
+      device: adapter.info?.device || '', description: adapter.info?.description || '', fallback: adapter.isFallbackAdapter ?? null };
+    const name = Object.values(adapterInfo).join(' ').toLowerCase();
+    if (adapterInfo.fallback === true || /swiftshader|llvmpipe|software adapter|warp/.test(name) ||
+        !/nvidia|amd|intel/.test(adapterInfo.vendor.toLowerCase())) throw new Error('不能确认硬件 GPU');
+    device = await adapter.requestDevice();
+    const shader = device.createShaderModule({ code: shaderCode });
+    const errors = (await shader.getCompilationInfo()).messages.filter(row => row.type === 'error');
+    if (errors.length) throw new Error('WGSL 编译失败：' + errors.map(row => row.message).join('; '));
+    pipelines = {
+      certified: await device.createComputePipelineAsync({ layout: 'auto', compute: { module: shader, entryPoint: 'main' } }),
+      f32: await device.createComputePipelineAsync({ layout: 'auto', compute: { module: shader, entryPoint: 'main_f32' } }),
+    };
+    uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    return { status: 'ok', adapter: adapterInfo };
+  }
+  const ready = initialize();
+  function ensureBuffers(count) {
+    if (count <= capacity) return;
+    inputBuffer?.destroy(); outputBuffer?.destroy(); readback?.destroy();
+    capacity = Math.max(count, capacity * 2, 64);
+    inputBuffer = device.createBuffer({ size: capacity * 88, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    outputBuffer = device.createBuffer({ size: capacity * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    readback = device.createBuffer({ size: capacity * 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    binds = {};
+    for (const precision of ['certified', 'f32']) {
+      binds[precision] = device.createBindGroup({ layout: pipelines[precision].getBindGroupLayout(0), entries: [
+        { binding: 0, resource: { buffer: inputBuffer } }, { binding: 1, resource: { buffer: outputBuffer } },
+        { binding: 2, resource: { buffer: uniform } }] });
+    }
+  }
+  async function predict(rows, precision = 'certified') {
+    const start = performance.now();
+    try {
+      await ready;
+      if (!pipelines[precision]) throw new Error('未知热量计算精度');
+      if (!Array.isArray(rows)) throw new Error('热量输入不是数组');
+      if (!rows.length) return { steps: [], telemetry: { count: 0, certified: 0, uncertain: 0,
+        precision, approximate: precision === 'f32', gpuDispatchReadbackMs: 0,
+        measurement: 'writeBuffer 调用之后至读回完成的墙钟，包含提交与 CPU 输出复制；不是硬件内核计时',
+        elapsedMs: 0, adapter: adapterInfo } };
+      const { packed, unsupported } = packInputs(rows, precision);
+      ensureBuffers(rows.length);
+      device.queue.writeBuffer(inputBuffer, 0, packed);
+      device.queue.writeBuffer(uniform, 0, new Uint32Array([rows.length, 0, 0, 0]));
+      const gpuStart = performance.now();
+      const command = device.createCommandEncoder(), pass = command.beginComputePass();
+      pass.setPipeline(pipelines[precision]); pass.setBindGroup(0, binds[precision]); pass.dispatchWorkgroups(Math.ceil(rows.length / 64)); pass.end();
+      command.copyBufferToBuffer(outputBuffer, 0, readback, 0, rows.length * 4);
+      device.queue.submit([command.finish()]);
+      await readback.mapAsync(GPUMapMode.READ);
+      const steps = Array.from(new Int32Array(readback.getMappedRange(), 0, rows.length));
+      readback.unmap();
+      const gpuDispatchReadbackMs = performance.now() - gpuStart;
+      for (const i of unsupported) steps[i] = -5;
+      // 诊断码仅写入统计；公开步数仍只含 -1、0、1..600。
+      const reasons = {};
+      for (const step of steps) if (step < 0) reasons[step] = (reasons[step] || 0) + 1;
+      const reasonCodes = steps.map(step => step < 0 ? step : 0);
+      for (let i = 0; i < steps.length; i++) if (!Number.isInteger(steps[i]) || steps[i] < -1 || steps[i] > 600) steps[i] = -1;
+      const uncertain = steps.filter(step => step === -1).length;
+      return { steps, telemetry: { count: rows.length, certified: precision === 'f32' ? 0 : rows.length - uncertain,
+        uncertain, unsupported: unsupported.length, reasons, reasonCodes,
+        precision, approximate: precision === 'f32', gpuDispatchReadbackMs,
+        measurement: 'writeBuffer 调用之后至读回完成的墙钟，包含提交与 CPU 输出复制；不是硬件内核计时',
+        elapsedMs: performance.now() - start, adapter: adapterInfo } };
+    } catch (error) {
+      return { steps: Array(rows?.length || 0).fill(-1), telemetry: { count: rows?.length || 0,
+        certified: 0, uncertain: rows?.length || 0, precision, approximate: precision === 'f32',
+        gpuDispatchReadbackMs: 0,
+        measurement: 'writeBuffer 调用之后至读回完成的墙钟，包含提交与 CPU 输出复制；不是硬件内核计时',
+        reason: String(error?.message || error), elapsedMs: performance.now() - start } };
+    }
+  }
+  window.HeatKernel = { ready, predict };
+})();
+</script></html>

@@ -1,0 +1,462 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><pre id="result">地面拟合基准运行中</pre><script>
+/* 仅测试 settle 已采样点的数值后半段；不替代地形查询、点位组装或正式 Battle。 */
+(() => {
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const now = () => performance.now();
+  function cpuSettle(row, centeredMatrix = false) {
+    const pts = row.pts, n = pts.length, t = row.constants;
+    const mx = pts.reduce((a, p) => a + p.x, 0) / n;
+    const my = pts.reduce((a, p) => a + p.y, 0) / n;
+    let sxy = 0, sxx = 0;
+    if (centeredMatrix) {
+      const xc = pts.map(p => p.x - mx), yc = pts.map(p => p.y - my);
+      for (let i = 0; i < n; i++) { sxy += xc[i] * yc[i]; sxx += xc[i] ** 2; }
+    } else {
+      for (const p of pts) { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; }
+    }
+    const kT = clamp((sxx ? sxy / sxx : 0) * row.follow, -t.tiltMax, t.tiltMax);
+    const kw0 = row.kw0 || 0, kw = kw0 + (kT - kw0) * Math.min(1, row.dt * t.tiltResponse);
+    const rel = (x, y) => y - kw * (x - row.xc);
+    const rs = pts.map(p => rel(p.x, p.y));
+    const lo = Math.max(...pts.map((p, i) => rs[i] - p.down));
+    let hi = Math.min(...pts.map((p, i) => rs[i] + p.up));
+    for (const p of row.rigid) hi = Math.min(hi, rel(p.x, p.y) + t.rigidClearance);
+    const mean = pts.reduce((a, _p, i) => a + rs[i], 0) / n;
+    const want = lo <= hi ? clamp(mean, lo, hi) : hi;
+    const yo0 = row.yo0 || 0;
+    const yo = yo0 + (want - t.ground - yo0) * Math.min(1, row.dt * t.heightResponse);
+    const cs = Math.cos(Math.atan(kw)), py = t.ground + yo, gnd = {};
+    const pointGnd = pts.map((p, i) => clamp((rs[i] - py) * cs, -p.up, p.down));
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (p.key) (gnd[p.key] = gnd[p.key] || [0, 0])[p.i] = pointGnd[i];
+    }
+    return { kw, yo, pivX: row.xc, gnd, pointGnd };
+  }
+  function compare(expected, actual, label, index, issues) {
+    for (const field of ['kw', 'yo', 'pivX']) if (expected[field] !== actual[field])
+      issues.push({ label, index, field, expected: expected[field], actual: actual[field],
+        absoluteError: Math.abs(expected[field] - actual[field]) });
+    const keys = new Set([...Object.keys(expected.gnd || {}), ...Object.keys(actual.gnd || {})]);
+    for (const key of keys) {
+      const a = expected.gnd?.[key] || [], b = actual.gnd?.[key] || [];
+      for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i])
+        issues.push({ label, index, field: `gnd.${key}[${i}]`, expected: a[i], actual: b[i],
+          absoluteError: Math.abs(a[i] - b[i]) });
+    }
+  }
+  function validateTrace(trace) {
+    if (trace?.kind !== 'settle-real-input-trace' || !Array.isArray(trace.records) || !trace.records.length)
+      throw new Error('settle trace 类型错误或缺少 records');
+    if (!trace.ruleFingerprint) throw new Error('settle trace 缺少规则指纹');
+    for (const [i, row] of trace.records.entries()) {
+      if (!Array.isArray(row.pts) || !row.pts.length || !Array.isArray(row.rigid) || !row.expected)
+        throw new Error(`settle trace 第 ${i} 项缺少点位或原规则结果`);
+      const numbers = [row.dt, row.xc, row.kw0 || 0, row.yo0 || 0, row.follow,
+        ...['tiltMax', 'tiltResponse', 'heightResponse', 'rigidClearance', 'ground'].map(key => row.constants?.[key]),
+        ...row.pts.flatMap(p => [p.x, p.y, p.up, p.down]), ...row.rigid.flatMap(p => [p.x, p.y])];
+      if (!numbers.every(Number.isFinite)) throw new Error(`settle trace 第 ${i} 项含非有限数值`);
+      for (const p of row.pts) if (p.key && !Number.isFinite(row.expected.gnd?.[p.key]?.[p.i]))
+        throw new Error(`settle trace 第 ${i} 项缺少原始接地点 ${p.key}[${p.i}] 结果`);
+    }
+  }
+  // 两个入口使用同一输入/输出协议。归约版一线程按原顺序循环；矩阵版每车一个工作组，
+  // 先中心化，再并行计算 Xc^T Yc 与 Xc^T Xc，避免未中心化法方程在大世界坐标下抵消。
+  const shader = `
+@group(0) @binding(0) var<storage, read> cases: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read> points: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read> rigid: array<vec2<f32>>;
+@group(0) @binding(3) var<storage, read_write> result: array<vec4<f32>>;
+@group(0) @binding(4) var<storage, read_write> groundOut: array<f32>;
+@group(0) @binding(5) var<uniform> count: vec4<u32>;
+var<workgroup> part: array<vec4<f32>, 64>;
+fn c(i: u32, j: u32) -> vec4<f32> { return cases[i * 4u + j]; }
+fn clamp1(x: f32, lo: f32, hi: f32) -> f32 { return max(lo, min(hi, x)); }
+fn finish(i: u32, slope: f32, lo: f32, hi: f32, mean: f32) {
+  let a = c(i, 0u); let b = c(i, 1u); let d = c(i, 2u); let e = c(i, 3u);
+  let kw = b.z + (clamp1(slope * d.x, -d.y, d.y) - b.z) * min(1.0, b.x * d.z);
+  let want = select(hi, clamp1(mean, lo, hi), lo <= hi);
+  let yo = b.w + (want - e.y - b.w) * min(1.0, b.x * d.w);
+  result[i] = vec4<f32>(kw, yo, b.y, 0.0);
+  let cs = cos(atan(kw)); let py = e.y + yo;
+  for (var j: u32 = 0u; j < u32(a.y); j = j + 1u) {
+    let p = points[u32(a.x) + j]; let r = p.y - kw * (p.x - b.y);
+    groundOut[u32(a.x) + j] = clamp1((r - py) * cs, -p.z, p.w);
+  }
+}
+@compute @workgroup_size(64)
+fn direct(@builtin(global_invocation_id) id: vec3<u32>) {
+  let i = id.x; if (i >= count.x) { return; }
+  let a = c(i, 0u); let b = c(i, 1u); let d = c(i, 2u); let e = c(i, 3u);
+  let n = u32(a.y); var sx = 0.0; var sy = 0.0;
+  for (var j: u32 = 0u; j < n; j = j + 1u) { let p = points[u32(a.x) + j]; sx += p.x; sy += p.y; }
+  let mx = sx / f32(n); let my = sy / f32(n);
+  var sxy = 0.0; var sxx = 0.0;
+  for (var j: u32 = 0u; j < n; j = j + 1u) {
+    let p = points[u32(a.x) + j]; sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) * (p.x - mx);
+  }
+  let slope = select(0.0, sxy / sxx, sxx != 0.0);
+  let kw = b.z + (clamp1(slope * d.x, -d.y, d.y) - b.z) * min(1.0, b.x * d.z);
+  var lo = -1e30; var hi = 1e30; var sum = 0.0;
+  for (var j: u32 = 0u; j < n; j = j + 1u) {
+    let p = points[u32(a.x) + j]; let r = p.y - kw * (p.x - b.y);
+    lo = max(lo, r - p.w); hi = min(hi, r + p.z); sum += r;
+  }
+  for (var j: u32 = 0u; j < u32(a.w); j = j + 1u) {
+    let p = rigid[u32(a.z) + j]; hi = min(hi, p.y - kw * (p.x - b.y) + e.x);
+  }
+  let want = select(hi, clamp1(sum / f32(n), lo, hi), lo <= hi);
+  let yo = b.w + (want - e.y - b.w) * min(1.0, b.x * d.w);
+  result[i] = vec4<f32>(kw, yo, b.y, 0.0);
+  let cs = cos(atan(kw)); let py = e.y + yo;
+  for (var j: u32 = 0u; j < n; j = j + 1u) {
+    let p = points[u32(a.x) + j]; let r = p.y - kw * (p.x - b.y);
+    groundOut[u32(a.x) + j] = clamp1((r - py) * cs, -p.z, p.w);
+  }
+}
+@compute @workgroup_size(64)
+fn matrix(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_index) lane: u32) {
+  let i = group.x; if (i >= count.x) { return; }
+  let a = c(i, 0u); let b = c(i, 1u); let d = c(i, 2u); let e = c(i, 3u);
+  let n = u32(a.y); var sx = 0.0; var sy = 0.0;
+  for (var j = lane; j < n; j = j + 64u) { let p = points[u32(a.x) + j]; sx += p.x; sy += p.y; }
+  part[lane] = vec4<f32>(sx, sy, 0.0, 0.0); workgroupBarrier();
+  for (var stride = 32u; stride > 0u; stride = stride / 2u) {
+    if (lane < stride) { part[lane] += part[lane + stride]; } workgroupBarrier();
+  }
+  let mx = part[0].x / f32(n); let my = part[0].y / f32(n);
+  workgroupBarrier();
+  var xy = 0.0; var xx = 0.0;
+  for (var j = lane; j < n; j = j + 64u) {
+    let p = points[u32(a.x) + j]; let xc = p.x - mx; let yc = p.y - my;
+    xy += xc * yc; xx += xc * xc;
+  }
+  part[lane] = vec4<f32>(xy, xx, 0.0, 0.0); workgroupBarrier();
+  for (var stride = 32u; stride > 0u; stride = stride / 2u) {
+    if (lane < stride) { part[lane] += part[lane + stride]; } workgroupBarrier();
+  }
+  let slope = select(0.0, part[0].x / part[0].y, part[0].y != 0.0);
+  let kw = b.z + (clamp1(slope * d.x, -d.y, d.y) - b.z) * min(1.0, b.x * d.z);
+  workgroupBarrier();
+  var lo = -1e30; var hi = 1e30; var sum = 0.0;
+  for (var j = lane; j < n; j = j + 64u) {
+    let p = points[u32(a.x) + j]; let r = p.y - kw * (p.x - b.y);
+    lo = max(lo, r - p.w); hi = min(hi, r + p.z); sum += r;
+  }
+  for (var j = lane; j < u32(a.w); j = j + 64u) {
+    let p = rigid[u32(a.z) + j]; hi = min(hi, p.y - kw * (p.x - b.y) + e.x);
+  }
+  part[lane] = vec4<f32>(lo, hi, sum, 0.0); workgroupBarrier();
+  for (var stride = 32u; stride > 0u; stride = stride / 2u) {
+    if (lane < stride) {
+      let x = part[lane]; let y = part[lane + stride];
+      part[lane] = vec4<f32>(max(x.x, y.x), min(x.y, y.y), x.z + y.z, 0.0);
+    } workgroupBarrier();
+  }
+  let want = select(part[0].y, clamp1(part[0].z / f32(n), part[0].x, part[0].y), part[0].x <= part[0].y);
+  let yo = b.w + (want - e.y - b.w) * min(1.0, b.x * d.w);
+  if (lane == 0u) { result[i] = vec4<f32>(kw, yo, b.y, 0.0); }
+  let cs = cos(atan(kw)); let py = e.y + yo;
+  for (var j = lane; j < n; j = j + 64u) {
+    let p = points[u32(a.x) + j]; let r = p.y - kw * (p.x - b.y);
+    groundOut[u32(a.x) + j] = clamp1((r - py) * cs, -p.z, p.w);
+  }
+}`;
+  function pack(rows) {
+    const cases = new Float32Array(rows.length * 16), points = [], rigid = [];
+    rows.forEach((row, i) => {
+      const k = i * 16, t = row.constants;
+      cases.set([points.length / 4, row.pts.length, rigid.length / 2, row.rigid.length,
+        row.dt, row.xc, row.kw0 || 0, row.yo0 || 0,
+        row.follow, t.tiltMax, t.tiltResponse, t.heightResponse,
+        t.rigidClearance, t.ground, 0, 0], k);
+      row.pts.forEach(p => points.push(p.x, p.y, p.up, p.down));
+      row.rigid.forEach(p => rigid.push(p.x, p.y));
+    });
+    return { cases, points: new Float32Array(points), rigid: new Float32Array(rigid) };
+  }
+  function gpuObjects(device, pipeline, packed, n) {
+    const make = (size, usage) => device.createBuffer({ size: Math.max(16, size), usage });
+    const storageIn = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST;
+    const cases = make(packed.cases.byteLength, storageIn);
+    const points = make(packed.points.byteLength, storageIn);
+    const rigid = make(packed.rigid.byteLength, storageIn);
+    const result = make(n * 16, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+    const ground = make(packed.points.length, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+    const resultRead = make(n * 16, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
+    const groundRead = make(packed.points.length, GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ);
+    const uniform = make(16, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+    const bind = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+      { binding: 0, resource: { buffer: cases } }, { binding: 1, resource: { buffer: points } },
+      { binding: 2, resource: { buffer: rigid } }, { binding: 3, resource: { buffer: result } },
+      { binding: 4, resource: { buffer: ground } }, { binding: 5, resource: { buffer: uniform } }] });
+    return { cases, points, rigid, result, ground, resultRead, groundRead, uniform, bind,
+      destroy() { for (const value of [cases, points, rigid, result, ground, resultRead, groundRead, uniform]) value.destroy(); } };
+  }
+  async function gpuRun(device, pipeline, rows, rounds, mode) {
+    const begin = now(), packed = pack(rows), packMs = now() - begin;
+    const buffers = gpuObjects(device, pipeline, packed, rows.length);
+    const uploadStart = now();
+    device.queue.writeBuffer(buffers.cases, 0, packed.cases);
+    if (packed.points.length) device.queue.writeBuffer(buffers.points, 0, packed.points);
+    if (packed.rigid.length) device.queue.writeBuffer(buffers.rigid, 0, packed.rigid);
+    device.queue.writeBuffer(buffers.uniform, 0, new Uint32Array([rows.length, 0, 0, 0]));
+    const uploadMs = now() - uploadStart, computeStart = now();
+    try {
+      for (let i = 0; i < rounds; i++) {
+        const encoder = device.createCommandEncoder(), pass = encoder.beginComputePass();
+        pass.setPipeline(pipeline); pass.setBindGroup(0, buffers.bind);
+        pass.dispatchWorkgroups(mode === 'matrix' ? rows.length : Math.ceil(rows.length / 64));
+        pass.end(); device.queue.submit([encoder.finish()]);
+      }
+      await device.queue.onSubmittedWorkDone();
+      const computeMs = now() - computeStart, readStart = now();
+      const copy = device.createCommandEncoder();
+      copy.copyBufferToBuffer(buffers.result, 0, buffers.resultRead, 0, rows.length * 16);
+      copy.copyBufferToBuffer(buffers.ground, 0, buffers.groundRead, 0, packed.points.length);
+      device.queue.submit([copy.finish()]);
+      await Promise.all([buffers.resultRead.mapAsync(GPUMapMode.READ), buffers.groundRead.mapAsync(GPUMapMode.READ)]);
+      const values = new Float32Array(buffers.resultRead.getMappedRange()).slice();
+      const ground = new Float32Array(buffers.groundRead.getMappedRange()).slice();
+      buffers.resultRead.unmap(); buffers.groundRead.unmap();
+      return { values, ground, packMs, uploadMs, computeMs, readbackMs: now() - readStart,
+        endToEndMs: now() - begin };
+    } finally { buffers.destroy(); }
+  }
+  function unpack(rows, gpu) {
+    let offset = 0;
+    return rows.map((row, i) => {
+      const gnd = {}, pointGnd = [];
+      for (const p of row.pts) {
+        const value = gpu.ground[offset++]; pointGnd.push(value);
+        if (p.key) (gnd[p.key] = gnd[p.key] || [0, 0])[p.i] = value;
+      }
+      return { kw: gpu.values[i * 4], yo: gpu.values[i * 4 + 1], pivX: gpu.values[i * 4 + 2], gnd, pointGnd };
+    });
+  }
+  function constructedBoundary() {
+    // 真实采样尚无 rigid；这个固定整数夹具仅验算 rigid 上限压过悬挂下限的 lo>hi 分支。
+    return { dt: 1, xc: 1, kw0: 0, yo0: 0, follow: 1,
+      pts: [{ x: 0, y: 10, up: 1, down: 1, key: 'a', i: 0 },
+        { x: 2, y: 10, up: 1, down: 1, key: 'a', i: 1 }],
+      rigid: [{ x: 1, y: 0 }],
+      constants: { tiltMax: 0.45, tiltResponse: 8, heightResponse: 10, rigidClearance: 6, ground: 0 },
+      expected: { kw: 0, yo: 6, pivX: 1, gnd: { a: [1, 1] } } };
+  }
+  function sampleRows(records, count) {
+    if (count === records.length) return records;
+    // 从整个真实轨迹均匀固定取样，避免前 4096 条全来自平地场景。
+    return Array.from({ length: count }, (_, i) => records[Math.floor(((i % records.length) + 0.5) *
+      records.length / Math.min(count, records.length)) % records.length]);
+  }
+  function sceneCounts(rows) {
+    const counts = {};
+    for (const row of rows) counts[row.source?.scene || 'unknown'] = (counts[row.source?.scene || 'unknown'] || 0) + 1;
+    return counts;
+  }
+  function originalExpected(row) {
+    // trace.expected 来自 Node 原始 settle；按原 key/i 找回每个接地点的悬挂值供分类统计。
+    return { ...row.expected, pointGnd: row.pts.map(p => p.key ? row.expected.gnd[p.key]?.[p.i] : null) };
+  }
+  async function runBenchmark(trace) {
+    const pageDeadline = now() + 60000;
+    let phase = '验证 trace';
+    const output = { kind: 'evolve-gpu-settle-benchmark', status: 'running', executionStatus: 'running',
+      ruleFingerprint: trace?.ruleFingerprint, scope: '仅 settle 点位采样后的拟合及高度计算；不包含点位组装、地形查询或完整 Battle' };
+    try {
+      validateTrace(trace);
+      const verifyF32Only = trace.bench?.verifyF32Only === true;
+      if (verifyF32Only && trace.records.length > 64) throw new Error('f32 硬件小对照最多 64 条真实输入');
+      let matrixMismatchCount = 0;
+      const boundary = constructedBoundary();
+      if (!verifyF32Only) {
+      const cpu = trace.records.map(row => cpuSettle(row));
+      const browserDifferences = [], matrixDifferences = [];
+      let browserMismatchCount = 0;
+      const browserSink = { push(issue) { browserMismatchCount++; if (browserDifferences.length < 8) browserDifferences.push(issue); } };
+      const matrixSink = { push(issue) { matrixMismatchCount++; if (matrixDifferences.length < 8) matrixDifferences.push(issue); } };
+      cpu.forEach((row, i) => compare(trace.records[i].expected, row, 'Chrome Number 对 Node 原始结果', i, browserSink));
+      trace.records.forEach((row, i) => compare(cpu[i], cpuSettle(row, true), 'Chrome 中心化 Number 矩阵', i, matrixSink));
+      const issues = [];
+      compare(boundary.expected, cpuSettle(boundary), '构造 rigid/lo>hi', -1, issues);
+      if (issues.length) throw new Error(`构造边界的 CPU oracle 错误：${JSON.stringify(issues)}`);
+      output.cpuReference = { count: trace.records.length, originalRuntime: 'Node JS Number',
+        browserRuntime: 'Chrome JS Number', browserMismatchCount, browserFirstMismatches: browserDifferences,
+        centeredMatrixVsBrowserMismatchCount: matrixMismatchCount,
+        centeredMatrixFirstMismatches: matrixDifferences,
+        note: 'CPU 原始结果由 Node 实际 settle 记录；浏览器 Number 差异单独报告，GPU 始终直接对原始 expected 严格比较',
+        constructedRigidLoGreaterHi: true };
+      } else {
+        output.referenceMode = 'Node Math.fround 逐步舍入的理想 FP32 混合精度模型；只对 direct WGSL 做小样本严格等值检查';
+      }
+      const batch = trace.bench || {};
+      if (!Number.isInteger(batch.rounds) || batch.rounds < 1 || batch.rounds > 10)
+        throw new Error('trace.bench.rounds 必须是 1～10 的整数');
+      phase = '初始化 WebGPU';
+      if (!navigator.gpu) throw new Error('WebGPU 不可用');
+      const coldStart = now(), adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (!adapter) throw new Error('没有 WebGPU adapter');
+      output.adapter = { vendor: adapter.info?.vendor || '', architecture: adapter.info?.architecture || '',
+        device: adapter.info?.device || '', fallback: adapter.isFallbackAdapter ?? null };
+      const name = Object.values(output.adapter).join(' ').toLowerCase();
+      if (output.adapter.fallback === true || /swiftshader|llvmpipe|software adapter|warp/.test(name) ||
+          !/nvidia|amd|intel/.test(output.adapter.vendor.toLowerCase())) throw new Error('未确认硬件 GPU');
+      const device = await adapter.requestDevice();
+      const module = device.createShaderModule({ code: shader });
+      const compilation = await module.getCompilationInfo();
+      const errors = compilation.messages.filter(item => item.type === 'error');
+      if (errors.length) throw new Error('WGSL 编译失败：' + errors.map(item => item.message).join('; '));
+      const pipelines = {};
+      for (const entryPoint of ['direct', 'matrix'])
+        pipelines[entryPoint] = await device.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint } });
+      output.gpuColdReadyMs = now() - coldStart;
+      const warmStart = now();
+      for (const mode of ['direct', 'matrix']) await gpuRun(device, pipelines[mode], [trace.records[0]], 1, mode);
+      output.gpuWarmupMs = now() - warmStart;
+      if (verifyF32Only) {
+        phase = '严格比较 f32 参考与 direct WGSL';
+        const gpu = await gpuRun(device, pipelines.direct, trace.records, 1, 'direct');
+        const actual = unpack(trace.records, gpu), differences = [];
+        let comparedValues = 0, exactRecords = 0;
+        for (let i = 0; i < trace.records.length; i++) {
+          const before = differences.length;
+          compare(trace.records[i].expected, actual[i], '理想f32参考 对 direct WGSL', i, differences);
+          if (differences.length === before) exactRecords++;
+          comparedValues += 3 + trace.records[i].pts.filter(p => p.key).length;
+        }
+        output.f32HardwareCheck = { records: trace.records.length, comparedValues,
+          exactValues: comparedValues - differences.length, exactRecords,
+          mismatchCount: differences.length, firstMismatches: differences.slice(0, 12),
+          timing: { packMs: gpu.packMs, uploadMs: gpu.uploadMs, computeMs: gpu.computeMs,
+            readbackMs: gpu.readbackMs, endToEndMs: gpu.endToEndMs } };
+        output.gpuTaskDoneEpochMs = performance.timeOrigin + now();
+        output.status = 'ok'; output.executionStatus = 'completed';
+        output.eligibility = differences.length ? 'rejected' : 'reference-matched';
+        if (differences.length) output.validationFailure = 'Node fround 参考与硬件 direct WGSL 不逐值一致；只可称理想 FP32 混合精度模型';
+        return output;
+      }
+      output.measurements = [];
+      output.cpuMode = '单页面主线程 JS Number；每次结果的 kw/yo/pivX/全部接地点值进入可见校验和，计时包含校验和开销；不是 14 worker 完整进化任务';
+      output.batchNote = '1 条代表单次在线调用；28 条仅为 14 worker×双方车辆的在线并发上界；4096／全量为跨帧聚合的离线吞吐上界，均非完整进化提速';
+      for (const [label, count, rounds] of [['online-1', 1, batch.rounds], ['online-upper-28', 28, batch.rounds],
+        ['offline-repeat-4096', 4096, batch.rounds], ['offline-all-captured', trace.records.length, batch.rounds],
+        ['offline-sustained-A-4096', 4096, 8192], ['offline-sustained-B-4096', 4096, 8192]]) {
+        phase = `运行 ${label}`;
+        const rows = sampleRows(trace.records, count);
+        const cpuStart = now();
+        let cpuChecksum = 0;
+        for (let round = 0; round < rounds; round++) {
+          if (now() > pageDeadline) throw new Error('页面基准超过 60 秒内部截止');
+          for (const row of rows) {
+            const value = cpuSettle(row);
+            cpuChecksum += value.kw + value.yo + value.pivX;
+            for (const point of value.pointGnd) cpuChecksum += point;
+          }
+        }
+        const cpuMs = now() - cpuStart, expected = rows.map(originalExpected);
+        const entry = { label, count, rounds, totalRecords: count * rounds, scenes: sceneCounts(rows),
+          cpuMs, cpuChecksum, gpu: {},
+          residency: '各模式仅上传一次真实输入，重复计算后读回一次；持续组测试驻留吞吐' };
+        for (const mode of ['direct', 'matrix']) {
+          const gpu = await gpuRun(device, pipelines[mode], rows, rounds, mode);
+          const actual = unpack(rows, gpu), differences = [];
+          let exactRecords = 0, comparedValues = 0, boundaryStateChanges = 0;
+          for (let i = 0; i < rows.length; i++) {
+            const before = differences.length;
+            compare(expected[i], actual[i], mode, i, differences);
+            if (differences.length === before) exactRecords++;
+            comparedValues += 3 + rows[i].pts.filter(p => p.key).length;
+            for (let j = 0; j < rows[i].pts.length; j++) {
+              const p = rows[i].pts[j];
+              if (!p.key) continue;
+              const state = value => value === -p.up ? 'up' : value === p.down ? 'down' : 'free';
+              if (state(expected[i].pointGnd[j]) !== state(actual[i].pointGnd[j])) boundaryStateChanges++;
+            }
+          }
+          entry.gpu[mode] = { packMs: gpu.packMs, uploadMs: gpu.uploadMs, computeMs: gpu.computeMs,
+            readbackMs: gpu.readbackMs, endToEndMs: gpu.endToEndMs,
+            comparedValues, exactValues: comparedValues - differences.length,
+            exactValueRate: (comparedValues - differences.length) / comparedValues,
+            exactRecords, exactRecordRate: exactRecords / rows.length,
+            boundaryStateChanges, mismatchCount: differences.length, firstMismatches: differences.slice(0, 8),
+            maxAbsoluteError: differences.reduce((m, x) => Math.max(m, x.absoluteError || 0), 0) };
+          issues.push(...differences.slice(0, 8));
+        }
+        output.measurements.push(entry);
+      }
+      // 单独记录重复上传/读回的代价；128 批同样真实输入，CPU/GPU 工作量一致。
+      phase = '运行离线流式传输';
+      const streamRows = sampleRows(trace.records, 4096);
+      const streamExpected = streamRows.map(originalExpected);
+      const streamRounds = 128;
+      const streamValues = streamRows.reduce((sum, row) => sum + 3 + row.pts.filter(p => p.key).length, 0) * streamRounds;
+      const streamCpuStart = now();
+      let streamCpuChecksum = 0;
+      for (let i = 0; i < streamRounds; i++) {
+        if (now() > pageDeadline) throw new Error('页面基准超过 60 秒内部截止');
+        for (const row of streamRows) {
+          const value = cpuSettle(row);
+          streamCpuChecksum += value.kw + value.yo + value.pivX;
+          for (const point of value.pointGnd) streamCpuChecksum += point;
+        }
+      }
+      output.streaming = { label: 'offline-streaming-4096x128', count: 4096, rounds: streamRounds,
+        scenes: sceneCounts(streamRows),
+        totalRecords: 4096 * streamRounds, cpuMs: now() - streamCpuStart,
+        cpuChecksum: streamCpuChecksum,
+        note: '每批重新打包、上传、计算和读回；仍是跨帧离线聚合的传输成本实验', gpu: {} };
+      for (const mode of ['direct', 'matrix']) {
+        const times = [], differences = [];
+        let mismatchCount = 0;
+        const sink = { push(issue) { mismatchCount++; if (differences.length < 8) differences.push(issue); } };
+        for (let i = 0; i < streamRounds; i++) {
+          const sample = await gpuRun(device, pipelines[mode], streamRows, 1, mode);
+          const actual = unpack(streamRows, sample);
+          for (let j = 0; j < streamRows.length; j++) compare(streamExpected[j], actual[j], `流式 ${mode}`, j, sink);
+          times.push({ packMs: sample.packMs, uploadMs: sample.uploadMs, computeMs: sample.computeMs,
+            readbackMs: sample.readbackMs, endToEndMs: sample.endToEndMs });
+        }
+        output.streaming.gpu[mode] = { batches: times,
+          totalMs: times.reduce((sum, row) => sum + row.endToEndMs, 0),
+          comparedValues: streamValues, exactValues: streamValues - mismatchCount,
+          exactValueRate: (streamValues - mismatchCount) / streamValues,
+          mismatchCount, firstMismatches: differences };
+      }
+      phase = '验证构造边界';
+      output.constructedBoundary = {};
+      for (const mode of ['direct', 'matrix']) {
+        const gpu = await gpuRun(device, pipelines[mode], [boundary], 1, mode);
+        const differences = [];
+        compare(boundary.expected, unpack([boundary], gpu)[0], `构造 ${mode}`, -1, differences);
+        output.constructedBoundary[mode] = { exact: differences.length === 0, mismatches: differences };
+      }
+      output.gpuTaskDoneEpochMs = performance.timeOrigin + now();
+      output.mismatchCount = output.measurements.reduce((sum, row) => sum +
+        row.gpu.direct.mismatchCount + row.gpu.matrix.mismatchCount, 0) +
+        Object.values(output.constructedBoundary).reduce((sum, row) => sum + row.mismatches.length, 0) +
+        output.streaming.gpu.direct.mismatchCount + output.streaming.gpu.matrix.mismatchCount;
+      output.status = 'ok'; output.executionStatus = 'completed';
+      output.eligibility = output.mismatchCount || matrixMismatchCount ? 'rejected' : 'eligible';
+      if (output.mismatchCount) output.validationFailure = 'GPU 数值与原 JS Number 逐值不一致；本原型不能替代正式 settle';
+      else if (matrixMismatchCount) output.validationFailure = '浏览器中心化 Number 矩阵与同浏览器原顺序公式不一致';
+    } catch (error) {
+      output.status = 'error'; output.executionStatus = 'failed'; output.eligibility = 'not-evaluated';
+      output.phase = phase; output.error = String(error?.message || error);
+      output.errorStack = String(error?.stack || error);
+    }
+    return output;
+  }
+  window.runBenchmark = runBenchmark;
+  (async () => {
+    const timeout = new Promise((_resolve, reject) => setTimeout(() => reject(new Error('页面基准超过 60 秒内部截止')), 60000));
+    const task = (async () => runBenchmark(await (await fetch('/trace.json')).json()))();
+    const result = await Promise.race([task, timeout]);
+    document.querySelector('#result').textContent = JSON.stringify(result);
+    document.documentElement.dataset.done = 'true';
+  })().catch(error => {
+    document.querySelector('#result').textContent = JSON.stringify({ kind: 'evolve-gpu-settle-benchmark',
+      status: 'error', error: String(error?.message || error) });
+    document.documentElement.dataset.done = 'true';
+  });
+})();
+</script></html>

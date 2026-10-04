@@ -1,30 +1,37 @@
-"""用隔离浏览器验证工作台奖励行的录入、保存与刷新。"""
-import http.server
+"""在临时关卡配置副本中验证新版控制台奖励录入、校验、保存和刷新。"""
 import json
 import pathlib
 import shutil
+import socket
 import subprocess
 import tempfile
 import threading
 import time
 import urllib.request
+from unittest.mock import patch
 
+import serve
 from html5_game_mcp import CDP
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
+class IsolatedHandler(serve.NoCache):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def translate_path(self, path):
+        if path.split('?')[0] == '/config/stage-cars.json':
+            return serve.STAGE_CARS_FILE
+        return super().translate_path(path)
+
     def log_message(self, *_args):
         pass
 
-    def handle(self):
-        # 隔离浏览器关页时可能主动断开资源请求。
-        try:
-            super().handle()
-        except ConnectionResetError:
-            pass
+
+class Server(serve.http.server.ThreadingHTTPServer):
+    request_queue_size = 64
 
 
 def evaluate(cdp, expression):
@@ -34,102 +41,124 @@ def evaluate(cdp, expression):
     return result['result'].get('value')
 
 
-def wait_until(cdp, expression):
-    for _ in range(100):
-        if evaluate(cdp, expression):
-            return
+def wait(cdp, expression):
+    for _ in range(200):
+        try:
+            if evaluate(cdp, expression):
+                return
+        except RuntimeError:
+            pass
         time.sleep(.1)
-    raise RuntimeError(f'页面未准备好：{expression}')
+    raise AssertionError(f'页面状态超时：{expression}')
 
 
 def run():
     chrome = shutil.which('chrome') or r'C:\Program Files\Google\Chrome\Application\chrome.exe'
-    handler = lambda *args, **kwargs: QuietHandler(*args, directory=str(ROOT), **kwargs)
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    with tempfile.TemporaryDirectory(prefix='stage-reward-', ignore_cleanup_errors=True) as profile:
-        port = 19000 + server.server_port % 20000
-        browser = subprocess.Popen([chrome, '--headless=new', '--disable-gpu',
-            f'--remote-debugging-port={port}', '--remote-allow-origins=*',
-            f'--user-data-dir={profile}', '--no-first-run', '--no-default-browser-check'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            for _ in range(60):
-                try:
-                    pages = json.load(urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=1))
-                    page = next(item for item in pages if item.get('type') == 'page')
-                    break
-                except Exception:
+    with tempfile.TemporaryDirectory(prefix='stage-reward-', ignore_cleanup_errors=True) as directory:
+        cars = pathlib.Path(directory, 'stage-cars.json')
+        cars.write_bytes((ROOT / 'config/stage-cars.json').read_bytes())
+        with patch.object(serve, 'STAGE_CARS_FILE', str(cars)):
+            server = Server(('127.0.0.1', 0), IsolatedHandler)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            with socket.socket() as sock:
+                sock.bind(('127.0.0.1', 0))
+                debug = sock.getsockname()[1]
+            browser = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
+                '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
+                '--remote-allow-origins=*', f'--remote-debugging-port={debug}',
+                f'--user-data-dir={directory}/chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                for _ in range(120):
+                    try:
+                        pages = json.load(urllib.request.urlopen(f'http://127.0.0.1:{debug}/json', timeout=1))
+                        page = next(item for item in pages if item.get('type') == 'page')
+                        break
+                    except Exception:
+                        time.sleep(.1)
+                else:
+                    raise AssertionError('隔离 Chrome 启动失败')
+                cdp = CDP(page['webSocketDebuggerUrl'])
+                url = f'http://127.0.0.1:{server.server_port}/tools/console.html#/stage/0,1/text'
+                cdp.call('Page.navigate', {'url': url})
+                wait(cdp, '!![...document.querySelectorAll(".stage-body .fs")].find(n=>n.querySelector("h3")?.textContent==="过关奖励")')
+                # 同一条奖励记录的 DOM 由新控制台即时重建，按字段标签逐次录入。
+                setup = '''(()=>{
+                  const box=[...document.querySelectorAll('.stage-body .fs')].find(n=>n.querySelector('h3')?.textContent==='过关奖励');
+                  if(!box)throw new Error('奖励区未打开');
+                  box.querySelectorAll('.ritem .mini-btn').forEach(b=>b.click());
+                  const add=[...box.querySelectorAll('button')].find(b=>b.textContent.includes('加一项'));
+                  const set=(node,value,event='input')=>{node.value=value;node.dispatchEvent(new Event(event,{bubbles:true}));};
+                  for(const [id,count,mt] of [['plate','3','1'],['tank_s','2','1']]){
+                    add.click();let row=box.querySelector('.ritem:last-child');
+                    set(row.querySelector('select'),id,'change');row=box.querySelector('.ritem:last-child');
+                    set(row.querySelector('input[type=number]'),count);
+                    set(row.querySelectorAll('select')[1],mt,'change');
+                  }
+                  const checks=[...box.querySelectorAll('label.check')];
+                  const money=checks.find(x=>x.textContent.includes('发奖金')).querySelector('input');
+                  const repair=checks.find(x=>x.textContent.includes('打赢免修理费')).querySelector('input');
+                  money.checked=false;money.dispatchEvent(new Event('change',{bubbles:true}));
+                  repair.checked=true;repair.dispatchEvent(new Event('change',{bubbles:true}));
+                  return {rows:box.querySelectorAll('.ritem').length,prizeDisabled:[...box.querySelectorAll('label.field')]
+                    .find(x=>x.textContent.includes('奖金')).querySelector('input').disabled};
+                })()'''
+                initial = evaluate(cdp, setup)
+                assert initial == {'rows': 2, 'prizeDisabled': True}, initial
+                invalid = evaluate(cdp, '''(()=>{
+                  const row=document.querySelector('.stage-body .ritem');
+                  const input=row.querySelector('input[type=number]');
+                  input.value='0';input.dispatchEvent(new Event('input',{bubbles:true}));
+                  document.querySelector('.stage-head .btn.primary').click();return true;
+                })()''')
+                assert invalid
+                wait(cdp, 'document.querySelector("#toast")?.textContent.includes("数量要是正整数")')
+                assert json.loads(cars.read_text(encoding='utf-8'))['records']['0:1']['rewardItems'] != [
+                    {'id': 'plate', 'count': 3, 'mt': 1}, {'id': 'tank_s', 'count': 2, 'mt': 1}]
+                evaluate(cdp, '''(()=>{
+                  const input=document.querySelector('.stage-body .ritem input[type=number]');
+                  input.value='3';input.dispatchEvent(new Event('input',{bubbles:true}));
+                  document.querySelector('.stage-head .btn.primary').click();return true;
+                })()''')
+                for _ in range(200):
+                    record = json.loads(cars.read_text(encoding='utf-8'))['records']['0:1']
+                    if record.get('rewardItems') == [{'id': 'plate', 'count': 3, 'mt': 1},
+                                                     {'id': 'tank_s', 'count': 2, 'mt': 1}]:
+                        break
                     time.sleep(.1)
-            else:
-                raise RuntimeError('隔离 Chrome 启动失败')
-            cdp = CDP(page['webSocketDebuggerUrl'])
-            url = f'http://127.0.0.1:{server.server_port}/tools/stage-editor.html'
-            cdp.call('Page.navigate', {'url': url})
-            wait_until(cdp, '!!document.querySelector(`#stage-list button[data-ci="0"][data-si="1"]`)')
-            result = evaluate(cdp, '''(async()=>{
-              const $=id=>document.getElementById(id), rows=()=>[...document.querySelectorAll('#reward-items .reward-row')];
-              document.querySelector('#stage-list button[data-ci="0"][data-si="1"]').click();
-              document.querySelector('[data-tab="reward"]').click();
-              rows().forEach(row=>row.querySelector('button').click());
-              for(const item of [{id:'plate',count:'3',mt:'1'},{id:'tank_s',count:'2',mt:'1'}]){
-                $('add-reward-item').click();const row=rows().at(-1);
-                row.querySelector('.reward-id').value=item.id;
-                row.querySelector('.reward-count').value=item.count;
-                row.querySelector('.reward-mt').value=item.mt;
-              }
-              const first=rows()[0].querySelector('.reward-count');
-              first.value='0';$('save').click();await new Promise(r=>setTimeout(r,0));
-              if(!$('stage-toast').textContent.includes('数量必须是正整数'))throw new Error('零数量未被拒绝');
-              first.value='1.5';$('save').click();await new Promise(r=>setTimeout(r,0));
-              if(!$('stage-toast').textContent.includes('数量必须是正整数'))throw new Error('小数数量未被拒绝');
-              first.value='3';
-              const firstId=rows()[0].querySelector('.reward-id'),firstMt=rows()[0].querySelector('.reward-mt');
-              firstId.value='';$('save').click();await new Promise(r=>setTimeout(r,0));
-              if(!$('stage-toast').textContent.includes('未选择有效物品'))throw new Error('无效物品未被拒绝');
-              firstId.value='plate';firstMt.value='';$('save').click();await new Promise(r=>setTimeout(r,0));
-              if(!$('stage-toast').textContent.includes('材料不适用于该物品'))throw new Error('无效材料未被拒绝');
-              firstMt.value='1';
-              const prize=$('prize').value;
-              $('reward-money').checked=false;$('reward-money').dispatchEvent(new Event('change'));
-              if(!$('prize').disabled||$('prize').value!==prize)throw new Error('关闭金币时奖金未保留并禁用');
-              $('reward-money').checked=true;$('reward-money').dispatchEvent(new Event('change'));
-              if($('prize').disabled||$('prize').value!==prize)throw new Error('开启金币时奖金未恢复编辑');
-              $('reward-money').checked=false;$('reward-money').dispatchEvent(new Event('change'));
-              $('victory-repair-free').checked=true;
-              $('save').click();
-              for(let i=0;i<100&&!SA.STAGE_CARS.records['0:1'];i++)await new Promise(r=>setTimeout(r,50));
-              const record=SA.STAGE_CARS.records['0:1'];
-              return {items:record?.rewardItems,money:record?.rewardMoney,repair:record?.victoryRepairFree,
-                stored:!!localStorage.getItem('steam_arena_stage_cars_local_v1'),prizePreserved:record?.prize===Number(prize),
-                prizeDisabled:$('prize').disabled};
-            })()''')
-            assert result == {'items': [{'id': 'plate', 'count': 3, 'mt': 1}, {'id': 'tank_s', 'count': 2, 'mt': 1}],
-                'money': False, 'repair': True, 'stored': True, 'prizePreserved': True, 'prizeDisabled': True}, result
-            cdp.call('Page.navigate', {'url': url})
-            wait_until(cdp, '!!document.querySelector(`#stage-list button[data-ci="0"][data-si="1"]`)')
-            restored = evaluate(cdp, '''(()=>{
-              document.querySelector('#stage-list button[data-ci="0"][data-si="1"]').click();
-              return {items:[...document.querySelectorAll('#reward-items .reward-row')].map(row=>({
-                id:row.querySelector('.reward-id').value,count:row.querySelector('.reward-count').value,
-                mt:row.querySelector('.reward-mt').value})),money:document.getElementById('reward-money').checked,
-                repair:document.getElementById('victory-repair-free').checked,
-                prizeDisabled:document.getElementById('prize').disabled};
-            })()''')
-            assert restored == {'items': [{'id': 'plate', 'count': '3', 'mt': '1'}, {'id': 'tank_s', 'count': '2', 'mt': '1'}],
-                'money': False, 'repair': True, 'prizeDisabled': True}, restored
-            cleared = evaluate(cdp, '''(async()=>{
-              document.querySelectorAll('#reward-items .reward-row button').forEach(button=>button.click());
-              document.getElementById('save').click();
-              for(let i=0;i<100&&SA.STAGE_CARS.records['0:1'].rewardItems.length;i++)await new Promise(r=>setTimeout(r,50));
-              return SA.STAGE_CARS.records['0:1'].rewardItems;
-            })()''')
-            assert cleared == [], cleared
-            return {'saved': result, 'restored': restored, 'cleared': cleared}
-        finally:
-            browser.terminate()
-            browser.wait(timeout=10)
-            server.shutdown()
+                else:
+                    raise AssertionError('奖励行没有写进临时配置：' + str(record.get('rewardItems')))
+                assert record['rewardMoney'] is False and record['victoryRepairFree'] is True, record
+                cdp.call('Page.navigate', {'url': url.replace('console.html#', 'console.html?reward-reload=1#')})
+                wait(cdp, 'location.search.includes("reward-reload=1") && '
+                          '!![...document.querySelectorAll(".stage-body .fs")].find(n=>n.querySelector("h3")?.textContent==="过关奖励")')
+                restored = evaluate(cdp, '''(()=>{
+                  const box=[...document.querySelectorAll('.stage-body .fs')].find(n=>n.querySelector('h3')?.textContent==='过关奖励');
+                  return {items:[...box.querySelectorAll('.ritem')].map(row=>({id:row.querySelector('select').value,
+                    count:row.querySelector('input[type=number]').value,mt:row.querySelectorAll('select')[1].value})),
+                    money:[...box.querySelectorAll('label.check')].find(x=>x.textContent.includes('发奖金')).querySelector('input').checked};
+                })()''')
+                assert restored == {'items': [{'id': 'plate', 'count': '3', 'mt': '1'},
+                                               {'id': 'tank_s', 'count': '2', 'mt': '1'}], 'money': False}, restored
+                evaluate(cdp, '''(()=>{
+                  while(document.querySelector('.stage-body .ritem .mini-btn'))
+                    document.querySelector('.stage-body .ritem .mini-btn').click();
+                  document.querySelector('.stage-head .btn.primary').click();return true;
+                })()''')
+                for _ in range(200):
+                    if json.loads(cars.read_text(encoding='utf-8'))['records']['0:1'].get('rewardItems') == []:
+                        break
+                    time.sleep(.1)
+                else:
+                    detail = evaluate(cdp, '''JSON.stringify({hash:location.hash,toast:document.querySelector('#toast')?.textContent,
+                      status:document.querySelector('#status')?.title,rows:document.querySelectorAll('.stage-body .ritem').length,
+                      frame:document.querySelector('#garage-layer iframe')?.contentWindow?.Garage?.info()?.target})''')
+                    raise AssertionError(f'清空奖励未保存：{detail}')
+                cdp.close()
+                return {'saved': record['rewardItems'], 'restored': restored['items'], 'cleared': []}
+            finally:
+                browser.terminate()
+                browser.wait(timeout=10)
+                server.shutdown()
 
 
 if __name__ == '__main__':

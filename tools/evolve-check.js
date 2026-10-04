@@ -11,6 +11,7 @@ const path = require('path');
 const vm = require('vm');
 const evolve = require('./evolve');
 const coverage = require('./evolve-coverage');
+const sideHost = require('./evolve-side-host-check');
 const calibration = require('./ai-calibration');
 const battleConstants = require('./battle-constants-check');
 const evolveCandidates = require('./evolve-candidates-check');
@@ -20,6 +21,16 @@ const stageMetadata = require('./stage-metadata-check');
 const firstStageFix = require('./first-stage-fix-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
+const evolveProgression = require('./evolve-progression-check');
+const evolveCatalog = require('./evolve-catalog-check');
+const evolveParallelValidation = require('./evolve-parallel-validation-check');
+const evolveWorkersLimit = require('./evolve-workers-limit-check');
+const evolveDiversity = require('./evolve-diversity-check');
+const evolveLocked = require('./evolve-locked-check');
+const evolveExtraGenerations = require('./evolve-extra-generations-check');
+const evolveSeedRetention = require('./evolve-seed-retention-check');
+const evolveBossDiagnostics = require('./evolve-boss-diagnostics-check');
+const evolveCompare = require('./evolve-compare-check');
 const evolveFirstStage = require('./evolve-first-stage-check');
 const trackChain = require('./track-chain-check');
 const stageRules = require('./evolve-stage-rules-check');
@@ -42,6 +53,7 @@ const auditBattle = require('./battle-audit-check');
 const auditShare = require('./share-audit-check');
 const auditVisual = require('./visual-audit-check');
 const aiRush = require('./ai-rush-check');
+const gpuHeatBounds = require('./evolve-gpu-heat-bounds-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -176,14 +188,24 @@ function lockedStageCheck() {
 }
 
 async function main() {
+  gpuHeatBounds.run();
   // 先跑精确边界，数值错误或坏分享码不能被后面的批量模拟“正常结束”掩盖。
   const audit = { battle: auditBattle.run(), share: auditShare.run(), visual: auditVisual.run() };
   const constraints = stageRules.run(), tracks = trackChain.run();
+  const progression = evolveProgression.run(), diversity = evolveDiversity.run(), lockedEntry = evolveLocked.run();
+  const catalog = await evolveCatalog.run();
+  const parallelValidation = await evolveParallelValidation.run();
+  const workersLimit = await evolveWorkersLimit.run();
+  const extraGenerations = await evolveExtraGenerations.run();
+  const seedRetention = await evolveSeedRetention.run();
+  const bossDiagnostics = evolveBossDiagnostics.run();
+  const comparisonReport = evolveCompare.run();
   const check = evolve.check();
   const parallel = await evolve.parallelCheck();
   const impact = evolve.impactCheck();
   const cache = evolve.cacheCheck();
   const modules = coverage.run();
+  sideHost.run();
   // 只要求有解锁档位的模块都能生成；还没有档位的（所在关卡在布局 4 里删了）单独列出
   if (modules.found !== modules.total - modules.untiered.length) throw new Error(`模块覆盖不完整：${modules.found}/${modules.total - modules.untiered.length}`);
   const ai = calibration.selfCheck();
@@ -212,6 +234,16 @@ async function main() {
   result.battle = battle;
   result.runtime = runtime;
   result.selection = selection;
+  result.progression = progression;
+  result.catalog = catalog;
+  result.parallelValidation = parallelValidation;
+  result.workersLimit = workersLimit;
+  result.diversity = diversity;
+  result.lockedEntry = lockedEntry;
+  result.extraGenerations = extraGenerations;
+  result.seedRetention = seedRetention;
+  result.bossDiagnostics = bossDiagnostics;
+  result.comparisonReport = comparisonReport;
   result.firstStage = firstStage;
   result.stageRules = constraints;
   result.trackChain = tracks;

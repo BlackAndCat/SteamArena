@@ -9,6 +9,21 @@ SA.LEG_VARIANTS = moduleConfig.LEG_VARIANTS;
 SA.MATS = moduleConfig.MATS;
 SA.MAT_MAX = SA.MATS.length - 1;
 SA.INGOTS = moduleConfig.INGOTS;
+// AI 性格的唯一目录：等级按当前四构筑固定种子换边胜率分层，后续扩充样本须复核；training 不参与正式生成。
+// 目录只描述行为，不给枪法、血量或伤害附加数值。
+SA.AI_STYLES = Object.freeze([
+  ['rookie', '教学新手', '间歇开火并慌乱驾驶', 1, true],
+  ['clumsy', '武器生疏', '粗略选靶并错过开火窗口', 1, true],
+  ['misjudge', '距离失准', '误判距离后再间歇修正', 1, true],
+  ['hesitant', '迟疑不决', '观察后才接近和开火', 1, true],
+  ['wander', '游走', '在交战距离内游走', 3],
+  ['turtle', '驻守', '守住出发位置并微调射界', 3], ['rush', '猪突猛进', '逼近并顶压对手', 2],
+  ['kite', '距离大师', '依据有效射程拉扯', 3], ['evade', '规避', '看见来弹后短时机动', 2],
+  ['counter', '反击', '观察发射后利用空当', 2], ['burst', '爆发赌徒', '蓄势齐射后冷却', 1],
+  ['sniper', '卸械狙击', '持续瞄准高威胁武器', 3], ['assassin', '斩首狙击', '优先瞄准驾驶舱', 3],
+  ['disruptor', '动力猎手', '先毁供能再转攻要害', 3], ['veteran', '稳健老将', '根据超时局势调整风险', 3],
+].map(([id, name, description, tier, training = false]) => Object.freeze({ id, name, description, tier, training })));
+SA.normalizeAiStyle = style => SA.AI_STYLES.some(item => item.id === style) ? style : 'wander';
 // 恢复默认仅供作者明确操作；正常游戏始终读取 MODULES 的当前值。
 SA.MODULE_DEFAULTS = moduleConfig.factory.MODULES;
 // 描述模板的数字从同一份 K 配置读取，避免调参后文案与规则脱节。

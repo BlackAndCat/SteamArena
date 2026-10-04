@@ -1,50 +1,53 @@
-/* 选关标尺回归：用可控胜负隔离筛选算法，防止把当前章与上一章 Boss 混用。 */
+/* 选关回归：独立一百二十局复测相邻强度区间，并绑定双方最终 AI 性格。 */
 'use strict';
 const assert = require('assert');
 const evolve = require('./evolve');
 
 function run() {
-  // 第一章第 3 关已开放 2×2 重装甲，水箱可合法替换，保证对照分支实际跑到（关卡布局 4 只到这一关）。
-  const { SA } = evolve.loadGame(), spec = evolve.stageSpec(SA, 1, 2);
-  const base = evolve.minimalVehicle(SA, spec, 'water');
-  assert(base, '无法构造奖励车夹具');
-  // 对照会拆掉奖励水箱，显式保留一只小水罐维持冷却；不能依赖生成器错误地重复添加水箱。
-  let placed = false;
-  for (let r = 0; r < SA.V.CH && !placed; r++) for (let c = 0; c < SA.K.COLS && !placed; c++) {
-    const fit = SA.V.canPut(base, 'tank_s', r, c);
-    if (fit.ok && fit.fit) { base.body[r][c] = SA.newCell('tank_s', spec.mat); placed = true; }
-  }
-  assert(placed && evolve.legalVehicle(SA, base, spec), '缺少可合法替换水箱的独立冷却');
-  const make = (name, power) => ({ vehicle: { ...SA.V.clone(base), name, power }, style: 'wander', performance: 60, strength: 1000, terrainDelta: 0 });
-  const previous = make('上一章 Boss', 2), current = make('本章 Boss', 4), weak = make('弱候选', 1), strong = make('强候选', 3);
+  const { SA } = evolve.loadGame(), spec = evolve.previewStageSpec(SA, 1, 3);
+  const base = evolve.minimalVehicle(SA, spec);
+  assert(base && evolve.legalVehicle(SA, base, spec), '缺少合法的奖励车测试构筑');
+  const prior = SA.V.clone(base); prior.name = '前关入选车'; prior.testRate = 0;
+  const reference = { vehicle: prior, style: 'turtle' };
   const calls = [];
-  // 两个方向都由车辆的确定强弱决定胜负；保留真实 duel 的种子与胜率聚合，
-  // 并记录每次对局对象，检查奖励生效和同尺寸对照也引用上一章 Boss。
+
+  // 每轮两次换位共取连续的一百二十个种子，按20个种子为周期给出精确胜率。
   SA.Battle.simulate = options => {
     calls.push(options);
-    const winner = options.p.power > options.e.power ? 'p' : 'e';
-    return { winner, t: 30, reason: '驾驶舱', pDealt: 10, eDealt: 10, events: { p: {}, e: {} },
-      effectStats: { p: { water: { active: 4 } }, e: { water: { active: 4 } } }, metrics: {} };
+    const candidateIsP = !!options.p.testRate, candidate = candidateIsP ? options.p : options.e;
+    const candidateWins = options.seed % 20 < candidate.testRate / 5;
+    const winner = candidateWins ? (candidateIsP ? 'p' : 'e') : (candidateIsP ? 'e' : 'p');
+    return { winner, t: 30, reason: '驾驶舱', pDealt: 10, eDealt: 10,
+      events: { p: { fire: 1, hit: 1 }, e: { fire: 1, hit: 1 } }, metrics: {} };
   };
-  const bossSpec = { ...spec, boss: true, terrain: 'flat', rewardModule: null };
-  const boss = evolve.selectStageCandidate(SA, [weak, strong], bossSpec, previous, 'check', 10);
-  assert.strictEqual(boss.selected.vehicle.name, strong.vehicle.name, 'Boss 门槛仍在奖励打不过上一章 Boss 的弱车');
-  assert.strictEqual(boss.evidence.previousBossWinRate, 0, 'previousBossWinRate 必须表示上一章 Boss 的胜率');
-  assert.strictEqual(boss.evidence.previousBossPass, true);
-  const weakBoss = evolve.selectStageCandidate(SA, [weak], bossSpec, previous, 'check', 10);
-  assert.strictEqual(weakBoss.evidence.previousBossPass, false, '会被上一章 Boss 击败的候选不能通过门槛');
-  calls.length = 0;
-  const rewardSpec = { ...spec, boss: false, chapterHasBoss: true, terrain: 'flat', rewardModule: 'water' };
-  const reward = evolve.selectStageCandidate(SA, [strong], rewardSpec, current, 'check', 20, new Set(), null, previous);
-  assert.strictEqual(reward.evidence.bossWinRate, 1, '普通关的强度仍须以本章 Boss 衡量');
-  assert.strictEqual(reward.evidence.rewardWinRateAgainstPreviousBoss, 1, '奖励车强度下限误用了本章 Boss');
-  assert.strictEqual(reward.evidence.previousBossWinRate, 0, '防碾压门槛误用了本章 Boss');
-  assert.strictEqual(reward.evidence.rewardLowerBoundPass, true);
-  assert.strictEqual(reward.evidence.rewardCrushGuardPass, false, '对上一章 Boss 全胜的奖励车必须暴露碾压风险');
-  assert.strictEqual(reward.evidence.rewardEffectPass, true, '奖励生效证据没有被执行');
-  assert.notStrictEqual(reward.evidence.rewardControl, null, '夹具必须实际执行同尺寸替换对照');
-  assert(calls.slice(4).every(o => o.p.name === previous.vehicle.name || o.e.name === previous.vehicle.name), '奖励生效或替换对照误用了本章 Boss');
-  return { bossDirection: true, weakBossRejected: true, chapterTarget: true, previousBossReward: true };
+  const make = rate => {
+    const vehicle = SA.V.clone(base); vehicle.name = `候选-${rate}`; vehicle.testRate = rate;
+    return { vehicle, style: 'rush', performance: 60, strength: 1100, previousWinRate: rate / 100,
+      efficiency: evolve.efficiencyScore(SA.V.stats(vehicle), spec), terrainDelta: 0 };
+  };
+  const choose = (rate, seed) => evolve.selectStageCandidate(SA, [make(rate)], spec, reference, 'check', seed);
+  for (const rate of [60, 75]) {
+    calls.length = 0;
+    const result = choose(rate, 11000 + rate);
+    assert(result.selected, `${rate}% 合格边界被拒绝`);
+    assert.strictEqual(result.evidence.previousWinRate, rate / 100);
+    assert.strictEqual(result.evidence.previousGames, 120, '复测没有进行双方各60局');
+    assert.strictEqual(calls.length, 120);
+    assert(calls.every(call => call.p.testRate ? call.pStyle === 'rush' && call.eStyle === 'turtle' :
+      call.pStyle === 'turtle' && call.eStyle === 'rush'), '复测未使用双方绑定性格');
+  }
+  for (const rate of [50, 80]) {
+    const result = choose(rate, 11000 + rate);
+    assert.strictEqual(result.selected, null, `${rate}% 候选违反目标区间仍被入选`);
+    assert.strictEqual(result.evidence.targetPass, false, '诊断证据未记录强度失败');
+    assert(result.evidence.failed.includes('target'));
+  }
+  const noReward = make(65);
+  SA.V.each(noReward.vehicle, (cell, r, c, layer) => { if (cell.id === 'cannon') noReward.vehicle[layer][r][c] = null; });
+  assert.strictEqual(evolve.selectStageCandidate(SA, [noReward], spec, reference, 'check', 12000).selected, null,
+    '缺少本关奖励件仍被入选');
+  return { boundaryAccepted: true, tooWeakRejected: true, tooStrongRejected: true, games: 120, stylesBound: true };
 }
-if (require.main === module) console.log(JSON.stringify(run(), null, 2));
+
+if (require.main === module) console.log(JSON.stringify(run()));
 module.exports = { run };

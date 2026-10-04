@@ -1,6 +1,6 @@
 // 蒸汽竞技场 · 后台：把分散在各页的工作台、剧情、院子闲聊、视觉样机和游戏调试收进一个页面。
 // 新界面直接调用后台维护的数据接口：
-//   关卡车：嵌在「关卡 › 拼装」里的 console-garage.html（游戏车间编辑器 + 隔离设计存档 + SA.Camp.dev.saveStageCar）
+//   关卡车和候选车：共用隔离车间，各自按明确目标保存。
 //   剧情：SA.StoryData　院子闲聊：SA.YardChat　共用文本文件：SA.Text
 // 还没重做的工作台（进化擂台、数值自测、模块属性）原样嵌在框里用。
 // 这里只做界面和流程；数据规则、校验和写文件都走原接口。
@@ -78,7 +78,6 @@
 
   // ---------- 还没重做的工作台、视觉页 ----------
   const TOOLS = {
-    'stage-editor': { name: '关卡车工作台（旧版）', url: 'stage-editor.html', old: true, desc: '旧版关卡车工作台；拼装已经搬进「关卡」，这里留着备用' },
     'config-editor': { name: '正式配置编辑', url: 'config-editor.html', desc: '直接读取并保存 config 目录里的正式 JSON' },
     evolve: { name: '进化擂台', url: 'evolve.html', old: true, desc: '关卡车进化生成器：选关、强度 × 表现散点、分类网格、候选库' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
@@ -117,12 +116,14 @@
   ];
 
   // ---------- 战役数据 ----------
-  const STYLE = { wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩', rookie: '新手', roam: '游走' };
+  // 与战斗规则共用唯一性格目录；保留旧中文方案的导入别名。
+  const STYLE = Object.fromEntries(SA.AI_STYLES.map(item => [item.id, `${item.name} · ${['初级', '中级', '高级'][item.tier - 1]}${item.training ? ' · 教学' : ''}`]));
+  STYLE.roam = STYLE.wander;
   const chShort = (ch) => ch.name.split(' · ')[0];
   const chPlace = (ch) => ch.name.split(' · ')[1] || ch.place || '';
   const newStageDrafts = new Map();
   const validKey = (k) => /^\d+,\d+$/.test(k || '') && (newStageDrafts.has(k) || !!SA.CAMPAIGN[+k.split(',')[0]]?.stages[+k.split(',')[1]] && !SA.CAMPAIGN[+k.split(',')[0]].stages[+k.split(',')[1]].unfinished);
-  const STYLE_BY_NAME = { 龟缩: 'turtle', 冲锋: 'rush', 风筝: 'kite', 放风筝: 'kite', 游走: 'wander', 新手: 'rookie' };
+  const STYLE_BY_NAME = { ...Object.fromEntries(SA.AI_STYLES.map(item => [item.name, item.id])), 龟缩: 'turtle', 冲锋: 'rush', 风筝: 'kite', 放风筝: 'kite', 新手: 'rookie' };
   const planStage = (ci, si) => SA.CAMPAIGN_MAP?.chapters?.[ci]?.stages?.[si] || null;
   const newStageName = (ci, si) => planStage(ci, si)?.car || `新关卡 ${ci}-${si + 1}`;
   // 战役顺序里排在 (ci, si) 前面、已经做出来的最后一关（占位的空关不算）
@@ -190,20 +191,13 @@
   window.ConsoleNewStage = { get: (ci, si) => newStageDrafts.get(`${ci},${si}`) || null };
   const carJson = (v) => { try { return v ? JSON.stringify(SA.StageCars.cellsOf(v)) : ''; } catch (e) { return ''; } };
 
-  // 手工关卡车存在浏览器本机、或别的页面刚保存时，本页跟着换成新记录
-  const LOCAL_CARS = 'steam_arena_stage_cars_local_v1';
+  // 正式关卡配置是唯一来源；旧本机快照只由配置层执行一次性迁移。
   const silCache = new Map();   // 战役地图上车的剪影，关卡车一换就作废
-  function applyStageCars(records) {
+  function applyStageCars(records, replace = false) {
     if (!SA.STAGE_CARS || !SA.StageCars || !records) return;
     silCache.clear();
-    SA.STAGE_CARS.records = { ...(SA.STAGE_CARS.records || {}), ...records };
+    SA.STAGE_CARS.records = replace ? { ...records } : { ...(SA.STAGE_CARS.records || {}), ...records };
     try { SA.StageCars.applyToCampaign(); } catch (e) { console.warn(e); }
-  }
-  function applyLocalCars() {
-    try {
-      const local = JSON.parse(localStorage.getItem(LOCAL_CARS) || 'null');
-      if (local && local.records && (local.campaignLayout || 1) === SA.CAMPAIGN_LAYOUT) applyStageCars(local.records);
-    } catch (e) { /* 本机没有手工车 */ }
   }
 
   // ---------- 剧情场景 ----------
@@ -252,6 +246,15 @@
 
   // ---------- 关卡草稿：拼装台上的车 + 关卡资料（文字、奖励、解锁、锁定） ----------
   const stageDrafts = new Map();   // key → { fields, cells, base, dirtyCar, dirtyFields, arenaId, test }
+  const candidateDrafts = new Map(); // 候选 ID → 独立车辆草稿；不进入正式关卡保存队列。
+  function candidateDraft(id) {
+    if (!candidateDrafts.has(id)) {
+      const row = SA.EvolveArena?.get(id);
+      if (!row) throw new Error('候选车已不存在，请从进化报告重新打开');
+      candidateDrafts.set(id, { cells: null, base: '', name: row.record.name || '', dirty: false });
+    }
+    return candidateDrafts.get(id);
+  }
   function fieldsFrom(st) {
     const rec = recordOf(st.ci, st.si);
     return {
@@ -275,7 +278,7 @@
   let liveCarState = null;   // 拼装页签开着时，工具条上的「改了」提示跟着刷新
   function touchFields(key) { stageDraft(key).dirtyFields = true; refreshStatus(); markTree(); liveCarState?.(); }
 
-  // 资料 → 保存用的 meta：字段和旧工作台（tools/stage-editor.js readFields）一致，先在这里查一遍、说人话
+  // 资料 → 保存用的 meta：先在这里校验字段并给出清楚的错误。
   function buildMeta(d) {
     const f = d.fields;
     if (!f.vehicleName.trim()) throw new Error('车名不能为空');
@@ -305,7 +308,7 @@
   }
 
   // ---------- 拼装台：整个后台只开一个 console-garage.html，切关、切页签都不重新载入 ----------
-  const garage = { layer: null, frame: null, ready: null, key: null, slot: null, ro: null, poll: 0 };
+  const garage = { layer: null, frame: null, ready: null, key: null, candidateId: null, slot: null, ro: null };
   const garageApi = () => { try { return garage.frame?.contentWindow?.Garage || null; } catch (e) { return null; } };
   function ensureGarage() {
     if (garage.ready) return garage.ready;
@@ -317,6 +320,7 @@
       $('#main').append(garage.layer);
     } else garage.frame.src = 'console-garage.html';
     garage.key = null;
+    garage.candidateId = null;
     garage.ready = new Promise((resolve, reject) => {
       const t0 = Date.now();
       const poll = () => {
@@ -345,10 +349,18 @@
   // 把拼装台上那一关的现状记进它的草稿
   function captureGarage() {
     const G = garageApi();
-    if (!G || !garage.key) return;
-    const d = stageDraft(garage.key), now = G.cellsJson();
-    d.dirtyCar = !!now && now !== d.base;
-    d.cells = d.dirtyCar ? now : null;
+    if (!G) return;
+    const target = G.info()?.target;
+    if (garage.key && target?.kind === 'stage' && target.id === garage.key) {
+      const d = stageDraft(garage.key), now = G.cellsJson();
+      d.dirtyCar = !!now && now !== d.base;
+      d.cells = d.dirtyCar ? now : null;
+    } else if (garage.candidateId && target?.kind === 'candidate' && target.id === garage.candidateId) {
+      const d = candidateDraft(garage.candidateId), now = G.cellsJson();
+      d.dirty = !!now && (now !== d.base || G.info().name !== d.savedName);
+      d.cells = d.dirty ? now : null;
+      d.name = G.info().name;
+    }
   }
   // 拼装台同一时间只做一件事：「打开某关」和「打开 + 保存」排队执行，
   // 免得还没开完的另一关插进来，把拼装台上的当前关换掉、把资料存到别的关上
@@ -366,23 +378,49 @@
     const [ci, si] = key.split(',').map(Number), d = stageDraft(key);
     G.open(ci, si, d.cells ? JSON.parse(d.cells) : null, d.fields.vehicleName);
     garage.key = key;
+    garage.candidateId = null;
     if (!d.cells) d.base = G.cellsJson();   // 以拼装台读到的样子为准，免得两边排列不同误报改动
+    return G;
+  }
+  function candidateOpen(id) { return garageTask(() => candidateOpenNow(id)); }
+  async function candidateOpenNow(id) {
+    const G = await ensureGarage();
+    if (garage.candidateId === id) return G;
+    captureGarage();
+    const d = candidateDraft(id);
+    G.openCandidate(id, d.cells ? JSON.parse(d.cells) : null, d.name);
+    garage.key = null;
+    garage.candidateId = id;
+    if (!d.cells) { d.base = G.cellsJson(); d.savedName = G.info().name; }
     return G;
   }
   // 车间铭牌上改了车名：记进草稿，工具条上的车名跟着变
   window.addEventListener('message', (e) => {
-    if (e.origin !== location.origin || !e.data || e.data.type !== 'garage-name' || !garage.key) return;
-    const d = stageDraft(garage.key);
-    d.fields.vehicleName = String(e.data.name || '');
-    touchFields(garage.key);
-    const input = $('.build-bar .name');
-    if (input && input.value !== d.fields.vehicleName) input.value = d.fields.vehicleName;
+    if (e.origin !== location.origin || e.source !== garage.frame?.contentWindow || !e.data) return;
+    const target = e.data.target;
+    if (target?.kind === 'stage' && target.id === garage.key) {
+      if (e.data.type === 'garage-name') {
+        const d = stageDraft(garage.key);
+        d.fields.vehicleName = String(e.data.name || '');
+        touchFields(garage.key);
+        const input = $('.build-bar .name');
+        if (input && input.value !== d.fields.vehicleName) input.value = d.fields.vehicleName;
+      } else if (e.data.type === 'garage-change') {
+        captureGarage(); refreshStatus(); markTree(); liveCarState?.();
+      }
+    } else if (target?.kind === 'candidate' && target.id === garage.candidateId) {
+      if (e.data.type === 'garage-name' || e.data.type === 'garage-change') {
+        captureGarage(); refreshStatus();
+        const input = $('.candidate-bar .name');
+        if (input && input.value !== candidateDraft(target.id).name) input.value = candidateDraft(target.id).name;
+      }
+    }
   });
 
   // ---------- 保存：关卡车走规则层的保存接口，剧情和闲聊写共用文本文件；Ctrl+S 一次存完 ----------
   const textDirty = { story: new Set(), chat: new Set(), settings: false, tips: new Set() };
   const isTextDirty = () => !!(textDirty.story.size || textDirty.chat.size || textDirty.settings || textDirty.tips.size);
-  const isDirty = () => isTextDirty() || dirtyStages().length > 0;
+  const isDirty = () => isTextDirty() || dirtyStages().length > 0 || [...candidateDrafts.values()].some(d => d.dirty);
   function setStatus(state, detail) {
     const s = $('#status');
     if (!s) return;
@@ -390,7 +428,8 @@
     const label = { clean: '已保存', dirty: '有改动 · Ctrl+S 保存', saving: '正在保存…', error: '保存失败 · 点此重试' }[state];
     s.replaceChildren(el('i'), label);
     const n = dirtyStages().length;
-    const parts = [n && `${n} 关的关卡车或资料`, textDirty.story.size && `${textDirty.story.size} 幕剧情`, textDirty.chat.size && `${textDirty.chat.size} 个闲聊范围`,
+    const candidates = [...candidateDrafts.values()].filter(d => d.dirty).length;
+    const parts = [n && `${n} 关的关卡车或资料`, candidates && `${candidates} 台候选车`, textDirty.story.size && `${textDirty.story.size} 幕剧情`, textDirty.chat.size && `${textDirty.chat.size} 个闲聊范围`,
       textDirty.settings && '闲聊节奏', textDirty.tips.size && '点击人物对话'].filter(Boolean);
     s.title = detail || (parts.length ? `待保存：${parts.join('、')}` : '全部已保存');
   }
@@ -404,16 +443,57 @@
   }
   async function saveStage(key) {
     const d = stageDraft(key), meta = buildMeta(d), [ci, si] = key.split(',').map(Number);
+    const submitted = JSON.stringify({ cells: d.cells, fields: d.fields });
     const res = await garageTask(async () => {
       const G = await garageOpenNow(key);
       return newStageDrafts.has(key) ? G.saveNew(meta, { ci, si }) : G.save(meta, { ci, si });
     });
-    const G = garageApi();
-    if (newStageDrafts.has(key)) { newStageDrafts.delete(key); stageDrafts.delete(key); if (garage.key === key) garage.key = null; return { ...res, created: true }; }
+    if (newStageDrafts.has(key)) {
+      // 服务端已登记新关；本页同步登记同一目标，才能把飞行期间的新改动作为既有关再次保存。
+      const stages = SA.CAMPAIGN[ci].stages;
+      for (let index = stages.length; index <= si; index++) stages.push({ stageRef: `${ci}:${index}`, unfinished: true });
+      stages[si] = { stageRef: res.record.id };
+      if (!SA.STAGE_CARS.targets.includes(res.record.id)) SA.STAGE_CARS.targets.push(res.record.id);
+      newStageDrafts.delete(key);
+      applyStageCars({ [res.record.id]: res.record });
+      captureGarage();
+      if (JSON.stringify({ cells: d.cells, fields: d.fields }) === submitted) stageDrafts.delete(key);
+      else {
+        // 请求出发后的修改继续留在草稿；基线改为已落盘的 A 版本，下一次保存写 B 版本。
+        d.base = JSON.stringify(res.record.cells);
+        d.dirtyCar = !!d.cells && d.cells !== d.base;
+        if (!d.dirtyCar) d.cells = null;
+        d.dirtyFields = true;
+      }
+      return { ...res, created: true };
+    }
     applyStageCars({ [res.record.id]: res.record });
-    stageDrafts.delete(key);
-    stageDraft(key).base = G.cellsJson();
+    if (JSON.stringify({ cells: d.cells, fields: d.fields }) === submitted) {
+      stageDrafts.delete(key);
+      const G = garageApi();
+      if (garage.key === key && G?.info()?.target?.id === key) stageDraft(key).base = G.cellsJson();
+    }
+    else {
+      // 请求飞行期间继续编辑的内容仍是草稿，不被较早的保存响应清掉。
+      d.base = carJson(stageData(ci, si).vehicle);
+      d.dirtyFields = true;
+    }
     return res;
+  }
+  async function saveCandidate(id) {
+    const result = await garageTask(async () => {
+      const G = await candidateOpenNow(id);
+      return G.saveCandidate(id);
+    });
+    const d = candidateDraft(id), G = garageApi();
+    if (garage.candidateId === id && G?.info()?.target?.id === id) {
+      d.base = G.cellsJson(); d.savedName = G.info().name; d.name = d.savedName;
+    } else {
+      d.base = JSON.stringify(result.record.cells); d.savedName = result.record.name; d.name = d.savedName;
+    }
+    d.cells = null; d.dirty = false;
+    // 保存只写该候选 ID；当前画面已切到别处时，不读取新目标的车当作旧目标基线。
+    return result;
   }
   function stageNotice(res) {
     const warn = res.warnings?.length ? `\n提醒：${res.warnings.join('；')}` : '';
@@ -421,7 +501,7 @@
     if (res.persisted) return `只存到了本机浏览器，尚未写入正式配置；请用 python tools/serve.py 打开后台并重试保存。${warn}`;
     return `只在当前页面生效，关掉就没了：浏览器不让存本机。${warn}`;
   }
-  let saving = false;
+  let saving = false, pendingExternalCreate = false;
   async function saveAll() {
     if (saving) return;
     captureGarage();
@@ -437,6 +517,10 @@
           done.push(`${stageLabel(key)}：${stageNotice(res)}`);
           if (!res.filePersisted || res.warnings?.length) soft = true;
         } catch (e) { fails.push(`${stageLabel(key)} 没保存：${e.message || e}`); }
+      }
+      for (const [id, d] of candidateDrafts) if (d.dirty) {
+        try { const row = await saveCandidate(id); done.push(`候选车 ${row.record.name}：已保存，等待重新评估`); }
+        catch (e) { fails.push(`候选车 ${id} 没保存：${e.message || e}`); }
       }
       if (isTextDirty()) {
         let staged = false;
@@ -466,7 +550,8 @@
     } finally { saving = false; }
     if (fails.length) { setStatus(isDirty() ? 'error' : 'clean', fails.join('\n')); toast([...fails, ...done].join('\n'), 'bad'); }
     else { refreshStatus(); toast(done.join('\n') || '已保存', soft ? 'warn' : ''); }
-    if (created && !fails.length) { location.reload(); return; }
+    // 保存请求飞行期间仍可能产生新草稿；只在全部草稿确实落盘后刷新关卡结构。
+    if ((created || pendingExternalCreate) && !fails.length && !isDirty()) { location.reload(); return; }
     route(true);
   }
 
@@ -1541,6 +1626,63 @@
     requestAnimationFrame(() => list.querySelector('.st-item.on')?.scrollIntoView({ block: 'nearest' }));
   };
 
+  // 候选车只编辑独立候选库记录；它的保存按钮和 Ctrl+S 都不写正式关卡。
+  VIEWS.candidate = (rest, m) => {
+    const id = rest[0], row = SA.EvolveArena?.get(id);
+    if (!row || rest[1] && rest[1] !== 'build') {
+      setTitle('候选车不存在'); m.append(el('div.empty', { text: '候选车已不存在，请从进化报告重新打开' })); return;
+    }
+    const d = candidateDraft(id), spec = row.record.spec || {};
+    setTitle(`候选车 · ${d.name}`);
+    const slot = el('div.garage-slot', null, el('div.loading', { text: '正在把候选车推上拼装台……' }));
+    const name = el('input.name', { type: 'text', 'aria-label': '候选车名', value: d.name,
+      on: { input: (e) => {
+        d.name = e.target.value;
+        const G = garageApi();
+        if (garage.candidateId === id && G?.info()?.target?.id === id) G.setName(d.name);
+        d.dirty = d.name !== d.savedName || !!d.cells; refreshStatus();
+      } } });
+    const panel = el('div.build-panel', { hidden: true });
+    const importButton = el('button.btn.sm', { type: 'button', on: { click: () => {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) {
+        const input = el('textarea', { rows: 3, class: 'mono', placeholder: 'SA2.… 分享码，或模块清单' });
+        panel.replaceChildren(input, el('button.btn.sm.primary', { type: 'button', on: { click: async () => {
+          try {
+            const G = await candidateOpen(id);
+            if (!slot.isConnected) return;
+            G.importText(input.value, d.name);
+            captureGarage(); refreshStatus(); panel.hidden = true; placeGarage();
+          } catch (error) { toast(error.message || String(error), 'bad'); }
+        } } }, '换上这台车'));
+        input.focus();
+      }
+      requestAnimationFrame(placeGarage);
+    } } }, '导入…');
+    const back = Number.isInteger(spec.chapter) && Number.isInteger(spec.stage)
+      ? `#/stage/${spec.chapter},${spec.stage}/build` : '#/stage';
+    const bar = el('div.build-bar.candidate-bar', null,
+      el('a.btn.sm.ghost', { href: back }, icon('left'), '返回关卡'),
+      el('label.field.inline', null, '候选车名', name), importButton, el('span.grow'),
+      el('span.chip', { text: row.favorite ? '已收藏' : '候选车' }),
+      el('button.btn.sm.primary', { type: 'button', on: { click: () => saveAll() } }, '保存候选车'));
+    m.append(el('div.view', null, el('section.stage', null, bar, panel, slot)));
+    garage.slot = slot;
+    ensureGarage().then(async () => {
+      if (!slot.isConnected) return;
+      await candidateOpen(id);
+      if (!slot.isConnected) return;
+      slot.replaceChildren(); placeGarage();
+      if (garage.ro) garage.ro.disconnect();
+      garage.ro = new ResizeObserver(placeGarage); garage.ro.observe(slot);
+    }).catch((error) => { if (slot.isConnected) slot.replaceChildren(el('div.loading', { text: `拼装台没能打开：${error.message || error}` })); });
+    onLeave(() => {
+      captureGarage(); garage.slot = null;
+      if (garage.ro) { garage.ro.disconnect(); garage.ro = null; }
+      hideGarage();
+    });
+  };
+
   // 拼装页签：上面一条工具条，下面是游戏车间（拼装台）
   function buildTab(body, key, st, d) {
     body.classList.add('build');
@@ -1552,11 +1694,22 @@
       carState.textContent = d.dirtyCar && d.dirtyFields ? '车和资料都改了' : d.dirtyCar ? '车改了' : d.dirtyFields ? '资料改了' : '';
       carState.hidden = !carState.textContent;
     };
-    const withGarage = (fn) => async () => { try { const G = await garageOpen(key); await fn(G); } catch (e) { toast(e.message || String(e), 'bad'); } };
+    const withGarage = (fn) => async () => {
+      try {
+        const G = await garageOpen(key);
+        if (!slot.isConnected || G.info()?.target?.id !== key) return;
+        await fn(G);
+      } catch (e) { toast(e.message || String(e), 'bad'); }
+    };
     const changed = (msg) => { captureGarage(); refreshStatus(); markTree(); showCarState(); toast(msg); };
 
     const name = el('input.name', { type: 'text', 'aria-label': '车名', placeholder: '车名', value: f.vehicleName,
-      on: { input: (e) => { f.vehicleName = e.target.value; touchFields(key); garageApi()?.setName(e.target.value); showCarState(); } } });
+      on: { input: (e) => {
+        f.vehicleName = e.target.value; touchFields(key);
+        const G = garageApi();
+        if (garage.key === key && G?.info()?.target?.id === key) G.setName(e.target.value);
+        showCarState();
+      } } });
     const lock = el('input', { type: 'checkbox', checked: f.locked, on: { change: (e) => { f.locked = e.target.checked; touchFields(key); showCarState(); } } });
     const panel = el('div.build-panel', { hidden: true });
     const cand = el('select', { 'aria-label': '进化候选车', title: '进化擂台里挑出来的候选车', style: 'width:150px' }, el('option', { value: '', text: '进化候选车…' }));
@@ -1578,7 +1731,7 @@
       sep(),
       el('button.btn.sm', { type: 'button', title: '粘贴分享码或模块清单，换上那台车', on: { click: togglePanel } }, '导入…'),
       cand,
-      el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(Number(cand.value)); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
+      el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(cand.value); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
       sep(),
       el('button.btn.sm', { type: 'button', title: '用拼装台上这台车去游戏的试驾场打一场', on: { click: withGarage((G) => { G.drivePick({ name: f.name, terrain: f.terrain, style: f.style }); go('game/drive'); }) } }, '试驾'),
       el('button.btn.sm', { type: 'button', title: '交给进化生成器当种子，正式关卡不变', on: { click: withGarage((G) => { d.arenaId = G.saveArena(d.arenaId, { name: f.name, style: f.style, terrain: f.terrain }); toast('已存到进化擂台（正式关卡没动）'); }) } }, '存到进化擂台'),
@@ -1603,26 +1756,17 @@
 
     garage.slot = slot;
     ensureGarage().then(async (G) => {
+      if (!slot.isConnected) return;
       await garageOpen(key);
       if (!slot.isConnected) return;
       slot.replaceChildren();
       placeGarage();
-      G.candidates().forEach((c) => cand.append(el('option', { value: c.i, text: c.from ? `${c.name} · ${c.from}` : c.name })));
+      G.candidates().forEach((c) => cand.append(el('option', { value: c.id, text: c.from ? `${c.name} · ${c.from}` : c.name })));
       if (garage.ro) garage.ro.disconnect();
       garage.ro = new ResizeObserver(placeGarage);
       garage.ro.observe(slot);
-      // 每秒看一眼拼装台：车动过就标上「没保存」，顺便对齐位置（工具条换行时拼装台跟着挪）
-      clearInterval(garage.poll);
-      garage.poll = setInterval(() => {
-        if (!slot.isConnected) { clearInterval(garage.poll); return; }
-        const was = d.dirtyCar;
-        captureGarage();
-        if (was !== d.dirtyCar) { refreshStatus(); markTree(); showCarState(); }
-        placeGarage();
-      }, 1000);
     }).catch((e) => { if (slot.isConnected) slot.replaceChildren(el('div.loading', { text: `拼装台没能打开：${e.message || e}` })); });
     onLeave(() => {
-      clearInterval(garage.poll);
       captureGarage();
       garage.slot = null;
       liveCarState = null;
@@ -1644,7 +1788,7 @@
       return el('label.field', null, label, s);
     };
     const check = (label, k) => el('label.check', null, el('input', { type: 'checkbox', checked: f[k], on: { change: upd((e) => { f[k] = e.target.checked; }) } }), label);
-    const styles = Object.entries({ wander: '游走', rush: '冲锋', kite: '放风筝', turtle: '龟缩' });
+    const styles = SA.AI_STYLES.map(item => [item.id, STYLE[item.id]]);
     if (STYLE[f.style] && !styles.some(([k]) => k === f.style)) styles.push([f.style, STYLE[f.style]]);
 
     const basic = el('div.fs', null, el('h3', { text: '关卡' }), el('div.fgrid', null,
@@ -1854,7 +1998,6 @@
     const t = TOOLS[rest[0]];
     if (!t) { VIEWS.home([], m); return; }
     let url = t.url;
-    if (rest[0] === 'stage-editor' && validKey(rest[1])) url += `?stage=${encodeURIComponent(rest[1])}`;
     if (rest[0] === 'modules' && SA.MODULES[rest[1]]) url += `?module=${encodeURIComponent(rest[1])}`;
     frameView(m, { title: t.name, url, actions: [], chips: t.old ? [el('span.chip', { text: '旧版 · 接下来重做' })] : [] });
   };
@@ -1941,7 +2084,6 @@
     ['global', ...SA.CAMPAIGN.flatMap((ch, ci) => [`chapter:${ci}`, ...ch.stages.map((_, si) => `stage:${ci}:${si}`)])].forEach((s) => add('院子闲聊', scopeName(s), `chat/${s}`, s));
     (SA.LABS?.ITEMS || []).forEach((it) => add('样机', it.name, `lab/${it.id}`, `${it.ver} ${it.id}`));
     Object.entries(SA.MODULES).filter(([, mod]) => !mod.retired && mod.name).forEach(([id, mod]) => add('模块', mod.name, 'open/modules', id));
-    add('旧版', '关卡车工作台（旧版）', 'open/stage-editor', 'stage editor 关卡车拼装');
     return items;
   }
   function openPalette() {
@@ -1998,21 +2140,42 @@
     if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); document.activeElement?.blur?.(); saveAll(); }
   });
   window.addEventListener('beforeunload', (e) => { captureGarage(); if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
-  // 关卡车在别的页面（旧工作台、另一个后台标签）保存后，本页的章节树和关卡资料跟着换
+  // 另一标签或嵌入车间更新候选库时刷新干净的视图，保留当前未保存车辆。
+  window.addEventListener('storage', (e) => {
+    if (e.key !== SA.EvolveArena?.KEY) return;
+    const active = parse();
+    const id = active.view === 'candidate' ? active.rest[0] : null;
+    const dirty = id && candidateDrafts.get(id)?.dirty;
+    for (const [key, draft] of candidateDrafts) if (!draft.dirty) candidateDrafts.delete(key);
+    if (dirty && !saving) toast('候选库已在别处更新；当前未保存的车仍保留在拼装台', 'warn');
+    if (!saving && id && !dirty) route(true);
+  });
+  // 关卡车在别的后台标签保存后，读取正式配置并保留本页未保存草稿。
   try {
     const channel = new BroadcastChannel('steam-arena-stage-cars');
     channel.onmessage = (e) => {
-      const p = e.data?.type === 'replace' && e.data.payload;
-      if (!p?.records || (p.campaignLayout || 1) !== SA.CAMPAIGN_LAYOUT) return;
-      applyStageCars(p.records);
-      palItems = null;
-      if (!saving && ['stage', 'map'].includes(parse().view)) route(true);
+      if (e.data?.type === 'created') {
+        if (saving || isDirty()) {
+          pendingExternalCreate = true;
+          toast('别的后台新增了关卡；先保存当前草稿，页面随后会刷新关卡结构', 'warn');
+        } else location.reload();
+        return;
+      }
+      if (e.data?.type !== 'saved') return;
+      try {
+        SA.Config.clear('stage-cars');
+        const fresh = SA.Config.get('stage-cars');
+        if (!fresh?.records || (fresh.campaignLayout || 1) !== SA.CAMPAIGN_LAYOUT) return;
+        applyStageCars(fresh.records, true);
+        for (const [key, d] of stageDrafts) if (!d.dirtyCar && !d.dirtyFields) stageDrafts.delete(key);
+        palItems = null;
+        if (!saving && ['stage', 'map'].includes(parse().view)) route(true);
+      } catch (error) { console.error('后台关卡配置刷新失败', error); }
     };
   } catch (e) { /* 不支持频道的浏览器只在本页更新 */ }
 
   async function boot() {
     if (SA.PX?.init) SA.PX.init();   // 游戏里的像素木纹桌面（--px-desk）
-    applyLocalCars();
     buildShell();
     $('#view-root').append(el('div.empty', { text: '正在读取文本文件……' }));
     SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', toolbar: false });

@@ -1,4 +1,4 @@
-"""在临时项目副本验证正式配置写入、旧缓存迁移与发行包字节一致性。"""
+"""在临时项目副本验证正式配置写入、旧文本迁移与发行包字节一致性。"""
 import copy
 import hashlib
 import http.client
@@ -45,11 +45,18 @@ def check(root, port):
     key = stage_before['targets'][0]
     stage_record = copy.deepcopy(stage_before['records'][key])
     stage_record.update(id=key, source='manual', name='临时端到端关卡')
-    expect_saved(port, '/__stage-cars/save', {'record': stage_record})
+    packet = {'workbenchVersion': 1, 'target': {'kind': 'stage', 'id': key}, 'record': stage_record}
+    expect_saved(port, '/__stage-cars/save', packet)
     stage_after = read(root, 'stage-cars')
     assert stage_after['records'][key]['name'] == '临时端到端关卡'
     assert all(stage_after['records'][other] == stage_before['records'][other]
                for other in stage_before['targets'] if other != key)
+    # 已开着的旧工作台没有目标协议；拒绝时不得改写正式车。
+    before_legacy = (root / 'config/stage-cars.json').read_bytes()
+    for invalid in ({'record': stage_record}, {**packet, 'target': {'kind': 'stage', 'id': '0:999'}}):
+        status, result = request(port, '/__stage-cars/save', invalid)
+        assert status == 400 and '旧版工作台已停用' in result.get('error', '')
+        assert (root / 'config/stage-cars.json').read_bytes() == before_legacy
 
     modules_before = read(root, 'modules')
     module_id = modules_before['MODULE_ORDER'][0]
@@ -99,6 +106,11 @@ def check(root, port):
                  'values': newer, 'removedElements': migrated['removedElements']})
     assert not expect_saved(port, '/__config/migrate', payload)['migrated']
     assert read(root, 'text')['values']['e2e:legacy'] == '正式新稿'
+    # 历史跳转片段里即使带旧关卡车，也绝不回灌覆盖新版正式记录。
+    before_stage = (root / 'config/stage-cars.json').read_bytes()
+    old_stage = json.dumps({'records': {key: {**stage_record, 'name': '不应回灌的旧车'}}}, ensure_ascii=False)
+    assert not expect_saved(port, '/__config/migrate', {'steam_arena_stage_cars_local_v1': old_stage})['migrated']
+    assert (root / 'config/stage-cars.json').read_bytes() == before_stage
 
     # 旧归档接口只有明确的停用响应，不能成为第二条写入路径。
     before_archive = {name: (root / 'config' / f'{name}.json').read_bytes() for name in CONFIG_NAMES}
@@ -163,7 +175,7 @@ def main():
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait(timeout=5)
-    print('正式配置六域保存、失败不写盘、旧缓存迁移、发行包同字节：通过')
+    print('正式配置六域保存、失败不写盘、仅文本缓存迁移、发行包同字节：通过')
 
 
 if __name__ == '__main__':

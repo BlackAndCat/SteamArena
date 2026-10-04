@@ -1,4 +1,4 @@
-/* 进化生成器的单局并行 worker：每个 worker 自己加载一份游戏规则，避免共享可变战斗状态。 */
+/* 进化生成器的并行 worker：各自加载规则并串行模拟，避免跨线程共享可变战斗状态。 */
 'use strict';
 
 const { parentPort } = require('worker_threads');
@@ -9,10 +9,30 @@ const { SA } = evolve.loadGame();
 
 parentPort.on('message', task => {
   try {
+    // 主线程传入 f32 近似或已认证预测，并保留来源；未命中仍执行原 CPU 精确路径。
+    if (task.thermalPredictions) SA.V.installThermalPredictions(task.thermalPredictions);
+    if (task.kind === 'ready') { parentPort.postMessage({ id: task.id, result: true }); return; }
     if (task.kind === 'evaluate') {
       config.performance = task.performance;
+      const before = SA.V.thermalSummary();
       const result = evolve.evaluateCandidate(SA, task.vehicle, task.opponents, task.spec, task.seed, task.games);
-      parentPort.postMessage({ id: task.id, result });
+      const after = SA.V.thermalSummary();
+      parentPort.postMessage({ id: task.id, result, thermalCounters: Object.fromEntries(Object.keys(after).map(key => [key, after[key] - before[key]])) });
+      return;
+    }
+    if (task.kind === 'duel') {
+      // 供对照测试保留旧整包任务；正式最终复测在 pool 拆分为 duel-part。
+      const before = SA.V.thermalSummary();
+      const result = evolve.duel(SA, task.candidate, task.opponent, task.spec, task.seed, task.games);
+      const after = SA.V.thermalSummary();
+      parentPort.postMessage({ id: task.id, result, thermalCounters: Object.fromEntries(Object.keys(after).map(key => [key, after[key] - before[key]])) });
+      return;
+    }
+    if (task.kind === 'duel-part') {
+      const before = SA.V.thermalSummary();
+      const result = evolve.duelRows(SA, task.candidate, task.opponent, task.spec, task.seed, task.start, task.count);
+      const after = SA.V.thermalSummary();
+      parentPort.postMessage({ id: task.id, result, thermalCounters: Object.fromEntries(Object.keys(after).map(key => [key, after[key] - before[key]])) });
       return;
     }
     const p = SA.V.decode(task.p), e = SA.V.decode(task.e);

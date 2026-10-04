@@ -41,3 +41,9 @@ SA.BUILD_SYS += '+stage-create-budget-rollback'; // 新建关卡同时登记逐�
 SA.BUILD_SYS += '+evolve-route-after'; // 进化擂台按真实原点车预演后续主线计划关，并支持工作台交接。
 SA.BUILD_SYS += '+side-mount-host-rules'; // 侧挂完整承托于装甲，装弹机只增强兼容宿主武器。
 SA.BUILD_SYS += '+side-lines-martha'; // 支线系统（SA.Side，content.json SIDE_LINES）：拦路关 / 打完某主线关开放；支线战斗照常带回战损，首胜发固定奖励并缴获，赢过以后按重打；「玛莎的复仇」两关（用户要求 Opus 改）。
+
+SA.BUILD_SYS += '+workbench-session-v1'; // 工作台按正式关卡或候选车目标隔离草稿与保存；移除旧关卡缓存回灌。
+SA.BUILD_SYS += '+ai-styles-15'; // 十五种性格、统一等级目录及固定样本行为验收。
+SA.BUILD_SYS += '+evolve-progression-diversity-v1'; // 逐关强度、解锁约束和形态多样性进化筛选。
+SA.BUILD_SYS += '+armor-speed-cache'; // 装甲罚速随损毁刷新，避免逐帧重复遍历车身。
+SA.BUILD_SYS += '+evolve-f32-heat-split-duel'; // 进化预热使用近似 f32 热量预测，最终复测按双向种子对并行拆包。

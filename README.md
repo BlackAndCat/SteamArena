@@ -12,6 +12,8 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 本地预览服务默认只监听 `127.0.0.1`。页面覆盖、关卡车与进化任务的写入接口只接受本机同源页面；本机命令行请求没有 `Origin` 时仍可使用。服务写入校验可运行 `python -m unittest tools/test_serve_security.py`。
 
+AI 性格专项行为验收运行 `node tools/ai-style-check.js`；四构筑固定种子换边对照运行 `node tools/ai-style-check.js --benchmark`（输出含规则与夹具指纹）。
+
 双击项目根目录的 `publish.cmd`，会从当前工作区打包正式配置与运行文件，更新 `tools/out` 中的发行目录和 ZIP，并提交、推送到发行仓 `main`。首次运行会在 `tools/out/release` 建立发行仓，原有非 Git 发行目录会保留为相邻备份；不要求先提交当前工作区的作者修改。仅需打包时，运行 `python tools/package-release.py`（可指定 `--settings`、`--output-root`）。需要直接修改配置时，可在本机服务打开 `tools/config-editor.html`。旧作者缓存会在本机服务加载时迁入正式配置；页面提示保存成功后才算落盘。
 
 普通游戏的「设置」可两次确认后删除当前进度并从开场重来；蓝图库和作者设计会保留，设计模式不显示此入口。
@@ -20,13 +22,13 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 需要让 AI 快速操作或批量测试 HTML5 游戏时，可启动零依赖的本地 MCP：`python tools/html5_game_mcp.py`。它通过 Chrome DevTools Protocol 提供脚本执行、键鼠输入、固定步长推进和蒸汽竞技场无画面模拟；完整工具说明见 [docs/html5-game-mcp.md](docs/html5-game-mcp.md)。
 
-然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；悬挂与爬坡样机：http://localhost:5173/tools/suspension-lab.html ；进化擂台与数值自测：http://localhost:5173/tools/evolve.html（旧 `tools/sim.html` 入口自动跳转到自测页签）；关卡车工作台：http://localhost:5173/tools/stage-editor.html
+然后打开 http://localhost:5173 。美术自查页：http://localhost:5173/tools/spritesheet.html；双足底盘升级版设计探索：http://localhost:5173/tools/biped-lab.html ；真双足样机：http://localhost:5173/tools/biped-v2.html ；全局子格套件：http://localhost:5173/tools/mech-kit.html ；地形美术样机：http://localhost:5173/tools/terrain-lab.html ；悬挂与爬坡样机：http://localhost:5173/tools/suspension-lab.html ；进化擂台与数值自测：http://localhost:5173/tools/evolve.html（旧 `tools/sim.html` 入口自动跳转到自测页签）；关卡控制台：http://localhost:5173/tools/console.html
 
-进化擂台可选择整章或某一关，设置种群、代数、每对局数、并行数与随机种子后生成报告；运行时显示完成步数 / 总步数、当前章关与代数、已用时间，并每 5 秒按本次累计速度估算剩余时间，刷新页面可继续查看。总步骤包含候选评估、关卡整理、筛选和报告保存。需要安装 Node.js，并用 `python tools/serve.py` 启动本机服务。局部生成保留其他关卡结果，未审阅预算标为草案，预演不写正式关卡。分类网格可收藏车型、打开工作台修改；工作台的“保存到进化擂台”使用拼装车间里的车名，自动标为手工修改并清除旧战绩，返回后可作为后续进化种子。收藏与手工车保存在当前浏览器的独立本机候选库中，不随最近三份报告清理；不符合当前模块表、预算或缺少本关奖励件的车保留原样，但跳过进化并提示原因。候选车必须携带奖励模块，节约与实战强度统一尺度后按 6:4 计分；详情显示计算结果。胜率来自同档标尺的换边实战，显示样本数，平局计半胜；它不等同于新手玩家通关率。数值自测与报告在同一页切换，已有自测结果继续保留。
+进化擂台可选择整章或某一关，设置种群、代数、每对局数、并行数与随机种子后生成报告；运行时显示完成步数 / 总步数、当前章关与代数、已用时间，并每 5 秒按本次累计速度估算剩余时间，刷新页面可继续查看。总步骤包含候选评估、关卡整理、筛选和报告保存。需要安装 Node.js，并用 `python tools/serve.py` 启动本机服务。局部生成保留其他关卡结果，未审阅预算标为草案，预演不写正式关卡。分类网格可收藏车型、打开控制台的候选车拼装页修改；“保存到进化擂台”使用拼装车间里的车名，自动标为手工修改并清除旧战绩，返回后可作为后续进化种子。收藏与手工车保存在当前浏览器的独立本机候选库中，不随最近三份报告清理；不符合当前模块表、预算或缺少本关奖励件的车保留原样，但跳过进化并提示原因。候选车必须携带奖励模块，节约与实战强度统一尺度后按 6:4 计分；详情显示计算结果。胜率来自同档标尺的换边实战，显示样本数，平局计半胜；它不等同于新手玩家通关率。数值自测与报告在同一页切换，已有自测结果继续保留。
 
-侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、进化报告、关卡车工作台、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp-ui.js` 的 `DEV_TOOLS` 就会出现在面板上。关卡车工作台也可从这里直接打开。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱；`SA.dev.designMode()` 开启隔离设计存档，`SA.dev.loadStageCar(ch, st)` 把关卡车送进车间，`SA.dev.saveStageCar(ch, st)` 保存，`SA.dev.exitDesign()` 恢复正式存档。
+侧边栏底部的「开发者」按钮是开发入口（其中「试驾场」可以任选场地，对手从战役各关 / 终局锦标赛 / 官方蓝图 / 我的蓝图 / 云车库 / 随机街头车里挑，还能改对手的材料、AI 性格和枪法，用你现在的车打友谊赛）：上面列出全部开发工具（数值自测、进化报告、关卡控制台、模块精灵表、机甲套件、双足样机与设计探索），点一下在新标签页打开，不用记网址；下面是存档调试：一键全部解锁（外加 £10000 和锭）、跳到任意章节、加钱、清空存档。新工具页加到 `js/camp-ui.js` 的 `DEV_TOOLS` 就会出现在面板上。关卡控制台也可从这里直接打开。控制台同样可用：`SA.reset()` 清空存档；`SA.dev.goto(n)` 直接跳到第 n 章（前面的解锁全部发放），`SA.dev.unlockAll()` 全部解锁，`SA.dev.money(n)` 加钱；`SA.dev.designMode()` 开启隔离设计存档，`SA.dev.loadStageCar(ch, st)` 把关卡车送进车间，`SA.dev.saveStageCar(ch, st)` 保存，`SA.dev.exitDesign()` 恢复正式存档。
 
-模块属性工作台：在「开发者」面板或关卡车工作台打开 `tools/module-editor.html`，按名称或类别选模块，直接调整文字和玩法属性并点「一键保存」或按 Ctrl+S（Mac 上为 Cmd+S）。本机服务保存成功后写入 `config/modules.json`；已打开的游戏页面刷新后读取新属性。
+模块属性工作台：在「开发者」面板打开 `tools/module-editor.html`，按名称或类别选模块，直接调整文字和玩法属性并点「一键保存」或按 Ctrl+S（Mac 上为 Cmd+S）。本机服务保存成功后写入 `config/modules.json`；已打开的游戏页面刷新后读取新属性。
 
 院子聊天工作台：从「开发者」面板打开 `tools/yard-chat-editor.html`，默认定位当前关卡，也可切到全局、章节或任意关卡。可编排单句与成套对答，调整每组出现权重、独立冷却和天气条件，并设置整体聊天间隔、对答句间隔、气泡留存时间。切换范围会保留本页未保存的编辑；点「一键保存」或按 Ctrl+S 将全部待保存范围写入 `config/text.json`。关卡或章节可选择「恢复继承上一级」。
 
@@ -34,7 +36,7 @@ python tools/serve.py        # 等同 python -m http.server 5173，但禁止浏�
 
 审计边界回归可分别运行 `node tools/battle-audit-check.js`（双足耐久、实伤计分、辅助件与持续伤害）、`node tools/share-audit-check.js`（损坏分享码和旧蓝图）及 `node tools/visual-audit-check.js`（双足专属外观与车间渲染循环）。三组检查也已接入 `node tools/evolve-check.js`，完整后台检查会先运行这些边界用例。
 
-新档初始车为黄铜四件车：履带、小锅炉、小机枪、头盔驾驶舱。已有档保持原车；控制台 `SA.dev.resetVehicle()` 可主动换回这台车，原件保留耐久、改装和唯一身份退库，资金与战役进度不变。剧情数据由 `SA.StoryData.list/get/set/save/point` 管理；在标题页开启「页面管理」编辑，或启用剧情开发者模式后，可点「编排开场剧情」复用剧情编辑器调整开场台词、角色、分镜和顺序，Ctrl+S 保存，试播结束返回编辑器；从开场演出进入编辑后关闭会从新内容重播开场。开发者模式下的战前控制台保留剧情编辑、播放与继续开战，并可在新窗口直达当前关卡车工作台。工作台的关卡文字页可分别编辑关卡名、车名、驾驶员、赛前介绍和弱点提示；车名也与拼装车间的性能单铭牌同步。所有现有章节均可手工保存，保存后已打开的游戏页会同步；出战列表显示关卡名，战斗中的敌车显示车名。非战役对战打开普通工作台。专项检查：`node tools/story-dev-check.js` 和 `node tools/stage-metadata-check.js`，已纳入完整后台检查。
+新档初始车为黄铜四件车：履带、小锅炉、小机枪、头盔驾驶舱。已有档保持原车；控制台 `SA.dev.resetVehicle()` 可主动换回这台车，原件保留耐久、改装和唯一身份退库，资金与战役进度不变。剧情数据由 `SA.StoryData.list/get/set/save/point` 管理；在标题页开启「页面管理」编辑，或启用剧情开发者模式后，可点「编排开场剧情」复用剧情编辑器调整开场台词、角色、分镜和顺序，Ctrl+S 保存，试播结束返回编辑器；从开场演出进入编辑后关闭会从新内容重播开场。开发者模式下的战前控制台保留剧情编辑、播放与继续开战，并可在新窗口直达控制台的当前关卡拼装页。控制台的关卡文字页可分别编辑关卡名、车名、驾驶员、赛前介绍和弱点提示；车名也与拼装车间的性能单铭牌同步。所有现有章节均可手工保存，保存后已打开的游戏页会同步；出战列表显示关卡名，战斗中的敌车显示车名。非战役对战打开普通工作台。专项检查：`node tools/story-dev-check.js` 和 `node tools/stage-metadata-check.js`，已纳入完整后台检查。
 
 多人 / 多代理协作的规则、分工、Git 流程见 [docs/collab.md](docs/collab.md)；后台和视觉工作清单分别见 [astra 看板](docs/board-astra.md) 和 [Opus 看板](docs/board-opus.md)。
 

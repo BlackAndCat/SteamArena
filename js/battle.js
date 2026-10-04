@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-03-reload-spread-recoil';
+SA.RULES_VERSION = '2026-10-03-ai-styles';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -32,6 +32,7 @@ SA.Battle = (() => {
   // 散布分布：两个均匀数相加（三角分布），中间密、边缘稀，但扇区边缘确实会打到
   const gauss = () => random() + random() - 1;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const aiStyles = SA.AI_STYLES, normalizeAiStyle = SA.normalizeAiStyle;
   // 每门炮以本轮发射后的实际周期计算进度，供驾驶员分配与装填提示共用。
   function reloadProgress(s, w) {
     const left = s.timers[w.key] || 0;
@@ -56,6 +57,7 @@ SA.Battle = (() => {
     // 开战时每门存活武器都已装满，首次发射后才记录各自的完整装填周期。
     for (const w of s.weapons) s.timers[w.key] = 0;
     s.startHp = SA.V.maxHp ? SA.V.stats(s.v).maxHp : 0;
+    s.startSupply = s.supply;
     s.maxHeat = 0;
     s.minWater = s.water;
     s.armed = s.weapons.length > 0;   // 开局有武器（敌方判负规则用）
@@ -440,6 +442,10 @@ SA.Battle = (() => {
   function fire(s, o, w, side, focus = s.focus) {
     // 鱼叉已牵引时保持绳索，直到绳索断开才允许再次发射。
     if (w.cell.id === 'harpoon' && s.tether) return;
+    // 只观察已成功发射的最高威胁武器，即使它由副驾驶操控也可被对手看见。
+    const primary = s.weapons.filter(x => !x.blocked).sort((a, b) => (b.m.dmg || 0) / Math.max(0.4, b.m.reload || 1) - (a.m.dmg || 0) / Math.max(0.4, a.m.reload || 1))[0];
+    if (primary?.key === w.key) { s.lastMainFireAt = B.t; s.lastMainReload = w.m.reload; }
+    if (B.aiStats) B.aiStats[isP(s) ? 'p' : 'e'].shots += w.m.salvo || 1;
     const spread = spreadDeg(s, o, w, focus);
     let jit = gauss() * spread;
     if (random() < (w.m.wild || 0)) jit += (random() < T.WILD_SIGN_CHANCE ? -1 : 1) * rnd(T.WILD_JITTER_MIN, T.WILD_JITTER_MAX) * w.m.spread; // 偏弹
@@ -980,8 +986,7 @@ SA.Battle = (() => {
     const util = availableSupply ? Math.min(1, s.demand / availableSupply) : 0;
     s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
     s.driveAvailableKw = Math.max(0, availableSupply - s.equip);
-    // 每帧重算：挂甲被击毁后，下一帧即按存活装甲解除对应侧罚速。
-    s.armorSpeedFactor = SA.V.armorSpeedFactor(s.v);
+    // 装甲罚速由 refresh 缓存；模块损毁会调用 refresh，下一帧即可解除已失去的端部装甲罚速。
     s.speedMul = (s.driveKw ? Math.min(K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0) * s.armorSpeedFactor;
     drive(s, dt);
     const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
@@ -1070,12 +1075,12 @@ SA.Battle = (() => {
     return [x + s.err.x, y + s.err.y];
   }
   // 按权重随机挑一个敌方模块当目标：武器、驾驶舱、锅炉优先
-  function pickTarget(o) {
+  function pickTarget(o, uniform = false) {
     const cands = [];
     SA.V.each(o.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       const id = cell.id;
-      const w = layer === 'side' ? T.AI_TARGET_WEIGHTS.side : M[id].dmg ? T.AI_TARGET_WEIGHTS.weapon : SA.isCockpit(id) ? T.AI_TARGET_WEIGHTS.cockpit : M[id].supply ? T.AI_TARGET_WEIGHTS.boiler : M[id].water ? T.AI_TARGET_WEIGHTS.water : M[id].layer === 'chassis' ? T.AI_TARGET_WEIGHTS.chassis : T.AI_TARGET_WEIGHTS.other;
+      const w = uniform ? 1 : layer === 'side' ? T.AI_TARGET_WEIGHTS.side : M[id].dmg ? T.AI_TARGET_WEIGHTS.weapon : SA.isCockpit(id) ? T.AI_TARGET_WEIGHTS.cockpit : M[id].supply ? T.AI_TARGET_WEIGHTS.boiler : M[id].water ? T.AI_TARGET_WEIGHTS.water : M[id].layer === 'chassis' ? T.AI_TARGET_WEIGHTS.chassis : T.AI_TARGET_WEIGHTS.other;
       cands.push({ w, t: { layer, r, c } });
     });
     let x = random() * cands.reduce((a, b) => a + b.w, 0);
@@ -1096,6 +1101,53 @@ SA.Battle = (() => {
     return [x + co.err.x, y + co.err.y];
   }
   const canMelee = (s) => s.rams > 0 || (s.chassisId === 'biped' && s.balance === '平衡' && !s.bipedLegDead && s.speed > 0);
+  // 定点性格只比较存活模块；侧挂武器仍按武器本身的伤害与装填评价。
+  function priorityTarget(s, o, style, w) {
+    const cands = [];
+    let obstruction = null;
+    SA.V.each(o.v, (cell, r, c, layer) => {
+      if (!alive(cell)) return;
+      const m = SA.mod(cell), weapon = !!m.dmg, cockpit = SA.isCockpit(cell.id), boiler = !!m.supply;
+      let score = style === 'sniper' ? weapon ? 100 + m.dmg / Math.max(0.4, m.reload || 1) : cockpit ? 20 : 1
+        : style === 'assassin' ? cockpit ? 200 : weapon ? 25 : 1
+        : boiler && o.supply > o.startSupply * 0.5 ? 200 : weapon ? 70 + m.dmg / Math.max(0.4, m.reload || 1) : cockpit ? 50 : 1;
+      const pt = modCenter(o, layer, r, c);
+      if (w) {
+        const a = aimAngle(s, w, pt[0], pt[1]);
+        if (a.behind || !a.reach || a.over) score = 0;
+        else {
+          const hit = predict(s, o, w, a.a, layer === 'side').hit;
+          if (!hit || hit.layer !== layer || hit.r !== r || hit.c !== c) {
+            if (hit && !obstruction) obstruction = { layer: hit.layer, r: hit.r, c: hit.c };
+            score = 0;
+          }
+        }
+      }
+      cands.push({ t: { layer, r, c }, score });
+    });
+    cands.sort((a, b) => b.score - a.score);
+    return { target: cands[0]?.score > 0 ? cands[0].t : obstruction || cands[0]?.t || null, score: cands[0]?.score || 0 };
+  }
+  // 对可见来弹采样短时弹道，比较刹停、前进和后退后的受击帧数。
+  function evadeAction(s, o) {
+    const shots = B.shots.filter(sh => sh.from === o && sh.to === s && sh.delay <= 0 && !sh.done);
+    if (!shots.length) return null;
+    const risks = [0, -1, 1].map(dir => {
+      let hits = 0, clearance = 0;
+      for (const sh of shots) for (let t = 0.15; t <= 1.2; t += 0.1) {
+        const x = sh.x + sh.vx * t, y = sh.y + sh.vy * t + sh.g * t * t / 2;
+        if (y < VY - 180 || y > groundAt(s.x + VW / 2) + 20) continue;
+        const carX = s.x + VW / 2 + s.vx * t + dir * Math.min(80, s.speed * t * t * 0.35);
+        const dist = Math.abs(x - carX);
+        if (dist < 110) hits++;
+        clearance += Math.min(200, dist);
+      }
+      return { dir, hits, clearance };
+    });
+    if (!risks[0].hits) return null;
+    risks.sort((a, b) => a.hits - b.hits || b.clearance - a.clearance);
+    return risks[0].dir;
+  }
   function ai(s, o, dt) {
     if (s.dead) return;
     const profile = s.aiProfile || {};
@@ -1103,14 +1155,30 @@ SA.Battle = (() => {
     const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow / 100 : T.AI_HEAT_LOW;
     if (s.heat / s.heatMax > heatHigh) s.hold = true; else if (s.heat / s.heatMax < heatLow) s.hold = false;
     s.retarget -= dt;
-    const tAlive = s.target && alive(o.v[s.target.layer][s.target.r][s.target.c]);
+    const style = normalizeAiStyle(s.style);
+    const tAlive = s.target && alive(o.v[s.target.layer]?.[s.target.r]?.[s.target.c]);
     if (!tAlive || s.retarget <= 0) {
-      s.target = pickTarget(o);
+      const precise = ['sniper', 'assassin', 'disruptor'].includes(style);
+      const ranked = precise ? s.weapons.filter(w => !w.blocked).sort((a, b) => (b.m.dmg || 0) / Math.max(0.4, b.m.reload || 1) - (a.m.dmg || 0) / Math.max(0.4, a.m.reload || 1)) : [];
+      let best = ranked[0], choice = precise ? priorityTarget(s, o, style, best) : null;
+      // 首选炮没有有效射线时，再试其他已存活武器；始终以实际选中的炮评估目标。
+      for (const w of ranked.slice(1)) {
+        if (choice.score > 0) break;
+        const alt = priorityTarget(s, o, style, w);
+        if (alt.score > 0) { best = w; choice = alt; }
+      }
+      s.target = precise ? choice.target : pickTarget(o, style === 'clumsy');
+      if (B.aiStats && s.target) {
+        const id = o.v[s.target.layer][s.target.r][s.target.c].id, m = M[id];
+        const kind = m.dmg ? 'weapon' : SA.isCockpit(id) ? 'cockpit' : m.supply ? 'boiler' : 'other';
+        const targets = B.aiStats[isP(s) ? 'p' : 'e'].targets;
+        targets[kind] = (targets[kind] || 0) + 1;
+      }
       const e = (1 - s.aim) * T.AI_ERROR_SCALE + T.AI_ERROR_BIAS;
       s.err = { x: gauss() * e, y: gauss() * e * T.AI_ERROR_Y_SCALE };
-      s.retarget = rnd(T.AI_RETARGET_MIN, T.AI_RETARGET_MAX) * (Number.isFinite(profile.retargetFactor) ? profile.retargetFactor : 1);
+      s.retarget = (['sniper', 'assassin', 'disruptor'].includes(style) ? 1.3 : rnd(T.AI_RETARGET_MIN, T.AI_RETARGET_MAX)) * (Number.isFinite(profile.retargetFactor) ? profile.retargetFactor : 1);
       // 选武器组：直射打得到就直射，否则换高抛
-      s.sel = s.groups[Math.floor(random() * s.groups.length)] || null;
+      s.sel = best?.cell.id || s.groups[Math.floor(random() * s.groups.length)] || null;
       if (s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
         const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
@@ -1118,7 +1186,7 @@ SA.Battle = (() => {
         if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect && !x.blocked));
       }
     }
-    if (s.style === 'rookie') {
+    if (style === 'rookie') {
       // 教学新手的时序和远近驾驶权重来自配置；随机调用顺序保持不变，确保回放可复现。
       if (!s.rookie) s.rookie = { fireT: rnd(...T.AI_ROOKIE_FIRE_START), firing: false, driveT: rnd(...T.AI_ROOKIE_DRIVE_START) };
       const novice = s.rookie;
@@ -1137,18 +1205,24 @@ SA.Battle = (() => {
         s.dir = choices[Math.floor(random() * choices.length)];
         novice.driveT = s.dir === -fwd ? rnd(...T.AI_ROOKIE_DRIVE_BACK) : rnd(...T.AI_ROOKIE_DRIVE_OTHER);
       }
+      if (B.aiStats) {
+        const st = B.aiStats[isP(s) ? 'p' : 'e'], fwd = isP(s) ? 1 : -1;
+        if (s.fireHeld) st.fireIntent += dt;
+        if (s.dir === fwd) st.advance += dt;
+        if (s.dir === -fwd) st.retreat += dt;
+      }
       return;
     }
     s.fireHeld = !!s.target;
     // 移动：按性格来。默认 = 有撞击武器就周期性冲撞，否则在交战距离内游走；
     // rush 冲锋：几乎一直在冲，退也只退一小段助跑；kite 放风筝：保持远距离，很少冲撞；turtle 龟缩：守在出发点附近
-    const rushMelee = s.style === 'rush' && canMelee(s);
+    const rushMelee = style === 'rush' && canMelee(s);
     const pureMeleeRush = rushMelee && s.weapons.length === 0;
     // 混合武装在火力段失去最后一门炮时，立即改用近战短撤步节奏。
     if (pureMeleeRush && !s.charge) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME);
     s.moveT -= dt;
     if (s.moveT <= 0) {
-      const sty = s.style;
+      const sty = style;
       // 未接触前持续冲锋；纯近战可继续顶推，混合武装接触后必定转入火力段。
       s.charge = canMelee(s) && sty !== 'turtle' && (sty === 'rush' ? !s.charge || !B.contact || (pureMeleeRush && random() < T.AI_CHARGE_RUSH_CHANCE) : !s.charge && random() < (sty === 'kite' ? T.AI_CHARGE_KITE_CHANCE : T.AI_CHARGE_DEFAULT_CHANCE));
       const [lo, hi] = sty === 'kite' ? T.AI_MOVE_RANGE_KITE : sty === 'rush' ? T.AI_MOVE_RANGE_RUSH : T.AI_MOVE_RANGE_DEFAULT;
@@ -1170,6 +1244,112 @@ SA.Battle = (() => {
     else if (selected && selected.m.range && gapNow > selected.m.range * T.AI_RANGE_MARGIN) s.dir = fwd;
     else if (s.charge) { s.dir = isP(s) ? 1 : -1; if (B.contact && Math.abs(s.vx) < T.AI_CONTACT_SPEED) s.moveT = Math.min(s.moveT, T.AI_CONTACT_MOVE_TIME); }
     else s.dir = Math.abs(s.goalX - s.x) > T.AI_GOAL_EPSILON ? Math.sign(s.goalX - s.x) : 0;
+    const gap = Math.abs(frontEdge(o) - frontEdge(s));
+    const main = selected || s.weapons.find(w => !w.blocked);
+    const usefulRange = clamp((main?.m.range || 650) * 0.65, 180, 650);
+    if (style === 'rush') {
+      // 近战被拆掉后也持续贴近炮战；接触时有近战则顶压。
+      if (pureMeleeRush && !s.charge) s.dir = -fwd;
+      else if (canMelee(s) && s.charge) s.dir = fwd;
+      else if (!canMelee(s) && gap > 190) s.dir = fwd;
+      else if (gap < 90 && !canMelee(s)) s.dir = -fwd;
+    } else if (style === 'kite') {
+      // 距离由当前可用主武器决定，射界失效时优先回到可射位置。
+      if (lob && (!lob.reach || lob.over === 'low')) s.dir = fwd;
+      else if (gap > usefulRange + 70) s.dir = fwd;
+      else if (gap < usefulRange - 70 && Math.abs(s.x - s.homeX) < 320 && (!B.bounds || (s.x > B.bounds.left + 70 && s.x + VW < B.bounds.right - 70))) s.dir = -fwd;
+      else s.dir = 0;
+    } else if (style === 'turtle') {
+      // 预测射线被地形或其他模块挡住时允许有限位移寻找射界。
+      const pt = main && aiAimPoint(s, o), a = pt && aimAngle(s, main, pt[0], pt[1]);
+      const hit = a && predict(s, o, main, a.a, s.target?.layer === 'side').hit;
+      if (main && (!a?.reach || a.over || !hit) && gap > 100) s.dir = fwd;
+      if (Math.abs(s.x - s.homeX) > 110) s.dir = Math.sign(s.homeX - s.x);
+    } else if (style === 'sniper' || style === 'assassin') {
+      // 稳车使散布收紧，但两秒内仍必须寻找并抓住开火窗口。
+      if (gap > usefulRange) s.dir = fwd;
+      else if (Math.abs(s.vx) > 45) s.dir = -Math.sign(s.vx);
+      else s.dir = 0;
+      s.aimWait = (s.aimWait || 0) + dt;
+      s.fireHeld = !!s.target && (Math.abs(s.vx) < 65 || s.aimWait > 2);
+      if (s.lastMainFireAt != null && s.lastMainFireAt !== s.aimLastFire) { s.aimWait = 0; s.aimLastFire = s.lastMainFireAt; }
+    } else if (style === 'disruptor') {
+      if (gap > usefulRange * 0.85) s.dir = fwd;
+      else if (gap < 170) s.dir = -fwd;
+      else s.dir = 0;
+    } else if (style === 'evade') {
+      const dodge = evadeAction(s, o);
+      if (dodge !== null && B.t >= (s.evadeUntil || 0) && (s.evadeReact || 0) <= 0) {
+        s.evadeReact = 0.2;
+        s.evadeDir = dodge;
+      }
+      if (s.evadeReact > 0) {
+        s.evadeReact -= dt;
+        if (s.evadeReact <= 0) s.evadeUntil = B.t + 0.8;
+      }
+      if (B.t < (s.evadeUntil || 0)) s.dir = s.evadeDir;
+    } else if (style === 'counter') {
+      // 未观察到发射时照常交战；观察到后利用短暂空当进攻，不读取对方装填表。
+      const elapsed = B.t - (o.lastMainFireAt ?? -Infinity);
+      const opening = clamp((o.lastMainReload || 1) * 0.8, 0.6, 2.2);
+      if (elapsed >= 0 && elapsed <= 0.25 && opening > 0.8) s.fireHeld = false;
+      else if (elapsed > 0.25 && elapsed < opening) { s.dir = fwd; s.fireHeld = !!s.target; }
+      else if (gap < usefulRange * 0.75) s.dir = -fwd;
+    } else if (style === 'burst') {
+      const state = s.burst || (s.burst = { phase: 'ready', until: B.t + 1.5 });
+      const armed = s.weapons.filter(w => !w.blocked && w.cell.id === s.sel);
+      const rapid = armed.some(w => w.m.reload < 1.2);
+      if (state.phase === 'ready' && (armed.length && armed.every(w => (s.timers[w.key] || 0) <= 0) || B.t >= state.until)) { state.phase = 'burst'; state.started = B.t; state.until = B.t + (rapid ? 3.4 : 2.3); }
+      if (state.phase === 'burst' && (B.t >= state.until || s.heat / s.heatMax > 0.97 && B.t - state.started > 0.8)) {
+        state.phase = 'cool'; state.until = B.t + (rapid ? s.heat / s.heatMax > 0.8 ? 0.65 : 0.2 : 0.55);
+      }
+      if (state.phase === 'cool' && (B.t >= state.until || rapid && s.heat / s.heatMax < 0.65 && armed.every(w => (s.timers[w.key] || 0) <= 0) && B.t - (s.lastMainFireAt ?? -Infinity) > 0.2)) { state.phase = 'ready'; state.until = B.t + 1.5; }
+      s.fireHeld = !!s.target && state.phase === 'burst';
+      if (state.phase === 'cool') s.dir = gap < 220 ? -fwd : 0;
+    } else if (style === 'veteran') {
+      // 与超时判定使用同一伤害/耐久比例；临近超时或落后时主动缩短距离。
+      const mine = s.dealt / Math.max(1, o.startHp) * T.SCORE_DAMAGE_WEIGHT + hpFrac(s) * T.SCORE_HP_WEIGHT;
+      const theirs = o.dealt / Math.max(1, s.startHp) * T.SCORE_DAMAGE_WEIGHT + hpFrac(o) * T.SCORE_HP_WEIGHT;
+      const urgent = mine < theirs + 0.025 || K.BATTLE_TIME - B.t < 18;
+      if (urgent || hpFrac(o) < 0.2) s.dir = gap > 130 ? fwd : 0;
+      else if (gap < usefulRange * 0.8) s.dir = -fwd;
+      else if (gap > usefulRange) s.dir = fwd;
+      else s.dir = 0;
+    } else if (style === 'clumsy') {
+      // 武器手生会在装好后错过一小段窗口，随后照正常炮管、弹道和热量规则开火。
+      if (!s.clumsy) s.clumsy = { firing: false, until: B.t + 0.9 };
+      if (B.t >= s.clumsy.until) {
+        s.clumsy.firing = !s.clumsy.firing;
+        s.clumsy.until = B.t + (s.clumsy.firing ? 1.1 : 0.8);
+      }
+      s.fireHeld = !!s.target && s.clumsy.firing;
+    } else if (style === 'misjudge') {
+      // 驾驶者交替误认为应该贴脸或远退；短暂修正时仍会向有效射程回归。
+      if (!s.misjudge) s.misjudge = { phase: 0, until: B.t + 3.8 };
+      if (B.t >= s.misjudge.until) { s.misjudge.phase = (s.misjudge.phase + 1) % 3; s.misjudge.until = B.t + (s.misjudge.phase === 2 ? 0.9 : 3.8); }
+      const desired = s.misjudge.phase === 0 ? (main?.m.indirect ? 35 : 95) : s.misjudge.phase === 1 ? Math.min(1000, (main?.m.range || 650) * 1.15) : usefulRange;
+      s.dir = gap > desired + 50 ? fwd : gap < desired - 50 ? -fwd : 0;
+      // 错误的距离信念同时影响开火时机；短暂纠正期仍可照常交战。
+      s.fireHeld = !!s.target && (s.misjudge.phase === 2 || Math.abs(gap - desired) < 130);
+    } else if (style === 'hesitant') {
+      // 观察与行动分段，观察期结束必定恢复交战，避免永久停火。
+      if (!s.hesitant) s.hesitant = { acting: false, until: B.t + 1.3 };
+      if (B.t >= s.hesitant.until) {
+        s.hesitant.acting = !s.hesitant.acting;
+        s.hesitant.until = B.t + (s.hesitant.acting ? 2.4 : 1.3);
+      }
+      if (!s.hesitant.acting) { s.dir = 0; s.fireHeld = false; }
+    }
+    if (B.aiStats) {
+      const st = B.aiStats[isP(s) ? 'p' : 'e'];
+      if (s.fireHeld) st.fireIntent += dt;
+      if (s.dir === fwd) st.advance += dt;
+      if (s.dir === -fwd) st.retreat += dt;
+      if (style === 'evade' && B.t < (s.evadeUntil || 0)) st.evade += dt;
+      if (style === 'counter' && B.t - (o.lastMainFireAt ?? -Infinity) < 2.2) st.counter += dt;
+      if (style === 'burst' && s.burst?.phase === 'burst') st.burst += dt;
+      if (style === 'veteran' && (s.dealt / Math.max(1, o.startHp) < o.dealt / Math.max(1, s.startHp) || K.BATTLE_TIME - B.t < 18)) st.chase += dt;
+    }
   }
 
   // 失去战斗力：没有动力（锅炉全毁），或者没有能开火的武器。返回原因，否则为 null
@@ -1450,7 +1630,7 @@ SA.Battle = (() => {
       speed: view ? view.gameSpeed() : K.GAME_SPEED, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX);
-    B.e.style = opts.style || null;
+    B.e.style = normalizeAiStyle(opts.style);
     B.e.boss = !!opts.boss;
     return B;
   }
@@ -1476,7 +1656,7 @@ SA.Battle = (() => {
         events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, heatMax: B.p.heatMax, minWater: B.p.minWater, failureType: B.p.failureType, failureAt: B.p.failureAt, firstWaterEmptyAt: B.p.firstWaterEmptyAt, firstHeatMaxAt: B.p.firstHeatMaxAt, fireHeldAtFailure: B.p.fireHeldAtFailure, holdAtFailure: B.p.holdAtFailure, ventAtFailure: B.p.ventAtFailure, holdSeconds: B.p.holdSeconds, fireHeldSeconds: B.p.fireHeldSeconds, ventCount: B.p.ventCount }, e: { ...B.e.events, maxHeat: B.e.maxHeat, heatMax: B.e.heatMax, minWater: B.e.minWater, failureType: B.e.failureType, failureAt: B.e.failureAt, firstWaterEmptyAt: B.e.firstWaterEmptyAt, firstHeatMaxAt: B.e.firstHeatMaxAt, fireHeldAtFailure: B.e.fireHeldAtFailure, holdAtFailure: B.e.holdAtFailure, ventAtFailure: B.e.ventAtFailure, holdSeconds: B.e.holdSeconds, fireHeldSeconds: B.e.fireHeldSeconds, ventCount: B.e.ventCount } },
         // 无画面诊断只读快照：用于压力测试发现位置、耐久、热量和水量越界，不参与判胜或 AI。
         state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water, cells: cellTelemetry(B.p.v) }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water, cells: cellTelemetry(B.e.v) } },
-        metrics: { ...B.metrics }, timeout: B.timeout || null };
+        metrics: { ...B.metrics }, timeout: B.timeout || null, ...(B.aiStats ? { aiStats: B.aiStats } : {}) };
       return;
     }
     if (view) view.teardown();
@@ -1549,19 +1729,21 @@ SA.Battle = (() => {
     const pS = frontShift(o.p), eS = frontShift(o.e);
     B = { headless: true, opts: { mode: 'sim' }, pShift: pS, bounds: o.bounds || null, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
       metrics: { distanceSum: 0, samples: 0, nearTime: 0, farTime: 0, noEngageTime: 0 },
+      // 可选行为计数仅累加确定性状态，不抽随机数，也不改变战斗结算。
+      aiStats: o.aiStats ? { p: { shots: 0, fireIntent: 0, advance: 0, retreat: 0, evade: 0, counter: 0, burst: 0, chase: 0, targets: {} }, e: { shots: 0, fireIntent: 0, advance: 0, retreat: 0, evade: 0, counter: 0, burst: 0, chase: 0, targets: {} } } : null,
       speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
       const profileAim = Number.isFinite(o.aiProfile?.aim) ? o.aiProfile.aim : null;
       B.p = makeSide(shiftVeh(SA.V.battleCopy(o.p, 1, true), pS), 'A', true, profileAim ?? o.pAim ?? 0.8, W / 2 - 200 - PADX - K.COLS * C);
-      B.p.style = o.pStyle || null;
+      B.p.style = normalizeAiStyle(o.pStyle);
       B.p.aiProfile = o.aiProfile || null;
       B.e = makeSide(shiftVeh(SA.V.battleCopy(o.e, 1, true), eS), 'B', true, profileAim ?? o.eAim ?? 0.8, W / 2 + 200 - PADX);
-      B.e.style = o.eStyle || null;
+      B.e.style = normalizeAiStyle(o.eStyle);
       B.e.aiProfile = o.aiProfile || null;
       B.e.boss = !!o.eBoss;
       const dt = o.dt || 1 / 30;
       while (!B.done && B.t < K.BATTLE_TIME + 10) step(dt);
-      return B.result || { winner: 'draw', t: B.t, reason: SA.Config.text("battle_e512cf016f96"), pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects }, events: { p: B.p.events, e: B.e.events }, metrics: { ...B.metrics } };
+      return B.result || { winner: 'draw', t: B.t, reason: SA.Config.text("battle_e512cf016f96"), pDealt: B.p.dealt, eDealt: B.e.dealt, effectStats: { p: B.p.effects, e: B.e.effects }, events: { p: B.p.events, e: B.e.events }, metrics: { ...B.metrics }, ...(B.aiStats ? { aiStats: B.aiStats } : {}) };
     } finally { B = keep; random = previousRandom; }
   }
 
@@ -1581,5 +1763,5 @@ SA.Battle = (() => {
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });
-  return { start, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
+  return { start, aiStyles, normalizeAiStyle, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
 })();

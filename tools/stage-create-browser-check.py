@@ -1,7 +1,8 @@
-"""用隔离配置和浏览器验证控制台两个新关入口及保存刷新。"""
+"""隔离浏览器验证两个新关草稿的槽位、车辆及定向保存互不串写。"""
 import json
 import pathlib
 import shutil
+import socket
 import subprocess
 import tempfile
 import threading
@@ -14,8 +15,7 @@ from html5_game_mcp import CDP
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-# 关卡工作台第一章的「＋ 补上 / 新建 1-4」行
-ADD_SLOT = 'aside.tree .st-add[data-slot="1,3"]'
+CODE = 'SA2.eyJuIjoi5L+d5bqV5YCZ6YCJwrcyLTTCt+WPmOW8gjkwNzM5IiwiYiI6W1s4LDMsNF0sWzksMiwxNl0sWzksNSwyMF0sWzEwLDIsMF1dLCJzIjpbXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0='
 
 
 class IsolatedHandler(serve.NoCache):
@@ -23,9 +23,10 @@ class IsolatedHandler(serve.NoCache):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def translate_path(self, path):
-        if path.split('?')[0] == '/config/content.json':
+        file = path.split('?')[0]
+        if file == '/config/content.json':
             return serve.CONTENT_FILE
-        if path.split('?')[0] == '/config/stage-cars.json':
+        if file == '/config/stage-cars.json':
             return serve.STAGE_CARS_FILE
         return super().translate_path(path)
 
@@ -34,133 +35,154 @@ class IsolatedHandler(serve.NoCache):
 
 
 class Server(serve.http.server.ThreadingHTTPServer):
-    # 默认监听队列只有 5：Windows 上 Chrome 一次开的连接多于 5 时会被直接拒绝，后台首屏的同步配置请求随之失败
     request_queue_size = 64
 
 
 def evaluate(cdp, expression):
-    result = cdp.call('Runtime.evaluate', {'expression': expression, 'returnByValue': True})
+    result = cdp.call('Runtime.evaluate', {'expression': expression, 'returnByValue': True, 'awaitPromise': True})
     if 'exceptionDetails' in result:
         raise RuntimeError(result['exceptionDetails'])
-    return result['result']['value']
+    return result['result'].get('value')
 
 
-def wait(cdp, expression, tries=120):
-    for _ in range(tries):
-        if evaluate(cdp, expression):
-            return
+def wait(cdp, expression):
+    for _ in range(200):
+        try:
+            if evaluate(cdp, expression):
+                return
+        except RuntimeError:
+            pass
         time.sleep(.1)
-    raise AssertionError(f'等待页面状态超时：{expression}')
+    raise AssertionError(f'页面状态超时：{expression}')
 
 
 def run():
     chrome = shutil.which('chrome') or r'C:\Program Files\Google\Chrome\Application\chrome.exe'
-    with tempfile.TemporaryDirectory(prefix='stage-create-') as directory:
-        content_file = pathlib.Path(directory, 'content.json')
-        cars_file = pathlib.Path(directory, 'stage-cars.json')
-        rules_file = pathlib.Path(directory, 'evolve-stage-rules.json')
-        content_file.write_bytes((ROOT / 'config/content.json').read_bytes())
-        cars_file.write_bytes((ROOT / 'config/stage-cars.json').read_bytes())
-        rules_file.write_bytes((ROOT / 'tools/evolve-stage-rules.json').read_bytes())
-        before = (content_file.read_bytes(), cars_file.read_bytes())
-        # 新建关卡同时写逐关预算表，也换成临时副本
-        with patch.object(serve, 'CONTENT_FILE', str(content_file)), patch.object(serve, 'STAGE_CARS_FILE', str(cars_file)), \
-                patch.object(serve, 'STAGE_RULES_FILE', str(rules_file)):
+    with tempfile.TemporaryDirectory(prefix='stage-create-', ignore_cleanup_errors=True) as directory:
+        files = {}
+        for key, source in {'content': 'config/content.json', 'cars': 'config/stage-cars.json',
+                            'rules': 'tools/evolve-stage-rules.json'}.items():
+            files[key] = pathlib.Path(directory, key + '.json')
+            files[key].write_bytes((ROOT / source).read_bytes())
+        original = tuple(path.read_bytes() for path in files.values())
+        with patch.object(serve, 'CONTENT_FILE', str(files['content'])), \
+                patch.object(serve, 'STAGE_CARS_FILE', str(files['cars'])), \
+                patch.object(serve, 'STAGE_RULES_FILE', str(files['rules'])):
             server = Server(('127.0.0.1', 0), IsolatedHandler)
             threading.Thread(target=server.serve_forever, daemon=True).start()
-            browser = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-                '--remote-allow-origins=*', f'--remote-debugging-port={19000 + server.server_port % 20000}',
+            with socket.socket() as sock:
+                sock.bind(('127.0.0.1', 0))
+                debug = sock.getsockname()[1]
+            browser = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
+                '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
+                '--remote-allow-origins=*', f'--remote-debugging-port={debug}',
                 f'--user-data-dir={directory}/chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
-                port = 19000 + server.server_port % 20000
-                for _ in range(60):
+                for _ in range(120):
                     try:
-                        page = next(item for item in json.load(urllib.request.urlopen(f'http://127.0.0.1:{port}/json', timeout=1)) if item.get('type') == 'page')
+                        pages = json.load(urllib.request.urlopen(f'http://127.0.0.1:{debug}/json', timeout=1))
+                        page = next(row for row in pages if row.get('type') == 'page')
                         break
                     except Exception:
                         time.sleep(.1)
                 else:
-                    raise AssertionError('隔离浏览器未启动')
+                    raise AssertionError('隔离 Chrome 启动失败')
                 cdp = CDP(page['webSocketDebuggerUrl'])
                 url = f'http://127.0.0.1:{server.server_port}/tools/console.html'
-                cdp.call('Page.navigate', {'url': url + '#/stage/1,2/build'})
-                wait(cdp, f'!!document.querySelector({json.dumps(ADD_SLOT)}) && !!window.SA?.CAMPAIGN')
-                evaluate(cdp, f'(document.querySelector({json.dumps(ADD_SLOT)}).click(), true)')
-                wait(cdp, 'location.hash.includes("stage/1,3") && !!ConsoleNewStage.get(1,3)')
-                first = evaluate(cdp, 'JSON.stringify(ConsoleNewStage.get(1,3), (k,v) => k === "vehicle" ? undefined : v)')
-                assert (content_file.read_bytes(), cars_file.read_bytes()) == before
-                assert evaluate(cdp, '!!document.querySelector("#garage-layer iframe")')
-                # 重载丢弃首个未保存草稿，确认新增本身不会落盘。
-                cdp.call('Page.navigate', {'url': url + '?mapcheck=1#/map'})
-                wait(cdp, "!!document.querySelector(\".mnode[data-id='1-6']\")")
-                evaluate(cdp, "(document.querySelector(\".mnode[data-id='1-6']\").dispatchEvent(new PointerEvent('pointerenter', {bubbles:true})), true)")
-                wait(cdp, '!!document.querySelector(".mcard:not([hidden]) button.mc-car.none")')
-                evaluate(cdp, '(document.querySelector(".mcard button.mc-car.none").click(), true)')
-                wait(cdp, 'location.hash.includes("stage/1,5") && !!ConsoleNewStage.get(1,5)')
-                second = evaluate(cdp, 'JSON.stringify(ConsoleNewStage.get(1,5), (k,v) => k === "vehicle" ? undefined : v)')
-                assert (content_file.read_bytes(), cars_file.read_bytes()) == before
-                # 默认值照设计稿同一位置：1-4 大铁壶「平地 · 龟缩」，1-6 独角兽「平地 · 冲锋」；考题拆成赛前介绍和线人手写
-                first_draft, second_draft = json.loads(first), json.loads(second)
-                assert (first_draft['name'], first_draft['terrain'], first_draft['style']) == ('大铁壶', 'flat', 'turtle'), first
-                assert (second_draft['name'], second_draft['terrain'], second_draft['style']) == ('独角兽', 'flat', 'rush'), second
-                assert all(d['blurb'] and d['weakness'] and d['spec']['lesson'] and d['prize'] > 0 and 0 < d['aim'] < 1 for d in (first_draft, second_draft))
-                wait(cdp, '!!document.querySelector("#garage-layer iframe")?.contentWindow?.Garage?.ready')
-                evaluate(cdp, '(document.querySelector("button#status").click(), true)')
-                for _ in range(300):
-                    if '1:5' in json.loads(cars_file.read_text(encoding='utf-8'))['records']:
+                cdp.call('Page.navigate', {'url': url + '#/stage/1,4/build'})
+                wait(cdp, '!!document.querySelector("aside.tree .st-add[data-slot=\'1,5\']")')
+                evaluate(cdp, 'document.querySelector("aside.tree .st-add[data-slot=\'1,5\']").click()')
+                frame = 'document.querySelector("#garage-layer iframe")'
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === "1,5"')
+                first = evaluate(cdp, f'''(()=>{{const G={frame}.contentWindow.Garage;
+                  G.importText({json.dumps(CODE)},'草稿甲');
+                  const name=document.querySelector('.build-bar input.name');
+                  name.value='草稿甲';name.dispatchEvent(new Event('input',{{bubbles:true}}));
+                  return G.info().cells;}})()''')
+                assert len(first) == 4
+                evaluate(cdp, '(location.hash="#/stage/1,4/build",true)')
+                wait(cdp, '!!document.querySelector("aside.tree .st-add[data-slot=\'1,6\']")')
+                evaluate(cdp, 'document.querySelector("aside.tree .st-add[data-slot=\'1,6\']").click()')
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === "1,6"')
+                second = evaluate(cdp, f'''(()=>{{const G={frame}.contentWindow.Garage;
+                  G.importText(JSON.stringify({{cells:{json.dumps(first[:3])}}}),'草稿乙');
+                  const name=document.querySelector('.build-bar input.name');
+                  name.value='草稿乙';name.dispatchEvent(new Event('input',{{bubbles:true}}));
+                  return G.info().cells;}})()''')
+                assert len(second) == 3 and second != first
+                assert tuple(path.read_bytes() for path in files.values()) == original
+                evaluate(cdp, '(location.hash="#/stage/1,5/build",true)')
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === "1,5"')
+                assert evaluate(cdp, f'{frame}.contentWindow.Garage.info().cells.length') == 4
+                assert evaluate(cdp, f'{frame}.contentWindow.Garage.info().name') == '草稿甲'
+                evaluate(cdp, '(location.hash="#/stage/1,6/build",true)')
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === "1,6"')
+                assert evaluate(cdp, f'{frame}.contentWindow.Garage.info().cells.length') == 3
+                assert evaluate(cdp, f'{frame}.contentWindow.Garage.info().name') == '草稿乙'
+                evaluate(cdp, '(location.hash="#/stage/1,5/build",true)')
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === "1,5"')
+                evaluate(cdp, f'''(()=>{{const w={frame}.contentWindow,original=w.fetch.bind(w);
+                  w.fetch=(url,options)=>{{if(url!=='/__stage-cars/create')return original(url,options);
+                    w.__submitted=JSON.parse(options.body);
+                    return original(url,options).then(response=>new Promise(resolve=>{{w.__release=()=>resolve(response);}}));
+                  }};
+                }})()''')
+                # 一次保存：甲车完整可登记，乙车少了底盘校验失败；页面不能重载丢掉乙草稿。
+                evaluate(cdp, 'document.querySelector("#status").click()')
+                wait(cdp, f'!!{frame}?.contentWindow?.__release')
+                assert evaluate(cdp, f'{frame}.contentWindow.__submitted.record.vehicleName') == '草稿甲'
+                # 请求提交 A 后、响应抵达前，继续编辑同一关为 B。
+                evaluate(cdp, '''(()=>{const name=document.querySelector('.build-bar input.name');
+                  name.value='草稿甲B';name.dispatchEvent(new Event('input',{bubbles:true}));})()''')
+                evaluate(cdp, f'{frame}.contentWindow.__release()')
+                for _ in range(200):
+                    if '1:5' in json.loads(files['cars'].read_text(encoding='utf-8'))['records']:
                         break
                     time.sleep(.1)
                 else:
-                    detail = evaluate(cdp, 'JSON.stringify({hash:location.hash,status:document.querySelector("#status")?.title,toast:document.querySelector(".toast")?.textContent,garage:!!document.querySelector("#garage-layer iframe")?.contentWindow?.Garage})')
-                    raise AssertionError(f'地图入口保存未写入隔离配置：{detail}')
-                try:
-                    wait(cdp, '!!window.SA?.CAMPAIGN?.[1]?.stages?.[5]?.vehicle')
-                except AssertionError:
-                    detail = evaluate(cdp, 'JSON.stringify({hash:location.hash,stage:SA.CAMPAIGN[1]?.stages[5],error:window.SA_CONFIG_ERROR,status:document.querySelector("#status")?.title,toast:document.querySelector("#toast")?.textContent,app:document.querySelector("#app")?.textContent.slice(0,80)})')
-                    raise AssertionError(f'刷新后未载入新关：{detail}')
-                assert evaluate(cdp, '!!SA.CAMPAIGN[1].stages[3]?.unfinished && !!SA.CAMPAIGN[1].stages[4]?.unfinished'), evaluate(cdp, 'JSON.stringify(SA.CAMPAIGN[1].stages.map(s=>({ref:s.stageRef,unfinished:s.unfinished})))')
-                wait(cdp, '!!document.querySelector("#garage-layer iframe")?.contentWindow?.SA?.Camp')
-                assert evaluate(cdp, 'document.querySelector("#garage-layer iframe").contentWindow.SA.Camp.frontier().ch === 1 && document.querySelector("#garage-layer iframe").contentWindow.SA.Camp.frontier().st === 3')
-                # 同一页保留两个草稿，一次保存应按原编号分别建立两关。
-                cdp.call('Page.navigate', {'url': url + '?multicheck=1#/stage/1,2/build'})
-                wait(cdp, f'!!document.querySelector({json.dumps(ADD_SLOT)}) && !!window.SA?.CAMPAIGN')
-                evaluate(cdp, f'(document.querySelector({json.dumps(ADD_SLOT)}).click(), true)')
-                wait(cdp, 'location.hash.includes("stage/1,3") && !!ConsoleNewStage.get(1,3)')
-                evaluate(cdp, '(location.hash="#/map", true)')
-                wait(cdp, "!!document.querySelector(\".mnode[data-id='1-7']\")")
-                evaluate(cdp, "(document.querySelector(\".mnode[data-id='1-7']\").dispatchEvent(new PointerEvent('pointerenter', {bubbles:true})), true)")
-                wait(cdp, '!!document.querySelector(".mcard:not([hidden]) button.mc-car.none")')
-                evaluate(cdp, '(document.querySelector(".mcard button.mc-car.none").click(), true)')
-                wait(cdp, 'location.hash.includes("stage/1,6") && !!ConsoleNewStage.get(1,6)')
-                evaluate(cdp, '(document.querySelector("button#status").click(), true)')
-                for _ in range(300):
-                    records = json.loads(cars_file.read_text(encoding='utf-8'))['records']
-                    if '1:3' in records and '1:6' in records:
+                    raise AssertionError('甲关没有写入隔离配置')
+                wait(cdp, 'document.querySelector("#status")?.dataset.state === "error"')
+                time.sleep(.5)
+                records = json.loads(files['cars'].read_text(encoding='utf-8'))['records']
+                assert '1:5' in records and '1:6' not in records, records.keys()
+                assert records['1:5']['vehicleName'] == '草稿甲'
+                assert evaluate(cdp, '!!ConsoleNewStage.get(1,6)')
+                assert not evaluate(cdp, '!!ConsoleNewStage.get(1,5)')
+                assert evaluate(cdp, 'document.querySelector(".build-bar input.name")?.value') == '草稿甲B'
+                # 再次保存必须走已存在关卡的更新协议，而非重复创建。
+                evaluate(cdp, 'document.querySelector("#status").click()')
+                for _ in range(200):
+                    records = json.loads(files['cars'].read_text(encoding='utf-8'))['records']
+                    if records['1:5']['vehicleName'] == '草稿甲B':
                         break
                     time.sleep(.1)
                 else:
-                    detail = evaluate(cdp, 'JSON.stringify({hash:location.hash,status:document.querySelector("#status")?.title,toast:document.querySelector("#toast")?.textContent,drafts:[...(window.ConsoleNewStage ? [[1,3],[1,6]].map(([c,s]) => !!ConsoleNewStage.get(c,s)) : [])]})')
-                    raise AssertionError(f'连续草稿保存未完整写入隔离配置：{detail}')
-                wait(cdp, '!!window.SA?.CAMPAIGN?.[1]?.stages?.[6]?.vehicle')
-                assert evaluate(cdp, 'SA.CAMPAIGN[1].stages[3].vehicle && SA.CAMPAIGN[1].stages[4].unfinished && SA.CAMPAIGN[1].stages[5].vehicle && SA.CAMPAIGN[1].stages[6].vehicle')
-                cdp.call('Page.navigate', {'url': url.replace('/tools/console.html', '/index.html') + '?gapcheck=1'})
-                wait(cdp, '!!window.SA?.S?.arenaEntries && !!window.SA?.Camp?.frontier')
-                assert evaluate(cdp, 'SA.Camp.stage(1,4) === null && SA.Camp.frontier().ch === 1 && SA.Camp.frontier().st === 4')
-                assert evaluate(cdp, '!SA.S.arenaEntries("camp").some(x => x.key === "1,4")')
-                cdp.call('Page.navigate', {'url': url.replace('console.html', 'sim.html') + '?embedded=1&gapcheck=1'})
-                try:
-                    wait(cdp, '!!document.querySelector("#run-camp") && !!window.SA?.CAMPAIGN')
-                except AssertionError:
-                    raise AssertionError('模拟页未载入：' + evaluate(cdp, 'JSON.stringify({url:location.href,title:document.title,body:document.body?.textContent.slice(0,160),config:window.SA_CONFIG_ERROR,sa:!!window.SA})'))
-                evaluate(cdp, '(document.querySelector("#games").value=2, document.querySelector("#run-camp").click(), true)')
-                wait(cdp, 'document.querySelector("#out h2")?.textContent === "战役关卡检验"', tries=600)
-                assert evaluate(cdp, 'document.querySelector("#out table").rows.length === 10 && !/NaN|Infinity/.test(document.querySelector("#out").textContent)'), evaluate(cdp, 'JSON.stringify({rows:document.querySelector("#out table").rows.length,text:document.querySelector("#out").textContent.slice(0,500)})')
+                    detail = evaluate(cdp, '''JSON.stringify({status:document.querySelector('#status')?.title,
+                      toast:document.querySelector('#toast')?.textContent,hash:location.hash,
+                      current:document.querySelector('#garage-layer iframe')?.contentWindow?.Garage?.info()?.target})''')
+                    raise AssertionError(f'飞行期间的新修改未能作为既有关保存：{detail}')
+                assert '1:6' not in records and evaluate(cdp, '!!ConsoleNewStage.get(1,6)')
+                # 进化报告使用的候选路由只写同一候选 ID，不能落到关卡保存接口。
+                candidate_id = evaluate(cdp, f'''(()=>{{const G={frame}.contentWindow.Garage;
+                  const cells=G.info().cells,vehicle=SA.V.fromCells('候选甲',cells);
+                  return SA.EvolveArena.remember({{name:'候选甲',cells,code:SA.V.encode(vehicle),
+                    spec:{{chapter:1,stage:5,terrain:'flat'}},style:'rush'}},{{favorite:true}}).id;
+                }})()''')
+                stage_bytes = files['cars'].read_bytes()
+                evaluate(cdp, f'(location.hash="#/candidate/{candidate_id}/build",true)')
+                wait(cdp, f'{frame}?.contentWindow?.Garage?.info()?.target?.id === {json.dumps(candidate_id)}')
+                candidate = evaluate(cdp, f'''(()=>{{const G={frame}.contentWindow.Garage;
+                  G.setName('候选改');
+                  const row=G.saveCandidate({json.dumps(candidate_id)});
+                  return {{id:row.id,name:row.record.name,favorite:row.favorite,
+                    style:row.record.style,needsEvaluation:row.record.needsEvaluation}};
+                }})()''')
+                assert candidate == {'id': candidate_id, 'name': '候选改', 'favorite': True,
+                                     'style': 'rush', 'needsEvaluation': True}, candidate
+                assert files['cars'].read_bytes() == stage_bytes
                 cdp.close()
-                rules = json.loads(rules_file.read_text(encoding='utf-8'))
-                assert [(r['chapter'], r['stage']) for r in rules][-3:] == [(1, 3), (1, 5), (1, 6)], rules
-                assert json.loads(cars_file.read_text(encoding='utf-8'))['records']['1:5']['spec']['lesson']
-                return {'workbenchDefault': json.loads(first)['name'], 'mapDefault': json.loads(second)['name'], 'savedSlots': ['1:5', '1:3', '1:6'],
-                        'budgets': {f"{r['chapter']}:{r['stage']}": r['budget'] for r in rules[-3:]}}
+                return {'drafts': ['1:5', '1:6'], 'cars': [len(first), len(second)],
+                        'saved': '1:5', 'resavedName': records['1:5']['vehicleName'], 'candidate': candidate}
             finally:
                 browser.terminate()
                 browser.wait(timeout=10)

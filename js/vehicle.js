@@ -593,6 +593,7 @@ SA.V = (() => {
   }
 
   function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw) {
+    thermalCounters.cpuForecastCalls++;
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
       const next = SA.Phys.thermalStep(heat, water, 0.5, { shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity });
@@ -602,7 +603,45 @@ SA.V = (() => {
     return Infinity;
   }
 
-  function stats(v) {
+  // 仅在进化器显式安装认证结果时复用；键包含全部热输入和规则实现，普通游戏仍走精确热循环。
+  const thermalRuleVersion = [SA.Phys.thermalStep, SA.Phys.temp, SA.coolRate,
+    SA.K.IDLE_HEAT, SA.K.DISSIPATE, SA.K.COOL_FULL].map(String).join('|');
+  // 双层键把完整规则源码只存一次，单项键保留所有热输入的原始数值。
+  const thermalPredictions = new Map([[thermalRuleVersion, new Map()]]);
+  const thermalCache = thermalPredictions.get(thermalRuleVersion);
+  const THERMAL_CACHE_LIMIT = 8192;
+  function readThermalCache(key) {
+    const found = thermalCache.get(key);
+    if (found) { thermalCache.delete(key); thermalCache.set(key, found); }
+    return found;
+  }
+  function writeThermalCache(key, value) {
+    thermalCache.delete(key);
+    thermalCache.set(key, value);
+    if (thermalCache.size > THERMAL_CACHE_LIMIT) thermalCache.delete(thermalCache.keys().next().value);
+  }
+  const thermalCounters = { cpuForecastCalls: 0, cacheHits: 0, gpuCacheHits: 0, cpuCacheHits: 0 };
+  function thermalSummary() { return { ...thermalCounters, cacheEntries: thermalCache.size }; }
+  function thermalKey(input) {
+    const values = Object.values(input);
+    return values.every(Number.isFinite) ? JSON.stringify(values) : null;
+  }
+  function installThermalPredictions(entries) {
+    for (const entry of entries) {
+      if (!entry || !Number.isInteger(entry.steps) || entry.steps < 0 || entry.steps > 600) continue;
+      const key = thermalKey(entry.input);
+      if (!key) continue;
+      writeThermalCache(key, { time: entry.steps ? entry.steps * 0.5 : Infinity,
+        source: entry.source === 'gpu' ? 'gpu' : 'cpu' });
+    }
+  }
+  function thermalPrediction(input) {
+    const key = thermalKey(input), found = key ? readThermalCache(key) : null;
+    return found ? { input, steps: Number.isFinite(found.time) ? Math.round(found.time * 2) : 0, source: found.source } : null;
+  }
+  function clearThermalPredictions() { thermalCache.clear(); }
+
+  function stats(v, options = null) {
     const s = {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
       demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
@@ -692,8 +731,22 @@ SA.V = (() => {
     s.heatMax = SA.Phys.heatMax(s.dryWeight);
     s.boilerHeat = s.heatRate * s.heatMul * Math.max(0.3, util);
     s.heatGen = s.boilerHeat + weaponHeat;
-    s.overheat = overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, Math.min(s.supply, s.demand), s.boilerHeat);
-    s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps / 25 + s.tether + s.store * 0.014 + s.dryCool * 0.16 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
+    const thermalInput = { water: s.water, shaftKw: Math.min(s.supply, s.demand), heatKw: s.boilerHeat,
+      weaponKw: weaponHeat, cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave,
+      capacity: s.heatCapacity, idleHeat: SA.K.IDLE_HEAT, dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL };
+    if (options?.captureThermalInput) options.captureThermalInput(thermalInput);
+    // 构筑筛选只读机械字段时延迟求热：不生成伪造的过热时间或综合评分。
+    if (!options?.deferHeat) {
+      const key = thermalKey(thermalInput), predicted = key ? readThermalCache(key) : null;
+      if (predicted) {
+        thermalCounters.cacheHits++;
+        thermalCounters[predicted.source === 'gpu' ? 'gpuCacheHits' : 'cpuCacheHits']++;
+      }
+      s.overheat = predicted ? predicted.time :
+        overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, thermalInput.shaftKw, s.boilerHeat);
+      if (!predicted && key) writeThermalCache(key, { time: s.overheat, source: 'cpu' });
+      s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps / 25 + s.tether + s.store * 0.014 + s.dryCool * 0.16 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
+    }
 
     s.problems = [];
     if (!s.chassis) s.problems.push(SA.Config.text("vehicle_a3a9bdd8de8e"));
@@ -722,7 +775,7 @@ SA.V = (() => {
     if (s.demand > s.supply && s.boilers) s.warnings.push(SA.Config.text("vehicle_5be9817aa75b", `${Math.round(s.power * 100)}`));
     if (s.blocked.length) s.warnings.push(SA.Config.text("vehicle_7ff3b573c8ca", `${s.blocked.length}`));
     if (!s.weapons) s.warnings.push(SA.Config.text("vehicle_36768053c9a3"));
-    if (s.overheat < 60) s.warnings.push(SA.Config.text("vehicle_b0c86f179335", `${Math.round(s.overheat)}`));
+    if (!options?.deferHeat && s.overheat < 60) s.warnings.push(SA.Config.text("vehicle_b0c86f179335", `${Math.round(s.overheat)}`));
     const brokenOther = s.broken - deadTracks;
     if (brokenOther > 0) s.warnings.push(SA.Config.text("vehicle_a34380ad5380", `${brokenOther}`));
     s.canDeploy = s.problems.length === 0;
@@ -943,5 +996,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith };
+  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith, installThermalPredictions, thermalPrediction, clearThermalPredictions, thermalSummary };
 })();

@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "seed": 20260927,
-  "requested": 120,
-  "completed": 120,
+  "seed": 20261003,
+  "requested": 1000,
+  "completed": 1000,
   "errors": [],
   "counts": {
-    "timeout": 5,
+    "timeout": 125,
     "overLimit": 0,
     "stuck": 0,
     "bounds": 0,
@@ -14,7 +14,8 @@
     "outOfArena": 0,
     "shareMismatch": 0,
     "migration": 0,
-    "illegal": 0
+    "illegal": 0,
+    "generationMisses": 0
   },
   "coverage": {
     "modules": [
@@ -23,38 +24,22 @@
       "autoloader",
       "biped",
       "boiler",
-      "boss_core",
+      "boiler_s",
       "boss_lens",
-      "boss_ram",
       "bucket",
       "cannon",
-      "cannon_giant",
-      "cannon_heavy",
       "cannon_m",
       "cannon_s",
       "cockpit",
-      "cockpit_pair",
       "condenser",
-      "flamer",
-      "gyroscope",
-      "harpoon",
       "helmet",
       "mg",
-      "mg2",
-      "mortar",
+      "mg_s",
       "mortar_s",
       "periscope",
-      "piston",
       "plate",
-      "pressure_chamber",
-      "pressure_tank",
       "quad",
-      "radiator",
-      "rangefinder",
-      "rocket_rack",
       "side_cannon",
-      "spike",
-      "steamjet",
       "tank_s",
       "tank_tall",
       "track",
@@ -70,16 +55,25 @@
       "yard"
     ],
     "styles": [
+      "assassin",
+      "burst",
+      "clumsy",
+      "counter",
+      "disruptor",
+      "evade",
+      "hesitant",
       "kite",
+      "misjudge",
+      "rookie",
       "rush",
+      "sniper",
       "turtle",
+      "veteran",
       "wander"
     ],
     "materials": [
       1,
-      2,
-      3,
-      4
+      2
     ],
     "upgrades": [
       0,
@@ -88,22 +82,46 @@
       3
     ],
     "chassis": [
-      "biped",
-      "quad",
       "track"
     ],
     "fixtures": {
       "biped": {
-        "winner": "p",
-        "seconds": 56.69999999999934,
+        "winner": "e",
+        "seconds": 24.86666666666706,
         "issues": []
       },
       "quad": {
-        "winner": "e",
-        "seconds": 34.66666666666726,
+        "winner": "p",
+        "seconds": 20.133333333333493,
         "issues": []
       }
-    }
+    },
+    "untiered": [
+      "biped",
+      "boiler_l",
+      "boss_core",
+      "boss_ram",
+      "cannon_giant",
+      "cannon_heavy",
+      "cockpit",
+      "cockpit_pair",
+      "flamer",
+      "gyroscope",
+      "harpoon",
+      "mg2",
+      "mg_heavy",
+      "mortar",
+      "piston",
+      "pressure_chamber",
+      "pressure_tank",
+      "quad",
+      "radiator",
+      "rangefinder",
+      "rocket_rack",
+      "spike",
+      "steamjet",
+      "water_l"
+    ]
   },
   "maxBattleSeconds": 101.83333333333012,
   "outputError": "EPERM"

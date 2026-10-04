@@ -138,6 +138,14 @@ def _stage_order(key):
     return int(ci), int(si)
 
 
+def _require_workbench_target(payload, record):
+    """仅接受新版工作台对明确关卡目标的写入；旧页面已停用。"""
+    target = payload.get('target')
+    if (payload.get('workbenchVersion') != 1 or not isinstance(target, dict)
+            or target.get('kind') != 'stage' or target.get('id') != record.get('id')):
+        raise ValueError('旧版工作台已停用，请刷新并使用新版控制台')
+
+
 def _ordinal(campaign, ci, si):
     """按每章计划关数排出的全战役序号；中间空着的关也算，预算按序号差连续增长。"""
     return sum(max(len(ch.get('stages', [])), int(ch.get('plannedStages') or 0)) for ch in campaign[:ci]) + si
@@ -148,33 +156,6 @@ def _write_rules(path, rows):
     def line(row):
         return '{ ' + ', '.join(f'{json.dumps(k)}: {json.dumps(v, ensure_ascii=False)}' for k, v in row.items()) + ' }'
     _atomic_bytes(path, ('[\n' + ',\n'.join('  ' + line(row) for row in rows) + '\n]\n').encode('utf-8'))
-
-
-def _migrate_stage(current, raw):
-    payload = json.loads(raw)
-    if not isinstance(payload, dict) or not isinstance(payload.get('records'), dict):
-        raise ValueError('旧关卡车缓存格式不合法')
-    records = dict(current['records'])
-    for key, record in payload['records'].items():
-        ci, sep, si = key.partition(':')
-        if not sep or not ci.isdigit() or not si.isdigit():
-            raise ValueError('旧关卡编号不合法')
-        layout = payload.get('campaignLayout') or 1
-        if layout < 2 and key == '0:1':
-            key = '0:2'
-        # 布局 2 → 3：第三、四、五章末关前插入新关，旧末关顺延一位（与 js/camp.js migrateStageIndex 一致）
-        if layout < 3 and key in ('3:2', '4:2', '5:2'):
-            key = key[:2] + '3'
-        # 布局 3 → 4：只留序章三关和第一章前三关，已删除关卡的旧缓存直接丢弃
-        if record is None or key not in records:
-            continue
-        if not isinstance(record, dict) or not isinstance(record.get('cells'), list):
-            raise ValueError('旧关卡记录不合法')
-        previous = records[key]
-        records[key] = {**previous, **record, 'id': key}
-        for field in ('rows', 'sides', 'elite', 'subs'):
-            records[key].pop(field, None)
-    return {**current, 'records': records}
 
 
 def _migrate_text(current, raw):
@@ -342,6 +323,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         record = payload.get('record')
         if not isinstance(record, dict) or not isinstance(record.get('id'), str):
             raise ValueError('关卡记录不合法')
+        _require_workbench_target(payload, record)
         key = record['id']
         with MODULE_SAVE_LOCK:
             data = _json_file(STAGE_CARS_FILE)
@@ -361,6 +343,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         record = payload.get('record')
         if not isinstance(record, dict) or not isinstance(record.get('id'), str):
             raise ValueError('关卡记录不合法')
+        _require_workbench_target(payload, record)
         match = re.fullmatch(r'(0|[1-9]\d*):(0|[1-9]\d*)', record['id'])
         if not match or record.get('source') != 'manual' or not isinstance(record.get('cells'), list) or not record['cells'] or len(record['cells']) > 256:
             raise ValueError('新关卡记录不合法')
@@ -443,12 +426,14 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
     def _migrate(self, payload):
         """按稳定哈希只迁一次旧作者缓存，避免刷新后旧稿重新覆盖新文件。"""
-        keys = ('steam_arena_stage_cars_local_v1', 'sa-text-steam-arena-zh-CN')
-        if any(key not in keys + ('__shadow', '__returnHash') for key in payload):
+        keys = ('sa-text-steam-arena-zh-CN',)
+        # 历史跳转片段可能带旧关卡缓存；接收但完全忽略，避免影响正式配置。
+        ignored = ('steam_arena_stage_cars_local_v1',)
+        if any(key not in keys + ignored + ('__shadow', '__returnHash') for key in payload):
             raise ValueError('迁移请求包含未知数据')
         raw = {key: payload[key] for key in keys if key in payload}
         shadow = payload.get('__shadow', {})
-        if not isinstance(shadow, dict) or any(key not in keys for key in shadow):
+        if not isinstance(shadow, dict) or any(key not in keys + ignored for key in shadow):
             raise ValueError('旧作者缓存来源不合法')
         if not raw: return {'migrated': False}
         if any(not isinstance(value, str) or len(value) > MAX_BODY for value in list(raw.values()) + list(shadow.values())):
@@ -459,9 +444,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             pending = {key: value for key, value in raw.items()
                        if hashlib.sha256(value.encode('utf-8')).hexdigest() not in seen.get(key, [])}
             if not pending and not shadow: return {'migrated': False}
-            stage = _migrate_stage(_stage_data(), pending[keys[0]]) if keys[0] in pending else None
-            text_data = _migrate_text(_json_file(TEXT_FILE), pending[keys[1]]) if keys[1] in pending else None
-            if stage is not None: _write_json(STAGE_CARS_FILE, stage)
+            text_data = _migrate_text(_json_file(TEXT_FILE), pending[keys[0]]) if keys[0] in pending else None
             if text_data is not None: _write_json(TEXT_FILE, text_data)
             for source in (raw, shadow):
                 for key, value in source.items():

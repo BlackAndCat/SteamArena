@@ -11,10 +11,10 @@
     if (data.version !== 1 || !Array.isArray(data.records)) throw new Error('进化擂台候选库格式不正确，请先导出备份');
     if ((data.campaignLayout || 1) < SA.CAMPAIGN_LAYOUT) for (const row of data.records) {
       const sp = row.record?.spec;
-      if (sp) sp.stage = SA.Camp.migrateStageIndex(sp.chapter, sp.stage, data.campaignLayout);
+      if (sp) sp.stage = SA.StageCars.migrateStageIndex(sp.chapter, sp.stage, data.campaignLayout);
       if (row.parentKey) {
         const parent = JSON.parse(row.parentKey);
-        parent[1] = SA.Camp.migrateStageIndex(parent[0], parent[1], data.campaignLayout);
+        parent[1] = SA.StageCars.migrateStageIndex(parent[0], parent[1], data.campaignLayout);
         row.parentKey = JSON.stringify(parent);
       }
     }

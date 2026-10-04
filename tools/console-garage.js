@@ -5,7 +5,9 @@
 (() => {
   'use strict';
   const PICKS = 'steam_arena_evolve_picks';
-  let cur = null, opened = false;
+  const session = SA.WorkbenchSession.create();
+  const current = () => session.current();
+  let opened = false;
 
   // 工具页没有游戏主入口：车间里的导航按钮不跳页
   if (!SA.go) SA.go = (name) => { SA.current = name; document.body.dataset.screen = name; if (SA.Camp?.syncLim) SA.Camp.syncLim(); };
@@ -22,10 +24,12 @@
     out.vehicle = out.vehicle || SA.V.fromAscii(out.name, out.rows, out.sides || [], out.mt || 1, out.elite || [], out.subs || []);
     return out;
   }
-  const car = () => SA.S.d.vehicle;
+  const car = () => session.vehicle();
   const cellsOf = (v) => SA.StageCars.cellsOf(v);
 
-  function put(v) {
+  function put(v, target) {
+    if (!v) throw new Error('车辆数据无效，原车未更换');
+    if (target) session.select(target, v); else session.replace(v);
     v.lim = { cols: 8, rows: 6 };
     SA.S.d.vehicle = v;
     SA.S.d.camp.grid = { cols: 8, rows: 6 };
@@ -38,21 +42,22 @@
   function open(ci, si, cells, name) {
     const st = actualStage(ci, si);
     if (!st) throw new Error('找不到这一关');
-    cur = { ci, si };
     const v = cells ? SA.V.fromCells(name || st.vehicle.name || st.name, cells) : SA.V.clone(st.vehicle);
     v.name = name || st.stageCar?.vehicleName || st.vehicle.name || st.name;
-    put(v);
+    put(v, { kind: 'stage', ci, si, id: `${ci},${si}` });
     return info();
   }
-  const info = () => ({ ci: cur?.ci, si: cur?.si, name: car()?.name || '', cells: car() ? cellsOf(car()) : [] });
+  // 会话身份跟着车辆走；父页只接收当前目标的编辑通知。
+  const info = () => ({ target: current(), ci: current()?.ci, si: current()?.si, name: car()?.name || '', cells: car() ? cellsOf(car()) : [] });
   const cellsJson = () => (car() ? JSON.stringify(cellsOf(car())) : '');
   const setName = (name) => { if (car()) car().name = name; const plate = document.querySelector('.plate-name'); if (plate && plate.value !== name) plate.value = name; };
 
-  // 保存：先按工作台的老规矩校验，再交给规则层写本机存档、广播正式游戏页、同步 js/stage-cars.js
+  // 保存：校验当前目标后交给规则层写正式 config/stage-cars.json，并广播更新。
   // 调用方写明要存哪一关；拼装台上不是这一关就拒绝，绝不把资料存到别的关上
-  const sameStage = (at) => !at || (cur && cur.ci === at.ci && cur.si === at.si);
+  const sameStage = (at) => !!at && session.matches({ kind: 'stage', id: `${at.ci},${at.si}` });
   async function save(meta, at) {
-    if (!cur) throw new Error('拼装台还没打开这一关');
+    const cur = current();
+    if (cur?.kind !== 'stage') throw new Error('拼装台还没打开这一关');
     if (!sameStage(at)) throw new Error('拼装台上不是要保存的这一关，请再保存一次');
     if (!meta || !meta.vehicleName) throw new Error('车名不能为空');
     const v = car();
@@ -68,8 +73,9 @@
   }
   // 新关卡沿用同一套拼装校验，只在保存成功后请求服务登记该编号。
   async function saveNew(meta, at) {
+    const cur = current();
     if (!sameStage(at)) throw new Error('拼装台上不是要保存的这一关，请再保存一次');
-    if (!cur || !stageAt(cur.ci, cur.si)?.newDraft) throw new Error('新关卡草稿不存在');
+    if (cur?.kind !== 'stage' || !stageAt(cur.ci, cur.si)?.newDraft) throw new Error('新关卡草稿不存在');
     if (!meta?.vehicleName) throw new Error('车名不能为空');
     const v = car(), st = actualStage(cur.ci, cur.si);
     v.name = meta.vehicleName;
@@ -78,10 +84,45 @@
     if (st.spec) record.spec = JSON.parse(JSON.stringify(st.spec));
     const check = SA.StageCars.validate(record, cur.ci, cur.si, v);
     if (!check.ok) throw new Error(check.errors.join('；'));
-    const response = await fetch('/__stage-cars/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ record }) });
+    const response = await fetch('/__stage-cars/create', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workbenchVersion: 1, target: { kind: 'stage', id: record.id }, record }) });
     const saved = await response.json();
     if (!response.ok || !saved.ok) throw new Error(saved.error || `新关卡保存失败（HTTP ${response.status}）`);
+    // 子页也须立刻承认新关已登记；同页的后续修改应走普通关卡保存，而非再次请求创建。
+    const stages = SA.CAMPAIGN[cur.ci].stages;
+    for (let index = stages.length; index <= cur.si; index++) stages.push({ stageRef: `${cur.ci}:${index}`, unfinished: true });
+    stages[cur.si] = { stageRef: record.id };
+    if (!SA.STAGE_CARS.targets.includes(record.id)) SA.STAGE_CARS.targets.push(record.id);
+    SA.STAGE_CARS.records[record.id] = record;
+    SA.StageCars.applyToCampaign();
+    // 新建还改变 content 章节结构；其他控制台收到后需完整重载。
+    if (typeof BroadcastChannel === 'function') {
+      const channel = new BroadcastChannel('steam-arena-stage-cars');
+      channel.postMessage({ type: 'created', id: record.id });
+      channel.close();
+    }
     return { record, warnings: check.warnings, filePersisted: true };
+  }
+
+  // 候选车有独立身份和存储；保存时必须仍是打开的同一条候选记录。
+  function openCandidate(id, cells, name) {
+    const row = SA.EvolveArena.get(id);
+    if (!row) throw new Error('候选车已不存在，请从进化报告重新打开');
+    const rec = row.record || {};
+    const v = cells ? SA.V.fromCells(name || rec.name, cells)
+      : Array.isArray(rec.cells) ? SA.V.fromCells(rec.name, rec.cells) : SA.V.decode(rec.code);
+    if (!v) throw new Error('候选车构筑无法读取');
+    v.name = name || rec.name || v.name;
+    put(v, { kind: 'candidate', id, ci: rec.spec?.chapter, si: rec.spec?.stage });
+    return info();
+  }
+  function saveCandidate(id) {
+    session.requireTarget({ kind: 'candidate', id });
+    const row = SA.EvolveArena.get(id);
+    if (!row) throw new Error('候选车已不存在，请从进化报告重新打开');
+    const rec = row.record || {}, sp = rec.spec || {};
+    return SA.EvolveArena.saveEdited(id, car(), { chapter: sp.chapter, stage: sp.stage,
+      name: car().name, style: rec.style, terrain: sp.terrain });
   }
 
   function stats() {
@@ -95,32 +136,26 @@
 
   // 导入：SA1 / SA2 分享码，或 [[层,行,列,id,材料,改装等级],…] 模块清单
   function importText(text, name) {
-    const t = String(text || '').trim();
-    if (!t) throw new Error('导入内容是空的');
-    let v;
-    if (t.startsWith('SA1.') || t.startsWith('SA2.')) v = SA.V.decode(t);
-    else {
-      const json = JSON.parse(t), cells = Array.isArray(json) ? json : json.cells;
-      if (!Array.isArray(cells)) throw new Error('需要分享码或 cells 模块清单');
-      v = SA.V.fromCells(name || '导入关卡车', cells);
-    }
-    if (name) v.name = name;
+    const v = SA.WorkbenchSession.parseVehicle(text, name, SA);
     put(v);
     return info();
   }
-  function picks() { try { return JSON.parse(localStorage.getItem(PICKS)) || []; } catch (e) { return []; } }
-  const candidates = () => picks().map((p, i) => ({ i, name: p.name || `候选 ${i + 1}`, from: p.from || '' }));
-  function useCandidate(i) {
-    const p = picks()[i];
-    if (!p) throw new Error('候选车不存在，去进化擂台重新选一辆');
-    put(p.cells ? SA.V.fromCells(p.name || car().name, p.cells) : SA.V.decode(p.code));
+  // 正式候选库是唯一候选来源；PICKS 只用于试驾场的一次性交接。
+  const candidates = () => SA.EvolveArena.read().map((p) => ({ id: p.id, name: p.record?.name || '未命名候选', from: p.record?.spec?.name || '' }));
+  function useCandidate(id) {
+    const p = SA.EvolveArena.get(id), rec = p?.record;
+    if (!rec) throw new Error('候选车不存在，去进化擂台重新选一辆');
+    const v = rec.cells ? SA.WorkbenchSession.parseVehicle(JSON.stringify({ cells: rec.cells }), rec.name, SA)
+      : SA.WorkbenchSession.parseVehicle(rec.code, rec.name, SA);
+    put(v);
     return info();
   }
 
   // 强度：拿开局车和前面最近 4 关的车各打 games 局（双方各当一次玩家），算胜率和 95% 区间；
-  // 做法照搬关卡车工作台（tools/stage-editor.js 的 testVehicle），只是从后台页面调用
+  // 对参考车双向模拟，由后台页面调用。
   function test(games, f) {
-    if (!cur) throw new Error('拼装台还没打开这一关');
+    const cur = current();
+    if (cur?.kind !== 'stage') throw new Error('拼装台还没打开这一关');
     const v = car(), { ci, si } = cur, bounds = SA.CAMPAIGN[ci].bounds;
     const n = Math.max(1, Math.min(200, Math.round(games) || 20));
     const refs = [SA.V.fromAscii('开局参考车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || [])];
@@ -145,7 +180,8 @@
 
   // 存到进化擂台：不改正式关卡，只把这台车交给进化生成器当种子
   function saveArena(arenaId, f) {
-    if (!cur) throw new Error('拼装台还没打开这一关');
+    const cur = current();
+    if (cur?.kind !== 'stage') throw new Error('拼装台还没打开这一关');
     const row = SA.EvolveArena.saveEdited(arenaId || null, car(), { chapter: cur.ci, stage: cur.si, name: car().name?.trim() || f.name, style: f.style, terrain: f.terrain });
     return row.id;
   }
@@ -189,9 +225,14 @@
   }
   // 车间铭牌上改车名时告诉父页面
   document.addEventListener('input', (e) => {
-    if (e.target.matches?.('.plate-name') && window.parent !== window) window.parent.postMessage({ type: 'garage-name', name: e.target.value }, location.origin);
+    if (e.target.matches?.('.plate-name') && window.parent !== window) window.parent.postMessage({ type: 'garage-name', target: current(), name: e.target.value }, location.origin);
   });
 
-  window.Garage = { ready: true, open, info, cellsJson, setName, save, saveNew, stats, importText, candidates, useCandidate, test, saveArena, drivePick };
+  // Editor 每次改动都经 SA.S.save；只在该设计存档成功写入后告知父页。
+  window.addEventListener('sa-design-save', () => {
+    if (current() && window.parent !== window) window.parent.postMessage({ type: 'garage-change', target: current() }, location.origin);
+  });
+
+  window.Garage = { ready: true, open, openCandidate, info, cellsJson, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, saveArena, drivePick };
   if (window.parent !== window) window.parent.postMessage({ type: 'garage-ready' }, location.origin);
 })();

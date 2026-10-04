@@ -86,8 +86,12 @@ SA.S = (() => {
   }
   function save() {
     try {
-      const key = SA.Camp && SA.Camp.isDesignMode && SA.Camp.isDesignMode() ? DESIGN_KEY : KEY;
+      const design = !!(SA.Camp && SA.Camp.isDesignMode && SA.Camp.isDesignMode());
+      const key = design ? DESIGN_KEY : KEY;
       localStorage.setItem(key, JSON.stringify(d));
+      // 设计车间只在一次实际写入成功后通知宿主；正式游戏的存档流程不变。
+      if (design && typeof window.dispatchEvent === 'function' && typeof Event === 'function')
+        window.dispatchEvent(new Event('sa-design-save'));
       return true;
     } catch (e) { /* 隐私模式 */ return false; }
   }

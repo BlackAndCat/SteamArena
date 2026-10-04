@@ -1,6 +1,7 @@
 """进化任务的本机进程管理：同一服务器只运行一个任务，刷新网页可重新读取进度。"""
 import json
 import os
+import signal
 import shutil
 import subprocess
 import threading
@@ -25,6 +26,24 @@ class EvolutionService:
     def _options(self):
         # Windows 后台计算不打开命令窗口；不经 shell 拼接用户提供的参数。
         return {'cwd': self.root, 'encoding': 'utf-8', 'creationflags': subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0}
+
+    def _terminate_tree(self, process):
+        """取消进化时一并关闭 GPU 浏览器子进程，避免后台残留占用显存。"""
+        if process.poll() is not None:
+            return
+        try:
+            if os.name == 'nt':
+                result = subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                        creationflags=subprocess.CREATE_NO_WINDOW, timeout=5, check=False)
+                if result.returncode and process.poll() is None:
+                    process.terminate()
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
+        except (OSError, subprocess.TimeoutExpired):
+            # 进程可能恰好已自行退出；清理失败时仍先终止 Node 父进程。
+            if process.poll() is None:
+                process.terminate()
 
     def catalog(self):
         try:
@@ -63,7 +82,7 @@ class EvolutionService:
             if self.process is not None:
                 return None
             process = subprocess.Popen(self._command(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, **self._options())
+                                       stderr=subprocess.STDOUT, start_new_session=os.name != 'nt', **self._options())
             self.process = process
             self.started_at = time.monotonic()
             self.finished_at = self.estimate_at = self.remaining_ms = None
@@ -103,7 +122,7 @@ class EvolutionService:
                     self.finished_at = time.monotonic()
         finally:
             if process.poll() is None:
-                process.terminate()
+                self._terminate_tree(process)
                 process.wait()
             if process.stdout:
                 process.stdout.close()
@@ -115,5 +134,5 @@ class EvolutionService:
             if self.process is not None:
                 self.job['status'] = 'cancelled'
                 self.finished_at = time.monotonic()
-                self.process.terminate()
+                self._terminate_tree(self.process)
             return dict(self.job)
