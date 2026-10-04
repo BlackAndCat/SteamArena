@@ -127,6 +127,34 @@ function manualCandidateRecord(SA, stage, chapter, index, fingerprint) {
   };
 }
 
+// 进化擂台定向生成时，手动选择（stage-cars.json 的 locked）的关卡车每一代都占一个固定席位：
+// 按它自己的性格评分，不参加进化选车；选车口径的硬条件和对上一关车的复测另记在报告的 stage.manual。
+function pinnedStageCar(SA, actual, spec) {
+  if (!actual?.vehicle || actual.source !== 'manual' || actual.locked === false) return null;
+  const vehicle = SA.V.fromCells(actual.vehicleName || actual.vehicle.name || actual.name, SA.StageCars.cellsOf(actual.vehicle));
+  vehicle.lim = { ...spec.grid };
+  vehicle.arenaStyle = actual.style || 'wander';
+  return vehicle;
+}
+function pinnedStageRecord(SA, actual, vehicle, item, spec, reference, fingerprint, seed, duelCache) {
+  const base = { pinned: true, manualVersion: actual.stageCar?.updatedAt || null };
+  if (!item) {
+    const problems = SA.V.stats(vehicle, { deferHeat: true }).problems || [];
+    return { ...base, name: vehicle.name, code: SA.V.encode(vehicle), cells: cellsOf(SA, vehicle), style: vehicle.arenaStyle,
+      spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain }, rules: fingerprint,
+      unusable: `关卡车不能出战，没有参加这次进化${problems.length ? `：${problems.join('；')}` : ''}` };
+  }
+  const conditions = constructionConditions(SA, item.vehicle, spec), validationSeed = seed + 100000000 - 7;
+  const result = reference?.vehicle ? duel(SA, item.vehicle, reference.vehicle,
+    { ...spec, style: item.style, referenceStyle: reference.style || 'wander' }, validationSeed, config.evaluation.finalDuelGames, duelCache) : null;
+  const targetPass = !result || difficultyDistance(result.winRate) === 0, hardConditions = { ...conditions, target: targetPass };
+  return { ...candidateRecord(SA, item, spec, fingerprint), ...base,
+    evidence: { ...conditions, previousWinRate: result?.winRate ?? null, previousGames: result?.n ?? 0, previousWins: result?.wins ?? 0,
+      previousDraws: result?.draws ?? 0, previousName: reference?.vehicle?.name || null, previousStyle: reference?.style || null,
+      validationSeed: result ? validationSeed : null, target: [config.difficulty.min, config.difficulty.max], targetPass, hardConditions,
+      failed: Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key) } };
+}
+
 // 对象键排序后再序列化，确保同一规则在不同 Node 版本中得到同一输入。
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -1196,10 +1224,12 @@ async function selectStageCandidateAsync(SA, scored, spec, reference, fingerprin
 }
 
 // 同步与 worker 搜索共用人口补齐、分簇留种和动态调节，避免两条路径逐渐分叉。
-function initialPopulation(SA, spec, previous, rng, seeds = []) {
-  const wanted = Math.max(4, spec.populationSize || config.population.size, seeds.length);
+function initialPopulation(SA, spec, previous, rng, seeds = [], pinned = null) {
+  const wanted = Math.max(4, spec.populationSize || config.population.size, seeds.length + (pinned ? 1 : 0));
   const population = [...seeds];
   if (population.some(vehicle => !legalVehicle(SA, vehicle, spec))) throw new Error('进化种子违反本关构筑、奖励或材料约束');
+  // 手动选择的关卡车是作者定的车：不按进化约束拦它，只占一个席位、照常评分
+  if (pinned) population.unshift(pinned);
   const inherited = previous.map(vehicle => adaptParentForStage(SA, vehicle, spec, rng)).filter(Boolean);
   for (const vehicle of inherited) if (population.length < wanted) population.push(vehicle);
   while (population.length < wanted) {
@@ -1218,7 +1248,7 @@ function survivorPool(SA, scored, count) {
   return selected;
 }
 
-function nextPopulation(SA, spec, scored, seeds, rng, settings) {
+function nextPopulation(SA, spec, scored, seeds, rng, settings, pinned = null) {
   const wanted = scored.length, count = Math.max(2, Math.ceil(wanted * config.population.survivors));
   const keep = survivorPool(SA, scored, count), current = [], seen = new Set();
   const add = vehicle => {
@@ -1226,6 +1256,7 @@ function nextPopulation(SA, spec, scored, seeds, rng, settings) {
     if (current.length >= wanted || seen.has(key)) return false;
     current.push(vehicle); seen.add(key); return true;
   };
+  if (pinned) add(pinned);   // 手动选择的关卡车每一代都留席位
   for (const item of keep) add(item.vehicle);
   const seedRetention = seeds.map((vehicle, sourceIndex) => ({ sourceIndex, name: vehicle.name,
     retained: current.includes(vehicle),
@@ -1287,14 +1318,15 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
 
 // 异步进化：随机种子、车辆生成和最终排序仍在主线程按原顺序执行；
 // 相互独立的候选评分与最终复测交给常驻 worker，不改变固定种子结果。
-async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, onProgress, shouldStop, telemetry, seeds = [], verify = null, prepareHeat = null) {
-  let current = initialPopulation(SA, spec, previous, rng, seeds), settings = {};
+async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGames, pool, onProgress, shouldStop, telemetry, seeds = [], verify = null, prepareHeat = null, pinned = null) {
+  let current = initialPopulation(SA, spec, previous, rng, seeds, pinned), settings = {};
+  const evolved = scored => (pinned ? scored.filter(item => item.vehicle !== pinned) : scored);
   const generationMetrics = [], limit = config.population.generations + config.population.maxExtraGenerations;
   let best = null;
   for (let generation = 0; generation < limit; generation++) {
     if (shouldStop?.()) return { interrupted: true };
     const tasks = current.map((vehicle, index) => ({ vehicle, opponents,
-      spec: seeds.includes(vehicle) && vehicle.arenaStyle ? { ...spec, style: vehicle.arenaStyle, fixedStyle: true } : spec,
+      spec: (seeds.includes(vehicle) || vehicle === pinned) && vehicle.arenaStyle ? { ...spec, style: vehicle.arenaStyle, fixedStyle: true } : spec,
       seed: rng.int(0x7fffffff) + index, games: quickGames, performance: config.performance }));
     await prepareHeat?.(tasks);
     onProgress?.({ phase: 'generation-start', chapter: spec.chapter, stage: spec.stage, generation, completed: 0, total: tasks.length });
@@ -1305,7 +1337,7 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
       return { vehicle: task.vehicle, evaluationSeed: task.seed, ...result };
     })))).sort(compareFitness);
     const state = generationState(SA, scored, settings, generation); generationMetrics.push(state); settings = state.settings;
-    const verified = generation + 1 >= config.population.generations ? await verify?.(scored) : null;
+    const verified = generation + 1 >= config.population.generations ? await verify?.(evolved(scored)) : null;
     state.validationGames = verified?.verified.reduce((sum, row) => sum + row.previousGames, 0) || 0;
     state.validationQualified = !!verified?.selected;
     if (verified?.selected && (!best || verified.diversity.clusterCount > best.selection.diversity.clusterCount)) best = { scored, selection: verified };
@@ -1314,9 +1346,10 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
       state.difficultyQualified && state.clusterCount >= config.diversity.finalMinClusters;
     if (generation + 1 >= limit || (generation + 1 >= config.population.generations && ready)) {
       const final = best || { scored, selection: verified };
-      return { scored: final.scored, selection: final.selection, archive: archive(final.scored, spec), generationMetrics };
+      return { scored: evolved(final.scored), pinned: pinned ? final.scored.find(item => item.vehicle === pinned) || null : null,
+        population: final.scored.length, selection: final.selection, archive: archive(evolved(final.scored), spec), generationMetrics };
     }
-    const next = nextPopulation(SA, spec, scored, seeds, rng, settings);
+    const next = nextPopulation(SA, spec, scored, seeds, rng, settings, pinned);
     state.seedRetention = next.seedRetention;
     current = next.population;
   }
@@ -1349,7 +1382,7 @@ function completedStage(SA, spec, result, reference, recent, fingerprint, seed, 
     oddCells: result.archive.odd.map(item => cellsOf(SA, item.vehicle)) };
   const againstOrigin = origin && selection.selected ? duel(SA, selection.selected.vehicle, origin.vehicle,
     { ...spec, style: selection.selected.style, referenceStyle: origin.style || 'wander' }, seed + 17001, games, duelCache) : null;
-  return { spec, count: result.scored.length, selected: selectedIndex >= 0 ? records[selectedIndex] : null,
+  return { spec, count: result.population ?? result.scored.length, selected: selectedIndex >= 0 ? records[selectedIndex] : null,
     originComparison: againstOrigin ? { name: origin.vehicle.name, winRate: againstOrigin.winRate,
       games: againstOrigin.n, wins: againstOrigin.wins, draws: againstOrigin.draws } : null,
     selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions: selection.evidence?.hardConditions || {},
@@ -1651,13 +1684,18 @@ async function runAsync(options = {}) {
       const evaluationSpec = { ...spec, previousVehicle: reference?.vehicle || null, previousStyle: reference?.style || null };
       const opponents = campaignOpponents(SA, chapter, stage, spec);
       const selectionSeed = seed + chapter * 10000 + stage * 101;
+      // 手动选择的关卡车：能出战就占固定席位；游戏里用的是它，所以后面的关也拿它当「上一关车」
+      const pinned = options.pinStageCars ? pinnedStageCar(SA, actual, spec) : null;
+      const seat = pinned && SA.V.stats(pinned, { deferHeat: true }).canDeploy ? pinned : null;
       const verify = scored => selectStageCandidateAsync(SA, scored, spec, reference, fingerprint, selectionSeed, recent, pool, duelCache, preheater.prepare);
       const result = await generateChapterAsync(SA, evaluationSpec, previous, opponents, rng, quickGames,
-        pool, progress, options.shouldStop, telemetry, seeds, verify, preheater.prepare);
+        pool, progress, options.shouldStop, telemetry, seeds, verify, preheater.prepare, seat);
       if (result.interrupted) { status = 'interrupted'; break; }
       progress({ phase: 'selection-start', chapter, stage });
       const report = completedStage(SA, spec, result, reference, recent, fingerprint,
         selectionSeed, duelCache, origin, quickGames);
+      if (pinned) report.manual = pinnedStageRecord(SA, actual, pinned, seat ? result.pinned : null, spec, reference, fingerprint, selectionSeed, duelCache);
+      const manualReference = seat ? { vehicle: actual.vehicle, style: actual.style || 'wander' } : null;
       report.seedProvenance = seeds.map((vehicle, sourceIndex) => ({ sourceIndex, name: vehicle.name,
         cells: cellsOf(SA, vehicle), generations: result.generationMetrics.map(row => row.seedRetention?.[sourceIndex] || null) }));
       chapterReport.stages.push(report); all.push(...report.top);
@@ -1665,9 +1703,9 @@ async function runAsync(options = {}) {
       progress({ phase: 'stage-end', chapter, stage, candidates: result.scored.length }); checkpoint();
       if (!report.selected) {
         selectionFailures.push({ chapter, stage, name: spec.name, failed: report.selection.failed });
-        status = 'failed'; break;
+        if (!manualReference) { status = 'failed'; break; }
       }
-      const selected = result.scored[report.selection.selectedIndex];
+      const selected = manualReference || result.scored[report.selection.selectedIndex];
       reference = { vehicle: selected.vehicle, style: selected.style };
       previous = [selected.vehicle]; recent = [reference, ...recent].slice(0, 3);
     }
@@ -2040,4 +2078,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, applyStagePatch, stageSpec, plannedRoute, routeAfter, previewStageSpec, campaignSpecCheck, lockedStageReport, randomVehicle, requiredVehicle, adaptParentForStage, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, difficultyDistance, shapeSignature, shapeSimilarity, shapeClusters, diversityMetrics, adaptiveSettings, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duelRows, reduceDuelRows, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, selectStageCandidateAsync, enrichBossDiagnostics, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, pinnedStageCar, pinnedStageRecord, applyStagePatch, stageSpec, plannedRoute, routeAfter, previewStageSpec, campaignSpecCheck, lockedStageReport, randomVehicle, requiredVehicle, adaptParentForStage, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, difficultyDistance, shapeSignature, shapeSimilarity, shapeClusters, diversityMetrics, adaptiveSettings, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duelRows, reduceDuelRows, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, selectStageCandidateAsync, enrichBossDiagnostics, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

@@ -79,7 +79,7 @@
   // ---------- 还没重做的工作台、视觉页 ----------
   const TOOLS = {
     'config-editor': { name: '正式配置编辑', url: 'config-editor.html', desc: '直接读取并保存 config 目录里的正式 JSON' },
-    evolve: { name: '进化擂台', url: 'evolve.html', desc: '关卡车进化生成器：第一屏看每关选出的车，往下是逐关筛选、强度 × 表现散点、毒瘤 / 奇特车' },
+    evolve: { name: '进化擂台', url: 'evolve.html', desc: '关卡车进化生成器：每关一张卡，先显示手动选择的关卡车和它的成绩；点卡片展开这一关的其他候选' },
     selftest: { name: '数值自测', url: 'evolve.html#selftest', old: true, desc: 'AI 对 AI 批量对打：战役检验、对战矩阵、模块性价比' },
     modules: { name: '模块属性', url: 'module-editor.html', old: true, desc: '改模块的文字与玩法属性，保存到模块数据' },
     'yard-legacy': { name: '院子聊天（旧版）', url: 'yard-chat-editor.html', old: true, desc: '旧版院子聊天工作台' },
@@ -153,6 +153,18 @@
       // 进化生成器按 spec 读这一关的考点和强度目标
       spec: { terrain, reward: null, lesson: p ? `${p.role}：${p.test}` : '新关卡：设计意图待填', targetStrength: boss ? [0.6, 0.7] : [0.65, 0.8], performanceMin: 35 },
       copiedFrom: prev ? `${prev.code} ${prev.name}` : '开局车' };
+  }
+  // 进化擂台「换上这辆」交来的车（tools/evolve-report.js swapIntoStage）：只用一次，放上拼装台当草稿
+  const STAGE_SWAP_KEY = 'steam_arena_stage_swap';
+  function peekStageSwap() {
+    try { const v = JSON.parse(sessionStorage.getItem(STAGE_SWAP_KEY) || 'null'); return v && typeof v.key === 'string' && (Array.isArray(v.cells) || typeof v.code === 'string') ? v : null; }
+    catch (e) { return null; }
+  }
+  function takeStageSwap(key) {
+    const v = peekStageSwap();
+    if (!v || v.key !== key) return null;
+    try { sessionStorage.removeItem(STAGE_SWAP_KEY); } catch (e) { /* 隐私模式 */ }
+    return v;
   }
   // 新关卡只在内存里建立底稿；用户保存后才会写入正式配置。
   function createStageDraft(ci, si) {
@@ -245,7 +257,7 @@
   let settingsDraft = null, clickDraft = null;
 
   // ---------- 关卡草稿：拼装台上的车 + 关卡资料（文字、奖励、解锁、锁定） ----------
-  const stageDrafts = new Map();   // key → { fields, cells, base, dirtyCar, dirtyFields, arenaId, test }
+  const stageDrafts = new Map();   // key → { fields, cells, base, dirtyCar, dirtyFields, test }
   const candidateDrafts = new Map(); // 候选 ID → 独立车辆草稿；不进入正式关卡保存队列。
   function candidateDraft(id) {
     if (!candidateDrafts.has(id)) {
@@ -270,7 +282,7 @@
   function stageDraft(key) {
     if (!stageDrafts.has(key)) {
       const [ci, si] = key.split(',').map(Number), st = stageData(ci, si);
-      stageDrafts.set(key, { fields: fieldsFrom(st), cells: null, base: carJson(st.vehicle), dirtyCar: false, dirtyFields: false, arenaId: null, test: null });
+      stageDrafts.set(key, { fields: fieldsFrom(st), cells: null, base: carJson(st.vehicle), dirtyCar: false, dirtyFields: false, test: null });
     }
     return stageDrafts.get(key);
   }
@@ -445,6 +457,9 @@
   }
   async function saveStage(key) {
     const d = stageDraft(key), meta = buildMeta(d), [ci, si] = key.split(',').map(Number);
+    // 「手动选择」（记录的 locked）：保存改过的车就重新勾上——进化擂台先显示它、进化时给它留席位；
+    // 只改文字时沿用记录里现在的值（进化擂台上可以勾掉）
+    meta.locked = d.dirtyCar || newStageDrafts.has(key) ? true : recordOf(ci, si)?.locked !== false;
     const submitted = JSON.stringify({ cells: d.cells, fields: d.fields });
     const res = await garageTask(async () => {
       const G = await garageOpenNow(key);
@@ -1515,6 +1530,13 @@
 
   // 关卡工作区：左边章节树，中间这一关（拼装 / 文字与奖励 / 强度 / 剧情 / 院子闲聊），右边关卡信息
   VIEWS.stage = (rest, m) => {
+    // 进化擂台要把车换到一关还没做出来的关上：先照设计稿开一个新关草稿
+    const swapping = peekStageSwap();
+    if (swapping && rest[0] === swapping.key && !validKey(swapping.key)) {
+      createStageDraft(...swapping.key.split(',').map(Number));
+      if (validKey(swapping.key)) return;   // 已经转到新关草稿
+      takeStageSwap(swapping.key);           // 计划里没有这一关：丢掉这次交接
+    }
     const key = validKey(rest[0]) ? rest[0] : validKey(prefs.stageKey) ? prefs.stageKey : '0,0';
     const TABS = { build: '拼装', text: '文字与奖励', test: '强度', story: '剧情', chat: '院子闲聊' };
     const tab = TABS[rest[1]] ? rest[1] : TABS[prefs.stageTab] ? prefs.stageTab : 'build';
@@ -1540,7 +1562,7 @@
           return el(`button.st-item${sd.key === key ? '.on' : ''}`, { type: 'button', dataset: { key: sd.key }, title: `${sd.code} ${sd.name} · ${sd.pilot || ''}`, on: { click: () => goStage(sd.key) } },
             el('span.code', { text: sd.code }), el('span.nm', null, sd.name, el('small', { text: sd.pilot || '' })),
             el('span.marks', null, stageDirty(sd.key) ? el('span.dot', { title: '未保存' }) : null, sd.boss ? el('span.mark', { text: '★', title: 'Boss' }) : null,
-              rec?.source === 'manual' ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '已锁定' }) : null));
+              rec?.source === 'manual' ? el('span.pip.manual', { title: '手工关卡车' }) : null, rec && rec.locked !== false ? el('span.pip.locked', { title: '手动选择：进化擂台先显示这辆车，进化时给它留席位' }) : null));
         }).filter(Boolean);
         // 章末一行「＋ 新建」（筛选时不显示）；跳过去先做的关前面空着的位置，上面已经就地显示成「补上」
         if (!q && count < ch.plannedStages) items.push(addRow(c, count, false));
@@ -1573,7 +1595,8 @@
         el('div.who', null, f.pilot || '无名车手', f.boss ? el('span.chip.boss', { text: '★ Boss' }) : null,
           newStageDrafts.has(key) ? el('span.chip.edited', { text: '新关 · 保存才登记', title: '这一关还只在本页；点保存才写进关卡配置' })
             : rec?.source === 'manual' ? el('span.chip.manual', { text: '手工关卡车' }) : el('span.chip', { text: '原始数据' }),
-          f.locked ? el('span.chip.locked', { text: '锁定' }) : el('span.chip', { text: '进化器可改' }),
+          rec && rec.locked !== false ? el('span.chip.locked', { text: '手动选择', title: '进化擂台先显示这辆车，进化时每代给它留一个席位并记成绩；在进化擂台卡片上可以勾掉' })
+            : rec ? el('span.chip', { text: '进化选车优先', title: '进化擂台先显示进化选出的车；改车保存后自动重新勾上「手动选择」' }) : null,
           stageDirty(key) ? el('span.chip.edited', { text: '有改动没保存' }) : null)),
       el('div.acts', null,
         el('a.btn.sm.ghost', { href: `#/map/${key}`, title: '在战役地图上看这一关' }, '地图'),
@@ -1712,7 +1735,6 @@
         if (garage.key === key && G?.info()?.target?.id === key) G.setName(e.target.value);
         showCarState();
       } } });
-    const lock = el('input', { type: 'checkbox', checked: f.locked, on: { change: (e) => { f.locked = e.target.checked; touchFields(key); showCarState(); } } });
     const panel = el('div.build-panel', { hidden: true });
     const cand = el('select', { 'aria-label': '进化候选车', title: '进化擂台里挑出来的候选车', style: 'width:150px' }, el('option', { value: '', text: '进化候选车…' }));
     const togglePanel = () => {
@@ -1729,22 +1751,13 @@
     const sep = () => el('span.bar-sep');
     const bar = el('div.build-bar', null,
       el('label.field.inline', null, '车名', name),
-      el('label.check', { title: '锁定后进化生成器不会改这辆车' }, lock, '锁定'),
       sep(),
       el('button.btn.sm', { type: 'button', title: '粘贴分享码或模块清单，换上那台车', on: { click: togglePanel } }, '导入…'),
       cand,
       el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(cand.value); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
       sep(),
       el('button.btn.sm', { type: 'button', title: '用拼装台上这台车去游戏的试驾场打一场', on: { click: withGarage((G) => { G.drivePick({ name: f.name, terrain: f.terrain, style: f.style }); go('game/drive'); }) } }, '试驾'),
-      el('button.btn.sm', { type: 'button', title: '交给进化生成器当种子，正式关卡不变', on: { click: withGarage((G) => { d.arenaId = G.saveArena(d.arenaId, { name: f.name, style: f.style, terrain: f.terrain }); toast('已存到进化擂台（正式关卡没动）'); }) } }, '存到进化擂台'),
-      el('button.btn.sm', { type: 'button', title: '用当前拼装台车辆为本关生成候选，并到进化擂台查看进度', on: { click: withGarage((G) => {
-        const car = G.info();
-        if (!car.cells.length) throw new Error('拼装台上没有可生成的车');
-        // 一次性交接当前未保存车辆；目标页先查询服务状态，忙碌时留待手动启动。
-        sessionStorage.setItem('steam_arena_evolve_handoff', JSON.stringify({ chapter: st.ci, stage: st.si,
-          originVehicle: { name: f.vehicleName || car.name, cells: car.cells } }));
-        go('open/evolve');
-      }) } }, '生成本关候选'),
+      el('a.btn.sm', { href: '#/open/evolve', title: '保存过的关卡车在进化擂台上优先显示；在那边点「重跑」，它会占一个席位、和进化出来的车一起比' }, '去进化擂台'),
       el('span.grow'), carState,
       armedButton('放弃改动', '再点一次放弃', () => {
         stageDrafts.delete(key);
@@ -1764,6 +1777,13 @@
       slot.replaceChildren();
       placeGarage();
       G.candidates().forEach((c) => cand.append(el('option', { value: c.id, text: c.from ? `${c.name} · ${c.from}` : c.name })));
+      const swap = takeStageSwap(key);
+      if (swap) {
+        try {
+          G.importText(swap.cells ? JSON.stringify({ cells: swap.cells }) : swap.code, f.vehicleName || swap.name);
+          changed(`已换上进化擂台的「${swap.name || '候选车'}」，点保存才会变成这一关的车`);
+        } catch (e) { toast(`进化擂台的车没换上：${e.message || e}`, 'bad'); }
+      }
       if (garage.ro) garage.ro.disconnect();
       garage.ro = new ResizeObserver(placeGarage);
       garage.ro.observe(slot);
@@ -1797,7 +1817,7 @@
       text('关卡名', 'name'), text('车名', 'vehicleName'), text('车手', 'pilot'),
       select('性格（AI）', 'style', styles), text('枪法（0～1）', 'aim', { type: 'number', min: 0, max: 1, step: 0.05 }),
       select('地形', 'terrain', Object.entries(SA.TERRAINS).map(([k, t]) => [k, t.name || k])),
-      el('div.row', { style: 'gap:16px' }, check('Boss', 'boss'), check('锁定（进化器不改）', 'locked'))));
+      el('div.row', { style: 'gap:16px' }, check('Boss', 'boss'))));
     const poster = el('div.fs', null, el('h3', { text: '出战海报' }), el('div.fgrid', null,
       text('对手简介', 'blurb', { area: true, wide: true, rows: 3 }), text('弱点（线人手写）', 'weakness', { area: true, wide: true })));
     // 编辑增减百分比，保存与模拟统一传倍率；空值暂存 NaN，让保存校验明确提示。

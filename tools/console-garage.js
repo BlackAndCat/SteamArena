@@ -238,13 +238,6 @@
     return { rate, lo: (centre - spread) / den, hi: (centre + spread) / den, total, avg: time / Math.max(1, total), counts, refs: Math.min(4, refs.length) };
   }
 
-  // 存到进化擂台：不改正式关卡，只把这台车交给进化生成器当种子
-  function saveArena(arenaId, f) {
-    const cur = current();
-    if (cur?.kind !== 'stage') throw new Error('拼装台还没打开这一关');
-    const row = SA.EvolveArena.saveEdited(arenaId || null, car(), { chapter: cur.ci, stage: cur.si, name: car().name?.trim() || f.name, style: f.style, terrain: f.terrain });
-    return row.id;
-  }
   // 试驾：把这台车交给游戏的试驾场（来源「进化报告」）
   function drivePick(f) {
     localStorage.setItem(PICKS, JSON.stringify([{ name: car().name || '手工关卡车', cells: cellsOf(car()), terrain: f.terrain, style: f.style, from: `后台 · ${f.name}` }]));
@@ -293,6 +286,6 @@
     if (current() && window.parent !== window) window.parent.postMessage({ type: 'garage-change', target: current() }, location.origin);
   });
 
-  window.Garage = { ready: true, open, openCandidate, info, cellsJson, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, saveArena, drivePick };
+  window.Garage = { ready: true, open, openCandidate, info, cellsJson, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, drivePick };
   if (window.parent !== window) window.parent.postMessage({ type: 'garage-ready' }, location.origin);
 })();

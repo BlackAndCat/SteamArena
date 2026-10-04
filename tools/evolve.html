@@ -64,7 +64,11 @@ code { font-family: var(--mono); font-size: 12px; }
 .board-h .seg { box-shadow: 2px 2px 0 rgba(20, 10, 4, 0.5); }
 .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 28px 12px; padding: 28px 16px 12px; }
 .picks > .empty-state { grid-column: 1 / -1; background: var(--paper); border: 2px dashed var(--line-2); }
-.pk { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 2px solid var(--line-2); box-shadow: var(--hard); }
+.pk { position: relative; display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 2px solid var(--line-2); box-shadow: var(--hard); cursor: pointer; }
+.pk:not(.ghost):hover { border-color: var(--brass-lo); }
+.pk:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.pk.ghost { cursor: default; }
+.pk.open, .pk.open:hover { border-color: var(--brass-dk); box-shadow: 0 0 0 3px var(--brass), var(--hard); }
 .pk.boss { border-color: var(--brass-dk); box-shadow: inset 0 0 0 2px var(--brass), var(--hard); }
 .pk.ghost { background: var(--paper-3); border-style: dashed; border-color: var(--line); box-shadow: none; }
 .pk.ghost .pk-name { color: var(--ink-2); }
@@ -83,12 +87,18 @@ code { font-family: var(--mono); font-size: 12px; }
 .star:hover { border-color: var(--line); background: var(--paper-hi); color: var(--brass-dk); }
 .star.on { color: var(--brass-dk); }
 /* 车图框：车站在地面线上，线下面是一行小字（性格 · 底盘 · 造价）；框高由 fitBoard 按窗口算（--carh） */
-.pk-car { position: relative; display: flex; align-items: flex-end; justify-content: center; height: var(--carh, 132px); margin: 0 7px; padding: 5px 5px 18px; border: 1px solid var(--line); cursor: zoom-in; overflow: hidden;
+.pk-car { position: relative; display: flex; align-items: flex-end; justify-content: center; height: var(--carh, 132px); margin: 0 7px; padding: 5px 5px 18px; border: 1px solid var(--line); overflow: hidden;
   background: linear-gradient(to bottom, transparent calc(100% - 17px), var(--line-2) calc(100% - 17px), var(--line-2) calc(100% - 16px), var(--paper-2) calc(100% - 16px)), var(--paper-3); }
-.pk-car:hover, .pk-car:focus-visible { border-color: var(--brass-lo); background-color: var(--paper-hi); outline: none; }
+button.pk-car { cursor: zoom-in; }
+button.pk-car:hover, button.pk-car:focus-visible { border-color: var(--brass-lo); background-color: var(--paper-hi); outline: none; }
 .pk-car canvas { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; image-rendering: pixelated; }
 canvas.soft, .pk-car canvas.soft { image-rendering: auto; }
-.pk-car .cap { position: absolute; left: 5px; top: 3px; font-size: 11px; color: var(--ink-3); }
+.pk-car .cap { position: absolute; right: 5px; top: 3px; font-size: 11px; color: var(--ink-3); }
+/* 「手动选择」：贴在车图左上角的小签，勾着时是黄铜色 */
+.pin { position: absolute; left: 4px; top: 4px; z-index: 1; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px 0 4px; border: 1px solid var(--line-2); background: var(--paper-hi); color: var(--ink-2); font-size: 11.5px; cursor: pointer; white-space: nowrap; box-shadow: 1px 1px 0 rgba(42, 26, 5, 0.25); }
+.pin input { width: 13px; height: 13px; margin: 0; cursor: pointer; }
+.pin:hover { border-color: var(--brass-lo); color: var(--ink); }
+.pin.on { background: var(--brass); border-color: var(--brass-dk); color: var(--ink); font-weight: 700; box-shadow: inset 1px 1px 0 var(--brass-hi), 1px 1px 0 rgba(42, 26, 5, 0.3); }
 .pk-car .who { position: absolute; left: 6px; right: 6px; bottom: 0; font-size: 11px; line-height: 16px; color: var(--ink-2); text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pk-car.miss canvas { opacity: 0.42; filter: grayscale(0.7); }
 .pk-car.none { align-items: center; cursor: default; border-style: dashed; background: none; padding: 5px; color: var(--ink-3); font-size: 12.5px; text-align: center; }
@@ -104,6 +114,8 @@ canvas.soft, .pk-car canvas.soft { image-rendering: auto; }
 .chip.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
 .chip.ok { border-color: var(--ok); color: var(--ok); }
 .pk-line { padding: 3px 7px 0; font-size: 12px; color: var(--ink-2); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-line.bad { color: var(--bad); }
+.board-h .sum .tip-text { opacity: 0.75; }
 .pk-line b { font-family: var(--mono); }
 .pk-line .muted { font-size: 11.5px; }
 .pk-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; padding: 5px 7px 5px; }
@@ -129,6 +141,16 @@ canvas.soft, .pk-car canvas.soft { image-rendering: auto; }
 .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 10px; }
 .cand { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line-2); background: var(--paper-hi); }
 .cand.chosen { border: 2px solid var(--brass-dk); box-shadow: inset 0 0 0 1px var(--brass); }
+.cand.stagecar { border: 2px solid var(--copper); }
+/* 点卡片展开的候选：整排宽，插在那张卡所在一排的下面，小三角对准那张卡（--notch 由脚本算） */
+.drawer { grid-column: 1 / -1; position: relative; margin-top: -12px; padding: 10px 14px 14px; background: var(--paper); border: 2px solid var(--brass-dk); box-shadow: var(--hard); cursor: default; }
+.drawer::before, .drawer::after { content: ""; position: absolute; border-style: solid; border-color: transparent; border-top-width: 0; }
+.drawer::before { top: -12px; left: calc(var(--notch, 60px) - 12px); border-width: 0 12px 12px; border-bottom-color: var(--brass-dk); }
+.drawer::after { top: -9px; left: calc(var(--notch, 60px) - 9px); border-width: 0 9px 9px; border-bottom-color: var(--paper); }
+.drawer-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 6px; }
+.drawer-h h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; }
+.drawer-h .muted { font-size: 12.5px; }
+.drawer .hint { margin: 0 0 8px; font-size: 12.5px; color: var(--ink-3); max-width: 110ch; }
 .cand.fail { background: var(--paper); }
 .cand-head { display: flex; align-items: center; gap: 5px; padding: 4px 6px; font-size: 12px; }
 .cand-head .rank { font: 700 12px var(--mono); color: var(--ink-3); }

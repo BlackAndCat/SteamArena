@@ -71,7 +71,9 @@
     const editedAt = new Date().toISOString();
     return original ? update(id, { record, manual: true, participate: true, editedAt }) : remember(record, { manual: true, editedAt });
   }
-  // 历史报告保持只读；展示时加入收藏，并用手工版本替换它的原始候选。
+  // 历史报告保持只读；展示时加入收藏，并用手工版本替换它在候选列表里的原始记录。
+  // 关卡的「进化选出」不再被收藏 / 手工版本顶掉：游戏里用哪辆车只看关卡车（config/stage-cars.json），
+  // 擂台库里的车只是候选（2026-10-04 用户要求只保留一种保存）。
   function merge(report) {
     const result = clone(SA.Camp.migrateEvolutionReport(report)), protectedRows = read().filter(row => row.favorite || row.manual);
     result.candidates ||= []; result.chapters ||= [];
@@ -94,17 +96,9 @@
       let stage = ch.stages.find((item, index) => (item.spec?.stage ?? index) === sp.stage);
       if (!stage) { stage = { spec: { ...sp, name: SA.CAMPAIGN[sp.chapter]?.stages[sp.stage]?.name }, top: [], selected: null }; ch.stages.push(stage); }
       stage.top = (stage.top || []).filter(rec => !matches(rec)); stage.top.push(record);
-      if (stage.selected && matches(stage.selected)) {
-        const edited = key(stage.selected) !== key(record);
-        const missing = missingReward(record);
-        stage.selected = missing ? null : record;
-        if (missing || edited || record.needsEvaluation) {
-          const failed = missing ? ['reward'] : ['manualReview'];
-          stage.selection = { failed, status: missing ? '缺少奖励件，保留原车待修改' : '手工修改后待重新模拟' };
-          result.selectionFailures = (result.selectionFailures || []).filter(item => item.chapter !== sp.chapter || item.stage !== sp.stage);
-          result.selectionFailures.push({ chapter: sp.chapter, stage: sp.stage, name: stage.spec.name, failed });
-        }
-      }
+      // 选出的车本身被收藏时只标上收藏，成绩和硬条件照报告原样
+      if (stage.selected && key(stage.selected) === key(row.record))
+        stage.selected = { ...stage.selected, arenaId: row.id, favorite: row.favorite, manual: row.manual, participate: row.participate };
       ch.stages.sort((a, b) => a.spec.stage - b.spec.stage);
     }
     result.chapters.sort((a, b) => a.chapter - b.chapter);

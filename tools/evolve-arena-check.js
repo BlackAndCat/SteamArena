@@ -30,12 +30,15 @@ async function run() {
   const base = { campaignLayout: SA.CAMPAIGN_LAYOUT, rules: 'old', chapters: [{ chapter: 0, stages: [{ spec, top: [rec], selected: rec }] }], candidates: [rec], selectionFailures: [] };
   const overlay = arena.merge(base);
   assert.strictEqual(overlay.candidates.length, 1);
-  assert(overlay.chapters[0].stages[0].selected.manual);
-  assert(overlay.chapters[0].stages[0].selected.needsEvaluation);
+  // 收藏 / 手工版本只进候选列表，不顶掉报告里选出的车（选出的车只多一个收藏标记）
+  assert.strictEqual(overlay.chapters[0].stages[0].selected.name, '手工甲片夹具');
+  assert.strictEqual(overlay.chapters[0].stages[0].selected.arenaId, saved.id);
+  assert(overlay.chapters[0].stages[0].top.some(item => item.manual && item.needsEvaluation), '手工版本没有进候选列表');
   assert.strictEqual(base.candidates[0].name, '手工甲片夹具', '展示合并污染原报告');
   // 未知模块不得被 fromCells 静默丢弃后当成另一台合法种子。
   const bad = { ...modified.record, name: '无效模块夹具', cells: [...rec.cells, [0, 0, 0, 'missing_module', 1, 0]] };
-  const noRewardVehicle = evolve.minimalVehicle(SA, spec);
+  // minimalVehicle 现在总会带上本关必带件，缺奖励的夹具要显式拿掉甲片
+  const noRewardVehicle = SA.V.fromCells('缺少甲片夹具', SA.StageCars.cellsOf(evolve.minimalVehicle(SA, spec)).filter(cell => cell[3] !== 'plate'));
   const noReward = { ...modified.record, name: '缺少甲片夹具', cells: SA.StageCars.cellsOf(noRewardVehicle) };
   const previousConfig = { ...config.population };
   let report, later;
@@ -46,7 +49,7 @@ async function run() {
     assert.strictEqual(report.chapters[0].stages.length, 1);
     assert.strictEqual(report.chapters[0].stages[0].spec.stage, 1, '单关索引被改成第一关');
     assert.strictEqual(report.seedWarnings.length, 2);
-    assert(report.seedWarnings.some(row => row.name === noReward.name && row.reason.includes('缺少奖励件')));
+    assert(report.seedWarnings.some(row => row.name === noReward.name && row.reason.includes('奖励')));
     const measured = report.candidates.find(item => arena.key(item) === arena.key(modified.record) && item.name === modified.record.name);
     assert(measured, '手工种子在最终报告中丢失');
     assert.strictEqual(measured.style, 'rush', '手工绑定性格被覆盖');
@@ -71,11 +74,11 @@ async function run() {
   } finally { Object.assign(config.population, previousConfig); }
   // 即使原报告被清理，也能从空报告恢复收藏和手工车型。
   assert.strictEqual(arena.merge({ chapters: [], candidates: [] }).candidates[0].arenaId, saved.id);
-  // 原样保存缺奖励的手工车供继续修改，但展示合并不能再把它当作已选关卡车。
+  // 原样保存缺奖励的手工车供继续修改；它只是候选，报告里选出的车不变。
   arena.saveEdited(saved.id, noRewardVehicle, { name: noReward.name, style: 'rush' });
   const missingOverlay = arena.merge(base);
-  assert.strictEqual(missingOverlay.chapters[0].stages[0].selected, null);
-  assert.deepStrictEqual([...missingOverlay.chapters[0].stages[0].selection.failed], ['reward']);
+  assert.strictEqual(missingOverlay.chapters[0].stages[0].selected.name, '手工甲片夹具');
+  assert(missingOverlay.chapters[0].stages[0].top.some(item => item.name === noReward.name), '缺奖励的手工车没有留在候选列表');
   assert.strictEqual(arena.missingReward(missingOverlay.candidates[0]), 'plate');
   assert.strictEqual(JSON.stringify(arena.get(saved.id).record.cells), JSON.stringify(noReward.cells), '自动改写了缺奖励的手工车');
   assert(originalStageFile.equals(fs.readFileSync(stageFile)), '进化擂台改变了正式关卡文件');

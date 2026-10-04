@@ -88,7 +88,8 @@ async function generate(request, emit = () => {}) {
   }
   const references = (base?.chapters || []).flatMap(ch => ch.stages.map(stage => stage.selected).filter(Boolean));
   // 总步骤保留最后的报告落盘，评估和筛选结束时不会提前显示 100%。
-  const fresh = await evolve.runAsync({ scope, originVehicle, games, workers, seed, seeds, references, gpu: request.gpu !== false,
+  // 进化擂台的生成都给手动选择的关卡车留固定席位（tools/evolve.js pinnedStageCar）
+  const fresh = await evolve.runAsync({ scope, originVehicle, games, workers, seed, seeds, references, pinStageCars: true, gpu: request.gpu !== false,
     onProgress: event => emit({ type: 'progress', ...event, totalSteps: event.totalSteps + 1 }) });
   const report = mergeReports(base, fresh);
   const saved = storage.writeReport(report);

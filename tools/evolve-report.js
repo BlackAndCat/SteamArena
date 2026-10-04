@@ -1,7 +1,8 @@
 // 进化擂台：读取 tools/evolve.js 的运行报告（tools/out/evolve-*.json）或候选车库（tools/evolve-candidates.json）。
-// 第一屏是「选关结果」：每关一张卡，大图画出选中的车，旁边是强度、胜率、表现和硬条件；没选出车的关画出最接近的一台。
-// 往下翻依次是逐关筛选（全部候选、性格 × 底盘分格）、强度 × 表现散点、毒瘤车与奇特构筑、报告信息。
-// 原报告只读；擂台收藏 / 手工车独立保存，定向模拟只新增报告，不写正式关卡。外观同后台（tools/console.css）。
+// 第一屏是「选关结果」：每关一张卡。勾着「手动选择」的关先显示游戏里的关卡车（后台关卡工作台保存的那辆）和它在进化里的成绩，
+// 取消勾选后显示进化选出的车；点卡片，这一排下面展开这一关的全部候选。往下翻是强度 × 表现散点、毒瘤车与奇特构筑、报告信息。
+// 原报告只读；关卡车只在后台关卡工作台「保存」（这里的「换上这辆」只把车交过去当草稿），这里能改的只有「手动选择」这一个勾。
+// 收藏的候选另存在本机进化擂台库。外观同后台（tools/console.css）。
 (() => {
   const h = SA.h;
   const $ = (s) => document.querySelector(s);
@@ -25,7 +26,6 @@
     manualReview: '手工修改，待重新模拟',
   };
   const PICKS_KEY = 'steam_arena_evolve_picks';   // 和 js/camp.js 试驾场的 evolve 来源共用
-  const HANDOFF_KEY = 'steam_arena_evolve_handoff'; // 控制台工作台一次性交给本页的当前车
   const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
   const fix = (x, d = 0) => (x == null || !Number.isFinite(+x) ? '—' : (+x).toFixed(d));
   const terrainName = (k) => (SA.TERRAINS[k] ? SA.TERRAINS[k].name : k || '平地');
@@ -50,7 +50,7 @@
     const saved = JSON.parse(localStorage.getItem(MEMORY_KEY));
     if (saved?.version === 1) memory = saved;
   } catch (_) { /* 损坏或禁用的存储回到页面默认值。 */ }
-  const st = { report: null, rawReport: null, label: '', chapter: memory.chapter ?? 'all', fingerprint: null, grid: null, source: null };
+  const st = { report: null, rawReport: null, label: '', chapter: memory.chapter ?? 'all', fingerprint: null, grid: null, source: null, drawer: null };
   function rememberPage() {
     memory = { ...memory, version: 1 };
     if (st.rawReport && st.source) { memory.chapter = st.chapter; memory.grid = st.grid; }
@@ -146,11 +146,66 @@
       if (row) SA.EvolveArena.update(row.id, { favorite }); else SA.EvolveArena.remember(rec, { favorite });
     } catch (error) { banner(error.message, 'stale'); }
   }
-  function editCandidate(rec) {
+  // 「换上这辆」：把车交给后台关卡工作台当草稿（console.js 读 SWAP_KEY），点那边的「保存」才变成这一关的车
+  const SWAP_KEY = 'steam_arena_stage_swap';
+  function openStage(ci, si) {
+    const hash = `#/stage/${ci},${si}/build`;
+    try { if (window.top !== window && /\/console\.html$/.test(window.top.location.pathname)) { window.top.location.hash = hash; return; } } catch (_) { /* 嵌在别处就整页跳过去 */ }
+    location.href = `console.html${hash}`;
+  }
+  function swapIntoStage(rec) {
+    const sp = rec.spec || {};
+    if (!Number.isInteger(sp.chapter) || !Number.isInteger(sp.stage)) { banner('这台车没有记录是哪一关的，换不上', 'stale'); return; }
+    try { sessionStorage.setItem(SWAP_KEY, JSON.stringify({ key: `${sp.chapter},${sp.stage}`, name: rec.name || '', cells: rec.cells || null, code: rec.cells ? null : rec.code || null })); }
+    catch (_) { banner('浏览器不让暂存，换不上；可以复制分享码到工作台「导入…」', 'stale'); return; }
+    openStage(sp.chapter, sp.stage);
+  }
+
+  // ---------- 关卡车：游戏里这一关真正用的车（config/stage-cars.json，只在后台关卡工作台保存） ----------
+  // 记录里的 locked 在这里叫「手动选择」：勾着时卡片先显示它；进化擂台生成时它每代占一个固定席位、单独记成绩（报告的 stage.manual）。
+  const carMemo = new Map();
+  function stageCarOf(ci, si) {
+    const key = `${ci},${si}`;
+    if (carMemo.has(key)) return carMemo.get(key);
+    const stg = SA.CAMPAIGN[ci]?.stages?.[si];
+    let car = null;
+    if (stg && !stg.unfinished && stg.source === 'manual' && stg.vehicle && SA.StageCars) {
+      const cells = SA.StageCars.cellsOf(stg.vehicle), stats = SA.V.stats(stg.vehicle);
+      car = { stageCar: true, pinned: stg.locked !== false, updatedAt: stg.stageCar?.updatedAt || null,
+        name: stg.vehicleName || stg.vehicle.name || stg.name, cells, code: SA.V.encode(stg.vehicle), style: stg.style || 'wander',
+        chassis: cells.map(row => row[3]).find(id => SA.MODULES[id]?.layer === 'chassis') || null,
+        spec: { chapter: ci, stage: si, terrain: stg.terrain || 'flat' }, stats: { value: stats.value, hp: stats.hp, dps: stats.dps, rating: stats.rating } };
+    }
+    carMemo.set(key, car);
+    return car;
+  }
+  const sortedCells = (cells) => JSON.stringify((cells || []).map(row => [...row]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+  // 报告测的是不是现在这辆：车和性格都没改过才算
+  function measuredFor(s, car) {
+    const m = s?.manual;
+    return car && m && sortedCells(m.cells) === sortedCells(car.cells) && (m.style || 'wander') === car.style ? m : null;
+  }
+  const stageRecord = (car, measured) => (measured ? { ...measured, stageCar: true, pinned: car.pinned } : car);
+  // 勾掉 / 勾上「手动选择」：只改这一关记录的 locked，别的字段原样（tools/serve.py 按字段合并）
+  async function setPinned(ci, si, pinned) {
+    const id = `${ci}:${si}`, rec = SA.STAGE_CARS?.records?.[id];
     try {
-      const row = arenaRow(rec) || SA.EvolveArena.remember(rec);
-      location.href = `console.html#/candidate/${encodeURIComponent(row.id)}/build`;
-    } catch (error) { banner(error.message, 'stale'); }
+      if (!rec?.cells) throw new Error('这一关没有关卡车记录');
+      const response = await fetch('/__stage-cars/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workbenchVersion: 1, target: { kind: 'stage', id }, record: { id, source: 'manual', cells: rec.cells, locked: pinned } }) });
+      const saved = await response.json().catch(() => ({}));
+      if (!response.ok || !saved.ok) throw new Error(saved.error || `HTTP ${response.status}`);
+      reloadStageCars();
+      try { const channel = new BroadcastChannel('steam-arena-stage-cars'); channel.postMessage({ type: 'saved', id }); channel.close(); } catch (_) { /* 别的后台标签刷新后才看到 */ }
+    } catch (error) { banner(`「手动选择」没改成：${error.message}`, 'stale'); }
+    if (st.rawReport) render();
+  }
+  function reloadStageCars() {
+    SA.Config.clear('stage-cars');
+    const fresh = SA.Config.get('stage-cars');
+    Object.assign(SA.STAGE_CARS, fresh);
+    SA.StageCars.applyToCampaign();
+    carMemo.clear();
   }
 
   // ---------- 车辆 ----------
@@ -272,22 +327,28 @@
     for (const ch of st.report.chapters || []) for (const s of ch.stages || []) if (s.selected) set.add(s.selected.code);
     return set;
   }
-  // 当前章节下的全部关；报告里没有、但生成器目录里有的关作为「未生成」空位补上
+  // 当前章节下的全部关：报告里的关、游戏里已有关卡车的关（报告里还没有也照样一张卡），
+  // 以及生成器目录里有、两样都没有的关（「未生成」空位）
   function stageRows(withGhosts = false) {
-    const rows = [];
+    const rows = new Map(), put = (ci, si, row) => { if (!rows.has(`${ci},${si}`)) rows.set(`${ci},${si}`, { ci, si, ...row }); };
     for (const ch of st.report.chapters || []) {
       if (!inChapter(ch.chapter)) continue;
-      const have = new Set();
-      (ch.stages || []).forEach((s, i) => { const si = s.spec?.stage ?? i; have.add(si); rows.push({ ci: ch.chapter, si, s }); });
-      if (withGhosts && runCatalog) for (const row of catalogChapter(ch.chapter)?.stages || []) if (!have.has(row.stage)) rows.push({ ci: ch.chapter, si: row.stage, ghost: row });
+      (ch.stages || []).forEach((s, i) => put(ch.chapter, s.spec?.stage ?? i, { s }));
     }
-    return rows.sort((a, b) => a.ci - b.ci || a.si - b.si);
+    if (withGhosts) {
+      SA.CAMPAIGN.forEach((ch, ci) => { if (inChapter(ci)) (ch.stages || []).forEach((_, si) => { if (stageCarOf(ci, si)) put(ci, si, { s: null }); }); });
+      const shown = new Set([...rows.values()].map(x => x.ci));
+      if (runCatalog) for (const ch of runCatalog.chapters) if (shown.has(ch.chapter)) for (const row of ch.stages) put(ch.chapter, row.stage, { ghost: row });
+    }
+    return [...rows.values()].sort((a, b) => a.ci - b.ci || a.si - b.si);
   }
 
-  const chapterList = () => [...new Set([...(st.report.chapters || []).map(ch => ch.chapter), ...(st.report.candidates || []).map(c => c.spec && c.spec.chapter)]
+  const chapterList = () => [...new Set([...(st.report.chapters || []).map(ch => ch.chapter), ...(st.report.candidates || []).map(c => c.spec && c.spec.chapter),
+    ...SA.CAMPAIGN.map((ch, ci) => ((ch.stages || []).some((_, si) => stageCarOf(ci, si)) ? ci : null))]
     .filter(x => x != null))].sort((a, b) => a - b);
   function render() {
     st.report = SA.EvolveArena.merge(st.rawReport);
+    carMemo.clear();
     const r = st.report;
     if (st.chapter !== 'all' && !chapterList().includes(+st.chapter)) st.chapter = 'all';
     // 规则指纹
@@ -297,27 +358,27 @@
     else if (same) banner(`${st.label} · 规则指纹 ${r.rules}，和当前规则一致。`, 'fresh', '规则和当前一致');
     else banner(`部分数据过期，需要复核：当前规则是 ${st.fingerprint}，报告是 ${r.rules}。可在上方选择相应章 / 关重新模拟；其余关卡保留原有结果。`, 'stale', '规则已改：部分数据过期，需复核');
     out.replaceChildren(picks());
-    if (!r.lite) out.append(grid());
     out.append(scatter(), archiveSection(), reportInfo());
     rememberPage();
     fitBoard();
+    showDrawer(false);
   }
 
   // ---------- 第一屏：选关结果 ----------
   function picks() {
-    const r = st.report, rows = stageRows(true), real = rows.filter(x => !x.ghost), chaps = chapterList();
-    const picked = real.filter(x => x.s.selected).length;
+    const r = st.report, rows = r.lite ? [] : stageRows(true), real = rows.filter(x => !x.ghost), chaps = chapterList();
+    const manual = real.filter(x => stageCarOf(x.ci, x.si)?.pinned).length, ran = real.filter(x => x.s?.spec);
+    const picked = ran.filter(x => x.s.selected).length;
     const seg = chaps.length > 1 ? h('nav', { class: 'seg', 'aria-label': '章节' },
       [['all', '全部'], ...chaps.map(ci => [String(ci), chapterShort(ci)])].map(([v, name]) =>
-        h('button', { type: 'button', class: String(st.chapter) === v ? 'on' : '', onclick: () => { st.chapter = v; render(); } }, name))) : null;
+        h('button', { type: 'button', class: String(st.chapter) === v ? 'on' : '', onclick: () => { st.chapter = v; st.drawer = null; render(); } }, name))) : null;
     const sum = r.lite ? h('span', { class: 'sum' }, `候选车库 · ${allRecords().length} 台`)
-      : h('span', { class: 'sum' }, h('b', {}, real.length), ' 关 · 选出 ', h('b', {}, picked),
-        real.length - picked ? [' · ', h('span', { class: 'warn' }, `没选出 ${real.length - picked}`)] : null,
-        ' · 候选 ', h('b', {}, allRecords().length), ' 台',
-        r.generatedAt ? ` · 生成于 ${new Date(r.generatedAt).toLocaleString()}` : null);
+      : h('span', { class: 'sum' }, h('b', {}, real.length), ' 关 · 手动选择 ', h('b', {}, manual), ' · 进化选出 ', h('b', {}, picked),
+        ran.length - picked ? [' · ', h('span', { class: 'warn' }, `没选出 ${ran.length - picked}`)] : null,
+        r.generatedAt ? ` · 生成于 ${new Date(r.generatedAt).toLocaleString()}` : null, h('span', { class: 'tip-text' }, ' · 点卡片看这一关的其他候选'));
     const sec = h('section', { id: 'picks' }, h('div', { class: 'board-h' }, h('h2', {}, '选关结果'), seg, sum));
     const cards = h('div', { class: 'picks' });
-    if (r.lite) cards.append(emptyState('这是候选车库（只有分享码、标签和分数），没有选关结果和逐关筛选。要看每关选出的车，请在上面选一份 tools/out/ 里的运行报告。'));
+    if (r.lite) cards.append(emptyState('这是候选车库（只有分享码、标签和分数），没有选关结果。要看每关选出的车，请在上面选一份 tools/out/ 里的运行报告。'));
     else if (!rows.length) cards.append(emptyState('这份报告里还没有关卡。在上面的「定向模拟」选好章 / 关，点「模拟并生成报告」，选出的车会一关一张卡排在这里。'));
     let lastCi = null;
     for (const x of rows) { cards.append(x.ghost ? ghostCard(x, x.ci !== lastCi) : pickCard(x, x.ci !== lastCi)); lastCi = x.ci; }
@@ -335,51 +396,81 @@
   function canAim(ci, si) { return !!(runCatalog && catalogChapter(ci)?.stages.some(row => row.stage === si)); }
   const aimButton = (ci, si, label = '重跑') => h('button', { type: 'button', class: 'btn sm ghost aim', disabled: !canAim(ci, si),
     title: canAim(ci, si) ? '把上面的生成范围设成这一关，再点「模拟并生成报告」开跑' : '生成器目录里没有这一关', onclick: () => aimAt(ci, si) }, `↻ ${label}`);
+  // 车图左上角的「手动选择」勾：勾着 = 卡片显示关卡车、进化时给它留席位；勾掉 = 卡片显示进化选出的车
+  const pinTag = (ci, si, car) => h('label', { class: `pin${car.pinned ? ' on' : ''}`,
+    title: car.pinned ? `关卡车「${car.name}」优先：卡片显示它，进化时每代给它留一个席位并记成绩。勾掉后卡片改显示进化选出的车，也不再留席位`
+      : `勾上：关卡车「${car.name}」优先显示，进化时每代给它留一个席位并记成绩` },
+    h('input', { type: 'checkbox', checked: car.pinned, onchange: (e) => setPinned(ci, si, e.target.checked) }), '手动选择');
+  // 卡片上除了按钮和勾，点哪里都展开 / 收起这一关的候选
+  const cardClick = (ci, si) => (e) => { if (!e.target.closest('button, input, label, a, select, textarea')) toggleDrawer(ci, si); };
+  const cardKey = (ci, si) => (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); toggleDrawer(ci, si); } };
   function pickCard({ ci, si, s }, first) {
+    s = s || {};
+    const stg = SA.CAMPAIGN[ci]?.stages?.[si] || {};
     const spec = s.spec || {}, sel = s.selected, ev = s.selection || {}, failed = ev.failed || [];
     // 选关卡片只用文字和车图：tools/evolve-report-origin-check.js 在没有擂台库和 SVG 的最小页面里渲染它
-    const shown = sel || diagnosticOf(s), row = sel && SA.EvolveArena ? arenaRow(sel) : null, name = spec.name || stageName(ci, si);
-    const state = sel ? (failed.length ? 'warn' : 'ok') : 'bad';
-    const verdict = sel ? (failed.length ? (ev.status || '待复核') : '✓ 选出') : '✗ 没选出';
-    const missing = sel && SA.EvolveArena ? SA.EvolveArena.missingReward(sel) : null;
-    const terrain = spec.terrain && spec.terrain !== 'flat' ? terrainName(spec.terrain) : null;
+    const car = stageCarOf(ci, si), diag = sel ? null : diagnosticOf(s);
+    const manual = !!car && (car.pinned || (!sel && !diag));
+    const measured = manual ? measuredFor(s, car) : null, mev = measured?.evidence || {};
+    const shown = manual ? stageRecord(car, measured) : sel || diag;
+    const row = !manual && sel && SA.EvolveArena ? arenaRow(sel) : null, name = spec.name || stageName(ci, si);
+    let state, verdict;
+    if (manual) {
+      const n = (mev.failed || []).length;
+      state = !measured ? 'none' : measured.unusable ? 'bad' : n ? 'warn' : 'ok';
+      verdict = !measured ? (s.spec ? '待重新模拟' : '还没跑过') : measured.unusable ? '✗ 不能出战' : n ? `${n} 条未满足` : '✓ 达标';
+    } else {
+      state = sel ? (failed.length ? 'warn' : 'ok') : 'bad';
+      verdict = sel ? (failed.length ? (ev.status || '待复核') : '✓ 选出') : '✗ 没选出';
+    }
+    const missing = !manual && sel && SA.EvolveArena ? SA.EvolveArena.missingReward(sel) : null;
+    const boss = spec.boss ?? stg.boss, reward = spec.rewardModule || stg.spec?.reward || null, terrainKey = spec.terrain || stg.terrain;
+    const terrain = terrainKey && terrainKey !== 'flat' ? terrainName(terrainKey) : null;
     const nums = shown ? h('div', { class: 'pk-nums' },
       h('div', { class: 'pk-num', title: '实战测出的强度分（1000 = 和标尺车打平）' }, h('small', {}, '强度'), h('b', {}, fix(shown.strength)), shown.strengthCi != null ? h('em', {}, `±${fix(shown.strengthCi)}`) : null),
       h('div', { class: 'pk-num', title: `同档胜率：${winText(shown)}（平局计半胜）` }, h('small', {}, '同档胜率'),
         shown.needsEvaluation ? h('b', {}, '待测') : Number.isFinite(shown.winRate) && shown.games ? [h('b', {}, `${Math.round(shown.winRate * 100)}%`), h('em', {}, `${shown.games}局`)] : h('b', {}, '—')),
       h('div', { class: 'pk-num', title: '表现分（观众算法，0～100）' }, h('small', {}, '表现'), h('b', {}, fix(shown.performance)))) : null;
+    const tev = manual ? mev : ev;   // 「打上一关车」这一行：手动车看它自己的复测，进化车看选车复测
+    const shownFailed = manual ? (mev.failed || []) : failed;
     const chips = [
-      spec.boss ? h('span', { class: 'chip boss' }, 'Boss') : null,
-      spec.rewardModule ? h('span', { class: 'chip', title: '这一关的奖励件，选出的车必须带着' }, `奖励 ${SA.MODULES[spec.rewardModule]?.name || spec.rewardModule}`) : null,
+      boss ? h('span', { class: 'chip boss' }, 'Boss') : null,
+      reward ? h('span', { class: 'chip', title: '这一关的奖励件，进化选出的车必须带着' }, `奖励 ${SA.MODULES[reward]?.name || reward}`) : null,
       terrain ? h('span', { class: 'chip' }, terrain) : null,
       spec.previewRuleSource ? h('span', { class: 'chip', title: '预算与结构限制临时继承，正式关卡配置未修改' }, `临时继承 ${stageCode(spec.previewRuleSource.chapter, spec.previewRuleSource.stage)}`) : null,
-      shown && shown.archiveClass && shown.archiveClass !== 'normal' ? h('span', { class: 'chip' }, h('span', { style: `color:${classOf(shown).color}` }, classOf(shown).glyph), classOf(shown).name) : null,
-      ...failed.filter(k => k !== 'target' || ev.previousWinRate == null).map(k => h('span', { class: 'chip bad' }, COND[k] || k)),
+      !manual && shown && shown.archiveClass && shown.archiveClass !== 'normal' ? h('span', { class: 'chip' }, h('span', { style: `color:${classOf(shown).color}` }, classOf(shown).glyph), classOf(shown).name) : null,
+      ...shownFailed.filter(k => k !== 'target' || tev.previousWinRate == null).map(k => h('span', { class: 'chip bad', title: manual ? '进化选车的硬条件；手动选择的车不受它限制，只是记下来' : null }, COND[k] || k)),
       missing ? h('span', { class: 'chip bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}`) : null,
     ].filter(Boolean);
     const verified = ev.verified || [], pass = verified.filter(v => !(v.failed || []).length).length;
-    const oc = s.originComparison;
-    return h('article', { class: `pk${spec.boss ? ' boss' : ''}${sel ? '' : ' miss'}`, 'data-stage': `${ci},${si}` },
+    const oc = !manual ? s.originComparison : null, key = `${ci},${si}`;
+    const evolvedLine = manual && s.spec ? h('div', { class: 'pk-line' }, '进化另选 ',
+      sel ? [h('b', {}, `强 ${fix(sel.strength)}`), h('span', { class: 'muted' }, ` · 胜率 ${pct(sel.winRate)} · 表现 ${fix(sel.performance)}`)] : h('b', { class: 'bad' }, '没选出')) : null;
+    return h('article', { class: `pk${boss ? ' boss' : ''}${!manual && !sel ? ' miss' : ''}${manual ? ' manual' : ''}${st.drawer === key ? ' open' : ''}`,
+      'data-stage': key, tabindex: 0, 'aria-expanded': String(st.drawer === key), onclick: cardClick(ci, si), onkeydown: cardKey(ci, si) },
       first ? chapterTab(ci) : null,
       h('div', { class: 'pk-head' },
         h('span', { class: 'pk-code' }, stageCode(ci, si)),
         h('h3', { class: 'pk-name', title: name }, name),
         h('span', { class: `verdict ${state}` }, verdict),
-        sel ? h('button', { type: 'button', class: `star${row?.favorite ? ' on' : ''}`, 'aria-pressed': String(!!row?.favorite),
+        !manual && sel ? h('button', { type: 'button', class: `star${row?.favorite ? ' on' : ''}`, 'aria-pressed': String(!!row?.favorite),
           title: row?.favorite ? '已收藏：重跑时保留这台车（点一下取消）' : '收藏这台车，重跑时保留', onclick: () => toggleFavorite(sel) }, row?.favorite ? '★' : '☆') : null),
-      shown ? h('button', { type: 'button', class: `pk-car${sel ? '' : ' miss'}`, title: `${shown.name || '候选车'} · 点开看详情`, onclick: () => openDetail(shown) },
-        carPic(shown, 230, 184, 2) || unreadable(), sel ? null : h('span', { class: 'cap' }, '最接近的一台'),
-        h('span', { class: 'who' }, `${styleName(shown.style)} · ${chassisName(shown.chassis)}${shown.stats?.value != null ? ` · £${fix(shown.stats.value)}` : ''}`))
+      shown ? h('div', { class: `pk-car${!manual && !sel ? ' miss' : ''}`, title: shown.name || '' },
+        carPic(shown, 230, 184, 2) || unreadable(), !manual && !sel ? h('span', { class: 'cap' }, '最接近的一台') : null,
+        car ? pinTag(ci, si, car) : null,
+        h('span', { class: 'who' }, `${manual ? `${shown.name || car.name} · ` : ''}${styleName(shown.style)} · ${chassisName(shown.chassis)}${shown.stats?.value != null ? ` · £${fix(shown.stats.value)}` : ''}`))
         : h('div', { class: 'pk-car none' }, '没有选出车'),
       nums,
-      ev.previousWinRate != null ? h('div', { class: 'pk-line', title: `${ev.previousName || '上一关的车'}和它换边对打 ${ev.previousGames || '—'} 局；目标是这台车赢 ${targetText(ev.target)}` },
-        '打上一关车 ', h('b', { class: ev.targetPass ? 'ok' : 'bad' }, pct(ev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(ev.target)}`)) : null,
+      measured?.unusable ? h('div', { class: 'pk-line bad', title: measured.unusable }, measured.unusable) : null,
+      tev.previousWinRate != null ? h('div', { class: 'pk-line', title: `${tev.previousName || '上一关的车'}和它换边对打 ${tev.previousGames || '—'} 局；目标是这台车赢 ${targetText(tev.target)}` },
+        '打上一关车 ', h('b', { class: tev.targetPass ? 'ok' : 'bad' }, pct(tev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(tev.target)}`)) : null,
       oc ? h('div', { class: 'pk-line', title: originComparisonLabel(oc) }, '对原点车胜率 ', h('b', {}, `${pct(oc.winRate)} · ${oc.games} 局`), h('span', { class: 'muted' }, ` · ${originComparisonLabel(oc)}`)) : null,
+      evolvedLine,
       chips.length ? h('div', { class: 'pk-tags' }, chips) : null,
       h('div', { class: 'pk-foot' },
-        h('button', { type: 'button', class: 'screen', title: `这一关筛选了 ${verified.length} 台候选，${pass} 台满足全部硬条件；点一下往下看每一台`, onclick: () => focusStage(ci, si) },
+        h('button', { type: 'button', class: 'screen', title: verified.length ? `这一关进化筛选了 ${verified.length} 台候选，${pass} 台满足全部硬条件；点一下在下面展开` : '在下面展开这一关的候选', onclick: () => toggleDrawer(ci, si) },
           verified.length ? [h('span', { class: 'dots', 'aria-hidden': 'true' }, verified.slice(0, 12).map(v => h('i', { class: sel && v.name === sel.name ? 'chosen' : (v.failed || []).length ? '' : 'y' }))),
-            `达标 ${pass} / ${verified.length}`] : `候选 ${(s.top || []).length} 台`),
+            `达标 ${pass} / ${verified.length}`] : s.spec ? `候选 ${(s.top || []).length} 台` : '还没有候选'),
         aimButton(ci, si)));
   }
   function ghostCard({ ci, si, ghost }, first) {
@@ -399,13 +490,6 @@
     gen.classList.remove('flash'); void gen.offsetWidth; gen.classList.add('flash');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     $('#generate').focus({ preventScroll: true });
-  }
-  function focusStage(ci, si) {
-    st.grid = `${ci},${si}`;
-    $('#grid')?.replaceWith(grid());
-    rememberPage();
-    softenPics();
-    $('#grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   // 生成器的旧报告只记录原点车名；没有明确章关时保留车名，不推断来源关卡。
   function originComparisonLabel(comparison) {
@@ -429,60 +513,99 @@
     return parts.join(' · ');
   }
 
-  // ---------- 往下翻 1：逐关筛选 ----------
-  function grid() {
-    const rows = stageRows();
-    const sec = h('section', { id: 'grid', class: 'sheet' },
-      h('h2', {}, '逐关筛选', h('small', {}, '参加这一关筛选的全部候选，按筛选顺序排；金框是选中的车')));
-    if (!rows.length) { sec.append(emptyState('这份报告没有关卡数据。')); return sec; }
-    if (!st.grid || !rows.some(x => `${x.ci},${x.si}` === st.grid)) st.grid = `${rows[0].ci},${rows[0].si}`;
-    const pick = h('select', { onchange: (e) => { st.grid = e.target.value; $('#grid').replaceWith(grid()); rememberPage(); softenPics(); } },
-      rows.map(x => h('option', { value: `${x.ci},${x.si}`, selected: st.grid === `${x.ci},${x.si}` }, `${stageCode(x.ci, x.si)} · ${(x.s.spec && x.s.spec.name) || stageName(x.ci, x.si)}`)));
-    const cur = rows.find(x => `${x.ci},${x.si}` === st.grid), s = cur.s, spec = s.spec || {}, ev = s.selection || {};
-    const top = s.top || [], arch = s.archive || {};
-    sec.append(h('div', { class: 'ctl' }, h('label', { class: 'fld' }, '关卡', pick),
-      h('span', { class: 'muted' }, [`场地 ${terrainName(spec.terrain)}`, spec.budget != null ? `预算 £${spec.budget}` : null, `候选 ${s.count ?? top.length} 台`,
-        `存档覆盖 ${arch.buckets ?? '—'} 格`, s.diversity ? `${s.diversity.clusterCount} 个造型簇` : null, ev.warning].filter(Boolean).join(' · '))));
-    const extra = evidence(spec, ev);
-    if (spec.lesson || extra) sec.append(h('p', { class: 'hint' }, spec.lesson ? `考题：${spec.lesson}` : null, spec.lesson && extra ? ' · ' : null, extra || null));
-    // 筛选顺序来自 selection.verified；报告只保存每关前几名的完整车，按名字对上
-    const byName = new Map(top.map(rec => [rec.name, rec])), seen = new Set();
-    const cards = (ev.verified || []).map((v, i) => { const rec = byName.get(v.name); if (rec) seen.add(rec); return candCard(rec || { name: v.name, codeOnly: true }, v, i, s); });
-    const rest = top.filter(rec => !seen.has(rec));
-    if (cards.length || rest.length) sec.append(h('div', { class: 'cands' }, cards, rest.map(rec => candCard(rec, null, null, s))));
-    else sec.append(emptyState('这一关没有保存候选车。'));
-    // 性格 × 底盘分格：只列这一关真的出现过的性格和底盘
-    const styles = [...new Set(top.map(rec => rec.style).filter(Boolean))], chassis = [...new Set(top.map(rec => rec.chassis).filter(Boolean))];
-    if (styles.length && chassis.length) sec.append(h('details', { class: 'fold', open: !!st.foldOpen, ontoggle: (e) => { st.foldOpen = e.target.open; } },
-      h('summary', {}, `按性格 × 底盘分格（存档覆盖 ${arch.buckets ?? '—'} 格）`),
-      h('p', { class: 'hint', style: 'margin-top:6px' }, '报告只保存每关前几名的完整数据，所以格子里只显示这些车；覆盖的格子数来自完整存档。'),
-      h('div', { class: 'scroll' }, h('table', { class: 'gridtbl' },
-        h('tr', {}, h('th', {}, '性格 \\ 底盘'), chassis.map(c => h('th', {}, chassisName(c)))),
-        styles.map(sy => h('tr', {}, h('th', {}, styleName(sy)), chassis.map(cz => {
-          const cell = top.filter(rec => rec.style === sy && rec.chassis === cz);
-          return cell.length ? h('td', {}, cell.map(rec => thumb(rec))) : h('td', { class: 'empty' }, '—');
-        })))))));
-    return sec;
+  // ---------- 点卡片：这一关的其他候选，插在这张卡所在那一排的下面 ----------
+  function toggleDrawer(ci, si) {
+    const key = `${ci},${si}`;
+    st.drawer = st.drawer === key ? null : key;
+    if (st.drawer) st.grid = key;
+    rememberPage();
+    showDrawer(true);
   }
-  function candCard(rec, v, i, s) {
-    const isPick = !!s.selected && !rec.codeOnly && s.selected.code === rec.code;
+  function showDrawer(scroll) {
+    document.querySelector('#grid')?.remove();
+    for (const c of document.querySelectorAll('.picks .pk')) {
+      const on = c.dataset.stage === st.drawer;
+      c.classList.toggle('open', on);
+      if (c.hasAttribute('aria-expanded')) c.setAttribute('aria-expanded', String(on));
+    }
+    if (!st.drawer) return;
+    const panel = drawer();
+    if (!panel) return;
+    document.querySelector('.picks').append(panel);
+    placeDrawer();
+    softenPics();
+    if (scroll) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  // 放到选中那张卡所在一排的最后一张后面；小三角对准那张卡
+  function placeDrawer() {
+    const grid = document.querySelector('.picks'), panel = document.querySelector('#grid');
+    const card = grid?.querySelector(`.pk[data-stage="${st.drawer}"]`);
+    if (!panel) return;
+    panel.remove();
+    if (!card) return;
+    const top = card.offsetTop, last = [...grid.querySelectorAll('.pk')].filter(c => c.offsetTop === top).pop();
+    last.after(panel);
+    const a = card.getBoundingClientRect(), b = panel.getBoundingClientRect();
+    panel.style.setProperty('--notch', `${Math.round(a.left + a.width / 2 - b.left)}px`);
+  }
+  function drawer() {
+    const [ci, si] = st.drawer.split(',').map(Number);
+    const row = stageRows(true).find(x => x.ci === ci && x.si === si && !x.ghost);
+    if (!row) { st.drawer = null; return null; }
+    const s = row.s || {}, spec = s.spec || {}, ev = s.selection || {}, top = s.top || [], arch = s.archive || {};
+    const car = stageCarOf(ci, si), measured = measuredFor(s, car), name = spec.name || stageName(ci, si);
+    const info = [s.spec ? `场地 ${terrainName(spec.terrain)}` : null, spec.budget != null ? `预算 £${spec.budget}` : null,
+      s.spec ? `进化候选 ${s.count ?? top.length} 台` : '还没跑过进化', arch.buckets != null ? `存档覆盖 ${arch.buckets} 格` : null,
+      s.diversity ? `${s.diversity.clusterCount} 个造型簇` : null, ev.warning].filter(Boolean).join(' · ');
+    const extra = evidence(spec, ev);
+    // 关卡车放第一张；进化筛选按 selection.verified 的顺序（报告只存每关前几名的完整车，按名字对上）；再后面是收藏等其他车
+    const byName = new Map(top.map(rec => [rec.name, rec])), seen = new Set(), cards = [];
+    if (car) cards.push(candCard(stageRecord(car, measured), measured?.evidence || null, null, s, true));
+    (ev.verified || []).forEach((v, i) => { const rec = byName.get(v.name); if (rec) seen.add(rec); cards.push(candCard(rec || { name: v.name, codeOnly: true }, v, i, s)); });
+    top.filter(rec => !seen.has(rec)).forEach(rec => cards.push(candCard(rec, null, null, s)));
+    const styles = [...new Set(top.map(rec => rec.style).filter(Boolean))], chassis = [...new Set(top.map(rec => rec.chassis).filter(Boolean))];
+    return h('section', { id: 'grid', class: 'drawer', 'aria-label': `${stageCode(ci, si)} ${name} 的候选` },
+      h('div', { class: 'drawer-h' },
+        h('h3', {}, h('span', { class: 'pk-code' }, stageCode(ci, si)), `${name} · 这一关的候选`),
+        h('span', { class: 'muted' }, info), h('span', { class: 'grow' }),
+        h('button', { type: 'button', class: 'btn sm ghost', onclick: () => toggleDrawer(ci, si) }, '收起 ✕')),
+      spec.lesson || extra ? h('p', { class: 'hint' }, spec.lesson ? `考题：${spec.lesson}` : null, spec.lesson && extra ? ' · ' : null, extra || null) : null,
+      !s.spec ? h('p', { class: 'hint' }, '这一关还没跑过进化：点卡片上的「↻ 重跑」把生成范围设成这一关，再点「模拟并生成报告」。关卡车勾着「手动选择」就会占一个席位、记下成绩。') : null,
+      cards.length ? h('div', { class: 'cands' }, cards) : emptyState('这一关没有保存候选车。'),
+      styles.length && chassis.length ? h('details', { class: 'fold', open: !!st.foldOpen, ontoggle: (e) => { st.foldOpen = e.target.open; } },
+        h('summary', {}, `按性格 × 底盘分格（存档覆盖 ${arch.buckets ?? '—'} 格）`),
+        h('p', { class: 'hint', style: 'margin-top:6px' }, '报告只保存每关前几名的完整数据，所以格子里只显示这些车；覆盖的格子数来自完整存档。'),
+        h('div', { class: 'scroll' }, h('table', { class: 'gridtbl' },
+          h('tr', {}, h('th', {}, '性格 \\ 底盘'), chassis.map(c => h('th', {}, chassisName(c)))),
+          styles.map(sy => h('tr', {}, h('th', {}, styleName(sy)), chassis.map(cz => {
+            const cell = top.filter(rec => rec.style === sy && rec.chassis === cz);
+            return cell.length ? h('td', {}, cell.map(rec => thumb(rec))) : h('td', { class: 'empty' }, '—');
+          })))))) : null);
+  }
+  function candCard(rec, v, i, s, isStage = false) {
+    const isPick = !isStage && !!s.selected && !rec.codeOnly && s.selected.code === rec.code;
     const fail = v ? v.failed || [] : [], other = fail.filter(k => k !== 'target');
-    const row = rec.codeOnly ? null : arenaRow(rec), missing = rec.cells ? SA.EvolveArena.missingReward(rec) : null;
-    const verdict = isPick ? h('span', { class: 'verdict ok' }, '选中') : v ? h('span', { class: `verdict ${fail.length ? 'bad' : 'none'}` }, fail.length ? '未达标' : '达标')
+    const row = rec.codeOnly || isStage ? null : arenaRow(rec), missing = !isStage && rec.cells ? SA.EvolveArena.missingReward(rec) : null;
+    const verdict = isStage ? h('span', { class: `verdict ${rec.pinned ? 'ok' : 'none'}` }, rec.pinned ? '关卡车 · 手动选择' : '关卡车')
+      : isPick ? h('span', { class: 'verdict ok' }, '进化选出') : v ? h('span', { class: `verdict ${fail.length ? 'bad' : 'none'}` }, fail.length ? '未达标' : '达标')
       : row?.manual ? h('span', { class: 'verdict warn' }, '手工') : row?.favorite ? h('span', { class: 'verdict none' }, '收藏') : null;
-    return h('div', { class: `cand${isPick ? ' chosen' : ''}${fail.length ? ' fail' : ''}` },
+    const sp = rec.spec || {}, unmeasured = isStage && !Number.isFinite(rec.strength);
+    return h('div', { class: `cand${isPick ? ' chosen' : ''}${isStage ? ' stagecar' : ''}${fail.length ? ' fail' : ''}` },
       h('div', { class: 'cand-head' }, i != null ? h('span', { class: 'rank' }, `#${i + 1}`) : null, h('span', { class: 'nm', title: rec.name || '' }, rec.name || '候选车'), verdict),
       rec.codeOnly ? h('div', { class: 'pk-car none' }, '报告没存这台车') :
         h('button', { type: 'button', class: 'pk-car', title: '点开看详情', onclick: () => openDetail(rec) }, carPic(rec, 180, 80, 2) || unreadable()),
       h('div', { class: 'cand-info' },
         `${styleName(rec.style)} · ${chassisName(rec.chassis)}${rec.archiveClass && rec.archiveClass !== 'normal' ? ` · ${classOf(rec).name}` : ''}`, h('br'),
-        '强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}`,
+        unmeasured ? (s.spec ? '这次进化没测它（之后改过车或性格），重跑这关就有成绩' : '还没跑过进化')
+          : ['强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}`],
+        rec.unusable ? [h('br'), h('span', { class: 'bad' }, rec.unusable)] : null,
         v && v.previousWinRate != null ? [h('br'), '打上一关车 ', h('b', { class: v.targetPass ? 'ok' : 'bad' }, pct(v.previousWinRate)), ` · 目标 ${targetText(v.target)}`] : null,
         other.length ? [h('br'), other.map(k => h('span', { class: 'chip bad' }, COND[k] || k))] : null,
         missing ? [h('br'), h('span', { class: 'bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关`)] : null),
       rec.codeOnly ? null : h('div', { class: 'cand-btns' },
-        h('button', { type: 'button', class: 'btn sm', 'aria-pressed': String(!!row?.favorite), onclick: () => toggleFavorite(rec) }, row?.favorite ? '★ 已收藏' : '☆ 收藏保留'),
-        h('button', { type: 'button', class: 'btn sm', onclick: () => editCandidate(rec) }, '去工作台修改')));
+        isStage ? h('button', { type: 'button', class: 'btn sm', title: '在后台关卡工作台打开这一关', onclick: () => openStage(sp.chapter, sp.stage) }, '去关卡工作台')
+          : h('button', { type: 'button', class: 'btn sm primary', title: '把这辆车交给后台关卡工作台当草稿；在那边点「保存」才变成这一关的车', disabled: !Number.isInteger(sp.chapter), onclick: () => swapIntoStage(rec) }, '换上这辆'),
+        isStage ? null : h('button', { type: 'button', class: 'btn sm', 'aria-pressed': String(!!row?.favorite), onclick: () => toggleFavorite(rec) }, row?.favorite ? '★ 已收藏' : '☆ 收藏')));
   }
 
   // ---------- 散点图：强度分（横）× 表现分（纵），往下翻第 2 块 ----------
@@ -654,16 +777,18 @@
             kv('胜率（同档标尺）', `${winText(rec)}${rec.opponentCount ? ` · ${rec.opponentCount} 台标尺 · 平局计半胜` : ''}${rec.evaluationStyle ? ` · 实测性格：${styleName(rec.evaluationStyle)}` : ''}`),
             scr ? kv('本关筛选', h('span', {}, scr.previousWinRate != null ? ['打上一关车 ', h('b', { class: scr.targetPass ? 'ok' : 'bad' }, pct(scr.previousWinRate)), ` · 目标 ${targetText(scr.target)}`] : '第一关不比上一关',
               (scr.failed || []).length ? ` · 没满足：${scr.failed.map(k => COND[k] || k).join('、')}` : ' · 硬条件全部满足')) : null,
-            kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
+            rec.stageCar ? kv('关卡车', rec.pinned ? '游戏里这一关用的车 · 手动选择：进化时每代留一个席位' : '游戏里这一关用的车 · 没勾「手动选择」')
+              : kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
             kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约原分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
             kv('选车综合分', rec.ranking ? `${fix(rec.ranking.total, 2)} = 节约 ${fix(rec.ranking.efficiency, 1)} × 60% + 强度 ${fix(rec.ranking.strength, 1)} × 40%（均按 0～100 计）` : '待按新权重模拟'),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
           h('div', { class: 'row-btns' },
             h('button', { type: 'button', class: 'btn primary', disabled: !v, onclick: () => testDrive(rec) }, '去试驾场和它打一场'),
-            h('button', { type: 'button', class: 'btn', disabled: !v || sp.chapter == null, onclick: () => editCandidate(rec) }, '去关卡车工作台修改'),
-            h('button', { type: 'button', class: 'btn', onclick: () => { toggleFavorite(rec); openDetail(rec); } }, arenaRow(rec)?.favorite ? '★ 取消收藏' : '☆ 收藏并保留'),
-            h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: arenaRow(rec)?.participate !== false, onchange: e => {
+            rec.stageCar ? h('button', { type: 'button', class: 'btn', disabled: sp.chapter == null, onclick: () => openStage(sp.chapter, sp.stage) }, '去关卡工作台')
+              : h('button', { type: 'button', class: 'btn', title: '交给后台关卡工作台当草稿；在那边点「保存」才变成这一关的车', disabled: !v || sp.chapter == null, onclick: () => swapIntoStage(rec) }, '换上这辆（去关卡工作台）'),
+            rec.stageCar ? null : h('button', { type: 'button', class: 'btn', onclick: () => { toggleFavorite(rec); openDetail(rec); } }, arenaRow(rec)?.favorite ? '★ 取消收藏' : '☆ 收藏并保留'),
+            rec.stageCar ? null : h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: arenaRow(rec)?.participate !== false, onchange: e => {
               const row = arenaRow(rec) || SA.EvolveArena.remember(rec, { favorite: true });
               SA.EvolveArena.update(row.id, { participate: e.target.checked });
             } }), '作为后续进化种子')),
@@ -693,7 +818,16 @@
   }
   function closeDetail() { $('#overlay').hidden = true; }
   let fitQueued = 0;
-  addEventListener('resize', () => { cancelAnimationFrame(fitQueued); fitQueued = requestAnimationFrame(fitBoard); });
+  addEventListener('resize', () => { cancelAnimationFrame(fitQueued); fitQueued = requestAnimationFrame(() => { fitBoard(); placeDrawer(); }); });
+  // 后台关卡工作台保存了关卡车（或别的标签改了「手动选择」）：重读关卡配置再画
+  try {
+    const channel = new BroadcastChannel('steam-arena-stage-cars');
+    channel.onmessage = (e) => {
+      if (e.data?.type === 'created') { location.reload(); return; }
+      if (e.data?.type !== 'saved') return;
+      try { reloadStageCars(); if (st.rawReport) render(); } catch (error) { console.error('关卡配置刷新失败', error); }
+    };
+  } catch (_) { /* 不支持频道的浏览器刷新后才看到 */ }
   $('#overlay').addEventListener('pointerdown', (e) => { if (e.target.id === 'overlay') closeDetail(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDetail(); $('#gen-more').open = false; } });
   // 「参数」小窗：点外面收起
@@ -710,7 +844,7 @@
     if (!opts.length) {
       st.source = null;
       use({ chapters: [], candidates: [], selectionFailures: [] }, '本机进化擂台');
-      banner('还没有运行报告。已收藏和手工保存的车仍在下方；选择章／关后点击“模拟并生成报告”即可开始。');
+      banner('还没有运行报告。各关的关卡车仍在下方；选择章／关后点击“模拟并生成报告”即可开始。');
       return;
     }
     const pickV = opts.some(o => o[0] === keep) ? keep : opts[0][0];
@@ -755,7 +889,7 @@
   new MutationObserver(syncMeter).observe($('#stop-generation'), { attributes: true, attributeFilter: ['disabled'] });
   new MutationObserver(() => { $('#scope-info').title = $('#scope-info').textContent; }).observe($('#scope-info'), { childList: true, characterData: true, subtree: true });
 
-  let pollTimer = null, finishedJob = null, handoff = null;
+  let pollTimer = null, finishedJob = null;
   // 目录可能过滤缺配置章节和关卡，原始 ID 不能作为数组下标。
   const catalogChapter = chapter => runCatalog.chapters.find(row => row.chapter === chapter);
   async function service(url, payload) {
@@ -816,9 +950,7 @@
         const phase = { start: '准备', 'stage-start': '准备本关', 'generation-start': '评估', candidate: '评估', 'generation-end': '完成本代', 'stage-end': '完成本关整理', 'boss-start': '筛选 Boss 标尺', 'boss-end': '完成 Boss 标尺', 'selection-start': '筛选关卡车', 'selection-end': '完成本关筛选', 'chapter-end': '选关完成', complete: '正在保存报告' }[p.phase] || '准备';
         const generation = p.generation == null ? '' : `第 ${p.generation + 1} 代 · 本代 ${p.completed ?? 0}/${p.total ?? '—'} 台`;
         const remaining = Number.isFinite(job.remainingMs) ? `预计剩余约 ${duration(job.remainingMs)}` : '剩余时间估算中';
-        $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}` +
-          (handoff && (!handoff.running || handoff.jobId !== job.id) ? '。工作台请求已保留，当前任务结束后可点击“启动待生成”。' : '');
-        if (handoff) $('#generate').disabled = true;
+        $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}`;
         pollTimer = setTimeout(pollJob, 1500);
       } else if (job.status === 'complete' && finishedJob !== job.id) {
         finishedJob = job.id;
@@ -828,14 +960,8 @@
         // 刷新只是恢复当前查看位置；此前已完成的任务不能覆盖手选报告。
         // 后续轮询观察到任务完成时，仍自动展示该任务的新报告。
         if (!restoring) await refreshList(result.file);
-        if (handoff?.running && job.id === handoff.jobId) { handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告'; }
       } else if (job.status === 'failed') $('#generation-status').textContent = `生成失败：${job.error} · ${overallProgress(job.progress || {})}`;
       else if (job.status === 'cancelled') $('#generation-status').textContent = `已停止生成：${overallProgress(job.progress || {})}，之前的报告和保留车型仍可查看。`;
-      if ((job.status === 'failed' || job.status === 'cancelled') && handoff?.running && job.id === handoff.jobId) {
-        handoff.running = false;
-        sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
-      }
-      if (!busy && handoff) { $('#generate').textContent = '启动待生成'; $('#generate').disabled = false; }
     } catch (error) {
       $('#generation-status').textContent = error.message;
       $('#generate').disabled = !runCatalog;
@@ -848,11 +974,9 @@
         const field = $(`#run-${key}`); if (!field.checkValidity()) throw new Error(`请检查${field.parentElement.textContent.trim()}的取值`);
         return [key, +field.value];
       }));
-      const current = handoff;
-      const route = !current && $('#run-mode').value === 'route-after';
+      const route = $('#run-mode').value === 'route-after';
       const [chapter, stage] = $('#run-origin').value.split(',').map(Number);
-      const scope = current ? { chapter: current.chapter, stage: current.stage }
-        : route ? { type: 'route-after', origin: { chapter, stage }, count: +$('#run-after-count').value }
+      const scope = route ? { type: 'route-after', origin: { chapter, stage }, count: +$('#run-after-count').value }
         : { chapter: +$('#run-chapter').value, stage: $('#run-stage').value === 'all' ? null : +$('#run-stage').value };
       const origin = catalogChapter(chapter)?.stages.find(row => row.stage === stage);
       if (route && !origin?.hasVehicle)
@@ -861,17 +985,9 @@
         throw new Error(`后续关数无效；该原点最多可选 ${origin?.maxAfter || 0} 关`);
       const seeds = SA.EvolveArena.read().filter(row => (row.favorite || row.manual) && row.participate !== false &&
         row.record.spec?.chapter === (route ? chapter : scope.chapter) && (route || scope.stage == null || row.record.spec.stage === scope.stage)).map(row => row.record);
-      if (current) seeds.push({ ...current.originVehicle, spec: { chapter: current.chapter, stage: current.stage } });
-      const request = current?.request || { ...params, scope, seeds, originVehicle: current?.originVehicle || null,
-        baseReport: /^out\/evolve-\d+\.json$/.test(st.source || '') ? st.source : null };
-      const started = await service('run', request);
-      if (handoff) {
-        handoff.waiting = true;
-        handoff.running = true;
-        handoff.request = request;
-        handoff.jobId = started.id;
-        sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
-      }
+      // 手动选择的关卡车由生成服务直接读正式关卡配置、自动占席位，这里不用再带
+      const request = { ...params, scope, seeds, baseReport: /^out\/evolve-\d+\.json$/.test(st.source || '') ? st.source : null };
+      await service('run', request);
       await pollJob();
     } catch (error) { $('#generation-status').textContent = error.message; $('#generate').disabled = false; }
   };
@@ -885,20 +1001,14 @@
       $('#run-origin').replaceChildren(...runCatalog.chapters.flatMap(ch => ch.stages.filter(row => row.hasVehicle).map(row =>
         h('option', { value: `${ch.chapter},${row.stage}` }, `${ch.name} · ${row.name}`))));
       for (const [key, value] of Object.entries(runCatalog.defaults)) $(`#run-${key}`).value = value;
-      // 修改目标关即放弃待重试的旧车，避免把先前草稿误投到新范围。
-      const targetChanged = () => {
-        if (handoff && !handoff.running) {
-          handoff = null; sessionStorage.removeItem(HANDOFF_KEY); $('#generate').textContent = '模拟并生成报告';
-        }
-      };
-      $('#run-chapter').onchange = () => { targetChanged(); runStages(); rememberPage(); };
-      $('#run-stage').onchange = () => { targetChanged(); scopeInfo(); rememberPage(); };
-      $('#run-mode').onchange = () => { targetChanged(); runMode(); rememberPage(); };
-      $('#run-origin').onchange = () => { targetChanged(); scopeInfo();
+      $('#run-chapter').onchange = () => { runStages(); rememberPage(); };
+      $('#run-stage').onchange = () => { scopeInfo(); rememberPage(); };
+      $('#run-mode').onchange = () => { runMode(); rememberPage(); };
+      $('#run-origin').onchange = () => { scopeInfo();
         const count = $('#run-after-count');
         if (!count.checkValidity()) count.value = Math.max(+count.min, Math.min(+count.value || +count.min, +count.max));
         rememberPage(); };
-      $('#run-after-count').onchange = () => { targetChanged(); rememberPage(); };
+      $('#run-after-count').onchange = () => { rememberPage(); };
       // 章节决定关卡选项，原点决定后续关数上限；必须按依赖顺序恢复。
       const savedRun = memory.run && typeof memory.run === 'object' ? memory.run : {};
       restoreField('chapter', savedRun.chapter);
@@ -908,19 +1018,6 @@
       for (const key of ['after-count', 'population', 'generations', 'games', 'workers', 'seed']) restoreField(key, savedRun[key]);
       generationReady = true;
       for (const key of RUN_FIELDS) $(`#run-${key}`).addEventListener('input', rememberPage);
-      rememberPage();
-      // 首次交接在空闲时自动启动；忙碌或刷新后的交接只显示待启动操作，防止重复运行。
-      const stored = sessionStorage.getItem(HANDOFF_KEY);
-      if (stored) {
-        try { handoff = JSON.parse(stored); } catch (_) { sessionStorage.removeItem(HANDOFF_KEY); }
-        if (handoff) {
-          $('#run-mode').value = 'single'; $('#run-chapter').value = String(handoff.chapter); runStages();
-          $('#run-stage').value = String(handoff.stage); runMode();
-          const job = await service('job');
-          sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ ...handoff, waiting: true }));
-          if (job.status !== 'running' && !handoff.waiting && !handoff.running && !handoff.jobId) { await $('#generate').onclick(); }
-        }
-      }
       rememberPage();
       await pollJob(true);
     } catch (error) { $('#scope-info').textContent = error.message; }
