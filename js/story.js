@@ -95,10 +95,11 @@ SA.Story = (() => {
   // 老汤姆（和亲戚同框时）在右边，眼睛朝左。expr = 这一句的表情（台词的 expr 字段，缺省 normal）
   // 笑眯眼和瞪眼本身就是一种眼形，不再眨眼
   const NO_BLINK = { happy: 1, shock: 1, blink: 1 };
-  function portrait(talk, blink, who = 'uncle', expr = 'normal') {
+  // look：1 = 朝右（左边的头像），-1 = 朝左（右边的头像）；不给就按老规矩，老汤姆朝左、其余朝右
+  function portrait(talk, blink, who = 'uncle', expr = 'normal', look = who === 'smith' ? -1 : 1) {
     const c = SA.STORY.cast[who] || SA.STORY.cast.uncle;
     const e = SA.Coal.EXPR[expr] ? expr : 'normal';
-    return coal(c.coal || '远房亲戚', { size: 'bust', expr: blink && !NO_BLINK[e] ? 'blink' : e, cy: talk ? 60 : 62, look: who === 'smith' ? -1 : 1 });
+    return coal(c.coal || '远房亲戚', { size: 'bust', expr: blink && !NO_BLINK[e] ? 'blink' : e, cy: talk ? 60 : 62, look });
   }
   // 编辑器可选的表情：[id, 名字]（括号里的画法备注不要）；blink 是眨眼动画用的，不给选
   const exprs = () => Object.entries(SA.Coal.EXPR).filter(([k]) => k !== 'blink').map(([k, n]) => [k, String(n).split(/[（(]/)[0].trim() || k]);
@@ -377,8 +378,12 @@ SA.Story = (() => {
   function talk(lines, { host = document.body, scene = null, onDone = null, onEdit = null, cls = '', start = 0 } = {}) {
     const page = host === document.body;
     const face = h('canvas', { class: 'px vn-face', width: 96, height: 96 });
-    // 老汤姆一出场就和远房亲戚同框：左边亲戚、右边老汤姆，谁说话谁亮
-    const duo = lines.some(L => L.who === 'smith');
+    // 两人同框：老汤姆一出场就和远房亲戚同框；其他人（玛莎……）只要这一段有两个以上的人说话也同框。
+    // 左边固定一人（有亲戚或老汤姆时是亲戚），右边是最近一位别的说话人，谁说话谁亮
+    const speakers = [...new Set(lines.map(L => L.who).filter(w => w && SA.STORY.cast[w]))];
+    const duo = speakers.length > 1 || speakers.includes('smith');
+    const leftWho = duo ? (speakers.includes('uncle') || speakers.includes('smith') ? 'uncle' : speakers[0]) : null;
+    let rightWho = duo ? (speakers.find(w => w !== leftWho) || 'smith') : null;
     const face2 = duo ? h('canvas', { class: 'px vn-face', width: 96, height: 96 }) : null;
     const name = h('div', { class: 'vn-name' });
     const txt = h('div', { class: 'vn-text' });
@@ -400,6 +405,8 @@ SA.Story = (() => {
       full = L.text; shown = 0; lt = 0;
       const who = speaker(L);
       root.dataset.who = who || 'narr';
+      if (duo && who && who !== leftWho) rightWho = who;
+      root.dataset.side = !who ? 'narr' : !duo || who === leftWho ? 'l' : 'r';
       if (who) { mood[who] = L.expr || 'normal'; root.classList.add('vn-cast'); }
       name.textContent = who ? SA.STORY.cast[who].name : '';
       if (L.scene && scene) scene.set(L.scene);
@@ -419,9 +426,9 @@ SA.Story = (() => {
     let solo = null;
     function faces() {
       const who = root.dataset.who, talking = who !== 'narr' && shown < full.length && Math.floor(gt * 9) % 2 === 0;
-      const left = duo ? 'uncle' : who !== 'narr' ? (solo = who) : solo;
-      if (left) { fg.clearRect(0, 0, 96, 96); fg.drawImage(portrait(talking && who === left, gt % 3.2 < 0.12, left, mood[left]), 0, 0); }
-      if (fg2) { fg2.clearRect(0, 0, 96, 96); fg2.drawImage(portrait(talking && who === 'smith', (gt + 1.3) % 3.7 < 0.12, 'smith', mood.smith), 0, 0); }
+      const left = duo ? leftWho : who !== 'narr' ? (solo = who) : solo;
+      if (left) { fg.clearRect(0, 0, 96, 96); fg.drawImage(portrait(talking && who === left, gt % 3.2 < 0.12, left, mood[left], duo ? 1 : undefined), 0, 0); }
+      if (fg2) { fg2.clearRect(0, 0, 96, 96); fg2.drawImage(portrait(talking && who === rightWho, (gt + 1.3) % 3.7 < 0.12, rightWho, mood[rightWho], -1), 0, 0); }
     }
     function frame(now) {
       if (done) return;
@@ -455,7 +462,7 @@ SA.Story = (() => {
     let sc = null;
     for (let k = 0; k < from; k++) {
       const who = speaker(lines[k]);
-      if (who) { mood[who] = lines[k].expr || 'normal'; solo = who; root.classList.add('vn-cast'); }
+      if (who) { mood[who] = lines[k].expr || 'normal'; solo = who; root.classList.add('vn-cast'); if (duo && who !== leftWho) rightWho = who; }
       if (lines[k].scene) sc = lines[k].scene;
     }
     if (sc && scene && !lines[from].scene) scene.set(sc);

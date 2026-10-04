@@ -726,8 +726,8 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
 .vn[data-who=narr] .vn-more { border-top-color: var(--glass2); }
 /* 老汤姆和远房亲戚同框：左亲戚、右老汤姆，说话的那个亮，另一个压暗；名牌挪到说话人那一边 */
 .vn-portrait, .vn-name { transition: filter .15s; }
-.vn-duo[data-who=uncle] .vn-portrait2, .vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2) { filter: brightness(.45) saturate(.5); }
-.vn-duo[data-who=smith] .vn-name { left: auto; right: 22px; }
+.vn-duo[data-side=l] .vn-portrait2, .vn-duo[data-side=r] .vn-portrait:not(.vn-portrait2) { filter: brightness(.45) saturate(.5); }
+.vn-duo[data-side=r] .vn-name { left: auto; right: 22px; }
 .vn-name { position: absolute; top: -26px; left: 22px; z-index: 1; padding: 4px 16px 6px; font-size: 15px; font-weight: 900; letter-spacing: .12em; color: #2a1a05;
   background: var(--brass3); clip-path: var(--px-corner-s); box-shadow: inset -3px -3px 0 var(--brass1); }
 .vn-name:empty { display: none; }
@@ -1247,8 +1247,8 @@ body[data-yard] #screen { min-height: 0; }
 .vn-touch .vn-face { width: 48px; height: 48px; }
 .vn-touch .vn-text { font-size: 14px; line-height: 1.6; min-height: 3.2em; }
 .vn-touch .vn-name { top: -22px; font-size: 13px; padding: 3px 10px 4px; }
-.vn-touch.vn-duo[data-who=uncle] .vn-portrait2, .vn-touch.vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2), .vn-touch.vn-duo[data-who=narr] .vn-portrait { display: none; }
-.vn-touch.vn-duo[data-who=smith] .vn-name { right: auto; left: 22px; }
+.vn-touch.vn-duo[data-side=l] .vn-portrait2, .vn-touch.vn-duo[data-side=r] .vn-portrait:not(.vn-portrait2), .vn-touch.vn-duo[data-side=narr] .vn-portrait { display: none; }
+.vn-touch.vn-duo[data-side=r] .vn-name { right: auto; left: 22px; }
 .vn-touch .vn-skip { bottom: auto; top: 4px; right: 8px; }
 @media (orientation: portrait) {
   .vn-touch.vn-battle { inset: 100% 0 auto 0; padding-top: 4px; background: var(--bg0); }
@@ -1257,8 +1257,8 @@ body[data-yard] #screen { min-height: 0; }
 @media (max-width: 560px) {
   .vn-duo .vn-portrait { width: 56px; height: 56px; padding: 2px; }
   .vn-duo .vn-face { width: 52px; height: 52px; }
-  .vn-duo[data-who=uncle] .vn-portrait2, .vn-duo[data-who=smith] .vn-portrait:not(.vn-portrait2), .vn-duo[data-who=narr] .vn-portrait { display: none; }
-  .vn-duo[data-who=smith] .vn-name { right: auto; left: 22px; }
+  .vn-duo[data-side=l] .vn-portrait2, .vn-duo[data-side=r] .vn-portrait:not(.vn-portrait2), .vn-duo[data-side=narr] .vn-portrait { display: none; }
+  .vn-duo[data-side=r] .vn-name { right: auto; left: 22px; }
 }
 
 /* ---------- 页面教程（js/tutorial.js）----------

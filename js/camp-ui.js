@@ -25,8 +25,9 @@ SA.CampUI = (() => {
     } })), false, next);
   }
 
+  // u.lines：额外的整句（比如支线开放），和解锁清单排在一起
   function unlockDialog({ title, u }, next) {
-    const lines = unlockLines(u);
+    const lines = [...unlockLines(u), ...(u.lines || [])];
     if (!lines.length && !u.note) { next(); return; }
     SA.UI.dialog(title, [
       u.note ? h('p', { style: 'margin-top:0' }, u.note) : null,

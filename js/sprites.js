@@ -3280,14 +3280,15 @@ SA.SPR = (() => {
         wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
         connL: same(c - w),
         connR: same(c + w),
-        ...run(row, c),
+        ...run(row, c, cell.id),
         top: !!(above && !SA.isRam(above.id)),
         thrown, snap: cell.id === 'track' && cell.hp <= 0,
       };
     };
-    // 同类底盘连续段：本格在段内的序号与段长（腿按整段分配）
-    const run = (row, c) => {
-      const id = row[c].id, w = SA.fp(id).w;
+    // 同类底盘连续段：本格在段内的序号与段长（腿按整段分配）。侧挂件下面的主体格可能是空的或别的模块，按单独一段算
+    const run = (row, c, id) => {
+      if (!row[c] || row[c].id !== id) return { ri: 0, rn: 1 };
+      const w = SA.fp(id).w;
       let a0 = c, a1 = c;
       while (a0 - w >= 0 && row[a0 - w] && row[a0 - w].id === id) a0 -= w;
       while (a1 + w < K.COLS && row[a1 + w] && row[a1 + w].id === id) a1 += w;
