@@ -87,10 +87,12 @@ SA.CAMPAIGN_MAP = {
   ],
   sides: [
     {
-      id: 'rival', name: '亲戚的宿敌', sub: '玛莎来找茬',
+      // 2026-10-04 用户改名「玛莎的复仇」：第一关是 2-1 第一次开打时的拦路（游戏数据 SIDE_LINES，open.ambush），第二关打完 2-3 后开放（暂定）；
+      // 原宿敌·一（旧账）、宿敌·二（三百封信）搁置，见 docs/campaign-plan.md §7.1
+      id: 'rival', name: '玛莎的复仇', sub: '玛莎来找茬',
       episodes: [
-        { code: '宿敌·一', name: '旧账', open: { after: '1-3' }, car: '周日用车（裙甲堡）', pilot: '玛莎', terrain: '铁匠铺后院', test: '黑色裙甲罩住了腿 → 打它的顶', reward: '唯一：裙甲堡（四足 T2）', loot: 'quad:skirtfort' },
-        { code: '宿敌·二', name: '三百封信', open: { clear: 1 }, car: '新裙子（裙甲堡双足）', pilot: '玛莎', terrain: '平地', test: '最耐打的双足，碎步冲锋 → 等它冲到脸上', reward: '唯一：裙甲堡（双足 T3）', loot: 'biped:skirt' },
+        { code: '玛莎·一', name: '拦路', open: { clear: 1, ambush: '2-1' }, car: '煤灰寡妇（熟铁 + 钢甲）', pilot: '玛莎', terrain: '伦敦郊区 · 平地', test: '（用户定）', reward: '缴获一件（首胜）' },
+        { code: '玛莎·二', name: '（未定）', open: { after: '2-3' }, car: '（未定）', pilot: '玛莎', terrain: '（未定）', test: '（未定）', reward: '（未定）' },
         { code: '宿敌·三', name: '亡夫的掷弹兵', open: { after: '2-3' }, car: '老伯特的掷弹兵', pilot: '玛莎', terrain: '泥地', test: '臼炮连环抛射 → 冲进近处盲区', reward: '唯一：掷弹兵（四足 T3）', loot: 'quad:gren' },
         { code: '宿敌·四', name: '白手套', open: { clear: 3 }, car: '轻骑兵（半人马）', pilot: '霍雷肖·斯迈思上校', terrain: '马球场（平地）', test: '半人马全速冲锋 + 撞角 + 侧炮，重演当年那场冲锋', reward: '唯一：半人马（四足 T5）', loot: 'quad:centaur' },
         { code: '宿敌·五', name: '半个庄园', open: { clear: 4 }, car: '老煤车', pilot: '玛莎', terrain: '煤场（货箱当煤堆）', test: '支线终章：铲斗推人 + 臼炮扔煤块 + 重甲车头', reward: '乌兹钢锭 ×1', final: true },

@@ -1209,7 +1209,7 @@
     }
     function openText(d) {
       const e = d.e, prev = d.i > 0 ? d.sideInfo.episodes[d.i - 1] : null;
-      return e.open.after ? `主线 ${e.open.after} 之后` : e.open.clear != null ? `${plan.chapters[e.open.clear].code}通关以后` : `${prev ? prev.code : '上一集'}之后`;
+      return e.open.ambush ? `主线 ${e.open.ambush} 第一次开打时拦路` : e.open.after ? `主线 ${e.open.after} 之后` : e.open.clear != null ? `${plan.chapters[e.open.clear].code}通关以后` : `${prev ? prev.code : '上一集'}之后`;
     }
     function gateCard(d) {
       const ch = d.ch, out = [];
