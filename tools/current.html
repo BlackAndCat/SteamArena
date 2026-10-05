@@ -37,20 +37,32 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 14px; }
 </style></head>
 <body>
-<h1>当前开发 · 双足强化 v5 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 机甲套件 v4 已全部通过，在它上面接着做（计划：docs/biped-plan.md）</small></h1>
-<p class="lead">这一期三样东西等你挑：① 轻型腿 / 重型腿怎么分；② 走、快跑、下蹲、跳跃四种姿态；③ 腿部件（跳跃件、提速件）各三种方案。腿都是游戏的 <code>js/legs.js</code> 画的——下蹲、空中收腿、快跑的参数已经加进游戏代码（默认画面逐像素没变，等后台规则接上就能用）；躯干用 v4 的零件。游戏画面没动。</p>
+<h1>当前开发 · 双足强化 v6 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 走路 / 跑步重做（已进游戏），计划：docs/biped-plan.md</small></h1>
+<p class="lead">v5 的意见：步幅太大；跑步动画很怪，要按成熟的跑步姿态和算法重做。这一版重写了游戏里的双足步态（<code>js/legs.js</code>），<b>已经是游戏里的样子</b>。下蹲、跳跃还是样机（等后台规则）。</p>
 
-<div class="find"><b>要你定的</b>
+<div class="find"><b>这一版改了什么</b>
 <ol>
-  <li><b>轻 / 重怎么分</b>（①）：我的分法是主线六档 = 标准腿，9 种唯一腿分成轻型 5 种、重型 4 种，T3～T6 每档一轻一重。</li>
-  <li><b>四种姿态行不行</b>（②）：快跑有双脚腾空、躯干前倾；下蹲沉 1 个子格；跳跃先蓄力下蹲、空中收腿、地上有影子、落地扬尘。</li>
-  <li><b>跳跃件、提速件各选一个</b>（③）：跳跃件 A 弹簧蹬缸 / B 蒸汽弹射缸 / C 板簧蹬刺；提速件 A 助力活塞 / B 飞轮增速箱 / C 双汽缸增压。</li>
+  <li><b>步幅按步频算</b>：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频。原来一步比腿还长（脚够不着地）；现在走路两脚在胯前后约 ±24px，跑步时脚落在身体正下方附近（约 ±15px）。</li>
+  <li><b>走 = 倒立摆</b>：着地占 60%（有双脚着地段），着地腿在胯正下方时整车最高；摆动脚走一条关键姿势插值出来的圆滑曲线（先脚尖蹬地、过胯下时最高、落地前脚跟先着）。</li>
+  <li><b>跑 = 弹簧-质量</b>：着地只占 36%，着地中段压到最低（下压），两脚都离地时被抛到最高（腾空）。摆动腿按跑步关键姿势走：蹬离 → 脚跟往后上收 → 顶膝往前 → 小腿伸出 → 落在身体下方。机甲版收着点，粗腿不会蜷成一团。</li>
+  <li><b>走跑自动过渡</b>：车速 76～100 px/s 之间平滑从走变成跑（现在双足基础速度 78、超速满 97.5，所以超速时会跑起来）；跑起来躯干往车头前倾，每高一大格多 1px（设计稿的「整行错位」）。</li>
+  <li>你的决定都记下了：晶枝腿归标准腿；跳跃件用 A；提速件改装在胯部（不占大腿位，下一轮出方案）；头盔改成两格横躺的部件、两边补零件（进游戏时做）。</li>
 </ol></div>
 
 <div class="bar">
   <span class="seg" id="mode"><button data-v="1" class="on">动起来</button><button data-v="0">定格</button></span>
   <span style="color:var(--muted)">画布都是原生像素 × 2</span>
 </div>
+
+<h2>⓪ 走路 / 跑步（这一轮重做，游戏里就是这样）</h2>
+<div class="bar" style="position:static">
+  <label>车速 <input type="range" id="speed" min="0" max="130" step="1" value="62" style="width:260px"></label>
+  <b id="speedv" style="min-width:220px"></b>
+</div>
+<div class="lane"><canvas id="gamecar"></canvas></div>
+<p class="read">上面是游戏的整车渲染（和战斗里同一条路），拖车速看从走过渡到跑。下面两排是 15 种腿（游戏精灵、带材料色）按同一个车速走 / 跑：</p>
+<h3>走 · 62 px/s</h3><div id="gaitwalk"></div>
+<h3>跑 · 115 px/s</h3><div id="gaitrun"></div>
 
 <h2>① 轻型腿 / 重型腿</h2>
 <div id="classes"></div>
@@ -69,8 +81,8 @@
 <p class="lead">每一行是一类腿 + 一套 v4 躯干：轻型 = 板簧跑刃 + 轻骑，标准 = 掷弹兵 + 突击，重型 = 蒸汽人 + 圣骑。跳跃高度是演示值：轻 1.5 格、标准 1 格、重半格多（规则里按承重余量和腿型算）。</p>
 <div class="grid" id="poses"></div>
 
-<h2>③ 腿部件（侧挂层，挂在近侧腿上）</h2>
-<p class="lead">每种方案装在三条腿上：轻型（板簧跑刃）、标准（掷弹兵）、重型（蒸汽人）。跳跃件放「走 → 蓄力 → 起跳」，提速件放「走 → 快跑」。腿部件跟着腿骨动：画在 legs.js 算出来的大腿 / 小腿上，所以 15 种腿都能直接挂。</p>
+<h2>③ 腿部件</h2>
+<p class="lead">跳跃件选定 A 弹簧蹬缸（小腿位）。提速件改装在胯部、不占大腿位，下一轮出方案。下面是跳跃件装在三条腿上「走 → 蓄力 → 起跳」。</p>
 <div id="parts"></div>
 
 <details id="v4"><summary>已通过 · 机甲套件 v4（2026-10-05 全部通过，点开看整机）</summary>
@@ -87,6 +99,22 @@
   const C = SA.CUR, K4 = SA.MECHKIT, st = { mv: true, t: 0 }, views = [];
   const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const canvas = (w, h, z = 2) => { const cv = mk('canvas'); cv.width = w; cv.height = h; cv.style.width = w * z + 'px'; return cv; };
+
+  // ⓪ 走 / 跑
+  const car = SA.V.fromAscii('双足样车', ['........','........','..CA....','..KA....','..OW....','..B.....']);
+  const gc = document.getElementById('gamecar'); gc.width = 440; gc.height = 262; gc.style.width = 880 + 'px';
+  const sp = document.getElementById('speed'), spv = document.getElementById('speedv');
+  const showSpeed = () => { const v = +sp.value, r = SA.LEGLAB.bipedRun(v); spv.textContent = `${v} px/s · ${r <= 0 ? '走' : r >= 1 ? '跑' : '走 → 跑 ' + Math.round(r * 100) + '%'} · 步幅 ${SA.LEGLAB.strideFor(v).toFixed(1)}`; };
+  sp.addEventListener('input', showSpeed); showSpeed();
+  views.push({ cv: gc, draw: () => C.renderGameCar(gc, car, st, +sp.value) });
+  for (const [id, v] of [['gaitwalk', 62], ['gaitrun', 115]]) {
+    const { w, h } = C.gaitLaneSize(), cv = canvas(w, h), box = document.getElementById(id);
+    box.append(cv);
+    const names = mk('div', 'names'); names.style.paddingLeft = '16px';
+    for (const [, mt, name] of C.ALL_LEGS()) { const sn = mk('span', null, name); sn.style.width = '120px'; names.append(sn); }
+    box.append(names);
+    views.push({ cv, draw: () => C.renderGaitLane(cv, v, st) });
+  }
 
   // ① 轻 / 重
   const CL = document.getElementById('classes');

@@ -64,3 +64,4 @@ SA.BUILD_VIS += '+stage-car-one-save'; // 关卡车只剩一种保存（关卡�
 SA.BUILD_VIS += '+stage-sheet-sidebar-seed-export'; // 用户授权本次工作台性能单左侧竖栏、完整种子复制与导出入口。
 SA.BUILD_VIS += '+evolve-route-diagnostic-results'; // 进化进度区完整列出未达标关及候选，明细标注后续模拟所用的临时参考。
 SA.BUILD_VIS += '+biped-pose-params'; // legs.js：双足下蹲 / 空中收腿 / 快跑腾空 / 腿部件挂点参数（默认画面逐像素不变），当前开发页双足强化 v5。
+SA.BUILD_VIS += '+biped-gait-v2'; // 双足走路 / 跑步重做：按步频算步幅，走 = 倒立摆、跑 = 弹簧 + 腾空，关键姿势插值，车速 76～100 走跑过渡，跑起来躯干前倾。

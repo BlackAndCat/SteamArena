@@ -1,4 +1,6 @@
-// 「当前开发」页：双足强化 v5（2026-10-05，计划见 docs/biped-plan.md）。
+// 「当前开发」页：双足强化 v6（2026-10-05，计划见 docs/biped-plan.md）。
+// v6：用户说步幅太大、跑步很怪 → 走路 / 跑步在 js/legs.js 里重做（已进游戏），本页顶上 ⓪ 节看游戏整车和 15 种腿的走 / 跑；
+//     晶枝腿归标准腿；跳跃件定 A；提速件改到胯部（下一轮）。以下是 v5 的说明。
 // 这一页不复用：只放正在开发、等开发者确认的东西；确认后复制到 tools/archive/<名字>.*，在 labs.js 登记，再换下一项。
 //
 // 机甲套件 v4（tools/archive/mech-kit-v4.*）用户 2026-10-05 全部通过，本页在它上面接着做三件新东西：
@@ -17,12 +19,12 @@ SA.CUR = (() => {
 
   // ---------- ① 轻型 / 重型 ----------
   const CLASSES = [
-    { id: 'std', name: '标准腿', sub: '主线六档（每种材料一种，现在游戏里的样子）', walk: 70,
-      legs: [['mk2', 1, '工装 Mk.II'], ['heron', 2, '鹭步'], ['gren', 3, '掷弹兵'], ['knight', 4, '蒸汽圣骑'], ['clock', 5, '钟表巨像'], ['dragon', 6, '熔心龙骑']],
+    { id: 'std', name: '标准腿', sub: '主线六档 + 晶枝腿（用户 2026-10-05 定：晶枝腿归标准）', walk: 62,
+      legs: [['mk2', 1, '工装 Mk.II'], ['heron', 2, '鹭步'], ['gren', 3, '掷弹兵'], ['knight', 4, '蒸汽圣骑'], ['clock', 5, '钟表巨像'], ['dragon', 6, '熔心龙骑'], ['crystal', 6, '晶枝腿']],
       read: '数值就是现在的双足；造型从细到粗按档位走。' },
-    { id: 'light', name: '轻型腿', sub: '唯一腿 5 种：跑得快、跳得高、躲得开，扛不动重东西', walk: 95,
-      legs: [['stilt', 2, '高跷'], ['blade', 3, '板簧跑刃'], ['panto', 4, '缩放仪平行腿'], ['bellows', 5, '风箱腿'], ['crystal', 6, '晶枝腿']],
-      read: '细、长、弹：伸缩套筒、叠层板簧、平行杆、风箱、枯枝——都是「能弹起来」或者很轻的东西；脚小，起伏大。' },
+    { id: 'light', name: '轻型腿', sub: '唯一腿 4 种：跑得快、跳得高、躲得开，扛不动重东西', walk: 70,
+      legs: [['stilt', 2, '高跷'], ['blade', 3, '板簧跑刃'], ['panto', 4, '缩放仪平行腿'], ['bellows', 5, '风箱腿']],
+      read: '细、长、弹：伸缩套筒、叠层板簧、平行杆、风箱——都是「能弹起来」的东西；脚小，起伏大。' },
     { id: 'heavy', name: '重型腿', sub: '唯一腿 4 种：承重高、蹲得稳、能扛大炮，跑不快、跳不高', walk: 50,
       legs: [['skirt', 3, '裙甲堡'], ['mail', 4, '锁甲骑士腿'], ['steamman', 5, '蒸汽人'], ['templar', 6, '圣堂骑士腿']],
       read: '粗、矮、实：钟形裙甲、锁甲、汽缸大腿、哥特板甲 + 罩袍；脚大，起伏小。' },
@@ -36,15 +38,41 @@ SA.CUR = (() => {
   function renderLane(cv, cls, st, sil) {
     const g = cv.getContext('2d');
     g.clearRect(0, 0, cv.width, cv.height);
-    const v = cls.walk * (st.mv ? 1 : 0), dist = st.t * v, stride = LL.strideFor(v);
+    const v = cls.walk * (st.mv ? 1 : 0), dist = st.t * v, stride = LL.strideFor(v), run = LL.bipedRun(v);
     const a = st.mv ? TAU * dist / (4 * stride) : 0;
-    const bd = LL.bipedBob({ mv: st.mv, a, stride });
+    const bd = LL.bipedBob({ mv: st.mv, a, stride, run });
     cls.legs.forEach(([leg, mt], i) => {
       const x = 24 + i * LANE, y = 18;
-      SA.SPR.drawModule(g, 'biped', x, y, { moving: st.mv, gait: a + i * 0.9, stride, bd, mt, look: VARIANT.has(leg) ? leg : undefined, t: st.t });
+      SA.SPR.drawModule(g, 'biped', x, y, { moving: st.mv, gait: a + i * 0.9, stride, runK: run, bd, mt, look: VARIANT.has(leg) ? leg : undefined, t: st.t });
     });
     g.fillStyle = P.bg[4]; g.fillRect(0, 18 + 96, cv.width, 2);
     if (sil) { g.globalCompositeOperation = 'source-in'; g.fillStyle = P.black; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over'; g.fillStyle = P.bg[4]; g.fillRect(0, 18 + 96, cv.width, 2); }
+  }
+
+  // ---------- ⓪ 走路 / 跑步（2026-10-05 重做）----------
+  // 一排腿（游戏精灵，带材料色）按同一个车速原地走 / 跑：步幅、跑步程度都用游戏的 strideFor / bipedRun
+  const ALL_LEGS = () => CLASSES.flatMap(c => c.legs);
+  function renderGaitLane(cv, v, st) {
+    const g = cv.getContext('2d'), legs = ALL_LEGS();
+    g.clearRect(0, 0, cv.width, cv.height);
+    const sp = st.mv ? v : 0, stride = LL.strideFor(sp), run = LL.bipedRun(sp), a = st.mv ? TAU * st.t * sp / (4 * stride) : 0;
+    const bd = LL.bipedBob({ mv: st.mv, a, stride: Math.round(stride / 2) * 2, run: Math.round(run * 4) / 4 });
+    legs.forEach(([leg, mt], i) => {
+      SA.SPR.drawModule(g, 'biped', 20 + i * 60, 18, { moving: st.mv, gait: a, stride, runK: Math.round(run * 4) / 4, bd, mt, look: VARIANT.has(leg) ? leg : undefined, t: st.t });
+    });
+    g.fillStyle = P.bg[4]; g.fillRect(0, 18 + 96, cv.width, 2);
+  }
+  const gaitLaneSize = () => ({ w: ALL_LEGS().length * 60 + 50, h: 128 });
+  // 游戏整车：SA.SPR.renderVehicle（和战斗里同一条路），车速可调；跑起来躯干前倾也在这里
+  const GV = { phase: 0, last: 0 };
+  function renderGameCar(cv, v, st, speed) {
+    const g = cv.getContext('2d'), sp = st.mv ? speed : 0;
+    const dt = Math.max(0, Math.min(0.1, st.t - GV.last)); GV.last = st.t;
+    GV.phase += TAU * sp * dt / (4 * LL.strideFor(sp || 1));
+    const car = SA.SPR.renderVehicle(v, { moving: sp > 0, speed: sp, phase: GV.phase, key: 'cur-gait', t: st.t });
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND - 40, cv.width, 12);
+    g.drawImage(car, 0, 40, car.width, car.height - 40, (cv.width - car.width) / 2, 0, car.width, car.height - 40);   // 裁掉车顶上方 40px 空白
   }
 
   // ---------- 躯干（v4 零件）+ 游戏腿 ----------
@@ -80,9 +108,9 @@ SA.CUR = (() => {
   // p: { mv, a, stride, duty, liftK, hop, lean, crouch, air（离地高度 px）, tuck, legPart, out }
   const HIPX = PADX + 7 * S + 12;   // v4 的胯对准第 7 列子格的中心
   function drawMech(pn, m, leg, p, X0, Y0) {
-    const bd = p.air ? 0 : LL.bipedBob({ mv: p.mv, a: p.a, stride: p.stride, duty: p.duty, hop: p.hop });
+    const bd = p.air ? 0 : LL.bipedBob({ mv: p.mv, a: p.a, stride: p.stride, run: p.run });
     const cr = Math.round(LL.BIPED_CROUCH * (p.crouch || 0)), dy = cr - Math.round(p.air || 0), lean = p.lean || 0;
-    const lo = { mv: p.mv, a: p.a, stride: p.stride, duty: p.duty, liftK: p.liftK, bd, legs: leg, t: p.t, phase: p.a * 4,
+    const lo = { mv: p.mv, a: p.a, stride: p.stride, run: p.run, bd, legs: leg, t: p.t, phase: p.a * 4,
       crouch: p.crouch, air: !!p.air, tuck: p.tuck, legPart: p.legPart, out: p.out };
     const bx = HIPX - 24, by = HIP_ROW * S + dy;
     // 远侧腿 + 远侧空手臂（压暗）
@@ -110,7 +138,7 @@ SA.CUR = (() => {
   }
 
   // ---------- 姿态时间线 ----------
-  const WALK = { light: 95, std: 70, heavy: 50 }, RUN = { light: 135, std: 118, heavy: 96 };
+  const WALK = { light: 70, std: 62, heavy: 50 }, RUN = { light: 125, std: 112, heavy: 100 };
   const JUMP_H = { light: 72, std: 48, heavy: 26 };   // 演示用：轻型跳 1.5 格、标准 1 格、重型半格多（规则按承重余量算，见计划 §5.2）
   // 跳跃一轮（秒）：站 0.7 → 蓄力下蹲 0.18 → 空中 → 落地缓冲 0.35 → 站
   function jumpState(t, H) {
@@ -138,13 +166,9 @@ SA.CUR = (() => {
   }
   // 姿态 → drawMech 的参数
   function poseParams(pose, cls, t) {
-    if (pose === 'walk') {
-      const v = WALK[cls], stride = LL.strideFor(v);
-      return { mv: true, a: TAU * t * v / (4 * stride), stride, t };
-    }
-    if (pose === 'run') {
-      const v = RUN[cls], stride = Math.min(54, 24 + v * 0.2);
-      return { mv: true, a: TAU * t * v / (4 * stride), stride, duty: 0.36, liftK: 1.5, hop: 4, lean: 1, t };
+    if (pose === 'walk' || pose === 'run') {
+      const v = (pose === 'walk' ? WALK : RUN)[cls], stride = LL.strideFor(v), run = LL.bipedRun(v);
+      return { mv: true, a: TAU * t * v / (4 * stride), stride, run, lean: run > 0.5 ? 1 : 0, t };
     }
     if (pose === 'crouch') return { mv: false, a: 0, stride: 16, crouch: crouchState(t), t };
     const j = jumpState(t, JUMP_H[cls]);
@@ -198,7 +222,7 @@ SA.CUR = (() => {
   const LEGPARTS = {
     // ---- 跳跃件（小腿位）----
     jumpA: {
-      slot: '小腿', name: 'A 弹簧蹬缸', idea: '小腿后缘一根活塞缸，杆上套一圈黄铜粗弹簧；蓄力下蹲时弹簧被压紧，起跳时弹开。最好认的「弹」。',
+      slot: '小腿', name: '跳跃件 · 弹簧蹬缸（用户选定 A）', idea: '小腿后缘一根活塞缸，杆上套一圈黄铜粗弹簧；蓄力下蹲时弹簧被压紧，起跳时弹开。B 蒸汽弹射缸、C 板簧蹬刺没选，代码在 git 历史里。',
       draw(pn, J, M, o) {
         const Sb = J.S, L = Sb.len, c = o.crouch || 0, mid = 0.38 + 0.2 * c, f = -1.8;
         const top = Sb.p(0.8, f), bot = Sb.p(L + 0.2, f), m = Sb.p(L * mid, f);
@@ -207,67 +231,6 @@ SA.CUR = (() => {
         pn.cap(...top, ...m, 1.45).paint(M.dark);
         band(pn, Sb, L * mid - 0.4, f - 1.6, f + 1.6, M.brass);
         pn.disc(...top, 1).paint(M.brass); pn.disc(...bot, 1).paint(M.brass);
-      },
-    },
-    jumpB: {
-      slot: '小腿', name: 'B 蒸汽弹射缸', idea: '小腿前面绑一只黄铜汽缸，底下一只朝下的喇叭喷口：起跳时往地上猛喷一口白汽把车顶起来。',
-      draw(pn, J, M, o) {
-        const Sb = J.S, L = Sb.len, f = 0.8, a0 = 1.2, a1 = L - 2.6;
-        pn.cap(...Sb.p(a0, f), ...Sb.p(a1, f), 1.85).paint(M.brass);
-        for (const a of [a0 + 1.1, a1 - 0.9]) band(pn, Sb, a, f - 2, f + 2, M.dark, 0.5);
-        pn.poly(Sb.pts([[a1 + 0.6, f - 1], [a1 + 0.6, f + 1], [L + 1, f + 2.1], [L + 1, f - 2.1]])).paint(M.dark);
-        pn.disc(...Sb.p(a0 + 0.2, f), 0.9).paint(M.steel);
-        o.out && (o.out.nozzle = toWorld(pn, J, Sb.p(L + 1.2, f)));
-      },
-    },
-    jumpC: {
-      slot: '小腿', name: 'C 板簧蹬刺', idea: '小腿后面两片叠起来的弓形钢板簧，往后鼓出腿外，末端一根伸到脚跟后面的铁刺；下蹲时板簧被压得更弯。',
-      draw(pn, J, M, o) {
-        const Sb = J.S, L = Sb.len, c = o.crouch || 0;
-        for (let i = 1; i >= 0; i--) {
-          const bow = 2.8 + i * 1.3 + c * 1.2, a0 = 1 + i * 1.5, a1 = L + 0.6, pts = [];
-          for (let k = 0; k <= 10; k++) { const u = k / 10; pts.push(Sb.p(a0 + (a1 - a0) * u, -1.4 - Math.sin(Math.PI * u) * bow)); }
-          for (let k = 10; k >= 0; k--) { const u = k / 10; pts.push(Sb.p(a0 + (a1 - a0) * u, -1.4 - Math.sin(Math.PI * u) * bow + 1.1)); }
-          pn.poly(pts).paint(i === 0 ? M.steel : M.iron);
-        }
-        pn.poly(Sb.pts([[L - 0.6, -0.6], [L + 1, -2.4], [L + 3.4, -4.4]])).paint(M.steel);
-        band(pn, Sb, 1.4, -3.4, 0.6, M.brass, 0.7);
-      },
-    },
-    // ---- 提速件（大腿位）----
-    speedA: {
-      slot: '大腿', name: 'A 助力活塞', idea: '大腿前缘一根跨过膝盖的黄铜活塞，像一条铁的股四头肌：缸体绑在大腿上，活塞杆接到小腿上端，膝盖一弯一伸它就跟着伸缩。',
-      draw(pn, J, M, o) {
-        const T = J.T, Sb = J.S, A = T.p(1.6, 2.4), Bp = T.p(T.len * 0.64, 2.8), C2 = Sb.p(2.4, 2.2);
-        pn.cap(...Bp, ...C2, 0.6).paint(M.steel, { bevel: 'l' });
-        pn.cap(...A, ...Bp, 1.5).paint(M.brass);
-        band(pn, T, T.len * 0.36, 0.8, 4.6, M.dark, 0.45);
-        pn.disc(...A, 1.1).paint(M.dark); pn.disc(...C2, 1.1).paint(M.dark);
-      },
-    },
-    speedB: {
-      slot: '大腿', name: 'B 飞轮增速箱', idea: '大腿外侧一只黄铜飞轮，跑起来越转越快；一根连杆从飞轮边接到小腿上，像火车的曲柄。最「蒸汽」的提速件。',
-      draw(pn, J, M, o) {
-        const T = J.T, Sb = J.S, c = T.p(T.len * 0.48, 0.3), r = 3.3, rot = (o.a || 0) * 2;
-        const crank = [c[0] + Math.cos(rot) * (r - 1), c[1] + Math.sin(rot) * (r - 1)];
-        pn.cap(...crank, ...Sb.p(2.8, 0.3), 0.55).paint(M.steel, { bevel: 'l' });
-        pn.disc(...c, r).paint(M.brass);
-        pn.disc(...c, r - 1).paint(M.dark, { outline: false });
-        for (let k = 0; k < 3; k++) { const a = rot + k * TAU / 3; pn.cap(...c, c[0] + Math.cos(a) * (r - 1.1), c[1] + Math.sin(a) * (r - 1.1), 0.4); }
-        pn.paint(M.brass, { outline: false });
-        pn.disc(...crank, 0.75).paint(M.steel);
-      },
-    },
-    speedC: {
-      slot: '大腿', name: 'C 双汽缸增压', idea: '大腿外侧一上一下两只黄铜短汽缸，一根汽管从胯上接下来；跑起来缸尾一下一下排白汽。',
-      draw(pn, J, M, o) {
-        const T = J.T, L = T.len;
-        pn.cap(...T.p(-0.5, -2.2), ...T.p(L * 0.34, -2.2), 0.55).paint(M.steel, { bevel: 'l' });   // 汽管
-        for (const [a, f] of [[L * 0.36, -1], [L * 0.7, 1]]) {
-          pn.cap(...T.p(a - 2, f), ...T.p(a + 2, f), 1.35).paint(M.brass);
-          band(pn, T, a + 2.1, f - 1.3, f + 1.3, M.dark, 0.45);
-        }
-        o.out && (o.out.exhaust = toWorld(pn, J, T.p(L * 0.7 + 2.6, 1)));
       },
     },
   };
@@ -280,5 +243,5 @@ SA.CUR = (() => {
     renderPose(cv, { ...spec, pose, t0: 0 }, { ...st, t: t2 });
   }
 
-  return { CLASSES, MAT_NAME, LEGPARTS, laneSize, renderLane, renderPose, renderPart, POSE_BOX, PART_BOX, JUMP_H, WALK, RUN };
+  return { CLASSES, MAT_NAME, LEGPARTS, laneSize, renderLane, ALL_LEGS, gaitLaneSize, renderGaitLane, renderGameCar, renderPose, renderPart, POSE_BOX, PART_BOX, JUMP_H, WALK, RUN };
 })();

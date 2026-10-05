@@ -2864,10 +2864,10 @@ SA.SPR = (() => {
     // part: 'far' 只画远侧腿 / 'near' 只画机身 + 近侧腿 / 省略 = 都画（卡片图标用）。bd = 机身随步态下沉的像素
     // 双足 T1 · 工装 Mk.II：箱形梁大腿 + 液压撑杆 + 双支杆小腿 + 带肋平脚（反关节）
     // 真双足 2×4（48×96，tools/chassis-lab.html 的画法）：上两行是带陀螺仪的胯（腰挂位有模块时伸出法兰板压住），
-    // 下两行是一对放大的长腿。ga = 步态角档（12 档一圈），sd = 步幅，g2 = [近侧脚, 远侧脚] 的悬挂伸缩，tt = 陀螺转动的时间档
+    // 下两行是一对放大的长腿。ga = 步态角档（12 档一圈），sd = 步幅，rk = 跑步程度（0～4 档，见 LEGLAB.bipedRun），g2 = [近侧脚, 远侧脚] 的悬挂伸缩，tt = 陀螺转动的时间档
     biped(x, y, o) {
       const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
-      LL.bipedArt(pn, x, y, { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2, stride: o.sd || 16, bd: o.bd || 0, g: o.g2 || [0, 0],
+      LL.bipedArt(pn, x, y, { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2, stride: o.sd || 16, run: (o.rk || 0) / 4, bd: o.bd || 0, g: o.g2 || [0, 0],
         legs: o.lk || BIPED_LOOK[(o.st || 1) - 1], wL: !!o.wL, wR: !!o.wR, phase: (o.ga || 0) * 4, t: (o.tt || 0) / 6 }, o.part || undefined);
       pn.flush(ctx);
     },
@@ -2942,7 +2942,8 @@ SA.SPR = (() => {
         const A = o.gait || 0;
         // 唯一外观进入精灵缓存键，避免同材料的不同奖励共用普通双足精灵。
         if (SA.LEG_VARIANTS.some(v => v.id === 'biped' && v.look === o.look)) q.lk = o.look;
-        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 4) * 4;
+        q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 2) * 2;
+        if (q.mv && o.runK) q.rk = Math.round(o.runK * 4);
         q.bd = o.bd || 0; q.part = o.part || null; q.tt = Math.floor((o.t || 0) * 6) % 36;
         if (o.wL) q.wL = true; if (o.wR) q.wR = true;
         if (o.g2 && o.g2.some(v => v)) q.g2 = o.g2.map(v => Math.round((v || 0) / 2) * 2);
@@ -3247,8 +3248,9 @@ SA.SPR = (() => {
     // 整件四足：dyn.phase 是步态角（战斗里按走过的距离 ÷ (4 × 步幅) 推进一圈），步幅跟着车速变；机身起伏按 quadBob
     const hasQuad = base.some(x => x && x.id === 'quad' && x.hp > 0), bipC = base.findIndex(x => x && x.id === 'biped'), hasBiped = bipC >= 0 && base[bipC].hp > 0;
     const stride = (hasQuad ? SA.LEGLAB.quadStride : SA.LEGLAB.strideFor)(o.speed || 0), gaitA = Math.round(phase / (Math.PI * 2 / 12)) * (Math.PI * 2 / 12);
+    const runK = hasBiped && o.moving ? Math.round(SA.LEGLAB.bipedRun(o.speed || 0) * 4) / 4 : 0;   // 真双足：车速快了从走过渡到跑（4 档）
     const bd = hasQuad ? SA.LEGLAB.quadBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 4) * 4 })
-      : hasBiped ? SA.LEGLAB.bipedBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 4) * 4 })
+      : hasBiped ? SA.LEGLAB.bipedBob({ mv: !!o.moving, a: gaitA, stride: Math.round(stride / 2) * 2, run: runK })
       : amp - Math.round(Math.abs(Math.sin((o.moving ? gfOf(phase) : 0) / 12 * Math.PI * 2)) * amp);
     const isChassis = (id) => SA.MODULES[id].layer === 'chassis';
     const dy = (id, r) => (isChassis(id) ? 0 : bd);   // 底盘自己处理下沉，其余整体随之起伏
@@ -3274,7 +3276,7 @@ SA.SPR = (() => {
             store: o.store,   // 蓄压罐：全车存量 0～1
             a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
             punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
-            phase, gait: phase, stride,
+            phase, gait: phase, stride, runK,
             g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
@@ -3361,6 +3363,17 @@ SA.SPR = (() => {
       ctx = g;
       scaled(g, cx(c), cy(r) + bd, cell.id, (xx, yy) => damage(xx, yy, cell.hp / (cell.max || SA.mod(cell).hp), r * 8 + c + 3));
     });
+    // 真双足跑起来躯干前倾（docs/true-biped.md §3.5「姿态靠整行错位」）：胯以上整体往车头错开，每高一大格多 1px（跑满），
+    // 画完再整块挪，模块、车体框、切角、驾驶员一起动，不会对不上
+    if (hasBiped && runK > 0) {
+      const top = CH * S + bd, tmp = farLayer(cv), tg = tmp.getContext('2d');
+      tg.clearRect(0, 0, tmp.width, tmp.height); tg.drawImage(cv, 0, 0, cv.width, top, 0, 0, cv.width, top);
+      g.clearRect(0, 0, cv.width, top);
+      for (let y0 = 0; y0 < top; y0 += S) {
+        const h = Math.min(S, top - y0), dx = Math.round(runK * (top - y0 - h / 2) / (2 * S));
+        g.drawImage(tmp, 0, y0, cv.width, h, dx, y0, cv.width, h);
+      }
+    }
     ctx = g;
     return cv;
   }
