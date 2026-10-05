@@ -128,7 +128,7 @@ function manualCandidateRecord(SA, stage, spec, fingerprint) {
   };
 }
 
-// 关卡作者的手工车始终使用完整工作台；生成种群仍由本关 spec.grid 限制。
+// 关卡作者的手工车始终使用完整工作台；生成种群同样使用完整车间，其他构筑条件仍逐关校验。
 // 重建内存副本，不改变手工记录的坐标、材料或玩家逐章解锁范围。
 function manualWorkbenchVehicle(SA, source) {
   const vehicle = SA.V.fromCells(source.name, SA.StageCars.cellsOf(source));
@@ -223,12 +223,12 @@ function addUnlock(progress, unlock) {
   if (!unlock) return;
   for (const feat of unlock.feat || []) progress.feat.add(feat);
   if (unlock.mat) progress.mat = Math.max(progress.mat, unlock.mat);
-  if (unlock.grid) progress.grid = { cols: unlock.grid.cols, rows: unlock.grid.rows };
+  // 历史扩建记录不再影响有效网格，仍照常累计其他解锁。
 }
 
 // 读取某一关开始前的解锁状态：本关自己的 unlock 属于打赢后获得，不能提前使用。
 function progressAt(SA, chapter, stage) {
-  const progress = { feat: new Set(SA.CAMP_START.feat || []), mat: SA.CAMP_START.mat, grid: { ...SA.CAMP_START.grid } };
+  const progress = { feat: new Set(SA.CAMP_START.feat || []), mat: SA.CAMP_START.mat, grid: SA.V.fullGrid() };
   for (let ci = 0; ci <= chapter; ci++) {
     const ch = SA.CAMPAIGN[ci];
     const stop = ci === chapter ? stage : ch.stages.length;
@@ -294,7 +294,8 @@ function stageSpec(SA, chapter, stage) {
   if (index < 0) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少构筑规则`);
   const rule = stageRules[index];
   const planned = SA.CAMPAIGN_MAP?.chapters[chapter]?.stages[stage];
-  const mat = planned?.enemyMaterial || progress.mat, grid = planned?.enemyGrid || progress.grid;
+  // 敌车与玩家共享完整车间；旧地图 enemyGrid 只保留为历史配置，不再限制候选。
+  const mat = planned?.enemyMaterial || progress.mat, grid = SA.V.fullGrid();
   const { requiredModules, allowedModules, allowedMaterials } = stageModuleSpec(SA, chapter, stage, mat);
   return {
     chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null, bounds: ch.bounds,
@@ -326,7 +327,7 @@ function routeAfter(SA, origin, count) {
   return route.slice(index + 1, index + count + 1);
 }
 
-// 已实施关沿用正式规格；计划关必须有逐关预算与结构化奖励、材料、网格配置。
+// 已实施关沿用正式规格；计划关必须有逐关预算与结构化奖励、材料配置；网格统一取物理底图。
 function previewStageSpec(SA, chapter, stage) {
   const route = plannedRoute(SA), index = route.findIndex(row => row.chapter === chapter && row.stage === stage);
   if (index < 0) throw new Error('预演关卡不在路线图内');
@@ -334,8 +335,8 @@ function previewStageSpec(SA, chapter, stage) {
   const saved = authoritativeStageRecord(SA, chapter, stage);
   if (!Array.isArray(entry.rewardModules) && SA.CAMPAIGN[chapter]?.stages[stage] && !SA.CAMPAIGN[chapter].stages[stage].unfinished)
     return stageSpec(SA, chapter, stage);
-  if (ruleIndex < 0 || !saved && !Array.isArray(entry.rewardModules) || !Number.isInteger(entry.enemyMaterial) || !entry.enemyGrid) {
-    const error = new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少奖励、材料、网格或预算的结构化生成配置`);
+  if (ruleIndex < 0 || !saved && !Array.isArray(entry.rewardModules) || !Number.isInteger(entry.enemyMaterial)) {
+    const error = new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少奖励、材料或预算的结构化生成配置`);
     error.code = 'EVOLVE_STAGE_CONFIG_MISSING'; // 目录可单独标记未配置关，生成入口仍按原错误拒绝。
     throw error;
   }
@@ -349,7 +350,7 @@ function previewStageSpec(SA, chapter, stage) {
     bounds: SA.CAMPAIGN[chapter].bounds, boss: actual?.boss ?? /★/.test(entry.role || ''),
     chapterHasBoss: SA.CAMPAIGN_MAP.chapters[chapter].stages.some(row => /★/.test(row.role || '')),
     rewardModule: requiredModules[0] || null, requiredModules, uniqueLoot: actual?.uniqueLoot || [],
-    mat, allowedMaterials, grid: { ...entry.enemyGrid },
+    mat, allowedMaterials, grid: SA.V.fullGrid(),
     allowedModules, availableMods: allowedModules, budget: rule.budget, baseBudget: rule.budget,
     budgetStatus: rule.status,
     target: { bossWinRate: /★/.test(entry.role || '') ? [0.6, 0.7] : [0.65, 0.8] } };
@@ -400,6 +401,16 @@ function regionBounds(SA, v) {
 // 只用 SA.V.canPut 的 fit=true 分支，避免生成器绕过连通、侧挂和撞击件规则。
 function tryPlace(SA, v, id, mt, rng, tries = 120, layer = null) {
   const f = SA.fp(id), bounds = regionBounds(SA, v), moduleLayer = SA.MODULES[id]?.layer, placementLayer = layer || (moduleLayer === 'ram' ? 'ram' : SA.V.layerOf(id)), storageLayer = SA.V.layerOf(id);
+  // 腿件挂位在胯和小腿，不能沿用「底盘上方」的普通侧挂搜索范围。
+  // 唯一挂点、同类数量和真双足限制仍由正式装配规则判断。
+  if (SA.MODULES[id]?.legPart) {
+    for (let r = SA.K.ROWS - f.h; r >= bounds.r0; r--)
+      for (let c = bounds.c0; c <= bounds.c1 - f.w + 1; c++) {
+        const check = SA.V.canPut(v, id, r, c);
+        if (check.ok && check.fit) { v.side[r][c] = SA.newCell(id, mt); return true; }
+      }
+    return false;
+  }
   // 撞击件必须放在主体最前端；随机撒在车身中会通过 canPut，但会在出战检查时悬空。
   if (!layer && moduleLayer === 'ram') {
     for (let r = bounds.bottom; r >= bounds.r0; r--)
@@ -444,7 +455,7 @@ function hasWeapon(SA, v) {
 }
 
 // 近战撞击件也是武器；底盘自带踢击不能替代独立武器模块。
-function isWeapon(m) { return !!(m?.dmg || m?.ram); }
+function isWeapon(m) { return !!(m?.dmg || m?.ram || m?.punch); }
 
 // 所有候选入口及最终选关共用真实整车检查，防止旧缓存、升级和保底路径漏检。
 function constructionConditions(SA, v, spec) {
@@ -486,14 +497,21 @@ function efficiencyScore(stats, spec) {
   return { money, total: money, value: stats.value, count: stats.count, budget: spec.budget };
 }
 
-// 固定尺度不随当前种群改变，避免同一台车因加入其他候选而改分。
-// 节约原分上限为两项加分之和；强度沿用实战映射的 300～1700 区间。
+// 固定尺度不随当前种群改变；节约奖励只占 10%，预算缺口与低参考胜率另行扣分。
+// 指数预算罚在缺口扩大时加速增长；缺失参考车胜率不应被误读为零胜率。
 function rankingScore(item) {
   const efficiency = clamp(item.efficiency?.total || 0, 0, 100);
   const strength = clamp((item.strength - 300) / 1400, 0, 1) * 100;
   const efficiencyContribution = efficiency * config.ranking.efficiencyWeight;
   const strengthContribution = strength * config.ranking.strengthWeight;
-  return { efficiency, strength, efficiencyContribution, strengthContribution, total: efficiencyContribution + strengthContribution };
+  const baseTotal = efficiencyContribution + strengthContribution;
+  const budget = item.efficiency?.budget, value = item.efficiency?.value;
+  const deficit = Number.isFinite(budget) && budget > 0 && Number.isFinite(value) ? clamp(1 - value / budget, 0, 1) : 0;
+  const budgetPenalty = 100 * Math.expm1(3 * deficit) / Math.expm1(3);
+  const previousWinRatePenalty = Number.isFinite(item.previousWinRate) ? Math.max(0, 0.45 - item.previousWinRate) * 200 : 0;
+  return { scoringVersion: 'budget-pressure-v1', weights: { strength: config.ranking.strengthWeight, efficiency: config.ranking.efficiencyWeight },
+    efficiency, strength, efficiencyContribution, strengthContribution, baseTotal, budgetPenalty, previousWinRatePenalty,
+    total: baseTotal - budgetPenalty - previousWinRatePenalty };
 }
 
 function fitness(item) { return rankingScore(item).total; }
@@ -501,9 +519,9 @@ function difficultyDistance(rate) {
   if (rate == null) return 0;
   return Math.max(config.difficulty.min - rate, 0, rate - config.difficulty.max);
 }
+// 扣后综合分决定优先级，目标距离和实战表现只用于同分择优；负分候选仍参与排序。
 function compareFitness(a, b) {
-  return difficultyDistance(a.previousWinRate) - difficultyDistance(b.previousWinRate) ||
-    fitness(b) - fitness(a) || b.performance - a.performance;
+  return fitness(b) - fitness(a) || difficultyDistance(a.previousWinRate) - difficultyDistance(b.previousWinRate) || b.performance - a.performance;
 }
 
 function pickWeapon(SA, spec, rng, style) {
@@ -523,7 +541,8 @@ function placeSideWithHost(SA, v, spec, id) {
   const mt = materialFor(SA, id, spec), sideSize = SA.fp(id), bounds = regionBounds(SA, v);
   if (mt == null || !spec.availableMods.includes(id)) return false;
   const putSide = () => {
-    for (let r = bounds.bottom - sideSize.h; r >= bounds.r0; r--)
+    const bottom = SA.MODULES[id].legPart ? SA.K.ROWS : bounds.bottom;
+    for (let r = bottom - sideSize.h; r >= bounds.r0; r--)
       for (let c = bounds.c0; c <= bounds.c1 - sideSize.w + 1; c++) {
         const check = SA.V.canPut(v, id, r, c);
         if (!check.ok || !check.fit) continue;
@@ -534,6 +553,8 @@ function placeSideWithHost(SA, v, spec, id) {
     return false;
   };
   if (putSide()) return true;
+  // 腿件依附真双足，骑士手臂依附连通车体；补一块装甲不能替代这些挂接条件。
+  if (SA.MODULES[id].legPart || SA.MODULES[id].knight) return false;
   const hosts = moduleIds(SA, spec, (m, hostId) => ['plate', 'armor', 'armor_heavy'].includes(hostId) &&
     SA.fp(hostId).w >= sideSize.w && SA.fp(hostId).h >= sideSize.h)
     .filter(hostId => materialFor(SA, hostId, spec) != null)
@@ -584,7 +605,9 @@ function minimalVehicle(SA, spec, forcedModule = null) {
     return false;
   };
   // 覆盖检查或奖励车明确指定底盘时，保底构筑也必须真正使用它；否则整件四足/双足永远只会回退成履带。
-  const chassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule :
+  const needsBiped = SA.MODULES[forcedModule]?.legPart || required.some(id => SA.MODULES[id]?.legPart);
+  if (needsBiped && !spec.availableMods.includes('biped')) return null;
+  const chassis = needsBiped ? 'biped' : forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule :
     (spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track'));
   putFirst(chassis);
   // 巨炮和奖励撞击件需要先贴到底盘，再围绕它补齐驾驶舱和锅炉，
@@ -607,7 +630,7 @@ function minimalVehicle(SA, spec, forcedModule = null) {
     const id = moduleIds(SA, spec, predicate)[0];
     if (!id || !putFirst(id, highRows)) return null;
   }
-  const weapon = moduleIds(SA, spec, m => m.dmg || m.ram)[0];
+  const weapon = moduleIds(SA, spec, isWeapon)[0];
   if (forcedSide && !isWeapon(SA.MODULES[forcedSide]) && !hasWeapon(SA, v) && (!weapon || !putFirst(weapon))) return null;
   if (forcedSide && !placeSideWithHost(SA, v, spec, forcedSide)) return null;
   if (!hasWeapon(SA, v) && (!weapon || !putFirst(weapon))) return null;
@@ -623,7 +646,9 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
   v.lim = { ...spec.grid };
   const chassisIds = moduleIds(SA, spec, m => m.layer === 'chassis');
   const style = rng.pick(SA.Battle.aiStyles.filter(item => !item.training).map(item => item.id));
-  const forcedChassis = forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule : null;
+  const needsBiped = SA.MODULES[forcedModule]?.legPart || (spec.requiredModules || []).some(id => SA.MODULES[id]?.legPart);
+  if (needsBiped && !chassisIds.includes('biped')) return null;
+  const forcedChassis = needsBiped ? 'biped' : forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule : null;
   const chassis = forcedChassis || rng.pick(chassisIds) || 'track';
   // 窄预算先留足必需件的钱；额外履带也按整车价值支付，不能固定放两段。
   const minimum = minimalVehicle(SA, spec, forcedModule || chassis);
@@ -664,6 +689,12 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
     tryPlace(SA, v, id, materialFor(SA, id, spec), rng);
   }
   if (spec.availableMods.includes('side_cannon') && rng.chance(0.3)) tryPlace(SA, v, 'side_cannon', materialFor(SA, 'side_cannon', spec), rng, 120, 'side');
+  // 有双足且本次模块池已开放腿件时，才抽样安装；旧关卡不额外消耗随机数。
+  if (chassis === 'biped') for (const id of moduleIds(SA, spec, m => m.legPart)) {
+    const mt = materialFor(SA, id, spec);
+    if (mt != null && !counts(SA, v)[id] && rng.chance(0.5) &&
+      SA.V.stats(v, { deferHeat: true }).value + cellValue(SA, id, mt) <= spec.budget) tryPlace(SA, v, id, mt, rng);
+  }
   if (style === 'rush') {
     const ramIds = moduleIds(SA, spec, m => m.layer === 'ram');
     const ram = rng.pick(ramIds);
@@ -701,6 +732,30 @@ function requiredVehicle(SA, spec, rng) {
           if (place()) break;
         }
       }
+    }
+    if (legalVehicle(SA, vehicle, spec)) return vehicle;
+  }
+  // 随机车可能被可选件占满；耗尽后从最简车补奖励，先定底盘、最后补侧挂宿主。
+  // 底盘的存储层也是 body，必须按模块的实际职责排序，不能用 layerOf 判断。
+  const ordered = [...required].sort((a, b) => {
+    const priority = id => SA.MODULES[id]?.layer === 'chassis' ? 0 : SA.MODULES[id]?.layer === 'side' ? 2 : 1;
+    return priority(a) - priority(b);
+  });
+  // 不同基础武器的射界不同；逐一复用最简布局，保留相同解锁集合与全部限制。
+  for (const weapon of moduleIds(SA, spec, isWeapon)) {
+    const first = ordered[0] || null, installed = first ? [first] : [];
+    const availableMods = [weapon, ...spec.availableMods.filter(id => id !== weapon)];
+    const vehicle = minimalVehicle(SA, { ...spec, availableMods, requiredModules: installed }, first);
+    if (!vehicle) continue;
+    for (const id of ordered) {
+      if (counts(SA, vehicle)[id]) continue;
+      const partial = { ...spec, requiredModules: [...installed, id] }, mt = materialFor(SA, id, spec);
+      if (mt == null) break;
+      // 中间态只检查已补齐的奖励，末尾仍按完整规格验证全部硬条件。
+      const placed = SA.MODULES[id]?.layer === 'side' ? placeSideWithHost(SA, vehicle, partial, id) :
+        isWeapon(SA.MODULES[id]) ? tryWeapon(SA, vehicle, id, mt, rng) : tryPlace(SA, vehicle, id, mt, rng, 160);
+      if (!placed) break;
+      installed.push(id);
     }
     if (legalVehicle(SA, vehicle, spec)) return vehicle;
   }
@@ -1224,14 +1279,15 @@ function selectStageCandidate(SA, scored, spec, reference, fingerprint, seed, re
       targetPass, hardConditions: { ...conditions, target: targetPass } };
     evidence.failed = Object.entries(evidence.hardConditions).filter(([, pass]) => !pass).map(([key]) => key);
     const distinct = history.every(row => shapeSimilarity(SA, item.vehicle, row.vehicle || row) < config.diversity.similarAt);
+    // 最终排名采用双向复测胜率，避免训练期幸运胜率掩盖低于 45% 的罚分。
+    item.previousWinRate = evidence.previousWinRate;
+    item.previousGames = evidence.previousGames;
     return { item, evidence, distinct };
   });
   const qualified = verified.filter(row => !row.evidence.failed.length);
-  qualified.sort((a, b) => Number(b.distinct) - Number(a.distinct) || fitness(b.item) - fitness(a.item) || b.item.performance - a.item.performance);
+  qualified.sort((a, b) => compareFitness(a.item, b.item) || Number(b.distinct) - Number(a.distinct));
   const chosen = qualified[0] || null;
-  const diagnostic = verified.slice().sort((a, b) =>
-    difficultyDistance(a.evidence.previousWinRate) - difficultyDistance(b.evidence.previousWinRate) ||
-    compareFitness(a.item, b.item))[0];
+  const diagnostic = verified.slice().sort((a, b) => compareFitness(a.item, b.item))[0];
   const diversity = diversityMetrics(SA, qualified.map(row => row.item));
   const warning = qualified.length && diversity.clusterCount < config.diversity.finalMinClusters ? '多样性不足' : null;
   // 未达标车仍作为诊断候选保留；只供后续模拟临时参照，不冒充合格入选车。
@@ -1265,6 +1321,54 @@ async function selectStageCandidateAsync(SA, scored, spec, reference, fingerprin
   return selectStageCandidate(SA, scored, spec, reference, fingerprint, seed, recent, null, results);
 }
 
+// 只加装、升级新生或变异副本，向 90% 预算软目标探索；绝不删除模块或修改原种子、手工车和精英。
+// 材料只能来自本关白名单，改装沿用游戏上限；每一步仍经过完整构筑检查，升不上去就保留当前合法车。
+function approachBudget(SA, source, spec, rng = new RNG(1)) {
+  let vehicle = SA.V.clone(source);
+  const target = spec.budget * 0.9;
+  let steps = 0;
+  while (steps++ < 256 && SA.V.stats(vehicle, { deferHeat: true }).value < target) {
+    const value = SA.V.stats(vehicle, { deferHeat: true }).value, choices = [];
+    SA.V.each(vehicle, (cell, r, c, layer) => {
+      const material = (spec.allowedMaterials || [spec.mat]).filter(mt => mt > (cell.mt || 1) && mt >= SA.minMt(cell.id) && mt <= SA.maxMt(cell.id)).sort((a, b) => a - b)[0];
+      const upgrades = [];
+      if (material != null) upgrades.push({ mt: material });
+      if ((cell.lv || 0) < SA.K.UP_MAX) upgrades.push({ lv: (cell.lv || 0) + 1 });
+      for (const change of upgrades) {
+        const upgraded = { ...cell, ...change }, extra = SA.cellValue(upgraded) - SA.cellValue(cell);
+        if (extra > 0 && value + extra <= spec.budget) choices.push({ r, c, layer, upgraded, extra });
+      }
+    });
+    // 优先用不越过软目标的大步升级；只剩小缺口时允许在硬预算内跨过软目标。
+    choices.sort((a, b) => Number(value + a.extra > target) - Number(value + b.extra > target) ||
+      (value + a.extra > target ? a.extra - b.extra : b.extra - a.extra));
+    let changed = false;
+    // 先给小构筑加装模块，避免先升满小型底盘后重量或空间已无余量。
+    const ids = spec.availableMods.filter(id => materialFor(SA, id, spec) != null && !SA.MODULES[id]?.retired &&
+      value + cellValue(SA, id, materialFor(SA, id, spec)) <= spec.budget)
+      .sort((a, b) => cellValue(SA, b, materialFor(SA, b, spec)) - cellValue(SA, a, materialFor(SA, a, spec)));
+    for (const id of ids) {
+      const candidate = SA.V.clone(vehicle), mt = materialFor(SA, id, spec);
+      const placed = SA.V.layerOf(id) === 'side' ? placeSideWithHost(SA, candidate, spec, id) :
+        isWeapon(SA.MODULES[id]) ? tryWeapon(SA, candidate, id, mt, rng) : tryPlace(SA, candidate, id, mt, rng, 40);
+      if (!placed || !legalVehicle(SA, candidate, spec) || SA.V.stats(candidate, { deferHeat: true }).value <= value) continue;
+      vehicle = candidate; changed = true; break;
+    }
+    if (!changed) {
+      for (const choice of choices) {
+        const candidate = SA.V.clone(vehicle), cell = choice.upgraded;
+        cell.hp = Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
+        if (cell.max != null) cell.max = cell.hp;
+        candidate[choice.layer][choice.r][choice.c] = cell;
+        if (!legalVehicle(SA, candidate, spec)) continue;
+        vehicle = candidate; changed = true; break;
+      }
+    }
+    if (!changed) break;
+  }
+  return vehicle;
+}
+
 // 同步与 worker 搜索共用人口补齐、分簇留种和动态调节，避免两条路径逐渐分叉。
 function initialPopulation(SA, spec, previous, rng, seeds = [], pinned = null) {
   const wanted = Math.max(4, spec.populationSize || config.population.size, seeds.length + (pinned ? 1 : 0));
@@ -1277,8 +1381,9 @@ function initialPopulation(SA, spec, previous, rng, seeds = [], pinned = null) {
   while (population.length < wanted) {
     let vehicle = inherited.length && rng.chance(1 - config.population.freshRate) ? mutate(SA, rng.pick(inherited), spec, rng) : null;
     if (!vehicle) vehicle = requiredVehicle(SA, spec, rng);
-    if (!vehicle) throw new Error(`第 ${spec.chapter + 1} 章第 ${spec.stage + 1} 关无法在 £${spec.budget} 与解锁限制下构筑全部奖励件`);
-    population.push(vehicle);
+    // 搜索耗尽只说明本次未找到候选；用战役真实名称定位，避免把序章计入章号。
+    if (!vehicle) throw new Error(`${SA.CAMPAIGN[spec.chapter].name} · 第 ${spec.stage + 1} 关「${spec.name}」：生成器尝试后仍未在 £${spec.budget} 与解锁限制下构筑全部奖励件`);
+    population.push(approachBudget(SA, vehicle, spec, rng));
   }
   return population;
 }
@@ -1318,7 +1423,10 @@ function nextPopulation(SA, spec, scored, seeds, rng, settings, pinned = null) {
         if (changed) vehicle = changed;
       }
     }
-    if (vehicle && legalVehicle(SA, vehicle, spec) && add(vehicle) && isFresh) fresh++;
+    if (vehicle && legalVehicle(SA, vehicle, spec)) {
+      vehicle = approachBudget(SA, vehicle, spec, rng);
+      if (add(vehicle) && isFresh) fresh++;
+    }
   }
   while (current.length < wanted) current.push(SA.V.clone(rng.pick(keep).vehicle));
   return { population: current, seedRetention };
@@ -1345,7 +1453,8 @@ function generateChapter(SA, spec, previous, opponents, rng, fingerprint, quickG
     const verified = generation + 1 >= config.population.generations ? verify?.(scored) : null;
     state.validationGames = verified?.verified.reduce((sum, row) => sum + row.previousGames, 0) || 0;
     state.validationQualified = !!verified?.selected;
-    if (verified?.selected && (!best || verified.diversity.clusterCount > best.selection.diversity.clusterCount)) best = { scored, selection: verified };
+    if (verified?.selected && (!best || compareFitness(verified.selected, best.selection.selected) < 0 ||
+      compareFitness(verified.selected, best.selection.selected) === 0 && verified.diversity.clusterCount > best.selection.diversity.clusterCount)) best = { scored, selection: verified };
     const ready = verify ? verified?.selected && verified.diversity.clusterCount >= config.diversity.finalMinClusters :
       state.difficultyQualified && state.clusterCount >= config.diversity.finalMinClusters;
     if (generation + 1 >= limit || (generation + 1 >= config.population.generations && ready)) {
@@ -1383,7 +1492,8 @@ async function generateChapterAsync(SA, spec, previous, opponents, rng, quickGam
     const verified = generation + 1 >= config.population.generations ? await verify?.(evolved(scored)) : null;
     state.validationGames = verified?.verified.reduce((sum, row) => sum + row.previousGames, 0) || 0;
     state.validationQualified = !!verified?.selected;
-    if (verified?.selected && (!best || verified.diversity.clusterCount > best.selection.diversity.clusterCount)) best = { scored, selection: verified };
+    if (verified?.selected && (!best || compareFitness(verified.selected, best.selection.selected) < 0 ||
+      compareFitness(verified.selected, best.selection.selected) === 0 && verified.diversity.clusterCount > best.selection.diversity.clusterCount)) best = { scored, selection: verified };
     onProgress?.({ phase: 'generation-end', chapter: spec.chapter, stage: spec.stage, generation, completed, total: tasks.length, generationMetrics: state });
     const ready = verify ? verified?.selected && verified.diversity.clusterCount >= config.diversity.finalMinClusters :
       state.difficultyQualified && state.clusterCount >= config.diversity.finalMinClusters;
@@ -1413,8 +1523,13 @@ function campaignOpponents(SA, chapter, stage, previewSpec = null) {
 
 // 每关完成后立即验收和确定前关父本；未达标时保留诊断车并用最优诊断候选继续后续模拟。
 function completedStage(SA, spec, result, reference, recent, fingerprint, seed, duelCache, origin = null, games = 6) {
-  const top = result.scored.slice(0, 8), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
+  const top = result.scored.slice(0, 8);
   const selection = result.selection || selectStageCandidate(SA, top, spec, reference, fingerprint, seed, recent, duelCache);
+  // 复测会更新前关胜率；展示、保留记录与最终选择共用这份扣后排序。
+  top.sort(compareFitness);
+  // 后续关用这些索引读取真实前关车，必须同步重排原评分数组的复测前八席位。
+  result.scored.splice(0, top.length, ...top);
+  const records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
   const selectedIndex = top.indexOf(selection.selected);
   const provisionalIndex = top.indexOf(selection.fallback);
   const bucketCount = Object.keys(result.archive.buckets).length;
@@ -2119,4 +2234,4 @@ async function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2)).catch(error => { console.error(error.stack || error.message); process.exitCode = 1; });
 
-module.exports = { RNG, loadGame, ruleFingerprint, stageFor, pinnedStageCar, pinnedStageRecord, applyStagePatch, stageSpec, plannedRoute, routeAfter, previewStageSpec, campaignSpecCheck, lockedStageReport, randomVehicle, requiredVehicle, adaptParentForStage, minimalVehicle, mutate, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, difficultyDistance, shapeSignature, shapeSimilarity, shapeClusters, diversityMetrics, adaptiveSettings, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duelRows, reduceDuelRows, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, selectStageCandidateAsync, enrichBossDiagnostics, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };
+module.exports = { RNG, loadGame, ruleFingerprint, stageFor, pinnedStageCar, pinnedStageRecord, applyStagePatch, stageSpec, plannedRoute, routeAfter, previewStageSpec, campaignSpecCheck, lockedStageReport, randomVehicle, requiredVehicle, adaptParentForStage, minimalVehicle, mutate, approachBudget, initialPopulation, nextPopulation, compareFitness, legalVehicle, constructionConditions, efficiencyScore, rankingScore, fitness, difficultyDistance, shapeSignature, shapeSimilarity, shapeClusters, diversityMetrics, adaptiveSettings, archive, campaignOpponents, performanceScore, strengthFromRows, createDuelCache, duelRows, reduceDuelRows, duel, evaluateCandidate, generateChapter, generateChapterAsync, usageAgainst, replacementFor, selectStageCandidate, selectStageCandidateAsync, completedStage, enrichBossDiagnostics, robustness, run, runAsync, runParallel, parallelCheck, healthCheck, impact, impactCheck, cacheCheck, check };

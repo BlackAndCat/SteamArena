@@ -56,3 +56,9 @@ SA.BUILD_SYS += '+evolve-route-continue-diagnostics'; // 未达标候选保留�
 SA.BUILD_SYS += '+stage-create-preserve-preview-rule'; // 新关首次保存复用已有预演预算，缺规则才补行，事务失败仍完整回滚。
 SA.BUILD_SYS += '+evolve-authoritative-stage-record'; // 用户显式关卡奖励与历史解锁优先，旧预设不得重新注入已删除模块。
 SA.BUILD_SYS += '+tool-budget-warnings'; // 工作台与擂台显示实际造价和生成预算，超限只提示不禁用手工席位。
+SA.BUILD_SYS += '+evolve-required-reward-fallback'; // 多奖励随机构筑耗尽后用最简武器布局补齐奖励，并按真实章节定位失败。
+
+SA.BUILD_SYS += '+evolve-budget-pressure-v1'; // 强度90%＋节约10%、预算指数罚及参考胜率罚，合法新变体向预算靠近。
+SA.BUILD_SYS += '+full-workshop-grid'; // 新旧玩家车、关卡车与全部候选统一开放8×6大格，其他规则不变。
+SA.BUILD_SYS += '+mail-load-6000'; // 仅锁甲骑士腿实例的最终承重固定6000kg，普通双足和其它变体保留原值。
+SA.BUILD_SYS += '+biped-actions-knights-v1'; // 双足蹲跳、腿挂件、轻重腿与骑士机制；输入和外观由视觉层接入。

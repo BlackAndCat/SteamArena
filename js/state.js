@@ -21,7 +21,7 @@ SA.S = (() => {
       uniqueClaims: {}, stockCells: [],
       bet: null,
       // 战役进度：ch 章、st 关；feat 已开放的功能、mods 商店里能买的模块、mat 能升级到的材料、grid 改装台大小
-      camp: { ch: 0, st: 0, intro: -1, done: false, sideWins: {}, ...JSON.parse(JSON.stringify(SA.CAMP_START)) },
+      camp: { ch: 0, st: 0, intro: -1, done: false, sideWins: {}, ...JSON.parse(JSON.stringify(SA.CAMP_START)), grid: SA.V.fullGrid() },
       orders: [], ordersDone: [],
       wins: 0, losses: 0, battles: 0, champion: 0,
       news: SA.RULES.initial.news,
@@ -35,7 +35,8 @@ SA.S = (() => {
     d.uniqueClaims = d.uniqueClaims || {};
     d.stockCells = d.stockCells || [];
     const oldArmor = !d.vehicle.av;         // 铁装甲 2×2 → 1×2 之前的存档：车上的由 migrate 拆成两块，库存里的数量翻倍
-    d.vehicle = SA.V.migrate(d.vehicle);   // 旧存档是 6 × 8 大格，换算成子格
+    d.vehicle = SA.V.migrate(d.vehicle);   // 旧格式换算成子格，同时解除旧车的小网格限位
+    d.camp.grid = SA.V.fullGrid();         // 新旧存档均开放完整车间，旧扩建进度不限制可用空间
     if (oldArmor) for (const k in d.inv || {}) if (SA.parseKey(k).id === 'armor') d.inv[k] *= 2;
     fixModules(d);
     // 放不下的旧加压舱保留材料、耐久和改装后入库；清空待退清单，刷新不重复补偿。
@@ -385,6 +386,16 @@ SA.S = (() => {
   function placeBet(amount, odds) { d.money -= amount; d.bet = { amount, odds }; save(); }
   function cancelBet() { d.money += d.bet.amount; d.bet = null; save(); }
 
+  // 盾的双足耐久加成只存在参战副本；按剩余比例折回基础耐久，防止每场结算后再次加成回血。
+  // 普通模块继续原样回写，不改变其赛季强化和既有结算行为。
+  function storedBattleHp(cell, battleCell) {
+    if (!battleCell) return 0;
+    const baseMax = SA.V.maxHp(cell);
+    if (SA.MODULES[cell.id].knight === 'shield' && battleCell.max > 0 && SA.V.maxHp(cell, d.vehicle) !== baseMax)
+      return Math.max(0, Math.min(baseMax, battleCell.hp / battleCell.max * baseMax));
+    return Math.max(0, battleCell.hp);
+  }
+
   // 战斗结算只更新存档并返回原提示；缴获与解锁弹窗由视觉层按顺序呈现。
   const drawFee = (prize) => Math.max(ECON.drawFeeMinimum, Math.round(prize * ECON.drawFeeRate / ECON.drawFeeStep) * ECON.drawFeeStep);
   function settleBattle(res) {
@@ -416,7 +427,7 @@ SA.S = (() => {
       SA.V.each(d.vehicle, (cell, r, c, layer) => {
         if (cell.hp <= 0) return;
         const b = res.playerVehicle[layer][r][c];
-        cell.hp = b ? Math.max(0, b.hp) : 0;
+        cell.hp = storedBattleHp(cell, b);
       });
     }
     const repaired = repairFree ? repairCurrentVehicle() : 0;
@@ -516,7 +527,7 @@ SA.S = (() => {
     SA.V.each(d.vehicle, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
       const b = res.playerVehicle[layer][r][c];
-      cell.hp = b ? Math.max(0, b.hp) : 0;
+      cell.hp = storedBattleHp(cell, b);
     });
     if (res.draw) d.news = SA.Config.text('state_side_draw', me, foe);
     else if (res.win) {

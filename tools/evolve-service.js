@@ -33,6 +33,18 @@ function mergeReports(base, fresh) {
     selectionFailures: [...(base.selectionFailures || []).filter(rec => !replaced.has(key(rec))), ...fresh.selectionFailures] };
 }
 
+/** 只统计本轮实际完成的关卡；各代种群求和是候选评估次数，含重复个体，不含额外最终复测，也不是总战斗局数或独立车辆数。 */
+function stageSummaries(report) {
+  return (report.chapters || []).flatMap(ch => (ch.stages || []).map(stage => {
+    const metrics = stage.generationMetrics;
+    const hasEvaluations = Array.isArray(metrics) && metrics.length > 0 && metrics.every(row => Number.isInteger(row.population));
+    return { chapter: stage.spec.chapter, stage: stage.spec.stage, name: stage.spec.name,
+      population: Number.isInteger(stage.count) ? stage.count : null,
+      retainedCandidates: Array.isArray(stage.top) ? stage.top.length : null,
+      evaluations: hasEvaluations ? metrics.reduce((sum, row) => sum + row.population, 0) : null };
+  }));
+}
+
 function catalog() {
   const { SA } = evolve.loadGame();
   const route = evolve.plannedRoute(SA);
@@ -109,6 +121,7 @@ async function generate(request, emit = () => {}) {
   });
   return { file: `out/${path.basename(saved.file)}`, status: fresh.status, selectionFailures, plannedStages,
     stages: fresh.telemetry.completedStages, candidates: fresh.candidates.length,
+    stageSummaries: stageSummaries(fresh),
     seedWarnings: fresh.seedWarnings, elapsedMs: Date.now() - startedAt,
     completedSteps: fresh.telemetry.completedSteps + 1, totalSteps: fresh.telemetry.totalSteps + 1 };
 }
@@ -121,4 +134,4 @@ async function main() {
   console.log(JSON.stringify({ type: 'complete', result }));
 }
 if (require.main === module) main().catch(error => { console.log(JSON.stringify({ type: 'error', error: error.message })); process.exitCode = 1; });
-module.exports = { catalog, generate, mergeReports };
+module.exports = { catalog, generate, mergeReports, stageSummaries };

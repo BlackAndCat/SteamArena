@@ -94,7 +94,8 @@ SA.Camp = (() => {
   const has = (f) => c().feat.includes(f);
   const hasMod = (id) => c().mods.includes(id);
   const maxMat = () => c().mat;
-  const grid = () => c().grid;
+  // 旧存档和历史扩建奖励保留，但有效车间始终等于物理底图。
+  const grid = () => SA.V.fullGrid();
   // 发行包只开放指定章数；开发目录始终使用完整战役。
   const chapterCount = () => SA.RELEASE ? Math.min(SA.RELEASE_CHAPTERS, SA.CAMPAIGN.length) : SA.CAMPAIGN.length;
   const done = () => !!(c().done || (SA.RELEASE && c().ch >= chapterCount()));
@@ -143,7 +144,11 @@ SA.Camp = (() => {
   }
 
   // 玩家的车带上改装台大小，编辑器和出战检查都按它限制可用格子
-  function syncLim() { if (d() && d().vehicle) d().vehicle.lim = { ...grid() }; }
+  function syncLim() {
+    if (!d()) return;
+    c().grid = grid();
+    if (d().vehicle) d().vehicle.lim = grid();
+  }
 
   // 第 ci 章第 si 关的对手
   function stage(ci = c().ch, si = c().st) {
@@ -152,6 +157,7 @@ SA.Camp = (() => {
     if (!o || o.unfinished) return null;
     const merged = SA.StageCars ? SA.StageCars.merge(o, ci, si) : { ...o, source: 'original', locked: false, stageCar: null };
     if (!merged.vehicle) merged.vehicle = SA.V.fromAscii(merged.name, merged.rows, merged.sides || [], merged.mt || 1, merged.elite || [], merged.subs || []);
+    merged.vehicle.lim = grid();
     return { ...merged, ci, si, chapter: ch };
   }
   const current = () => (done() ? null : stage());
@@ -170,7 +176,8 @@ SA.Camp = (() => {
     for (const f of u.feat || []) if (!C.feat.includes(f)) C.feat.push(f);
     for (const id of u.mods || []) if (!C.mods.includes(id)) C.mods.push(id);
     if (u.mat) C.mat = Math.max(C.mat, u.mat);
-    if (u.grid) C.grid = { ...u.grid };
+    // 旧扩建奖励不再缩小已开放的车间；奖励原始数据和其他解锁保持不变。
+    C.grid = grid();
     if (!noIngots) SA.S.addIngots(u.ingots);
     syncLim();
   }
@@ -301,7 +308,7 @@ SA.Camp = (() => {
     C.feat = Object.keys(SA.FEATURES || {});
     C.mods = Object.keys(M).filter(id => !M[id].retired);
     C.mat = Math.max(1, (SA.MATS || []).length - 1);
-    C.grid = { cols: 8, rows: 6 };
+    C.grid = grid();
     C.ch = 0; C.st = 0; C.done = false; C.intro = -1;
     D.money = 999999999;
     D.debt = 0;
@@ -332,9 +339,9 @@ SA.Camp = (() => {
     if (!st) throw new Error(`找不到第 ${chapter + 1} 章第 ${stageIndex + 1} 关`);
     const v = SA.V.clone(st.vehicle);
     v.name = st.stageCar?.vehicleName || st.vehicle.name || st.name;
-    v.lim = { cols: 8, rows: 6 };
+    v.lim = grid();
     SA.S.d.vehicle = v;
-    SA.S.d.camp.grid = { cols: 8, rows: 6 };
+    SA.S.d.camp.grid = grid();
     syncLim();
     // 控制台调用时直接切进现有车间；工具页没有 SA.nav 时只更新设计存档。
     if (typeof SA.nav === 'function' && SA.Editor) SA.nav('garage');

@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-03-ai-styles';
+SA.RULES_VERSION = '2026-10-05-biped-actions';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -47,6 +47,7 @@ SA.Battle = (() => {
       fireHeld: false, sel: null, target: null, retarget: 0, moveT: 0, goalX: x, charge: false, err: { x: 0, y: 0 },
       elev: {}, heldT: 0, lastSel: null, thrown: false, brakeT: 0, spool: 0, spoolDir: 0, chuffT: 0, rock: 0, spooling: false,
       focus: 0, jolt: 0, release: false, kick: 0, kickCooldown: 0, bipedLegHp: null, bipedHipHp: null, bipedLegDead: false, bipedHipDead: false, balance: '无底盘', gait: 0,
+      crouch: 0, crouchHeld: false, jumpHeld: false, jumpLatch: false, jumpCharge: 0, jumpCooldown: 0, airHeight: 0, airTime: 0, airDuration: 0, tuck: 0, knightCooldown: 0,
       holdSeconds: 0, fireHeldSeconds: 0, ventCount: 0 };   // focus：瞄准稳定度 0~1（按住蓄力）；jolt：起步/刹车造成的颠簸
     s.homeX = x;
     s.statMultipliers = SA.StageCars.statMultipliers(multipliers);
@@ -73,7 +74,7 @@ SA.Battle = (() => {
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell)) return;
       live.push(cell);
-      const m = SA.mod(cell);   // 按材料放大后的属性
+      const m = SA.modForVehicle(cell, s.v);   // 按材料放大后的属性
       effect(s, cell.id, 'active');
       minCol = Math.min(minCol, c);
       if (layer === 'body') frontCol = Math.max(frontCol, c + SA.fp(cell.id).w - 1);
@@ -114,6 +115,9 @@ SA.Battle = (() => {
       if (bipedCell) bipedCell.bipedZones = { hip: Math.max(0, s.bipedHipHp), leg: Math.max(0, s.bipedLegHp), max: hp };
     }
     const vehicleStats = SA.V.stats(s.v);
+    s.bipedParts = SA.V.bipedParts(s.v);
+    s.loadKg = vehicleStats.loadKg; s.dryLoadKg = vehicleStats.loadKg - vehicleStats.water; s.load = vehicleStats.load;
+    s.speedBoost = vehicleStats.speedBoost;
     s.balance = vehicleStats.balance || '无底盘';
     s.balanceTolerance = vehicleStats.balanceTolerance || 0;
     s.topHeavy = !!vehicleStats.topHeavy;
@@ -127,6 +131,7 @@ SA.Battle = (() => {
     Object.assign(s, { supply, demand, driveKw, equip, dryKg: kg, heatRate, heatMul, heatCapacity, heatMax, cool, dryCool, waterSave, storeMax, waterMax, minCol, frontCol, rams, mass, thrown, prism,
       evade: ch ? ev / ch : 0, acc: ch ? acc / ch : 0, speed: thrown ? 0 : ch ? sp / ch : 0, cockpits: cock, drivers: cop, copilots: Math.max(0, cop - 1) });   // 每个自动武器组占用一名驾驶员
     if (s.chassisId === 'biped') {
+      s.speed = vehicleStats.speed;
       if (s.bipedLegDead || s.balance === '失衡') s.speed = 0;
       if (s.bipedHipDead) s.sway *= T.BIPED_HIP_SWAY;
       if (s.topHeavy) s.sway *= T.TOP_HEAVY_SWAY;
@@ -137,7 +142,7 @@ SA.Battle = (() => {
     s.weapons = [];
     SA.V.each(s.v, (cell, r, c, layer) => {
       if (!alive(cell) || !M[cell.id].dmg) return;
-      const m = SA.mod(cell);
+      const m = SA.modForVehicle(cell, s.v);
       // 装弹机只加速其下方的武器；测距仪仍影响全车散布。
       const reloadMul = SA.V.weaponReloadMul(s.v, r, c, layer);
       s.weapons.push({ cell, r, c, layer, m: reloadMul === 1 && ax.spread === 1 ? m : { ...m, reload: m.reload * reloadMul, spread: m.spread * ax.spread, ...(m.spreadMin != null ? { spreadMin: m.spreadMin * ax.spread } : {}) }, key: `${r},${c},${layer === 'side' ? 's' : 'b'}`,
@@ -147,7 +152,7 @@ SA.Battle = (() => {
     s.groups = crew.groups;
     s.sel = crew.selected;
     s.pistons = [];
-    SA.V.each(s.v, (cell, r, c, layer) => { if (layer === 'body' && alive(cell) && (cell.id === 'piston' || M[cell.id].special === 'hydraulic-bite')) s.pistons.push({ cell, r, c }); });
+    SA.V.each(s.v, (cell, r, c, layer) => { if ((layer === 'body' || M[cell.id].knight === 'melee') && alive(cell) && (M[cell.id].type === 'piston' || cell.id === 'piston' || M[cell.id].special === 'hydraulic-bite')) s.pistons.push({ cell, r, c, layer }); });
     if (!cock) kill(s, SA.Config.text("battle_d45a8a5771ea"));
   }
 
@@ -248,7 +253,8 @@ SA.Battle = (() => {
   }
   // 车身倾斜：绕支点（车底中点）旋转 atan(kw)。「平放坐标」（cellX / cellY 算出来的）↔ 世界坐标
   const tiltOf = (s) => Math.atan(s.kw || 0);
-  const pivY = (s) => GROUND + (s.yo || 0);
+  const poseOffset = (s) => s.chassisId === 'biped' ? 24 * s.crouch - s.airHeight : 0;
+  const pivY = (s) => GROUND + (s.yo || 0) + poseOffset(s);
   function toWorld(s, x, y) {
     const a = tiltOf(s);
     if (!a || s.pivX == null) return [x, y];
@@ -287,14 +293,19 @@ SA.Battle = (() => {
   const isP = (s) => s === B.p;
   const isHuman = (s) => s === B.p && !s.isAI;   // 数值自测时玩家这一侧也交给 AI
   const cellX = (s, c) => (isP(s) ? s.x + PADX + c * C : s.x + VW - PADX - (c + 1) * C);
-  const cellY = (r, s) => VY + (s ? s.yo || 0 : 0) + r * C;   // s.yo：车被地形抬高 / 压低的量（负 = 抬高）
+  const cellY = (r, s) => {
+    const base = VY + (s ? (s.yo || 0) + poseOffset(s) : 0) + r * C;
+    if (!s || s.chassisId !== 'biped' || r < bipedLegStart(s)) return base;
+    return base - (r - bipedLegStart(s)) * C * legCompression(s);
+  };   // s.yo：车被地形抬高 / 压低的量（负 = 抬高）
   const frontEdge = (s) => (isP(s) ? cellX(s, s.frontCol) + C : cellX(s, s.frontCol));
   // 模块在世界里的包围盒（敌方镜像：锚点列在世界里是最右边那一列）
   function modBox(s, r, c, id) {
     const f = SA.fp(id), x0 = isP(s) ? cellX(s, c) : cellX(s, c + f.w - 1);
     // 车身倾斜时模块中心跟着转（包围盒大小不变，够画角框、军衔杠、特效用）
-    const [cx, cy] = toWorld(s, x0 + f.w * C / 2, cellY(r, s) + f.h * C / 2);
-    return { x0: cx - f.w * C / 2, x1: cx + f.w * C / 2, y0: cy - f.h * C / 2, y1: cy + f.h * C / 2 };
+    const height = cellY(r + f.h, s) - cellY(r, s);
+    const [cx, cy] = toWorld(s, x0 + f.w * C / 2, cellY(r, s) + height / 2);
+    return { x0: cx - f.w * C / 2, x1: cx + f.w * C / 2, y0: cy - height / 2, y1: cy + height / 2 };
   }
   function modCenter(s, layer, r, c) {
     const cell = s.v[layer][r][c], b = modBox(s, r, c, cell ? cell.id : 'armor_heavy');
@@ -302,16 +313,22 @@ SA.Battle = (() => {
   }
   // 真双足的腿区从胯锚点下两行开始；按载具实际锚点取值，避免把普通底盘的 CH 当成固定分界。
   const bipedLegStart = (s) => (SA.V.bipedOf && SA.V.bipedOf(s.v) ? SA.V.bipedOf(s.v).r + 2 : SA.V.CH);
+  // 蹲姿把腿区高度压成一半；空中收腿同样使用这份几何，炮口、瞄准和命中共用。
+  const legCompression = (s) => s.chassisId === 'biped' ? Math.max(s.crouch, s.tuck) * 0.5 : 0;
   // 世界坐标 → 子格
   function cellAt(s, x, y) {
     [x, y] = toFlat(s, x, y);   // 先转回车身平放时的坐标
-    const r = Math.floor((y - VY - (s.yo || 0)) / C);
+    let localY = y - VY - (s.yo || 0) - poseOffset(s);
+    const legY = bipedLegStart(s) * C;
+    if (s.chassisId === 'biped' && localY >= legY) localY = legY + (localY - legY) / (1 - legCompression(s));
+    const r = Math.floor(localY / C);
     const c = isP(s) ? Math.floor((x - s.x - PADX) / C) : Math.floor((s.x + VW - PADX - x) / C);
     return r >= 0 && r < K.ROWS && c >= 0 && c < K.COLS ? { r, c } : null;
   }
   // 子格上活着的模块 → { layer, r, c }（锚点）
   function modAt(s, layer, r, c) {
     const o = (layer === 'side' ? s.occS : s.occ)[r][c];
+    if (o && o.cell.id === 'biped' && layer === 'body' && (r >= bipedLegStart(s) ? s.bipedLegDead : s.bipedHipDead)) return null;
     return o && alive(o.cell) ? { layer, r: o.r, c: o.c, hitR: r, hitC: c, zone: o.cell.id === 'biped' && layer === 'body' ? (r >= bipedLegStart(s) ? 'leg' : 'hip') : null } : null;
   }
   // 炮口位置：耳轴 + 炮管长度沿当前仰角伸出去（和画面上转动的炮管一致）；敌方镜像
@@ -344,7 +361,8 @@ SA.Battle = (() => {
   // 散布随聚焦和车身晃动变化；显式设置下限的抛射炮将当前角度限制在配置区间。
   const spreadDeg = (s, o, w, focus = s.focus) => {
     if ((w.m.indirect && !w.m.spread) || (s.prism && focus >= 1)) return 0;
-    const spread = (w.m.spread * (1 - s.acc * T.AIM_ACCEL_SPREAD) + shakeOf(s) * T.AIM_SHAKE_SPREAD) * (1 - s.aimShrink * focus) + o.evade * T.AIM_EVADE_SPREAD;
+    let spread = (w.m.spread * (1 - s.acc * T.AIM_ACCEL_SPREAD) + shakeOf(s) * T.AIM_SHAKE_SPREAD) * (1 - s.aimShrink * focus) + o.evade * T.AIM_EVADE_SPREAD;
+    if (!w.m.indirect && w.m.arc !== 'high' && crouchStable(s)) spread *= 0.75 * s.bipedParts.crouchStability;
     return w.m.indirect && w.m.spreadMin != null ? clamp(spread, w.m.spreadMin, w.m.spread) : spread;
   };
   // 间接炮的最高仰角限制在世界竖直方向；下坡时允许车身相对角超过 90°。
@@ -390,8 +408,16 @@ SA.Battle = (() => {
     sh.x += sh.vx * dt; sh.y += sh.vy * dt + sh.g * dt * dt / 2; sh.vy += sh.g * dt;
     const cell = cellAt(def, sh.x, sh.y);
     if (cell) {
-      const hit = modAt(def, sh.side ? 'side' : 'body', cell.r, cell.c);
-      if (hit) return hit;
+      // 双足腿件是腿区的实体受击外层：命中同一真实挂位时先挡弹，损毁后才露出底盘分区。
+      // 此例外不依赖瞄准时选的 side；普通侧挂件仍遵守原来的侧挂/车体分层。
+      const legPart = def.chassisId === 'biped' && def.occS[cell.r][cell.c];
+      if (legPart && M[legPart.cell.id].legPart) {
+        const hit = modAt(def, 'side', cell.r, cell.c) || modAt(def, 'body', cell.r, cell.c);
+        if (hit) return hit;
+      } else {
+        const hit = modAt(def, sh.side ? 'side' : 'body', cell.r, cell.c);
+        if (hit) return hit;
+      }
     }
     const cr = crateAt(sh.x, sh.y);
     if (cr >= 0) return { crate: cr };
@@ -469,7 +495,7 @@ SA.Battle = (() => {
     // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
     s.anim.gun(w.key, w.m);
-    const push = (w.m.kick || 0) / s.mass;
+    const push = (w.m.kick || 0) / s.mass * (crouchStable(s) ? 0.5 * s.bipedParts.crouchStability : 1);
     s.vx -= dir * push * (up ? T.RECOIL_HIGH_SPEED_FACTOR : 1);
     SA.Dyn.kick(s.anim.body, -push * (up ? T.RECOIL_ANIM_HIGH : T.RECOIL_ANIM_NORMAL));
     if (w.m.proj === 'shell') B.shake = Math.max(B.shake, T.SHELL_SHAKE_BASE + push / T.SHELL_SHAKE_PUSH_DIVISOR);
@@ -658,7 +684,8 @@ SA.Battle = (() => {
 
   // 惯性：起步要憋气再加速，松开/反向要先制动滑行；越重越慢
   function drive(s, dt) {
-    let dir = s.dead ? 0 : s.dir;
+    let dir = s.dead || s.crouch > 0 || s.jumpCharge > 0 ? 0 : s.dir;
+    if (s.chassisId === 'biped' && (s.crouch > 0 || s.jumpCharge > 0)) s.vx = 0;
     s.spooling = false;
     if (dir && Math.abs(s.vx) < T.START_SPEED && s.speed > 0 && s.power > 0) {
       if (s.spoolDir !== dir) { s.spoolDir = dir; s.spool = spoolTime(s); s.chuffT = 0; }
@@ -667,7 +694,7 @@ SA.Battle = (() => {
     s.rock = Math.max(0, s.rock - dt * T.ROCK_DECAY);
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可按 K.SPEED_BOOST 超速）
     // 地形：泥地减速、上坡慢下坡快
-    const tk = terrainK(s, dir || Math.sign(s.vx));
+    const tk = s.airDuration > 0 ? { top: 1, acc: 1 } : terrainK(s, dir || Math.sign(s.vx));
     const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
     const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
@@ -686,7 +713,8 @@ SA.Battle = (() => {
       acc = Math.min(acc, physicalAcc);
     }
     const vx0 = s.vx;
-    s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
+    if (s.airDuration > 0) s.vx += clamp(dir * s.speed * 0.25 - s.vx, -25 * dt, 25 * dt);
+    else s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
     // 颠簸：当前速度和「平滑速度」的差（起步、刹车、撞击时大；开火的小后坐几乎不算）
     s.vxs = (s.vxs == null ? s.vx : s.vxs + (s.vx - s.vxs) * Math.min(1, dt * T.SPEED_SMOOTHING));
@@ -703,7 +731,7 @@ SA.Battle = (() => {
     // 自由场地可无限延伸；有限场地在本帧碰撞与推挤结束后统一钳住整车外沿。
     let nx = s.x + s.vx * dt;
     // 货箱：不经撞，车一顶上去就碾碎（车越重、越快碎得越快），碾的时候车速被拖慢；碎了留一堆碎木，开过去再慢一点
-    if (B.ter) {
+    if (B.ter && s.airHeight <= 0) {
       const [L, R] = span(s);
       for (let k2 = 0; k2 < B.ter.crates.length; k2++) {
         const cb = B.ter.crates[k2];
@@ -740,7 +768,7 @@ SA.Battle = (() => {
   // 两车只在「同一高度的行」上相撞：每一行各自最前端的模块互相顶住。
   // 这样底盘伸得再长也只在底盘那一行挡路，上层的撞角可以从光秃秃的底盘上方越过去撞到后面的模块。
   // 每一行子格最前端的活模块（占格表里的 { cell, r, c }），没有就是 null
-  const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) { const o = s.occ[r][c]; if (o && alive(o.cell)) return o; } return null; };
+  const rowFront = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) { const o = s.occ[r][c]; if (o && alive(o.cell) && !(o.cell.id === 'biped' && (r >= bipedLegStart(s) ? s.bipedLegDead : s.bipedHipDead))) return o; } return null; };
   const rowFrontAny = (s, r) => { for (let c = K.COLS - 1; c >= 0; c--) if (s.occ[r][c]) return s.occ[r][c]; return null; };
   const rowEdge = (s, o) => { const b = modBox(s, o.r, o.c, o.cell.id); return isP(s) ? b.x1 : b.x0; };
   // 返回 { gap, rows }：最小间距，以及贴得最近（在 1px 内）的那些行
@@ -748,9 +776,15 @@ SA.Battle = (() => {
   function rowContact(p, e) {
     let gap = Infinity;
     const rows = [];
-    const dr = Math.round(((p.yo || 0) - (e.yo || 0)) / C);
+    const dr = Math.round(((p.yo || 0) + poseOffset(p) - (e.yo || 0) - poseOffset(e)) / C);
     for (let r = 0; r < K.ROWS; r++) {
-      const re = r + dr;
+      let re = r + dr;
+      if (p.chassisId === 'biped' || e.chassisId === 'biped') {
+        let y = (cellY(r, p) + cellY(r + 1, p)) / 2 - VY - (e.yo || 0) - poseOffset(e);
+        const legY = bipedLegStart(e) * C;
+        if (e.chassisId === 'biped' && y >= legY) y = legY + (y - legY) / (1 - legCompression(e));
+        re = Math.floor(y / C);
+      }
       if (re < 0 || re >= K.ROWS) continue;
       const pc = rowFront(p, r), ec = rowFront(e, re);
       if (!pc || !ec) continue;
@@ -819,6 +853,10 @@ SA.Battle = (() => {
   function collide(dt) {
     const p = B.p, e = B.e;
     if (p.frontCol < 0 || e.frontCol < 0) return;
+    if (p.airDuration > 0 || e.airDuration > 0) {
+      const [pl, pr] = span(p), [el, er] = span(e), overlap = pr - el;
+      if (overlap > 0) { p.x -= overlap * e.mass / (p.mass + e.mass); e.x += overlap * p.mass / (p.mass + e.mass); }
+    }
     const { gap, rows, dr } = rowContact(p, e);
     const melee = meleeContact(p, e, dr).filter(x => x.g <= T.CONTACT_GAP);
     grindWreck(melee, dt);
@@ -829,7 +867,7 @@ SA.Battle = (() => {
     B.contact = gap <= T.CONTACT_GAP || melee.length > 0;
     if (B.contact) {
       for (const [a, d] of [[p, e], [e, p]]) {
-        if (a.chassisId === 'biped' && a.balance === '平衡' && !a.bipedLegDead && a.kickCooldown <= 0 && a.speed > 0) {
+        if (a.chassisId === 'biped' && a.balance === '平衡' && !a.bipedLegDead && a.kickCooldown <= 0 && a.speed > 0 && !a.crouch && !a.airDuration && !a.pistons.some(pc => M[pc.cell.id].knight)) {
           const target = rows.find(x => {
             const part = a === p ? x.ec : x.pc;
             return x.g <= T.CONTACT_GAP && part && alive(part.cell);
@@ -864,6 +902,8 @@ SA.Battle = (() => {
     const cx = (rowEdge(p, rows[0].pc) + rowEdge(e, rows[0].ec)) / 2;
     if (closing > T.RAM_SPEED_THRESHOLD && B.ramCd <= 0) {
       B.ramCd = T.RAM_COOLDOWN;
+      // 双足提速只改变运动，不放大其自身撞击伤害；其他底盘仍使用真实速度。
+      const damageV = q => q.chassisId === 'biped' ? clamp(q.vx, -97.5, 97.5) : q.vx;
       const f = closing / T.RAM_CLOSING_REFERENCE;
       let knockP = 0, knockE = 0;
       // 一对模块顶在一起（可能跨好几行子格）只算一次
@@ -874,7 +914,7 @@ SA.Battle = (() => {
           const am = a === p ? x.pc : x.ec, dm = a === p ? x.ec : x.pc;
           const ma = am.cell;
           // 撞击伤害 ∝ 相对速度 × 自身车重；撞击面自己也吃一部分反作用
-          const dmg = (SA.mod(ma).ram || T.RAM_DEFAULT_DAMAGE) * f * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
+          const dmg = (SA.mod(ma).ram || T.RAM_DEFAULT_DAMAGE) * Math.max(0, a === p ? damageV(a) - d.vx : d.vx - damageV(a)) / T.RAM_CLOSING_REFERENCE * SA.ramMul(a.mass * 1000);   // 车越重撞得越狠
           if (SA.mod(ma).ram) a.events.ram++;
           const contact = SA.isRam(ma.id) && melee.find(q => q.a === a && q.am.cell === ma && q.g <= 0);
           const target = contact ? contact.dm : dm, hitR = contact ? contact.tr : (a === p ? x.re : x.r);
@@ -914,7 +954,7 @@ SA.Battle = (() => {
     dv = Math.min(dv, K.KNOCK_MAX);   // 击退封顶：一下撞不飞几十米
     if (a && a.events && dv > 0) a.events.knock++;
     const dir = isP(a) ? 1 : -1, sum = a.mass + t.mass;
-    t.vx += dir * dv * 2 * a.mass / sum;
+    t.vx += dir * dv * 2 * a.mass / sum * (crouchStable(t) ? 0.5 * t.bipedParts.crouchStability : 1);
     a.vx -= dir * dv * 2 * t.mass / sum;
   }
 
@@ -942,11 +982,12 @@ SA.Battle = (() => {
     if (s.dead || o.dead || s.power <= 0 || !B.contact) return;
     for (const pc of s.pistons) {
       // 撞锤要在自己这几行的最前端，并且其中一行正顶着对方
-      const pm = SA.mod(pc.cell);
+      const pm = SA.modForVehicle(pc.cell, s.v);
+      if (pm.knight && s.knightCooldown > 0) continue;
       const f = SA.fp(pc.cell.id);
       let row = -1;
       const mine = (isP(s) ? B.contactRows : B.contactRowsE) || [];
-      for (let i = 0; i < f.h; i++) { const rr = pc.r + i, fr = rowFront(s, rr); if (fr && fr.cell === pc.cell && mine.includes(rr)) row = rr; }
+      for (let i = 0; i < f.h; i++) { const rr = pc.r + i, fr = rowFront(s, rr); if (mine.includes(rr) && (pm.knight === 'melee' || (fr && fr.cell === pc.cell))) row = rr; }
       if (!alive(pc.cell) || row < 0) continue;
       const key = `${pc.r},${pc.c}`;
       s.punchT[key] = (s.punchT[key] || 0) - dt;
@@ -955,15 +996,60 @@ SA.Battle = (() => {
       const tr = row + (isP(s) ? 1 : -1) * (B.rowShift || 0);   // 对方那边同一高度的行
       const tgt = tr >= 0 && tr < K.ROWS ? rowFrontAny(o, tr) : null;
       if (!tgt) continue;
+      if (pm.knight) s.knightCooldown = pm.punchCd;
       const dc = tgt.c;
       s.punch[key] = 1;
       s.heat += pm.heat;
       meleeDamage(o, s, { layer: 'body', r: tgt.r, c: dc, hitR: tr }, SA.armorCut(SA.mod(tgt.cell), pm.punch));
-      shove(s, o, T.PISTON_SHOVE);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
+      shove(s, o, pm.punchKnock || T.PISTON_SHOVE);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
       const x = frontEdge(s), y = cellY(row, s) + HALF;
       for (let i = 0; i < 10; i++) emit('part', { type: 'steam', x: x, y: y, vx: rnd(-90, 90), vy: rnd(-120, -15), life: rnd(0.4, 0.8), col: undefined });
       B.shake = Math.max(B.shake, 4);
     }
+  }
+
+  // 双足动作状态与地形高度分开：yo 只跟坡，airHeight 只负责跳跃，避免 settle 吞掉位移。
+  const crouchStable = s => s.chassisId === 'biped' && s.crouch >= 0.999 && !s.bipedLegDead && !s.bipedHipDead && !s.airDuration && !s.jumpCharge && Math.abs(s.vx) < 5;
+  function canJump(s) {
+    return s.chassisId === 'biped' && !s.dead && !s.bipedLegDead && !s.bipedHipDead && s.balance === '平衡'
+      && s.loadKg <= s.load && s.bipedParts.spring.length > 0 && s.jumpCooldown <= 0 && !s.airDuration && !s.crouch && !s.crouchHeld;
+  }
+  function updateBiped(s, dt) {
+    if (s.chassisId !== 'biped') return;
+    s.jumpCooldown = Math.max(0, s.jumpCooldown - dt);
+    if (!s.jumpHeld) s.jumpLatch = false;
+    if (s.jumpHeld && !s.jumpLatch) {
+      s.jumpLatch = true;
+      if (canJump(s)) s.jumpCharge = 0.15;
+    }
+    if (s.jumpCharge > 0) {
+      // 蓄力途中失去腿、胯或跳跃件会取消起跳，不能借上一帧缓存继续跳。
+      if (s.bipedLegDead || s.bipedHipDead || !s.bipedParts.spring.length || s.balance !== '平衡' || s.loadKg > s.load) s.jumpCharge = 0;
+      else {
+        s.jumpCharge = Math.max(0, s.jumpCharge - dt);
+        if (!s.jumpCharge) {
+          const spring = s.bipedParts.spring[0].cell, ratio = clamp(s.loadKg / Math.max(1, s.load), 0, 1);
+          // 蹬缸每跳需求 12kJ，供汽以 kW×0.15s 加上蓄压罐 kJ 表示；冷却储水不作汽库存。
+          const steamNeed = 12, direct = Math.max(0, s.supply - s.equip) * 0.15;
+          const stored = Math.min(s.store || 0, Math.max(0, steamNeed - direct));
+          const gas = clamp((direct + stored) / steamNeed, 0, 1), power = clamp(s.power || 0, 0, 1);
+          s.store = Math.max(0, (s.store || 0) - stored);
+          s.jumpPeak = (24 + 96 * (1 - ratio)) * s.bipedParts.jumpHeight * (1 + ((spring.mt || 1) - 1) * 0.03) * gas * power;
+          s.heat += steamNeed * gas;
+          s.jumpCooldown = 3; s.crouch = 0;
+          s.airDuration = s.jumpPeak > 0 ? 2 * Math.sqrt(2 * s.jumpPeak / K.GRAVITY) : 0;
+          s.airTime = 0; s.events.jump = (s.events.jump || 0) + 1;
+        }
+      }
+    }
+    if (s.airDuration > 0) {
+      s.airTime += dt;
+      const u = clamp(s.airTime / s.airDuration, 0, 1);
+      s.airHeight = 4 * s.jumpPeak * u * (1 - u); s.tuck = Math.sin(Math.PI * u);
+      if (u >= 1) { s.airDuration = 0; s.airHeight = 0; s.tuck = 0; s.jolt = Math.max(s.jolt, 1); s.events.land = (s.events.land || 0) + 1; }
+    }
+    const want = !s.airDuration && (s.bipedLegDead || s.crouchHeld || s.jumpCharge > 0) ? 1 : 0;
+    s.crouch = clamp(s.crouch + clamp(want - s.crouch, -dt / 0.25, dt / 0.25), 0, 1);
   }
 
   // ---------- 模拟 ----------
@@ -971,10 +1057,12 @@ SA.Battle = (() => {
     if (s.dead) { drive(s, dt); return; }
     if (s.hold) s.holdSeconds += dt;
     if (s.fireHeld) s.fireHeldSeconds += dt;
+    s.knightCooldown = Math.max(0, s.knightCooldown - dt);
     updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时按 STORE_RELEASE_PER_SEC 限制释放。
     // 每帧按剩水重算质量；锅炉供能不受冷却储水限制。
     s.mass = Math.max(T.MASS_MIN_TONS, (s.dryKg + s.water) / 1000);
+    if (s.chassisId === 'biped') s.loadKg = s.dryLoadKg + s.water;
     s.driveKw = SA.Phys.driveKw(s.mass * 1000, s.speed);
     s.demand = s.equip + s.driveKw;
     const baseSupply = s.supply;
@@ -996,7 +1084,8 @@ SA.Battle = (() => {
     s.power = availableSupply <= 0 ? 0 : s.demand ? Math.min(1, availableSupply / s.demand) : 1;
     s.driveAvailableKw = Math.max(0, availableSupply - s.equip);
     // 装甲罚速由 refresh 缓存；模块损毁会调用 refresh，下一帧即可解除已失去的端部装甲罚速。
-    s.speedMul = (s.driveKw ? Math.min(K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0) * s.armorSpeedFactor;
+    s.speedMul = (s.driveKw ? Math.min(s.speedBoost || K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0) * s.armorSpeedFactor;
+    updateBiped(s, dt);
     drive(s, dt);
     const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
@@ -1109,7 +1198,7 @@ SA.Battle = (() => {
     const [x, y] = modCenter(o, co.target.layer, co.target.r, co.target.c);
     return [x + co.err.x, y + co.err.y];
   }
-  const canMelee = (s) => s.rams > 0 || (s.chassisId === 'biped' && s.balance === '平衡' && !s.bipedLegDead && s.speed > 0);
+  const canMelee = (s) => s.rams > 0 || s.pistons.some(pc => M[pc.cell.id].knight === 'melee') || (s.chassisId === 'biped' && s.balance === '平衡' && !s.bipedLegDead && s.speed > 0);
   // 定点性格只比较存活模块；侧挂武器仍按武器本身的伤害与装填评价。
   function priorityTarget(s, o, style, w) {
     const cands = [];
@@ -1141,6 +1230,16 @@ SA.Battle = (() => {
   function evadeAction(s, o) {
     const shots = B.shots.filter(sh => sh.from === o && sh.to === s && sh.delay <= 0 && !sh.done);
     if (!shots.length) return null;
+    if (s.chassisId === 'biped') {
+      // 蹲跳只应对直射；高抛和间接火力继续进入下方的横向规避评分。
+      for (const sh of shots.filter(sh => sh.weapon?.arc !== 'high' && !sh.weapon?.indirect)) for (let t = 0.2; t <= 0.7; t += 0.05) {
+        const x = sh.x + sh.vx * t, y = sh.y + sh.vy * t + sh.g * t * t / 2;
+        const hit = targetAt(s, x - s.vx * t, y);
+        if (!hit) continue;
+        if ((hit.zone === 'leg' || hit.r >= bipedLegStart(s)) && canJump(s)) return { dir: 0, jump: true };
+        if (hit.zone !== 'leg' && !s.airDuration) return { dir: 0, crouch: true };
+      }
+    }
     const risks = [0, -1, 1].map(dir => {
       let hits = 0, clearance = 0;
       for (const sh of shots) for (let t = 0.15; t <= 1.2; t += 0.1) {
@@ -1165,6 +1264,7 @@ SA.Battle = (() => {
     if (s.heat / s.heatMax > heatHigh) s.hold = true; else if (s.heat / s.heatMax < heatLow) s.hold = false;
     s.retarget -= dt;
     const style = normalizeAiStyle(s.style);
+    if (s.chassisId === 'biped') { s.crouchHeld = false; s.jumpHeld = false; }
     const tAlive = s.target && alive(o.v[s.target.layer]?.[s.target.r]?.[s.target.c]);
     if (!tAlive || s.retarget <= 0) {
       const precise = ['sniper', 'assassin', 'disruptor'].includes(style);
@@ -1290,13 +1390,14 @@ SA.Battle = (() => {
       const dodge = evadeAction(s, o);
       if (dodge !== null && B.t >= (s.evadeUntil || 0) && (s.evadeReact || 0) <= 0) {
         s.evadeReact = 0.2;
-        s.evadeDir = dodge;
+        s.evadeDir = typeof dodge === 'object' ? dodge.dir : dodge;
+        s.evadePose = typeof dodge === 'object' ? dodge : null;
       }
       if (s.evadeReact > 0) {
         s.evadeReact -= dt;
         if (s.evadeReact <= 0) s.evadeUntil = B.t + 0.8;
       }
-      if (B.t < (s.evadeUntil || 0)) s.dir = s.evadeDir;
+      if (B.t < (s.evadeUntil || 0)) { s.dir = s.evadeDir; if (s.evadePose) { s.crouchHeld = !!s.evadePose.crouch; s.jumpHeld = !!s.evadePose.jump; } }
     } else if (style === 'counter') {
       // 未观察到发射时照常交战；观察到后利用短暂空当进攻，不读取对方装填表。
       const elapsed = B.t - (o.lastMainFireAt ?? -Infinity);
@@ -1348,6 +1449,10 @@ SA.Battle = (() => {
         s.hesitant.until = B.t + (s.hesitant.acting ? 2.4 : 1.3);
       }
       if (!s.hesitant.acting) { s.dir = 0; s.fireHeld = false; }
+    }
+    if (s.chassisId === 'biped') {
+      if (style === 'turtle' && !s.dir) s.crouchHeld = true;
+      if (style === 'rush' && gap > 100 && gap < 350 && s.dir === fwd && canJump(s)) s.jumpHeld = true;
     }
     if (B.aiStats) {
       const st = B.aiStats[isP(s) ? 'p' : 'e'];
@@ -1502,6 +1607,7 @@ SA.Battle = (() => {
   function step(dt) {
     // 实时画面与手动调试均不得在升旗或确认期间偷跑物理、炮弹或结算。
     if (B.surrender === 'raising' || B.surrender === 'asked') return;
+    const beforeX = B.telemetry ? { p: B.p.x, e: B.e.x } : null;
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
     B.p.kickCooldown = Math.max(0, B.p.kickCooldown - dt);
@@ -1512,6 +1618,7 @@ SA.Battle = (() => {
       if (!B.p.dead) B.p.dir = (B.keys.right ? 1 : 0) - (B.keys.left ? 1 : 0);
       if (B.p.fireHeld && !B.keys.fire) B.p.release = true;
       B.p.fireHeld = B.keys.fire;
+      B.p.crouchHeld = !!B.keys.crouch; B.p.jumpHeld = !!B.keys.jump;
     }
     ai(B.e, B.p, dt);
     sim(B.p, B.e, dt);
@@ -1529,6 +1636,10 @@ SA.Battle = (() => {
       if (distance < 200) B.metrics.nearTime += dt;
       if (distance > 500) B.metrics.farTime += dt;
       if (distance > 500 && !B.shots.length && !B.contact) B.metrics.noEngageTime += dt;
+    }
+    if (B.telemetry) {
+      for (const key of ['p', 'e']) { B.telemetry[key].distance += Math.abs(B[key].x - beforeX[key]); B.telemetry[key].speedIntegral += Math.abs(B[key].vx) * dt; }
+      B.telemetry.seconds += dt;
     }
     camera(dt);
 
@@ -1637,7 +1748,7 @@ SA.Battle = (() => {
     const enemyStats = SA.StageCars.statMultipliers(opts.statMultipliers);
     const ev = shiftVeh(SA.V.battleCopy(opts.enemyVehicle, (opts.hpMul || 1) * enemyStats.hp, true), frontShift(opts.enemyVehicle));
     B = { opts, pShift, bounds: opts.bounds || null, ter: makeTerrain(opts.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
-      speed: view ? view.gameSpeed() : K.GAME_SPEED, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
+      speed: view ? view.gameSpeed() : K.GAME_SPEED, keys: { left: false, right: false, fire: false, crouch: false, jump: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     B.p = makeSide(pv, d.vehicle.name, false, 1, W / 2 - 200 - PADX - K.COLS * C);
     B.e = makeSide(ev, opts.enemyName, true, opts.aim || 0.9, W / 2 + 200 - PADX, enemyStats);
     B.e.style = normalizeAiStyle(opts.style);
@@ -1666,7 +1777,7 @@ SA.Battle = (() => {
         events: { p: { ...B.p.events, maxHeat: B.p.maxHeat, heatMax: B.p.heatMax, minWater: B.p.minWater, failureType: B.p.failureType, failureAt: B.p.failureAt, firstWaterEmptyAt: B.p.firstWaterEmptyAt, firstHeatMaxAt: B.p.firstHeatMaxAt, fireHeldAtFailure: B.p.fireHeldAtFailure, holdAtFailure: B.p.holdAtFailure, ventAtFailure: B.p.ventAtFailure, holdSeconds: B.p.holdSeconds, fireHeldSeconds: B.p.fireHeldSeconds, ventCount: B.p.ventCount }, e: { ...B.e.events, maxHeat: B.e.maxHeat, heatMax: B.e.heatMax, minWater: B.e.minWater, failureType: B.e.failureType, failureAt: B.e.failureAt, firstWaterEmptyAt: B.e.firstWaterEmptyAt, firstHeatMaxAt: B.e.firstHeatMaxAt, fireHeldAtFailure: B.e.fireHeldAtFailure, holdAtFailure: B.e.holdAtFailure, ventAtFailure: B.e.ventAtFailure, holdSeconds: B.e.holdSeconds, fireHeldSeconds: B.e.fireHeldSeconds, ventCount: B.e.ventCount } },
         // 无画面诊断只读快照：用于压力测试发现位置、耐久、热量和水量越界，不参与判胜或 AI。
         state: { p: { x: B.p.x, hp: hpFrac(B.p), heat: B.p.heat, water: B.p.water, cells: cellTelemetry(B.p.v) }, e: { x: B.e.x, hp: hpFrac(B.e), heat: B.e.heat, water: B.e.water, cells: cellTelemetry(B.e.v) } },
-        metrics: { ...B.metrics }, timeout: B.timeout || null, ...(B.aiStats ? { aiStats: B.aiStats } : {}) };
+        ...(B.telemetry ? { telemetry: B.telemetry } : {}), metrics: { ...B.metrics }, timeout: B.timeout || null, ...(B.aiStats ? { aiStats: B.aiStats } : {}) };
       return;
     }
     if (view) view.teardown();
@@ -1738,10 +1849,11 @@ SA.Battle = (() => {
     random = o && o.seed != null ? seededRandom(o.seed) : Math.random;
     const pS = frontShift(o.p), eS = frontShift(o.e);
     B = { headless: true, opts: { mode: 'sim' }, pShift: pS, bounds: o.bounds || null, ter: makeTerrain(o.terrain), t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
+      telemetry: o.telemetry ? { p: { distance: 0, speedIntegral: 0 }, e: { distance: 0, speedIntegral: 0 }, seconds: 0 } : null,
       metrics: { distanceSum: 0, samples: 0, nearTime: 0, farTime: 0, noEngageTime: 0 },
       // 可选行为计数仅累加确定性状态，不抽随机数，也不改变战斗结算。
       aiStats: o.aiStats ? { p: { shots: 0, fireIntent: 0, advance: 0, retreat: 0, evade: 0, counter: 0, burst: 0, chase: 0, targets: {} }, e: { shots: 0, fireIntent: 0, advance: 0, retreat: 0, evade: 0, counter: 0, burst: 0, chase: 0, targets: {} } } : null,
-      speed: 1, keys: { left: false, right: false, fire: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
+      speed: 1, keys: { left: false, right: false, fire: false, crouch: false, jump: false }, cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null };
     try {
       const profileAim = Number.isFinite(o.aiProfile?.aim) ? o.aiProfile.aim : null;
       // 双向对打时倍率随关卡车辆所在阵营传入；每场从原车建立副本，不叠乘上场数值。
@@ -1761,6 +1873,9 @@ SA.Battle = (() => {
 
   // 调试：预览环境里 rAF 可能不跑，可手动推进
   const debug = {
+    canJump(side = 'p') { return canJump(side === 'e' ? B.e : B.p); },
+    targetAt(side, x, y) { return targetAt(side === 'e' ? B.e : B.p, x, y); },
+    muzzle(side = 'p', index = 0) { const s = side === 'e' ? B.e : B.p; return muzzle(s, s.weapons[index]); },
     damage(side, r, c, layer = 'body', amount = 1) { const s = side === 'e' ? B.e : B.p; damage(s, null, { layer, r, c }, amount); }, // 单位检查用真实受击与刷新路径。
     step(sec = 1) { for (let i = 0; i < sec * 60; i++) { if (B.done) break; step(1 / 60); } if (view) { view.draw(); view.hudTick(1); } return { t: B.t, px: B.p.x, ex: B.e.x, pv: B.p.vx, ev: B.e.vx, ph: B.p.heat, eh: B.e.heat, pd: B.p.dead, ed: B.e.dead }; },
     get B() { return B; },

@@ -44,7 +44,7 @@ function run() {
     assert(result.evidence.failed.includes('target'));
   }
   const noReward = make(65);
-  SA.V.each(noReward.vehicle, (cell, r, c, layer) => { if (cell.id === 'cannon') noReward.vehicle[layer][r][c] = null; });
+  SA.V.each(noReward.vehicle, (cell, r, c, layer) => { if (spec.requiredModules.includes(cell.id)) noReward.vehicle[layer][r][c] = null; });
   assert.strictEqual(evolve.selectStageCandidate(SA, [noReward], spec, reference, 'check', 12000).selected, null,
     '缺少本关奖励件仍被入选');
   return { boundaryAccepted: true, tooWeakRejected: true, tooStrongRejected: true, games: 120, stylesBound: true };

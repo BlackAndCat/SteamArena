@@ -1,4 +1,6 @@
 // 模块数值、外观和材料的唯一内容源是 config/modules.json；本文件只保留运行规则。
+// legPart / legSlot：真双足腿件种类与挂位；knight：骑士主属性类别。
+// BIPED_CLASSES：轻重腿速度、承重、闪避、跳高与下蹲倍率，均为机制数据。
 // 抛射武器的 spread / spreadMin 分别是散布角度上、下限（度）；测距仪会同比缩放两端。
 window.SA = window.SA || {};
 const moduleConfig = SA.Config.get('modules');
@@ -46,7 +48,7 @@ applyDescTemplates(SA.MODULE_DEFAULTS);
 SA.repairRate = (id) => SA.MODULES[id].repairRate || 0.05;
 
 
-SA.isWeapon = (id) => !!SA.MODULES[id].dmg;
+SA.isWeapon = (id) => !!(SA.MODULES[id].dmg || (SA.MODULES[id].knight && SA.MODULES[id].punch));
 // 占格：w×h 个子格（默认 2×2）
 SA.fp = (id) => { const m = SA.MODULES[id]; return { w: m.w || 2, h: m.h || 2 }; };
 SA.isCockpit = (id) => !!SA.MODULES[id].cockpit;
@@ -147,10 +149,33 @@ SA.mod = (x, mt) => {
   if (!m) {
     const base = SA.MODULES[id], mul = SA.MATS[mt].mul;
     m = { ...base, mt };
+    // 新手臂暂借原武器的只读角度；模块表不写视觉数据，视觉侧定稿字段优先。
+    if (base.weaponBase) for (const key of ['elev', 'rest'])
+      if (m[key] === undefined) m[key] = SA.MODULES[base.weaponBase][key];
     for (const k of MAT_SCALED) if (base[k]) m[k] = k === 'hp' || k === 'load' ? Math.round(base[k] * mul) : Math.round(base[k] * mul * 10) / 10;
     modCache.set(key, m);
   }
-  return m;
+  // 唯一变体的明确承重按最终kg覆盖；克隆材料缓存，不能影响同档普通件或其它唯一腿。
+  const unique = typeof x === 'object' ? SA.uniqueRule(x) : null;
+  return unique?.load !== undefined ? { ...m, load: unique.load } : m;
+};
+// 车辆上下文只用于双足腿型和骑士主属性；库存、材料缓存保持纯模块属性。
+SA.modForVehicle = (cell, v) => {
+  const m = SA.mod(cell);
+  // 普通模块不依赖底盘上下文，避免每次属性读取都扫描整车。
+  if (cell.id !== 'biped' && !m.knight) return m;
+  const biped = v && SA.V?.bipedOf(v);
+  if (!biped) return m;
+  if (cell.id === 'biped') {
+    const unique = SA.uniqueRule(cell), kind = unique?.bipedClass || 'standard', rule = SA.K.BIPED_CLASSES[kind];
+    // 已给唯一件指定最终承重时不再乘腿型倍率，其余轻／重腿继续原有规则。
+    return { ...m, bipedClass: kind, speed: m.speed * rule.speed, load: unique?.load ?? Math.round(m.load * rule.load), evade: rule.evade };
+  }
+  if (!m.knight) return m;
+  const out = { ...m }, mul = SA.K.BIPED_KNIGHT_MUL;
+  for (const key of m.knight === 'shield' ? ['hp'] : m.knight === 'melee' ? ['punch'] : ['dmg', 'dmgPerSec'])
+    if (m[key]) out[key] = Math.round(m[key] * mul * 10) / 10;
+  return out;
 };
 SA.newCell = (id, mt = SA.minMt(SA.liveId(id))) => {
   id = SA.materialId(SA.liveId(id), mt); mt = Math.max(mt, SA.minMt(id));

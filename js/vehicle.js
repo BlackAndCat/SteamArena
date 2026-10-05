@@ -7,17 +7,19 @@ SA.V = (() => {
   const K = SA.K, M = SA.MODULES;
   // 武器组次序决定默认手操组及其余驾驶员的接管顺序，战斗和纸面预计统一使用。
   const GROUP_ORDER = ['cannon', 'cannon_m', 'mortar', 'mortar_s', 'mg', 'mg2', 'side_cannon',
-    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'mg_s', 'mg_heavy'];
+    'cannon_s', 'cannon_heavy', 'cannon_giant', 'rocket_rack', 'harpoon', 'flamer', 'steamjet', 'mg_s', 'mg_heavy', 'knight_cannon', 'knight_gun'];
   const grid = () => Array.from({ length: K.ROWS }, () => Array(K.COLS).fill(null));
+  // 全部车间统一开放物理底图：返回独立的大格尺寸对象，不扩充底层子格数组。
+  const fullGrid = () => ({ cols: K.COLS / 2, rows: K.ROWS / 2 });
   // av：铁装甲的数据版本。2026-09-28 铁装甲从 2×2 改成竖着的 1×2；没有 av 的旧数据读进来时由 widenArmor 拆成并排两块
   const ARMOR_VER = 2;
   // pv：加压舱占格版本。旧车未记录 pv，表示仍按 1×1 摆放，读入后迁移到 1×2。
   const PRESSURE_VER = 2;
   const MOVED_TO_SIDE = new Set(['boss_lens', 'periscope', 'autoloader', 'rangefinder', 'gyroscope']);
-  const create = (name = SA.Config.text("state_3a7baff38a97")) => ({ name, body: grid(), side: grid(), av: ARMOR_VER, pv: PRESSURE_VER });
+  const create = (name = SA.Config.text("state_3a7baff38a97")) => ({ name, body: grid(), side: grid(), av: ARMOR_VER, pv: PRESSURE_VER, lim: fullGrid() });
   const layerOf = (id) => (M[id].layer === 'side' ? 'side' : 'body');
   // 满耐久：改装（炮盾 / 附加装甲）每级按比例加；参战副本直接带 max
-  const maxHp = (cell) => cell.max || Math.round(SA.mod(cell).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
+  const maxHp = (cell, v = null) => cell.max || Math.round((v ? SA.modForVehicle(cell, v) : SA.mod(cell)).hp * (1 + SA.upHp(cell.id) * (cell.lv || 0)));
   const alive = (cell) => cell && cell.hp > 0;
   const fp = SA.fp;
   const CH = K.ROWS - 2;   // 履带 / 四足的锚点行：占最底下两行子格
@@ -183,15 +185,15 @@ SA.V = (() => {
     }
     return v;
   }
-  // 旧存档（6 × 8 大格）→ 子格
+  // 旧存档（6 × 8 大格）→ 子格；所有读入车辆解除旧战役扩建限位。
   function migrate(v) {
     if (!v || !v.body) return v;
-    if (v.body.length === K.ROWS) return migratePressure(migrateSide(normalizeChassis(v.av ? v : widenArmor(v))));
-    const out = fromBig(v.name, v.body, v.side, v.lim);
+    const out = v.body.length === K.ROWS ? migratePressure(migrateSide(normalizeChassis(v.av ? v : widenArmor(v)))) : fromBig(v.name, v.body, v.side);
+    out.lim = fullGrid();
     return out;
   }
 
-  // 改装台的可用区域：战役逐章扩建。v.lim = { cols, rows }（大格数，只有玩家的车有），列从中间往两边扩，行从底盘往上扩
+  // 通用显式限位接口（大格数），供规则工具检查；实际车间和加载入口统一使用 fullGrid。
   function region(v) {
     const L = v && v.lim;
     if (!L) return { c0: 0, c1: K.COLS - 1, r0: 0 };
@@ -227,6 +229,31 @@ SA.V = (() => {
   }
   // 真双足：锚在第 ROWS-4 行的 2×4 整件；胯层 = 锚点那两行，腿区 = 下面两行（不能放任何模块）
   const bipedOf = (v) => chassisAnchors(v).find(x => x.cell.id === 'biped' && x.r === chassisRow('biped')) || null;
+  // 近侧小腿位和胯位各一格；另一列留给骨架，不允许同类重复挂装。
+  function legMount(v, id, r, c) {
+    const a = bipedOf(v), m = M[id];
+    if (!a || !m.legPart || c !== a.c || r !== a.r + (m.legSlot === 'shin' ? 3 : 0)) return null;
+    return a;
+  }
+  // 骑士手臂可覆盖多块车体并伸出边缘；至少贴住一个主体，腿区只容许专用腿件。
+  function knightHosts(v, id, r, c, O = occ(v, 'body')) {
+    if (!M[id].knight) return [];
+    const f = fp(id), refs = [...box(r, c, f.w, f.h), ...ring(r, c, f.w, f.h)]
+      .map(([rr, cc]) => inGrid(rr, cc) && O[rr][cc]).filter(Boolean);
+    return refs.filter((o, i) => M[o.cell.id].layer === 'body' && refs.findIndex(x => x.r === o.r && x.c === o.c) === i);
+  }
+  // 战斗每帧可读取有效挂件：损毁、摆错位置和失去腿骨架时能力立即消失。
+  function bipedParts(v) {
+    const a = bipedOf(v), bipedClass = a ? SA.uniqueRule(a.cell)?.bipedClass || 'standard' : 'standard';
+    const rule = K.BIPED_CLASSES[bipedClass], out = { kind: a ? 'biped' : null, bipedClass, spring: [], booster: [], speedBoost: 1, jumpHeight: rule.jumpHeight, crouchStability: rule.crouchStability };
+    if (!a || !alive(a.cell) || (a.cell.bipedZones && (a.cell.bipedZones.hip <= 0 || a.cell.bipedZones.leg <= 0))) return out;
+    each(v, (cell, r, c, layer) => {
+      const m = M[cell.id];
+      if (layer === 'side' && alive(cell) && m.legPart && legMount(v, cell.id, r, c)) out[m.legPart].push({ cell, r, c, layer });
+    });
+    if (out.booster.length) out.speedBoost = SA.mod(out.booster[0].cell).speedMul;
+    return out;
+  }
   // 底盘保留区从哪一行开始：双足占最底下两层（4 行），其余底盘两行
   const floorRow = (v) => (bipedOf(v) ? chassisRow('biped') : CH);
   // 腰挂位：胯层左右各 1 大格（2 子格宽），模块整个落在里面才算
@@ -269,6 +296,8 @@ SA.V = (() => {
 
   // 侧挂必须完整落在同一主体模块上；常规挂件只认实体装甲，装弹机只认足够大的兼容武器。
   function sideHost(v, id, r, c, O = occ(v, 'body')) {
+    if (M[id].legPart) return legMount(v, id, r, c);
+    if (M[id].knight) return knightHosts(v, id, r, c, O)[0] || null;
     const f = fp(id), refs = box(r, c, f.w, f.h).map(([rr, cc]) => inGrid(rr, cc) && O[rr][cc]);
     const host = refs[0];
     if (!host || refs.some(o => !o || o.r !== host.r || o.c !== host.c)) return null;
@@ -301,7 +330,7 @@ SA.V = (() => {
     if (clearanceBlocked(v, id, r, c, layerOf(id))) return no(CLEARANCE);
     const O = occ(v, 'body'), cells = box(r, c, w, h);
     if (m.layer === 'side') {
-      if (r + h > floorRow(v) && !bipedWaist(v, r, c, w, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
+      if (r + h > floorRow(v) && !legMount(v, id, r, c) && !bipedWaist(v, r, c, w, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
       const S = occ(v, 'side');
       if (cells.some(([rr, cc]) => S[rr][cc])) return no(SA.Config.text("vehicle_3ef702ab6894"));
       if (!sideHost(v, id, r, c, O)) return no(id === 'autoloader' ? '装弹机只能挂在至少 1×2 的火炮上，不能挂火箭、蒸汽、喷火或近战武器' : '侧挂必须完整挂在同一块足够大的装甲上');
@@ -523,9 +552,9 @@ SA.V = (() => {
         if (M[cell.id].layer !== 'side') flag('side', r, c, '主体件不能放在侧挂层');
         if (clearanceBlocked(v, cell.id, r, c, 'side', { layer: 'side', r, c })) flag('side', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
-        else if (r + h > floor && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, SA.Config.text("vehicle_790b7c4b3a97"));
+        else if (r + h > floor && !legMount(v, cell.id, r, c) && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, SA.Config.text("vehicle_790b7c4b3a97"));
         else if (!host) flag('side', r, c, cell.id === 'autoloader' ? '装弹机只能挂在至少 1×2 的火炮上，不能挂火箭、蒸汽、喷火或近战武器' : '侧挂必须完整挂在同一块足够大的装甲上');
-        else if (!ok.has(key(host.r, host.c))) flag('side', r, c, SA.Config.text("vehicle_bc6fe015ba42"));
+        else if (!(M[cell.id].knight ? knightHosts(v, cell.id, r, c, O).some(x => ok.has(key(x.r, x.c))) : ok.has(key(host.r, host.c)))) flag('side', r, c, SA.Config.text("vehicle_bc6fe015ba42"));
       }
     return out;
   }
@@ -644,27 +673,32 @@ SA.V = (() => {
   function stats(v, options = null) {
     const s = {
       aimShrink: K.AIM_SHRINK, aimSpeed: K.AIM_SPEED,   // 瞄准：基础值 + 瞄准类部件加成
-      demand: 0, equip: 0, drive: 0, weight: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
+      demand: 0, equip: 0, drive: 0, weight: 0, loadKg: 0, load: 0, supply: 0, hp: 0, maxHp: 0, cockpits: 0, chassis: 0, boilers: 0, tanks: 0,
       water: 0, cool: 0, dryCool: 0, waterSave: 1, store: 0, dps: 0, weapons: 0, drivers: 0, heatRate: 0, heatMul: 1, evade: 0, acc: 0, broken: 0, damaged: 0,
       value: 0, count: 0, height: 0, byId: {}, speed: 0, rams: 0, accel: 0, brake: 0, sway: 0, salvoDps: 0, splashDps: 0, heatDps: 0, tether: 0,
       center: 0, d: 0, balance: '无底盘', balanceState: '无底盘', balanceTolerance: 0, comHeight: 0, topHeavy: false, hip: '正常', legs: '正常',
     };
+    const parts = bipedParts(v);
+    s.bipedClass = parts.bipedClass;
+    s.speedBoost = parts.kind ? K.BIPED_SPEED_BOOST : K.SPEED_BOOST;
     let aimShrinkBonus = 0, aimSpeedBonus = 0, massX = 0, massY = 0, mass = 0;
     let chassisCenter = K.COLS / 2, chassisMt = 1, chassisCell = null;
     each(v, (cell, r, c) => {
-      const m = SA.mod(cell);
+      const m = SA.modForVehicle(cell, v);
       s.value += SA.cellValue(cell); s.count++;
       s.byId[cell.id] = (s.byId[cell.id] || 0) + (cell.hp > 0 ? 1 : 0);
       if (M[cell.id].layer === 'chassis' && !chassisCell) { chassisCell = cell; chassisCenter = c + fp(cell.id).w / 2; chassisMt = cell.mt || 1; }
       if (cell.hp <= 0) { s.broken++; return; }
       if (cell.hp < maxHp(cell)) s.damaged++;
       s.height = Math.max(s.height, Math.ceil((K.ROWS - r) / 2));   // 按大格算层数
-      s.hp += cell.hp; s.maxHp += maxHp(cell);
+      s.hp += cell.max ? cell.hp : cell.hp * maxHp(cell, v) / maxHp(cell); s.maxHp += maxHp(cell, v);
       s.equip += m.power || 0;
       aimShrinkBonus = Math.max(aimShrinkBonus, m.aimShrink || 0);
       aimSpeedBonus = Math.max(aimSpeedBonus, m.aimSpeed || 0);
       s.weight += SA.weightOf(cell);
       const f = fp(cell.id), weight = SA.weightOf(cell), cx = c + f.w / 2, cy = r + f.h / 2;
+      if (!m.legPart) s.loadKg += weight;
+      // 腿件只豁免承重额度；真实质量仍参与整车重心、牵引和惯性。
       massX += weight * cx; massY += weight * cy; mass += weight;
       s.supply += m.supply || 0;
       s.heatMul = Math.min(s.heatMul, m.heatMul || 1);
@@ -691,14 +725,16 @@ SA.V = (() => {
     s.aimSpeed = K.AIM_SPEED + Math.max(aimSpeedBonus, ax.aimSpeed);
     if (s.chassis) for (const k of ['evade', 'acc', 'speed', 'accel', 'brake', 'sway']) s[k] /= s.chassis;
     s.sway *= ax.sway;
+    s.speed *= parts.speedBoost;
     // 动力：设备耗能 + 行驶耗能（按车重）；锅炉供给不够时，装填和车速一起按比例下降
     s.dryWeight = s.weight;
+    s.loadKg += s.water;
     s.weight += s.water; // 满水纸面重量；战斗帧中使用实时剩余水量。
     s.drive = SA.Phys.driveKw(s.weight, s.speed);
     s.demand = Math.round((s.equip + s.drive) * 10) / 10;
     s.blocked = blockedList(v);
     // 最高速度 = 底盘基础速度 × 动力比（锅炉富余时可以超速，最多 125%）
-    s.speedMul = s.demand ? Math.min(K.SPEED_BOOST, s.supply / s.demand) : (s.supply ? 1 : 0);
+    s.speedMul = s.demand ? Math.min(s.speedBoost, s.supply / s.demand) : (s.supply ? 1 : 0);
     s.armorSpeedFactor = armorSpeedFactor(v);
     s.topSpeed = s.speed * s.speedMul * s.armorSpeedFactor;
     s.power = s.demand ? Math.min(1, s.supply / s.demand) : 1;
@@ -710,9 +746,11 @@ SA.V = (() => {
     const crewRate = weapons.length ? Math.min(crew.loaders, weapons.length) / weapons.length : 0;
     let weaponHeat = 0;
     each(v, (cell, r, c, layer) => {
-      const m = SA.mod(cell);
-      if (!alive(cell) || !m.dmg) return;
+      const m = SA.modForVehicle(cell, v);
+      if (!alive(cell) || (!m.dmg && !(m.knight && m.punch))) return;
       s.weapons++;
+      // 近战不占射击装填组，纸面伤害沿用独立活塞冷却，避免不存在 reload 的除法。
+      if (m.punch) { s.dps += m.punch / m.punchCd * s.power; weaponHeat += (m.heat || 0) / m.punchCd * s.power; return; }
       if (layer === 'body' && s.blocked.some(b => b.r === r && b.c === c)) return;
       // 与战斗共用辅助件汇总倍率，纸面输出不再重复应用装弹、散布和晃动收益。
       const reload = m.reload * weaponReloadMul(v, r, c, layer);
@@ -752,7 +790,7 @@ SA.V = (() => {
     if (!s.chassis) s.problems.push(SA.Config.text("vehicle_a3a9bdd8de8e"));
     if (!s.cockpits) s.problems.push(SA.Config.text("vehicle_7abfbf6b281e"));
     if (!s.boilers) s.problems.push(SA.Config.text("vehicle_fdab84d99c43"));
-    if (s.chassis && s.weight > s.load) s.problems.push(SA.Config.text("vehicle_4fe380eb9d59", `${SA.tons(s.weight)}`, `${SA.tons(s.load)}`));
+    if (s.chassis && s.loadKg > s.load) s.problems.push(SA.Config.text("vehicle_4fe380eb9d59", `${SA.tons(s.loadKg)}`, `${SA.tons(s.load)}`));
     s.issues = issues(v);
     if (s.issues.length) s.problems.push(SA.Config.text("vehicle_ed6884f4d489", `${s.issues.length}`));
     // 履带是一个整体：有一段被毁就整条掉链，修好之前开不动
@@ -790,8 +828,11 @@ SA.V = (() => {
     each(v, (cell, r, c, layer) => {
       if (cell.hp <= 0) return;
       // 极小的正倍率仍保留至少一点最大耐久，避免 max=0 被当成缺省值回退。
-      const max = Math.max(1, Math.round(maxHp(cell) * hpMul));
-      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, Math.round(cell.hp * hpMul)), max };
+      const max = Math.max(1, Math.round(maxHp(cell, v) * hpMul));
+      // 盾按精确耐久比例生成，避免基础半点耐久在每轮四舍五入后逐次回血。
+      const hp = M[cell.id].knight === 'shield' && bipedOf(v)
+        ? cell.hp / maxHp(cell) * max : Math.round(cell.hp * maxHp(cell, v) / maxHp(cell) * hpMul);
+      b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, hp), max };
       if (cell.look) b[layer][r][c].look = cell.look;
       if (cell.unique) b[layer][r][c].unique = cell.unique;
     });
@@ -997,5 +1038,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { widenArmor, chassisRow, chassisRowOf, bipedOf, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith, installThermalPredictions, thermalPrediction, clearThermalPredictions, thermalSummary };
+  return { fullGrid, widenArmor, chassisRow, chassisRowOf, bipedOf, bipedParts, legMount, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith, installThermalPredictions, thermalPrediction, clearThermalPredictions, thermalSummary };
 })();

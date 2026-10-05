@@ -18,7 +18,7 @@ function run() {
       assert.deepStrictEqual(spec.availableMods, spec.allowedModules);
       assert.strictEqual(spec.budget, 830, '奖金不能覆盖逐关预算');
       assert.strictEqual(spec.mat, 2, '玩家胜后材料权限不能覆盖敌车材料');
-      assert.deepStrictEqual({ ...spec.grid }, { cols: 5, rows: 4 }, '玩家胜后网格不能覆盖敌车网格');
+      assert.deepStrictEqual({ ...spec.grid }, { cols: 8, rows: 6 }, '全部玩家与敌车使用完整车间，旧关卡网格不再限位');
     }
   };
   // 当前作者真实独角兽只奖励 spike；旧双足预设不能从本关或历史累计重新注入。

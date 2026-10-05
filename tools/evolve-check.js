@@ -22,6 +22,9 @@ const stageStatMultipliers = require('./stage-stat-multipliers-check');
 const firstStageFix = require('./first-stage-fix-check');
 const evolveRuntime = require('./evolve-runtime-check');
 const evolveSelection = require('./evolve-selection-check');
+const evolveBudgetRanking = require('./evolve-budget-ranking-check');
+const fullWorkshopGrid = require('./full-workshop-grid-check');
+const bipedCheck = require('./biped-check');
 const evolveProgression = require('./evolve-progression-check');
 const evolveCatalog = require('./evolve-catalog-check');
 const evolveParallelValidation = require('./evolve-parallel-validation-check');
@@ -193,6 +196,9 @@ async function main() {
   gpuHeatBounds.run();
   // 先跑精确边界，数值错误或坏分享码不能被后面的批量模拟“正常结束”掩盖。
   const audit = { battle: auditBattle.run(), share: auditShare.run(), visual: auditVisual.run() };
+  const budgetRanking = evolveBudgetRanking.run();
+  const workshopGrid = fullWorkshopGrid.run();
+  const biped = bipedCheck.run();
   const constraints = stageRules.run(), tracks = trackChain.run();
   const progression = evolveProgression.run(), diversity = evolveDiversity.run(), lockedEntry = evolveLocked.run();
   const catalog = await evolveCatalog.run();
@@ -237,6 +243,9 @@ async function main() {
   result.battle = battle;
   result.runtime = runtime;
   result.selection = selection;
+  result.budgetRanking = budgetRanking;
+  result.workshopGrid = workshopGrid;
+  result.biped = biped;
   result.progression = progression;
   result.catalog = catalog;
   result.parallelValidation = parallelValidation;

@@ -4,7 +4,7 @@ const os = require('node:os');
 // 关卡车进化生成器的算法参数。这里的参数只控制搜索策略和报告权重，
 // 不直接修改战斗规则；战斗数值和用户已经拍板的门槛仍以 docs/evolve-plan.md 为准。
 module.exports = {
-  rulesVersion: 'evolve-authoritative-stage-config-2026-10-05', // 已保存关卡规格为权威，旧预设奖励报告须重新核验。
+  rulesVersion: 'evolve-budget-pressure-2026-10-05', // 预算压力评分与合法预算补足，旧权重报告须重新生成。
   // 默认最多使用八个逻辑处理器；明确传入 workers 时仍以调用者设置为准。
   defaultWorkers: Math.max(1, Math.min(8, os.availableParallelism?.() || os.cpus?.().length || 1)),
   maxWorkers: 14, // 手动并行数的统一上限；默认值保持为已测过的八线程上限。
@@ -53,8 +53,8 @@ module.exports = {
     distantInefficient: -20,
     noEngage: -10,
   },
-  // 强度优先，节约只按造价计分；不奖励减少实体件数。
-  ranking: { efficiencyWeight: 0.2, strengthWeight: 0.8 },
+  // 强度占90%、节约占10%；预算缺口与低参考胜率罚另行扣除，不奖励减少实体件数。
+  ranking: { efficiencyWeight: 0.1, strengthWeight: 0.9 },
   difficulty: { min: 0.6, max: 0.75 },
   diversity: { similarAt: 0.85, minClusterRatio: 0.5, maxClusterShare: 0.4, finalMinClusters: 3 },
   reward: {

@@ -1,0 +1,4305 @@
+{
+  "source": "2026-10-05 双足机制修改前快照，现存六关各2种子换边，结算包含伤害/命中事件/效果",
+  "battleHash": "144714055665a9df5c714e20cda6f9e16492a0f258c9c625d1eeeb32c38b289a",
+  "cases": [
+    {
+      "chapter": 0,
+      "stage": 0,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "p",
+        "t": 15.33333333333329,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 55,
+        "eDealt": 16.5,
+        "events": {
+          "p": {
+            "fire": 43,
+            "hit": 38,
+            "ricochet": 0,
+            "chargedHit": 12,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 3,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2791.328247066303,
+            "heatMax": 4779,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 15.33333333333329,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 11,
+            "hit": 9,
+            "ricochet": 0,
+            "chargedHit": 2,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 1215.042217459986,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 13.533333333333296,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": false,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 3.133333333333332,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 43,
+              "hit": 38,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 11,
+              "hit": 9,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 0,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 57.233333333332645,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 80.20891320855418,
+        "eDealt": 136.276,
+        "events": {
+          "p": {
+            "fire": 41,
+            "hit": 39,
+            "ricochet": 0,
+            "chargedHit": 1,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2510.5886166359073,
+            "heatMax": 4779,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 12.499999999999966,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 85,
+            "hit": 69,
+            "ricochet": 0,
+            "chargedHit": 34,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3453.000110444086,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 55.43333333333275,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 28.900000000000595,
+            "fireHeldSeconds": 55.43333333333275,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 41,
+              "hit": 39,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 85,
+              "hit": 69,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 0,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "p",
+        "t": 18.800000000000093,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 89.5,
+        "eDealt": 15,
+        "events": {
+          "p": {
+            "fire": 54,
+            "hit": 47,
+            "ricochet": 0,
+            "chargedHit": 11,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 3288.008522719479,
+            "heatMax": 4779,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 18.800000000000093,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 11,
+            "hit": 9,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 1297.2198033876305,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 17.000000000000004,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": false,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 3.466666666666664,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 54,
+              "hit": 47,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 11,
+              "hit": 9,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 0,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "e",
+        "t": 12.999999999999964,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 14.5,
+        "eDealt": 67.5,
+        "events": {
+          "p": {
+            "fire": 8,
+            "hit": 8,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 971.869963603605,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 11.19999999999997,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": false,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 2.3000000000000016,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 36,
+            "hit": 36,
+            "ricochet": 0,
+            "chargedHit": 7,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2434.1087444013633,
+            "heatMax": 4779,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 12.999999999999964,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 8,
+              "hit": 8,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 36,
+              "hit": 36,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 1,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 15.96666666666662,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 43.900000000000006,
+        "eDealt": 75,
+        "events": {
+          "p": {
+            "fire": 45,
+            "hit": 37,
+            "ricochet": 4,
+            "chargedHit": 19,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2889.451047693002,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 14.166666666666627,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 14.166666666666627,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 45,
+            "hit": 39,
+            "ricochet": 0,
+            "chargedHit": 29,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2557.110616520456,
+            "heatMax": 4931.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 11.799999999999969,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 15.96666666666662,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 45,
+              "hit": 37,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 45,
+              "hit": 39,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 1,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 15.866666666666621,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 65,
+        "eDealt": 53.800000000000004,
+        "events": {
+          "p": {
+            "fire": 45,
+            "hit": 40,
+            "ricochet": 0,
+            "chargedHit": 21,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2717.614176872621,
+            "heatMax": 4931.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 8.199999999999982,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 15.866666666666621,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 45,
+            "hit": 38,
+            "ricochet": 3,
+            "chargedHit": 4,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 1,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2838.5642331173335,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 14.066666666666627,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 14.066666666666627,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 45,
+              "hit": 40,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 45,
+              "hit": 38,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 1,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "p",
+        "t": 12.733333333333299,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 59.5,
+        "eDealt": 45,
+        "events": {
+          "p": {
+            "fire": 35,
+            "hit": 35,
+            "ricochet": 0,
+            "chargedHit": 11,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 2,
+            "maxHeat": 2384.3161534104865,
+            "heatMax": 4779,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 12.733333333333299,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 34,
+            "hit": 30,
+            "ricochet": 0,
+            "chargedHit": 16,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 1,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 2276.447444068034,
+            "heatMax": 4814,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 10.933333333333305,
+            "firstWaterEmptyAt": 4.433333333333327,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 10.933333333333305,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 35,
+              "hit": 35,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "helmet": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 34,
+              "hit": 30,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 1,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 15.03333333333329,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 73.5,
+        "eDealt": 62.7,
+        "events": {
+          "p": {
+            "fire": 42,
+            "hit": 38,
+            "ricochet": 0,
+            "chargedHit": 12,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2591.1564634265924,
+            "heatMax": 4931.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": null,
+            "firstWaterEmptyAt": 7.433333333333317,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 15.03333333333329,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 42,
+            "hit": 40,
+            "ricochet": 2,
+            "chargedHit": 9,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2741.8044123467985,
+            "heatMax": 4676.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 13.233333333333297,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 13.233333333333297,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 42,
+              "hit": 38,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 42,
+              "hit": 40,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 2,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 36.33333333333383,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 39.24400000000006,
+        "eDealt": 260.0229062065356,
+        "events": {
+          "p": {
+            "fire": 58,
+            "hit": 53,
+            "ricochet": 13,
+            "chargedHit": 13,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3455.436202449086,
+            "heatMax": 3708.9999999999995,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 34.533333333333935,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 16.43333333333331,
+            "fireHeldSeconds": 34.533333333333935,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 0,
+            "hit": 0,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 50,
+            "kick": 0,
+            "knock": 1,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 3,
+            "maxHeat": 727.0715793367824,
+            "heatMax": 5651.5,
+            "minWater": 26.76473913770622,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 36.33333333333383,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 5,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 58,
+              "hit": 53,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "bucket": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 2,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 34.83333333333392,
+        "reason": "伤得太重，打不下去了，挂白旗投降",
+        "pDealt": 248.0892425102118,
+        "eDealt": 28.88515679442512,
+        "events": {
+          "p": {
+            "fire": 0,
+            "hit": 0,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 47,
+            "kick": 0,
+            "knock": 2,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 3,
+            "maxHeat": 719.3067599628837,
+            "heatMax": 5651.5,
+            "minWater": 26.778930150103037,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 34.83333333333392,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 58,
+            "hit": 55,
+            "ricochet": 22,
+            "chargedHit": 12,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3448.1113745709126,
+            "heatMax": 3708.9999999999995,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 33.03333333333402,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 14.699999999999958,
+            "fireHeldSeconds": 33.03333333333402,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "bucket": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 5,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 58,
+              "hit": 55,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 2,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 35.86666666666719,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 34.52000000000008,
+        "eDealt": 253.8050651468348,
+        "events": {
+          "p": {
+            "fire": 58,
+            "hit": 58,
+            "ricochet": 23,
+            "chargedHit": 11,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3453.0164700341425,
+            "heatMax": 3708.9999999999995,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 34.066666666667295,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 16.03333333333329,
+            "fireHeldSeconds": 34.066666666667295,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 0,
+            "hit": 0,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 48,
+            "kick": 0,
+            "knock": 2,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 3,
+            "maxHeat": 724.7363745850627,
+            "heatMax": 5651.5,
+            "minWater": 26.769170323394068,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 35.86666666666719,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 5,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 58,
+              "hit": 58,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "bucket": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 0,
+      "stage": 2,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 34.6000000000006,
+        "reason": "伤得太重，打不下去了，挂白旗投降",
+        "pDealt": 254.29373953986894,
+        "eDealt": 28.04400000000006,
+        "events": {
+          "p": {
+            "fire": 0,
+            "hit": 0,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 49,
+            "kick": 0,
+            "knock": 1,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 3,
+            "maxHeat": 718.0294853608002,
+            "heatMax": 5651.5,
+            "minWater": 26.78112367132743,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 34.6000000000006,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 58,
+            "hit": 54,
+            "ricochet": 16,
+            "chargedHit": 11,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3443.467419828234,
+            "heatMax": 3708.9999999999995,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 32.8000000000007,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 14.599999999999959,
+            "fireHeldSeconds": 32.8000000000007,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "bucket": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 5,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 58,
+              "hit": 54,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 0,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 93.09999999999728,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 31.500000000000057,
+        "eDealt": 150,
+        "events": {
+          "p": {
+            "fire": 112,
+            "hit": 95,
+            "ricochet": 40,
+            "chargedHit": 55,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 1,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3448.062717959555,
+            "heatMax": 4296.5,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 91.29999999999738,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 56.63333333333268,
+            "fireHeldSeconds": 91.29999999999738,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 35,
+            "hit": 7,
+            "ricochet": 0,
+            "chargedHit": 1,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 28,
+            "highHit": 7,
+            "downhillRam": 0,
+            "destroyed": 2,
+            "maxHeat": 2636.8104630684975,
+            "heatMax": 6264,
+            "minWater": 50.23374719936337,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 93.09999999999728,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 112,
+              "hit": 95,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mortar_s": {
+              "active": 2,
+              "fire": 35,
+              "hit": 7,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 0,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 67.0333333333321,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 68,
+        "eDealt": 25.800000000000033,
+        "events": {
+          "p": {
+            "fire": 25,
+            "hit": 5,
+            "ricochet": 0,
+            "chargedHit": 1,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 20,
+            "highHit": 5,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2502.158680723548,
+            "heatMax": 6264,
+            "minWater": 51.38308345533926,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 67.0333333333321,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 85,
+            "hit": 70,
+            "ricochet": 23,
+            "chargedHit": 28,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3451.6519772312186,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 65.2333333333322,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 38.60000000000037,
+            "fireHeldSeconds": 65.2333333333322,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mortar_s": {
+              "active": 2,
+              "fire": 25,
+              "hit": 5,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 85,
+              "hit": 70,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 0,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 72.43333333333179,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 25.20000000000004,
+        "eDealt": 144,
+        "events": {
+          "p": {
+            "fire": 85,
+            "hit": 72,
+            "ricochet": 27,
+            "chargedHit": 31,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3454.169444376888,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 70.63333333333189,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 44.466666666666704,
+            "fireHeldSeconds": 70.63333333333189,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 27,
+            "hit": 10,
+            "ricochet": 0,
+            "chargedHit": 3,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 17,
+            "highHit": 10,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2528.296013840363,
+            "heatMax": 6264,
+            "minWater": 51.140553698188526,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 72.43333333333179,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 85,
+              "hit": 72,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mortar_s": {
+              "active": 2,
+              "fire": 27,
+              "hit": 10,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 0,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 51.233333333332986,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 66,
+        "eDealt": 19.900000000000027,
+        "events": {
+          "p": {
+            "fire": 19,
+            "hit": 5,
+            "ricochet": 0,
+            "chargedHit": 2,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 14,
+            "highHit": 5,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2393.0508631697903,
+            "heatMax": 6264,
+            "minWater": 52.08412069195715,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 51.233333333332986,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 74,
+            "hit": 55,
+            "ricochet": 19,
+            "chargedHit": 25,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3443.1049465985543,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 49.43333333333309,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 26.500000000000476,
+            "fireHeldSeconds": 49.43333333333309,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mortar_s": {
+              "active": 2,
+              "fire": 19,
+              "hit": 5,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 74,
+              "hit": 55,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 1,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 13.333333333333297,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 48,
+        "eDealt": 89,
+        "events": {
+          "p": {
+            "fire": 37,
+            "hit": 27,
+            "ricochet": 0,
+            "chargedHit": 5,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 2490.4870323972095,
+            "heatMax": 4676.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 11.533333333333303,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 11.533333333333303,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 68,
+            "hit": 63,
+            "ricochet": 0,
+            "chargedHit": 60,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 3704.844960413408,
+            "heatMax": 6439,
+            "minWater": 55.812664279832724,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 13.333333333333297,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 37,
+              "hit": 27,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "cockpit_pair": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 68,
+              "hit": 63,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 1,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 8.733333333333313,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 51.5,
+        "eDealt": 31,
+        "events": {
+          "p": {
+            "fire": 42,
+            "hit": 31,
+            "ricochet": 0,
+            "chargedHit": 27,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2535.7252430700955,
+            "heatMax": 6439,
+            "minWater": 56.017350192717615,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 8.733333333333313,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 22,
+            "hit": 17,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 1617.7936415583488,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 6.9333333333333185,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 6.9333333333333185,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "cockpit_pair": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 42,
+              "hit": 31,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 22,
+              "hit": 17,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 1,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 8.866666666666646,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 24.5,
+        "eDealt": 62,
+        "events": {
+          "p": {
+            "fire": 22,
+            "hit": 16,
+            "ricochet": 0,
+            "chargedHit": 0,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 1623.8872669078887,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 7.066666666666651,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 7.066666666666651,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 42,
+            "hit": 34,
+            "ricochet": 0,
+            "chargedHit": 33,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 1,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2528.2667244342697,
+            "heatMax": 6439,
+            "minWater": 56.009332036930346,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 8.866666666666646,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 22,
+              "hit": 16,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "cockpit_pair": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 42,
+              "hit": 34,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 1,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 9.299999999999978,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 66.5,
+        "eDealt": 29,
+        "events": {
+          "p": {
+            "fire": 44,
+            "hit": 39,
+            "ricochet": 0,
+            "chargedHit": 37,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2625.067374470768,
+            "heatMax": 6439,
+            "minWater": 55.99324495161671,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 9.299999999999978,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 24,
+            "hit": 16,
+            "ricochet": 0,
+            "chargedHit": 6,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 1747.8473240004375,
+            "heatMax": 4676.5,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 7.499999999999983,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 7.499999999999983,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "cockpit_pair": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 44,
+              "hit": 39,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 24,
+              "hit": 16,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 2,
+      "seed": 20261005,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 42.96666666666679,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 22.099999999999937,
+        "eDealt": 150,
+        "events": {
+          "p": {
+            "fire": 58,
+            "hit": 53,
+            "ricochet": 11,
+            "chargedHit": 30,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3456.663280526626,
+            "heatMax": 4296.5,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 41.16666666666689,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 17.466666666666693,
+            "fireHeldSeconds": 41.16666666666689,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 9,
+            "hit": 3,
+            "ricochet": 0,
+            "chargedHit": 3,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 6,
+            "highHit": 3,
+            "downhillRam": 0,
+            "destroyed": 2,
+            "maxHeat": 2766.613762363235,
+            "heatMax": 7478.999999999999,
+            "minWater": 80.95837370339262,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 42.96666666666679,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 58,
+              "hit": 53,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "mortar": {
+              "active": 2,
+              "fire": 9,
+              "hit": 3,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "armor": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "rangefinder": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 2,
+      "seed": 20261005,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 77.23333333333152,
+        "reason": "驾驶舱全部被摧毁",
+        "pDealt": 159,
+        "eDealt": 28.499999999999886,
+        "events": {
+          "p": {
+            "fire": 16,
+            "hit": 3,
+            "ricochet": 0,
+            "chargedHit": 3,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 12,
+            "highHit": 3,
+            "downhillRam": 0,
+            "destroyed": 2,
+            "maxHeat": 3011.131037309423,
+            "heatMax": 7478.999999999999,
+            "minWater": 78.7094031158119,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 77.23333333333152,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 85,
+            "hit": 70,
+            "ricochet": 20,
+            "chargedHit": 51,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 3,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3457.107843391874,
+            "heatMax": 4311.499999999999,
+            "minWater": 0,
+            "failureType": null,
+            "failureAt": 75.43333333333162,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 48.96666666666645,
+            "fireHeldSeconds": 75.43333333333162,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "mortar": {
+              "active": 2,
+              "fire": 16,
+              "hit": 3,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "armor": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "rangefinder": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 4,
+              "fire": 85,
+              "hit": 70,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 2,
+      "seed": 20261006,
+      "swapped": false,
+      "expected": {
+        "winner": "e",
+        "t": 52.96666666666622,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 27.299999999999926,
+        "eDealt": 186,
+        "events": {
+          "p": {
+            "fire": 63,
+            "hit": 44,
+            "ricochet": 13,
+            "chargedHit": 29,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 1,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3440.6976212570385,
+            "heatMax": 4296.5,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 51.16666666666632,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": false,
+            "ventAtFailure": false,
+            "holdSeconds": 26.46666666666714,
+            "fireHeldSeconds": 51.16666666666632,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 11,
+            "hit": 4,
+            "ricochet": 0,
+            "chargedHit": 4,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 7,
+            "highHit": 4,
+            "downhillRam": 0,
+            "destroyed": 2,
+            "maxHeat": 2867.084058945811,
+            "heatMax": 7478.999999999999,
+            "minWater": 80.31187005630656,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 52.96666666666622,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 3,
+              "fire": 63,
+              "hit": 44,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "mortar": {
+              "active": 2,
+              "fire": 11,
+              "hit": 4,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "armor": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "rangefinder": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "chapter": 1,
+      "stage": 2,
+      "seed": 20261006,
+      "swapped": true,
+      "expected": {
+        "winner": "p",
+        "t": 28.73333333333392,
+        "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+        "pDealt": 112,
+        "eDealt": 18.79999999999987,
+        "events": {
+          "p": {
+            "fire": 6,
+            "hit": 3,
+            "ricochet": 0,
+            "chargedHit": 2,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 2,
+            "highHit": 3,
+            "downhillRam": 0,
+            "destroyed": 1,
+            "maxHeat": 2562.7984882798755,
+            "heatMax": 7478.999999999999,
+            "minWater": 81.90484824856844,
+            "failureType": null,
+            "failureAt": null,
+            "holdSeconds": 0,
+            "fireHeldSeconds": 28.73333333333392,
+            "ventCount": 0
+          },
+          "e": {
+            "fire": 58,
+            "hit": 56,
+            "ricochet": 23,
+            "chargedHit": 30,
+            "ram": 0,
+            "kick": 0,
+            "knock": 0,
+            "terrainBlock": 0,
+            "highHit": 0,
+            "downhillRam": 0,
+            "destroyed": 0,
+            "maxHeat": 3454.010550652106,
+            "heatMax": 4661.499999999999,
+            "minWater": 0,
+            "failureType": "dry",
+            "failureAt": 26.93333333333383,
+            "firstWaterEmptyAt": 0.03333333333333333,
+            "fireHeldAtFailure": true,
+            "holdAtFailure": true,
+            "ventAtFailure": false,
+            "holdSeconds": 8.966666666666645,
+            "fireHeldSeconds": 26.93333333333383,
+            "ventCount": 0
+          }
+        },
+        "effectStats": {
+          "p": {
+            "mortar": {
+              "active": 2,
+              "fire": 6,
+              "hit": 3,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "plate": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "armor": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "boiler_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_tall": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "tank_s": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 4,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "rangefinder": {
+              "active": 2,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          },
+          "e": {
+            "boiler_s": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "mg_s": {
+              "active": 2,
+              "fire": 58,
+              "hit": 56,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "helmet": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "track": {
+              "active": 3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "starter": "SA2.eyJuIjoi5LiA5Y+35Y6f5Z6L5py6IiwiYiI6W1s4LDcsNDRdLFs4LDgsNDJdLFs5LDgsMTZdLFsxMCw3LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+  "vehicles": [
+    {
+      "chapter": 0,
+      "stage": 0,
+      "code": "SA2.eyJuIjoi56C06ZOc54OC6ZOB5Y+3IiwiYiI6W1s3LDgsMTZdLFs4LDgsNDRdLFs5LDksNDJdLFsxMCw4LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "rookie",
+      "terrain": "flat",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "cells": [
+        [
+          0,
+          7,
+          8,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "chapter": 0,
+      "stage": 1,
+      "code": "SA2.eyJuIjoi6ZKJ5a2Q5Y+3IiwiYiI6W1s3LDgsMTZdLFs3LDksMTddLFs4LDgsNDRdLFs4LDksMThdLFs5LDksNDJdLFsxMCw4LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "turtle",
+      "terrain": "flat",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "cells": [
+        [
+          0,
+          7,
+          8,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "chapter": 0,
+      "stage": 2,
+      "code": "SA2.eyJuIjoi5rGk5aeG55qE6ZOy6L2mIiwiYiI6W1s4LDgsNDRdLFs4LDksMThdLFs4LDEwLDE3XSxbOSw5LDE2XSxbMTAsOCwwXSxbMTAsMTAsMTJdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "rush",
+      "terrain": "flat",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          10,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "bucket",
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "chapter": 1,
+      "stage": 0,
+      "code": "SA2.eyJuIjoi6ZOB55qu572Q5aS0IiwiYiI6W1s4LDQsNDRdLFs4LDUsMThdLFs4LDYsMzVdLFs4LDcsMTddLFs5LDUsMThdLFs5LDYsMTZdLFs5LDcsMTddLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "turtle",
+      "terrain": "crates",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "cells": [
+        [
+          0,
+          8,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "mortar_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          6,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          7,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "chapter": 1,
+      "stage": 1,
+      "code": "SA2.eyJuIjoi5Y+M566h5ZOo5YW1IiwiYiI6W1s4LDUsMTldLFs4LDYsNDRdLFs4LDcsMjZdLFs4LDgsMTddLFs4LDksNDJdLFs5LDgsMTddLFs5LDksNDJdLFsxMCw2LDBdLFsxMCw4LDBdXSwicyI6W10sImEiOjIsInB2IjoyLCJtcyI6W119",
+      "style": "kite",
+      "terrain": "flat",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "statMultipliers": {
+        "hp": 1,
+        "damage": 1,
+        "speed": 1,
+        "brake": 1
+      },
+      "cells": [
+        [
+          0,
+          8,
+          5,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "cockpit_pair",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          8,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          9,
+          "mg_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "chapter": 1,
+      "stage": 2,
+      "code": "SA2.eyJuIjoi54Wk54Gw5a+h5aaHIiwiYiI6W1s2LDQsOV0sWzYsNiwxN10sWzYsNyw2XSxbOCw0LDQ0XSxbOCw1LDE2XSxbOCw2LDE5XSxbOCw3LDZdLFs5LDUsMThdLFsxMCw0LDBdLFsxMCw2LDBdXSwicyI6W1s2LDYsNDBdXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "style": "wander",
+      "terrain": "crates",
+      "bounds": {
+        "left": 0,
+        "right": 1280
+      },
+      "statMultipliers": {
+        "hp": 1,
+        "damage": 1,
+        "speed": 1,
+        "brake": 1
+      },
+      "cells": [
+        [
+          0,
+          6,
+          4,
+          "mortar",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "helmet",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          5,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          1,
+          6,
+          6,
+          "rangefinder",
+          1,
+          0
+        ]
+      ]
+    }
+  ],
+  "starterCells": [
+    [
+      0,
+      8,
+      7,
+      "boiler_s",
+      1,
+      0
+    ],
+    [
+      0,
+      8,
+      8,
+      "mg_s",
+      1,
+      0
+    ],
+    [
+      0,
+      9,
+      8,
+      "helmet",
+      1,
+      0
+    ],
+    [
+      0,
+      10,
+      7,
+      "track",
+      1,
+      0
+    ]
+  ]
+}

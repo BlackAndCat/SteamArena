@@ -6,8 +6,39 @@ const path = require('path');
 const evolve = require('./evolve');
 const config = require('./evolve-config');
 
+// 固定走锭机等效规格，不从作者手工关卡记录继承奖励和解锁池。
+// 这些种子曾在补装散热片与双足时耗尽全部尝试；每项构筑硬条件都必须通过。
+function requiredRewardsCheck(SA) {
+  const modules = ['track', 'helmet', 'boiler_s', 'tank_s', 'mg_s', 'plate', 'bucket', 'tank_tall',
+    'cannon_s', 'armor', 'boiler', 'water', 'mg', 'cannon_m', 'mortar_s', 'biped', 'cockpit_pair',
+    'mortar', 'cockpit', 'spike', 'quad', 'mg_heavy', 'steamjet', 'radiator'];
+  const spec = { chapter: 2, stage: 1, name: '走锭机回归', budget: 2375, grid: { cols: 5, rows: 3 },
+    mat: 2, allowedMaterials: [1, 2], rewardModule: 'radiator', requiredModules: ['radiator', 'biped'],
+    allowedModules: modules, availableMods: modules };
+  const seeds = [11, 12, 14, 17, 20, 25];
+  for (const seed of seeds) {
+    const vehicle = evolve.requiredVehicle(SA, spec, new evolve.RNG(seed));
+    assert(vehicle, `走锭机种子 ${seed} 未生成必带双奖励的候选`);
+    const conditions = evolve.constructionConditions(SA, vehicle, spec);
+    for (const [condition, passed] of Object.entries(conditions))
+      assert.strictEqual(passed, true, `走锭机种子 ${seed} 构筑条件 ${condition} 未通过`);
+  }
+  // 用不可能满足的预算触发现有生成入口，错误必须指向真实章节和关卡。
+  assert.throws(() => evolve.generateChapter(SA, { ...spec, budget: 0 }, [], [], new evolve.RNG(11)),
+    error => error.message.includes(SA.CAMPAIGN[2].name) && error.message.includes(spec.name) &&
+      error.message.includes('尝试') && error.message.includes('£0'), '构筑失败提示缺少真实关卡与搜索失败说明');
+  // 保底不能绕过预算、奖励解锁或侧挂宿主限制。
+  for (const [label, excluded] of [['奖励未解锁', ['biped']], ['没有装甲宿主', ['armor']]]) {
+    const availableMods = modules.filter(id => !excluded.includes(id));
+    assert.strictEqual(evolve.requiredVehicle(SA, { ...spec, allowedModules: availableMods, availableMods },
+      new evolve.RNG(11)), null, `${label}仍生成了候选`);
+  }
+  return seeds.length;
+}
+
 async function run() {
   const { SA } = evolve.loadGame(), before = { ...config.population };
+  const requiredRewardSeeds = requiredRewardsCheck(SA);
   const stageFile = path.join(__dirname, '../config/stage-cars.json'), original = fs.readFileSync(stageFile);
   let anchors = 0;
   for (let stage = 3; stage <= 6; stage++) {
@@ -47,7 +78,7 @@ async function run() {
       assert(stage.provisional && stage.top.includes(stage.provisional), '未达标时缺少临时参考候选');
       assert(report.selectionFailures.some(row => row.chapter === 1 && row.stage === 3));
     }
-    return { stages: 4, anchors, workerStage: true, diagnosticPreserved: true, originPatch: 'side(6,6)→side(6,7)' };
+    return { stages: 4, anchors, requiredRewardSeeds, workerStage: true, diagnosticPreserved: true, originPatch: 'side(6,6)→side(6,7)' };
   } finally {
     Object.assign(config.population, before);
     assert(original.equals(fs.readFileSync(stageFile)), '测试改变了手工关卡文件');
