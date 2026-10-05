@@ -51,8 +51,8 @@ SA.ARTPLAN = {
     // ---------- 第 1 档：底盘细分支 ----------
     quad: { status: 'done', ch: 1, note: '六档（2026-09-29 进游戏）：T1 工装 Mk.II → T2 桁架爬机 → T3 板簧拖车 → T4 曲柄步行机（温室 + 常春藤高膝）→ T5 汽锤步行机 → T6 哥特教堂（燕尾旗）；9 种唯一变体已注册、等获得方式；步幅随车速加大、机身按步态起伏',
       hist: [['2026-09-25', '机甲套件 v3', 'mech-kit.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '四足六档 + 变体 v1～v9（定稿进游戏）', 'archive/quad-tiers.html', 'shipped']] },
-    biped: { status: 'done', ch: 2, note: '六档（2026-09-29 进游戏）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑，每档配一种腰胯；9 种唯一变体已注册、等获得方式',
-      hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足六档 + 腰胯 v1～v5（定稿进游戏）', 'archive/biped-tiers.html', 'shipped']] },
+    biped: { status: 'done', ch: 2, note: '六档（2026-09-29 进游戏）：工装 Mk.II → 鹭步 → 掷弹兵 → 蒸汽圣骑 → 钟表巨像 → 熔心龙骑，每档配一种腰胯；9 种唯一变体已注册、等获得方式。2026-10-05 双足强化（docs/biped-plan.md）：legs.js 已支持下蹲 / 空中收腿 / 快跑腾空 / 腿部件挂点（默认画面不变）；轻重腿分法、四种姿态、跳跃件 / 提速件各三种在当前开发 v5 等用户挑；机甲套件 v4 全部通过',
+      hist: [['2026-09-24', '六档腿型', 'biped-lab.html', 'archived'], ['2026-09-24', '真双足 v2', 'biped-v2.html', 'archived'], ['2026-09-25', '整件底盘 v4', 'chassis-lab.html', 'shipped'], ['2026-09-29', '双足六档 + 腰胯 v1～v5（定稿进游戏）', 'archive/biped-tiers.html', 'shipped'], ['2026-10-05', '机甲套件 v4（全部通过）', 'archive/mech-kit-v4.html', 'archived'], ['2026-10-05', '双足强化 v5：轻重腿 / 姿态 / 腿部件', 'current.html', 'explore']] },
     // ---------- 第 2 档：前两章就会看到的文字占位 ----------
     periscope: { status: 'done', ch: 1, note: '轭架望远镜（2026-09-29 进游戏）：转台 + U 形轭架 + 黄铜望远镜慢慢俯仰；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#periscope', 'archived'], ['2026-09-29', '造型 7 种 → D 轭架望远镜', 'archive/periscope.html', 'shipped']] },
     autoloader: { status: 'done', ch: 1, note: '链式扬弹机（2026-09-29 进游戏）：竖框 + 两只链轮，三发黄铜炮弹往上送；各档只换颜色', hist: [['2026-09-27', '候选 v1', 'module-candidates.html#autoloader', 'explore'], ['2026-09-29', '造型 7 种（选 链式扬弹机）', 'archive/five-modules.html', 'shipped']] },

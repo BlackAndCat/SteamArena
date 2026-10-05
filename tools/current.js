@@ -1,354 +1,284 @@
-// 「当前开发」页：战斗界面 v1 · 三套方案（2026-09-30）。
-// 用户：白旗会被效果和背景人物挡住；不想要敌方的各种实时状态；重新设计战斗页面的提示和各类展示，挑一套满意的。
-// 每套方案画三种时刻（常态 / 告急 / 对方挂白旗），场景、车、人物都读游戏代码，界面件用 js/ui-px.js 的像素画法（2 倍）。
-// 战场按镜头 z = 1 画（1280 × 720 世界像素，和游戏镜头拉远时一样），界面像素 = 2 屏幕像素。
+// 「当前开发」页：双足强化 v5（2026-10-05，计划见 docs/biped-plan.md）。
+// 这一页不复用：只放正在开发、等开发者确认的东西；确认后复制到 tools/archive/<名字>.*，在 labs.js 登记，再换下一项。
+//
+// 机甲套件 v4（tools/archive/mech-kit-v4.*）用户 2026-10-05 全部通过，本页在它上面接着做三件新东西：
+//   ① 轻型腿 / 重型腿：主线六档 = 标准腿；9 种唯一腿分成轻型 5 种、重型 4 种（T3～T6 每档一轻一重，T2 只有轻型）；
+//   ② 姿态：走 / 快跑 / 下蹲 / 跳跃（蓄力 → 起跳 → 空中收腿 → 落地）。游戏的 js/legs.js 已经支持这些参数：
+//      bipedArt 的 crouch / air + tuck / duty + liftK，bipedBob 的 duty + hop（默认值下画面和原来逐像素一致）；
+//   ③ 腿部件（侧挂层，只有双足能装）：跳跃件（小腿位）三种、提速件（大腿位）三种，用 bipedArt 的 legPart 挂到腿骨上。
+// 躯干用 v4 的零件（SA.MECHKIT.PARTS），腿用游戏的 legs.js；本页只是样机，游戏画面没变。
 window.SA = window.SA || {};
 
-SA.BATTLEUI = (() => {
-  const P = SA.PAL, X = SA.PX, K = SA.K, C = K.CELL, PADX = SA.SPR.PADX;
-  const W = 1280, H = 720, GROUND = 648, CAMY = GROUND + 60 - H;   // 镜头左上角的世界 y
-  const VW = K.COLS * C + PADX * 2, VH = K.ROWS * C;
-  const INK = '#2a1a05', CHALK = '#e8e3d2', LIGHT = '#e4e0d6', SHADOW = '#0b0e15';
+SA.CUR = (() => {
+  const P = SA.PAL, LL = SA.LEGLAB, U = LL.U, { NEAR, FAR, bone } = U, K4 = SA.MECHKIT;
+  const S = 24, PADX = SA.SPR.PADX, TAU = Math.PI * 2, GROUND = 288, HIP_ROW = 8;
+  const STEAM = [P.steam[0], P.steam[1], P.steam[2], P.white], DUST = [P.bg[2], P.bg[4], P.bg[5], P.bg[6]];
+  const ease = (u) => u * u * (3 - 2 * u), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
-  // ---------- 小工具 ----------
-  const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-  const px = (g, src, x, y, s = 2) => { g.imageSmoothingEnabled = false; g.drawImage(src, Math.round(x), Math.round(y), src.width * s, src.height * s); };
-  function T(g, str, x, y, o = {}) {
-    g.font = o.font || `bold ${o.size || 14}px SimSun, serif`;
-    g.textAlign = o.align || 'left'; g.textBaseline = 'middle';
-    if (o.sh !== false) { g.fillStyle = o.shc || SHADOW; g.fillText(str, x + 2, y + 2); }
-    g.fillStyle = o.col || LIGHT; g.fillText(str, x, y);
-    return g.measureText(str).width;
-  }
-  // 九宫格：用 ui-px 生成的皮肤图（和游戏里的框一模一样），按 2 倍贴
-  const SK = {};
-  async function loadSkins() {
-    X.init();
-    for (const [n, v] of Object.entries(X.SKIN)) { const im = new Image(); im.src = v.url; await im.decode(); SK[n] = { im, c: v.c }; }
-  }
-  function nine(g, name, x, y, w, h, s = 2) {
-    const { im, c } = SK[name], IW = im.width, IH = im.height, cs = c * s;
-    const sx = [0, c, IW - c, IW], sy = [0, c, IH - c, IH], dx = [x, x + cs, x + w - cs, x + w], dy = [y, y + cs, y + h - cs, y + h];
-    g.imageSmoothingEnabled = false;
-    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) g.drawImage(im, sx[i], sy[j], sx[i + 1] - sx[i], sy[j + 1] - sy[j], dx[i], dy[j], dx[i + 1] - dx[i], dy[j + 1] - dy[j]);
-  }
-  // 5×7 数字放大，带一圈黑描边（读数）
-  function bigNum(g, str, x, y, col, s = 3, align = 'left') {
-    const src = X.num(str, col), w = src.width * s;
-    const x0 = Math.round(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x);
-    g.imageSmoothingEnabled = false;
-    const sil = cv(src.width, src.height), sg = sil.getContext('2d'); sg.drawImage(src, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = SHADOW; sg.fillRect(0, 0, sil.width, sil.height);
-    for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1], [1, 2], [0, 2]]) g.drawImage(sil, x0 + dx * s, y + dy * s, w, src.height * s);
-    g.drawImage(src, x0, y, w, src.height * s);
-    return w;
-  }
-
-  // ---------- 像素件（1 倍美术像素，画的时候 ×2）----------
-  // 压力表：黄铜外圈 + 纸表盘 + 刻度 + 红区 + 指针
-  function dial(R, pct, red = 0.8, hot = false) {
-    const D = R * 2 + 2, k = X.C(D, D), c = R + 0.5;
-    for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
-      if (d > R + 0.4) continue;
-      const a = Math.atan2(x + 0.5 - c, -(y + 0.5 - c)) / Math.PI * 180, f = (a + 135) / 270;
-      if (d > R - 1) k.p(x, y, hot ? P.fire[0] : P.brass[0]);
-      else if (d > R - 3) k.p(x, y, hot ? (x + y < D ? P.fire[2] : P.fire[1]) : (x + y < D ? P.brass[3] : P.brass[1]));
-      else if (d > R - 4) k.p(x, y, P.brass[0]);
-      else if (d > R - 7 && d <= R - 5 && f >= red && f <= 1 && Math.abs(a) <= 135) k.p(x, y, P.fire[1]);
-      else k.p(x, y, d < R - 9 ? X.RAMP.paper.l : X.RAMP.paper.b);
-    }
-    for (let i = 0; i <= 8; i++) { const a = (-135 + 270 * i / 8) * Math.PI / 180; k.p(Math.round(c - 0.5 + Math.sin(a) * (R - 5.5)), Math.round(c - 0.5 - Math.cos(a) * (R - 5.5)), INK); }
-    const a = (-135 + 270 * Math.min(1.04, pct)) * Math.PI / 180;
-    X.line(k, Math.round(c - 0.5), Math.round(c - 0.5), Math.round(c - 0.5 + Math.sin(a) * (R - 6)), Math.round(c - 0.5 - Math.cos(a) * (R - 6)), pct >= red ? P.fire[1] : INK);
-    k.r(Math.round(c) - 2, Math.round(c) - 2, 3, 3, P.brass[1]); k.p(Math.round(c) - 2, Math.round(c) - 2, P.brass[3]);
-    return k.c;
-  }
-  // 竖液位管：上下黄铜盖 + 玻璃 + 液面；ramp 四阶
-  function tube(h, pct, ramp, warn = false) {
-    const k = X.C(9, h);
-    X.box(k, 0, 0, 9, 3, X.RAMP.brass); X.box(k, 0, h - 3, 9, 3, X.RAMP.brass);
-    k.r(1, 3, 7, h - 6, warn ? P.fire[1] : P.dark[0]); k.r(2, 3, 5, h - 6, P.dark[1]);
-    const lv = Math.round((h - 6) * Math.max(0, Math.min(1, pct)));
-    for (let y = 0; y < lv; y++) { const yy = h - 4 - y; k.r(2, yy, 5, 1, ramp[2]); k.p(2, yy, ramp[3]); k.p(6, yy, ramp[1]); }
-    if (lv) k.r(2, h - 3 - lv, 5, 1, ramp[3]);
-    k.r(3, 4, 1, h - 8, 'rgba(255,255,255,0.18)');
-    return k.c;
-  }
-  // 指示灯：黄铜圈 + 玻璃（亮 / 暗）
-  function lamp(on, col) {
-    const k = X.C(11, 11);
-    for (let y = 0; y < 11; y++) for (let x = 0; x < 11; x++) {
-      const d = Math.hypot(x - 5, y - 5);
-      if (d > 5.4) continue;
-      if (d > 4.3) k.p(x, y, P.brass[0]);
-      else if (d > 3.3) k.p(x, y, x + y < 9 ? P.brass[3] : P.brass[1]);
-      else k.p(x, y, on ? (d < 1.6 ? '#fff4d8' : col) : (x + y < 9 ? P.dark[2] : P.dark[1]));
-    }
-    if (!on) k.p(4, 4, P.dark[3]);
-    return k.c;
-  }
-  // 计时鼓：铁框 + 纸字轮
-  function drum(str) {
-    const N = str.length, w = 6 + N * 8, k = X.C(w, 15);
-    X.box(k, 0, 0, w, 15, X.RAMP.iron);
-    X.box(k, 2, 2, N * 8 + 1, 11, { o: P.dark[0], b: P.dark[0], l: P.dark[0], d: P.dark[0] });
-    [...str].forEach((ch, i) => {
-      const x = 3 + i * 8, PR = X.RAMP.paper;
-      for (let y = 3; y < 12; y++) k.r(x, y, 7, 1, y === 3 || y === 11 ? PR.d : y === 4 || y === 10 ? PR.a : PR.l);
-      k.g.drawImage(X.num(ch, X.INK), x + 1, 4);
-    });
-    return k.c;
-  }
-  // 武器键：黄铜（选中按下去）/ 铁（没选）/ 暗（打不了）；数字 + 装填条
-  function key(n, sel, reload, off) {
-    const k = X.C(30, 22), R = off ? X.RAMP.flat : sel ? X.RAMP.brass : X.RAMP.iron;
-    X.box(k, 0, sel ? 1 : 0, 30, 21, R, sel);
-    k.g.drawImage(X.num(String(n), off ? P.dark[3] : sel ? INK : LIGHT), 3, sel ? 4 : 3);
-    X.box(k, 3, 15 + (sel ? 1 : 0), 24, 4, { o: P.dark[0], b: P.dark[1], l: P.dark[1], d: P.dark[0] }, true);
-    const f = Math.round(22 * (reload == null ? 1 : reload));
-    if (!off && f > 0) k.r(4, 16 + (sel ? 1 : 0), f, 2, reload == null || reload >= 1 ? P.gauge[2] : P.brass[2]);
-    return k.c;
-  }
-  // 九块装甲片一排：耐久（还在的亮、打掉的暗）
-  function plates(n, of) {
-    const k = X.C(of * 6 + 1, 9);
-    for (let i = 0; i < of; i++) { const on = i < n; X.box(k, i * 6, 0, 7, 9, on ? X.RAMP.brass : { o: P.dark[0], b: P.dark[1], l: P.dark[2], d: P.dark[0] }); if (on) k.p(i * 6 + 2, 2, P.brass[3]); }
-    return k.c;
-  }
-  const GEAR_RET = X.gear(11, 8, X.RAMP.brass, 0.15);
-  const GEAR_RED = X.gear(11, 8, X.RAMP.fire, 0.15);
-
-  // ---------- 场景：铁匠铺后院 + 两辆车 ----------
-  const OP = SA.OPPONENTS;
-  const veh = (i) => SA.V.fromAscii(OP[i].name, OP[i].rows, OP[i].sides, 2);
-  const ME = { v: veh(0), x: W / 2 - 200 - PADX - K.COLS * C, name: '锈钉子号', pilot: '你' };
-  const FOE = { v: veh(2), x: W / 2 + 200 - PADX, name: OP[2].name, pilot: OP[2].pilot };
-  const sprite = (v, k) => SA.SPR.renderVehicle(v, { key: k, t: 1.2, heat: 0.5, water: 0.7 });
-  // 车画布里最上面一行实心像素：白旗插在这里（敌方镜像后的屏幕 x）
-  function topOf(src, flip, x0) {
-    const d = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height).data;
-    for (let y = 0; y < src.height; y++) {
-      let sx = 0, n = 0;
-      for (let x = 0; x < src.width; x++) if (d[(y * src.width + x) * 4 + 3] > 8) { sx += x; n++; }
-      if (n > 6) { const cx = sx / n; return { x: x0 + (flip ? src.width - cx : cx), y: y + GROUND - CAMY - VH }; }
-    }
-    return { x: x0 + src.width / 2, y: 300 };
-  }
-  let BASE = null;
-  function world() {
-    if (BASE) return BASE;
-    const c = cv(W, H), g = c.getContext('2d');
-    SA.Scenes.back('forge', g, W, H, CAMY, 0, 3, { mode: 'campaign', storyKey: '0,1' });
-    g.save(); g.translate(0, -CAMY); SA.Scenes.floor('forge', g, { x: 0, y: CAMY, w: W, h: H }); g.restore();
-    const ps = sprite(ME.v, 'bu-me'), es = sprite(FOE.v, 'bu-foe'), y = GROUND - CAMY - VH;
-    g.imageSmoothingEnabled = false;
-    g.drawImage(ps, ME.x, y);
-    g.save(); g.translate(FOE.x + VW, y); g.scale(-1, 1); g.drawImage(es, 0, 0); g.restore();
-    const front = cv(W, H); SA.Scenes.front('forge', front.getContext('2d'), W, H, CAMY, 0, 3);
-    BASE = { c, front, es, meTop: topOf(ps, false, ME.x), foeTop: topOf(es, true, FOE.x), y };
-    return BASE;
-  }
-  // 战场上的东西：弹道扇区、准星、伤害数字、对方车上的烟火
-  function fx(g, st, o = {}) {
-    const B0 = world(), mx = B0.meTop.x + 60, my = B0.meTop.y + 52, ax = FOE.x + 150, ay = B0.y + 190;
-    if (st !== 'flag') {
-      g.save(); g.globalAlpha = 0.16; g.fillStyle = P.white; g.beginPath();
-      g.moveTo(mx, my); g.lineTo(ax + 40, ay - 52); g.lineTo(ax + 40, ay + 46); g.closePath(); g.fill(); g.restore();
-      for (let i = 0; i < 9; i++) { const t = i / 9, x = mx + (ax - mx) * t, y = my + (ay - my) * t + Math.sin(t * Math.PI) * -8; g.fillStyle = P.black; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 4, 4); g.fillStyle = P.white; g.fillRect(Math.round(x), Math.round(y), 2, 2); }
-    }
-    // 对方车上的烟和火星（白旗被挡的元凶之一）
-    const smoke = [[FOE.x + 120, B0.foeTop.y + 10, 16], [FOE.x + 150, B0.foeTop.y - 14, 22], [FOE.x + 108, B0.foeTop.y - 40, 26], [FOE.x + 170, B0.foeTop.y + 40, 14]];
-    g.save(); g.globalAlpha = st === 'flag' ? 0.25 : 0.75;
-    for (const [x, y, s] of smoke) { g.fillStyle = P.iron[1]; g.fillRect(x - s / 2, y - s / 2, s, s); g.fillStyle = P.dark[3]; g.fillRect(x - s / 2 + 3, y - s / 2 + 3, s - 8, s - 8); }
-    g.restore();
-    if (st !== 'flag') {
-      bigNum(g, '32', FOE.x + 250, B0.y + 150, '#ffa133', 4, 'center');
-      bigNum(g, '9×3', FOE.x + 180, B0.y + 104, P.white, 3, 'center');
-      px(g, o.red ? GEAR_RED : GEAR_RET, ax - 23, ay - 23);
-      g.fillStyle = P.black; g.fillRect(ax - 3, ay - 3, 6, 6); g.fillStyle = P.white; g.fillRect(ax - 2, ay - 2, 4, 4);
-    }
-  }
-  // 白旗：画在最上层（压过近景、烟火、界面），旗杆 + 黄铜杆头 + 飘动的旗；周围压暗，只留对方车和旗亮着
-  function flag(g) {
-    const B0 = world(), x = Math.round(B0.foeTop.x), y0 = Math.round(B0.foeTop.y) + 2, len = 70, top = y0 - len;
-    // 压暗：整屏一层暗色（烟火、背景人物、界面都压下去），再把对方的车原样画回来——只有它和旗是亮的
-    g.fillStyle = 'rgba(8,8,14,0.62)'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
-    g.save(); g.imageSmoothingEnabled = false; g.translate(FOE.x + VW, B0.y); g.scale(-1, 1); g.drawImage(B0.es, 0, 0); g.restore();
-    // 旗杆
-    g.fillStyle = P.black; g.fillRect(x - 5, y0 - 5, 11, 6); g.fillStyle = P.iron[2]; g.fillRect(x - 4, y0 - 4, 9, 4);
-    g.fillStyle = P.black; g.fillRect(x - 2, top, 5, len); g.fillStyle = P.iron[3]; g.fillRect(x - 1, top, 1, len - 3); g.fillStyle = P.iron[1]; g.fillRect(x + 1, top, 1, len - 3);
-    g.fillStyle = P.black; g.fillRect(x - 3, top - 5, 7, 6); g.fillStyle = P.brass[2]; g.fillRect(x - 2, top - 4, 5, 4); g.fillStyle = P.brass[3]; g.fillRect(x - 2, top - 4, 2, 1);
-    const FW = 34, FH = 20;
-    for (let i = 0; i < FW; i++) {
-      const k = i / FW, dy = Math.round(Math.sin(1.2 - i * 0.42) * 2.2 * k), hgt = FH - Math.round(k * 4), shade = Math.sin(2.4 - i * 0.42) > 0.55;
-      g.fillStyle = P.black; g.fillRect(x + 3 + i, top + 1 + dy - 1, 1, hgt + 2);
-      g.fillStyle = shade ? P.iron[4] : P.white; g.fillRect(x + 3 + i, top + 1 + dy, 1, hgt);
-    }
-    g.fillStyle = P.black; g.fillRect(x + 3 + FW, top + Math.round(Math.sin(1.2 - FW * 0.42) * 2.2), 1, FH - 3);
-  }
-  // 驾驶员喊话：纸气泡，尾巴指着驾驶舱
-  function bubble(g, x, y, w, lines, o = {}) {
-    const h = 14 + lines.length * 22;
-    nine(g, 'paper', x, y, w, h);
-    px(g, X.tail(), o.tailX != null ? x + o.tailX : x + 18, y + h - 2);
-    lines.forEach((ln, i) => T(g, ln, x + 12, y + 18 + i * 22, { font: `bold ${o.size || 18}px KaiTi, STKaiti, serif`, col: o.col && i === 0 ? o.col : INK, sh: false }));
-  }
-
-  // ---------- 三套方案 ----------
-  // 数据：三种时刻的你的车况
-  const ST = {
-    normal: { hp: 0.72, heat: 0.46, water: 0.62, sel: 1, reload: [1, 0.45], off: false, lamps: [] },
-    alert: { hp: 0.58, heat: 0.97, water: 0.09, sel: 1, reload: [0.3, 0.2], off: true, lamps: ['heat', 'water', 'gun'] },
-    flag: { hp: 0.64, heat: 0.55, water: 0.4, sel: 1, reload: [1, 1], off: false, lamps: [] },
-  };
-  const WEAP = [['火炮', 1], ['机枪', 2]];
-
-  // A 驾驶台：战场干净，所有车况集中在底下一条铁皮仪表台；警报 = 仪表台上的指示灯 + 准星变红；对方的事 = 上方落下一张电报
-  function propA(st) {
-    const s = ST[st], BAR = 132, c = cv(W, H + BAR), g = c.getContext('2d'), B0 = world();
-    g.drawImage(B0.c, 0, 0); fx(g, st, { red: s.off }); g.drawImage(B0.front, 0, 0);
-    // 上方：左右两块名牌（没有条），正中计时鼓
-    nine(g, 'iron', 16, 12, 196, 32); T(g, `你 · ${ME.name}`, 30, 28, { size: 16 });   // 名牌用铁：黄铜只留给能点的东西
-    nine(g, 'iron', W - 16 - 246, 12, 246, 32); T(g, `${FOE.pilot} · ${FOE.name}`, W - 30, 28, { align: 'right', size: 16 });
-    px(g, drum(st === 'flag' ? '41' : st === 'alert' ? '58' : '74'), W / 2 - 22, 10); T(g, '铁匠铺后院', W / 2, 52, { align: 'center', size: 12 });
-    if (st === 'flag') {
-      flag(g);
-      // 电报从上方落下（牛皮纸 + 红笔）
-      const tx = W / 2 - 190, ty = 68;
-      nine(g, 'kraft', tx, ty, 380, 74); px(g, X.pin(), W / 2 - 8, ty - 8);
-      T(g, '电 报', tx + 16, ty + 20, { col: '#7e2a12', sh: false, size: 13 });
-      T(g, `「${FOE.name}」挂白旗了`, W / 2, ty + 38, { align: 'center', col: INK, sh: false, font: 'bold 22px "Microsoft YaHei", sans-serif' });
-      T(g, '点画面跳过 · 接下来选接受或拒绝', W / 2, ty + 60, { align: 'center', col: '#5a4426', sh: false, size: 13 });
-    }
-    // 仪表台
-    const y0 = H;
-    nine(g, 'iron', 0, y0, W, BAR);
-    // 车况：锅炉压力表 + 水位管 + 装甲片
-    const hot = s.heat >= 0.9;
-    px(g, dial(22, s.heat, 0.82, hot), 26, y0 + 12); T(g, '锅炉', 72, y0 + 118, { align: 'center', size: 13, col: hot ? '#ff8a5c' : LIGHT });
-    px(g, tube(46, s.water, P.water, s.water < 0.15), 136, y0 + 12); T(g, '水', 145, y0 + 118, { align: 'center', size: 13, col: s.water < 0.15 ? '#7fd8e4' : LIGHT });
-    T(g, '装甲', 186, y0 + 26, { size: 13 }); bigNum(g, `${Math.round(s.hp * 100)}%`, 230, y0 + 16, LIGHT, 3);
-    px(g, plates(Math.round(s.hp * 10), 10), 186, y0 + 50);
-    // 指示灯：过热 / 缺水 / 动力 / 履带 / 武器
-    const L = [['heat', '过热', P.fire[2]], ['water', '缺水', '#46c2c9'], ['power', '动力', P.fire[2]], ['track', '履带', P.fire[2]], ['gun', '武器', P.fire[2]]];
-    L.forEach(([id, nm, col], i) => { const x = 186 + i * 42, on = s.lamps.includes(id); px(g, lamp(on, col), x, y0 + 74); T(g, nm, x + 11, y0 + 112, { align: 'center', size: 12, col: on ? '#ffd36b' : '#8a8577' }); });
-    // 告示条（纸）：平时是操作提示，出事时一句红字
-    nine(g, 'paper', 420, y0 + 12, 440, 36);
-    if (st === 'alert') T(g, '锅炉过热 · 停火降温中 · 水快没了', 640, y0 + 30, { align: 'center', col: X.RED, sh: false, font: 'bold 17px "Microsoft YaHei", sans-serif' });
-    else T(g, 'A / D 移动 · 鼠标瞄准 · 按住左键稳住准星', 640, y0 + 30, { align: 'center', col: INK, sh: false, size: 14 });
-    // 武器键
-    WEAP.forEach(([nm, n], i) => { const x = 470 + i * 180; px(g, key(n, s.sel === n, s.reload[i], s.off), x, y0 + 58); T(g, nm + (n === 2 ? ' ×2' : ''), x + 70, y0 + 80, { size: 15, col: s.off ? '#8a8577' : LIGHT }); T(g, s.off ? '停火中' : s.reload[i] >= 1 ? '装好了' : '装填中', x + 70, y0 + 102, { size: 12, col: s.off ? '#ff8a5c' : '#b9b4a6' }); });
-    // 右：紧急泄压（炉火红拉手）+ 撤退
-    nine(g, 'fire', 940, y0 + 22, 170, 44); T(g, '紧急泄压', 1025, y0 + 44, { align: 'center', size: 16 }); T(g, '限一次', 1025, y0 + 82, { align: 'center', size: 12, col: '#b9b4a6' });
-    nine(g, 'ironBtn', 1136, y0 + 22, 120, 44); T(g, '撤退', 1196, y0 + 44, { align: 'center', size: 16 });
-    return c;
-  }
-
-  // B 车上见：几乎没有框。你的车况是车头上方三根小液位管（只给你自己）；出事时你的驾驶员喊一句；对方的事由对方驾驶员喊
-  function propB(st) {
-    const s = ST[st], c = cv(W, H), g = c.getContext('2d'), B0 = world();
-    g.drawImage(B0.c, 0, 0); fx(g, st); g.drawImage(B0.front, 0, 0);
-    px(g, drum(st === 'flag' ? '41' : st === 'alert' ? '58' : '74'), W / 2 - 22, 10);
-    // 你车顶上的三根液位管（装甲 / 热 / 水），挂在一块小铁牌上；告急的那根描红
-    const bx = ME.x + 24, by = Math.round(B0.meTop.y) - 104;
-    nine(g, 'iron', bx, by, 92, 84);
-    [[s.hp, P.brass, '甲', false], [s.heat, P.fire, '热', s.heat >= 0.9], [s.water, P.water, '水', s.water < 0.15]].forEach(([v, r, nm, warn], i) => {
-      px(g, tube(28, v, r, warn), bx + 12 + i * 24, by + 10); T(g, nm, bx + 21 + i * 24, by + 74, { align: 'center', size: 12, col: warn ? '#ffd36b' : LIGHT });
-    });
-    // 告急：你的驾驶员喊
-    if (st === 'alert') { const cx = Math.round(B0.meTop.x); bubble(g, cx - 10, B0.meTop.y - 78, 230, ['烫烫烫！先停火！', '水也快见底了…'], { col: X.RED, tailX: 4 }); }
-    // 武器键：地面上一排，靠左；泄压 / 撤退靠右
-    WEAP.forEach(([nm, n], i) => { const x = 22 + i * 132; px(g, key(n, s.sel === n, s.reload[i], s.off), x, H - 52); T(g, nm, x + 68, H - 30, { size: 14, col: s.off ? '#8a8577' : LIGHT }); });
-    nine(g, 'fire', W - 250, H - 50, 120, 40); T(g, '紧急泄压', W - 190, H - 30, { align: 'center', size: 14 });
-    nine(g, 'ironBtn', W - 118, H - 50, 96, 40); T(g, '撤退', W - 70, H - 30, { align: 'center', size: 14 });
-    if (st === 'flag') {
-      flag(g);
-      // 对方驾驶员喊 + 正中一行大字（毛笔红字）
-      const fx0 = Math.round(B0.foeTop.x) - 250, fy0 = Math.round(B0.foeTop.y) - 70;
-      bubble(g, fx0, fy0, 230, ['别打了别打了，', '我认输！'], { tailX: 226 });
-      const br = X.brush('白旗', 44); px(g, br, W / 2 - br.width, 60);
-      T(g, `「${FOE.name}」投降了 · 点画面跳过`, W / 2, 60 + br.height * 2 + 16, { align: 'center', size: 15 });
-    }
-    return c;
-  }
-
-  // C 记分牌：上方挂一块木记分牌（双方名字 + 耐久片 + 计时），这是对方唯一的信息；你的车况在底下一条窄铁条；
-  // 出事时记分牌下面翻出一行字；对方挂白旗时记分牌整块翻过来写「白旗」，四角灯泡亮
-  function propC(st) {
-    const s = ST[st], BAR = 84, c = cv(W, H + BAR), g = c.getContext('2d'), B0 = world();
-    g.drawImage(B0.c, 0, 0); fx(g, st); g.drawImage(B0.front, 0, 0);
-    if (st === 'flag') flag(g);
-    // 记分牌：两根铁链吊着
-    const bw = 560, bh = 92, bx = W / 2 - bw / 2, by = 18;
-    g.fillStyle = P.dark[0]; for (const xx of [bx + 60, bx + bw - 64]) for (let yy = 0; yy < by + 4; yy += 6) { g.fillRect(xx, yy, 4, 5); g.fillStyle = P.iron[2]; g.fillRect(xx + 1, yy + 1, 2, 2); g.fillStyle = P.dark[0]; }
-    nine(g, 'board', bx, by, bw, bh);
-    const bulbs = st === 'flag';
-    for (const [lx, ly] of [[bx + 10, by + 10], [bx + bw - 32, by + 10], [bx + 10, by + bh - 32], [bx + bw - 32, by + bh - 32]]) px(g, lamp(bulbs, '#ffd36b'), lx, ly);
-    if (st === 'flag') {
-      const br = X.brush('白旗', 36, '#f4f0e0', SHADOW); px(g, br, W / 2 - br.width, by + 10);
-      nine(g, 'paper', W / 2 - 200, by + bh + 6, 400, 34);
-      T(g, `「${FOE.name}」挂白旗了 · 点画面跳过`, W / 2, by + bh + 23, { align: 'center', col: INK, sh: false, size: 15 });
-    } else {
-      T(g, '你', bx + 48, by + 30, { col: CHALK, size: 18, font: 'bold 18px "Microsoft YaHei", sans-serif' });
-      px(g, plates(Math.round(s.hp * 10), 10), bx + 48, by + 50);
-      T(g, FOE.pilot, bx + bw - 48, by + 30, { align: 'right', col: CHALK, size: 16, font: 'bold 16px "Microsoft YaHei", sans-serif' });
-      px(g, plates(8, 10), bx + bw - 48 - 122, by + 50);
-      px(g, drum(st === 'alert' ? '58' : '74'), W / 2 - 22, by + 22); T(g, '铁匠铺后院', W / 2, by + 70, { align: 'center', col: CHALK, size: 12 });
-      if (st === 'alert') { nine(g, 'paper', W / 2 - 200, by + bh + 6, 400, 34); T(g, '你的锅炉过热 · 停火降温中', W / 2, by + bh + 23, { align: 'center', col: X.RED, sh: false, font: 'bold 17px "Microsoft YaHei", sans-serif' }); }
-    }
-    // 底条：你的车况（齿条表）+ 武器键 + 泄压 / 撤退
-    const y0 = H;
-    nine(g, 'iron', 0, y0, W, BAR);
-    [['耐久', s.hp, 'hp', false], ['热量', s.heat, 'heat', s.heat >= 0.9], ['水', s.water, 'water', s.water < 0.15]].forEach(([nm, v, kk, bad], i) => {
-      const yy = y0 + 12 + i * 22;
-      T(g, nm, 22, yy + 10, { size: 13, col: bad ? '#ffd36b' : LIGHT });
-      px(g, X.ui.rack(Math.min(1, v), { k: kk, over: bad, w: 80 }), 64, yy);
-      T(g, `${Math.round(v * 100)}%`, 238, yy + 10, { size: 13, col: bad ? '#ff8a5c' : LIGHT });
-    });
-    WEAP.forEach(([nm, n], i) => { const x = 330 + i * 160; px(g, key(n, s.sel === n, s.reload[i], s.off), x, y0 + 18); T(g, nm, x + 68, y0 + 40, { size: 14, col: s.off ? '#8a8577' : LIGHT }); });
-    T(g, 'A / D 移动 · 鼠标瞄准 · 按住左键稳住准星', 860, y0 + 42, { align: 'center', size: 12, col: '#b9b4a6' });
-    nine(g, 'fire', 1010, y0 + 20, 130, 44); T(g, '紧急泄压', 1075, y0 + 42, { align: 'center', size: 15 });
-    nine(g, 'ironBtn', 1156, y0 + 20, 104, 44); T(g, '撤退', 1208, y0 + 42, { align: 'center', size: 15 });
-    return c;
-  }
-
-  const PROPS = [
-    { id: 'A', name: 'A 驾驶台', fn: propA, why: [
-      '战场上什么框都没有：车况、警报、武器、按钮全部收进画面下面一条铁皮仪表台，像坐在驾驶室里看仪表。',
-      '你的车况：锅炉压力表（指针进红区 = 过热）、水位管、装甲片（十片，掉一成灭一片）。',
-      '警报：仪表台上一排指示灯（过热 / 缺水 / 动力 / 履带 / 武器）+ 纸条上一句红字；同时<b>准星变红</b>——眼睛盯着准星也知道现在打不了。',
-      '对方：只有右上角一块名牌，没有任何条。挂白旗时上方钉下一张电报。',
-    ] },
-    { id: 'B', name: 'B 车上见', fn: propB, why: [
-      '几乎没有界面：上方只有计时鼓，武器键和两个按钮缩在地面那一条上。',
-      '你的车况：你车顶上挂一块小铁牌，三根液位管（甲 / 热 / 水），跟着你的车走；告急的那根描红。只给你自己，对方车上什么都不挂。',
-      '警报：你的驾驶员直接喊（纸气泡、手写字），比如「烫烫烫！先停火！」。',
-      '对方的事由对方驾驶员喊：挂白旗时他喊「我认输！」，正中一行毛笔大字「白旗」。',
-    ] },
-    { id: 'C', name: 'C 记分牌', fn: propC, why: [
-      '像看台上的比赛：上方吊一块木记分牌——双方名字、各自十片耐久、中间计时。<b>对方只在这里出现，只有耐久</b>，没有热量、水、警报。',
-      '你的车况：画面下面一条窄铁条，三根齿条表（耐久 / 热量 / 水）+ 武器键 + 两个按钮。',
-      '警报：记分牌下面翻出一行纸条字（只说你的事）。',
-      '对方挂白旗：记分牌整块翻过来写「白旗」，四角灯泡亮，下面一行说明。',
-    ] },
+  // ---------- ① 轻型 / 重型 ----------
+  const CLASSES = [
+    { id: 'std', name: '标准腿', sub: '主线六档（每种材料一种，现在游戏里的样子）', walk: 70,
+      legs: [['mk2', 1, '工装 Mk.II'], ['heron', 2, '鹭步'], ['gren', 3, '掷弹兵'], ['knight', 4, '蒸汽圣骑'], ['clock', 5, '钟表巨像'], ['dragon', 6, '熔心龙骑']],
+      read: '数值就是现在的双足；造型从细到粗按档位走。' },
+    { id: 'light', name: '轻型腿', sub: '唯一腿 5 种：跑得快、跳得高、躲得开，扛不动重东西', walk: 95,
+      legs: [['stilt', 2, '高跷'], ['blade', 3, '板簧跑刃'], ['panto', 4, '缩放仪平行腿'], ['bellows', 5, '风箱腿'], ['crystal', 6, '晶枝腿']],
+      read: '细、长、弹：伸缩套筒、叠层板簧、平行杆、风箱、枯枝——都是「能弹起来」或者很轻的东西；脚小，起伏大。' },
+    { id: 'heavy', name: '重型腿', sub: '唯一腿 4 种：承重高、蹲得稳、能扛大炮，跑不快、跳不高', walk: 50,
+      legs: [['skirt', 3, '裙甲堡'], ['mail', 4, '锁甲骑士腿'], ['steamman', 5, '蒸汽人'], ['templar', 6, '圣堂骑士腿']],
+      read: '粗、矮、实：钟形裙甲、锁甲、汽缸大腿、哥特板甲 + 罩袍；脚大，起伏小。' },
   ];
-  const STATES = [['normal', '常态'], ['alert', '告急'], ['flag', '对方挂白旗']];
+  const MAT_NAME = ['', '黄铜', '熟铁', '钢', '镀镍', '乌兹钢', '以太合金'];
+  const VARIANT = new Set((SA.LEG_VARIANTS || []).filter(v => v.id === 'biped').map(v => v.look));
 
-  async function mount() {
-    await loadSkins();
-    const root = document.getElementById('props');
-    for (const p of PROPS) {
-      const box = document.createElement('section'); box.className = 'prop';
-      box.innerHTML = `<h2>${p.name}</h2><ul class="why">${p.why.map(x => `<li>${x}</li>`).join('')}</ul>`;
-      const seg = document.createElement('div'); seg.className = 'seg';
-      const img = document.createElement('img'); img.className = 'shot';
-      const show = (sid) => { img.src = p.fn(sid).toDataURL(); [...seg.children].forEach(b => b.classList.toggle('on', b.dataset.s === sid)); };
-      for (const [sid, nm] of STATES) { const b = document.createElement('button'); b.textContent = nm; b.dataset.s = sid; b.onclick = () => show(sid); seg.append(b); }
-      box.append(seg, img);
-      root.append(box);
-      show('normal');
+  // 一排腿（游戏精灵：带材料色），原地走；sil = 只画剪影
+  const LANE = 76;
+  function laneSize(cls) { return { w: cls.legs.length * LANE + 40, h: 128 }; }
+  function renderLane(cv, cls, st, sil) {
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    const v = cls.walk * (st.mv ? 1 : 0), dist = st.t * v, stride = LL.strideFor(v);
+    const a = st.mv ? TAU * dist / (4 * stride) : 0;
+    const bd = LL.bipedBob({ mv: st.mv, a, stride });
+    cls.legs.forEach(([leg, mt], i) => {
+      const x = 24 + i * LANE, y = 18;
+      SA.SPR.drawModule(g, 'biped', x, y, { moving: st.mv, gait: a + i * 0.9, stride, bd, mt, look: VARIANT.has(leg) ? leg : undefined, t: st.t });
+    });
+    g.fillStyle = P.bg[4]; g.fillRect(0, 18 + 96, cv.width, 2);
+    if (sil) { g.globalCompositeOperation = 'source-in'; g.fillStyle = P.black; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over'; g.fillStyle = P.bg[4]; g.fillRect(0, 18 + 96, cv.width, 2); }
+  }
+
+  // ---------- 躯干（v4 零件）+ 游戏腿 ----------
+  const MAT = (far) => {
+    const B = far ? FAR : NEAR, dim = (r) => (far ? [P.black, r[0], r[1], r[2]] : r);
+    return { ...B, glass: dim([...P.glass]), water: dim([P.water[0], P.water[1], P.water[2], P.water[3]]) };
+  };
+  const M0 = MAT(false), MF = MAT(true);
+  const mech = (name) => K4.MECHS.find(m => m.name.startsWith(name));
+  // 车体框架：子格外轮廓，露在外面的角切 4px（同 v4）；lean = 快跑前倾，每往上一行多往前 lean px
+  function hull(pn, cells, sty, lean) {
+    const has = (c, r) => cells.has(c + ',' + r);
+    for (const key of cells) {
+      const [c, r] = key.split(',').map(Number), x = PADX + c * S + lean * (HIP_ROW - r), y = r * S, n = 4;
+      const tl = !has(c - 1, r) && !has(c, r - 1) && !has(c - 1, r - 1), tr = !has(c + 1, r) && !has(c, r - 1) && !has(c + 1, r - 1);
+      const br = !has(c + 1, r) && !has(c, r + 1) && !has(c + 1, r + 1), bl = !has(c - 1, r) && !has(c, r + 1) && !has(c - 1, r + 1);
+      pn.poly([[x + (tl ? n : 0), y], [x + S - (tr ? n : 0), y], [x + S, y + (tr ? n : 0)], [x + S, y + S - (br ? n : 0)],
+        [x + S - (br ? n : 0), y + S], [x + (bl ? n : 0), y + S], [x, y + S - (bl ? n : 0)], [x, y + (tl ? n : 0)]]);
+    }
+    pn.paint(K4.LOOK[sty].hull(M0));
+  }
+  // 一团蒸汽 / 尘土：age 0～1，往上飘、变大、变淡（只用调色板色，像素画）
+  function puff(pn, x, y, age, n, ramp, spread = 1) {
+    if (age < 0 || age > 1) return;
+    for (let i = 0; i < n; i++) {
+      const s = (i * 2.399) % TAU, rr = (2 + i % 3) * spread;
+      const px = x + Math.cos(s) * rr * (1 + age * 3), py = y - age * (8 + i * 2) * spread + Math.sin(s) * rr * 0.6;
+      pn.disc(px, py, (1.4 + age * 3.2) * (1 - age * 0.35) * spread).paint(age < 0.55 ? ramp : [ramp[0], ramp[0], ramp[1], ramp[2]], { outline: false });
     }
   }
-  return { mount, PROPS, propA, propB, propC };
+
+  // 一台机甲：m = v4 整机，leg = legs.js 的腿型，p = 姿态参数
+  // p: { mv, a, stride, duty, liftK, hop, lean, crouch, air（离地高度 px）, tuck, legPart, out }
+  const HIPX = PADX + 7 * S + 12;   // v4 的胯对准第 7 列子格的中心
+  function drawMech(pn, m, leg, p, X0, Y0) {
+    const bd = p.air ? 0 : LL.bipedBob({ mv: p.mv, a: p.a, stride: p.stride, duty: p.duty, hop: p.hop });
+    const cr = Math.round(LL.BIPED_CROUCH * (p.crouch || 0)), dy = cr - Math.round(p.air || 0), lean = p.lean || 0;
+    const lo = { mv: p.mv, a: p.a, stride: p.stride, duty: p.duty, liftK: p.liftK, bd, legs: leg, t: p.t, phase: p.a * 4,
+      crouch: p.crouch, air: !!p.air, tuck: p.tuck, legPart: p.legPart, out: p.out };
+    const bx = HIPX - 24, by = HIP_ROW * S + dy;
+    // 远侧腿 + 远侧空手臂（压暗）
+    pn.at(1, -X0, -Y0);
+    LL.bipedArt(pn, bx, by, lo, 'far');
+    if (m) {
+      pn.at(1, -X0 - 6, -Y0 + dy + bd - 3);
+      for (const [id, c, r] of m.add) if (K4.PARTS[id].arm) K4.PARTS.arm_fist.draw(pn, PADX + c * S + lean * (HIP_ROW - r), r * S, m.sty, MF, { swing: 0, t: p.t, fl: 0 });
+      // 车体
+      pn.at(1, -X0, -Y0 + dy + bd);
+      hull(pn, m.body, m.sty, lean);
+      const o = { mv: p.mv, t: p.t, fl: Math.floor(p.t * 8) % 4, swing: p.mv && !p.air ? -Math.sin(p.a) : 0, blink: false };
+      for (const [id, c, r] of m.parts) if (K4.PARTS[id].layer === 'body') K4.PARTS[id].draw(pn, PADX + c * S + lean * (HIP_ROW - r), r * S, m.sty, M0, o);
+    }
+    // 胯 + 近侧腿（腿部件挂在近侧腿上）
+    pn.at(1, -X0, -Y0);
+    LL.bipedArt(pn, bx, by, lo, 'near');
+    // 附加层（手臂、重炮）画在最前面
+    if (m) {
+      pn.at(1, -X0, -Y0 + dy + bd);
+      const o = { mv: p.mv, t: p.t, fl: Math.floor(p.t * 8) % 4, swing: p.mv && !p.air ? -Math.sin(p.a) : 0, recoil: 0 };
+      for (const [id, c, r] of m.add) K4.PARTS[id].draw(pn, PADX + c * S + lean * (HIP_ROW - r), r * S, m.sty, M0, o);
+    }
+    pn.at(1, -X0, -Y0);
+  }
+
+  // ---------- 姿态时间线 ----------
+  const WALK = { light: 95, std: 70, heavy: 50 }, RUN = { light: 135, std: 118, heavy: 96 };
+  const JUMP_H = { light: 72, std: 48, heavy: 26 };   // 演示用：轻型跳 1.5 格、标准 1 格、重型半格多（规则按承重余量算，见计划 §5.2）
+  // 跳跃一轮（秒）：站 0.7 → 蓄力下蹲 0.18 → 空中 → 落地缓冲 0.35 → 站
+  function jumpState(t, H) {
+    const T_AIR = 0.34 + Math.sqrt(H) * 0.075, cyc = 0.7 + 0.18 + T_AIR + 0.35 + 0.4, u = t % cyc;
+    const s = { crouch: 0, air: 0, tuck: 0, launch: -1, land: -1 };
+    if (u < 0.7) return s;
+    if (u < 0.88) { s.crouch = 0.55 * ease((u - 0.7) / 0.18); return s; }
+    if (u < 0.88 + T_AIR) {
+      const w = (u - 0.88) / T_AIR;
+      s.air = H * 4 * w * (1 - w); s.tuck = Math.sin(Math.PI * w) ** 0.8; s.launch = (u - 0.88) / 0.45;
+      return s;
+    }
+    const w = (u - 0.88 - T_AIR) / 0.35;
+    if (w < 1) s.crouch = 0.6 * (1 - ease(w)) * (H > 40 ? 1 : 0.7);
+    s.land = (u - 0.88 - T_AIR) / 0.5;
+    return s;
+  }
+  function crouchState(t) {
+    const u = t % 3.2;
+    if (u < 0.7) return 0;
+    if (u < 0.95) return ease((u - 0.7) / 0.25);
+    if (u < 2.6) return 1;
+    if (u < 2.85) return 1 - ease((u - 2.6) / 0.25);
+    return 0;
+  }
+  // 姿态 → drawMech 的参数
+  function poseParams(pose, cls, t) {
+    if (pose === 'walk') {
+      const v = WALK[cls], stride = LL.strideFor(v);
+      return { mv: true, a: TAU * t * v / (4 * stride), stride, t };
+    }
+    if (pose === 'run') {
+      const v = RUN[cls], stride = Math.min(54, 24 + v * 0.2);
+      return { mv: true, a: TAU * t * v / (4 * stride), stride, duty: 0.36, liftK: 1.5, hop: 4, lean: 1, t };
+    }
+    if (pose === 'crouch') return { mv: false, a: 0, stride: 16, crouch: crouchState(t), t };
+    const j = jumpState(t, JUMP_H[cls]);
+    return { mv: false, a: 0, stride: 16, crouch: j.crouch, air: j.air, tuck: j.tuck, t, launch: j.launch, land: j.land };
+  }
+  // 地面影子：离地越高越小越淡（画在车下面，2D 直接画）
+  function shadow(g, X0, Y0, air) {
+    const w = Math.round(30 - Math.min(18, air * 0.18)), a = Math.max(0.18, 0.5 - air * 0.004);
+    g.fillStyle = `rgba(7,8,12,${a.toFixed(2)})`;
+    const cx = HIPX - X0, cy = GROUND - Y0;
+    for (let i = -w; i <= w; i++) { const h = Math.round(2.6 * Math.sqrt(Math.max(0, 1 - (i / w) ** 2))); if (h > 0) g.fillRect(cx + i, cy - h + 1, 1, h * 2 - 1); }
+  }
+
+  // ---------- 一张姿态画布 ----------
+  const PENS = new Map();
+  const penFor = (cv) => { let pn = PENS.get(cv); if (!pn || pn.w !== cv.width) { pn = LL.Pen(cv.width, cv.height); pn.w = cv.width; PENS.set(cv, pn); } return pn; };
+  const POSE_BOX = { X0: PADX + 4 * S, Y0: 16, W: 8 * S, H: GROUND + 12 - 16 };
+  const PART_BOX = { X0: HIPX - 60, Y0: 120, W: 120, H: GROUND + 12 - 120 };   // 腿部件：只看腿
+  function renderPose(cv, spec, st) {
+    const g = cv.getContext('2d'), pn = penFor(cv), { X0, Y0 } = spec.box || POSE_BOX;
+    g.clearRect(0, 0, cv.width, cv.height);
+    const p = poseParams(spec.pose, spec.cls, st.t + (spec.t0 || 0));
+    if (!st.mv && (spec.pose === 'walk' || spec.pose === 'run')) p.mv = false;
+    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND - Y0, cv.width, 12); g.fillStyle = P.bg[5]; g.fillRect(0, GROUND - Y0, cv.width, 1);
+    shadow(g, X0, Y0, p.air || 0);
+    p.out = {};
+    if (spec.part) p.legPart = LEGPARTS[spec.part].draw;
+    drawMech(pn, spec.mech ? mech(spec.mech) : null, spec.leg, p, X0, Y0);
+    // 起跳：脚底 / 跳跃件喷汽；落地：尘土
+    if (p.launch >= 0) {
+      const at = p.out.nozzle || [HIPX + 2, GROUND - 4];
+      puff(pn, at[0], Math.min(GROUND - 3, at[1] + 6 + p.launch * 10), p.launch, 7, STEAM, 1.3);
+      if (!p.out.nozzle) puff(pn, HIPX + 10, GROUND - 3, p.launch, 5, STEAM, 1);
+    }
+    if (p.land >= 0) { puff(pn, HIPX - 14, GROUND - 2, p.land, 4, DUST, 1.1); puff(pn, HIPX + 16, GROUND - 2, p.land, 4, DUST, 1.1); }
+    if (spec.pose === 'crouch' && p.crouch > 0.95) { const age = ((st.t + (spec.t0 || 0)) % 3.2 - 0.95) / 0.6; puff(pn, HIPX + 4, GROUND - 30, age, 4, STEAM, 0.8); }
+    if (spec.pose === 'run' && p.out.exhaust && st.mv) { const age = ((st.t * 2.2) % 1); puff(pn, p.out.exhaust[0] - age * 6, p.out.exhaust[1], age, 3, STEAM, 0.7); }
+    pn.flush(g);
+  }
+
+  // ---------- ③ 腿部件（画在腿的放大坐标里：1 单位 ≈ 2 像素） ----------
+  // J = { hip, knee, ankle, T: 大腿骨, S: 小腿骨 }；骨骼坐标 p(a, f)：a 沿骨骼，f > 0 朝车头。o.out 记下喷口在世界里的位置（给页面画蒸汽）
+  const toWorld = (pn, J, pt) => [J.hip[0] + (pt[0] - J.hip[0]) * pn.s, J.hip[1] + (pt[1] - J.hip[1]) * pn.s];
+  // 部件贴着骨骼中线画（f 只偏 ±1～2）：腿有粗有细，贴着中线才不会挂在半空。主体用黄铜，在铁色的腿上一眼看得出是「装上去的东西」
+  function coil(pn, A, B, turns, amp, ramp) {
+    const BB = bone(...A, ...B), n = turns * 2;
+    for (let i = 0; i < n; i++) pn.cap(...BB.p(BB.len * i / n, i % 2 ? amp : -amp), ...BB.p(BB.len * (i + 1) / n, i % 2 ? -amp : amp), 0.55);
+    pn.paint(ramp, { bevel: 'l' });
+  }
+  function band(pn, Bn, a, f0, f1, ramp, w = 0.6) { pn.poly(Bn.pts([[a - w, f0], [a + w, f0], [a + w, f1], [a - w, f1]])).paint(ramp); }
+  const LEGPARTS = {
+    // ---- 跳跃件（小腿位）----
+    jumpA: {
+      slot: '小腿', name: 'A 弹簧蹬缸', idea: '小腿后缘一根活塞缸，杆上套一圈黄铜粗弹簧；蓄力下蹲时弹簧被压紧，起跳时弹开。最好认的「弹」。',
+      draw(pn, J, M, o) {
+        const Sb = J.S, L = Sb.len, c = o.crouch || 0, mid = 0.38 + 0.2 * c, f = -1.8;
+        const top = Sb.p(0.8, f), bot = Sb.p(L + 0.2, f), m = Sb.p(L * mid, f);
+        pn.cap(...m, ...bot, 0.55).paint(M.steel, { bevel: 'l' });
+        coil(pn, Sb.p(L * mid + 0.7, f), Sb.p(L - 0.5, f), 4, 1.7, M.brass);
+        pn.cap(...top, ...m, 1.45).paint(M.dark);
+        band(pn, Sb, L * mid - 0.4, f - 1.6, f + 1.6, M.brass);
+        pn.disc(...top, 1).paint(M.brass); pn.disc(...bot, 1).paint(M.brass);
+      },
+    },
+    jumpB: {
+      slot: '小腿', name: 'B 蒸汽弹射缸', idea: '小腿前面绑一只黄铜汽缸，底下一只朝下的喇叭喷口：起跳时往地上猛喷一口白汽把车顶起来。',
+      draw(pn, J, M, o) {
+        const Sb = J.S, L = Sb.len, f = 0.8, a0 = 1.2, a1 = L - 2.6;
+        pn.cap(...Sb.p(a0, f), ...Sb.p(a1, f), 1.85).paint(M.brass);
+        for (const a of [a0 + 1.1, a1 - 0.9]) band(pn, Sb, a, f - 2, f + 2, M.dark, 0.5);
+        pn.poly(Sb.pts([[a1 + 0.6, f - 1], [a1 + 0.6, f + 1], [L + 1, f + 2.1], [L + 1, f - 2.1]])).paint(M.dark);
+        pn.disc(...Sb.p(a0 + 0.2, f), 0.9).paint(M.steel);
+        o.out && (o.out.nozzle = toWorld(pn, J, Sb.p(L + 1.2, f)));
+      },
+    },
+    jumpC: {
+      slot: '小腿', name: 'C 板簧蹬刺', idea: '小腿后面两片叠起来的弓形钢板簧，往后鼓出腿外，末端一根伸到脚跟后面的铁刺；下蹲时板簧被压得更弯。',
+      draw(pn, J, M, o) {
+        const Sb = J.S, L = Sb.len, c = o.crouch || 0;
+        for (let i = 1; i >= 0; i--) {
+          const bow = 2.8 + i * 1.3 + c * 1.2, a0 = 1 + i * 1.5, a1 = L + 0.6, pts = [];
+          for (let k = 0; k <= 10; k++) { const u = k / 10; pts.push(Sb.p(a0 + (a1 - a0) * u, -1.4 - Math.sin(Math.PI * u) * bow)); }
+          for (let k = 10; k >= 0; k--) { const u = k / 10; pts.push(Sb.p(a0 + (a1 - a0) * u, -1.4 - Math.sin(Math.PI * u) * bow + 1.1)); }
+          pn.poly(pts).paint(i === 0 ? M.steel : M.iron);
+        }
+        pn.poly(Sb.pts([[L - 0.6, -0.6], [L + 1, -2.4], [L + 3.4, -4.4]])).paint(M.steel);
+        band(pn, Sb, 1.4, -3.4, 0.6, M.brass, 0.7);
+      },
+    },
+    // ---- 提速件（大腿位）----
+    speedA: {
+      slot: '大腿', name: 'A 助力活塞', idea: '大腿前缘一根跨过膝盖的黄铜活塞，像一条铁的股四头肌：缸体绑在大腿上，活塞杆接到小腿上端，膝盖一弯一伸它就跟着伸缩。',
+      draw(pn, J, M, o) {
+        const T = J.T, Sb = J.S, A = T.p(1.6, 2.4), Bp = T.p(T.len * 0.64, 2.8), C2 = Sb.p(2.4, 2.2);
+        pn.cap(...Bp, ...C2, 0.6).paint(M.steel, { bevel: 'l' });
+        pn.cap(...A, ...Bp, 1.5).paint(M.brass);
+        band(pn, T, T.len * 0.36, 0.8, 4.6, M.dark, 0.45);
+        pn.disc(...A, 1.1).paint(M.dark); pn.disc(...C2, 1.1).paint(M.dark);
+      },
+    },
+    speedB: {
+      slot: '大腿', name: 'B 飞轮增速箱', idea: '大腿外侧一只黄铜飞轮，跑起来越转越快；一根连杆从飞轮边接到小腿上，像火车的曲柄。最「蒸汽」的提速件。',
+      draw(pn, J, M, o) {
+        const T = J.T, Sb = J.S, c = T.p(T.len * 0.48, 0.3), r = 3.3, rot = (o.a || 0) * 2;
+        const crank = [c[0] + Math.cos(rot) * (r - 1), c[1] + Math.sin(rot) * (r - 1)];
+        pn.cap(...crank, ...Sb.p(2.8, 0.3), 0.55).paint(M.steel, { bevel: 'l' });
+        pn.disc(...c, r).paint(M.brass);
+        pn.disc(...c, r - 1).paint(M.dark, { outline: false });
+        for (let k = 0; k < 3; k++) { const a = rot + k * TAU / 3; pn.cap(...c, c[0] + Math.cos(a) * (r - 1.1), c[1] + Math.sin(a) * (r - 1.1), 0.4); }
+        pn.paint(M.brass, { outline: false });
+        pn.disc(...crank, 0.75).paint(M.steel);
+      },
+    },
+    speedC: {
+      slot: '大腿', name: 'C 双汽缸增压', idea: '大腿外侧一上一下两只黄铜短汽缸，一根汽管从胯上接下来；跑起来缸尾一下一下排白汽。',
+      draw(pn, J, M, o) {
+        const T = J.T, L = T.len;
+        pn.cap(...T.p(-0.5, -2.2), ...T.p(L * 0.34, -2.2), 0.55).paint(M.steel, { bevel: 'l' });   // 汽管
+        for (const [a, f] of [[L * 0.36, -1], [L * 0.7, 1]]) {
+          pn.cap(...T.p(a - 2, f), ...T.p(a + 2, f), 1.35).paint(M.brass);
+          band(pn, T, a + 2.1, f - 1.3, f + 1.3, M.dark, 0.45);
+        }
+        o.out && (o.out.exhaust = toWorld(pn, J, T.p(L * 0.7 + 2.6, 1)));
+      },
+    },
+  };
+
+  // 腿部件画布：腿 + 一圈示意躯干；跳跃件放「走 → 蓄力起跳」，提速件放「走 → 快跑」
+  function renderPart(cv, spec, st) {
+    const id = spec.part, isJump = id.startsWith('jump'), t = st.t + (spec.t0 || 0), cyc = 4.2, u = t % cyc;
+    const pose = isJump ? (u < 1.8 ? 'walk' : 'jump') : (u < 2.1 ? 'walk' : 'run');
+    const t2 = isJump && pose === 'jump' ? (u - 1.8 + 0.55) : t;
+    renderPose(cv, { ...spec, pose, t0: 0 }, { ...st, t: t2 });
+  }
+
+  return { CLASSES, MAT_NAME, LEGPARTS, laneSize, renderLane, renderPose, renderPart, POSE_BOX, PART_BOX, JUMP_H, WALK, RUN };
 })();
-SA.BATTLEUI.mount().catch(e => { console.error(e); document.getElementById('props').textContent = '样机出错：' + e.message; });

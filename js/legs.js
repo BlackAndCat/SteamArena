@@ -142,32 +142,39 @@ SA.LEGLAB = (() => {
     return { p, pts: (arr) => arr.map(([u, v]) => p(u, v)) };
   };
   // 两段 IK：kd = 1 膝盖朝前（人形），-1 膝盖朝后（反关节）。返回膝和实际够到的踝
+  // IKLOG：画近侧腿时由 drawLeg 打开，记下每次 IK 的 [胯 x, 胯 y, 目标 x, 目标 y, 膝 x, 膝 y, 踝 x, 踝 y]，腿部件按它挂到大腿 / 小腿上
+  let IKLOG = null;
   function ik(hx, hy, fx, fy, L1, L2, kd) {
     const dx = fx - hx, dy = fy - hy, d = Math.max(1, Math.min(Math.hypot(dx, dy), L1 + L2 - 0.01));
     const t = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
     const ang = Math.atan2(dy, dx) - kd * t;
     const kx = hx + Math.cos(ang) * L1, ky = hy + Math.sin(ang) * L1;
     const ex = fx - kx, ey = fy - ky, el = Math.hypot(ex, ey) || 1;
-    return [kx, ky, kx + ex / el * L2, ky + ey / el * L2];
+    const out = [kx, ky, kx + ex / el * L2, ky + ey / el * L2];
+    if (IKLOG) IKLOG.push([hx, hy, fx, fy, ...out]);
+    return out;
   }
   // 步态：S 步幅、H 抬脚高度。着地时脚往后蹬，抬起时往前摆；抬脚前半程脚尖朝下，后半程脚尖翘起
+  // o.fdx = [近侧, 远侧]：两只脚额外前后错开（腿的坐标），下蹲时脚分开站稳、空中一只脚前一只脚后都用它
   function gait(o, ph, S, H) {
-    if (!o.mv) return { x: 0, lift: 0, tilt: 0, sn: 0, c: 1 };
-    if (o.plant) return plantGait(o, ph, o.plantS != null ? o.plantS : S, o.plantH != null ? o.plantH : H);
+    const dx = o.fdx ? o.fdx[ph ? 1 : 0] || 0 : 0;
+    if (!o.mv) return { x: dx, lift: 0, tilt: 0, sn: 0, c: 1 };
+    if (o.plant) { const g = plantGait(o, ph, o.plantS != null ? o.plantS : S, o.plantH != null ? o.plantH : H); g.x += dx; return g; }
     const a = o.a + ph, c = Math.cos(a), sn = Math.sin(a);
-    return { x: -S * c, lift: Math.max(0, sn) * H, tilt: 0.35 * Math.max(0, sn) * c, sn, c };
+    return { x: -S * c + dx, lift: Math.max(0, sn) * H, tilt: 0.35 * Math.max(0, sn) * c, sn, c };
   }
   // 踩实地的步态（新版整件底盘用，o.plant）：前半个周期抬脚往前摆（先快后慢），后半个周期着地、脚相对车身匀速往后蹬。
   // 脚在胯前后 ±S 之间摆。步态周期要等于车走 4S（着地那半个周期车走 2S = 脚往后蹬的距离），脚才钉在地上不打滑：
   // 调用方按车走的距离推进步态角 a += 2π × 距离 / (4S)（腿放大画的，S 要按放大倍数折算）
+  // 快跑（o.duty < 0.5）：着地只占周期的 duty，两只脚有同时离地的一段（腾空）。着地时车走 4S × duty，脚就往后蹬同样远（±2S·duty），仍然不打滑
   function plantGait(o, ph, S, H) {
-    const u = ((((o.a + ph) / TAU) % 1) + 1) % 1;
-    if (u < 0.5) {
-      const w = u * 2, e = w * w * (3 - 2 * w), sn = Math.sin(Math.PI * w), c = Math.cos(Math.PI * w);
-      return { x: -S + 2 * S * e, lift: sn * H, tilt: 0.35 * sn * c, sn, c };
+    const u = ((((o.a + ph) / TAU) % 1) + 1) % 1, d = o.duty || 0.5, sw = 1 - d, R = 2 * d * S;
+    if (u < sw) {
+      const w = u / sw, e = w * w * (3 - 2 * w), sn = Math.sin(Math.PI * w), c = Math.cos(Math.PI * w);
+      return { x: -R + 2 * R * e, lift: sn * H, tilt: 0.35 * sn * c, sn, c };
     }
-    const w = (u - 0.5) * 2;
-    return { x: S - 2 * S * w, lift: 0, tilt: 0, sn: -Math.sin(Math.PI * w), c: -Math.cos(Math.PI * w) };
+    const w = (u - sw) / d;
+    return { x: R - 2 * R * w, lift: 0, tilt: 0, sn: -Math.sin(Math.PI * w), c: -Math.cos(Math.PI * w) };
   }
   const yAt = (pts, u) => {
     for (let k = 1; k < pts.length; k++) if (u <= pts[k][0]) {
@@ -522,6 +529,7 @@ SA.LEGLAB = (() => {
     leg(pn, L, ph, o) {
       const M = L.M, g = gait(o, ph, 8.5, 6);
       const fx = L.hx + 1 + g.x, fy = L.gy - 2.4 - g.lift, B = bone(L.hx, L.hy, fx, fy), n = B.len;
+      if (IKLOG) IKLOG.push([L.hx, L.hy, fx, fy, ...B.p(n * 0.5, 0), fx, fy]);   // 没有膝盖：腿部件把套筒中点当膝
       pn.poly([[fx - 3.5, fy + 0.2], [fx + 3.5, fy + 0.2], [fx + 4.6, fy + 2.4], [fx - 4.6, fy + 2.4]]).paint(M.leg);
       pn.disc(fx, fy, 1.4).paint(M.iron);
       pn.cap(...B.p(n * 0.55, 0), ...B.p(n - 1, 0), 0.9).paint(M.steam, { bevel: 'l' });
@@ -608,6 +616,7 @@ SA.LEGLAB = (() => {
       const P0 = [kx, ky], P1 = [kx - 3 - 2.5 * load, ky + 9], P2 = [tx - 9 - load, ty + 1], P3 = [tx + 2.5, ty];
       const bz = (t) => { const u = 1 - t; return [0, 1].map(i => u * u * u * P0[i] + 3 * u * u * t * P1[i] + 3 * u * t * t * P2[i] + t * t * t * P3[i]); };
       const N = 16, pts = Array.from({ length: N + 1 }, (_, k) => bz(k / N));
+      if (IKLOG && IKLOG.length) { const e = IKLOG[IKLOG.length - 1], m = bz(0.6); e[6] = m[0]; e[7] = m[1]; }   // 腿部件的「小腿」= 膝到板簧中段
       // 副簧片（后面一层，短一截）
       for (let k = 1; k < N * 0.7; k++) { const a = pts[k - 1], b = pts[k]; pn.cap(a[0] - 1.3, a[1] + 0.6, b[0] - 1.3, b[1] + 0.6, 0.9); }
       pn.paint(M.iron, { bevel: 'l' });
@@ -916,9 +925,20 @@ SA.LEGLAB = (() => {
     gy: y + 47 - (far ? 3 : 0) + ((far ? o.g1 : o.g0) || 0),   // 悬挂：这只脚往下伸（正）/ 往上收（负）
   });
   // 腿长倍率 k：以胯为支点放大整条腿（和挂在胯上的甲片），横梁不变
+  // o.legPart(pn, J, M, o)：近侧腿画完后，在同一个放大坐标里画挂在腿上的腿部件（侧挂层）。
+  // J = { hip, knee, ankle, T: 大腿骨, S: 小腿骨 }，取这条腿第一次从胯出发的 IK（高跷没有膝，取套筒中点）
   function drawLeg(pn, D, L, o, k) {
     const ph = L.far ? Math.PI : 0, back = pn.around(k || 1, L.hx, L.hy);
+    const log = o.legPart && !L.far ? (IKLOG = []) : null;
     D.leg(pn, L, ph, o); if (D.over) D.over(pn, L, ph, o);
+    if (log) {
+      IKLOG = null;
+      const e = log.find(r => Math.abs(r[0] - L.hx) < 0.01 && Math.abs(r[1] - L.hy) < 0.01);
+      if (e) {
+        const hip = [L.hx, L.hy], knee = [e[4], e[5]], ankle = [e[6], e[7]];
+        o.legPart(pn, { hip, knee, ankle, T: bone(...hip, ...knee), S: bone(...knee, ...ankle) }, L.M, o);
+      }
+    }
     back();
   }
   // part: 'far' 只画远侧腿 / 'near' 只画横梁 + 近侧腿 / 省略 = 都画；o.noLegs 只画横梁（巨腿模式另外画腿）
@@ -998,7 +1018,13 @@ SA.LEGLAB = (() => {
   }
   // 机身起伏（2026-09-29）：对角两腿交替着地时（双支撑）最低、一对腿撑在胯正下方时最高，每步两次；幅度 2～3px 跟步幅变（o.amp 可覆盖，半人马 4.5）
   const quadBob = (o) => (o.mv ? Math.round((o.amp != null ? o.amp : 2 + ((o.stride || 14) - 14) / 10) * (1 - Math.abs(Math.sin(o.a || 0)))) : 0);
-  const bipedBob = (o) => strideBob(o, 58, [0, Math.PI], 4);
+  // 快跑（o.duty < 0.5）：两只脚都离地时整车往上抛，最高 o.hop px（默认 4）
+  const bipedBob = (o) => {
+    const d = strideBob(o, 58, [0, Math.PI], 4);
+    if (!o.mv || !o.duty || o.duty >= 0.5) return d;
+    const a = plantGait(o, 0, 1, 1), b = plantGait(o, Math.PI, 1, 1);
+    return a.lift > 0 && b.lift > 0 ? d - Math.round((o.hop || 4) * Math.min(a.lift, b.lift)) : d;
+  };
 
   // 四足型号：腿形。reach = 脚静止时离胯多远（小 → 脚在胯下附近前后大幅摆动），kf = 膝盖跟着脚摆多少。伏地蛛矮宽稳，高脚蛛膝盖高出机身一大截
   // 伏地蛛的膝盖只比胯高一点、贴着甲壳上沿（2026-09-26）：原来膝盖高出机身 16px，会挡住车身两侧的模块和摆放格
@@ -1234,17 +1260,27 @@ SA.LEGLAB = (() => {
   // 真双足 · 2×4（48×96）：上两行是胯，下两行是一对长腿。腿型沿用 DESIGNS 的六档，以胯为支点放大到地面（胯关节到地面 67px，约 2 倍），
   // 仍是原生像素；步幅按放大倍数折算，脚踩实地不打滑。远侧腿压暗、往右 8px 上 3px，画在躯干后面。
   // o：{ mv, a, stride（步幅，世界像素）, bd（起伏，见 bipedBob）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
+  // 2026-10-05 双足强化（docs/biped-plan.md）新增，都可省略：
+  //   crouch 0～1：下蹲。调用方把整车画低 24 × crouch px，这里地面相对胯升高同样多、两脚前后分开站稳，膝盖自然弯下去；
+  //   air + tuck 0～1：空中。脚不再找地面，按 tuck 收腿（0 = 蹬直，1 = 收到最紧），一只脚在前一只在后；
+  //   duty / liftK：快跑。duty < 0.5 时有腾空段（见 plantGait），liftK 是抬脚高度倍率；整车上抛见 bipedBob；
+  //   legPart(pn, J, M, o)：画挂在近侧腿上的腿部件（见 drawLeg）
   // 接地点（模块内 x，静止时）：近侧 26、远侧 34
-  const BIPED_HIP = 29;
+  const BIPED_HIP = 29, CROUCH_PX = 24;
   function bipedArt(pn, x, y, o, part) {
     const e = DESIGNS.find(d => d.id === o.legs && !d.d.game) || DESIGNS.find(d => d.id === 'mk2'), D = e.d;
-    const cx = x + 24, bd = o.bd || 0, ground = y + 96, g = o.g || [0, 0];
+    const cr = Math.round(CROUCH_PX * (o.crouch || 0)), tuck = o.air ? (o.tuck || 0) : 0;
+    const cx = x + 24, bd = o.bd || 0, ground = y + 96 - cr, g = o.air ? [0, 0] : o.g || [0, 0];
     const k = (96 - BIPED_HIP) / (47 - (D.hipY || 14));
-    const S = o.stride || 15, lo = { ...o, plant: true, plantS: S / k, plantH: (4 + 0.3 * S) / k };
+    const S = o.stride || 15, lo = { ...o, plant: true, plantS: S / k, plantH: (4 + 0.3 * S) * (o.liftK || 1) / k };
+    if (o.air) lo.mv = false;
+    const spread = o.air ? [7 * tuck, -4 * tuck] : [4 * (o.crouch || 0), -4 * (o.crouch || 0)];
+    if (spread[0] || spread[1]) lo.fdx = spread.map(v => v / k);
     const leg = (far) => {
       const L = legAt(D, far, cx - 24, y, lo, far ? cx + 6 : cx - 2);
       L.hy = y + BIPED_HIP + bd - (far ? 3 : 0);
-      L.gy = L.hy + (ground - (far ? 3 : 0) + (far ? g[1] : g[0]) - L.hy) / k;
+      L.gy = o.air ? L.hy + (96 - BIPED_HIP) * (1 - 0.42 * tuck) / k
+        : L.hy + (ground - (far ? 3 : 0) + (far ? g[1] : g[0]) - L.hy) / k;
       drawLeg(pn, D, L, lo, k);
     };
     // part：'far' 远侧腿 / 'near' 胯 + 近侧腿 / 'shell' 只画胯 / 'legs' 只画近侧腿 / 省略 = 都画
@@ -1283,7 +1319,7 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, HIPS, HIP_OF, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
+  return { Pen, DESIGNS, HIPS, HIP_OF, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, BIPED_CROUCH: CROUCH_PX, torsoCuts, strideFor, quadStride, quadBob, bipedBob, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
 })();
 
 // ================= 四足整件六档 + 变体（2026-09-29 进游戏，探索过程见 tools/archive/quad-tiers.html） =================

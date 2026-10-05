@@ -5,37 +5,168 @@
 <style>
   body { padding: 16px; overflow-y: auto; }
   h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
-  h2 { color: var(--brass2); font-size: 17px; margin: 0 0 6px; letter-spacing: 2px; }
+  h2 { color: var(--brass2); font-size: 17px; margin: 26px 0 8px; letter-spacing: 2px; }
+  h3 { color: var(--text); font-size: 15px; margin: 14px 0 4px; }
+  h3 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
   .lead { color: var(--muted); max-width: 980px; line-height: 1.6; margin: 0 0 12px; }
   .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 980px; line-height: 1.65; margin-bottom: 14px; }
   .find > b { color: var(--brass2); } .find ol, .find ul { margin: 6px 0 0; padding-left: 20px; }
-  .prop { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 12px; margin-bottom: 18px; max-width: 1304px; }
-  .prop .why { line-height: 1.65; margin: 0 0 10px; color: var(--text); }
-  .prop .why li { margin-bottom: 2px; }
-  .seg { display: inline-flex; border: 2px solid var(--dark0); margin: 0 0 8px; }
-  .seg button { background: var(--dark2); border: 0; padding: 5px 14px; cursor: pointer; color: var(--text); font-weight: 700; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 12px;
+    background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 2px solid var(--dark0); }
+  .seg button { background: var(--dark2); border: 0; padding: 4px 12px; cursor: pointer; color: var(--text); font-weight: 700; }
   .seg button.on { background: var(--brass1); }
-  .shot { display: block; width: 100%; max-width: 1280px; height: auto; image-rendering: pixelated; background: #111; }
-  .cap { color: var(--muted); font-size: 13px; margin: 6px 0 0; line-height: 1.6; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: var(--bg2); max-width: 100%; height: auto; }
+  .lane { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: flex-end; }
+  .names { display: flex; padding-left: 48px; color: var(--muted); font-size: 12px; }
+  .names span { width: 152px; flex: none; }
+  .read { color: var(--text); line-height: 1.6; margin: 4px 0 0; max-width: 980px; }
+  table.sug { border-collapse: collapse; margin: 10px 0 4px; font-size: 13px; }
+  table.sug th, table.sug td { border: 1px solid var(--dark0); padding: 4px 10px; text-align: left; }
+  table.sug th { background: var(--dark2); color: var(--brass2); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; max-width: 1400px; }
+  .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 10px; }
+  .card b { display: block; margin-bottom: 6px; }
+  .card .cap { color: var(--muted); font-size: 12px; margin: 6px 0 0; line-height: 1.5; }
+  .prow { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 10px 12px; margin-bottom: 12px; max-width: 1400px; }
+  .prow > b { color: var(--brass2); font-size: 15px; }
+  .prow .idea { margin: 4px 0 8px; line-height: 1.6; }
+  .prow .legs { display: flex; flex-wrap: wrap; gap: 10px; }
+  .prow .legs figure { margin: 0; } .prow .legs figcaption { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  details > summary { cursor: pointer; color: var(--brass2); font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 14px; }
 </style></head>
 <body>
-<h1>当前开发 · 战斗界面 v1 · 三套方案 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-09-30 · 上一期「机甲套件 v4」暂存在 <a href="archive/mech-kit-v4.html">archive/mech-kit-v4</a></small></h1>
-<p class="lead">重新设计战斗页面的提示和各类展示。下面三套方案画在真实的战斗场景（铁匠铺后院，读游戏代码）上，每套看三种时刻：<b>常态</b>、<b>告急</b>（你的锅炉过热、水快没了）、<b>对方挂白旗</b>。界面件都是 2 倍像素图（js/ui-px.js 那一套）。只是样机，游戏没动。</p>
+<h1>当前开发 · 双足强化 v5 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 机甲套件 v4 已全部通过，在它上面接着做（计划：docs/biped-plan.md）</small></h1>
+<p class="lead">这一期三样东西等你挑：① 轻型腿 / 重型腿怎么分；② 走、快跑、下蹲、跳跃四种姿态；③ 腿部件（跳跃件、提速件）各三种方案。腿都是游戏的 <code>js/legs.js</code> 画的——下蹲、空中收腿、快跑的参数已经加进游戏代码（默认画面逐像素没变，等后台规则接上就能用）；躯干用 v4 的零件。游戏画面没动。</p>
 
-<div class="find"><b>你说的 → 三套方案共同的改法</b>
+<div class="find"><b>要你定的</b>
 <ol>
-  <li><b>白旗被效果和背景人物挡住</b> → 白旗改画在最上层（压过近景、烟火和所有界面）；升旗时画面其余部分压暗、烟火淡出，只留对方的车和旗是亮的；告示只出现在固定的位置，不再叠在车顶。</li>
-  <li><b>不要敌方的各种实时状态</b> → 对方车顶不再有耐久 / 热量 / 水三条，也不再有「失去动力」「没有能开火的武器」这类警报牌。对方的情况靠车本身看（打烂的模块、冒烟、驾驶员表情），只在出事时（挂白旗）告诉你一次。</li>
-  <li><b>车顶和战场上不再飘界面</b> → 战场上只留准星、弹道扇区和伤害数字；你自己的警报只在一个固定的地方出现（每套方案不一样，这就是三套的主要区别）。</li>
+  <li><b>轻 / 重怎么分</b>（①）：我的分法是主线六档 = 标准腿，9 种唯一腿分成轻型 5 种、重型 4 种，T3～T6 每档一轻一重。</li>
+  <li><b>四种姿态行不行</b>（②）：快跑有双脚腾空、躯干前倾；下蹲沉 1 个子格；跳跃先蓄力下蹲、空中收腿、地上有影子、落地扬尘。</li>
+  <li><b>跳跃件、提速件各选一个</b>（③）：跳跃件 A 弹簧蹬缸 / B 蒸汽弹射缸 / C 板簧蹬刺；提速件 A 助力活塞 / B 飞轮增速箱 / C 双汽缸增压。</li>
 </ol></div>
 
-<div id="props"></div>
+<div class="bar">
+  <span class="seg" id="mode"><button data-v="1" class="on">动起来</button><button data-v="0">定格</button></span>
+  <span style="color:var(--muted)">画布都是原生像素 × 2</span>
+</div>
 
-<script src="../js/config.js"></script>
-  <script src="../js/text-manager.js"></script>
-<script src="../js/palette.js"></script><script src="../js/coal.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
-<script src="../js/legs.js"></script><script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/stage-cars.js"></script>
-<script src="../js/ui-px.js"></script><script src="../js/home-scene.js"></script><script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script>
+<h2>① 轻型腿 / 重型腿</h2>
+<div id="classes"></div>
+<p class="read">建议的数值方向（交给后台定，只是方向）：</p>
+<table class="sug">
+  <tr><th></th><th>标准（主线六档）</th><th>轻型</th><th>重型</th></tr>
+  <tr><td>速度</td><td>基准</td><td>+10～15%</td><td>−15%</td></tr>
+  <tr><td>承重</td><td>基准</td><td>−15%</td><td>+40～60%（能扛重炮）</td></tr>
+  <tr><td>闪避</td><td>现在的 0.12</td><td>更高</td><td>0</td></tr>
+  <tr><td>跳跃高度</td><td>基准</td><td>×1.5</td><td>×0.5</td></tr>
+  <tr><td>下蹲</td><td>基准</td><td>基准</td><td>更稳（散布、后坐再减一档）</td></tr>
+  <tr><td>走路起伏 / 晃动</td><td>基准</td><td>更大</td><td>更小</td></tr>
+</table>
+
+<h2>② 姿态：走 / 快跑 / 下蹲 / 跳跃</h2>
+<p class="lead">每一行是一类腿 + 一套 v4 躯干：轻型 = 板簧跑刃 + 轻骑，标准 = 掷弹兵 + 突击，重型 = 蒸汽人 + 圣骑。跳跃高度是演示值：轻 1.5 格、标准 1 格、重半格多（规则里按承重余量和腿型算）。</p>
+<div class="grid" id="poses"></div>
+
+<h2>③ 腿部件（侧挂层，挂在近侧腿上）</h2>
+<p class="lead">每种方案装在三条腿上：轻型（板簧跑刃）、标准（掷弹兵）、重型（蒸汽人）。跳跃件放「走 → 蓄力 → 起跳」，提速件放「走 → 快跑」。腿部件跟着腿骨动：画在 legs.js 算出来的大腿 / 小腿上，所以 15 种腿都能直接挂。</p>
+<div id="parts"></div>
+
+<details id="v4"><summary>已通过 · 机甲套件 v4（2026-10-05 全部通过，点开看整机）</summary>
+<p class="lead">原页面：<a href="archive/mech-kit-v4.html">archive/mech-kit-v4</a>（零件表、铁制 / 钢制两种外观都在那里）。</p>
+<div class="cards" id="v4cards"></div>
+</details>
+
+<script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
+<script src="../js/legs.js"></script><script src="biped-v2.js"></script><script src="archive/mech-kit-v4.js"></script>
 <script src="current.js"></script>
-<script src="labs.js"></script>
+<script>
+(() => {
+  const C = SA.CUR, K4 = SA.MECHKIT, st = { mv: true, t: 0 }, views = [];
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const canvas = (w, h, z = 2) => { const cv = mk('canvas'); cv.width = w; cv.height = h; cv.style.width = w * z + 'px'; return cv; };
+
+  // ① 轻 / 重
+  const CL = document.getElementById('classes');
+  for (const cls of C.CLASSES) {
+    const h = mk('h3', null, cls.name); h.append(mk('small', null, cls.sub)); CL.append(h);
+    const { w, h: hh } = C.laneSize(cls), lane = mk('div', 'lane');
+    const a = canvas(w, hh), b = canvas(w, hh);
+    lane.append(a, b); CL.append(lane);
+    const names = mk('div', 'names');
+    for (const [, mt, name] of cls.legs) names.append(mk('span', null, `${name} · ${C.MAT_NAME[mt]}`));
+    CL.append(names, mk('p', 'read', cls.read));
+    views.push({ cv: a, draw: () => C.renderLane(a, cls, st, false) }, { cv: b, draw: () => C.renderLane(b, cls, st, true) });
+  }
+
+  // ② 姿态
+  const POSES = [['walk', '走'], ['run', '快跑'], ['crouch', '下蹲'], ['jump', '跳跃']];
+  const ROWS = [
+    { cls: 'light', leg: 'blade', mech: '双足 · 轻骑', name: '轻型 · 板簧跑刃' },
+    { cls: 'std', leg: 'gren', mech: '双足 · 突击', name: '标准 · 掷弹兵' },
+    { cls: 'heavy', leg: 'steamman', mech: '双足 · 圣骑', name: '重型 · 蒸汽人' },
+  ];
+  const CAPS = {
+    walk: (r) => `走：${C.WALK[r.cls]} px/s`,
+    run: (r) => `快跑：${C.RUN[r.cls]} px/s，着地只占 36%，两脚有腾空段；躯干每往上一行前倾 1px`,
+    crouch: () => '下蹲：整车沉 24px（1 子格），两脚前后分开站稳，蹲到位膝部喷一口汽',
+    jump: (r) => `跳跃：蓄力下蹲 → 起跳喷汽 → 空中收腿（影子变小）→ 落地扬尘缓冲；演示高度 ${C.JUMP_H[r.cls]}px`,
+  };
+  const PO = document.getElementById('poses'), B = C.POSE_BOX;
+  ROWS.forEach((r, ri) => POSES.forEach(([pose, pname], pi) => {
+    const card = mk('div', 'card'), cv = canvas(B.W, B.H);
+    card.append(mk('b', null, `${r.name} · ${pname}`), cv, mk('p', 'cap', CAPS[pose](r)));
+    PO.append(card);
+    const spec = { pose, cls: r.cls, leg: r.leg, mech: r.mech, t0: ri * 0.37 + pi * 0.11 };
+    views.push({ cv, draw: () => C.renderPose(cv, spec, st) });
+  }));
+
+  // ③ 腿部件
+  const PA = document.getElementById('parts'), PB = C.PART_BOX;
+  const LEGS = [['light', 'blade', '轻型 · 板簧跑刃'], ['std', 'gren', '标准 · 掷弹兵'], ['heavy', 'steamman', '重型 · 蒸汽人']];
+  for (const [id, part] of Object.entries(C.LEGPARTS)) {
+    const row = mk('div', 'prow');
+    row.append(mk('b', null, `${part.slot}位 · ${part.name}`), mk('p', 'idea', part.idea));
+    const legs = mk('div', 'legs');
+    LEGS.forEach(([cls, leg, name], i) => {
+      const fig = mk('figure'), cv = canvas(PB.W, PB.H);
+      fig.append(cv, mk('figcaption', null, name)); legs.append(fig);
+      const spec = { part: id, cls, leg, mech: null, box: PB, t0: i * 0.6 };
+      views.push({ cv, draw: () => C.renderPart(cv, spec, st) });
+    });
+    row.append(legs); PA.append(row);
+  }
+
+  // 已通过：v4 整机
+  const V4 = document.getElementById('v4cards'), v4st = { mv: true, phase: 0, t: 0, far: true, hull: true, grid: false };
+  for (const m of K4.MECHS) {
+    const card = mk('section', 'card'), cv = canvas(K4.VW, K4.VH);
+    card.append(mk('b', null, m.name), cv, mk('p', 'cap', m.note)); V4.append(card);
+    views.push({ cv, draw: () => K4.render(cv, m, v4st) });
+  }
+
+  const vis = new Set();
+  const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
+  views.forEach(v => io.observe(v.cv));
+  const redraw = (all) => { for (const v of views) if (all || vis.has(v.cv)) v.draw(); };
+  window.labRedraw = () => redraw(true);
+  window.labSet = (t, mv = false) => { st.t = t; st.mv = mv; v4st.t = t; redraw(true); };   // 调试：定在某个时刻
+  let last = performance.now(), frozen = false;
+  function tick(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!frozen) { st.t += dt; v4st.t += dt; if (v4st.mv) v4st.phase += 58 * dt; }
+    redraw(false);
+    requestAnimationFrame(tick);
+  }
+  document.getElementById('mode').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button'); if (!btn) return;
+    for (const x of btn.parentNode.children) x.classList.toggle('on', x === btn);
+    frozen = btn.dataset.v === '0';
+  });
+  redraw(true);
+  requestAnimationFrame(tick);
+})();
+</script><script src="labs.js"></script>
 </body></html>

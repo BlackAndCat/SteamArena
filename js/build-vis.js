@@ -63,3 +63,4 @@ SA.BUILD_VIS += '+stage-workbench-diagnostics';
 SA.BUILD_VIS += '+stage-car-one-save'; // 关卡车只剩一种保存（关卡工作台「保存」，改过车自动勾「手动选择」）；进化擂台卡片先显示手动选择的关卡车和它的成绩、可勾掉；点卡片在那一排下面展开全部候选，「换上这辆」交给关卡工作台当草稿
 SA.BUILD_VIS += '+stage-sheet-sidebar-seed-export'; // 用户授权本次工作台性能单左侧竖栏、完整种子复制与导出入口。
 SA.BUILD_VIS += '+evolve-route-diagnostic-results'; // 进化进度区完整列出未达标关及候选，明细标注后续模拟所用的临时参考。
+SA.BUILD_VIS += '+biped-pose-params'; // legs.js：双足下蹲 / 空中收腿 / 快跑腾空 / 腿部件挂点参数（默认画面逐像素不变），当前开发页双足强化 v5。
