@@ -192,6 +192,81 @@ SA.SPR = (() => {
     if (!p) { p = SA.LEGLAB.Pen(cv.width, cv.height); pens.set(k, p); }
     return p.at(1, 0, 0);
   }
+  // ---------- 真双足的机甲外观（机甲套件 v4，用户 2026-10-05 全部通过；docs/biped-plan.md §6）----------
+  // 现有模块装在双足躯干上的特定位置时换成机甲外观，只换画面、数值不变：
+  //   甲片在躯干顶角 = 肩甲；竖式锅炉 / 小水罐 / 加压舱在躯干最后一列 = 背负锅炉 / 背水罐 / 喷汽背包。
+  // 位置由 renderVehicle 的 mechRoles 判断。画法照 tools/archive/mech-kit-v4.js 原样搬来（加压舱从 1×1 拉成 1×2）；
+  // 铁制 / 钢制两种外观：T1～T3 用铁制，T4～T6 用钢制；材料色仍由 decorate 统一上。
+  const MECH_SOOT = ['#141824', '#2f3850', '#6a7a9c'];
+  function mechMat() {
+    const N = SA.LEGLAB.U.NEAR;
+    return { ...N, glass: [...P.glass], water: [P.water[0], P.water[1], P.water[2], P.water[3]] };
+  }
+  const MECH_ART = {
+    pauldron(pn, x, y, s, M, o) {
+      const rivet = SA.LEGLAB.U.rivet, sw = o.sw || 0;
+      if (s === 'L') {
+        for (let k = 2; k >= 0; k--) {
+          const v = y + 3 + k * 6, dx = k === 0 ? 0 : sw * (k === 2 ? 1 : 0.5), pts = [];
+          for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 + i / 10); pts.push([x + 12 + dx + Math.cos(a) * 11, v + 9 + Math.sin(a) * 7]); }
+          pts.push([x + 23 + dx, v + 11], [x + 1 + dx, v + 11]);
+          pn.poly(pts).paint(M.iron);
+          rivet(pn, x + 3 + dx, v + 5); rivet(pn, x + 19 + dx, v + 5);
+        }
+      } else {
+        pn.poly([[x + 1, y + 9], [x + 3, y + 1], [x + 8, y + 1], [x + 9, y + 8]]).paint(M.steel);
+        const pts = [];
+        for (let i = 0; i <= 12; i++) { const a = Math.PI * (1 + i / 12); pts.push([x + 12 + Math.cos(a) * 11.5, y + 16 + Math.sin(a) * 10]); }
+        pts.push([x + 23.5, y + 21], [x + 0.5, y + 21]);
+        pn.poly(pts).paint(M.steel);
+        pn.rect(x + 1, y + 18, 22, 3).paint(M.brass, { outline: false });
+        pn.ln(x + 4, y + 11, x + 11, y + 7, M.steel[3]); pn.fill(x + 4, y + 2, 3, 1, P.brass[2]);
+        rivet(pn, x + 17, y + 11);
+      }
+    },
+    backboiler(pn, x, y, s, M, o) {
+      const rivet = SA.LEGLAB.U.rivet, shell = s === 'L' ? M.iron : M.steel, t = o.t || 0, fl = o.fl || 0;
+      pn.rect(x + 5, y - 17, 6, 22).paint(M.dark);
+      if (s === 'K') pn.rect(x + 3, y - 20, 10, 4).paint(M.brass); else pn.rect(x + 4, y - 19, 8, 3).paint(M.dark);
+      for (let k = 0; k < 3; k++) { const p = (t * 0.9 + k / 3) % 1; pn.disc(x + 8 - p * 5 + Math.sin(k * 2 + p * 6), y - 22 - p * 14, 1.3 + p * 2.6).paint(p < 0.5 ? [P.steam[1], P.steam[2], P.steam[2], P.white] : M.steam, { outline: false }); }
+      pn.cap(x + 12, y + 10, x + 12, y + 38, 9.5).paint(shell);
+      for (const yy of (s === 'K' ? [8, 22, 37] : [9, 35])) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
+      if (s === 'K') { pn.disc(x + 15, y + 16, 3.2).paint(M.brass); pn.disc(x + 15, y + 16, 2.2).paint([M.gauge[1], M.gauge[1], P.steam[2], P.steam[2]], { outline: false, bevel: '' }); pn.ln(x + 15, y + 16, x + 16, y + 14, P.dark[0]); }
+      else { rivet(pn, x + 5, y + 14); rivet(pn, x + 5, y + 26); }
+      pn.rect(x + 6, y + 27, 11, 8).paint(M.dark);
+      for (let k = 0; k < 6; k++) pn.dot(x + 8 + (k * 3) % 8, y + 29 + (k % 3) * 2, (k + fl) % 3 ? M.fire[2] : M.fire[3]);
+      for (const yy of [12, 30]) pn.rect(x + 19, y + yy, 6, 3).paint(M.leather, { bevel: 'l' });
+    },
+    backjar(pn, x, y, s, M) {
+      const shell = s === 'L' ? M.iron : M.steel;
+      for (const cx of [7, 17]) {
+        pn.cap(x + cx, y + 6, x + cx, y + 17, 5).paint(shell);
+        pn.rect(x + cx - 2, y + 6, 4, 10).paint([M.iron[0], M.iron[0], M.glass[0], M.glass[0]], { bevel: '' });
+        pn.fill(x + cx - 1, y + 10, 2, 5, M.water[2]); pn.fill(x + cx - 1, y + 10, 2, 1, M.water[3]);
+        pn.rect(x + cx - 2, y, 4, 3).paint(M.brass, { bevel: 'l' });
+      }
+      pn.rect(x + 1, y + 12, 22, 3).paint(s === 'K' ? M.brass : M.leather, { bevel: 'l' });
+      pn.cap(x + 7, y + 2, x + 17, y + 2, 0.9).paint(M.brass, { outline: false });
+    },
+    // 加压舱是 1×2：箱子拉高到两格，喷口在下面一格的底边；走起来喷口一直往下冒汽，站定时只剩一丝
+    jetpack(pn, x, y, s, M, o) {
+      const rivet = SA.LEGLAB.U.rivet, shell = s === 'L' ? M.iron : M.steel, t = o.t || 0;
+      pn.rect(x + 3, y + 2, 18, 36).paint(shell);
+      for (const yy of [9, 28]) pn.rect(x + 3, y + yy, 18, 2).paint(M.brass, { outline: false });
+      if (s === 'K') { pn.disc(x + 12, y + 18, 3).paint(M.brass); pn.disc(x + 12, y + 18, 1.8).paint([M.gauge[1], M.gauge[1], P.steam[2], P.steam[2]], { outline: false, bevel: '' }); }
+      else { rivet(pn, x + 5, y + 14); rivet(pn, x + 17, y + 14); rivet(pn, x + 5, y + 22); rivet(pn, x + 17, y + 22); }
+      for (const cx of [7, 17]) pn.poly([[x + cx - 2, y + 38], [x + cx + 2, y + 38], [x + cx + 4, y + 46], [x + cx - 4, y + 46]]).paint(M.brass);
+      const n = o.mv ? 4 : 1;
+      for (const cx of [7, 17]) for (let k = 0; k < n; k++) { const p = (t * 1.6 + k / n + cx * 0.07) % 1; pn.disc(x + cx + Math.sin(k * 3 + p * 5), y + 48 + p * (o.mv ? 10 : 4), 1 + p * (o.mv ? 2.6 : 1.2)).paint(p < 0.4 ? [P.steam[1], P.steam[2], P.white, P.white] : M.steam, { outline: false }); }
+    },
+  };
+  // 在精灵里画机甲外观：q.mech = 外观名，q.mt = 材料，q.fr / q.sw / q.mv = 动画档
+  function mechArt(x, y, q) {
+    const pn = penFor(ctx.canvas), s = (q.mt || 1) <= 3 ? 'L' : 'K';
+    const t = q.mech === 'backboiler' ? (q.fr || 0) / 6 : q.mech === 'jetpack' ? (q.fr || 0) / 8 : 0;
+    MECH_ART[q.mech](pn, x, y, s, mechMat(), { t, fl: (q.fr || 0) % 4, sw: q.sw || 0, mv: !!q.mv });
+    pn.flush(ctx);
+  }
   // 腿式底盘（有腿、要画远侧腿的底盘）；amp 是旧逐格画法留下的起伏幅度，整件四足 / 真双足改用 quadBob / bipedBob
   const BOB = { biped: 3, quad: 1 };
   const gfOf = (a) => ((Math.round(a / (Math.PI * 2 / 12)) % 12) + 12) % 12;   // 腿的步态帧：战斗给的是步态角（每走 4 × 步幅一圈），12 帧一循环
@@ -2190,7 +2265,7 @@ SA.SPR = (() => {
   })();
 
   const OVER = {
-    boiler_s(x, y, q) { boilerSOver(x, y, q); },
+    boiler_s(x, y, q) { if (!q.mech) boilerSOver(x, y, q); },
     tank_tall(x, y, q) { tankTallOver(x, y, q); },
     mg_heavy(x, y, q) { mgHOver(x, y, q); },
     mg(x, y, q) { acOver(x, y, q, AC_TOP.mg); },
@@ -2688,21 +2763,22 @@ SA.SPR = (() => {
     // 1×1 驾驶舱（2026-09-29 重做：方窗驾驶箱，见 helmetArt）；双人 / 四人联合驾驶舱见 cockpitPairArt / cockpitArt
     helmet(x, y, o) { helmetArt(x, y, o); },
     cockpit_pair(x, y, o) { cockpitPairArt(x, y, o); },
-    plate(x, y) {
+    plate(x, y, q) {
+      if (q && q.mech) { mechArt(x, y, q); return; }
       box(x + 2, y + 2, 20, 20, IRONL);
       R(x + 3, y + 11, 18, 1, P.iron[1]); R(x + 3, y + 12, 18, 1, P.iron[4]);
       for (const [a, b] of [[4, 4], [17, 4], [4, 16], [17, 16]]) rivet(x + a, y + b);
       R(x + 13, y + 7, 3, 1, P.iron[2]); R(x + 7, y + 17, 2, 1, P.iron[2]);
     },
     // 水罐（1×1 / 1×2）：圆罐 + 竖玻璃窗，水位跟着剩水量降，偶尔冒个气泡
-    tank_s(x, y, q) { tankSmall(x, y, q); },
+    tank_s(x, y, q) { if (q.mech) mechArt(x, y, q); else tankSmall(x, y, q); },
     periscope(x, y, q) { periscopeArt(x, y, q.fr || 0); },
     mortar_s(x, y, q) { mortarS(x, y, q); },
     autoloader(x, y, q) { autoloaderArt(x, y, q.fr || 0); },
-    pressure_chamber(x, y, q) { pressureArt(x, y, q.fr || 0); },
+    pressure_chamber(x, y, q) { if (q.mech) mechArt(x, y, q); else pressureArt(x, y, q.fr || 0); },
     condenser(x, y, q) { condenserArt(x, y, q.fr || 0); },
     tank_tall(x, y, q) { tankTall(x, y, q); },
-    boiler_s(x, y, q) { boilerS(x, y, q); },
+    boiler_s(x, y, q) { if (q.mech) mechArt(x, y, q); else boilerS(x, y, q); },
     boiler_l(x, y, q) { BIG.boiler(ctx, x, y, { t: q.fr * 8, heat: q.ht / 2 }); },   // 炉火 3 档 × 13 帧（链节、煤块刚好循环）
     water_l(x, y, q) { BIG.tank(ctx, x, y, { t: q.fr * 9, water: q.lv / 29 }); },
     // 特殊武器（2026-09-29 定稿）：转动部分按 module-art 的耳轴 / 炮口几何；汽、火、飞出去的烟在 weaponFx 里逐帧画（材质处理之后）
@@ -2888,7 +2964,7 @@ SA.SPR = (() => {
   const BOT = 14;   // 精灵底下留的空：悬挂伸长时轮子 / 脚落到格子下面也画得下
   const LEFT = 16;  // 精灵左边留的空：蜘蛛腿往后张的脚伸到格子外面也画得下
   // 四足整件的腿张得很开（脚离机身 ±步幅 + 伸出量），膝盖也高过机身：画布四周多留边
-  const PAD = { quad: { l: 56, t: 44, r: 64 }, biped: { l: 48, t: 24, r: 56 } };   // 四足：温室的高膝会冒出顶板约 30px
+  const PAD = { quad: { l: 56, t: 44, r: 64 }, biped: { l: 48, t: 24, r: 56 }, boiler_s: { l: 16, t: 40, r: 32 } };   // 竖式锅炉：背在双足背上时烟囱和烟冒出格子 36px   // 四足：温室的高膝会冒出顶板约 30px
   const padOf = (id) => PAD[id] || { l: LEFT, t: TOP, r: 32 };
   const angQ = (a, rest) => Math.round((a == null ? rest : a) / 2) * 2;   // 仰角按 2° 一档缓存
   // 悬挂偏移按整像素缓存；没有偏移就不写进键里（和原来的缓存一致）
@@ -2955,6 +3031,13 @@ SA.SPR = (() => {
       case 'autoloader': q.fr = Math.floor((o.t || 0) * 3.3) % 18; break;          // 扬弹链：18 帧一轮（约 5.5 秒）
       case 'pressure_chamber': q.fr = Math.floor((o.t || 0) * 5) % 16; break;      // 风箱一压一放：16 帧一轮（约 3 秒）
       case 'condenser': q.fr = Math.floor((o.t || 0) * 4) % 12; break;             // 盘管滴水：12 帧一轮
+    }
+    if (o.mech) {   // 真双足的机甲外观（见 MECH_ART）：外观名 + 自己的动画档，替换掉原模块的动画档
+      for (const k of ['fr', 'lv']) delete q[k];
+      q.mech = o.mech;
+      if (o.mech === 'backboiler') q.fr = Math.floor((o.t || 0) * 6) % 20;          // 烟 3 圈 + 炉火 4 档
+      if (o.mech === 'jetpack') { q.fr = Math.floor((o.t || 0) * 8) % 5; if (o.moving) q.mv = true; }   // 喷汽一圈 0.625 秒
+      if (o.mech === 'pauldron' && o.moving) q.sw = Math.round(-Math.sin(o.gait || 0));                  // 下面两片随步伐晃
     }
     if (o.up) q.up = Math.min(3, o.up);   // 改装等级 → 挂件
     if (o.mt > 1) q.mt = o.mt;
@@ -3257,6 +3340,25 @@ SA.SPR = (() => {
     // 双足的腰挂位（胯层左右各一大格）上有没有模块：有就让胯伸出法兰板压住
     const waist = (c0) => { for (let r = CH; r < CH + 2; r++) for (let c = c0; c < c0 + 2; c++) { const x = c >= 0 && c < K.COLS && O[r][c]; if (x && x.cell.id !== 'biped') return true; } return false; };
 
+    // 真双足的机甲外观位置（只换画面）：躯干 = 胯以上、非撞击件的车体模块
+    //   最后一列（这几行里身后没有别的躯干模块、身前贴着躯干）的竖式锅炉 / 小水罐 / 加压舱 → 背负锅炉 / 背水罐 / 喷汽背包
+    //   顶上空着、左右至少一边空着的甲片 → 肩甲
+    const MECH_OF = { boiler_s: 'backboiler', tank_s: 'backjar', pressure_chamber: 'jetpack' };
+    const mechRoles = {};
+    if (bipC >= 0) {
+      const torso = (r, c) => r >= 0 && r < CH && c >= 0 && c < K.COLS && O[r][c] && !SA.isRam(O[r][c].cell.id) && !isChassis(O[r][c].cell.id);
+      eachCell(veh.body, (cell, r, c) => {
+        if (r >= CH || cell.hp <= 0) return;
+        const f = SA.fp(cell.id), rows = Array.from({ length: f.h }, (_, i) => r + i);
+        if (MECH_OF[cell.id]) {
+          const behind = rows.some(rr => { for (let cc = 0; cc < c; cc++) if (torso(rr, cc)) return true; return false; });
+          const front = rows.some(rr => torso(rr, c + f.w));
+          if (!behind && front) mechRoles[`${r},${c}`] = MECH_OF[cell.id];
+        } else if (cell.id === 'plate' && !torso(r - 1, c) && (!torso(r, c - 1) || !torso(r, c + 1)) && (torso(r, c - 1) || torso(r, c + 1) || torso(r + 1, c))) {
+          mechRoles[`${r},${c}`] = 'pauldron';
+        }
+      });
+    }
     const modOpts = (cell, r, c) => {
           const m = SA.MODULES[cell.id];
           const row = veh.body[r], w = SA.fp(cell.id).w;
@@ -3276,7 +3378,7 @@ SA.SPR = (() => {
             store: o.store,   // 蓄压罐：全车存量 0～1
             a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
             punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
-            phase, gait: phase, stride, runK,
+            phase, gait: phase, stride, runK, mech: mechRoles[`${r},${c}`],
             g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),

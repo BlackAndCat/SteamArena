@@ -1303,7 +1303,8 @@ SA.LEGLAB = (() => {
   //   crouch 0～1：下蹲。调用方把整车画低 24 × crouch px，这里地面相对胯升高同样多、两脚前后分开站稳，膝盖自然弯下去；
   //   air + tuck 0～1：空中。脚不再找地面，按 tuck 收腿（0 = 蹬直，1 = 收到最紧），一只脚在前一只在后；
   //   run 0～1：跑步程度（SA.LEGLAB.bipedRun(车速)），脚的轨迹和起伏见 bipedFoot / bipedBob，按车速从走平滑过渡到跑；
-  //   legPart(pn, J, M, o)：画挂在近侧腿上的腿部件（见 drawLeg）
+  //   legPart(pn, J, M, o)：画挂在近侧腿上的腿部件（见 drawLeg）；
+  //   hipPart(pn, cx, Y, o)：画挂在胯上的部件（提速件，2026-10-05 用户定装在胯部），在胯之后、近侧腿之前画，cx = 胯中心，Y = 模块顶（含起伏）
   // 接地点（模块内 x，静止时）：近侧 26、远侧 34
   const BIPED_HIP = 29, CROUCH_PX = 24;
   function bipedArt(pn, x, y, o, part) {
@@ -1328,6 +1329,7 @@ SA.LEGLAB = (() => {
     if (part !== 'legs') {
       pelvis(pn, cx, y + bd, { legId: e.id, hip: o.hip, mv: o.mv, a: o.a, wL: o.wL, wR: o.wR, phase: o.phase, t: o.t, tilt: o.tilt, wob: o.wob });
       if (D.mid) { const top = y + bd + 30, back = pn.around(k * 0.8, cx + 2, top); D.mid(pn, { M: NEAR, x: cx - 21.5, y: top - 12 }, lo); back(); }
+      if (o.hipPart) o.hipPart(pn, cx, y + bd, o);
     }
     if (part !== 'shell') leg(false);
   }

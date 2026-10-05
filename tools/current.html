@@ -37,16 +37,14 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 14px; }
 </style></head>
 <body>
-<h1>当前开发 · 双足强化 v6 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 走路 / 跑步重做（已进游戏），计划：docs/biped-plan.md</small></h1>
-<p class="lead">v5 的意见：步幅太大；跑步动画很怪，要按成熟的跑步姿态和算法重做。这一版重写了游戏里的双足步态（<code>js/legs.js</code>），<b>已经是游戏里的样子</b>。下蹲、跳跃还是样机（等后台规则）。</p>
+<h1>当前开发 · 双足强化 v7 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 计划：docs/biped-plan.md</small></h1>
+<p class="lead">v6 的走路 / 跑步你说满意，收进页面底部的折叠区。这一轮：机甲套件 v4 的四件机甲外观进了游戏；胯部提速件、两格横躺头盔各出三个方案等你挑。</p>
 
-<div class="find"><b>这一版改了什么</b>
+<div class="find"><b>这一轮</b>
 <ol>
-  <li><b>步幅按步频算</b>：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频。原来一步比腿还长（脚够不着地）；现在走路两脚在胯前后约 ±24px，跑步时脚落在身体正下方附近（约 ±15px）。</li>
-  <li><b>走 = 倒立摆</b>：着地占 60%（有双脚着地段），着地腿在胯正下方时整车最高；摆动脚走一条关键姿势插值出来的圆滑曲线（先脚尖蹬地、过胯下时最高、落地前脚跟先着）。</li>
-  <li><b>跑 = 弹簧-质量</b>：着地只占 36%，着地中段压到最低（下压），两脚都离地时被抛到最高（腾空）。摆动腿按跑步关键姿势走：蹬离 → 脚跟往后上收 → 顶膝往前 → 小腿伸出 → 落在身体下方。机甲版收着点，粗腿不会蜷成一团。</li>
-  <li><b>走跑自动过渡</b>：车速 76～100 px/s 之间平滑从走变成跑（现在双足基础速度 78、超速满 97.5，所以超速时会跑起来）；跑起来躯干往车头前倾，每高一大格多 1px（设计稿的「整行错位」）。</li>
-  <li>你的决定都记下了：晶枝腿归标准腿；跳跃件用 A；提速件改装在胯部（不占大腿位，下一轮出方案）；头盔改成两格横躺的部件、两边补零件（进游戏时做）。</li>
+  <li><b>已进游戏 · 机甲外观</b>（Ⓐ）：现有模块装在双足躯干的特定位置时，自动换成 v4 的机甲外观，只换画面、数值不变——<b>躯干顶角的甲片 = 肩甲</b>，<b>躯干最后一列的竖式锅炉 / 小水罐 / 加压舱 = 背负锅炉 / 背水罐 / 喷汽背包</b>。T1～T3 用 v4 的铁制外观，T4～T6 用钢制外观，材料色照游戏的上色走。改装台和战斗里都是这样。</li>
+  <li><b>要你挑 · 胯部提速件</b>（Ⓑ）：A 飞轮增速箱 / B 双缸增压器 / C 离心调速球，各装在轻型、标准、重型三条腿上，放「走 → 跑」。</li>
+  <li><b>要你挑 · 两格横躺头盔</b>（Ⓒ）：A 横窗盔 / B 横置桶盔 / C 炮塔驾驶室，2×1 正对胯中心，两边是游戏里的肩甲；各看 T1 黄铜和 T4 镀镍（样机里头盔先不上材料色）。</li>
 </ol></div>
 
 <div class="bar">
@@ -54,7 +52,26 @@
   <span style="color:var(--muted)">画布都是原生像素 × 2</span>
 </div>
 
-<h2>⓪ 走路 / 跑步（这一轮重做，游戏里就是这样）</h2>
+<h2>Ⓐ 已进游戏 · 机甲外观（游戏整车渲染）</h2>
+<p class="lead">左两台：背负锅炉 + 两侧肩甲（T1 黄铜 / T4 镀镍）；右两台：背水罐 + 喷汽背包 + 肩甲（T1 / T4）。都在慢走。</p>
+<div class="grid" id="mechcars"></div>
+
+<h2>Ⓑ 胯部提速件（挑一个）</h2>
+<div id="hipparts"></div>
+
+<h2>Ⓒ 两格横躺头盔（挑一个）</h2>
+<div class="grid" id="helms"></div>
+
+<details id="prev"><summary>已通过 · v6 走路 / 跑步、轻重腿、四种姿态、跳跃件 A（点开看）</summary>
+<div class="find" style="margin-top:8px"><b>这一版改了什么</b>
+<ol>
+  <li><b>步幅按步频算</b>：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频。原来一步比腿还长（脚够不着地）；现在走路两脚在胯前后约 ±24px，跑步时脚落在身体正下方附近（约 ±15px）。</li>
+  <li><b>走 = 倒立摆</b>：着地占 60%（有双脚着地段），着地腿在胯正下方时整车最高；摆动脚走一条关键姿势插值出来的圆滑曲线（先脚尖蹬地、过胯下时最高、落地前脚跟先着）。</li>
+  <li><b>跑 = 弹簧-质量</b>：着地只占 36%，着地中段压到最低（下压），两脚都离地时被抛到最高（腾空）。摆动腿按跑步关键姿势走：蹬离 → 脚跟往后上收 → 顶膝往前 → 小腿伸出 → 落在身体下方。机甲版收着点，粗腿不会蜷成一团。</li>
+  <li><b>走跑自动过渡</b>：车速 76～100 px/s 之间平滑从走变成跑（现在双足基础速度 78、超速满 97.5，所以超速时会跑起来）；跑起来躯干往车头前倾，每高一大格多 1px（设计稿的「整行错位」）。</li>
+  <li>你的决定都记下了：晶枝腿归标准腿；跳跃件用 A；提速件改装在胯部（不占大腿位，下一轮出方案）；头盔改成两格横躺的部件、两边补零件（进游戏时做）。</li>
+</ol></div>
+<h2>⓪ 走路 / 跑步（已进游戏）</h2>
 <div class="bar" style="position:static">
   <label>车速 <input type="range" id="speed" min="0" max="130" step="1" value="62" style="width:260px"></label>
   <b id="speedv" style="min-width:220px"></b>
@@ -85,7 +102,7 @@
 <p class="lead">跳跃件选定 A 弹簧蹬缸（小腿位）。提速件改装在胯部、不占大腿位，下一轮出方案。下面是跳跃件装在三条腿上「走 → 蓄力 → 起跳」。</p>
 <div id="parts"></div>
 
-<details id="v4"><summary>已通过 · 机甲套件 v4（2026-10-05 全部通过，点开看整机）</summary>
+<h2>机甲套件 v4（2026-10-05 全部通过）</h2>
 <p class="lead">原页面：<a href="archive/mech-kit-v4.html">archive/mech-kit-v4</a>（零件表、铁制 / 钢制两种外观都在那里）。</p>
 <div class="cards" id="v4cards"></div>
 </details>
@@ -99,6 +116,50 @@
   const C = SA.CUR, K4 = SA.MECHKIT, st = { mv: true, t: 0 }, views = [];
   const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const canvas = (w, h, z = 2) => { const cv = mk('canvas'); cv.width = w; cv.height = h; cv.style.width = w * z + 'px'; return cv; };
+
+  // Ⓐ 机甲外观（游戏整车）
+  const CAR_A = [['biped', 8, 6], ['boiler_s', 6, 5], ['boiler', 6, 6], ['tank_tall', 6, 8], ['helmet', 5, 6], ['plate', 5, 7], ['plate', 5, 5], ['plate', 5, 8]];
+  const CAR_B = [['biped', 8, 6], ['pressure_chamber', 6, 5], ['tank_s', 5, 5], ['cannon_m', 7, 6], ['helmet', 6, 6], ['plate', 6, 7], ['tank_tall', 6, 8], ['plate', 5, 6], ['plate', 5, 7]];
+  const MC = document.getElementById('mechcars');
+  [[CAR_A, 1, '背负锅炉 + 肩甲 · T1 黄铜'], [CAR_A, 4, '背负锅炉 + 肩甲 · T4 镀镍'], [CAR_B, 1, '背水罐 + 喷汽背包 + 肩甲 · T1 黄铜'], [CAR_B, 4, '背水罐 + 喷汽背包 + 肩甲 · T4 镀镍']].forEach(([lay, mt, name], i) => {
+    const v = SA.V.create(name);
+    for (const [id, r, c] of lay) v.body[r][c] = SA.newCell(id, mt);
+    const card = mk('div', 'card'), cv = canvas(160, 228);
+    card.append(mk('b', null, name), cv); MC.append(card);
+    views.push({ cv, draw: () => {
+      const sp = st.mv ? 55 : 0, stride = SA.LEGLAB.strideFor(sp), a = st.mv ? Math.PI * 2 * st.t * sp / (4 * stride) : 0;
+      const car = SA.SPR.renderVehicle(v, { moving: sp > 0, speed: sp, phase: a, key: 'mech' + i, t: st.t });
+      const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
+      g.fillStyle = SA.PAL.bg[4]; g.fillRect(0, 288 - 72, cv.width, 12);
+      g.drawImage(car, -(SA.SPR.PADX + 4 * 24) + 10, -72);
+    } });
+  });
+
+  // Ⓑ 胯部提速件
+  const HP = document.getElementById('hipparts'), PB2 = C.PART_BOX;
+  for (const [id, part] of Object.entries(C.HIPPARTS)) {
+    const row = mk('div', 'prow');
+    row.append(mk('b', null, part.name), mk('p', 'idea', part.idea));
+    const legs = mk('div', 'legs');
+    [['light', 'blade', '轻型 · 板簧跑刃'], ['std', 'gren', '标准 · 掷弹兵'], ['heavy', 'steamman', '重型 · 蒸汽人']].forEach(([cls, leg, name], i) => {
+      const fig = mk('figure'), cv = canvas(PB2.W, PB2.H);
+      fig.append(cv, mk('figcaption', null, name)); legs.append(fig);
+      const spec = { hip: id, cls, leg, mech: null, box: PB2, t0: i * 0.6 };
+      views.push({ cv, draw: () => C.renderPart(cv, spec, st) });
+    });
+    row.append(legs); HP.append(row);
+  }
+
+  // Ⓒ 两格横躺头盔
+  const HM = document.getElementById('helms'), HB = C.HELM_BOX;
+  for (const [id, h] of Object.entries(C.HELMS)) for (const mt of [1, 4]) {
+    const card = mk('div', 'card'), cv = canvas(HB.W, HB.H);
+    card.append(mk('b', null, `${h.name} · ${mt === 1 ? 'T1 黄铜车' : 'T4 镀镍车'}`), cv);
+    if (mt === 1) card.append(mk('p', 'cap', h.idea));
+    HM.append(card);
+    const spec = { id, mt };
+    views.push({ cv, draw: () => C.renderHelm(cv, spec, st) });
+  }
 
   // ⓪ 走 / 跑
   const car = SA.V.fromAscii('双足样车', ['........','........','..CA....','..KA....','..OW....','..B.....']);
