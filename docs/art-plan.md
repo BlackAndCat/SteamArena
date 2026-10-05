@@ -56,7 +56,7 @@
 |---|---|---|---|---|---|---|
 | **第 1 档 · 底盘细分支** |||||||
 | 1 | 四足 | `quad` | 4×2 整件 | 第一章 | **已进游戏** | 2026-09-29：六档主线（工装 Mk.II / 桁架爬机 / 板簧拖车 / 曲柄步行机 / 汽锤步行机 / 哥特教堂）进游戏，画法在 `js/legs.js` 的 `SA.LEGLAB.Q6`；9 种唯一变体已注册（`Q6.SET`，sprites 的 `cell.look` 覆盖），等获得方式。探索存档 `tools/archive/quad-tiers.html` |
-| 2 | 双足 | `biped` | 2×4 | 第二章 | **已进游戏** | 2026-09-29：六档腿型 + 腰胯进游戏（`legs.js` 的 `HIPS` / `HIP_OF`、`sprites.js` 的 `BIPED_LOOK`）；9 种唯一变体已注册、等获得方式。探索存档 `tools/archive/biped-tiers.html` |
+| 2 | 双足 | `biped` | 2×4 | 第二章 | **已进游戏** | 2026-09-29：六档腿型 + 腰胯进游戏（`legs.js` 的 `HIPS` / `HIP_OF`、`sprites.js` 的 `BIPED_LOOK`）；9 种唯一变体已注册、等获得方式。探索存档 `tools/archive/biped-tiers.html`。2026-10-05 双足强化（`docs/biped-plan.md`）：`legs.js` 已支持下蹲 / 空中收腿 / 快跑腾空 / 腿部件挂点（默认画面不变）；轻重腿分法、四种姿态、跳跃件 / 提速件各三种在「当前开发」v5 等用户挑；机甲套件 v4 全部通过 |
 | **第 2 档 · 前两章的文字占位** |||||||
 | 3 | 观察镜 | `periscope` | 1×1 | 第一章 | **已进游戏** | 2026-09-29：D 轭架望远镜（`sprites.js` 的 `periscopeArt`），各档只换颜色；7 种造型存档 `tools/archive/periscope.html` |
 | 4 | 装弹机 | `autoloader` | 1×1 | 第一章 | **已进游戏** | 2026-09-29：B 链式扬弹机（`sprites.js` 的 `autoloaderArt`），各档只换颜色 |
