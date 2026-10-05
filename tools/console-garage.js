@@ -27,27 +27,12 @@
   const car = () => session.vehicle();
   const cellsOf = (v) => SA.StageCars.cellsOf(v);
 
-  // 进化按本关范围检查，拼装仍允许在完整 8×6 工作区编辑；诊断只改副本的 lim。
-  // 已配置的计划关直接复用路线图 enemyGrid；早期已实施关与生成器一样累计此前扩建解锁。
-  function evolutionGrid(at) {
-    if (!Number.isInteger(at?.ci) || !Number.isInteger(at?.si)) return null;
-    const planned = SA.CAMPAIGN_MAP?.chapters[at.ci]?.stages[at.si];
-    if (!planned || !SA.CAMPAIGN[at.ci]) return null;
-    if (planned.enemyGrid) return { ...planned.enemyGrid };
-    if (Array.isArray(planned.rewardModules) || !actualStage(at.ci, at.si)) return null;
-    let grid = { ...SA.CAMP_START.grid };
-    const unlock = (entry) => { if (entry?.unlock?.grid) grid = { ...entry.unlock.grid }; };
-    for (let ci = 0; ci <= at.ci; ci++) {
-      const chapter = SA.CAMPAIGN[ci], stop = ci === at.ci ? at.si : chapter.stages.length;
-      for (let si = 0; si < stop; si++) unlock(actualStage(ci, si) || chapter.stages[si]);
-      if (ci < at.ci) unlock(chapter);
-    }
-    return grid;
-  }
+  // 手工关卡车始终使用完整工作区：编辑、出战及手工进化席位不套用玩家扩建进度。
+  // 诊断只修改副本，保留原车的模块坐标；结构、连接和动力等出战规则仍照常检查。
   function diagnostics(v = car()) {
     if (!v) return null;
-    const grid = evolutionGrid(current()), copy = SA.V.clone(v);
-    if (grid) copy.lim = grid;
+    const grid = { cols: 8, rows: 6 }, copy = SA.V.clone(v);
+    copy.lim = grid;
     const stats = SA.V.stats(copy);
     const issues = (stats.issues || []).map((issue) => {
       const cell = copy[issue.layer][issue.r][issue.c], size = SA.fp(cell.id);
@@ -58,31 +43,29 @@
   // 仅此隔离工具页安装性能单回调；普通玩家工作台保持原计算与预览规则。
   SA.WorkbenchDiagnostics = (v) => {
     const result = diagnostics(v), { grid, stats: s, issues } = result, h = SA.h;
-    // 诊断范围与画布编辑范围不同：仅改展示用语，不宣称画布标红，也不引导作者推进战役。
+    // 性能单与画布共用最大范围，不再把自动生成候选的关卡规格显示为手工车限制。
     const problemText = reason => reason.replace('（车间里红色闪烁）', '');
     const issueText = issue => issue.reason === SA.Config.text('vehicle_bd09be8e512a')
-      ? '超出本关进化可用范围' : issue.reason;
+      ? '超出工作台可用范围' : issue.reason;
     const badModules = new Set(issues.map(issue => `${issue.layer},${issue.r},${issue.c}`)).size;
-    const compactText = !grid ? '进化资格无法校验：缺少本关生成规格，详见性能单'
-      : s.canDeploy ? `进化出战校验通过（${grid.cols}列×${grid.rows}层）`
-        : `进化校验未通过：${badModules ? `${badModules} 个模块摆放违规；` : ''}${s.problems.length} 项原因，详见下方性能单`;
+    const compactText = s.canDeploy ? `进化出战校验通过（${grid.cols}列×${grid.rows}层）`
+      : `进化校验未通过：${badModules ? `${badModules} 个模块摆放违规；` : ''}${s.problems.length} 项原因，详见左侧性能单`;
     const summary = h('div', { class: 'garage-diagnostics', role: 'status' },
-      h('b', { class: grid && s.canDeploy ? '' : 'px-prob' }, grid
-        ? `进化出战校验：${s.canDeploy ? '通过' : '不能出战'}（${s.problems.length} 项原因）`
-        : '进化出战校验：缺少本关生成规格，无法校验'),
-      h('div', {}, grid ? `进化范围：${grid.cols}列×${grid.rows}层；编辑范围：8列×6层` : '编辑范围：8列×6层'),
-      grid ? h('div', { class: 'px-small' }, (() => {
+      h('b', { class: s.canDeploy ? '' : 'px-prob' },
+        `进化出战校验：${s.canDeploy ? '通过' : '不能出战'}（${s.problems.length} 项原因）`),
+      h('div', {}, `编辑与出战范围：${grid.cols}列×${grid.rows}层（已全部开放）`),
+      h('div', { class: 'px-small' }, (() => {
         const region = SA.V.region(result.vehicle);
-        return `进化可用子格：第 ${region.c0 + 1}～${region.c1 + 1} 列，第 ${region.r0 + 1}～${SA.K.ROWS} 行（从左上角 1 起算）`;
-      })()) : null,
-      grid ? s.problems.map(reason => h('div', { class: 'px-prob' }, problemText(reason))) : null,
-      grid ? issues.map(issue => h('div', { class: 'px-prob' },
-        `${issue.layer === 'side' ? '侧挂层' : '主体层'}·${issue.name}·子格第${issue.c + 1}列、第${issue.r + 1}行（从左上角1起算）：${issueText(issue)}；占 ${issue.w}×${issue.h} 子格`)) : null,
+        return `可用子格：第 ${region.c0 + 1}～${region.c1 + 1} 列，第 ${region.r0 + 1}～${SA.K.ROWS} 行（从左上角 1 起算）`;
+      })()),
+      s.problems.map(reason => h('div', { class: 'px-prob' }, problemText(reason))),
+      issues.map(issue => h('div', { class: 'px-prob' },
+        `${issue.layer === 'side' ? '侧挂层' : '主体层'}·${issue.name}·子格第${issue.c + 1}列、第${issue.r + 1}行（从左上角1起算）：${issueText(issue)}；占 ${issue.w}×${issue.h} 子格`)),
       h('div', { class: 'px-small' }, '试驾场作为敌车能作战，不代表通过进化出战校验。'),
       h('b', {}, '机械性能（红色数值表示异常；警告不一定禁止出战）'));
-    // 无生成规格时仍展示编辑范围内的机械问题；有规格时原因已在上方完整列出。
+    // 原因已在上方完整列出，机械性能区域只补充不禁止出战的警告。
     return { ...result, summary, compactText, displayStats: { ...s,
-      problems: grid ? [] : s.problems.map(reason => `机械出战问题：${problemText(reason)}`),
+      problems: [],
       warnings: s.warnings.map(warning => `机械性能警告：${warning}`) } };
   };
 
@@ -109,6 +92,12 @@
   // 会话身份跟着车辆走；父页只接收当前目标的编辑通知。
   const info = () => ({ target: current(), ci: current()?.ci, si: current()?.si, name: car()?.name || '', cells: car() ? cellsOf(car()) : [] });
   const cellsJson = () => (car() ? JSON.stringify(cellsOf(car())) : '');
+  // 只读导出拼装台当前车辆（包含未保存的编辑）；完整 cells 保留材料、等级及变体，不写关卡数据。
+  function shareCode() {
+    const v = car();
+    if (!v) throw new Error('拼装台还没有车辆');
+    return SA.WorkbenchSession.exportVehicle(v, SA);
+  }
   const setName = (name) => { if (car()) car().name = name; const plate = document.querySelector('.plate-name'); if (plate && plate.value !== name) plate.value = name; };
 
   // 保存：校验当前目标后交给规则层写正式 config/stage-cars.json，并广播更新。
@@ -286,6 +275,6 @@
     if (current() && window.parent !== window) window.parent.postMessage({ type: 'garage-change', target: current() }, location.origin);
   });
 
-  window.Garage = { ready: true, open, openCandidate, info, cellsJson, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, drivePick };
+  window.Garage = { ready: true, open, openCandidate, info, cellsJson, shareCode, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, drivePick };
   if (window.parent !== window) window.parent.postMessage({ type: 'garage-ready' }, location.origin);
 })();

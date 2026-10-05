@@ -48,7 +48,8 @@
         if (anchors.has(key)) throw new Error('模块清单包含重复位置');
         anchors.add(key);
       }
-      vehicle = SA.V.fromCells(name || '导入车辆', cells);
+      // 完整工作台种子携带车名；显式传入的工作台车名仍优先，旧模块数组继续使用默认名。
+      vehicle = SA.V.fromCells(name || (typeof parsed?.name === 'string' && parsed.name) || '导入车辆', cells);
       let count = 0;
       SA.V.each(vehicle, () => { count++; });
       if (count !== cells.length) throw new Error('模块清单有部件在装配时丢失，原车未更换');
@@ -57,7 +58,17 @@
     if (name) vehicle.name = name;
     return vehicle;
   }
-  const api = { create, parseVehicle };
+  // 完整车辆种子只保存拼装数据，保留材料、等级和外观／唯一变体；可由 parseVehicle 原样回读。
+  function exportVehicle(vehicle, SA) {
+    const cells = [];
+    SA.V.each(vehicle, (cell, row, col, layer) => {
+      const item = [layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0];
+      if (cell.look || cell.unique) item.push({ look: cell.look, unique: cell.unique });
+      cells.push(item);
+    });
+    return JSON.stringify({ name: vehicle.name, cells });
+  }
+  const api = { create, parseVehicle, exportVehicle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (host) (host.SA ||= {}).WorkbenchSession = api;
 })(typeof window !== 'undefined' ? window : null);

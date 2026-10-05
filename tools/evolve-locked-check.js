@@ -8,9 +8,9 @@ function run() {
   const valid = evolve.minimalVehicle(SA, spec);
   assert(valid && evolve.legalVehicle(SA, valid, spec), '缺少合法的多奖励手工车夹具');
   const base = { name: '手工测试车', cells: SA.StageCars.cellsOf(valid), style: 'wander' };
-  const inspect = (record, reference = null) => {
+  const inspect = (record, reference = null, stageSpec = spec) => {
     const failures = [];
-    const stage = evolve.lockedStageReport({ spec, records: [record], archive: {} }, failures, SA, reference, 91234);
+    const stage = evolve.lockedStageReport({ spec: stageSpec, records: [record], archive: {} }, failures, SA, reference, 91234);
     return { stage, failures };
   };
   assert(inspect(base).stage.selected, '合法锁定车不应被无故删除');
@@ -40,7 +40,22 @@ function run() {
   assert.strictEqual(weak.stage.selected, null);
   assert.strictEqual(weak.stage.selection.previousGames, 120);
   assert(weak.stage.selection.failed.includes('target'));
-  return { rewardGuard: true, futureGuard: true, materialGuard: true, previousGuard: true };
+
+  // 机械合法的手工车即使不符预算、缺奖励，也要产生对局诊断；资格判断仍不准放行。
+  const diagnostic = inspect(noCondenser, { vehicle: prior, style: 'wander' }, { ...spec, budget: 1 });
+  assert.strictEqual(diagnostic.stage.selection.previousGames, 120, '生成硬门槛不应阻止合法手工车的实战诊断');
+  assert(Number.isFinite(diagnostic.stage.selection.previousWinRate));
+  assert.strictEqual(diagnostic.stage.selection.hardConditions.budget, false);
+  assert.strictEqual(diagnostic.stage.selection.hardConditions.reward, false);
+  assert.strictEqual(diagnostic.stage.selected, null, '诊断对局不能豁免入选硬门槛');
+
+  // 锅炉缺失的机械非法车仍不能模拟，即使已有前关参考车。
+  const noBoiler = { ...base, cells: base.cells.filter(cell => cell[3] !== 'boiler') };
+  const broken = inspect(noBoiler, { vehicle: prior, style: 'wander' });
+  assert.strictEqual(broken.stage.selection.hardConditions.construction, false);
+  assert.strictEqual(broken.stage.selection.previousGames, 0);
+  assert.strictEqual(broken.stage.selected, null);
+  return { rewardGuard: true, futureGuard: true, materialGuard: true, previousGuard: true, manualDiagnostics: true, invalidSimulationGuard: true };
 }
 
 if (require.main === module) console.log(JSON.stringify(run()));

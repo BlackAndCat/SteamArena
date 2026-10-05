@@ -61,3 +61,4 @@ SA.BUILD_VIS += '+evolve-arena-redo'; // 进化擂台按后台外观重做：第
 // 关卡车性能单显示进化范围校验，并保留完整数值与警告。
 SA.BUILD_VIS += '+stage-workbench-diagnostics';
 SA.BUILD_VIS += '+stage-car-one-save'; // 关卡车只剩一种保存（关卡工作台「保存」，改过车自动勾「手动选择」）；进化擂台卡片先显示手动选择的关卡车和它的成绩、可勾掉；点卡片在那一排下面展开全部候选，「换上这辆」交给关卡工作台当草稿
+SA.BUILD_VIS += '+stage-sheet-sidebar-seed-export'; // 用户授权本次工作台性能单左侧竖栏、完整种子复制与导出入口。

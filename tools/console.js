@@ -1740,7 +1740,7 @@
     const togglePanel = () => {
       panel.hidden = !panel.hidden;
       if (!panel.hidden) {
-        const ta = el('textarea', { rows: 3, class: 'mono', placeholder: 'SA2.… 分享码，或 [[层,行,列,id,材料,改装等级],…] 模块清单' });
+        const ta = el('textarea', { rows: 3, class: 'mono', placeholder: '完整车辆种子 JSON、SA2.… 分享码，或 [[层,行,列,id,材料,改装等级],…] 模块清单' });
         panel.replaceChildren(el('label.field', null, '粘贴分享码或模块清单', ta), el('div.row', null,
           el('button.btn.sm.primary', { type: 'button', on: { click: withGarage((G) => { G.importText(ta.value, f.vehicleName); panel.hidden = true; changed('已换上导入的车，记得保存'); requestAnimationFrame(placeGarage); }) } }, '换上这台车'),
           el('button.btn.sm.ghost', { type: 'button', on: { click: () => { panel.hidden = true; requestAnimationFrame(placeGarage); } } }, '取消')));
@@ -1748,11 +1748,42 @@
       }
       requestAnimationFrame(placeGarage);
     };
+    // 下载及剪贴板受限时共用只读种子面板，全选文本供手动复制，完整保留车辆属性。
+    const showSeed = (code, note) => {
+      const ta = el('textarea', { rows: 3, class: 'mono', readOnly: true, 'aria-label': '车辆种子', value: code });
+      panel.replaceChildren(el('label.field', null, note, ta),
+        el('button.btn.sm.ghost', { type: 'button', on: { click: () => { panel.hidden = true; requestAnimationFrame(placeGarage); } } }, '关闭'));
+      panel.hidden = false;
+      requestAnimationFrame(() => { placeGarage(); ta.focus(); ta.select(); });
+    };
+    // 复制当前拼装草稿的完整种子；剪贴板被浏览器拒绝时，展开只读文本并全选供手动复制。
+    // 与导入共用工具栏下方的面板，打开或关闭后同步拼装台位置，不改变关卡保存状态。
+    const copySeed = async (G) => {
+      const code = G.shareCode();
+      try {
+        await navigator.clipboard.writeText(code);
+        toast('已复制车辆种子');
+      } catch (error) {
+        showSeed(code, '自动复制不可用，请按 Ctrl+C 复制已选中的种子');
+      }
+    };
+    // 下载与复制完全相同的完整种子；同时展开文本，浏览器阻止下载时仍可手动取得。
+    const exportSeed = (G) => {
+      const code = G.shareCode();
+      showSeed(code, '完整车辆种子（保留材料、改装等级及变体），可按 Ctrl+C 复制或保存下载的 JSON');
+      const url = URL.createObjectURL(new Blob([code], { type: 'application/json;charset=utf-8' }));
+      const link = el('a', { href: url, download: `${(G.info().name || '车辆').replace(/[\\/:*?"<>|]/g, '_')}.seed.json` });
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast('已生成完整车辆种子并请求下载');
+    };
     const sep = () => el('span.bar-sep');
     const bar = el('div.build-bar', null,
       el('label.field.inline', null, '车名', name),
       sep(),
       el('button.btn.sm', { type: 'button', title: '粘贴分享码或模块清单，换上那台车', on: { click: togglePanel } }, '导入…'),
+      el('button.btn.sm', { type: 'button', title: '复制当前车辆完整种子，保留材料、改装等级及变体，包含未保存的编辑', on: { click: withGarage(copySeed) } }, '复制种子'),
+      el('button.btn.sm', { type: 'button', title: '下载当前车辆完整种子 JSON', on: { click: withGarage(exportSeed) } }, '导出种子'),
       cand,
       el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(cand.value); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
       sep(),

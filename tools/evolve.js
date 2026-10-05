@@ -116,7 +116,7 @@ function stageFor(SA, chapter, stage) {
 }
 
 function manualCandidateRecord(SA, stage, chapter, index, fingerprint) {
-  const vehicle = stage.vehicle, stats = SA.V.stats(vehicle), rec = stage.stageCar || {};
+  const vehicle = manualWorkbenchVehicle(SA, stage.vehicle), stats = SA.V.stats(vehicle), rec = stage.stageCar || {};
   return {
     name: stage.name, code: SA.V.encode(vehicle), cells: SA.StageCars.cellsOf(vehicle),
     style: stage.style || 'wander',
@@ -127,12 +127,20 @@ function manualCandidateRecord(SA, stage, chapter, index, fingerprint) {
   };
 }
 
+// 关卡作者的手工车始终使用完整工作台；生成种群仍由本关 spec.grid 限制。
+// 重建内存副本，不改变手工记录的坐标、材料或玩家逐章解锁范围。
+function manualWorkbenchVehicle(SA, source) {
+  const vehicle = SA.V.fromCells(source.name, SA.StageCars.cellsOf(source));
+  vehicle.lim = { cols: SA.K.COLS / 2, rows: SA.K.ROWS / 2 };
+  return vehicle;
+}
+
 // 进化擂台定向生成时，手动选择（stage-cars.json 的 locked）的关卡车每一代都占一个固定席位：
 // 按它自己的性格评分，不参加进化选车；选车口径的硬条件和对上一关车的复测另记在报告的 stage.manual。
 function pinnedStageCar(SA, actual, spec) {
   if (!actual?.vehicle || actual.source !== 'manual' || actual.locked === false) return null;
-  const vehicle = SA.V.fromCells(actual.vehicleName || actual.vehicle.name || actual.name, SA.StageCars.cellsOf(actual.vehicle));
-  vehicle.lim = { ...spec.grid };
+  const vehicle = manualWorkbenchVehicle(SA, actual.vehicle);
+  vehicle.name = actual.vehicleName || actual.vehicle.name || actual.name;
   vehicle.arenaStyle = actual.style || 'wander';
   return vehicle;
 }
@@ -144,7 +152,7 @@ function pinnedStageRecord(SA, actual, vehicle, item, spec, reference, fingerpri
       spec: { chapter: spec.chapter, stage: spec.stage, terrain: spec.terrain }, rules: fingerprint,
       unusable: `关卡车不能出战，没有参加这次进化${problems.length ? `：${problems.join('；')}` : ''}` };
   }
-  const conditions = constructionConditions(SA, item.vehicle, spec), validationSeed = seed + 100000000 - 7;
+  const conditions = constructionConditions(SA, item.vehicle, { ...spec, grid: item.vehicle.lim }), validationSeed = seed + 100000000 - 7;
   const result = reference?.vehicle ? duel(SA, item.vehicle, reference.vehicle,
     { ...spec, style: item.style, referenceStyle: reference.style || 'wander' }, validationSeed, config.evaluation.finalDuelGames, duelCache) : null;
   const targetPass = !result || difficultyDistance(result.winRate) === 0, hardConditions = { ...conditions, target: targetPass };
@@ -168,9 +176,10 @@ function lockedStageReport(entry, selectionFailures, SA, reference = null, seed 
   const required = spec.requiredModules || (spec.rewardModule ? [spec.rewardModule] : []);
   const reward = required.every(id => records[0].cells.some(cell => cell[3] === id));
   const vehicle = SA?.V.fromCells(records[0].name, records[0].cells);
-  if (vehicle) vehicle.lim = { ...spec.grid };
-  const conditions = vehicle ? constructionConditions(SA, vehicle, spec) : { construction: false, reward };
-  const validation = reference?.vehicle && vehicle && Object.values(conditions).every(Boolean) ? duel(SA, vehicle, reference.vehicle,
+  if (vehicle) vehicle.lim = { cols: SA.K.COLS / 2, rows: SA.K.ROWS / 2 };
+  const conditions = vehicle ? constructionConditions(SA, vehicle, { ...spec, grid: vehicle.lim }) : { construction: false, reward };
+  // 手工车机械合法即可复测；预算、奖励和模块档位仍单独决定是否合格入选，不阻止作者观察实战。
+  const validation = reference?.vehicle && vehicle && conditions.construction && conditions.grid ? duel(SA, vehicle, reference.vehicle,
     { ...spec, style: records[0].style, referenceStyle: reference.style || 'wander' }, seed + 100000000,
     config.evaluation.finalDuelGames, duelCache) : null;
   const target = !reference || !!validation && difficultyDistance(validation.winRate) === 0;
@@ -1250,7 +1259,8 @@ function survivorPool(SA, scored, count) {
 
 function nextPopulation(SA, spec, scored, seeds, rng, settings, pinned = null) {
   const wanted = scored.length, count = Math.max(2, Math.ceil(wanted * config.population.survivors));
-  const keep = survivorPool(SA, scored, count), current = [], seen = new Set();
+  // 手工席位只保留原车，不作为自动种群的留种或补人口副本，避免带入完整工作台范围。
+  const keep = survivorPool(SA, pinned ? scored.filter(item => item.vehicle !== pinned) : scored, count), current = [], seen = new Set();
   const add = vehicle => {
     const key = JSON.stringify(cellsOf(SA, vehicle));
     if (current.length >= wanted || seen.has(key)) return false;
@@ -1427,12 +1437,12 @@ function applyStagePatch(SA, chapter, stage, patch = {}) {
 // 同步与并行生成共用原点拒绝提示；坐标按整张工作台子格从左上角 1 起算，便于逐件修正。
 function requireOriginDeployable(SA, vehicle, grid, stats) {
   if (stats.canDeploy) return;
-  // 原点按关卡范围校验；宽工作台未必标红，也不应引导关卡作者推进玩家战役。
+  // 原点按完整工作台检查真实结构；关卡作者不受玩家逐章扩建限制。
   const problems = stats.problems.map(problem => problem.replace('（车间里红色闪烁）', ''));
   const lockedReason = SA.Config.text('vehicle_bd09be8e512a');
   const details = stats.issues.map(issue => {
     const cell = vehicle[issue.layer][issue.r][issue.c], name = SA.MODULES[cell.id].name;
-    const reason = issue.reason === lockedReason ? '超出本关进化可用范围' : issue.reason;
+    const reason = issue.reason === lockedReason ? '超出完整工作台可用范围' : issue.reason;
     return `${issue.layer === 'side' ? '侧挂层' : '主体层'}·${name}·子格第 ${issue.c + 1} 列、第 ${issue.r + 1} 行：${reason}`;
   });
   throw new Error(`上一关不能出战：原点车「${vehicle.name}」；校验范围 ${grid.cols}列×${grid.rows}层。${problems.join('；')}` +
@@ -1455,14 +1465,14 @@ function run(options = {}) {
   const source = route ? scope.origin : firstIndex > 0 ? plannedRoute(SA)[firstIndex - 1] : null;
   let origin = null;
   if (source && source.stage >= 0) {
-    const sourceSpec = previewStageSpec(SA, source.chapter, source.stage);
+    previewStageSpec(SA, source.chapter, source.stage);
     const actual = stageFor(SA, source.chapter, source.stage);
     const vehicle = options.originVehicle ? SA.V.fromCells(options.originVehicle.name || '原点关卡车', options.originVehicle.cells) : actual?.vehicle;
     if (!vehicle) throw new Error('上一关缺少已入选车或原点测试车');
     if (options.originVehicle && !exactCells(SA, vehicle, options.originVehicle.cells))
       throw new Error('原点车辆包含无效模块或布局，不能静默丢弃');
-    vehicle.lim = { ...sourceSpec.grid };
-    requireOriginDeployable(SA, vehicle, sourceSpec.grid, SA.V.stats(vehicle));
+    vehicle.lim = { cols: SA.K.COLS / 2, rows: SA.K.ROWS / 2 };
+    requireOriginDeployable(SA, vehicle, vehicle.lim, SA.V.stats(vehicle));
     origin = { vehicle, style: options.originVehicle?.style || actual?.style || 'wander' };
   }
   let reference = origin, previous = origin ? [origin.vehicle] : [], recent = origin ? [origin] : [], status = 'complete';
@@ -1477,7 +1487,7 @@ function run(options = {}) {
         seed + chapter * 10000 + stage * 101, duelCache);
       chapterReport.stages.push(report); all.push(record);
       if (!report.selected) { status = 'failed'; break; }
-      reference = { vehicle: actual.vehicle, style: record.style }; previous = [actual.vehicle]; recent = [reference, ...recent].slice(0, 3);
+      reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
       continue;
     }
     if (reference && !SA.V.stats(reference.vehicle).canDeploy) throw new Error('上一关入选车不能出战');
@@ -1619,14 +1629,14 @@ async function runAsync(options = {}) {
   const source = route ? scope.origin : firstIndex > 0 ? plannedRoute(SA)[firstIndex - 1] : null;
   let origin = null;
   if (source && source.stage >= 0) {
-    const sourceSpec = previewStageSpec(SA, source.chapter, source.stage);
+    previewStageSpec(SA, source.chapter, source.stage);
     const actual = stageFor(SA, source.chapter, source.stage);
     const vehicle = options.originVehicle ? SA.V.fromCells(options.originVehicle.name || '原点关卡车', options.originVehicle.cells) : actual?.vehicle;
     if (!vehicle) throw new Error('上一关缺少已入选车或原点测试车');
     if (options.originVehicle && !exactCells(SA, vehicle, options.originVehicle.cells))
       throw new Error('原点车辆包含无效模块或布局，不能静默丢弃');
-    vehicle.lim = { ...sourceSpec.grid };
-    requireOriginDeployable(SA, vehicle, sourceSpec.grid, SA.V.stats(vehicle, { deferHeat: true }));
+    vehicle.lim = { cols: SA.K.COLS / 2, rows: SA.K.ROWS / 2 };
+    requireOriginDeployable(SA, vehicle, vehicle.lim, SA.V.stats(vehicle, { deferHeat: true }));
     origin = { vehicle, style: options.originVehicle?.style || actual?.style || 'wander' };
   }
   const preheater = await createThermalPreheater(SA, options, telemetry);
@@ -1658,7 +1668,7 @@ async function runAsync(options = {}) {
           seed + chapter * 10000 + stage * 101, duelCache);
         chapterReport.stages.push(report); all.push(record);
         if (!report.selected) { status = 'failed'; break; }
-        reference = { vehicle: actual.vehicle, style: record.style }; previous = [actual.vehicle]; recent = [reference, ...recent].slice(0, 3);
+        reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
         telemetry.completedStages++; progress({ phase: 'stage-end', chapter, stage, locked: true }); checkpoint();
         continue;
       }
@@ -1695,7 +1705,7 @@ async function runAsync(options = {}) {
       const report = completedStage(SA, spec, result, reference, recent, fingerprint,
         selectionSeed, duelCache, origin, quickGames);
       if (pinned) report.manual = pinnedStageRecord(SA, actual, pinned, seat ? result.pinned : null, spec, reference, fingerprint, selectionSeed, duelCache);
-      const manualReference = seat ? { vehicle: actual.vehicle, style: actual.style || 'wander' } : null;
+      const manualReference = seat ? { vehicle: seat, style: actual.style || 'wander' } : null;
       report.seedProvenance = seeds.map((vehicle, sourceIndex) => ({ sourceIndex, name: vehicle.name,
         cells: cellsOf(SA, vehicle), generations: result.generationMetrics.map(row => row.seedRetention?.[sourceIndex] || null) }));
       chapterReport.stages.push(report); all.push(...report.top);

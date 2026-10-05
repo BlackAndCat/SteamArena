@@ -19,6 +19,19 @@ async function run() {
   const json = value => JSON.stringify(value);   // 游戏跑在 VM 里，数组不同源，按内容比
   assert.strictEqual(json(SA.StageCars.cellsOf(pinned)), json(SA.StageCars.cellsOf(actual.vehicle)), '席位上的车不是关卡车原样');
 
+  // 第一章第五关的手工车可触及最大工作台边缘；它只占手工席位，不能成为超范围自动候选。
+  const wideSpec = evolve.previewStageSpec(SA, 1, 4), minimal = evolve.minimalVehicle(SA, wideSpec);
+  const edgeCells = SA.StageCars.cellsOf(minimal).map(cell => [cell[0], cell[1], cell[2] - 2, ...cell.slice(3)]);
+  const edgeActual = { source: 'manual', locked: true, style: 'wander', vehicle: SA.V.fromCells('边缘手工车', edgeCells) };
+  const edge = evolve.pinnedStageCar(SA, edgeActual, wideSpec);
+  assert.strictEqual(json(edge.lim), json({ cols: 8, rows: 6 }));
+  assert(SA.V.stats(edge).canDeploy, '最大范围边缘手工车应能参加席位');
+  assert(!evolve.legalVehicle(SA, edge, wideSpec), '自动候选不可继承手工席位豁免');
+  const simulated = evolve.duel(SA, edge, minimal, wideSpec, 515152, 1);
+  assert.strictEqual(simulated.n, 2, '手工席位必须完成真实双边模拟');
+  const broken = evolve.pinnedStageCar(SA, { ...edgeActual, vehicle: SA.V.fromCells('无锅炉车', edgeCells.filter(cell => cell[3] !== 'boiler')) }, wideSpec);
+  assert(!SA.V.stats(broken).canDeploy, '完整范围不豁免真实动力结构');
+
   const keep = { ...config.population };
   let report;
   try {

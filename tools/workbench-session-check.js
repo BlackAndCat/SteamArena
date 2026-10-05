@@ -13,6 +13,25 @@ const code = 'SA2.eyJuIjoi5L+d5bqV5YCZ6YCJwrcyLTTCt+WPmOW8gjkwNzM5IiwiYiI6W1s4LD
 const session = Workbench.create();
 const A = { kind: 'stage', id: '1,4' }, B = { kind: 'stage', id: '1,5' };
 const original = SA.V.clone(SA.Camp.stage(0, 0).vehicle);
+// 完整种子必须原样保留名称、材料、改装和变体；不使用仅保存布局的玩家分享码作为导出格式。
+const seedCar = SA.V.clone(original);
+seedCar.name = '完整种子回读';
+let seedCell;
+SA.V.each(seedCar, cell => { if (!seedCell) seedCell = cell; });
+Object.assign(seedCell, { mt: 2, lv: 3 });
+// 变体身份会被游戏规则规范化，使用注册过的腿部奖励实例验证合法外观与唯一身份。
+const variant = SA.LEG_VARIANTS[0];
+const variantCell = [0, 10, 4, variant.id, variant.mt, 2, { look: variant.look, unique: variant.key }];
+const variantCar = SA.V.fromCells('变体种子', [variantCell]);
+const variantSeed = Workbench.exportVehicle(variantCar, SA);
+assert.strictEqual(JSON.parse(variantSeed).cells[0][6].look, variant.look);
+assert.strictEqual(JSON.parse(variantSeed).cells[0][6].unique, variant.key);
+assert.deepStrictEqual(JSON.parse(Workbench.exportVehicle(Workbench.parseVehicle(variantSeed, '', SA), SA)), JSON.parse(variantSeed));
+const seedText = Workbench.exportVehicle(seedCar, SA);
+const restoredSeed = Workbench.parseVehicle(seedText, '', SA);
+assert.strictEqual(restoredSeed.name, seedCar.name);
+assert.deepStrictEqual(JSON.parse(Workbench.exportVehicle(restoredSeed, SA)), JSON.parse(seedText), '完整种子的模块与材料等级变体不得丢失');
+assert.strictEqual(Workbench.parseVehicle(seedText, '工作台车名', SA).name, '工作台车名', '显式车名继续优先');
 session.select(A, original);
 const imported = Workbench.parseVehicle(code, '保底候选', SA);
 assert.strictEqual(Object.values(SA.V.countIds(imported)).reduce((a, b) => a + b, 0), 4);
