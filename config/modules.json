@@ -1643,6 +1643,23 @@
       "q": 2,
       "desc": "占 3×3 小格，储水 340 L，额定水冷 450 kW；适合需要长时间开火的大型战车。",
       "repairRate": 0.06
+    },
+    "mech_helm": {
+      "name": "机甲头盔",
+      "cat": "control",
+      "layer": "body",
+      "w": 2,
+      "h": 1,
+      "cockpit": true,
+      "drivers": 1,
+      "price": 160,
+      "hp": 150,
+      "armor": 2,
+      "power": 5,
+      "kg": 80,
+      "q": 1,
+      "desc": "两格宽的机甲头盔：头盔只占正中一格，两侧是一体锻出的护颈和肩甲。只坐一名驾驶员，但比同样大小的驾驶舱耐打得多，还带一层装甲。为双足机甲打造，别的底盘也能装。",
+      "repairRate": 0.24
     }
   },
   "MODULE_ORDER": [
@@ -1692,7 +1709,8 @@
     "mg_heavy",
     "boiler_s",
     "boiler_l",
-    "water_l"
+    "water_l",
+    "mech_helm"
   ],
   "LEG_VARIANTS": [
     {
@@ -3346,6 +3364,23 @@
         "q": 2,
         "desc": "占 3×3 小格，储水 340 L，额定水冷 450 kW；适合需要长时间开火的大型战车。",
         "repairRate": 0.06
+      },
+      "mech_helm": {
+        "name": "机甲头盔",
+        "cat": "control",
+        "layer": "body",
+        "w": 2,
+        "h": 1,
+        "cockpit": true,
+        "drivers": 1,
+        "price": 160,
+        "hp": 150,
+        "armor": 2,
+        "power": 5,
+        "kg": 80,
+        "q": 1,
+        "desc": "两格宽的机甲头盔：头盔只占正中一格，两侧是一体锻出的护颈和肩甲。只坐一名驾驶员，但比同样大小的驾驶舱耐打得多，还带一层装甲。为双足机甲打造，别的底盘也能装。",
+        "repairRate": 0.24
       }
     }
   }

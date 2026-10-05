@@ -12,7 +12,7 @@ function cockpitPurchaseCheck() {
   const { SA } = loadGame();
   SA.S.reset();
   const cockpitIds = Object.keys(SA.MODULES).filter(id => SA.isCockpit(id));
-  assert.deepStrictEqual(cockpitIds.slice().sort(), ['cockpit', 'cockpit_pair', 'helmet']);
+  assert.deepStrictEqual(cockpitIds.slice().sort(), ['cockpit', 'cockpit_pair', 'helmet', 'mech_helm']);   // mech_helm：机甲头盔（2026-10-05，用户授权 Opus 新增）
   SA.Camp.has = () => true;
   SA.Camp.shopMods = () => new Set(Object.keys(SA.MODULES));
   SA.S.d.money = 100000;

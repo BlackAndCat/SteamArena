@@ -51,7 +51,7 @@ function fullVehicle(SA) {
 function checkOrderAndOldCode(SA, context) {
   assert.strictEqual(OLD_ORDER.length, 42);
   OLD_ORDER.forEach((id, i) => assert.strictEqual(SA.MODULE_ORDER[i], id, `旧模块序号 ${i} 改变`));
-  assert.deepStrictEqual(Array.from(SA.MODULE_ORDER.slice(42)), NEW_IDS);
+  assert.deepStrictEqual(Array.from(SA.MODULE_ORDER.slice(42, 42 + NEW_IDS.length)), NEW_IDS);   // 之后还可以追加新模块（机甲头盔 mech_helm）
   const v = SA.V.decode(OLD_MG_CODE);
   assert(v, '旧分享码无法读回');
   assert.strictEqual(v.body[8][8]?.id, 'mg', '旧索引 10 未读回原机炮');
