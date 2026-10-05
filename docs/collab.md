@@ -127,6 +127,7 @@ git push origin main
 | `docs/codex-task-systems.md` | astra 的模块机制任务书（已完成） | astra |
 | `docs/campaign-direction.md` | 战役方向探索稿：章节主题、克制链、跳弹、反震、修理费、唯一件、支线、重打；后端 / 视觉分工 | 用户定方向，Claude 记录；astra、Opus 按其中 §9 / §10 实现 |
 | `docs/evolve-plan.md` | 关卡车进化生成器的规则与开发计划、问题记录 | astra 执行；标"已定"的参数只有用户能改 |
+| `docs/biped-plan.md` | 双足路线强化实施计划：速度档次、下蹲、跳跃、双足骑士（机甲套件）、腿型分化与软超载；分阶段写清 astra / Opus 各做什么 | 用户定方向，Claude 记录；astra、Opus 按其中 §8 实现 |
 | `docs/board-astra.md` / `docs/board-opus.md` | 后台 / 视觉进度、待定项和交接事项 | 各自维护，保留历史记录 |
 | `README.md` | 玩法速览和代码结构 | 谁改了功能谁更新 |
 
@@ -156,6 +157,7 @@ git push origin main
 | 2026-09-26 | **真双足底盘固定 1 大格宽 × 2 层**（= 2×4 子格，48×96，同 `tools/chassis-lab.html` 样机）：上一层是胯、下一层是腿区；不做可变宽度。旧存档里的多格双足只保留一格作胯，其余退回库存。数据和规则由 astra 改（见 `docs/board-astra.md`） |
 | 2026-09-28 | **火炮的出膛口、角度、动画数据交给 Claude（Opus）**：`piv` / `blen` / `barrel` / `rcPx` / `back` / `ret` 和仰角范围 `elev`、静止角 `rest` 由 Opus 按画面定；astra 不涉及这方面，只管数值和功能正常（见 §2.3） |
 | 2026-10-02 | **关卡布局 4**：取消全部关卡车，只留序章三关和第一章前三关；后面关卡的车、试验记录和奖励删除，每章只记计划关数（按 `docs/campaign-plan.md` §6：序章 3、第一章 7、第二～五章各 6）。被删关卡的剧情台词先留着。细节见 `docs/campaign-plan.md` §9.4 |
+| 2026-10-05 | **双足路线强化**：双足加**下蹲**和**跳跃**；双足速度要比其他底盘**高一个档次**；高密度小件即双足骑士（机甲套件）探索，接着做；腿型分化（轻腿 / 重腿）和双足软超载认可、排在后面。计划和分工见 `docs/biped-plan.md` |
 | 更早 | 其余已定事项见 `docs/module-plan.md` §0 和 `docs/game-design.md` |
 
 ## 6. 看板入口
