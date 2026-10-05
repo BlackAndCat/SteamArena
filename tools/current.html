@@ -37,14 +37,14 @@
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 14px; }
 </style></head>
 <body>
-<h1>当前开发 · 双足强化 v7 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 计划：docs/biped-plan.md</small></h1>
-<p class="lead">v6 的走路 / 跑步你说满意，收进页面底部的折叠区。这一轮：机甲套件 v4 的四件机甲外观进了游戏；胯部提速件、两格横躺头盔各出三个方案等你挑。</p>
+<h1>当前开发 · 双足强化 v8 · 机甲头盔 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 计划：docs/biped-plan.md</small></h1>
+<p class="lead">机甲头盔重新设计，并且<b>做成了游戏里的新模块</b>（<code>mech_helm</code>，2×1），不复用现有驾驶舱。下面的头盔都是游戏渲染出来的，材料色是真的。</p>
 
 <div class="find"><b>这一轮</b>
 <ol>
-  <li><b>已进游戏 · 机甲外观</b>（Ⓐ）：现有模块装在双足躯干的特定位置时，自动换成 v4 的机甲外观，只换画面、数值不变——<b>躯干顶角的甲片 = 肩甲</b>，<b>躯干最后一列的竖式锅炉 / 小水罐 / 加压舱 = 背负锅炉 / 背水罐 / 喷汽背包</b>。T1～T3 用 v4 的铁制外观，T4～T6 用钢制外观，材料色照游戏的上色走。改装台和战斗里都是这样。</li>
-  <li><b>要你挑 · 胯部提速件</b>（Ⓑ）：A 飞轮增速箱 / B 双缸增压器 / C 离心调速球，各装在轻型、标准、重型三条腿上，放「走 → 跑」。</li>
-  <li><b>要你挑 · 两格横躺头盔</b>（Ⓒ）：A 横窗盔 / B 横置桶盔 / C 炮塔驾驶室，2×1 正对胯中心，两边是游戏里的肩甲；各看 T1 黄铜和 T4 镀镍（样机里头盔先不上材料色）。</li>
+  <li><b>新模块 · 机甲头盔</b>：占 2×1（两格横躺），但头盔本身只占正中一格；两侧各半格是护颈 / 肩甲这类防御饰件。坐 1 名驾驶员，耐久 150（双人舱 125、单人舱 45）、装甲 2，重 80 kg，修理费按驾驶舱算。和所有驾驶舱一样不能在商店买，要靠关卡奖励给——<b>解锁放在哪一关等你在后台配</b>（双足所在的第二章还没写关卡）。别的底盘也能装。</li>
+  <li><b>挑一个造型</b>（Ⓐ）：A 圆盔 · 叠片护颈 / B 桶盔 · 高护颈 / C 潜水盔 · 螺栓肩座 / D 指挥塔 · 斜装甲 / E 尖顶盔 · 钟形护颈。现在游戏里先用 A，你挑了我就换。</li>
+  <li><b>已定稿</b>：跳跃件 A 弹簧蹬缸、提速件 B 双缸增压器，画法进了 <code>js/legs.js</code>（<code>SA.LEGLAB.bipedParts</code>），等模块数据就能装上车。</li>
 </ol></div>
 
 <div class="bar">
@@ -52,17 +52,16 @@
   <span style="color:var(--muted)">画布都是原生像素 × 2</span>
 </div>
 
-<h2>Ⓐ 已进游戏 · 机甲外观（游戏整车渲染）</h2>
-<p class="lead">左两台：背负锅炉 + 两侧肩甲（T1 黄铜 / T4 镀镍）；右两台：背水罐 + 喷汽背包 + 肩甲（T1 / T4）。都在慢走。</p>
-<div class="grid" id="mechcars"></div>
+<h2>Ⓐ 机甲头盔 · 五种造型（挑一个）</h2>
+<p class="lead">每种一行：左边是近景（T1 黄铜 / T3 钢 / T5 乌兹钢），右边是装在双足车上的整车（T1 / T4，慢走）。</p>
+<div id="helms"></div>
 
-<h2>Ⓑ 胯部提速件（挑一个）</h2>
+<h2>Ⓑ 已定稿 · 提速件 B 双缸增压器（游戏腿）</h2>
 <div id="hipparts"></div>
 
-<h2>Ⓒ 两格横躺头盔（挑一个）</h2>
-<div class="grid" id="helms"></div>
-
-<details id="prev"><summary>已通过 · v6 走路 / 跑步、轻重腿、四种姿态、跳跃件 A（点开看）</summary>
+<details id="prev"><summary>已通过 · 机甲外观（已进游戏）、v6 走路 / 跑步、轻重腿、四种姿态、跳跃件 A、v4 整机（点开看）</summary>
+<h2>机甲外观（已进游戏）</h2>
+<div class="grid" id="mechcars"></div>
 <div class="find" style="margin-top:8px"><b>这一版改了什么</b>
 <ol>
   <li><b>步幅按步频算</b>：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频。原来一步比腿还长（脚够不着地）；现在走路两脚在胯前后约 ±24px，跑步时脚落在身体正下方附近（约 ±15px）。</li>
@@ -150,15 +149,22 @@
     row.append(legs); HP.append(row);
   }
 
-  // Ⓒ 两格横躺头盔
-  const HM = document.getElementById('helms'), HB = C.HELM_BOX;
-  for (const [id, h] of Object.entries(C.HELMS)) for (const mt of [1, 4]) {
-    const card = mk('div', 'card'), cv = canvas(HB.W, HB.H);
-    card.append(mk('b', null, `${h.name} · ${mt === 1 ? 'T1 黄铜车' : 'T4 镀镍车'}`), cv);
-    if (mt === 1) card.append(mk('p', 'cap', h.idea));
-    HM.append(card);
-    const spec = { id, mt };
-    views.push({ cv, draw: () => C.renderHelm(cv, spec, st) });
+  // Ⓐ 机甲头盔
+  const HM = document.getElementById('helms');
+  for (const [id, h] of Object.entries(C.HELMS)) {
+    const row = mk('div', 'prow');
+    row.append(mk('b', null, `${id} ${h.name}`), mk('p', 'idea', h.idea));
+    const box = mk('div', 'legs');
+    const close = canvas(C.HELM_CLOSE.W, C.HELM_CLOSE.H, 3), f0 = mk('figure');
+    f0.append(close, mk('figcaption', null, '近景 × 3：黄铜 / 钢 / 乌兹钢')); box.append(f0);
+    views.push({ cv: close, draw: () => C.renderHelmClose(close, id) });
+    for (const mt of [1, 4]) {
+      const cv = canvas(C.HELM_BOX.W, C.HELM_BOX.H), f = mk('figure');
+      f.append(cv, mk('figcaption', null, mt === 1 ? '整车 · T1 黄铜' : '整车 · T4 镀镍')); box.append(f);
+      const spec = { id, mt };
+      views.push({ cv, draw: () => C.renderHelm(cv, spec, st) });
+    }
+    row.append(box); HM.append(row);
   }
 
   // ⓪ 走 / 跑

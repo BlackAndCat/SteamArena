@@ -267,6 +267,118 @@ SA.SPR = (() => {
     MECH_ART[q.mech](pn, x, y, s, mechMat(), { t, fl: (q.fr || 0) % 4, sw: q.sw || 0, mv: !!q.mv });
     pn.flush(ctx);
   }
+  // ---------- 机甲头盔（新模块 mech_helm，2×1 = 48×24；用户 2026-10-05 定）----------
+  // 两格横躺，但头盔本身只占中间一格（24px）；两侧各空出半格，做成肩甲 / 护颈这类有防御感的饰件。耐久很高（数值见 config/modules.json）。
+  // 5 种方案等用户挑；游戏里用 MECH_HELM_STYLE，样机页按 q.hs 指定。都只用冷铁 / 黄铜 / 玻璃，材料色由 decorate 统一上。
+  const MECH_HELM_STYLE = 'A';
+  const HELM_GLASS = [P.glass[0], P.glass[0], P.glass[0], P.glass[1]], HELM_SOOT = [MECH_SOOT[0], MECH_SOOT[1], MECH_SOOT[1], MECH_SOOT[2]];
+  const helmEyes = (pn, xs, y) => { for (const ex of xs) { pn.fill(ex, y, 2, 2, P.white); pn.fill(ex + 1, y + 1, 1, 1, P.black); } };
+  const MECH_HELMS = {
+    A: {
+      name: '圆盔 · 叠片护颈', idea: 'v4 的圆盔（舷窗里看得见驾驶员）放在正中；两边各三片弧形叠片往下往外搭，像一圈护颈压在肩上。',
+      draw(pn, x, y, M) {
+        const cx = x + 24, rivet = SA.LEGLAB.U.rivet;
+        for (const sd of [-1, 1]) for (let k = 2; k >= 0; k--) {
+          const yy = y + 6 + k * 5, a = cx + sd * 9, b = cx + sd * 23;
+          pn.poly([[a, yy], [b - sd * 4, yy + 2], [b, yy + 5], [b - sd * 1, yy + 7], [a, yy + 7]]).paint(M.iron);
+          rivet(pn, sd < 0 ? b + 3 : b - 5, yy + 3);
+        }
+        pn.disc(cx, y + 11, 10).rect(cx - 10, y + 11, 20, 11).paint(M.iron);
+        pn.rect(cx - 11, y + 19, 22, 5).paint(M.brass);
+        pn.disc(cx + 2, y + 10, 6.2).paint(M.brass);
+        pn.disc(cx + 2, y + 10, 4.6).paint(HELM_GLASS, { outline: false });
+        pn.disc(cx + 2, y + 11, 3.6).paint(HELM_SOOT, { outline: false });
+        helmEyes(pn, [cx, cx + 3], y + 9);
+        pn.dot(cx - 1, y + 7, P.glass[3]);
+        pn.rect(cx - 8, y, 4, 3).paint(M.brass, { bevel: 'l' });
+        rivet(pn, cx - 8, y + 14);
+      },
+    },
+    B: {
+      name: '桶盔 · 高护颈', idea: '骑士桶盔：平顶切角，一条眼缝里露出两只眼睛，正中黄铜护鼻条；两边一对护颈压在肩上（上沿外卷、黄铜包边），头盔从中间冒出来。',
+      draw(pn, x, y, M) {
+        const cx = x + 24, rivet = SA.LEGLAB.U.rivet;
+        for (const sd of [-1, 1]) {
+          pn.poly([[cx + sd * 9, y + 24], [cx + sd * 9, y + 10], [cx + sd * 12, y + 7], [cx + sd * 18, y + 6], [cx + sd * 22, y + 9], [cx + sd * 23, y + 13], [cx + sd * 21, y + 24]]).paint(M.steel);
+          pn.ln(cx + sd * 12, y + 7, cx + sd * 18, y + 6, P.brass[2]); pn.ln(cx + sd * 18, y + 6, cx + sd * 22, y + 9, P.brass[2]);
+          rivet(pn, cx + sd * 16 - 1, y + 14); rivet(pn, cx + sd * 16 - 1, y + 20);
+        }
+        pn.poly([[cx - 10, y + 4], [cx - 7, y + 1], [cx + 7, y + 1], [cx + 10, y + 4], [cx + 10, y + 24], [cx - 10, y + 24]]).paint(M.steel);
+        pn.rect(cx - 6, y, 12, 2).paint(M.brass, { bevel: 'l' });
+        pn.fill(cx - 8, y + 9, 17, 3, P.black);
+        pn.dot(cx - 4, y + 10, P.white); pn.dot(cx + 4, y + 10, P.white);
+        pn.fill(cx, y + 8, 2, 15, P.brass[2]); pn.fill(cx + 1, y + 8, 1, 15, P.brass[1]);
+        for (const [dx, dy] of [[5, 15], [7, 15], [5, 18], [7, 18]]) pn.dot(cx + dx, y + dy, P.iron[0]);
+        pn.fill(cx - 10, y + 21, 20, 1, P.brass[2]);
+        pn.ln(cx - 8, y + 5, cx - 8, y + 20, P.iron[4]);
+      },
+    },
+    C: {
+      name: '潜水盔 · 螺栓肩座', idea: '圆顶潜水头盔：正面一只大舷窗（两道护栅），后面一只小侧窗，底下一圈黄铜螺栓领圈；两边是潜水服式的厚圆肩座，各压两颗大螺栓。',
+      draw(pn, x, y, M) {
+        const cx = x + 24;
+        for (const sd of [-1, 1]) {
+          const pts = [];
+          for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 + i / 10); pts.push([cx + sd * 16 + Math.cos(a) * 8, y + 24 + Math.sin(a) * 12]); }
+          pn.poly(pts).paint(M.iron);
+          for (const [dx, dy] of [[12, 16], [19, 18]]) { pn.disc(cx + sd * dx, y + dy, 1.6).paint(M.brass); pn.dot(cx + sd * dx, y + dy, P.brass[0]); }
+        }
+        pn.disc(cx, y + 11, 10.5).paint(M.iron);
+        pn.rect(cx - 11, y + 18, 22, 6).paint(M.brass);
+        for (const dx of [-8, -3, 3, 8]) pn.dot(cx + dx, y + 20, P.brass[0]);
+        pn.disc(cx - 6, y + 9, 2.4).paint(M.brass); pn.disc(cx - 6, y + 9, 1.4).paint(HELM_GLASS, { outline: false });
+        pn.disc(cx + 3, y + 10, 6).paint(M.brass);
+        pn.disc(cx + 3, y + 10, 4.6).paint(HELM_GLASS, { outline: false });
+        pn.disc(cx + 3, y + 11, 3.4).paint(HELM_SOOT, { outline: false });
+        helmEyes(pn, [cx + 1, cx + 4], y + 9);
+        pn.fill(cx - 2, y + 6, 10, 1, P.brass[1]); pn.fill(cx - 2, y + 14, 10, 1, P.brass[1]);
+        pn.rect(cx - 3, y, 6, 2).paint(M.brass);
+      },
+    },
+    D: {
+      name: '指挥塔 · 斜装甲', idea: '像坦克的指挥塔：梯形塔身、顶上舱盖、黄铜眉檐下一条观察缝；两边是往外斜下去的两层楔形装甲板，一排铆钉，最有「挡炮弹」的感觉。',
+      draw(pn, x, y, M) {
+        const cx = x + 24, rivet = SA.LEGLAB.U.rivet;
+        for (const sd of [-1, 1]) {
+          pn.poly([[cx + sd * 9, y + 8], [cx + sd * 23, y + 16], [cx + sd * 23, y + 24], [cx + sd * 9, y + 24]]).paint(M.steel);
+          pn.poly([[cx + sd * 9, y + 14], [cx + sd * 20, y + 20], [cx + sd * 20, y + 24], [cx + sd * 9, y + 24]]).paint(M.iron);
+          rivet(pn, cx + sd * 13 - 1, y + 11); rivet(pn, cx + sd * 18 - 1, y + 14);
+        }
+        pn.poly([[cx - 10, y + 24], [cx - 8, y + 5], [cx + 8, y + 5], [cx + 10, y + 24]]).paint(M.iron);
+        pn.rect(cx - 6, y + 2, 12, 4).paint(M.dark);
+        pn.rect(cx - 2, y, 4, 2).paint(M.brass);
+        pn.rect(cx - 8, y + 8, 17, 2).paint(M.brass, { outline: false });
+        pn.fill(cx - 6, y + 11, 13, 2, P.black);
+        pn.dot(cx - 2, y + 11, P.white); pn.dot(cx + 3, y + 11, P.white);
+        rivet(pn, cx - 8, y + 18); rivet(pn, cx + 6, y + 18);
+      },
+    },
+    E: {
+      name: '尖顶盔 · 钟形护颈', idea: '尖顶盔（巴西内特）配一只往前凸的猪嘴护面（侧面一颗转轴铆钉，两道眼缝、几个透气孔）；两边是往外张开的钟形护颈，带一道黄铜筋，像骑士的护喉甲。',
+      draw(pn, x, y, M) {
+        const cx = x + 24;
+        for (const sd of [-1, 1]) {
+          const top = [], rib = [];
+          for (let i = 0; i <= 8; i++) { const t = i / 8; top.push([cx + sd * (9 + 14 * t), y + 9 + 14 * Math.pow(t, 1.6)]); rib.push([cx + sd * (9 + 12 * t), y + 14 + 9 * Math.pow(t, 1.6)]); }
+          pn.poly([...top, [cx + sd * 9, y + 24]]).paint(M.steel);
+          for (let i = 1; i < rib.length; i++) pn.ln(...rib[i - 1], ...rib[i], P.brass[2]);
+        }
+        pn.poly([[cx - 10, y + 24], [cx - 10, y + 12], [cx - 7, y + 5], [cx - 1, y], [cx + 1, y], [cx + 7, y + 5], [cx + 10, y + 12], [cx + 10, y + 24]]).paint(M.iron);
+        pn.ln(cx, y + 1, cx - 3, y + 9, P.brass[2]);
+        pn.poly([[cx - 2, y + 8], [cx + 7, y + 9], [cx + 11, y + 13], [cx + 7, y + 18], [cx - 2, y + 19]]).paint(M.steel);
+        pn.fill(cx + 1, y + 12, 5, 1, P.black); pn.fill(cx + 1, y + 15, 5, 1, P.black);
+        pn.dot(cx + 2, y + 12, P.white); pn.dot(cx + 4, y + 12, P.white);
+        for (const dy of [13, 15]) pn.dot(cx + 8, y + dy, P.iron[0]);
+        pn.disc(cx - 2, y + 13, 1.5).paint(M.brass);
+        pn.rect(cx - 10, y + 21, 20, 3).paint(M.brass, { outline: false });
+      },
+    },
+  };
+  function mechHelmArt(x, y, q) {
+    const pn = penFor(ctx.canvas);
+    (MECH_HELMS[q.hs] || MECH_HELMS[MECH_HELM_STYLE]).draw(pn, x, y, mechMat(), q);
+    pn.flush(ctx);
+  }
   // 腿式底盘（有腿、要画远侧腿的底盘）；amp 是旧逐格画法留下的起伏幅度，整件四足 / 真双足改用 quadBob / bipedBob
   const BOB = { biped: 3, quad: 1 };
   const gfOf = (a) => ((Math.round(a / (Math.PI * 2 / 12)) % 12) + 12) % 12;   // 腿的步态帧：战斗给的是步态角（每走 4 × 步幅一圈），12 帧一循环
@@ -2763,6 +2875,7 @@ SA.SPR = (() => {
     // 1×1 驾驶舱（2026-09-29 重做：方窗驾驶箱，见 helmetArt）；双人 / 四人联合驾驶舱见 cockpitPairArt / cockpitArt
     helmet(x, y, o) { helmetArt(x, y, o); },
     cockpit_pair(x, y, o) { cockpitPairArt(x, y, o); },
+    mech_helm(x, y, q) { mechHelmArt(x, y, q); },   // 机甲头盔（2×1，见 MECH_HELMS）
     plate(x, y, q) {
       if (q && q.mech) { mechArt(x, y, q); return; }
       box(x + 2, y + 2, 20, 20, IRONL);
@@ -3032,6 +3145,7 @@ SA.SPR = (() => {
       case 'pressure_chamber': q.fr = Math.floor((o.t || 0) * 5) % 16; break;      // 风箱一压一放：16 帧一轮（约 3 秒）
       case 'condenser': q.fr = Math.floor((o.t || 0) * 4) % 12; break;             // 盘管滴水：12 帧一轮
     }
+    if (o.hs && id === 'mech_helm') q.hs = o.hs;   // 样机页指定头盔方案
     if (o.mech) {   // 真双足的机甲外观（见 MECH_ART）：外观名 + 自己的动画档，替换掉原模块的动画档
       for (const k of ['fr', 'lv']) delete q[k];
       q.mech = o.mech;
@@ -3272,8 +3386,9 @@ SA.SPR = (() => {
 
   // ---------- 车体框架：把所有舱位连成一台机器 ----------
   // 按子格画：同一个模块内部不画缝，相邻两个模块之间打铆钉，露在外面的边描黑
-  function hull(O, cx, cy) {
-    const solid = (o) => o && !SA.isRam(o.cell.id) && SA.MODULES[o.cell.id].layer !== 'chassis';   // 双足的胯在车身行里，但不算车体框架
+  // skip(o)：这些模块不垫车体框架、靠自己的轮廓立着（机甲头盔、肩甲）
+  function hull(O, cx, cy, skip = null) {
+    const solid = (o) => o && !SA.isRam(o.cell.id) && SA.MODULES[o.cell.id].layer !== 'chassis' && !(skip && skip(o));   // 双足的胯在车身行里，但不算车体框架
     const at = (r, c) => (r >= 0 && r < K.ROWS - 2 && c >= 0 && c < K.COLS ? O[r][c] : null);
     const body = (fn) => { for (let r = 0; r < K.ROWS - 2; r++) for (let c = 0; c < K.COLS; c++) if (solid(O[r][c])) fn(r, c, cx(c), cy(r), O[r][c]); };
     body((r, c, x, y) => R(x, y, S, S, P.iron[1]));
@@ -3378,7 +3493,7 @@ SA.SPR = (() => {
             store: o.store,   // 蓄压罐：全车存量 0～1
             a: o.elev ? o.elev[`${r},${c},${m.layer === 'side' ? 's' : 'b'}`] : undefined,   // 炮管仰角（度）：战斗里跟着鼠标转
             punch: o.punch ? (o.punch[`${r},${c}`] || 0) : 0,
-            phase, gait: phase, stride, runK, mech: mechRoles[`${r},${c}`],
+            phase, gait: phase, stride, runK, mech: mechRoles[`${r},${c}`], hs: cell.id === 'mech_helm' ? o.helmStyle : undefined,
             g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
@@ -3407,7 +3522,7 @@ SA.SPR = (() => {
       const r = CH, draw = () => { g.save(); if (cell.id === 'quad' && o.ghostLegs) g.globalAlpha = 0.35; drawModule(g, cell.id, cx(c), cy(r), { ...modOpts(cell, r, c), part: 'far' }); g.restore(); ctx = g; };
       if (cell.hp > 0) draw(); else dead(draw);
     });
-    g.save(); g.translate(0, bd); hull(O, cx, cy); g.restore(); ctx = g;
+    g.save(); g.translate(0, bd); hull(O, cx, cy, (o) => o.cell.id === 'mech_helm' || mechRoles[`${o.r},${o.c}`] === 'pauldron'); g.restore(); ctx = g;
     // 主体层：底盘/撞击 → 其他 → 武器（炮管压在相邻格上，被挡时一眼可见）
     // 整件四足（pass 3）：甲壳和近侧腿压在整个车身前面（同 tools/chassis-lab.html），膝盖高过机身也不会被模块挡住
     // 撞击件（pass 4）画在四足的腿前面，装在车头的铲斗、撞角不会被腿挡住。
@@ -3634,7 +3749,7 @@ SA.SPR = (() => {
   }
 
   return {
-    PADX, drawModule, cockpitCrew, bigStoker, weaponFx, renderVehicle, outline, iconCanvas, moduleCanvas, text, decorate,
+    PADX, drawModule, MECH_HELMS, cockpitCrew, bigStoker, weaponFx, renderVehicle, outline, iconCanvas, moduleCanvas, text, decorate,
     setMatPass: (fn) => { matPass = fn || null; cache.clear(); },
     useCtx: (c) => { ctx = c; }, R: (...a) => R(...a), disc: (...a) => disc(...a), line: (...a) => line(...a),
   };

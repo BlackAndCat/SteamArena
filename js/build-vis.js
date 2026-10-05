@@ -66,3 +66,4 @@ SA.BUILD_VIS += '+evolve-route-diagnostic-results'; // 进化进度区完整列�
 SA.BUILD_VIS += '+biped-pose-params'; // legs.js：双足下蹲 / 空中收腿 / 快跑腾空 / 腿部件挂点参数（默认画面逐像素不变），当前开发页双足强化 v5。
 SA.BUILD_VIS += '+biped-gait-v2'; // 双足走路 / 跑步重做：按步频算步幅，走 = 倒立摆、跑 = 弹簧 + 腾空，关键姿势插值，车速 76～100 走跑过渡，跑起来躯干前倾。
 SA.BUILD_VIS += '+biped-mech-looks'; // 机甲套件 v4 进游戏：双足躯干顶角的甲片 = 肩甲，最后一列的竖式锅炉 / 小水罐 / 加压舱 = 背负锅炉 / 背水罐 / 喷汽背包（只换画面）；bipedArt 加 hipPart 挂点。
+SA.BUILD_VIS += '+mech-helm'; // 新模块机甲头盔 mech_helm（2×1，头盔居中一格 + 两侧防御饰件；5 种造型，游戏先用 A）；跳跃件 / 提速件画法定稿进 legs.js；头盔和肩甲不垫车体框架。

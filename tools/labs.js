@@ -30,8 +30,8 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足强化 v7', date: '2026-10-05', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期（docs/biped-plan.md）：Ⓐ 机甲外观已进游戏（躯干顶角的甲片 = 肩甲，最后一列的竖式锅炉 / 小水罐 / 加压舱 = 背负锅炉 / 背水罐 / 喷汽背包）；Ⓑ 胯部提速件 A 飞轮增速箱 / B 双缸增压器 / C 离心调速球；Ⓒ 两格横躺头盔 A 横窗盔 / B 横置桶盔 / C 炮塔驾驶室；折叠区是已通过的 v6 走路 / 跑步、轻重腿、姿态、跳跃件 A 和 v4 整机', docs: ['docs/biped-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足强化 v8 · 机甲头盔', date: '2026-10-05', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机甲头盔做成新模块 mech_helm（2×1，头盔只占中间一格，两侧是防御饰件，耐久 150），5 种造型走游戏渲染等用户挑（A 圆盔 · 叠片护颈 / B 桶盔 · 高护颈 / C 潜水盔 · 螺栓肩座 / D 指挥塔 · 斜装甲 / E 尖顶盔 · 钟形护颈）；提速件 B 双缸增压器、跳跃件 A 弹簧蹬缸已定稿进 legs.js；折叠区是已进游戏的机甲外观和已通过的步态等', docs: ['docs/biped-plan.md', 'docs/board-opus.md'] },
     { id: 'battle-ui-v1', group: 'top', url: 'archive/battle-ui-v1.html', name: '战斗界面 · 三套方案', ver: 'v1', date: '2026-09-30', status: 'shipped',
       desc: '用户选 A 驾驶台，已进游戏：A 驾驶台 / B 车上见 / C 记分牌，各看常态、告急、对方挂白旗；共同改法：白旗画在最上层 + 升旗时压暗只留对方车亮、对方车顶不再挂状态和警报', docs: ['docs/board-opus.md'] },
     { id: 'mech-kit-v4', group: 'chassis', url: 'archive/mech-kit-v4.html', name: '机甲套件', ver: 'v4 已通过', date: '2026-10-05', status: 'archived',

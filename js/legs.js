@@ -1296,6 +1296,40 @@ SA.LEGLAB = (() => {
     H.draw(pn, cx, Y, o);
   }
 
+  // ---------- 双足专属部件（用户 2026-10-05 选定，docs/biped-plan.md §5.1）----------
+  // 跳跃件 = 弹簧蹬缸（小腿位，legPart 用）；提速件 = 双缸增压器（胯位，hipPart 用）。模块数据接好以后由 sprites.js 按车上装没装来传。
+  function partCoil(pn, A, B, turns, amp, ramp) {
+    const BB = bone(...A, ...B), n = turns * 2;
+    for (let i = 0; i < n; i++) pn.cap(...BB.p(BB.len * i / n, i % 2 ? amp : -amp), ...BB.p(BB.len * (i + 1) / n, i % 2 ? -amp : amp), 0.55);
+    pn.paint(ramp, { bevel: 'l' });
+  }
+  // 弹簧蹬缸：小腿后缘一根活塞缸，杆上套黄铜粗弹簧；下蹲 / 蓄力时弹簧被压紧（o.crouch）。J = drawLeg 给的腿骨
+  function jumpSpring(pn, J, M, o) {
+    const Sb = J.S, L = Sb.len, c = o.crouch || 0, mid = 0.38 + 0.2 * c, f = -1.8;
+    const top = Sb.p(0.8, f), bot = Sb.p(L + 0.2, f), m = Sb.p(L * mid, f);
+    pn.cap(...m, ...bot, 0.55).paint(M.steel, { bevel: 'l' });
+    partCoil(pn, Sb.p(L * mid + 0.7, f), Sb.p(L - 0.5, f), 4, 1.7, M.brass);
+    pn.cap(...top, ...m, 1.45).paint(M.dark);
+    const a = L * mid - 0.4;
+    pn.poly(Sb.pts([[a - 0.6, f - 1.6], [a + 0.6, f - 1.6], [a + 0.6, f + 1.6], [a - 0.6, f + 1.6]])).paint(M.brass);
+    pn.disc(...top, 1).paint(M.brass); pn.disc(...bot, 1).paint(M.brass);
+  }
+  // 双缸增压器：胯后下方一上一下两只横放的短汽缸，活塞杆跟着步子一伸一缩，一根排气管顺着胯后沿往上。
+  // cx = 胯中心，Y = 模块顶（含起伏）；o.out.hipExhaust = 排气口位置（给画面层冒汽）
+  function hipBooster(pn, cx, Y, o) {
+    const M = NEAR, s1 = Math.sin(o.a || 0), s2 = Math.sin((o.a || 0) + Math.PI);
+    for (const [yy, sv] of [[Y + 21, s1], [Y + 29, s2]]) {
+      const out = o.mv ? 2.5 + 2.5 * sv : 2.5;
+      pn.cap(cx - 25 - out, yy, cx - 17, yy, 0.8).paint(M.steel, { bevel: 'l' });
+      pn.cap(cx - 18, yy, cx - 7, yy, 3.2).paint(M.iron);
+      pn.rect(cx - 19, yy - 3.6, 2, 7.2).paint(M.brass, { outline: false });
+      pn.rect(cx - 8.5, yy - 3.6, 2, 7.2).paint(M.brass, { outline: false });
+    }
+    pn.rect(cx - 22, Y + 6, 3, 12).paint(M.dark);
+    pn.rect(cx - 23, Y + 4, 5, 3).paint(M.brass);
+    if (o.out) o.out.hipExhaust = [cx - 20.5, Y + 3];
+  }
+
   // 真双足 · 2×4（48×96）：上两行是胯，下两行是一对长腿。腿型沿用 DESIGNS 的六档，以胯为支点放大到地面（胯关节到地面 67px，约 2 倍），
   // 仍是原生像素；步幅按放大倍数折算，脚踩实地不打滑。远侧腿压暗、往右 8px 上 3px，画在躯干后面。
   // o：{ mv, a, stride（步幅，世界像素）, bd（起伏，见 bipedBob）, g: [近侧脚, 远侧脚], legs: DESIGNS 的 id, wL, wR, phase, t, tilt, wob }
@@ -1360,7 +1394,7 @@ SA.LEGLAB = (() => {
     });
   }
 
-  return { Pen, DESIGNS, HIPS, HIP_OF, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, BIPED_CROUCH: CROUCH_PX, torsoCuts, strideFor, quadStride, quadBob, bipedBob, bipedRun, bipedFoot, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
+  return { Pen, DESIGNS, HIPS, HIP_OF, drawCell, drawLeg, legAt, cellOpts, groundY, spiderLeg, carapace, SPIDERS, QUADS, quadArt, pelvis, bipedArt, BIPED_CROUCH: CROUCH_PX, bipedParts: { jumpSpring, hipBooster }, torsoCuts, strideFor, quadStride, quadBob, bipedBob, bipedRun, bipedFoot, U: { NEAR, FAR, gait, plantGait, ik, bone, frame, gear, rivet, flat, yAt } };
 })();
 
 // ================= 四足整件六档 + 变体（2026-09-29 进游戏，探索过程见 tools/archive/quad-tiers.html） =================

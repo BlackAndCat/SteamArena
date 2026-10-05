@@ -224,123 +224,33 @@ SA.CUR = (() => {
   const LEGPARTS = {
     // ---- 跳跃件（小腿位）----
     jumpA: {
-      slot: '小腿', name: '跳跃件 · 弹簧蹬缸（用户选定 A）', idea: '小腿后缘一根活塞缸，杆上套一圈黄铜粗弹簧；蓄力下蹲时弹簧被压紧，起跳时弹开。B 蒸汽弹射缸、C 板簧蹬刺没选，代码在 git 历史里。',
-      draw(pn, J, M, o) {
-        const Sb = J.S, L = Sb.len, c = o.crouch || 0, mid = 0.38 + 0.2 * c, f = -1.8;
-        const top = Sb.p(0.8, f), bot = Sb.p(L + 0.2, f), m = Sb.p(L * mid, f);
-        pn.cap(...m, ...bot, 0.55).paint(M.steel, { bevel: 'l' });
-        coil(pn, Sb.p(L * mid + 0.7, f), Sb.p(L - 0.5, f), 4, 1.7, M.brass);
-        pn.cap(...top, ...m, 1.45).paint(M.dark);
-        band(pn, Sb, L * mid - 0.4, f - 1.6, f + 1.6, M.brass);
-        pn.disc(...top, 1).paint(M.brass); pn.disc(...bot, 1).paint(M.brass);
-      },
+      slot: '小腿', name: '跳跃件 · 弹簧蹬缸（用户选定 A，已定稿进 legs.js）', idea: '小腿后缘一根活塞缸，杆上套一圈黄铜粗弹簧；蓄力下蹲时弹簧被压紧，起跳时弹开。',
+      draw: (pn, J, M, o) => LL.bipedParts.jumpSpring(pn, J, M, o),
     },
   };
 
   // ---------- ④ 胯部提速件（2026-10-05 用户定装在胯部，不占大腿位）：画在胯的近侧面，胯之后、近侧腿之前 ----------
   // hipPart(pn, cx, Y, o)：cx = 胯中心，Y = 模块顶（含起伏）；近侧胯关节在 (cx - 2, Y + 29)
   const HIPPARTS = {
-    A: {
-      name: 'A 飞轮增速箱', idea: '胯侧一只黄铜飞轮，一条皮带绕到胯关节上：腿一迈飞轮就转，跑起来转得飞快。上一版大腿飞轮挪到胯上，不占大腿位。',
-      draw(pn, cx, Y, o) {
-        const M = NEAR, c = [cx - 13, Y + 27], r = 6.5, hub = [cx - 2, Y + 29], rot = (o.a || 0) * 3;
-        pn.cap(c[0] - r + 1, c[1], hub[0] - 2.6, hub[1], 0.6).cap(c[0] + r - 1, c[1], hub[0] + 2.6, hub[1], 0.6).paint(M.leather, { outline: false });   // 皮带
-        pn.rect(c[0] - 1.5, c[1] - r - 5, 3, 6).paint(M.dark);   // 吊架
-        pn.disc(...c, r).paint(M.brass);
-        pn.disc(...c, r - 1.6).paint(M.dark, { outline: false });
-        for (let k = 0; k < 3; k++) { const a = rot + k * TAU / 3; pn.cap(...c, c[0] + Math.cos(a) * (r - 1.8), c[1] + Math.sin(a) * (r - 1.8), 0.7); }
-        pn.paint(M.brass, { outline: false });
-        pn.disc(...c, 1.6).paint(M.steel);
-      },
-    },
     B: {
-      name: 'B 双缸增压器', idea: '胯侧一上一下两只横放的短汽缸，活塞杆往后一伸一缩跟着步子打，一根排气管朝上；跑起来排气管一口一口冒白汽。',
-      draw(pn, cx, Y, o) {
-        const M = NEAR, s1 = Math.sin(o.a || 0), s2 = Math.sin((o.a || 0) + Math.PI);
-        for (const [yy, sv] of [[Y + 21, s1], [Y + 29, s2]]) {
-          const out = o.mv ? 2.5 + 2.5 * sv : 2.5;
-          pn.cap(cx - 25 - out, yy, cx - 17, yy, 0.8).paint(M.steel, { bevel: 'l' });
-          pn.cap(cx - 18, yy, cx - 7, yy, 3.2).paint(M.iron);
-          pn.rect(cx - 19, yy - 3.6, 2, 7.2).paint(M.brass, { outline: false });
-          pn.rect(cx - 8.5, yy - 3.6, 2, 7.2).paint(M.brass, { outline: false });
-        }
-        pn.rect(cx - 22, Y + 6, 3, 12).paint(M.dark);
-        pn.rect(cx - 23, Y + 4, 5, 3).paint(M.brass);
-        if (o.out) o.out.hipExhaust = [cx - 20.5, Y + 3];
-      },
-    },
-    C: {
-      name: 'C 离心调速球', idea: '胯后侧立一根转轴，两只黄铜球挂在摆臂上转：站着时球垂着，越跑越快球甩得越开（瓦特离心调速器），速度一眼看得出。注意 T3 掷弹兵的胯本来就是飞轮调速器，两个会有点像。',
-      draw(pn, cx, Y, o) {
-        const M = NEAR, ax = cx - 20, top = Y + 8, base = Y + 26, rot = (o.a || 0) * 2.5;
-        const open = o.mv ? 0.45 + 0.75 * (o.run || 0) : 0.3;
-        pn.rect(ax - 4, base - 2, 8, 4).paint(M.dark);
-        pn.cap(ax, top, ax, base, 0.8).paint(M.steel, { bevel: 'l' });
-        for (const side of [-1, 1]) {
-          const sw = Math.cos(rot) * side, L = 9, bx = ax + Math.sin(open) * L * sw, by = top + Math.cos(open) * L;
-          pn.cap(ax, top + 1, bx, by, 0.55).paint(M.steel, { outline: false });
-          pn.disc(bx, by, 2.4).paint(M.brass);
-        }
-        pn.disc(ax, top, 1.5).paint(M.brass);
-      },
+      name: '提速件 · 双缸增压器（用户选定 B，已定稿进 legs.js）', idea: '胯后下方一上一下两只横放的短汽缸，活塞杆跟着步子一伸一缩，一根排气管顺着胯后沿往上；跑起来排气管一口一口冒白汽。A 飞轮增速箱、C 离心调速球没选，代码在 git 历史里。',
+      draw: (pn, cx, Y, o) => LL.bipedParts.hipBooster(pn, cx, Y, o),
     },
   };
 
-  // ---------- ⑤ 两格横躺头盔（2×1 = 48×24，正对胯中心，两侧配肩甲等零件）----------
-  // 画在格子 (x, y) 起的 48×24 里；o.blink = 眨眼
-  const GLASS = [P.glass[0], P.glass[0], P.glass[0], P.glass[1]], SOOT = ['#141824', '#2f3850', '#2f3850', '#6a7a9c'];
-  const HELMS = {
-    A: {
-      name: 'A 横窗盔', idea: '圆顶宽盔，正面一扇横向的长圆窗，看得见里面的煤球驾驶员；底边一道黄铜箍，顶上一个小通气帽。最接近 v4 的圆盔。',
-      draw(pn, x, y, o) {
-        const M = NEAR, pts = [];
-        for (let i = 0; i <= 12; i++) { const a = Math.PI * (1 + i / 12); pts.push([x + 24 + Math.cos(a) * 22, y + 13 + Math.sin(a) * 11]); }
-        pts.push([x + 46, y + 22], [x + 2, y + 22]);
-        pn.poly(pts).paint(M.iron);
-        pn.rect(x + 1, y + 19, 46, 4).paint(M.brass);
-        pn.cap(x + 15, y + 12, x + 35, y + 12, 5.6).paint(M.brass);
-        pn.cap(x + 15, y + 12, x + 35, y + 12, 4.2).paint(GLASS, { outline: false });
-        pn.cap(x + 18, y + 13, x + 32, y + 13, 3.2).paint(SOOT, { outline: false });
-        for (const ex of [x + 22, x + 27]) { if (o.blink) { pn.fill(ex, y + 12, 2, 1, P.steam[2]); continue; } pn.fill(ex, y + 11, 2, 2, P.white); pn.fill(ex + 1, y + 12, 1, 1, P.black); }
-        pn.dot(x + 16, y + 9, P.glass[3]);
-        pn.rect(x + 21, y + 1, 6, 3).paint(M.brass, { bevel: 'l' });
-        U.rivet(pn, x + 5, y + 15); U.rivet(pn, x + 41, y + 15);
-      },
-    },
-    B: {
-      name: 'B 横置桶盔', idea: '骑士桶盔横过来：平顶切角的钢盒，一条横贯的眼缝里露出两只眼睛，正中一根黄铜护鼻条，右边一排透气孔，顶上一道黄铜盔脊。',
-      draw(pn, x, y, o) {
-        const M = NEAR;
-        pn.poly([[x + 4, y + 3], [x + 44, y + 3], [x + 47, y + 7], [x + 47, y + 23], [x + 1, y + 23], [x + 1, y + 7]]).paint(M.steel);
-        pn.rect(x + 8, y, 32, 3).paint(M.brass, { bevel: 'l' });
-        pn.fill(x + 6, y + 10, 36, 3, P.black);
-        if (!o.blink) { pn.dot(x + 19, y + 11, P.white); pn.dot(x + 28, y + 11, P.white); }
-        pn.fill(x + 23, y + 9, 2, 14, P.brass[2]); pn.fill(x + 24, y + 9, 1, 14, P.brass[1]);
-        for (const [dx, dy] of [[33, 16], [37, 16], [41, 16], [35, 19], [39, 19]]) pn.dot(x + dx, y + dy, P.iron[0]);
-        pn.fill(x + 2, y + 21, 44, 1, P.brass[2]);
-        pn.ln(x + 4, y + 6, x + 4, y + 20, P.iron[4]);
-      },
-    },
-    C: {
-      name: 'C 炮塔驾驶室', idea: '矮矮的装甲圆顶，坐在一圈铆钉底座上；正面两只小圆窗（驾驶员的两只眼睛各对一只），顶上一个舱盖和一根潜望镜短管。像坦克的指挥塔。',
-      draw(pn, x, y, o) {
-        const M = NEAR, pts = [];
-        pn.rect(x + 1, y + 17, 46, 6).paint(M.iron);
-        for (let k = 0; k < 6; k++) U.rivet(pn, x + 4 + k * 8, y + 19);
-        for (let i = 0; i <= 12; i++) { const a = Math.PI * (1 + i / 12); pts.push([x + 24 + Math.cos(a) * 20, y + 17 + Math.sin(a) * 12]); }
-        pn.poly(pts).paint(M.steel);
-        pn.rect(x + 30, y + 1, 4, 6).paint(M.dark); pn.rect(x + 29, y, 6, 2).paint(M.brass);
-        pn.cap(x + 14, y + 6, x + 20, y + 6, 1.4).paint(M.iron);
-        for (const ex of [x + 18, x + 30]) {
-          pn.disc(ex, y + 12, 3.6).paint(M.brass);
-          pn.disc(ex, y + 12, 2.4).paint(GLASS, { outline: false });
-          if (!o.blink) { pn.fill(ex - 1, y + 11, 2, 2, P.white); pn.dot(ex, y + 12, P.black); }
-        }
-      },
-    },
-  };
-  // 头盔方案画布：游戏整车（renderVehicle；两侧肩甲、背负锅炉是游戏里的机甲外观），头盔那两格空着，叠画方案
-  const HELM_CAR = [['biped', 8, 6], ['boiler_s', 6, 5], ['boiler', 6, 6], ['tank_tall', 6, 8], ['plate', 5, 5], ['plate', 5, 8]];
+  // ---------- ⑤ 机甲头盔（新模块 mech_helm，2×1；头盔只占中间一格，两侧是防御饰件）----------
+  // 造型在游戏的 js/sprites.js（SA.SPR.MECH_HELMS），这里只是走游戏的渲染：drawModule / renderVehicle 指定方案 hs / helmStyle
+  const HELMS = SA.SPR.MECH_HELMS;
+  const HELM_MATS = [1, 3, 5];
+  // 近景：每种方案一行，三种材料（黄铜 / 钢 / 乌兹钢）
+  const HELM_CLOSE = { W: 40 + HELM_MATS.length * 64, H: 40 };
+  function renderHelmClose(cv, id) {
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, cv.width, cv.height);
+    HELM_MATS.forEach((mt, i) => SA.SPR.drawModule(g, 'mech_helm', 12 + i * 64, 10, { mt, hs: id }));
+  }
+  // 整车：头盔装在双足躯干顶上，正对胯（两侧不再另配肩甲，头盔自带）
+  const HELM_CAR = [['biped', 8, 6], ['boiler_s', 6, 5], ['boiler', 6, 6], ['tank_tall', 6, 8], ['mech_helm', 5, 6]];
   const HC = {};
   function helmCar(mt) {
     if (HC[mt]) return HC[mt];
@@ -348,21 +258,14 @@ SA.CUR = (() => {
     for (const [id, r, c] of HELM_CAR) v.body[r][c] = SA.newCell(id, mt);
     return (HC[mt] = v);
   }
-  const HELM_BOX = { W: 9 * S, H: GROUND + 12 - 60 };
+  const HELM_BOX = { W: 7 * S, H: GROUND + 12 - 80 };
   function renderHelm(cv, spec, st) {
     const g = cv.getContext('2d'), v = helmCar(spec.mt), sp = st.mv ? 55 : 0;
     const stride = LL.strideFor(sp), a = st.mv ? TAU * st.t * sp / (4 * stride) : 0;
-    const car = SA.SPR.renderVehicle(v, { moving: sp > 0, speed: sp, phase: a, key: 'helm-' + spec.id + spec.mt, t: st.t });
-    const ga = Math.round(a / (TAU / 12)) * (TAU / 12), bd = LL.bipedBob({ mv: sp > 0, a: ga, stride: Math.round(stride / 2) * 2, run: 0 });
+    const car = SA.SPR.renderVehicle(v, { moving: sp > 0, speed: sp, phase: a, key: 'helm-' + spec.id + spec.mt, t: st.t, helmStyle: spec.id });
     g.clearRect(0, 0, cv.width, cv.height);
-    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND - 60, cv.width, 12);
-    const ox = -(PADX + 3 * S), oy = -60;
-    g.drawImage(car, ox, oy);
-    const pn = penFor(cv);
-    pn.at(1, ox, oy);
-    HELMS[spec.id].draw(pn, PADX + 6 * S, 5 * S + bd, { blink: Math.floor(st.t * 1.3) % 5 === 0 && (st.t * 1.3) % 1 < 0.2 });
-    pn.at(1, 0, 0);
-    pn.flush(g);
+    g.fillStyle = P.bg[4]; g.fillRect(0, GROUND - 80, cv.width, 12);
+    g.drawImage(car, -(PADX + 4 * S), -80);
   }
 
   // 腿部件画布：腿 + 一圈示意躯干；跳跃件放「走 → 蓄力起跳」，提速件放「走 → 快跑」
@@ -373,5 +276,5 @@ SA.CUR = (() => {
     renderPose(cv, { ...spec, pose, t0: 0 }, { ...st, t: t2 });
   }
 
-  return { CLASSES, MAT_NAME, LEGPARTS, HIPPARTS, HELMS, HELM_BOX, renderHelm, laneSize, renderLane, ALL_LEGS, gaitLaneSize, renderGaitLane, renderGameCar, renderPose, renderPart, POSE_BOX, PART_BOX, JUMP_H, WALK, RUN };
+  return { CLASSES, MAT_NAME, LEGPARTS, HIPPARTS, HELMS, HELM_MATS, HELM_BOX, HELM_CLOSE, renderHelm, renderHelmClose, laneSize, renderLane, ALL_LEGS, gaitLaneSize, renderGaitLane, renderGameCar, renderPose, renderPart, POSE_BOX, PART_BOX, JUMP_H, WALK, RUN };
 })();
