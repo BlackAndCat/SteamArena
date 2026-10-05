@@ -20,9 +20,22 @@ function run() {
   assert.throws(() => evolve.run({ chapters: 2 }), /仍待审阅/, '未审阅关卡被整批正式生成');
   const first = evolve.stageSpec(SA, 0, 0), second = evolve.stageSpec(SA, 0, 1), third = evolve.stageSpec(SA, 0, 2);
   assert.deepStrictEqual([first.budget, second.budget, third.budget], [360, 420, 485]);
-  assert.deepStrictEqual(first.availableMods, ['track', 'helmet', 'boiler_s', 'tank_s', 'mg_s']);
-  assert.deepStrictEqual(second.availableMods, [...first.availableMods, 'plate']);
-  assert.deepStrictEqual(third.availableMods, [...second.availableMods, 'bucket']);
+  // 作者记录及实际初始开放才是事实，不再把旧逐关表的五件预设当成完整开局池。
+  const expected = new Set(SA.CAMP_START.mods || []);
+  const starter = Array.isArray(SA.STARTER.cells) ? SA.V.fromCells('开局车', SA.STARTER.cells) :
+    SA.V.fromAscii('开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+  SA.V.each(starter, cell => expected.add(cell.id));
+  expected.add('cockpit');
+  for (const spec of [first, second, third]) {
+    const record = SA.StageCars.get(spec.chapter, spec.stage);
+    const rewards = [...(record.unlock?.mods || []), ...(record.rewardItems || []).map(item => item?.id)]
+      .filter(id => SA.MODULES[id] && !SA.MODULES[id].retired);
+    rewards.forEach(id => expected.add(id));
+    const available = [...expected].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired &&
+      spec.allowedMaterials.some(mt => mt >= SA.minMt(id) && mt <= SA.maxMt(id)));
+    assert.deepStrictEqual([...spec.availableMods].sort(), available.sort());
+    assert.deepStrictEqual([...spec.requiredModules].sort(), [...new Set(rewards)].sort());
+  }
 
   // 初始车、标尺和变异分别走同一套奖励、材料、预算与摆放规则。
   let generated = 0;

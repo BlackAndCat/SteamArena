@@ -54,3 +54,4 @@ SA.BUILD_SYS += '+stage-deploy-diagnostics';
 SA.BUILD_SYS += '+manual-stage-full-grid'; // 手工关卡车编辑、出战、进化席位与原点车统一使用完整 8×6 范围。
 SA.BUILD_SYS += '+evolve-route-continue-diagnostics'; // 未达标候选保留并作临时参考继续后续关，运行完成与筛选达标分别报告。
 SA.BUILD_SYS += '+stage-create-preserve-preview-rule'; // 新关首次保存复用已有预演预算，缺规则才补行，事务失败仍完整回滚。
+SA.BUILD_SYS += '+evolve-authoritative-stage-record'; // 用户显式关卡奖励与历史解锁优先，旧预设不得重新注入已删除模块。

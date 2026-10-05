@@ -44,6 +44,17 @@ assert.doesNotThrow(() => render(report(undefined)));
 assert.ok(render(report({ ...comparison, origin: { chapter: 0 } })).includes('煤灰寡妇'));
 assert.ok(render(report({ winRate: 0.5, games: 2 })).includes('原点车'));
 
+// 新报告的空必带数组必须屏蔽旧关卡奖励，旧报告仍保留回退兼容。
+context.SA.CAMPAIGN[0].stages[3] = { spec: { reward: 'biped' } };
+context.SA.MODULES.biped = { name: '旧双足奖励' };
+context.SA.MODULES.spike = { name: '作者刺钉奖励' };
+const emptyRewards = report(undefined);
+emptyRewards.chapters[0].stages[0].spec = { name: '测试关卡', stage: 3, requiredModules: [], rewardModule: 'biped' };
+assert.ok(!render(emptyRewards).includes('旧双足奖励'), '明确空奖励仍回显旧预设');
+emptyRewards.chapters[0].stages[0].spec.requiredModules = ['spike'];
+assert.ok(render(emptyRewards).includes('作者刺钉奖励') && !render(emptyRewards).includes('旧双足奖励'));
+assert.ok(render(report(undefined)).includes('旧双足奖励'), '旧报告奖励兼容失效');
+
 // 真实故障报告直接进入同一渲染函数；不修改历史报告。
 const file = process.argv[2];
 if (file) {

@@ -4,7 +4,11 @@ const assert = require('assert');
 const evolve = require('./evolve');
 
 function run() {
-  const { SA } = evolve.loadGame(), spec = evolve.previewStageSpec(SA, 1, 4);
+  const { SA } = evolve.loadGame(), actualSpec = evolve.previewStageSpec(SA, 1, 4);
+  // 实际推土机已由作者清空奖励；使用独立内存的多奖励规格检验锁定入口硬约束。
+  const modules = [...new Set([...actualSpec.allowedModules, 'mortar_s', 'condenser'])];
+  const spec = { ...actualSpec, requiredModules: ['mortar_s', 'condenser'], rewardModule: 'mortar_s',
+    allowedModules: modules, availableMods: modules };
   const valid = evolve.minimalVehicle(SA, spec);
   assert(valid && evolve.legalVehicle(SA, valid, spec), '缺少合法的多奖励手工车夹具');
   const base = { name: '手工测试车', cells: SA.StageCars.cellsOf(valid), style: 'wander' };
@@ -50,7 +54,7 @@ function run() {
   assert.strictEqual(diagnostic.stage.selected, null, '诊断对局不能豁免入选硬门槛');
 
   // 锅炉缺失的机械非法车仍不能模拟，即使已有前关参考车。
-  const noBoiler = { ...base, cells: base.cells.filter(cell => cell[3] !== 'boiler') };
+  const noBoiler = { ...base, cells: base.cells.filter(cell => !SA.MODULES[cell[3]]?.supply) };
   const broken = inspect(noBoiler, { vehicle: prior, style: 'wander' });
   assert.strictEqual(broken.stage.selection.hardConditions.construction, false);
   assert.strictEqual(broken.stage.selection.previousGames, 0);

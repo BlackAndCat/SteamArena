@@ -35,6 +35,7 @@ const evolveCompare = require('./evolve-compare-check');
 const evolveFirstStage = require('./evolve-first-stage-check');
 const trackChain = require('./track-chain-check');
 const stageRules = require('./evolve-stage-rules-check');
+const manualAuthority = require('./evolve-manual-authority-check');
 const evolveArena = require('./evolve-arena-check');
 const prologuePlate = require('./prologue-plate-check');
 const evolveProgress = require('./evolve-progress-check');
@@ -248,6 +249,7 @@ async function main() {
   result.comparisonReport = comparisonReport;
   result.firstStage = firstStage;
   result.stageRules = constraints;
+  result.manualAuthority = manualAuthority.run();
   result.trackChain = tracks;
   result.arena = await evolveArena.run();
   result.prologuePlate = prologuePlate.run();

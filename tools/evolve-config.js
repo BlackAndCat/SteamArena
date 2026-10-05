@@ -4,7 +4,7 @@ const os = require('node:os');
 // 关卡车进化生成器的算法参数。这里的参数只控制搜索策略和报告权重，
 // 不直接修改战斗规则；战斗数值和用户已经拍板的门槛仍以 docs/evolve-plan.md 为准。
 module.exports = {
-  rulesVersion: 'evolve-stage-diversity-2026-10-03',
+  rulesVersion: 'evolve-authoritative-stage-config-2026-10-05', // 已保存关卡规格为权威，旧预设奖励报告须重新核验。
   // 默认最多使用八个逻辑处理器；明确传入 workers 时仍以调用者设置为准。
   defaultWorkers: Math.max(1, Math.min(8, os.availableParallelism?.() || os.cpus?.().length || 1)),
   maxWorkers: 14, // 手动并行数的统一上限；默认值保持为已测过的八线程上限。

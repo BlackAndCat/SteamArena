@@ -115,12 +115,13 @@ function stageFor(SA, chapter, stage) {
   return merged;
 }
 
-function manualCandidateRecord(SA, stage, chapter, index, fingerprint) {
+function manualCandidateRecord(SA, stage, spec, fingerprint) {
   const vehicle = manualWorkbenchVehicle(SA, stage.vehicle), stats = SA.V.stats(vehicle), rec = stage.stageCar || {};
   return {
     name: stage.name, code: SA.V.encode(vehicle), cells: SA.StageCars.cellsOf(vehicle),
     style: stage.style || 'wander',
-    spec: { chapter, stage: index, terrain: stage.terrain || 'flat', rewardModule: stage.spec?.reward || null },
+    // 锁定路线候选也使用同一次解析的作者规格，不从旧 spec.reward 回灌奖励。
+    spec: { ...spec },
     source: 'manual', locked: stage.locked !== false, manualVersion: rec.updatedAt || rec.version || null,
     rules: fingerprint, strength: stats.rating, performance: null,
     stats: { rating: stats.rating, value: stats.value, hp: stats.hp, dps: stats.dps, heatDps: stats.heatDps, water: stats.water, cool: stats.cool },
@@ -242,27 +243,65 @@ function progressAt(SA, chapter, stage) {
   return progress;
 }
 
+/** 用户显式关卡记录始终权威，与 source 无关；缺字段或空数组都表示没有配置奖励。 */
+function authoritativeStageRecord(SA, chapter, stage) {
+  return SA.StageCars?.get(chapter, stage) || null;
+}
+
+/** 两个生成入口共用逐关模块来源：历史奖励累计，本关临时预设不传给后关。 */
+function stageModuleSpec(SA, chapter, stage, mat) {
+  const route = plannedRoute(SA), index = route.findIndex(row => row.chapter === chapter && row.stage === stage);
+  const unlocked = new Set(SA.CAMP_START?.mods || []);
+  if (SA.STARTER) {
+    const starter = Array.isArray(SA.STARTER.cells) ? SA.V.fromCells('开局车', SA.STARTER.cells) :
+      SA.V.fromAscii('开局车', SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
+    SA.V.each(starter, cell => unlocked.add(cell.id));
+  }
+  unlocked.add('cockpit');
+  let requiredModules = [];
+  for (const row of route.slice(0, index + 1)) {
+    if (row.chapter > 0 && row.stage === 0) {
+      for (const id of SA.CAMPAIGN[row.chapter - 1].unlock?.mods ?? SA.CAMPAIGN_MAP.chapters[row.chapter - 1].unlockMods ?? []) unlocked.add(id);
+    }
+    const actual = SA.CAMPAIGN[row.chapter]?.stages[row.stage], manual = authoritativeStageRecord(SA, row.chapter, row.stage);
+    const rule = stageRules.find(rule => rule.chapter === row.chapter && rule.stage === row.stage);
+    const rewards = manual ? [...(manual.unlock?.mods || []), ...(manual.rewardItems || []).map(item => item?.id)] :
+      row.entry.rewardModules || actual?.spec?.requiredModules || (actual?.spec?.reward ? [actual.spec.reward] : []);
+    if (manual) {
+      for (const id of rewards) unlocked.add(id);
+    } else {
+      for (const id of [...(rule?.addMods || []), ...(row.entry.unlockMods || []), ...rewards]) unlocked.add(id);
+      if (row.chapter === chapter && row.stage === stage) for (const id of rule?.stageMods || []) unlocked.add(id);
+    }
+    if (row.chapter === chapter && row.stage === stage) requiredModules = [...new Set(rewards.filter(id => SA.MODULES[id] && !SA.MODULES[id].retired))];
+  }
+  // 只排列已核定集合以保持保底装配优先级，额外真实模块稳定追加；旧表不能复活作者删除的模块。
+  const preferred = stageRules.flatMap(row => row.addMods || []).filter(id => unlocked.has(id));
+  const ids = [...new Set([...preferred, ...unlocked])].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired);
+  for (const id of requiredModules) if (!ids.includes(id) || SA.minMt(id) > mat)
+    throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关奖励模块 ${id} 未解锁或最低材料超过上限`);
+  const allowedMaterials = Array.from({ length: mat }, (_, i) => i + 1);
+  const allowedModules = ids.filter(id => allowedMaterials.some(mt => mt >= SA.minMt(id) && mt <= SA.maxMt(id)));
+  return { requiredModules, allowedModules, allowedMaterials };
+}
+
 function stageSpec(SA, chapter, stage) {
   const ch = SA.CAMPAIGN[chapter], current = ch.stages[stage], progress = progressAt(SA, chapter, stage);
   const actual = stageFor(SA, chapter, stage) || current;
   const design = current.spec || {};
-  // 构筑预算和模块池只读逐关表：addMods 自本关起累计，stageMods 仅本关。
-  // 不再从原车的 subs 猜解锁，也不把库存目录、奖金或 Boss 倍率叠加进硬上限。
+  // 预算仍读逐关表，模块奖励由共用权威来源决定，不把奖金或玩家胜后权限叠进敌车上限。
   const index = stageRules.findIndex(row => row.chapter === chapter && row.stage === stage);
   if (index < 0) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少构筑规则`);
-  const rule = stageRules[index], reward = design.reward || null;
+  const rule = stageRules[index];
   const planned = SA.CAMPAIGN_MAP?.chapters[chapter]?.stages[stage];
   const mat = planned?.enemyMaterial || progress.mat, grid = planned?.enemyGrid || progress.grid;
-  const allowedMaterials = Array.from({ length: mat }, (_, i) => i + 1);
-  const available = [...new Set([...stageRules.slice(0, index + 1).flatMap(row => row.addMods), ...(rule.stageMods || [])])];
-  const requiredModules = [...new Set(planned?.rewardModules || design.requiredModules || (reward ? [reward] : []))];
-  const allowedModules = available.filter(id => SA.MODULES[id] && allowedMaterials.some(mt => mt >= SA.minMt(id) && mt <= SA.maxMt(id)));
+  const { requiredModules, allowedModules, allowedMaterials } = stageModuleSpec(SA, chapter, stage, mat);
   return {
     chapter, stage, name: actual.name, terrain: design.terrain || actual.terrain || 'flat', style: actual.style || null, bounds: ch.bounds,
     lesson: design.lesson || null, performanceMin: Number.isFinite(design.performanceMin) ? design.performanceMin : 0,
     uniqueLoot: (actual.uniqueLoot || []).map(item => ({ ...item })),
     chapterHasBoss: ch.stages.some((row, index) => !!(stageFor(SA, chapter, index)?.boss || row.boss)),
-    boss: !!actual.boss, rewardModule: reward || requiredModules[0] || null, requiredModules, grid, mat,
+    boss: !!actual.boss, rewardModule: requiredModules[0] || null, requiredModules, grid, mat,
     allowedMaterials, allowedModules,
     budget: rule.budget, baseBudget: rule.budget, budgetStatus: rule.status,
     // 喷射武器只进入对应材料池；其他 Boss 奖励仍沿用原先允许提前展示的规则。
@@ -292,32 +331,25 @@ function previewStageSpec(SA, chapter, stage) {
   const route = plannedRoute(SA), index = route.findIndex(row => row.chapter === chapter && row.stage === stage);
   if (index < 0) throw new Error('预演关卡不在路线图内');
   const entry = route[index].entry, ruleIndex = stageRules.findIndex(row => row.chapter === chapter && row.stage === stage);
+  const saved = authoritativeStageRecord(SA, chapter, stage);
   if (!Array.isArray(entry.rewardModules) && SA.CAMPAIGN[chapter]?.stages[stage] && !SA.CAMPAIGN[chapter].stages[stage].unfinished)
     return stageSpec(SA, chapter, stage);
-  if (ruleIndex < 0 || !Array.isArray(entry.rewardModules) || !Number.isInteger(entry.enemyMaterial) || !entry.enemyGrid) {
+  if (ruleIndex < 0 || !saved && !Array.isArray(entry.rewardModules) || !Number.isInteger(entry.enemyMaterial) || !entry.enemyGrid) {
     const error = new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关缺少奖励、材料、网格或预算的结构化生成配置`);
     error.code = 'EVOLVE_STAGE_CONFIG_MISSING'; // 目录可单独标记未配置关，生成入口仍按原错误拒绝。
     throw error;
   }
   const rule = stageRules[ruleIndex];
-  const unlocked = new Set([...(SA.CAMP_START?.mods || []), ...stageRules.slice(0, ruleIndex + 1).flatMap(row => row.addMods || [])]);
-  route.slice(0, index + 1).forEach((row, i) => {
-    if (i && row.stage === 0) for (const id of SA.CAMPAIGN_MAP.chapters[row.chapter - 1].unlockMods || []) unlocked.add(id);
-    for (const id of row.entry.unlockMods || []) unlocked.add(id);
-  });
-  const ids = [...unlocked].filter(id => SA.MODULES[id] && !SA.MODULES[id].retired);
   const mat = entry.enemyMaterial;
   if (mat < 1 || mat > SA.MAT_MAX) throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关材料上限无效`);
-  for (const id of entry.rewardModules) if (!ids.includes(id) || SA.minMt(id) > mat)
-    throw new Error(`第 ${chapter + 1} 章第 ${stage + 1} 关奖励模块 ${id} 未解锁或最低材料超过上限`);
-  const allowedModules = ids.filter(id => Array.from({ length: mat }, (_, i) => i + 1).some(mt => mt >= SA.minMt(id) && mt <= SA.maxMt(id)));
+  const { requiredModules, allowedModules, allowedMaterials } = stageModuleSpec(SA, chapter, stage, mat);
   const actual = stageFor(SA, chapter, stage);
   const terrain = Object.entries(SA.TERRAINS).find(([, value]) => entry.terrain?.includes(value.name))?.[0];
   return { chapter, stage, name: actual?.name || entry.car, terrain: actual?.terrain || terrain || 'flat', style: actual?.style || null,
     bounds: SA.CAMPAIGN[chapter].bounds, boss: actual?.boss ?? /★/.test(entry.role || ''),
     chapterHasBoss: SA.CAMPAIGN_MAP.chapters[chapter].stages.some(row => /★/.test(row.role || '')),
-    rewardModule: entry.rewardModules[0] || null, requiredModules: [...entry.rewardModules], uniqueLoot: actual?.uniqueLoot || [],
-    mat, allowedMaterials: Array.from({ length: mat }, (_, i) => i + 1), grid: { ...entry.enemyGrid },
+    rewardModule: requiredModules[0] || null, requiredModules, uniqueLoot: actual?.uniqueLoot || [],
+    mat, allowedMaterials, grid: { ...entry.enemyGrid },
     allowedModules, availableMods: allowedModules, budget: rule.budget, baseBudget: rule.budget,
     budgetStatus: rule.status,
     target: { bossWinRate: /★/.test(entry.role || '') ? [0.6, 0.7] : [0.65, 0.8] } };
@@ -1485,7 +1517,7 @@ function run(options = {}) {
     let chapterReport = chapterReports.find(item => item.chapter === chapter);
     if (!chapterReport) { chapterReport = { chapter, name: SA.CAMPAIGN[chapter].name, stages: [] }; chapterReports.push(chapterReport); }
     if (actual?.source === 'manual' && actual.locked && !scope) {
-      const record = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
+      const record = manualCandidateRecord(SA, actual, spec, fingerprint);
       const report = lockedStageReport({ spec, records: [record], archive: {} }, selectionFailures, SA, reference,
         seed + chapter * 10000 + stage * 101, duelCache);
       chapterReport.stages.push(report); all.push(record);
@@ -1664,7 +1696,7 @@ async function runAsync(options = {}) {
       if (!chapterReport) { chapterReport = { chapter, name: SA.CAMPAIGN[chapter].name, stages: [] }; chapterReports.push(chapterReport); }
       progress({ phase: 'stage-start', chapter, stage, locked: !!(actual?.source === 'manual' && actual.locked && !scope) });
       if (actual?.source === 'manual' && actual.locked && !scope) {
-        const record = manualCandidateRecord(SA, actual, chapter, stage, fingerprint);
+        const record = manualCandidateRecord(SA, actual, spec, fingerprint);
         const report = lockedStageReport({ spec, records: [record], archive: {} }, selectionFailures, SA, reference,
           seed + chapter * 10000 + stage * 101, duelCache);
         chapterReport.stages.push(report); all.push(record);

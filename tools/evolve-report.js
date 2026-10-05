@@ -425,7 +425,8 @@
       verdict = sel ? (failed.length ? (ev.status || '待复核') : '✓ 选出') : '✗ 没选出';
     }
     const missing = !manual && sel && SA.EvolveArena ? SA.EvolveArena.missingReward(sel) : null;
-    const boss = spec.boss ?? stg.boss, reward = spec.rewardModule || stg.spec?.reward || null, terrainKey = spec.terrain || stg.terrain;
+    // 新报告的明确空奖励优先；只有旧报告缺必带数组时才回退历史显示字段。
+    const boss = spec.boss ?? stg.boss, reward = Array.isArray(spec.requiredModules) ? spec.requiredModules[0] || null : spec.rewardModule || stg.spec?.reward || null, terrainKey = spec.terrain || stg.terrain;
     const terrain = terrainKey && terrainKey !== 'flat' ? terrainName(terrainKey) : null;
     const nums = shown ? h('div', { class: 'pk-nums' },
       h('div', { class: 'pk-num', title: '实战测出的强度分（1000 = 和标尺车打平）' }, h('small', {}, '强度'), h('b', {}, fix(shown.strength)), shown.strengthCi != null ? h('em', {}, `±${fix(shown.strengthCi)}`) : null),
