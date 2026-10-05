@@ -35,6 +35,14 @@ MAX_BODY = 2 * 1024 * 1024
 EVOLUTION = EvolutionService(ROOT)
 
 
+class StageBudgetConflict(ValueError):
+    """预算比较失败时携带最新值，供编辑器刷新，避免旧页面覆盖新设置。"""
+
+    def __init__(self, chapter, stage, budget):
+        super().__init__('预算已被其他操作修改，请刷新后再保存')
+        self.current = {'chapter': chapter, 'stage': stage, 'budget': budget}
+
+
 def _module_json_block(source, start, end, variable):
     """只读取工作台标记包围的纯 JSON 赋值，避免解析或重写模块原表。"""
     before, found, remainder = source.partition(start)
@@ -253,7 +261,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         endpoint = urlparse(self.path).path
         allowed = ('/__text/save', '/__stage-cars/save', '/__stage-cars/create', '/__modules/save', '/__battle-speed/save', '/__config/save',
-                   '/__config/migrate', '/__evolve/run', '/__evolve/stop', '/__publish/archive')
+                   '/__config/migrate', '/__evolve/run', '/__evolve/stop', '/__evolve/budget/save', '/__publish/archive')
         if endpoint not in allowed:
             self._json(404, {'error': '接口不存在'})
             return
@@ -270,13 +278,53 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             elif endpoint == '/__battle-speed/save': result = self._save_battle_speed(payload)
             elif endpoint == '/__stage-cars/save': result = self._save_stage_cars(payload)
             elif endpoint == '/__stage-cars/create': result = self._create_stage_car(payload)
+            elif endpoint == '/__evolve/budget/save': result = self._save_stage_budget(payload)
             elif endpoint == '/__text/save': result = self._save_text(payload)
             elif endpoint == '/__config/save': result = self._save_config(payload)
             else: result = self._migrate(payload)
             self._json(200, {'ok': True, **result})
+        except StageBudgetConflict as error:
+            self._json(409, {'error': str(error), **error.current})
         except (OSError, UnicodeError, ValueError, KeyError, TypeError) as error:
             self._json(400 if isinstance(error, (ValueError, KeyError, TypeError, UnicodeError)) else 500,
                        {'error': str(error)})
+
+    def _save_stage_budget(self, payload):
+        """在锁内比较旧预算并仅修改指定规则的预算；计划空关也可设置，不登记或改写手工车。"""
+        if set(payload) != {'chapter', 'stage', 'budget', 'expectedBudget'}:
+            raise ValueError('预算请求字段不合法')
+        ci, si, budget, expected = (payload[key] for key in ('chapter', 'stage', 'budget', 'expectedBudget'))
+        if any(type(value) is not int or value < 0 for value in (ci, si)):
+            raise ValueError('关卡编号必须是非负整数')
+        # 沿用逐关规则的有限正数约束，编辑入口另要求整数，不人为限制可设置预算的上限。
+        for value in (budget, *(() if expected is None else (expected,))):
+            try:
+                valid = type(value) is int and value > 0 and math.isfinite(value)
+            except OverflowError:
+                valid = False
+            if not valid:
+                raise ValueError('预算及预期旧预算必须是有限正整数')
+        with MODULE_SAVE_LOCK:
+            chapters = _json_file(CONTENT_FILE)['CAMPAIGN']
+            if ci >= len(chapters) or si >= max(len(chapters[ci].get('stages', [])), chapters[ci].get('plannedStages', 0)):
+                raise ValueError('关卡编号不在现有计划内')
+            rules = _json_file(STAGE_RULES_FILE)
+            rule = next((row for row in rules if (row['chapter'], row['stage']) == (ci, si)), None)
+            current = rule['budget'] if rule else None
+            if current != expected:
+                raise StageBudgetConflict(ci, si, current)
+            if rule is None:
+                # 仅登记预算，空模块列表与原来的缺行等价，不凭空新增解锁、奖励、材料或网格规则。
+                stages = chapters[ci].get('stages', [])
+                name = stages[si].get('name') if si < len(stages) else None
+                rule = {'chapter': ci, 'stage': si, 'name': name or f'{ci}:{si}',
+                        'budget': budget, 'status': 'draft', 'addMods': []}
+                rules.append(rule)
+                _write_rules(STAGE_RULES_FILE, rules)
+            elif current != budget:
+                rule['budget'] = budget
+                _write_rules(STAGE_RULES_FILE, rules)
+        return {'chapter': ci, 'stage': si, 'budget': budget, 'file': 'tools/evolve-stage-rules.json'}
 
     def _save_modules(self, payload):
         """直接修改当前模块记录；默认基线不参与日常保存。"""

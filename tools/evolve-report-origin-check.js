@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 // 最小 DOM 只保存文本；缩略图解析返回空，不涉及视觉绘制。
 function element(_tag, _attrs, ...children) {
-  const node = { children: [], append(...items) {
+  const node = { attrs: _attrs, children: [], append(...items) {
     this.children.push(...items.flat(Infinity).filter(item => item != null));
   }, get textContent() {
     return this.children.map(item => typeof item === 'object' ? item.textContent : String(item)).join(' ');
@@ -25,7 +25,7 @@ const context = { SA: {
 }, document: { querySelector: () => element('div', {}) },
   location: { hash: '' }, localStorage: { getItem: () => null, setItem() {} } };
 // 在启动页面事件与网络读取之前暴露已有函数；生产文件不添加测试接口。
-vm.runInNewContext(source.split(anchor)[0] + '\n globalThis.reportCheck = { st, picks };\n})();', context);
+vm.runInNewContext(source.split(anchor)[0] + '\n globalThis.reportCheck = { st, picks, budgetBlock, setCatalog: value => { runCatalog = value; } };\n})();', context);
 const render = report => {
   context.reportCheck.st.report = report;
   return context.reportCheck.picks().textContent;
@@ -54,6 +54,44 @@ assert.ok(!render(emptyRewards).includes('旧双足奖励'), '明确空奖励仍
 emptyRewards.chapters[0].stages[0].spec.requiredModules = ['spike'];
 assert.ok(render(emptyRewards).includes('作者刺钉奖励') && !render(emptyRewards).includes('旧双足奖励'));
 assert.ok(render(report(undefined)).includes('旧双足奖励'), '旧报告奖励兼容失效');
+
+// 预算提示运行真实共用函数：当前目录覆盖历史上限，超限仅警示，零上限不能误判为未配置。
+const rec = { spec: { chapter: 1, stage: 5, budget: 9999 }, stats: { value: 1287 } };
+const catalog = budget => ({ chapters: [{ chapter: 1, stages: [{ stage: 5, budget }] }] });
+context.reportCheck.setCatalog(catalog(830));
+let budget = context.reportCheck.budgetBlock(rec);
+assert.ok(budget.attrs.class.includes('bad') && budget.textContent.includes('£1287 / 预算上限 £830'));
+assert.ok(budget.textContent.includes('超出 £457，仅提示，仍可参与进化'));
+budget = context.reportCheck.budgetBlock({ ...rec, stats: { value: 830 } });
+assert.ok(!budget.attrs.class.includes('bad') && !budget.textContent.includes('超出'));
+context.reportCheck.setCatalog(catalog(0));
+budget = context.reportCheck.budgetBlock({ ...rec, stats: { value: 1 } });
+assert.ok(budget.attrs.class.includes('bad') && budget.textContent.includes('预算上限 £0'));
+context.reportCheck.setCatalog(null);
+assert.ok(context.reportCheck.budgetBlock(rec).textContent.includes('预算上限 £9999'));
+assert.ok(context.reportCheck.budgetBlock({ stats: { value: 0 } }).textContent.includes('暂不可用'));
+context.reportCheck.setCatalog({ chapters: [] });
+assert.ok(context.reportCheck.budgetBlock({ stats: { value: 0 } }).textContent.includes('未配置'));
+
+// 工作台直接执行自身预算块，确认实时造价变化与同一预算缓存比较，缺目录不当零预算。
+const garageSource = fs.readFileSync(path.join(__dirname, 'console-garage.js'), 'utf8');
+const garage = { SA: { h: element } };
+vm.createContext(garage);
+vm.runInContext('var budgetCatalog = null; const budgetDrafts = new Map(), budgetMessages = new Map(); const current = () => ({ci:1,si:5});\n' +
+  garageSource.slice(garageSource.indexOf('  function budgetSummary('), garageSource.indexOf('  // 工具页没有')), garage);
+assert.ok(garage.budgetSummary(1287).textContent.includes('暂不可用'));
+garage.budgetCatalog = catalog(830);
+assert.ok(garage.budgetSummary(1287).attrs.class.includes('over-budget'));
+assert.ok(garage.budgetSummary(1287).textContent.includes('超出 £457'));
+assert.ok(!garage.budgetSummary(830).attrs.class.includes('over-budget'));
+garage.budgetCatalog = catalog(0);
+assert.ok(garage.budgetSummary(1).attrs.class.includes('over-budget'));
+garage.budgetCatalog = { chapters: [] };
+assert.ok(garage.budgetSummary(0).textContent.includes('未配置'));
+garage.budgetCatalog = { budgets: [{ chapter: 1, stage: 5, budget: 830 }], chapters: [] };
+assert.ok(garage.budgetSummary(1287).textContent.includes('超出 £457'));
+context.reportCheck.setCatalog({ budgets: [{ chapter: 1, stage: 5, budget: 830 }], chapters: [] });
+assert.ok(context.reportCheck.budgetBlock(rec).textContent.includes('超出 £457'));
 
 // 真实故障报告直接进入同一渲染函数；不修改历史报告。
 const file = process.argv[2];

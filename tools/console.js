@@ -11,6 +11,66 @@
   const savePrefs = () => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* 隐私模式：只在本页记住 */ } };
   const clone = (v) => (v == null ? v : JSON.parse(JSON.stringify(v)));
   const $ = (sel, root = document) => root.querySelector(sel);
+  let budgetCatalogRequest = null;
+
+  /** 独立预算目录与车辆草稿分离，包含尚未登记的计划关。 */
+  function budgetCatalog(fresh = false) {
+    if (fresh || !budgetCatalogRequest) budgetCatalogRequest = fetch('/__evolve/config', { cache: 'no-store' }).then(response => {
+      if (!response.ok) throw new Error('预算目录暂不可用');
+      return response.json();
+    }).catch(error => { budgetCatalogRequest = null; throw error; });
+    return budgetCatalogRequest;
+  }
+
+  /** 地图预览和关卡资料共用小表单；预算独立保存，不注册车辆或写奖励。 */
+  function budgetEditor(chapter, stage) {
+    let expectedBudget = null, dirty = false;
+    const input = el('input', { type: 'number', min: 1, step: 1, 'aria-label': `${chapter}-${stage + 1} 预算上限` });
+    const status = el('span.muted', { text: '读取预算中……' });
+    const button = el('button.btn.sm', { type: 'button', disabled: true }, '保存预算');
+    const root = el('div.stage-budget-editor', null, el('label.field', null, '预算上限 £', input), button, status);
+    input.addEventListener('input', () => { dirty = true; });
+    const update = catalog => {
+      const value = catalog.budgets?.find(row => row.chapter === chapter && row.stage === stage)?.budget ??
+        catalog.chapters.find(ch => ch.chapter === chapter)?.stages.find(row => row.stage === stage)?.budget;
+      expectedBudget = Number.isFinite(value) ? value : null;
+      if (!dirty) input.value = expectedBudget ?? '';
+      button.disabled = false;
+      status.textContent = expectedBudget == null ? '未配置，可直接设置，无需创建关卡车' : `已保存上限 £${expectedBudget}`;
+    };
+    budgetCatalog().then(update).catch(error => { status.textContent = error.message; });
+    root.addEventListener('budget-refresh', () => budgetCatalog().then(update).catch(error => { status.textContent = error.message; }));
+    button.addEventListener('click', async () => {
+      const budget = input.value.trim() === '' ? NaN : Number(input.value);
+      if (!Number.isSafeInteger(budget) || budget < 1) { status.textContent = '预算必须是正整数'; return; }
+      button.disabled = true;
+      try {
+        const response = await fetch('/__evolve/budget/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chapter, stage, budget, expectedBudget }) });
+        const result = await response.json();
+        if (!response.ok) {
+          if (response.status === 409) {
+            const draft = input.value;
+            update(await budgetCatalog(true)); input.value = draft;
+            status.textContent = `${result.error}；最新上限 ${result.budget == null ? '未配置' : `£${result.budget}`}，确认后再次保存`;
+          } else status.textContent = result.error || '预算保存失败';
+          return;
+        }
+        dirty = false; update(await budgetCatalog(true));
+        status.textContent = '预算已保存；车辆和奖励未改变';
+        garageApi()?.reloadBudget?.();
+        try { const channel = new BroadcastChannel('steam-arena-evolve-budget'); channel.postMessage({ chapter, stage }); channel.close(); } catch (error) { /* 当前表单已更新。 */ }
+      } catch (error) { status.textContent = error.message; }
+      finally { button.disabled = false; }
+    });
+    return root;
+  }
+  try {
+    const channel = new BroadcastChannel('steam-arena-evolve-budget');
+    channel.onmessage = () => budgetCatalog(true).then(() => {
+      document.querySelectorAll('.stage-budget-editor').forEach(node => node.dispatchEvent(new Event('budget-refresh')));
+    }).catch(error => { /* 表单下一次打开时仍可重新读取。 */ });
+  } catch (error) { /* 不支持频道时保留独立保存功能。 */ }
 
   // ---------- DOM 小工具：文字一律走 textContent ----------
   function el(tag, props, ...kids) {
@@ -1257,6 +1317,8 @@
     card.addEventListener('pointerleave', unhover);
     // 在卡片里点了东西（换页签、跑测试）就把它钉住，鼠标移开也不收
     card.addEventListener('pointerdown', () => { if (!pinned && cur) { pinned = true; card.classList.add('pinned'); } });
+    // 键盘进入预算输入等卡片控件时同样钉住，避免节点失焦后的隐藏计时打断编辑。
+    card.addEventListener('focusin', () => { clearTimeout(hideT); if (!pinned && cur) { pinned = true; card.classList.add('pinned'); } });
     function show(id) {
       const n = nodes.get(id);
       if (!n) return;
@@ -1347,7 +1409,7 @@
       if (x.loot) left.append(...lootBlock(x.loot));
       return [
         el('div.mc-top', null, el('div.mc-h', null, chips), el('h3.mc-title', { text: title }), el('div.mc-sub', { text: sub })),
-        el('div.mc-body', null, left, el('div.mc-right', null, kvRows(rows), note ? el('div.mc-note', { text: note }) : null)),
+        el('div.mc-body', null, left, el('div.mc-right', null, kvRows(rows), d.type === 'stage' ? budgetEditor(...x.code.split('-').map((value, i) => Number(value) - (i ? 1 : 0))) : null, note ? el('div.mc-note', { text: note }) : null)),
       ];
     }
     // 游戏里有的关：左边车和速览，右边四个页签现场预览，底部按页签传送到工作台
@@ -1384,7 +1446,7 @@
         el('div.mc-foot', null, el('span.mc-note', { text: '点节点直接进工作台；页签只是预览' }), el('span.grow'), go2)];
     }
     function overview(d, st, ci, si, gch) {
-      const out = [el('div.mc-sec', { text: '奖励' }), kvRows(stageRewardRows(st))];
+      const out = [budgetEditor(ci, si), el('div.mc-sec', { text: '奖励' }), kvRows(stageRewardRows(st))];
       if (si === gch.stages.length - 1 && gch.unlock) out.push(el('div.mc-sec', { text: `打完这一关 = ${gch.name} 通关` }), kvRows(unlockRows(gch.unlock)));
       if (d.p && d.p.reward) out.push(el('div.mc-plan', null, el('b', { text: '设计稿奖励：' }), d.p.reward, d.p.car !== st.name ? el('span.muted', { text: `（设计稿车名：${d.p.car}）` }) : null));
       const slots = storySlotsOf(d.key).filter(([, id]) => sceneIds.has(id));
@@ -1935,7 +1997,7 @@
       el('label.field', null, '过关提示（解锁弹窗里的那段话）', note));
     const loot = el('details.fs', null, el('summary', { text: '高级：可缴获的唯一件（JSON）' }),
       autoGrow(el('textarea', { rows: 4, class: 'mono', value: f.lootText, on: { input: upd((e) => { f.lootText = e.target.value; }) } })));
-    body.append(el('div.note', { text: '这里的改动和拼装台上的车一起保存：按右上角「保存」或 Ctrl+S。' }), el('div.form', null, basic, globalStats, poster, reward, unlock, loot));
+    body.append(budgetEditor(...key.split(',').map(Number)), el('div.note', { text: '预算使用独立「保存预算」按钮；以下改动和拼装台上的车一起保存：按右上角「保存」或 Ctrl+S。' }), el('div.form', null, basic, globalStats, poster, reward, unlock, loot));
   }
 
   // 强度页签：车的性能单 + 和前面几关对打的胜率（判定区间照旧工作台）

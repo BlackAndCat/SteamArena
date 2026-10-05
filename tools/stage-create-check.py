@@ -24,6 +24,15 @@ def check():
         content_file.write_bytes((root / 'config/content.json').read_bytes())
         cars_file.write_bytes((root / 'config/stage-cars.json').read_bytes())
         rules_file.write_bytes((root / 'tools/evolve-stage-rules.json').read_bytes())
+        # 本专项需要两个计划空位；只整理临时副本，不依赖作者当前是否已完成独角兽设计。
+        fixture_content = json.loads(content_file.read_text(encoding='utf-8'))
+        fixture_content['CAMPAIGN'][1]['stages'] = fixture_content['CAMPAIGN'][1]['stages'][:5]
+        content_file.write_text(json.dumps(fixture_content, ensure_ascii=False), encoding='utf-8')
+        fixture_cars = json.loads(cars_file.read_text(encoding='utf-8'))
+        fixture_cars['targets'] = [key for key in fixture_cars['targets'] if key not in ('1:5', '1:6')]
+        for key in ('1:5', '1:6'):
+            fixture_cars['records'].pop(key, None)
+        cars_file.write_text(json.dumps(fixture_cars, ensure_ascii=False), encoding='utf-8')
         old_rules = json.loads(rules_file.read_text(encoding='utf-8'))
         files = (content_file, cars_file, rules_file)
         snapshot = lambda: tuple(path.read_bytes() for path in files)
@@ -96,6 +105,13 @@ def check():
                     raise AssertionError('第二份文件失败未被报告')
                 except OSError:
                     assert snapshot() == before
+            # 用户先设置预算、后登记车时，新建关也必须复用已保存上限，不重新计算。
+            handler._save_stage_budget({'chapter': 1, 'stage': 6, 'budget': 975,
+                                        'expectedBudget': next(row['budget'] for row in old_rules
+                                                               if (row['chapter'], row['stage']) == (1, 6))})
+            configured_rules = rules_file.read_bytes()
+            result = handler._create_stage_car(packet({**record, 'id': '1:6'}))
+            assert result['rule']['budget'] == 975 and rules_file.read_bytes() == configured_rules
             # 无预存预算的旧路径：用确定的前关 £700 验证下一关 ×1.2 为 £840。
             content_file.write_bytes(initial[0])
             cars_file.write_bytes(initial[1])

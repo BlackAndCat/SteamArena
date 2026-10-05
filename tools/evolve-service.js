@@ -36,6 +36,9 @@ function mergeReports(base, fresh) {
 function catalog() {
   const { SA } = evolve.loadGame();
   const route = evolve.plannedRoute(SA);
+  // 预算可先于车体、材料和网格登记；单独暴露逐关表，编辑器不依赖完整生成规格。
+  const budgets = JSON.parse(fs.readFileSync(path.join(__dirname, 'evolve-stage-rules.json'), 'utf8'))
+    .map(({ chapter, stage, budget }) => ({ chapter, stage, budget }));
   const rows = route.map(({ chapter, stage, entry }) => {
     let spec = null, error = null;
     try { spec = evolve.previewStageSpec(SA, chapter, stage); }
@@ -48,6 +51,7 @@ function catalog() {
       hasVehicle: !!actual?.vehicle, spec, error };
   });
   return { defaults: { population: config.population.size, generations: config.population.generations, games: config.evaluation.quickGames, workers: config.defaultWorkers },
+    budgets,
     chapters: SA.CAMPAIGN.map((ch, ci) => ({ chapter: ci, name: ch.name, stages: rows.flatMap((row, index) => {
       if (row.chapter !== ci || !row.spec) return [];
       // 路线只能从已配置关连续向后生成，不能跨过未配置关延伸数量上限。

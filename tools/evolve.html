@@ -56,6 +56,9 @@ code { font-family: var(--mono); font-size: 12px; }
 .gen[data-end="done"] .meter i { background: var(--ok); }
 .gen[data-end="failed"] .meter i { background: var(--bad); }
 .gen[data-end="stopped"] .meter i { background: var(--line-2); }
+/* 预算只作用于工具卡片；超限沿用警告色，不改变按钮可用状态。 */
+.budget-info { padding: 5px 10px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.budget-info.bad { color: var(--bad); font-weight: 700; }
 #scope-info { flex-basis: 100%; margin: 0; font-size: 11.5px; color: var(--ink-3); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* ---------- 选关结果：一关一张卡，钉在木桌上 ---------- */

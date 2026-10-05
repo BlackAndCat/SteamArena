@@ -190,6 +190,9 @@ button.card { text-align: left; cursor: pointer; font: inherit; }
 .stage-head .acts { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .stage-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; container-type: inline-size; }
 .stage-body > * { flex: none; }
+.stage-budget-editor { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px 0; }
+.stage-budget-editor input { width: 100px; }
+.stage-budget-editor .muted { flex-basis: 100%; }
 .stage-body.build { padding: 0; gap: 0; overflow: hidden; }
 .build-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; background: var(--paper-2); border-bottom: 1px solid var(--line); }
 .build-bar .name { width: 170px; }

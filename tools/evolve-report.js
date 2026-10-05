@@ -394,6 +394,17 @@
     return row ? (s.top || []).find(rec => rec.name === row.name) || null : null;
   }
   let runCatalog = null;   // 生成器目录（initGeneration 读取）；卡片上的「重跑」和「未生成」空位要用
+  /** 三处共用预算提示：当前目录优先，报告上限仅作回退，零上限同样有效。 */
+  function budgetBlock(rec, spec = rec?.spec || {}) {
+    const currentLimit = runCatalog?.budgets?.find(row => row.chapter === spec.chapter && row.stage === spec.stage)?.budget ??
+      runCatalog?.chapters.find(ch => ch.chapter === spec.chapter)?.stages.find(row => row.stage === spec.stage)?.budget;
+    const limit = Number.isFinite(currentLimit) && currentLimit >= 0 ? currentLimit : Number.isFinite(spec.budget) && spec.budget >= 0 ? spec.budget : null;
+    const used = Number.isFinite(rec?.stats?.value) ? rec.stats.value : null;
+    const exceeded = limit != null && used != null && used > limit, money = n => Number(n.toFixed(2));
+    return h('div', { class: `budget-info${exceeded ? ' bad' : ''}` },
+      `已用预算 ${used == null ? '未记录' : `£${money(used)}`} / 预算上限 ${limit == null ? runCatalog ? '未配置' : '暂不可用' : `£${money(limit)}`}`,
+      exceeded ? h('div', {}, `超出 £${money(used - limit)}，仅提示，仍可参与进化`) : null);
+  }
   function canAim(ci, si) { return !!(runCatalog && catalogChapter(ci)?.stages.some(row => row.stage === si)); }
   const aimButton = (ci, si, label = '重跑') => h('button', { type: 'button', class: 'btn sm ghost aim', disabled: !canAim(ci, si),
     title: canAim(ci, si) ? '把上面的生成范围设成这一关，再点「模拟并生成报告」开跑' : '生成器目录里没有这一关', onclick: () => aimAt(ci, si) }, `↻ ${label}`);
@@ -463,6 +474,7 @@
         h('span', { class: 'who' }, `${manual ? `${shown.name || car.name} · ` : ''}${styleName(shown.style)} · ${chassisName(shown.chassis)}${shown.stats?.value != null ? ` · £${fix(shown.stats.value)}` : ''}`))
         : h('div', { class: 'pk-car none' }, '没有选出车'),
       nums,
+      budgetBlock(shown, { ...spec, chapter: ci, stage: si }),
       measured?.unusable ? h('div', { class: 'pk-line bad', title: measured.unusable }, measured.unusable) : null,
       tev.previousWinRate != null ? h('div', { class: 'pk-line', title: `${tev.previousName || '上一关的车'}和它换边对打 ${tev.previousGames || '—'} 局；目标是这台车赢 ${targetText(tev.target)}` },
         tev.previousProvisional ? '打上关临时参考（未达标） ' : '打上一关车 ', h('b', { class: tev.targetPass ? 'ok' : 'bad' }, pct(tev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(tev.target)}`)) : null,
@@ -605,6 +617,7 @@
         !isStage && s.provisional?.code === rec.code ? [h('br'), '本关临时参考（未达标，未正式入选）'] : null,
         other.length ? [h('br'), other.map(k => h('span', { class: 'chip bad' }, COND[k] || k))] : null,
         missing ? [h('br'), h('span', { class: 'bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关`)] : null),
+      budgetBlock(rec, s.spec || rec.spec),
       rec.codeOnly ? null : h('div', { class: 'cand-btns' },
         isStage ? h('button', { type: 'button', class: 'btn sm', title: '在后台关卡工作台打开这一关', onclick: () => openStage(sp.chapter, sp.stage) }, '去关卡工作台')
           : h('button', { type: 'button', class: 'btn sm primary', title: '把这辆车交给后台关卡工作台当草稿；在那边点「保存」才变成这一关的车', disabled: !Number.isInteger(sp.chapter), onclick: () => swapIntoStage(rec) }, '换上这辆'),
@@ -789,6 +802,7 @@
             kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约原分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
             kv('选车综合分', rec.ranking ? `${fix(rec.ranking.total, 2)} = 节约 ${fix(rec.ranking.efficiency, 1)} × 60% + 强度 ${fix(rec.ranking.strength, 1)} × 40%（均按 0～100 计）` : '待按新权重模拟'),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
+          budgetBlock(rec),
           h('div', { class: 'row-btns' },
             h('button', { type: 'button', class: 'btn primary', disabled: !v, onclick: () => testDrive(rec) }, '去试驾场和它打一场'),
             rec.stageCar ? h('button', { type: 'button', class: 'btn', disabled: sp.chapter == null, onclick: () => openStage(sp.chapter, sp.stage) }, '去关卡工作台')
@@ -1067,6 +1081,14 @@
       await pollJob(true);
     } catch (error) { $('#scope-info').textContent = error.message; }
   }
+  // 其他工作台保存预算后只重读目录并重画报告，不自动重跑模拟或更换所选报告。
+  try {
+    const channel = new BroadcastChannel('steam-arena-evolve-budget');
+    channel.onmessage = async () => {
+      try { runCatalog = await service('config'); if (st.rawReport) render(); }
+      catch (error) { $('#scope-info').textContent = error.message; }
+    };
+  } catch (error) { /* 刷新本页仍会读取最新预算。 */ }
   currentFingerprint().then(fp => { st.fingerprint = fp; }).catch(() => { st.fingerprint = null; }).finally(async () => {
     await refreshList(); await initGeneration();
     // 生成器目录到了以后再画一遍：卡片上的「重跑这关」和「未生成」空位要用它

@@ -27,6 +27,12 @@
     .assembly-screen .ed-sheet canvas { max-width: 100%; height: auto !important; }
     .assembly-screen .ed-sheet-row { flex-wrap: wrap; }
     .garage-diagnostics { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; overflow-wrap: anywhere; }
+    /* 预算是工具提示，不影响编辑、保存或手工固定席位。 */
+    .garage-budget { padding: 6px 0; border-top: 1px solid currentColor; border-bottom: 1px solid currentColor; }
+    .garage-budget.over-budget { color: #a62923; }
+    .garage-budget-edit { display: flex; gap: 4px; margin-top: 5px; color: initial; }
+    .garage-budget-edit input { min-width: 0; width: 100%; }
+    .garage-budget-edit button { flex: none; }
     .assembly-screen .ed-cat { grid-column: 3; grid-row: 1; }
     /* 目录图片沿用像素画，但限制显示宽度；清单单列可收缩，长名称和标签自行换行。 */
     .assembly-screen .panel-list { min-width: 0; grid-template-columns: minmax(0, 1fr); }

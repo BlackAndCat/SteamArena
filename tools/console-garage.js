@@ -8,6 +8,56 @@
   const session = SA.WorkbenchSession.create();
   const current = () => session.current();
   let opened = false;
+  let budgetCatalog = null;
+  const budgetDrafts = new Map(), budgetMessages = new Map();
+
+  /** 独立重读预算，不重开车辆、不覆盖拼装草稿。 */
+  async function reloadBudget() {
+    try {
+      const response = await fetch('/__evolve/config', { cache: 'no-store' });
+      if (!response.ok) throw new Error('预算目录暂不可用');
+      budgetCatalog = await response.json();
+    } catch (error) { budgetCatalog = null; }
+    if (opened) SA.Editor.refresh();
+  }
+
+  /** 保存只改预算；并发冲突显示最新上限，保留输入，等待用户再次明确保存。 */
+  async function saveBudget(at, expectedBudget, value) {
+    const key = `${at.ci}:${at.si}`, budget = value.trim() === '' ? NaN : Number(value);
+    if (!Number.isSafeInteger(budget) || budget < 1) {
+      budgetMessages.set(key, '预算上限必须是正整数');
+      SA.Editor.refresh(); return;
+    }
+    try {
+      const response = await fetch('/__evolve/budget/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapter: at.ci, stage: at.si, budget, expectedBudget }) });
+      const result = await response.json();
+      if (!response.ok) {
+        if (response.status === 409) await reloadBudget();
+        throw new Error(response.status === 409 ? `${result.error}；最新上限 ${result.budget == null ? '未配置' : `£${result.budget}`}，确认后再次保存` : result.error || `预算保存失败（HTTP ${response.status}）`);
+      }
+      budgetDrafts.delete(key); budgetMessages.set(key, '预算已保存，车辆和奖励未改变');
+      await reloadBudget();
+      try { const channel = new BroadcastChannel('steam-arena-evolve-budget'); channel.postMessage({ chapter: at.ci, stage: at.si }); channel.close(); } catch (error) { /* 不支持频道时，当前工作台仍已刷新。 */ }
+    } catch (error) { budgetMessages.set(key, error.message); SA.Editor.refresh(); }
+  }
+
+  /** 预算只读生成器目录；本次造价来自实时 stats，超限不改变保存或手工进化资格。 */
+  function budgetSummary(value) {
+    const at = current(), limit = budgetCatalog?.budgets?.find(row => row.chapter === at?.ci && row.stage === at?.si)?.budget ??
+      budgetCatalog?.chapters.find(ch => ch.chapter === at?.ci)?.stages.find(row => row.stage === at?.si)?.budget;
+    const known = Number.isFinite(limit) && limit >= 0, used = Number.isFinite(value) ? value : null;
+    const exceeded = known && used != null && used > limit, money = n => Number(n.toFixed(2));
+    const key = `${at?.ci}:${at?.si}`;
+    const input = SA.h('input', { type: 'number', min: 1, step: 1, value: budgetDrafts.get(key) ?? (known ? String(limit) : ''),
+      'aria-label': '本关预算上限', oninput: event => budgetDrafts.set(key, event.target.value) });
+    return SA.h('div', { class: `garage-budget${exceeded ? ' over-budget' : ''}` },
+      SA.h('b', {}, `已用预算 ${used == null ? '未记录' : `£${money(used)}`} / 预算上限 ${known ? `£${money(limit)}` : budgetCatalog ? '未配置' : '暂不可用'}`),
+      exceeded ? SA.h('div', {}, `超出 £${money(used - limit)}，仅提示，仍可参与进化`) : null,
+      SA.h('div', { class: 'garage-budget-edit' }, input, SA.h('button', { type: 'button', disabled: !budgetCatalog || !Number.isInteger(at?.ci) || !Number.isInteger(at?.si),
+        onclick: () => saveBudget(at, known ? limit : null, input.value) }, '保存预算')),
+      budgetMessages.has(key) ? SA.h('div', { class: 'px-small' }, budgetMessages.get(key)) : null);
+  }
 
   // 工具页没有游戏主入口：车间里的导航按钮不跳页
   if (!SA.go) SA.go = (name) => { SA.current = name; document.body.dataset.screen = name; if (SA.Camp?.syncLim) SA.Camp.syncLim(); };
@@ -53,6 +103,7 @@
     const summary = h('div', { class: 'garage-diagnostics', role: 'status' },
       h('b', { class: s.canDeploy ? '' : 'px-prob' },
         `进化出战校验：${s.canDeploy ? '通过' : '不能出战'}（${s.problems.length} 项原因）`),
+      budgetSummary(s.value),
       h('div', {}, `编辑与出战范围：${grid.cols}列×${grid.rows}层（已全部开放）`),
       h('div', { class: 'px-small' }, (() => {
         const region = SA.V.region(result.vehicle);
@@ -275,6 +326,10 @@
     if (current() && window.parent !== window) window.parent.postMessage({ type: 'garage-change', target: current() }, location.origin);
   });
 
-  window.Garage = { ready: true, open, openCandidate, info, cellsJson, shareCode, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, drivePick };
+  window.Garage = { ready: true, open, openCandidate, info, cellsJson, shareCode, setName, save, saveNew, saveCandidate, stats, importText, candidates, useCandidate, test, drivePick, reloadBudget };
+  // 一次加载只读预算目录，完成后刷新性能单；之后编辑仍使用这一份缓存。
+  reloadBudget();
+  try { const channel = new BroadcastChannel('steam-arena-evolve-budget'); channel.onmessage = () => reloadBudget(); }
+  catch (error) { /* 当前页面仍可读取和保存预算。 */ }
   if (window.parent !== window) window.parent.postMessage({ type: 'garage-ready' }, location.origin);
 })();
