@@ -1,0 +1,1671 @@
+{
+  "stageId": "2:0",
+  "stageName": "烟囱",
+  "source": "ai-generated",
+  "model": "gpt-6.1-sol",
+  "reference": {
+    "id": "1:6",
+    "fingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339"
+  },
+  "temporaryReferenceId": "ch2-01-01",
+  "candidates": [
+    {
+      "id": "ch2-01-01",
+      "name": "AI生成·炉堡",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:0",
+      "style": "counter",
+      "aim": 0.8,
+      "referenceStageIds": [
+        "1:0",
+        "1:2"
+      ],
+      "designIntent": "三段履带承托完整六格宽堡垒；四人舱居后下、前炮与蒸汽分行，顶部臼炮跨墙压制，蒸汽在接敌时压热；主弱点是中部锅炉爆炸。",
+      "requiredModules": [
+        "steamjet"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "cannon_m",
+          1,
+          0
+        ],
+        [
+          0,
+          9,
+          8,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "armor",
+          2,
+          0
+        ]
+      ],
+      "revision": 1,
+      "preview": "previews/ch2-01-01.png",
+      "visualReview": {
+        "inspected": true,
+        "candidateFingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+        "note": "六格矩形堡垒，宽度等于三段履带，顶炮朝上有空余射界，前炮/蒸汽分行。",
+        "renderer": "真实游戏SA.SPR.renderVehicle，不改美术或截图。"
+      },
+      "fingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+      "budget": 1894,
+      "budgetUtilization": 0.9565656565656566,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "validationDetails": {
+        "ruleFingerprint": "d00ca7b7232d2bff",
+        "candidateFingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+        "issues": [],
+        "warnings": [
+          "动力不足：车速和装填降至 79%",
+          "全力开火约 39 秒后烧干"
+        ],
+        "stats": {
+          "weight": 6392.5,
+          "load": 10500,
+          "supply": 72,
+          "demand": 91.3,
+          "water": 112.5,
+          "cool": 200,
+          "dryCool": 0,
+          "power": 0.7886089813800657,
+          "topSpeed": 37.85323110624316,
+          "hp": 1400,
+          "dps": 13.304719119550638,
+          "drivers": 4,
+          "overheat": 39
+        }
+      },
+      "battleTests": {
+        "referenceId": "1:6",
+        "referenceFingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339",
+        "referenceStyle": "sniper",
+        "candidateFingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+        "style": "counter",
+        "terrain": "yard",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.92,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 77,
+        "draws": 0,
+        "losses": 43,
+        "winRate": 0.6416666666666667,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": true,
+        "below45": false,
+        "diagnostics": {
+          "meanCandidateDamage": 757.9667722310284,
+          "meanCandidateShots": 350.89166666666665,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 7
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-01-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜局比例。",
+        "status": "达目标",
+        "notReachedReason": null,
+        "rawWinRate": 0.6416666666666667,
+        "rewardEffects": {
+          "steamjet": {
+            "totals": {
+              "active": 466,
+              "fire": 38625,
+              "hit": 2206,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.8833333333333333,
+              "fire": 321.875,
+              "hit": 18.383333333333333,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害；active不擅自换算单位。"
+          }
+        }
+      },
+      "temporaryReferenceSelection": {
+        "selected": true,
+        "reason": "Astra确认：64.17%在目标中段，矩形堡垒稳定、三类武器协同，供后关主对手。"
+      }
+    },
+    {
+      "id": "ch2-01-02",
+      "name": "AI生成·矮砧",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:0",
+      "style": "sniper",
+      "aim": 0.8,
+      "referenceStageIds": [
+        "1:3",
+        "1:6"
+      ],
+      "designIntent": "六格宽低履带体；联合舱分散前上/后下，主炮和蒸汽分行，双小锅炉配大水箱，在不增加车体体积下平衡动力与冷却；近防蒸汽阻止贴脸，弱点是上舱暴露。",
+      "requiredModules": [
+        "steamjet"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          4,
+          "track",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "boiler_s",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          8,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "boiler_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "cannon_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          5,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          7,
+          "plate",
+          1,
+          0
+        ]
+      ],
+      "revision": 2,
+      "revisionNotes": [
+        "12局首诊0%且11局dry。恢复主体水箱，顶部高水箱改第二小锅炉，供能和冷却同时补齐。"
+      ],
+      "preview": "previews/ch2-01-02.png",
+      "visualReview": {
+        "inspected": true,
+        "candidateFingerprint": "c82b6870d15117f0c6d493b7a2dc67e16cc4806974861c593ed48d18193cb796",
+        "note": "六格宽阶梯矮车，上舱与后舱分散，机组顶柱不高于其它顶件，没有横向长悬挑。",
+        "renderer": "真实游戏SA.SPR.renderVehicle，不改美术或截图。"
+      },
+      "fingerprint": "c82b6870d15117f0c6d493b7a2dc67e16cc4806974861c593ed48d18193cb796",
+      "budget": 1903,
+      "budgetUtilization": 0.9611111111111111,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "validationDetails": {
+        "ruleFingerprint": "d00ca7b7232d2bff",
+        "candidateFingerprint": "c82b6870d15117f0c6d493b7a2dc67e16cc4806974861c593ed48d18193cb796",
+        "issues": [],
+        "warnings": [
+          "动力不足：车速和装填降至 97%",
+          "全力开火约 27 秒后烧干"
+        ],
+        "stats": {
+          "weight": 5652.5,
+          "load": 11200,
+          "supply": 72,
+          "demand": 74,
+          "water": 112.5,
+          "cool": 200,
+          "dryCool": 0,
+          "power": 0.972972972972973,
+          "topSpeed": 46.70270270270271,
+          "hp": 1407,
+          "dps": 15.186633906633904,
+          "drivers": 4,
+          "overheat": 27
+        }
+      },
+      "battleTests": {
+        "referenceId": "1:6",
+        "referenceFingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339",
+        "referenceStyle": "sniper",
+        "candidateFingerprint": "c82b6870d15117f0c6d493b7a2dc67e16cc4806974861c593ed48d18193cb796",
+        "style": "sniper",
+        "terrain": "yard",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.92,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 55,
+        "draws": 0,
+        "losses": 65,
+        "winRate": 0.4583333333333333,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "diagnostics": {
+          "meanCandidateDamage": 633.0665000000002,
+          "meanCandidateShots": 490.3833333333333,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 8
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-01-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜局比例。",
+        "status": "低于目标",
+        "notReachedReason": "对手卸械与部分干烧终局使胜率不足；已按真实诊断修订，仍如实保留。",
+        "rawWinRate": 0.4583333333333333,
+        "rewardEffects": {
+          "steamjet": {
+            "totals": {
+              "active": 706,
+              "fire": 55423,
+              "hit": 331,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 5.883333333333334,
+              "fire": 461.85833333333335,
+              "hit": 2.7583333333333333,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害；active不擅自换算单位。"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch2-01-03",
+      "name": "AI生成·推炉",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:0",
+      "style": "rush",
+      "aim": 0.8,
+      "referenceStageIds": [
+        "0:2",
+        "1:4",
+        "1:5"
+      ],
+      "designIntent": "三段履带接地、车头铲斗先推墙后接敌；联合舱藏于水箱与锅炉间，前缘主炮补接近伤害，蒸汽在铲斗控制距离时持续加热；弱点是面对风筝难接近。",
+      "requiredModules": [
+        "steamjet"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "bucket",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          2,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          7,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          2,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "plate",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "plate",
+          1,
+          0
+        ]
+      ],
+      "revision": 1,
+      "preview": "previews/ch2-01-03.png",
+      "visualReview": {
+        "inspected": true,
+        "candidateFingerprint": "c5480b186d6c42730178961ee17417abeeb4dd1b5ee5af4fee65531c4120c835",
+        "note": "车头铲斗低置承接三段履带，前炮与蒸汽各行，短肩台阶属于机组，比例稳定。",
+        "renderer": "真实游戏SA.SPR.renderVehicle，不改美术或截图。"
+      },
+      "fingerprint": "c5480b186d6c42730178961ee17417abeeb4dd1b5ee5af4fee65531c4120c835",
+      "budget": 1820,
+      "budgetUtilization": 0.9191919191919192,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "validationDetails": {
+        "ruleFingerprint": "d00ca7b7232d2bff",
+        "candidateFingerprint": "c5480b186d6c42730178961ee17417abeeb4dd1b5ee5af4fee65531c4120c835",
+        "issues": [],
+        "warnings": [],
+        "stats": {
+          "weight": 6730.1,
+          "load": 11200,
+          "supply": 102,
+          "demand": 58.9,
+          "water": 112.6,
+          "cool": 200,
+          "dryCool": 0,
+          "power": 1,
+          "topSpeed": 60,
+          "hp": 1665,
+          "dps": 10.28181818181818,
+          "drivers": 2,
+          "overheat": 72
+        }
+      },
+      "battleTests": {
+        "referenceId": "1:6",
+        "referenceFingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339",
+        "referenceStyle": "sniper",
+        "candidateFingerprint": "c5480b186d6c42730178961ee17417abeeb4dd1b5ee5af4fee65531c4120c835",
+        "style": "rush",
+        "terrain": "yard",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.92,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 104,
+        "draws": 4,
+        "losses": 12,
+        "winRate": 0.8833333333333333,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "diagnostics": {
+          "meanCandidateDamage": 777.475150641804,
+          "meanCandidateShots": 586.175,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-01-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜局比例。",
+        "status": "高于目标",
+        "notReachedReason": "超过目标上界，当前配置对参考车过强。",
+        "rawWinRate": 0.8666666666666667,
+        "rewardEffects": {
+          "steamjet": {
+            "totals": {
+              "active": 555,
+              "fire": 68779,
+              "hit": 47462,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 4.625,
+              "fire": 573.1583333333333,
+              "hit": 395.51666666666665,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害；active不擅自换算单位。"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch2-01-04",
+      "name": "AI生成·四足司炉",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:0",
+      "style": "counter",
+      "aim": 0.8,
+      "referenceStageIds": [
+        "1:2",
+        "1:1"
+      ],
+      "designIntent": "双整件四足构成连续步桥，八格宽底座承托六格宽低炮台；单臼炮越墙，上下双轻炮接续穿甲，蒸汽限制贴近；四人舱后置、机组居中，弱点是缓慢刹车与轻底盘。",
+      "requiredModules": [
+        "steamjet"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar",
+          2,
+          1
+        ],
+        [
+          0,
+          6,
+          3,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cannon_s",
+          1,
+          1
+        ],
+        [
+          0,
+          9,
+          9,
+          "cannon_s",
+          1,
+          1
+        ]
+      ],
+      "revision": 4,
+      "revisionNotes": [
+        "12局首诊8.3%且10局dry。去除顶部轻甲封边以腾出四足承重，将车尾短柱作为第二冷却高水箱。",
+        "r2仍0%，换边6局均因无能开火武器投降；保留双四足骨架，对重臼炮加2级炮盾、蒸汽和重机枪各1级，后置舱降为黄铜释放预算，高水箱降为黄铜释放承重。",
+        "r3升至16.7%，伤害改善但仍低胜率；重机枪对手工参考的甲面效率不足，换上下双轻炮，臼炮/蒸汽减少各一级加固腾出双炮承重，保留四足支撑和冷却。"
+      ],
+      "preview": "previews/ch2-01-04.png",
+      "visualReview": {
+        "inspected": true,
+        "candidateFingerprint": "3092607562bee078829e4db80b3fdc2c97c8f6af690d165f9dc738891fbb6e8a",
+        "note": "八格宽双四足承托七格宽低炮台，前双轻炮纵向整齐；中部顶线有凹口但没有悬挑长杆。",
+        "renderer": "真实游戏SA.SPR.renderVehicle，不改美术或截图。"
+      },
+      "fingerprint": "3092607562bee078829e4db80b3fdc2c97c8f6af690d165f9dc738891fbb6e8a",
+      "budget": 1828,
+      "budgetUtilization": 0.9232323232323232,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "validationDetails": {
+        "ruleFingerprint": "d00ca7b7232d2bff",
+        "candidateFingerprint": "3092607562bee078829e4db80b3fdc2c97c8f6af690d165f9dc738891fbb6e8a",
+        "issues": [],
+        "warnings": [
+          "动力不足：车速和装填降至 77%",
+          "全力开火约 35 秒后烧干"
+        ],
+        "stats": {
+          "weight": 5693.8,
+          "load": 5760,
+          "supply": 72,
+          "demand": 93,
+          "water": 168.8,
+          "cool": 300,
+          "dryCool": 0,
+          "power": 0.7741935483870968,
+          "topSpeed": 48,
+          "hp": 1237,
+          "dps": 16.478522454142947,
+          "drivers": 4,
+          "overheat": 34.5
+        }
+      },
+      "battleTests": {
+        "referenceId": "1:6",
+        "referenceFingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339",
+        "referenceStyle": "sniper",
+        "candidateFingerprint": "3092607562bee078829e4db80b3fdc2c97c8f6af690d165f9dc738891fbb6e8a",
+        "style": "counter",
+        "terrain": "yard",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.92,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 61,
+        "draws": 0,
+        "losses": 59,
+        "winRate": 0.5083333333333333,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "diagnostics": {
+          "meanCandidateDamage": 760.2496604852865,
+          "meanCandidateShots": 230.56666666666666,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 30
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-01-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜局比例。",
+        "status": "低于目标",
+        "notReachedReason": "对手卸械与部分干烧终局使胜率不足；已按真实诊断修订，仍如实保留。",
+        "rawWinRate": 0.5083333333333333,
+        "rewardEffects": {
+          "steamjet": {
+            "totals": {
+              "active": 377,
+              "fire": 22925,
+              "hit": 656,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.1416666666666666,
+              "fire": 191.04166666666666,
+              "hit": 5.466666666666667,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害；active不擅自换算单位。"
+          }
+        }
+      }
+    },
+    {
+      "id": "ch2-01-05",
+      "name": "AI生成·双烟道",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:0",
+      "style": "veteran",
+      "aim": 0.8,
+      "referenceStageIds": [
+        "1:6",
+        "0:1"
+      ],
+      "designIntent": "三段履带整齐承托三层短舰桥；双联合舱分散在前后，双小臼炮共享齐射组且不顶置驾驶舱，前主炮与蒸汽分行，双机组冗余供能；弱点是双锅炉爆炸及缺少重装甲。",
+      "requiredModules": [
+        "steamjet"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          4,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          4,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "tank_tall",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          6,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          8,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "boiler_s",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar_s",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          7,
+          "tank_s",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "armor",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "armor",
+          1,
+          0
+        ]
+      ],
+      "revision": 1,
+      "preview": "previews/ch2-01-05.png",
+      "visualReview": {
+        "inspected": true,
+        "candidateFingerprint": "e2922a4d593e01b55c21fd03d594a6b191664f1cd707dda0a41e14cefd93479f",
+        "note": "六格宽短舰桥，双舱沿两行分散、双臼炮顶部开放，车体和履带同宽。",
+        "renderer": "真实游戏SA.SPR.renderVehicle，不改美术或截图。"
+      },
+      "fingerprint": "e2922a4d593e01b55c21fd03d594a6b191664f1cd707dda0a41e14cefd93479f",
+      "budget": 1965,
+      "budgetUtilization": 0.9924242424242424,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "validationDetails": {
+        "ruleFingerprint": "d00ca7b7232d2bff",
+        "candidateFingerprint": "e2922a4d593e01b55c21fd03d594a6b191664f1cd707dda0a41e14cefd93479f",
+        "issues": [],
+        "warnings": [
+          "全力开火约 24 秒后烧干"
+        ],
+        "stats": {
+          "weight": 6441.5,
+          "load": 10500,
+          "supply": 102,
+          "demand": 85.4,
+          "water": 121.5,
+          "cool": 220,
+          "dryCool": 0,
+          "power": 1,
+          "topSpeed": 57.33021077283372,
+          "hp": 1509,
+          "dps": 18.269510489510488,
+          "drivers": 4,
+          "overheat": 24
+        }
+      },
+      "battleTests": {
+        "referenceId": "1:6",
+        "referenceFingerprint": "942c63d2359357607917b8450aabfaf3bfdf6e43b7151ef623b188154626a339",
+        "referenceStyle": "sniper",
+        "candidateFingerprint": "e2922a4d593e01b55c21fd03d594a6b191664f1cd707dda0a41e14cefd93479f",
+        "style": "veteran",
+        "terrain": "yard",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.92,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 90,
+        "draws": 4,
+        "losses": 26,
+        "winRate": 0.7666666666666667,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "diagnostics": {
+          "meanCandidateDamage": 867.6153333333338,
+          "meanCandidateShots": 351.46666666666664,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 1
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-01-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜局比例。",
+        "status": "高于目标",
+        "notReachedReason": "超过目标上界，当前配置对参考车过强。",
+        "rawWinRate": 0.75,
+        "rewardEffects": {
+          "steamjet": {
+            "totals": {
+              "active": 583,
+              "fire": 36211,
+              "hit": 6151,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 4.858333333333333,
+              "fire": 301.7583333333333,
+              "hit": 51.25833333333333,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害；active不擅自换算单位。"
+          }
+        }
+      }
+    }
+  ],
+  "designProcess": "gpt-6.1-sol直接设计显式锚点；逐辆查看10辆手工车真实渲染；禁止随机造车、进化、组合枚举及自动预算补装。",
+  "referenceLearning": [
+    {
+      "stageId": "0:0",
+      "vehicleName": "破铜烂铁号",
+      "preview": "references/0-0.png",
+      "finding": "单履带最小动力和枪位；核心裸露与高窄后柱不用于新关正面硬抗。"
+    },
+    {
+      "stageId": "0:1",
+      "vehicleName": "钉子号",
+      "preview": "references/0-1.png",
+      "finding": "前甲与水箱补齐最小车；甲只放要害而非满车堆砌。"
+    },
+    {
+      "stageId": "0:2",
+      "vehicleName": "汤姆的铲车",
+      "preview": "references/0-2.png",
+      "finding": "舱贴底盘，前铲斗与后置机组清楚分工；铲斗控制距离后接续蒸汽。"
+    },
+    {
+      "stageId": "1:0",
+      "vehicleName": "铁皮罐头",
+      "preview": "references/1-0.png",
+      "finding": "双履带低平，火炮和前甲分行，核心下藏；学习短厚整齐外廓。"
+    },
+    {
+      "stageId": "1:1",
+      "vehicleName": "双管哨兵",
+      "preview": "references/1-1.png",
+      "finding": "上下枪位整齐，联合舱居中，高水箱置后；学习前缘火力和冷热搭配。"
+    },
+    {
+      "stageId": "1:2",
+      "vehicleName": "煤灰寡妇",
+      "preview": "references/1-2.png",
+      "finding": "顶部大臼炮、前甲柱保护核心，实际cells是双履带；顶部炮口保持空旷。"
+    },
+    {
+      "stageId": "1:3",
+      "vehicleName": "大铁壶",
+      "preview": "references/1-3.png",
+      "finding": "机组和驾驶舱低藏，前主炮与甲错行；避免照抄底盘旁厚长甲条。"
+    },
+    {
+      "stageId": "1:4",
+      "vehicleName": "推土机",
+      "preview": "references/1-4.png",
+      "finding": "三履带宽底座、双机组和前铲斗明确；上部阶梯应收敛而非长悬挑。"
+    },
+    {
+      "stageId": "1:5",
+      "vehicleName": "独角兽",
+      "preview": "references/1-5.png",
+      "finding": "前撞角/下铲斗协同，宽底座支持机组；新车不能照抄多层尖角与超高动力。"
+    },
+    {
+      "stageId": "1:6",
+      "vehicleName": "码头齐射",
+      "preview": "references/1-6.png",
+      "finding": "三履带、前缘直射组、顶部双臼炮、分散联合舱；避免高独立后舱，不能继承白名单外冷凝器和mg2。"
+    }
+  ],
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "referencePreviewInspected": true,
+  "spec": {
+    "chapter": 2,
+    "stage": 0,
+    "name": "烟囱",
+    "terrain": "yard",
+    "style": "turtle",
+    "bounds": {
+      "left": 0,
+      "right": 1280
+    },
+    "lesson": "开篇：两层重甲堵在墙后，贴身会被蒸汽推开 → 撞角把墙顶开",
+    "performanceMin": 35,
+    "uniqueLoot": [],
+    "chapterHasBoss": true,
+    "boss": false,
+    "rewardModule": "steamjet",
+    "requiredModules": [
+      "steamjet"
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "mat": 2,
+    "allowedMaterials": [
+      1,
+      2
+    ],
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet"
+    ],
+    "budget": 1980,
+    "baseBudget": 1980,
+    "budgetStatus": "draft",
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet"
+    ],
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    }
+  },
+  "ruleFingerprint": "d00ca7b7232d2bff",
+  "temporaryReferenceFingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+  "fingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+  "temporaryReferenceReason": "Astra确认：64.17%在目标中段，矩形堡垒稳定、三类武器协同，供后关主对手。"
+}

@@ -155,6 +155,7 @@
     { group: '战役', items: [
       { id: 'map', name: '战役地图', path: 'map', tag: 'new' },
       { id: 'stage', name: '关卡', path: 'stage', tag: 'new' },
+      { id: 'ai-designs', name: 'AI设计候选', url: 'ai-designs.html', tag: 'new' },
       { id: 'config-editor', name: '正式配置', path: 'open/config-editor', tag: 'new' },
       { id: 'evolve', name: '进化擂台', path: 'open/evolve', tag: 'new' },
       { id: 'selftest', name: '数值自测', path: 'open/selftest', tag: 'old' },
@@ -202,6 +203,12 @@
     const [terrainName, styleName] = String(p?.terrain || '').split(' · ').map((t) => t.trim());
     const [ask, answer] = String(p?.test || '').split('→').map((t) => t.trim());
     const boss = /★/.test(p?.role || ''), name = newStageName(ci, si), terrain = terrains[terrainName] || prev?.terrain || 'flat';
+    // 只初始化新关内存草稿：继承地图明确的模块解锁和唯一缴获，既有关卡资料不走此路径。
+    // 功能键必须由结构化奖励提案补缺，不从自由中文奖励说明猜测。
+    const unlockMods = [...(p?.unlockMods || [])];
+    const unlock = unlockMods.length ? { mods: unlockMods } : null;
+    const lootKeys = [...new Set([p?.loot, ...unlockMods.filter(id => SA.MODULES[id]?.unique)].filter(Boolean))];
+    const uniqueLoot = lootKeys.map(key => SA.uniqueByKey(key)).filter(Boolean).map(clone);
     let paid = null;
     for (let st = prev; st && !paid; st = stageBefore(st.ci, st.si)) if (st.prize > 0) paid = st;
     const vehicle = prev?.vehicle ? SA.V.clone(prev.vehicle) : SA.V.fromAscii(name, SA.STARTER.rows, SA.STARTER.sides || [], 1, [], SA.STARTER.subs || []);
@@ -209,12 +216,12 @@
     return { name, pilot: p?.pilot || '', vehicle, terrain, boss, style: STYLE_BY_NAME[styleName] || 'wander',
       aim: Math.min(0.95, Math.round(((prev?.aim ?? 0.6) + (boss ? 0.08 : 0.03)) * 100) / 100),
       prize: paid ? Math.round(paid.prize * (boss ? 1.4 : 1.15) / 10) * 10 : 100,
-      unlock: null, uniqueLoot: [], rewardItems: [], rewardMoney: true, victoryRepairFree: false, blurb: ask || '', weakness: answer || '',
+      unlock, uniqueLoot, rewardItems: [], rewardMoney: true, victoryRepairFree: false, blurb: ask || '', weakness: answer || '',
       // 进化生成器按 spec 读这一关的考点和强度目标
       spec: { terrain, reward: null, lesson: p ? `${p.role}：${p.test}` : '新关卡：设计意图待填', targetStrength: boss ? [0.6, 0.7] : [0.65, 0.8], performanceMin: 35 },
       copiedFrom: prev ? `${prev.code} ${prev.name}` : '开局车' };
   }
-  // 进化擂台「换上这辆」交来的车（tools/evolve-report.js swapIntoStage）：只用一次，放上拼装台当草稿
+  // 候选工具交来的车：会话桥只消费一次，放上拼装台当草稿，不自动保存正式关卡。
   const STAGE_SWAP_KEY = 'steam_arena_stage_swap';
   function peekStageSwap() {
     try { const v = JSON.parse(sessionStorage.getItem(STAGE_SWAP_KEY) || 'null'); return v && typeof v.key === 'string' && (Array.isArray(v.cells) || typeof v.code === 'string') ? v : null; }
@@ -225,6 +232,23 @@
     if (!v || v.key !== key) return null;
     try { sessionStorage.removeItem(STAGE_SWAP_KEY); } catch (e) { /* 隐私模式 */ }
     return v;
+  }
+  // 奖励提案只合并到本页草稿；重复导入保留已有数量和唯一件对象，仅补明确解锁集合，不写正式配置。
+  function mergeAiRewardPlan(f, plan) {
+    if (plan?.status !== 'proposal-not-saved') return;
+    for (const item of plan.fixedItems || []) {
+      if (!f.rewardItems.some(old => old.id === item.id && (old.mt || 1) === (item.mt || 1))) f.rewardItems.push(clone(item));
+    }
+    const loot = f.lootText.trim() ? JSON.parse(f.lootText) : [];
+    for (const item of plan.uniqueLoot || []) if (!loot.some(old => old.key === item.key)) loot.push(clone(item));
+    f.lootText = JSON.stringify(loot, null, 2);
+    // 明确提案仅补模块／功能集合；现有其它解锁字段及用户值全部保留。
+    if (plan.unlock) {
+      f.unlock ||= {};
+      for (const key of ['mods', 'feat']) {
+        if (Array.isArray(plan.unlock[key])) f.unlock[key] = [...new Set([...(f.unlock[key] || []), ...plan.unlock[key]])];
+      }
+    }
   }
   // 新关卡只在内存里建立底稿；用户保存后才会写入正式配置。
   function createStageDraft(ci, si) {
@@ -879,7 +903,8 @@
       el('button.status#status', { type: 'button', on: { click: () => saveAll() } }));
     const side = el('nav.side#nav', { 'aria-label': '后台导航' },
       NAV.map((g) => el('div.nav-group', null, g.group ? el('h4', { text: g.group }) : null,
-        g.items.map((it) => el('a.nav-item', { href: `#/${it.path}`, dataset: { nav: it.id } }, it.name,
+        // 独立 AI 设计页在新标签打开，当前后台路由和未保存草稿留在原标签。
+        g.items.map((it) => el('a.nav-item', { href: it.url || `#/${it.path}`, ...(it.url ? { target: '_blank', rel: 'noopener' } : {}), dataset: { nav: it.id } }, it.name,
           it.tag ? el(`span.tag${it.tag === 'new' ? '.new' : ''}`, { text: it.tag === 'new' ? '新' : '旧版' }) : null)))),
       el('div.side-foot', { title: `后台 ${SA.BUILD_SYS || ''}\n视觉 ${SA.BUILD_VIS || ''}` }, '最近一次构建',
         el('span.mono', { text: `视觉 · ${lastBuild(SA.BUILD_VIS)}` }), el('span.mono', { text: `后台 · ${lastBuild(SA.BUILD_SYS)}` })));
@@ -934,6 +959,8 @@
         SA.CAMPAIGN_MAP ? card('map', '战役地图', `${SA.CAMPAIGN_MAP.chapters.reduce((n, ch) => n + ch.stages.length, 0)} + ${SA.CAMPAIGN_MAP.sides.reduce((n, s) => n + s.episodes.length, 0)} 关`,
           '主线和三条支线画成一张图：悬浮看关名、车的剪影和奖励，点一下进工作台或剧情。', `设计稿 v${SA.CAMPAIGN_MAP.version} · 游戏里 ${stages.length} 关`) : null,
         card('stage', '关卡', `${stages.length} 关`, '一关一个工作区：拼装关卡车、改文字和奖励、测强度、写剧情和闲聊。', `${manual} 辆手工关卡车`),
+        el('a.card', { href: 'ai-designs.html', target: '_blank', rel: 'noopener' },
+          el('h3', { text: 'AI设计候选' }), el('p', { text: '第二、三章 · 60台候选 · 送工作台改装' })),
         card('story', '剧情', `${scenes.length} 幕`, '开场、教程、每关战前战后、功能开放。改完看对话框预览。', `${edited} 幕改过`),
         card('chat', '院子闲聊', `${ownChat} 个范围`, '全局、每章、每关的闲聊和多人对答。', '单独编排的范围'),
         cur ? card('open/current', '当前开发', null, cur.desc, `${cur.ver} · ${cur.date}`) : null,
@@ -1850,6 +1877,7 @@
       el('button.btn.sm', { type: 'button', on: { click: withGarage((G) => { if (cand.value === '') { toast('先在左边的下拉里选一辆候选车'); return; } G.useCandidate(cand.value); changed('已拿候选车作底稿，记得保存'); }) } }, '用作底稿'),
       sep(),
       el('button.btn.sm', { type: 'button', title: '用拼装台上这台车去游戏的试驾场打一场', on: { click: withGarage((G) => { G.drivePick({ name: f.name, terrain: f.terrain, style: f.style }); go('game/drive'); }) } }, '试驾'),
+      el('a.btn.sm', { href: 'ai-designs.html', target: '_blank', rel: 'noopener', title: '新标签查看 AI 设计候选，保留当前拼装草稿' }, 'AI设计候选'),
       el('a.btn.sm', { href: '#/open/evolve', title: '保存过的关卡车在进化擂台上优先显示；在那边点「重跑」，它会占一个席位、和进化出来的车一起比' }, '去进化擂台'),
       el('span.grow'), carState,
       armedButton('放弃改动', '再点一次放弃', () => {
@@ -1873,9 +1901,17 @@
       const swap = takeStageSwap(key);
       if (swap) {
         try {
-          G.importText(swap.cells ? JSON.stringify({ cells: swap.cells }) : swap.code, f.vehicleName || swap.name);
-          changed(`已换上进化擂台的「${swap.name || '候选车'}」，点保存才会变成这一关的车`);
-        } catch (e) { toast(`进化擂台的车没换上：${e.message || e}`, 'bad'); }
+          const aiDesign = swap.source === 'ai-generated';
+          G.importText(swap.cells ? JSON.stringify({ cells: swap.cells }) : swap.code, aiDesign ? swap.name : f.vehicleName || swap.name);
+          // AI 定制车的策略是设计的一部分；旧进化报告未传策略时继续沿用本关资料。
+          if (typeof swap.style === 'string' && STYLE[swap.style]) { f.style = swap.style; touchFields(key); }
+          if (aiDesign) {
+            f.vehicleName = swap.name; name.value = swap.name;
+            mergeAiRewardPlan(f, swap.rewardPlan);
+            touchFields(key);
+          }
+          changed(`已换上${aiDesign ? 'AI 设计候选' : '进化擂台'}的「${swap.name || '候选车'}」，点保存才会变成这一关的车`);
+        } catch (e) { toast(`候选车没换上：${e.message || e}`, 'bad'); }
       }
       if (garage.ro) garage.ro.disconnect();
       garage.ro = new ResizeObserver(placeGarage);
@@ -2302,6 +2338,14 @@
     $('#view-root').append(el('div.empty', { text: '正在读取文本文件……' }));
     SA.Text.init({ game: 'steam-arena', locale: 'zh-CN', toolbar: false });
     await SA.Text.ready;
+    // AI 候选可直达尚未建成的计划关卡：先建立内存底稿，再让拼装页消费车辆和奖励提案。
+    // 严格匹配当前目标路由，避免旧会话桥把其他页面切走；旧进化桥不具备建关权限。
+    const swap = peekStageSwap(), target = parse();
+    if (swap?.source === 'ai-generated' && Array.isArray(swap.cells) && /^\d+,\d+$/.test(swap.key)
+        && target.view === 'stage' && target.rest[0] === swap.key && !validKey(swap.key)) {
+      const [ci, si] = swap.key.split(',').map(Number);
+      if (planStage(ci, si) && si < SA.CAMPAIGN[ci]?.plannedStages) createStageDraft(ci, si);
+    }
     window.addEventListener('hashchange', () => route());
     route();
   }

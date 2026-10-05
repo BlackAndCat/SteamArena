@@ -1,0 +1,26 @@
+[
+  {
+    "id": "ch2-01-01",
+    "out": "artifacts\\ai-vehicles\\chapter-2\\previews\\ch2-01-01.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+    "pngFingerprint": "1fb0999357baae6676e11d00720b3c2f12f27bbce23d1cb38716fd82425a8cc1"
+  },
+  {
+    "id": "ch2-02-03",
+    "out": "artifacts\\ai-vehicles\\chapter-2\\previews\\ch2-02-03.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "d06df854b535f4bfe9271bf023e32065013557c28fcbc657a1d6623cdeb5b560",
+    "pngFingerprint": "987fa845695c2aba0aeeb3f5557cb6ee8e7ae7d0c54e60f78f19c1b9a47a7fc2"
+  },
+  {
+    "id": "ch2-03-01",
+    "out": "artifacts\\ai-vehicles\\chapter-2\\previews\\ch2-03-01.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+    "pngFingerprint": "3e9327b9612404c6182af0c81cf17c4c925c106255f9da73e38b9f0e93cd1069"
+  }
+]

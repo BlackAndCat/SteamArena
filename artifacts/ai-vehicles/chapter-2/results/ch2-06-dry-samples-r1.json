@@ -1,0 +1,464 @@
+[
+  {
+    "id": "ch2-06-01",
+    "seed": 20261005,
+    "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+    "events": {
+      "fire": 15,
+      "hit": 14,
+      "ricochet": 0,
+      "chargedHit": 0,
+      "ram": 0,
+      "kick": 0,
+      "knock": 0,
+      "terrainBlock": 1,
+      "highHit": 7,
+      "downhillRam": 0,
+      "destroyed": 2,
+      "maxHeat": 4189.894110713045,
+      "heatMax": 7959,
+      "minWater": 112.21625648374419,
+      "failureType": "dry",
+      "failureAt": 39.66666666666698,
+      "fireHeldAtFailure": true,
+      "holdAtFailure": false,
+      "ventAtFailure": false,
+      "holdSeconds": 0,
+      "fireHeldSeconds": 36.166666666667176,
+      "ventCount": 0
+    },
+    "state": {
+      "x": 550.4307722426954,
+      "hp": 0.2652527676953076,
+      "heat": 772.5828011042746,
+      "water": 0,
+      "cells": [
+        {
+          "id": "water",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 100,
+          "r": 6,
+          "c": 3,
+          "layer": "body"
+        },
+        {
+          "id": "mortar",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 90,
+          "r": 6,
+          "c": 5,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 6,
+          "c": 7,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 6,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "cannon_m",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 145,
+          "r": 6,
+          "c": 9,
+          "layer": "body"
+        },
+        {
+          "id": "cannon_m",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 7,
+          "c": 9,
+          "layer": "body"
+        },
+        {
+          "id": "cockpit_pair",
+          "mt": 2,
+          "lv": 0,
+          "hp": 112.3,
+          "max": 150,
+          "r": 8,
+          "c": 3,
+          "layer": "body"
+        },
+        {
+          "id": "boiler",
+          "mt": 3,
+          "lv": 0,
+          "hp": 5.0000000000000036,
+          "max": 174,
+          "r": 8,
+          "c": 4,
+          "layer": "body"
+        },
+        {
+          "id": "water",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 100,
+          "r": 8,
+          "c": 6,
+          "layer": "body"
+        },
+        {
+          "id": "cockpit",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 240,
+          "r": 8,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "boiler",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 8,
+          "c": 10,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 145,
+          "r": 8,
+          "c": 12,
+          "layer": "body"
+        },
+        {
+          "id": "piston",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 180,
+          "r": 8,
+          "c": 13,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 168,
+          "max": 168,
+          "r": 10,
+          "c": 0,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 168,
+          "max": 168,
+          "r": 10,
+          "c": 4,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 128,
+          "max": 168,
+          "r": 10,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 123.47660376643225,
+          "max": 168,
+          "r": 10,
+          "c": 12,
+          "layer": "body"
+        },
+        {
+          "id": "boss_lens",
+          "mt": 5,
+          "lv": 0,
+          "hp": 0,
+          "max": 181,
+          "r": 8,
+          "c": 12,
+          "layer": "side"
+        }
+      ]
+    },
+    "effects": {
+      "active": 6,
+      "fire": 0,
+      "hit": 0,
+      "tether": 0,
+      "energy": 0,
+      "waterSaved": 0,
+      "dryCool": 0
+    }
+  },
+  {
+    "id": "ch2-06-03",
+    "seed": 20261005,
+    "reason": "武器打光、水也烧干，又没有近战手段，失去战斗力",
+    "events": {
+      "fire": 73,
+      "hit": 24,
+      "ricochet": 0,
+      "chargedHit": 11,
+      "ram": 0,
+      "kick": 0,
+      "knock": 0,
+      "terrainBlock": 3,
+      "highHit": 19,
+      "downhillRam": 0,
+      "destroyed": 1,
+      "maxHeat": 4822.753465797173,
+      "heatMax": 7959,
+      "minWater": 109.65014614878875,
+      "failureType": "dry",
+      "failureAt": 37.16666666666712,
+      "fireHeldAtFailure": true,
+      "holdAtFailure": false,
+      "ventAtFailure": false,
+      "holdSeconds": 0,
+      "fireHeldSeconds": 37.16666666666712,
+      "ventCount": 0
+    },
+    "state": {
+      "x": -28,
+      "hp": 0.27301494957041406,
+      "heat": 2578.7051945689063,
+      "water": 0,
+      "cells": [
+        {
+          "id": "water",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 100,
+          "r": 6,
+          "c": 3,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 100,
+          "r": 6,
+          "c": 7,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 6,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "cannon_m",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 145,
+          "r": 6,
+          "c": 9,
+          "layer": "body"
+        },
+        {
+          "id": "mortar_s",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 65,
+          "r": 7,
+          "c": 5,
+          "layer": "body"
+        },
+        {
+          "id": "mortar_s",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 65,
+          "r": 7,
+          "c": 6,
+          "layer": "body"
+        },
+        {
+          "id": "steamjet",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 126,
+          "r": 7,
+          "c": 9,
+          "layer": "body"
+        },
+        {
+          "id": "cockpit_pair",
+          "mt": 2,
+          "lv": 0,
+          "hp": 150,
+          "max": 150,
+          "r": 8,
+          "c": 3,
+          "layer": "body"
+        },
+        {
+          "id": "boiler",
+          "mt": 2,
+          "lv": 0,
+          "hp": 24.699999999999992,
+          "max": 144,
+          "r": 8,
+          "c": 4,
+          "layer": "body"
+        },
+        {
+          "id": "water",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 100,
+          "r": 8,
+          "c": 6,
+          "layer": "body"
+        },
+        {
+          "id": "cockpit",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 240,
+          "r": 8,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "boiler",
+          "mt": 1,
+          "lv": 0,
+          "hp": 0,
+          "max": 120,
+          "r": 8,
+          "c": 10,
+          "layer": "body"
+        },
+        {
+          "id": "armor",
+          "mt": 3,
+          "lv": 0,
+          "hp": 0,
+          "max": 145,
+          "r": 8,
+          "c": 12,
+          "layer": "body"
+        },
+        {
+          "id": "piston",
+          "mt": 2,
+          "lv": 0,
+          "hp": 0,
+          "max": 180,
+          "r": 8,
+          "c": 13,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 168,
+          "max": 168,
+          "r": 10,
+          "c": 0,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 168,
+          "max": 168,
+          "r": 10,
+          "c": 4,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 80,
+          "max": 168,
+          "r": 10,
+          "c": 8,
+          "layer": "body"
+        },
+        {
+          "id": "quad",
+          "mt": 2,
+          "lv": 0,
+          "hp": 133.6086612103085,
+          "max": 168,
+          "r": 10,
+          "c": 12,
+          "layer": "body"
+        },
+        {
+          "id": "boss_lens",
+          "mt": 5,
+          "lv": 0,
+          "hp": 0,
+          "max": 181,
+          "r": 8,
+          "c": 12,
+          "layer": "side"
+        }
+      ]
+    },
+    "effects": {
+      "active": 8,
+      "fire": 0,
+      "hit": 0,
+      "tether": 0,
+      "energy": 0,
+      "waterSaved": 0,
+      "dryCool": 0
+    }
+  }
+]

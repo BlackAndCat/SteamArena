@@ -40,6 +40,18 @@ async function checkServiceCompletion() {
     assert.strictEqual(warningResult.stages, 2);
     assert.strictEqual(warningResult.plannedStages, 2);
     assert.strictEqual(warningResult.selectionFailures.length, 1);
+    // 页面可合并三关历史，但本轮摘要只应来自两关 fresh；扩容和加代必须取真实人口之和。
+    const current = { ...warningReport, chapters: [{ chapter: 0, stages: [1, 2].map(stage => ({
+      spec: { chapter: 0, stage, name: `本轮关${stage}` }, count: 24, top: Array(8).fill({}),
+      generationMetrics: [{ population: 24 }, { population: 28 }, { population: 24 }],
+    })) }] };
+    const history = { chapters: [{ chapter: 0, stages: [{ spec: { chapter: 0, stage: 0, name: '历史关' } }] }], candidates: [] };
+    assert.strictEqual(service.mergeReports(history, current).chapters[0].stages.length, 3);
+    evolve.runAsync = async () => current;
+    const summaryResult = await service.generate(request);
+    assert.deepStrictEqual(summaryResult.stageSummaries.map(row => [row.stage, row.population, row.retainedCandidates, row.evaluations]),
+      [[1, 24, 8, 76], [2, 24, 8, 76]]);
+    assert.strictEqual(service.stageSummaries(fresh('complete'))[0].evaluations, null, '旧报告不能捏造累计评估数');
     storage.writeReport = () => { throw new Error('报告落盘异常'); };
     await assert.rejects(service.generate(request), /报告落盘异常/);
     const source = fs.readFileSync(require.resolve('./evolve-report.js'), 'utf8');
@@ -62,6 +74,10 @@ async function checkServiceCompletion() {
     assert(text.includes('测试关') && text.includes('对上一关胜率') && text.includes('146 步') && text.includes('1 关未运行'), text);
     assert(text.includes('目标 60%～75%，当前最佳 0.8%'), text);
     assert(!text.includes('预计剩余') && text.includes('147/293'), text);
+    const summaryText = context.completedJobText(old, summaryResult);
+    assert(summaryText.includes('本轮关1') && summaryText.includes('本轮关2') && !summaryText.includes('历史关'), summaryText);
+    assert(summaryText.includes('终代种群 24 台、保留候选 8 台、各代累计评估 76 次（含重复个体）'), summaryText);
+    assert(text.includes('累计评估次数未知'), '旧任务必须解释缺失统计');
     // 终态触发局部换行样式；运行中仍保持原有单行进度，不改全站布局。
     const elements = { '#generation-status': { textContent: text }, '#stop-generation': { disabled: true },
       '#gen': { classList: { toggle() {} }, dataset: {} }, '#gen-meter': { firstElementChild: { style: {} } } };

@@ -1,0 +1,4656 @@
+{
+  "schemaVersion": 1,
+  "stageId": "3:3",
+  "stageName": "运煤列车",
+  "source": "ai-generated",
+  "model": "gpt-6.1-sol",
+  "designProcess": "人工直接布置显式锚点；不使用随机搜索、进化、组合枚举或自动预算补装。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "completed",
+  "referencePreviewInspected": true,
+  "spec": {
+    "chapter": 3,
+    "stage": 3,
+    "name": "运煤列车",
+    "terrain": "flat",
+    "style": null,
+    "boss": false,
+    "chapterHasBoss": true,
+    "rewardModule": "boiler_l",
+    "requiredModules": [
+      "boiler_l",
+      "water_l"
+    ],
+    "uniqueLoot": [],
+    "mat": 4,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rangefinder",
+      "rocket_rack",
+      "boiler_l",
+      "water_l"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rangefinder",
+      "rocket_rack",
+      "boiler_l",
+      "water_l"
+    ],
+    "budget": 10210,
+    "baseBudget": 10210,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 4,
+      "rewardModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "designRequirementsSource": "本批设计要求（待用户采用），不表示生产现有关卡硬必装。",
+      "ordinaryMaterialCap": 3,
+      "materialExceptions": {
+        "cannon_heavy": 4
+      },
+      "note": "仅第三章隔离规格：普通件至多钢，新装备按本关明确要求装配；重炮依生产最低材料使用镀镍4特例；正式地图、奖励与预算未写入。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "boiler_l",
+        "count": 1,
+        "mt": 3
+      },
+      {
+        "id": "water_l",
+        "count": 1,
+        "mt": 3
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "大型锅炉与大水箱固定奖励提案，保留既有解锁；等待用户工作台保存。"
+  },
+  "candidates": [
+    {
+      "id": "ch3-04-01",
+      "name": "AI生成·煤河重炮列车",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:3",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "双臼炮越障补射、重炮与双强化中炮前射；真实诊断武器损失投降多于核心失效，将大锅炉改装预算转给中炮与前甲耐久，辅助锅炉缩为小锅炉并补高水箱，供能仍满足满载。",
+      "requiredModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          1
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          14,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler_s",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "tank_tall",
+          3,
+          0
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-04-01.png",
+      "previewInspection": true,
+      "budget": 10063,
+      "budgetUsage": 0.9856023506366307,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "designRevisionHistory": [
+        {
+          "revision": 1,
+          "cells": [
+            [
+              0,
+              10,
+              2,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              4,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              6,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              8,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              10,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              12,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              3,
+              "boiler_l",
+              3,
+              3
+            ],
+            [
+              0,
+              7,
+              6,
+              "water_l",
+              3,
+              0
+            ],
+            [
+              0,
+              8,
+              9,
+              "cockpit",
+              3,
+              2
+            ],
+            [
+              0,
+              8,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              8,
+              12,
+              "cannon_m",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              12,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              13,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              14,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              6,
+              9,
+              "cockpit",
+              3,
+              2
+            ],
+            [
+              0,
+              6,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              12,
+              "cannon_heavy",
+              4,
+              3
+            ],
+            [
+              0,
+              7,
+              12,
+              "cannon_m",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              3,
+              "mortar",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              5,
+              "mortar",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              7,
+              "boiler",
+              3,
+              0
+            ],
+            [
+              1,
+              6,
+              11,
+              "radiator",
+              3,
+              0
+            ],
+            [
+              1,
+              8,
+              11,
+              "radiator",
+              3,
+              0
+            ]
+          ],
+          "fingerprint": "bea4d01708163fd66175f063895ad3b47f9f2127b7b5a2467b868fb6766cf3ac",
+          "style": "counter",
+          "diagnostic": {
+            "source": "results/ch3-04-diagnostic-temporary-ref.json",
+            "referenceId": "ch3-03-05",
+            "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+            "seedBase": 20261005,
+            "seedPairs": 6,
+            "games": 12,
+            "winRate": 0.375,
+            "diagnostics": {
+              "meanCandidateDamage": 2548.0333333333324,
+              "meanCandidateShots": 58.666666666666664,
+              "noShotGames": 0,
+              "failureCounts": {},
+              "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+            }
+          },
+          "note": "保留本次唯一结构修订前的真实构筑及12局诊断；不改参考、风格或种子。"
+        }
+      ],
+      "revisionReason": "12局37.5%，四局武器损失投降，供能282.8高于需求208.7；仅一次定点重分配：强化中炮/前甲，缩小辅助锅炉并补水，保留同风格与全部功能搭配。",
+      "battleTests": {
+        "referenceId": "ch3-03-05",
+        "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+        "referenceStyle": "veteran",
+        "candidateFingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+        "style": "counter",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 97,
+        "draws": 0,
+        "losses": 23,
+        "winRate": 0.8083333333333333,
+        "rawWinRate": 0.8083333333333333,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boiler_l": {
+            "totals": {
+              "active": 1269,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 10.575,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          },
+          "water_l": {
+            "totals": {
+              "active": 1269,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 10.575,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 3210.0803338278256,
+          "meanCandidateShots": 78.93333333333334,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+        "resultFile": "results/ch3-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boiler_l": {
+          "totals": {
+            "active": 1269,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 10.575,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        },
+        "water_l": {
+          "totals": {
+            "active": 1269,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 10.575,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-03-01",
+          "referenceFingerprint": "0f539aa29ed64f81d043119c3e5e9712a643e07eb2d7e80422a51ba31ea7bf08",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 37,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6.166666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 37,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6.166666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3327.2833333333306,
+            "meanCandidateShots": 81.16666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-02",
+          "referenceFingerprint": "d734f7c99e8d9e3dc66a368174243477eecc5404686775091c9be7a5b4ccae9e",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 30,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 30,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3185.9666666666667,
+            "meanCandidateShots": 81,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-03",
+          "referenceFingerprint": "c8e683c905af8c18bd231dab385a3b39b639195fb581020709e04f1fc201cbe0",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 3,
+          "draws": 0,
+          "losses": 3,
+          "winRate": 0.5,
+          "rawWinRate": 0.5,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2799.063527969749,
+            "meanCandidateShots": 71.16666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-04",
+          "referenceFingerprint": "b4d570bbcbe0a665895822fb2edfded007fffac48e919877f56b7ee4a65ddb15",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "4300e121458884ca99612822da289d1031dd027f449f3449c86b2b02b1469c4c",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 4,
+          "draws": 0,
+          "losses": 2,
+          "winRate": 0.6666666666666666,
+          "rawWinRate": 0.6666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": true,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 52,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 8.666666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 52,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 8.666666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2773.699223467378,
+            "meanCandidateShots": 68,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch3-04-02",
+      "name": "AI生成·煤仓双重击",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:3",
+      "style": "veteran",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "双重炮与双大臼炮四组火力，低位双舱前甲强化；缩小辅助锅炉并补高水箱，重新分配机组改装预算，让此前高命中的小臼炮升级为大口径抛射补射。",
+      "requiredModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          14,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          1
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_heavy",
+          4,
+          1
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler_s",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "tank_tall",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar",
+          3,
+          0
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-04-02.png",
+      "previewInspection": true,
+      "budget": 10142,
+      "budgetUsage": 0.9933398628795299,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "designRevisionHistory": [
+        {
+          "revision": 1,
+          "cells": [
+            [
+              0,
+              10,
+              2,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              4,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              6,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              8,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              10,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              12,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              3,
+              "boiler_l",
+              3,
+              2
+            ],
+            [
+              0,
+              7,
+              6,
+              "water_l",
+              3,
+              0
+            ],
+            [
+              0,
+              8,
+              9,
+              "cockpit",
+              3,
+              2
+            ],
+            [
+              0,
+              8,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              12,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              13,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              14,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              6,
+              9,
+              "cockpit",
+              3,
+              2
+            ],
+            [
+              0,
+              6,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              12,
+              "cannon_heavy",
+              4,
+              2
+            ],
+            [
+              0,
+              5,
+              7,
+              "boiler",
+              3,
+              0
+            ],
+            [
+              1,
+              6,
+              11,
+              "radiator",
+              3,
+              0
+            ],
+            [
+              1,
+              8,
+              11,
+              "radiator",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              12,
+              "cannon_heavy",
+              4,
+              1
+            ],
+            [
+              0,
+              6,
+              3,
+              "mortar_s",
+              3,
+              3
+            ],
+            [
+              0,
+              6,
+              4,
+              "mortar_s",
+              3,
+              3
+            ]
+          ],
+          "fingerprint": "cc70b99fa0439abda57f77c9b48652ed8ee29f6e12161bbda6bb38f1d1868907",
+          "style": "veteran",
+          "diagnostic": {
+            "source": "results/ch3-04-diagnostic-temporary-ref.json",
+            "referenceId": "ch3-03-05",
+            "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+            "seedBase": 20261005,
+            "seedPairs": 6,
+            "games": 12,
+            "winRate": 0.4166666666666667,
+            "diagnostics": {
+              "meanCandidateDamage": 2302.5766666666664,
+              "meanCandidateShots": 63.25,
+              "noShotGames": 0,
+              "failureCounts": {},
+              "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+            }
+          },
+          "note": "保留本次唯一结构修订前的真实构筑及12局诊断；不改参考、风格或种子。"
+        }
+      ],
+      "revisionReason": "12局41.67%，四局武器损失投降，小臼炮551发478中但平均总伤害2303；供能282.8高于需求189，缩小辅炉后仍可供双重炮+双大臼炮，将多余机组改装预算改为有效抛射火力及前甲。",
+      "battleTests": {
+        "referenceId": "ch3-03-05",
+        "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+        "referenceStyle": "veteran",
+        "candidateFingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+        "style": "veteran",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 57,
+        "draws": 2,
+        "losses": 61,
+        "winRate": 0.48333333333333334,
+        "rawWinRate": 0.475,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boiler_l": {
+            "totals": {
+              "active": 1431,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 11.925,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          },
+          "water_l": {
+            "totals": {
+              "active": 1431,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 11.925,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 2684.7958333333327,
+          "meanCandidateShots": 50.9,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 4
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+        "resultFile": "results/ch3-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-target",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "boiler_l": {
+          "totals": {
+            "active": 1431,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 11.925,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        },
+        "water_l": {
+          "totals": {
+            "active": 1431,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 11.925,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-03-01",
+          "referenceFingerprint": "0f539aa29ed64f81d043119c3e5e9712a643e07eb2d7e80422a51ba31ea7bf08",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+          "style": "veteran",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 1,
+          "draws": 0,
+          "losses": 5,
+          "winRate": 0.16666666666666666,
+          "rawWinRate": 0.16666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 59,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 9.833333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 59,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 9.833333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2128.9499999999994,
+            "meanCandidateShots": 34.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-02",
+          "referenceFingerprint": "d734f7c99e8d9e3dc66a368174243477eecc5404686775091c9be7a5b4ccae9e",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+          "style": "veteran",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 3,
+          "draws": 0,
+          "losses": 3,
+          "winRate": 0.5,
+          "rawWinRate": 0.5,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2473.083333333332,
+            "meanCandidateShots": 48,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-03",
+          "referenceFingerprint": "c8e683c905af8c18bd231dab385a3b39b639195fb581020709e04f1fc201cbe0",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+          "style": "veteran",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 1,
+          "draws": 0,
+          "losses": 5,
+          "winRate": 0.16666666666666666,
+          "rawWinRate": 0.16666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 68,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 11.333333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 68,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 11.333333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2448.3166666666657,
+            "meanCandidateShots": 46.666666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-04",
+          "referenceFingerprint": "b4d570bbcbe0a665895822fb2edfded007fffac48e919877f56b7ee4a65ddb15",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "79d81e7365876993ccf9b6913f04a0e8f9e75217dd6eda755cca2c1e878a7a9e",
+          "style": "veteran",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 84,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 14,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 84,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 14,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1687.9333333333327,
+            "meanCandidateShots": 33.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch3-04-03",
+      "name": "AI生成·煤港排炮",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:3",
+      "style": "sniper",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "五门钢中炮沿前缘分层，四门小臼炮在后肩顶上补射；完全不用重炮，通过紧凑快速炮列压制敌方武器，机组和双驾驶舱在甲后。",
+      "requiredModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          5,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar_s",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-04-03.png",
+      "previewInspection": true,
+      "budget": 9963,
+      "budgetUsage": 0.9758080313418217,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [
+          "全力开火约 40 秒后烧干"
+        ],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-03-05",
+        "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+        "referenceStyle": "veteran",
+        "candidateFingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+        "style": "sniper",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boiler_l": {
+            "totals": {
+              "active": 827,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 6.891666666666667,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          },
+          "water_l": {
+            "totals": {
+              "active": 827,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 6.891666666666667,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 3692.524499999999,
+          "meanCandidateShots": 148.425,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+        "resultFile": "results/ch3-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boiler_l": {
+          "totals": {
+            "active": 827,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 6.891666666666667,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        },
+        "water_l": {
+          "totals": {
+            "active": 827,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 6.891666666666667,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-03-01",
+          "referenceFingerprint": "0f539aa29ed64f81d043119c3e5e9712a643e07eb2d7e80422a51ba31ea7bf08",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+          "style": "sniper",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 30,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 30,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3037.3333333333317,
+            "meanCandidateShots": 95.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-02",
+          "referenceFingerprint": "d734f7c99e8d9e3dc66a368174243477eecc5404686775091c9be7a5b4ccae9e",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+          "style": "sniper",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 23,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 23,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3114.3333333333326,
+            "meanCandidateShots": 108.83333333333333,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-03",
+          "referenceFingerprint": "c8e683c905af8c18bd231dab385a3b39b639195fb581020709e04f1fc201cbe0",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+          "style": "sniper",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 24,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 24,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3316.7533333333317,
+            "meanCandidateShots": 115.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-04",
+          "referenceFingerprint": "b4d570bbcbe0a665895822fb2edfded007fffac48e919877f56b7ee4a65ddb15",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "96b85bb2342d78543d8e8fa64ec05b276060ca5a72d6bd115aa4e649672b2982",
+          "style": "sniper",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 26,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.333333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 26,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.333333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2543.4333333333325,
+            "meanCandidateShots": 79.16666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch3-04-04",
+      "name": "AI生成·煤火牵引机",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:3",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "重炮与双中炮前缘直射，鱼叉保留牵引功能，双臼炮补射；真实诊断喷射命中很低，换为同层中炮并利用底缘甲片空间再加一中炮，强化上舱和前甲，缩小辅助锅炉同时补高水箱。",
+      "requiredModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          1
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          2
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          12,
+          "harpoon",
+          3,
+          2
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler_s",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "tank_tall",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          3,
+          1
+        ],
+        [
+          0,
+          9,
+          12,
+          "cannon_m",
+          3,
+          1
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-04-04.png",
+      "previewInspection": true,
+      "budget": 10086,
+      "budgetUsage": 0.9878550440744368,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "designRevisionHistory": [
+        {
+          "revision": 1,
+          "cells": [
+            [
+              0,
+              10,
+              2,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              4,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              6,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              8,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              10,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              10,
+              12,
+              "track",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              3,
+              "boiler_l",
+              3,
+              3
+            ],
+            [
+              0,
+              7,
+              6,
+              "water_l",
+              3,
+              0
+            ],
+            [
+              0,
+              8,
+              9,
+              "cockpit",
+              3,
+              0
+            ],
+            [
+              0,
+              8,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              12,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              13,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              9,
+              14,
+              "plate",
+              3,
+              0
+            ],
+            [
+              0,
+              6,
+              9,
+              "cockpit",
+              3,
+              0
+            ],
+            [
+              0,
+              6,
+              11,
+              "armor",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              12,
+              "cannon_heavy",
+              4,
+              3
+            ],
+            [
+              0,
+              5,
+              3,
+              "mortar",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              5,
+              "mortar",
+              3,
+              0
+            ],
+            [
+              0,
+              5,
+              7,
+              "boiler",
+              3,
+              0
+            ],
+            [
+              1,
+              6,
+              11,
+              "radiator",
+              3,
+              0
+            ],
+            [
+              1,
+              8,
+              11,
+              "radiator",
+              3,
+              0
+            ],
+            [
+              0,
+              7,
+              12,
+              "harpoon",
+              3,
+              2
+            ],
+            [
+              0,
+              8,
+              12,
+              "steamjet",
+              3,
+              1
+            ]
+          ],
+          "fingerprint": "2240cd48320c153f938db92d919eedf87a1697479a24cd6183a3981fa51066f5",
+          "style": "rush",
+          "diagnostic": {
+            "source": "results/ch3-04-diagnostic-temporary-ref.json",
+            "referenceId": "ch3-03-05",
+            "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+            "seedBase": 20261005,
+            "seedPairs": 6,
+            "games": 12,
+            "winRate": 0.08333333333333333,
+            "diagnostics": {
+              "meanCandidateDamage": 1895.894583333333,
+              "meanCandidateShots": 306.6666666666667,
+              "noShotGames": 0,
+              "failureCounts": {
+                "dry": 2
+              },
+              "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+            }
+          },
+          "note": "保留本次唯一结构修订前的真实构筑及12局诊断；不改参考、风格或种子。"
+        }
+      ],
+      "revisionReason": "12局8.33%，喷射3118发仅16中、鱼叉209发175中且有2局dry；仅一次有据改版：保留鱼叉，喷射换中炮并加底缘中炮，供能/水箱与舱甲重新分配，不调整rush风格或固定种子。",
+      "battleTests": {
+        "referenceId": "ch3-03-05",
+        "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+        "referenceStyle": "veteran",
+        "candidateFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+        "style": "rush",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 92,
+        "draws": 3,
+        "losses": 25,
+        "winRate": 0.7791666666666667,
+        "rawWinRate": 0.7666666666666667,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boiler_l": {
+            "totals": {
+              "active": 1099,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 9.158333333333333,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          },
+          "water_l": {
+            "totals": {
+              "active": 1098,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 9.15,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 3116.812708333333,
+          "meanCandidateShots": 85.31666666666666,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 1
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+        "resultFile": "results/ch3-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boiler_l": {
+          "totals": {
+            "active": 1099,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 9.158333333333333,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        },
+        "water_l": {
+          "totals": {
+            "active": 1098,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 9.15,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-03-01",
+          "referenceFingerprint": "0f539aa29ed64f81d043119c3e5e9712a643e07eb2d7e80422a51ba31ea7bf08",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+          "style": "rush",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 43,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7.166666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 43,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7.166666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3719.5666666666643,
+            "meanCandidateShots": 101.83333333333333,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-02",
+          "referenceFingerprint": "d734f7c99e8d9e3dc66a368174243477eecc5404686775091c9be7a5b4ccae9e",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+          "style": "rush",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 27,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 27,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3253.9666666666667,
+            "meanCandidateShots": 89.66666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-03",
+          "referenceFingerprint": "c8e683c905af8c18bd231dab385a3b39b639195fb581020709e04f1fc201cbe0",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+          "style": "rush",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 42,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 42,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 3328.5749999999994,
+            "meanCandidateShots": 100.16666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-04",
+          "referenceFingerprint": "b4d570bbcbe0a665895822fb2edfded007fffac48e919877f56b7ee4a65ddb15",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+          "style": "rush",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 5,
+          "draws": 0,
+          "losses": 1,
+          "winRate": 0.8333333333333334,
+          "rawWinRate": 0.8333333333333334,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 47,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7.833333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 47,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 7.833333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2451.687499999999,
+            "meanCandidateShots": 76.16666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch3-04-05",
+      "name": "AI生成·煤岸三炮堡",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:3",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "三门镀镍重炮分层齐射，大机组负责三主炮；后肩两门小臼炮跨越地物。六段履带平稳承托，驾驶舱双位置冗余。",
+      "requiredModules": [
+        "boiler_l",
+        "water_l"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          4,
+          12,
+          "cannon_heavy",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          12,
+          "cannon_heavy",
+          4,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_heavy",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar_s",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar_s",
+          3,
+          0
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-04-05.png",
+      "previewInspection": true,
+      "budget": 10207,
+      "budgetUsage": 0.9997061704211557,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-03-05",
+        "referenceFingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+        "referenceStyle": "veteran",
+        "candidateFingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+        "style": "turtle",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 65,
+        "draws": 0,
+        "losses": 55,
+        "winRate": 0.5416666666666666,
+        "rawWinRate": 0.5416666666666666,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boiler_l": {
+            "totals": {
+              "active": 1089,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 9.075,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          },
+          "water_l": {
+            "totals": {
+              "active": 1066,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 8.883333333333333,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 2721.9892456705084,
+          "meanCandidateShots": 61.75833333333333,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 11
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+        "resultFile": "results/ch3-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-target",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "boiler_l": {
+          "totals": {
+            "active": 1089,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 9.075,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        },
+        "water_l": {
+          "totals": {
+            "active": 1066,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 8.883333333333333,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-03-01",
+          "referenceFingerprint": "0f539aa29ed64f81d043119c3e5e9712a643e07eb2d7e80422a51ba31ea7bf08",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 1,
+          "draws": 0,
+          "losses": 5,
+          "winRate": 0.16666666666666666,
+          "rawWinRate": 0.16666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 61,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.166666666666666,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2114.066666666667,
+            "meanCandidateShots": 38.166666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-02",
+          "referenceFingerprint": "d734f7c99e8d9e3dc66a368174243477eecc5404686775091c9be7a5b4ccae9e",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 3,
+          "draws": 0,
+          "losses": 3,
+          "winRate": 0.5,
+          "rawWinRate": 0.5,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 41,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6.833333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 41,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6.833333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 2317.233333333333,
+            "meanCandidateShots": 51.666666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-03",
+          "referenceFingerprint": "c8e683c905af8c18bd231dab385a3b39b639195fb581020709e04f1fc201cbe0",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 62,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.333333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 62,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.333333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1727.716666666667,
+            "meanCandidateShots": 38.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-03-04",
+          "referenceFingerprint": "b4d570bbcbe0a665895822fb2edfded007fffac48e919877f56b7ee4a65ddb15",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "f8d21b69d934bc2703f66eb89e40d958e7b6e1c3b53c5d55215463f3601487f2",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 1,
+          "draws": 0,
+          "losses": 5,
+          "winRate": 0.16666666666666666,
+          "rawWinRate": 0.16666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "boiler_l": {
+              "totals": {
+                "active": 66,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 11,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            },
+            "water_l": {
+              "totals": {
+                "active": 65,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.833333333333334,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1519.2866666666669,
+            "meanCandidateShots": 29.666666666666668,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 1
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json",
+          "resultFile": "results/ch3-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    }
+  ],
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "preview": "../chapter-2/references/1-0.png",
+      "finding": "钢罐头低宽车体、前甲保护核心；本批低位驾驶舱与前射火力分层。"
+    },
+    {
+      "stageId": "1:2",
+      "preview": "../chapter-2/references/1-2.png",
+      "finding": "顶部高抛、驾驶舱藏低、前柱甲保护机组，保持上方射界。"
+    },
+    {
+      "stageId": "1:6",
+      "preview": "../chapter-2/references/1-6.png",
+      "finding": "多段底盘承托平整前射炮列，顶部臼炮补射；避免后置独立高舱。"
+    }
+  ],
+  "ruleFingerprint": "28807a51d645b33f",
+  "reference": {
+    "id": "ch3-03-05",
+    "name": "AI生成·抛射撞镍列车",
+    "fingerprint": "5d6c76ed949351d42ef0dcd5125cc6f9de6cf66526b095871b97f4430aa680bc",
+    "sourceFile": "artifacts/ai-vehicles/chapter-3/ch3-03-candidates.json"
+  },
+  "temporaryReferenceId": "ch3-04-04",
+  "temporaryReferenceName": "AI生成·煤火牵引机",
+  "temporaryReferenceFingerprint": "265d6b8a0a5492a93c1180d96a21b54efaf42d3255a2cbee0c76a0e6b037db61",
+  "temporaryReferenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-04-candidates.json",
+  "temporaryReferenceReason": "正式120局77.92%，略高目标但最接近目标；对其它四台参考各6局交叉胜率100%/100%/100%/83.33%，保留小样本性质与真实超目标状态。"
+}

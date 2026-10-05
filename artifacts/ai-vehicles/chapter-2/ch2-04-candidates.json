@@ -1,0 +1,3622 @@
+{
+  "stageId": "2:3",
+  "stageName": "棉花包",
+  "source": "ai-generated",
+  "model": "gpt-6.1-sol",
+  "designProcess": "gpt-6.1-sol直接设计显式锚点；逐辆查看10辆手工车真实渲染；禁止随机造车、进化、组合枚举及自动预算补装。",
+  "referenceLearning": [
+    {
+      "stageId": "0:0",
+      "vehicleName": "破铜烂铁号",
+      "preview": "references/0-0.png",
+      "finding": "单履带最小动力和枪位；核心裸露与高窄后柱不用于新关正面硬抗。"
+    },
+    {
+      "stageId": "0:1",
+      "vehicleName": "钉子号",
+      "preview": "references/0-1.png",
+      "finding": "前甲与水箱补齐最小车；甲只放要害而非满车堆砌。"
+    },
+    {
+      "stageId": "0:2",
+      "vehicleName": "汤姆的铲车",
+      "preview": "references/0-2.png",
+      "finding": "舱贴底盘，前铲斗与后置机组清楚分工；铲斗控制距离后接续蒸汽。"
+    },
+    {
+      "stageId": "1:0",
+      "vehicleName": "铁皮罐头",
+      "preview": "references/1-0.png",
+      "finding": "双履带低平，火炮和前甲分行，核心下藏；学习短厚整齐外廓。"
+    },
+    {
+      "stageId": "1:1",
+      "vehicleName": "双管哨兵",
+      "preview": "references/1-1.png",
+      "finding": "上下枪位整齐，联合舱居中，高水箱置后；学习前缘火力和冷热搭配。"
+    },
+    {
+      "stageId": "1:2",
+      "vehicleName": "煤灰寡妇",
+      "preview": "references/1-2.png",
+      "finding": "顶部大臼炮、前甲柱保护核心，实际cells是双履带；顶部炮口保持空旷。"
+    },
+    {
+      "stageId": "1:3",
+      "vehicleName": "大铁壶",
+      "preview": "references/1-3.png",
+      "finding": "机组和驾驶舱低藏，前主炮与甲错行；避免照抄底盘旁厚长甲条。"
+    },
+    {
+      "stageId": "1:4",
+      "vehicleName": "推土机",
+      "preview": "references/1-4.png",
+      "finding": "三履带宽底座、双机组和前铲斗明确；上部阶梯应收敛而非长悬挑。"
+    },
+    {
+      "stageId": "1:5",
+      "vehicleName": "独角兽",
+      "preview": "references/1-5.png",
+      "finding": "前撞角/下铲斗协同，宽底座支持机组；新车不能照抄多层尖角与超高动力。"
+    },
+    {
+      "stageId": "1:6",
+      "vehicleName": "码头齐射",
+      "preview": "references/1-6.png",
+      "finding": "三履带、前缘直射组、顶部双臼炮、分散联合舱；避免高独立后舱，不能继承白名单外冷凝器和mg2。"
+    }
+  ],
+  "referencePreviewInspected": true,
+  "reference": {
+    "id": "ch2-03-01",
+    "fingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+    "path": "ch2-03-candidates.json",
+    "temporary": true
+  },
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "planningStatus": "第四关隔离计划规格；独特奖励quad:pedrail待采用，未修改正式关卡。",
+  "candidates": [
+    {
+      "id": "ch2-04-01",
+      "name": "AI生成·棉垛牵炉",
+      "style": "counter",
+      "designIntent": "沿用短宽工厂平台：双顶部臼炮越过棉箱，前缘鱼叉牵引与蒸汽近防接续。双驾驶舱分散，双锅炉服务远近两组武器。",
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "harpoon",
+          2,
+          0
+        ]
+      ],
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:3",
+      "aim": 0.8,
+      "requiredModules": [
+        "quad"
+      ],
+      "referenceStageIds": [
+        "0:0",
+        "0:1",
+        "0:2",
+        "1:0",
+        "1:1",
+        "1:2",
+        "1:3",
+        "1:4",
+        "1:5",
+        "1:6"
+      ],
+      "revision": 1,
+      "preview": "previews/ch2-04-01.png",
+      "budget": 3388,
+      "budgetUsage": 0.9906432748538012,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "additionalValidation": {
+        "uniqueReward": true,
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+      "validationDetails": {
+        "ruleFingerprint": "4d85e81937209444",
+        "issues": [],
+        "warnings": [
+          "动力不足：车速和装填降至 94%",
+          "全力开火约 38 秒后烧干"
+        ],
+        "stats": {
+          "aimShrink": 0.3,
+          "aimSpeed": 0.5,
+          "demand": 140.9,
+          "equip": 120,
+          "drive": 20.91827172851562,
+          "weight": 9137.5,
+          "load": 9240,
+          "supply": 132,
+          "hp": 2175,
+          "maxHp": 2175,
+          "cockpits": 2,
+          "chassis": 3,
+          "boilers": 2,
+          "tanks": 2,
+          "water": 247.5,
+          "cool": 440,
+          "dryCool": 0,
+          "waterSave": 1,
+          "store": 0,
+          "dps": 21.279609491664765,
+          "weapons": 4,
+          "drivers": 8,
+          "heatRate": 150,
+          "heatMul": 1,
+          "evade": 0,
+          "acc": 0.06,
+          "broken": 0,
+          "damaged": 0,
+          "value": 3388,
+          "count": 15,
+          "height": 3,
+          "byId": {
+            "water": 2,
+            "mortar": 2,
+            "armor": 2,
+            "steamjet": 1,
+            "harpoon": 1,
+            "cockpit": 2,
+            "boiler": 2,
+            "quad": 3
+          },
+          "speed": 62,
+          "rams": 0,
+          "accel": 0.85,
+          "brake": 0.55,
+          "sway": 0.45,
+          "salvoDps": 32.82566821564024,
+          "splashDps": 0,
+          "heatDps": 670.4090382126535,
+          "tether": 12,
+          "center": 8.130483689538808,
+          "d": 2.065241844769404,
+          "balance": "无底盘",
+          "balanceState": "无底盘",
+          "balanceTolerance": 0,
+          "comHeight": 0.8113048368953883,
+          "topHeavy": false,
+          "hip": "正常",
+          "legs": "正常",
+          "aux": {
+            "aimSpeed": 0,
+            "aimShrink": 0,
+            "sway": 1,
+            "spread": 1
+          },
+          "dryWeight": 8890,
+          "blocked": [],
+          "speedMul": 0.9368346344925479,
+          "armorSpeedFactor": 1,
+          "topSpeed": 58.08374733853797,
+          "power": 0.9368346344925479,
+          "heatCapacity": 122.34,
+          "heatMax": 12234,
+          "boilerHeat": 150,
+          "heatGen": 820.4090382126535,
+          "overheat": 38,
+          "rating": 362,
+          "problems": [],
+          "issues": [],
+          "thrown": false,
+          "warnings": [
+            "动力不足：车速和装填降至 94%",
+            "全力开火约 38 秒后烧干"
+          ],
+          "canDeploy": true
+        },
+        "resultFile": "results/ch2-04-validation-r2.json"
+      },
+      "visualReview": {
+        "inspected": true,
+        "preview": "previews/ch2-04-01.png",
+        "fingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+        "note": "已实际查看最终真实渲染；短宽完整外廓，炮口和动力布局清楚。"
+      },
+      "battleTests": {
+        "referenceId": "ch2-03-01",
+        "referenceFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+        "style": "counter",
+        "terrain": "crates",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 111,
+        "draws": 2,
+        "losses": 7,
+        "winRate": 0.9333333333333333,
+        "rawWinRate": 0.925,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "quad": {
+            "totals": {
+              "active": 1440,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 12,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 906.2707401391373,
+          "meanCandidateShots": 274.25,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜比例。",
+        "status": "超过目标上限",
+        "notReachedReason": "正式胜率高于60%～75%目标上限，保留可靠候选并如实标记。"
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch2-03-02",
+          "referenceFingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 3,
+          "draws": 0,
+          "losses": 3,
+          "winRate": 0.5,
+          "rawWinRate": 0.5,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 156,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 26,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1092.0685298642413,
+            "meanCandidateShots": 124.33333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 1
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-02.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-03",
+          "referenceFingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 48,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 8,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 592.6333333333334,
+            "meanCandidateShots": 308.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-03.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-04",
+          "referenceFingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 63,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 10.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 608.4,
+            "meanCandidateShots": 258,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-04.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-05",
+          "referenceFingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+          "referenceStyle": "veteran",
+          "candidateFingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 4,
+          "draws": 0,
+          "losses": 2,
+          "winRate": 0.6666666666666666,
+          "rawWinRate": 0.6666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": true,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 141,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 23.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1115.9737585358628,
+            "meanCandidateShots": 184,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-05.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        }
+      ],
+      "rewardEvidence": {
+        "uniqueKey": "quad:pedrail",
+        "count": 1,
+        "material": 3,
+        "identityValidated": true,
+        "totalLoad": 9240,
+        "vehicleWeight": 9137.5,
+        "note": "唯一四足与两件普通四足共同提供9240kg承重；quad活动统计已记录，但接口合并普通与唯一四足，不能区分pedrail自身运动贡献，也不能声称同档外观变体有独有数值加成。"
+      },
+      "rewardPlanRef": "本关顶层rewardPlan"
+    },
+    {
+      "id": "ch2-04-02",
+      "name": "AI生成·四管棉哨",
+      "style": "counter",
+      "designIntent": "前缘四门中炮形成持续直射，屋顶双小臼炮补充越箱火力。侧挂散热与双锅炉维持装填，四门中炮分散损失风险。",
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          1,
+          6,
+          7,
+          "radiator",
+          2,
+          0
+        ]
+      ],
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:3",
+      "aim": 0.8,
+      "requiredModules": [
+        "quad"
+      ],
+      "referenceStageIds": [
+        "0:0",
+        "0:1",
+        "0:2",
+        "1:0",
+        "1:1",
+        "1:2",
+        "1:3",
+        "1:4",
+        "1:5",
+        "1:6"
+      ],
+      "revision": 1,
+      "preview": "previews/ch2-04-02.png",
+      "budget": 3403,
+      "budgetUsage": 0.9950292397660818,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "additionalValidation": {
+        "uniqueReward": true,
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+      "validationDetails": {
+        "ruleFingerprint": "4d85e81937209444",
+        "issues": [],
+        "warnings": [
+          "全力开火约 22 秒后烧干"
+        ],
+        "stats": {
+          "aimShrink": 0.3,
+          "aimSpeed": 0.5,
+          "demand": 141.1,
+          "equip": 120,
+          "drive": 21.147199462890622,
+          "weight": 9237.5,
+          "load": 9240,
+          "supply": 144,
+          "hp": 2540,
+          "maxHp": 2540,
+          "cockpits": 2,
+          "chassis": 3,
+          "boilers": 2,
+          "tanks": 2,
+          "water": 247.5,
+          "cool": 440,
+          "dryCool": 60,
+          "waterSave": 1,
+          "store": 0,
+          "dps": 44.77090909090908,
+          "weapons": 6,
+          "drivers": 8,
+          "heatRate": 150,
+          "heatMul": 1,
+          "evade": 0,
+          "acc": 0.06,
+          "broken": 0,
+          "damaged": 0,
+          "value": 3403,
+          "count": 20,
+          "height": 3,
+          "byId": {
+            "water": 2,
+            "boiler": 2,
+            "armor": 2,
+            "mortar_s": 2,
+            "cannon_m": 4,
+            "plate": 2,
+            "cockpit": 2,
+            "quad": 3,
+            "radiator": 1
+          },
+          "speed": 62,
+          "rams": 0,
+          "accel": 0.85,
+          "brake": 0.55,
+          "sway": 0.45,
+          "salvoDps": 71.4965034965035,
+          "splashDps": 0,
+          "heatDps": 1048.951048951049,
+          "tether": 0,
+          "center": 8.014460511679644,
+          "d": 2.007230255839822,
+          "balance": "无底盘",
+          "balanceState": "无底盘",
+          "balanceTolerance": 0,
+          "comHeight": 0.8389877641824253,
+          "topHeavy": false,
+          "hip": "正常",
+          "legs": "正常",
+          "aux": {
+            "aimSpeed": 0,
+            "aimShrink": 0,
+            "sway": 1,
+            "spread": 1
+          },
+          "dryWeight": 8990,
+          "blocked": [],
+          "speedMul": 1.0205527994330263,
+          "armorSpeedFactor": 1,
+          "topSpeed": 63.27427356484763,
+          "power": 1,
+          "heatCapacity": 123.34,
+          "heatMax": 12334,
+          "boilerHeat": 146.97916666666666,
+          "heatGen": 1195.9302156177157,
+          "overheat": 21.5,
+          "rating": 550,
+          "problems": [],
+          "issues": [],
+          "thrown": false,
+          "warnings": [
+            "全力开火约 22 秒后烧干"
+          ],
+          "canDeploy": true
+        },
+        "resultFile": "results/ch2-04-validation-r2.json"
+      },
+      "visualReview": {
+        "inspected": true,
+        "preview": "previews/ch2-04-02.png",
+        "fingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+        "note": "已实际查看最终真实渲染；短宽完整外廓，炮口和动力布局清楚。"
+      },
+      "battleTests": {
+        "referenceId": "ch2-03-01",
+        "referenceFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+        "style": "counter",
+        "terrain": "crates",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "quad": {
+            "totals": {
+              "active": 771,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 6.425,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 923.6697535022975,
+          "meanCandidateShots": 39.666666666666664,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜比例。",
+        "status": "超过目标上限",
+        "notReachedReason": "正式胜率高于60%～75%目标上限，保留可靠候选并如实标记。"
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch2-03-02",
+          "referenceFingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 54,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 9,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1364.0048606126265,
+            "meanCandidateShots": 55.833333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-02.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-03",
+          "referenceFingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 677.6666666666669,
+            "meanCandidateShots": 42.666666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-03.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-04",
+          "referenceFingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 678.3113905243497,
+            "meanCandidateShots": 33,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-04.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-05",
+          "referenceFingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+          "referenceStyle": "veteran",
+          "candidateFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 54,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 9,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1401.866666666667,
+            "meanCandidateShots": 58.833333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-05.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        }
+      ],
+      "rewardEvidence": {
+        "uniqueKey": "quad:pedrail",
+        "count": 1,
+        "material": 3,
+        "identityValidated": true,
+        "totalLoad": 9240,
+        "vehicleWeight": 9237.5,
+        "note": "唯一四足与两件普通四足共同提供9240kg承重；quad活动统计已记录，但接口合并普通与唯一四足，不能区分pedrail自身运动贡献，也不能声称同档外观变体有独有数值加成。"
+      },
+      "rewardPlanRef": "本关顶层rewardPlan"
+    },
+    {
+      "id": "ch2-04-03",
+      "name": "AI生成·棉箱推车",
+      "style": "aggressive",
+      "designIntent": "学习手工推土机的前铲与低藏机组：铲斗负责近接破箱，顶部大臼炮和双小臼炮先行压制，蒸汽与中炮在前缘保持清晰炮口。下置小驾驶台辅助两侧大小驾驶舱，提供七名人员。",
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          10,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          14,
+          "bucket",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          5,
+          "helmet",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "steamjet",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          10,
+          "cannon_m",
+          2,
+          0
+        ]
+      ],
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:3",
+      "aim": 0.8,
+      "requiredModules": [
+        "quad"
+      ],
+      "referenceStageIds": [
+        "0:0",
+        "0:1",
+        "0:2",
+        "1:0",
+        "1:1",
+        "1:2",
+        "1:3",
+        "1:4",
+        "1:5",
+        "1:6"
+      ],
+      "revision": 2,
+      "preview": "previews/ch2-04-03.png",
+      "revisionReason": "真实渲染发现双人舱右侧贯穿空洞，将右侧机组与火力整体左移一子格，压紧主体；不增减模块。",
+      "budget": 3373,
+      "budgetUsage": 0.9862573099415205,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "additionalValidation": {
+        "uniqueReward": true,
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+      "validationDetails": {
+        "ruleFingerprint": "4d85e81937209444",
+        "issues": [],
+        "warnings": [
+          "全力开火约 23 秒后烧干"
+        ],
+        "stats": {
+          "aimShrink": 0.3,
+          "aimSpeed": 0.5,
+          "demand": 133.1,
+          "equip": 112,
+          "drive": 21.087220396484373,
+          "weight": 9211.3,
+          "load": 9240,
+          "supply": 144,
+          "hp": 2493,
+          "maxHp": 2493,
+          "cockpits": 3,
+          "chassis": 3,
+          "boilers": 2,
+          "tanks": 2,
+          "water": 191.3,
+          "cool": 340,
+          "dryCool": 0,
+          "waterSave": 1,
+          "store": 0,
+          "dps": 29.666374331550795,
+          "weapons": 5,
+          "drivers": 7,
+          "heatRate": 150,
+          "heatMul": 1,
+          "evade": 0,
+          "acc": 0.06,
+          "broken": 0,
+          "damaged": 0,
+          "value": 3373,
+          "count": 19,
+          "height": 3,
+          "byId": {
+            "mortar": 1,
+            "mortar_s": 2,
+            "tank_tall": 1,
+            "armor": 2,
+            "steamjet": 1,
+            "helmet": 1,
+            "plate": 1,
+            "cannon_m": 1,
+            "water": 1,
+            "boiler": 2,
+            "cockpit_pair": 1,
+            "cockpit": 1,
+            "quad": 3,
+            "bucket": 1
+          },
+          "speed": 62,
+          "rams": 1,
+          "accel": 0.85,
+          "brake": 0.55,
+          "sway": 0.45,
+          "salvoDps": 45.9628136569313,
+          "splashDps": 0,
+          "heatDps": 791.1970382558617,
+          "tether": 0,
+          "center": 8.257206208425721,
+          "d": 2.1286031042128606,
+          "balance": "无底盘",
+          "balanceState": "无底盘",
+          "balanceTolerance": 0,
+          "comHeight": 0.6929046563192909,
+          "topHeavy": false,
+          "hip": "正常",
+          "legs": "正常",
+          "aux": {
+            "aimSpeed": 0,
+            "aimShrink": 0,
+            "sway": 1,
+            "spread": 1
+          },
+          "dryWeight": 9020,
+          "blocked": [],
+          "speedMul": 1.081893313298272,
+          "armorSpeedFactor": 1,
+          "topSpeed": 67.07738542449286,
+          "power": 1,
+          "heatCapacity": 123.64,
+          "heatMax": 12364,
+          "boilerHeat": 138.64583333333331,
+          "heatGen": 929.842871589195,
+          "overheat": 23,
+          "rating": 445,
+          "problems": [],
+          "issues": [],
+          "thrown": false,
+          "warnings": [
+            "全力开火约 23 秒后烧干"
+          ],
+          "canDeploy": true
+        },
+        "resultFile": "results/ch2-04-validation-r2.json"
+      },
+      "visualReview": {
+        "inspected": true,
+        "preview": "previews/ch2-04-03.png",
+        "fingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+        "note": "已实际查看修订后真图；贯穿空洞消除，前铲和主机组清楚。"
+      },
+      "battleTests": {
+        "referenceId": "ch2-03-01",
+        "referenceFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+        "style": "aggressive",
+        "terrain": "crates",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "quad": {
+            "totals": {
+              "active": 1236,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 10.3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 966.2307179091854,
+          "meanCandidateShots": 242.78333333333333,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜比例。",
+        "status": "超过目标上限",
+        "notReachedReason": "正式胜率高于60%～75%目标上限，保留可靠候选并如实标记。"
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch2-03-02",
+          "referenceFingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+          "style": "aggressive",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 5,
+          "draws": 0,
+          "losses": 1,
+          "winRate": 0.8333333333333334,
+          "rawWinRate": 0.8333333333333334,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 134,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 22.333333333333332,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1038.3305624031711,
+            "meanCandidateShots": 193,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-02.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-03",
+          "referenceFingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+          "style": "aggressive",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 48,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 8,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 609.7558074519837,
+            "meanCandidateShots": 202.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-03.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-04",
+          "referenceFingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+          "style": "aggressive",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 614.2378951652948,
+            "meanCandidateShots": 161.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-04.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-05",
+          "referenceFingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+          "referenceStyle": "veteran",
+          "candidateFingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+          "style": "aggressive",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 138,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 23,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1311.1573945549812,
+            "meanCandidateShots": 177.66666666666666,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-05.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        }
+      ],
+      "rewardEvidence": {
+        "uniqueKey": "quad:pedrail",
+        "count": 1,
+        "material": 3,
+        "identityValidated": true,
+        "totalLoad": 9240,
+        "vehicleWeight": 9211.3,
+        "note": "唯一四足与两件普通四足共同提供9240kg承重；quad活动统计已记录，但接口合并普通与唯一四足，不能区分pedrail自身运动贡献，也不能声称同档外观变体有独有数值加成。"
+      },
+      "rewardPlanRef": "本关顶层rewardPlan"
+    },
+    {
+      "id": "ch2-04-04",
+      "name": "AI生成·绞索炮台",
+      "style": "counter",
+      "designIntent": "双臼炮和两门前缘中炮承担远程火力，鱼叉约束相对距离；低置两舱与两锅炉分散要害，装甲肩部保护中央机组。",
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit_pair",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "mortar",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "harpoon",
+          2,
+          0
+        ]
+      ],
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:3",
+      "aim": 0.8,
+      "requiredModules": [
+        "quad"
+      ],
+      "referenceStageIds": [
+        "0:0",
+        "0:1",
+        "0:2",
+        "1:0",
+        "1:1",
+        "1:2",
+        "1:3",
+        "1:4",
+        "1:5",
+        "1:6"
+      ],
+      "revision": 2,
+      "preview": "previews/ch2-04-04.png",
+      "budget": 3252,
+      "budgetUsage": 0.9508771929824561,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "additionalValidation": {
+        "uniqueReward": true,
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+      "validationDetails": {
+        "ruleFingerprint": "4d85e81937209444",
+        "issues": [],
+        "warnings": [
+          "动力不足：车速和装填降至 84%",
+          "全力开火约 21 秒后烧干"
+        ],
+        "stats": {
+          "aimShrink": 0.3,
+          "aimSpeed": 0.5,
+          "demand": 157.4,
+          "equip": 137,
+          "drive": 20.41188358007812,
+          "weight": 8916.3,
+          "load": 9240,
+          "supply": 132,
+          "hp": 2151,
+          "maxHp": 2151,
+          "cockpits": 2,
+          "chassis": 3,
+          "boilers": 2,
+          "tanks": 2,
+          "water": 191.3,
+          "cool": 340,
+          "dryCool": 0,
+          "waterSave": 1,
+          "store": 0,
+          "dps": 31.653017645333954,
+          "weapons": 5,
+          "drivers": 6,
+          "heatRate": 150,
+          "heatMul": 1,
+          "evade": 0,
+          "acc": 0.06,
+          "broken": 0,
+          "damaged": 0,
+          "value": 3252,
+          "count": 16,
+          "height": 3,
+          "byId": {
+            "water": 1,
+            "mortar": 2,
+            "armor": 2,
+            "cannon_m": 2,
+            "cockpit": 1,
+            "boiler": 2,
+            "tank_tall": 1,
+            "cockpit_pair": 1,
+            "harpoon": 1,
+            "quad": 3
+          },
+          "speed": 62,
+          "rams": 0,
+          "accel": 0.85,
+          "brake": 0.55,
+          "sway": 0.45,
+          "salvoDps": 50.152075295957495,
+          "splashDps": 0,
+          "heatDps": 817.4119026948086,
+          "tether": 12,
+          "center": 7.989684813753581,
+          "d": 1.9948424068767907,
+          "balance": "无底盘",
+          "balanceState": "无底盘",
+          "balanceTolerance": 0,
+          "comHeight": 0.8169054441260748,
+          "topHeavy": false,
+          "hip": "正常",
+          "legs": "正常",
+          "aux": {
+            "aimSpeed": 0,
+            "aimShrink": 0,
+            "sway": 1,
+            "spread": 1
+          },
+          "dryWeight": 8725,
+          "blocked": [],
+          "speedMul": 0.8386277001270648,
+          "armorSpeedFactor": 1,
+          "topSpeed": 51.99491740787801,
+          "power": 0.8386277001270648,
+          "heatCapacity": 120.69,
+          "heatMax": 12069,
+          "boilerHeat": 150,
+          "heatGen": 967.4119026948086,
+          "overheat": 21,
+          "rating": 428,
+          "problems": [],
+          "issues": [],
+          "thrown": false,
+          "warnings": [
+            "动力不足：车速和装填降至 84%",
+            "全力开火约 21 秒后烧干"
+          ],
+          "canDeploy": true
+        },
+        "resultFile": "results/ch2-04-formal.json"
+      },
+      "revisionReason": "按父代理真图反馈，将下层双人舱、前锅炉和鱼叉依次左移，消除细水罐与双人舱右侧封闭空洞；模块搭配与预算不变。",
+      "battleTests": {
+        "referenceId": "ch2-03-01",
+        "referenceFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+        "style": "counter",
+        "terrain": "crates",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "quad": {
+            "totals": {
+              "active": 996,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 8.3,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。四足统计合并普通与唯一件，接口未单列pedrail效果或运动贡献。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 943.311810079581,
+          "meanCandidateShots": 37.208333333333336,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜比例。",
+        "status": "超过目标上限",
+        "notReachedReason": "正式胜率高于60%～75%目标上限，保留可靠候选并如实标记。"
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch2-03-02",
+          "referenceFingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 2,
+          "draws": 0,
+          "losses": 4,
+          "winRate": 0.3333333333333333,
+          "rawWinRate": 0.3333333333333333,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 180,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 30,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。四足统计合并普通与唯一件，接口未单列pedrail效果或运动贡献。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1221.8148376794436,
+            "meanCandidateShots": 42.833333333333336,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 2
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-02.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-03",
+          "referenceFingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 48,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 8,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。四足统计合并普通与唯一件，接口未单列pedrail效果或运动贡献。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 633.3,
+            "meanCandidateShots": 39,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-03.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-04",
+          "referenceFingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。四足统计合并普通与唯一件，接口未单列pedrail效果或运动贡献。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 560.6333333333333,
+            "meanCandidateShots": 23.833333333333332,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-04.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-05",
+          "referenceFingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+          "referenceStyle": "veteran",
+          "candidateFingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 4,
+          "draws": 0,
+          "losses": 2,
+          "winRate": 0.6666666666666666,
+          "rawWinRate": 0.6666666666666666,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": true,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 135,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 22.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。四足统计合并普通与唯一件，接口未单列pedrail效果或运动贡献。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1150.7333333333333,
+            "meanCandidateShots": 50.166666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-05.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        }
+      ],
+      "visualReview": {
+        "inspected": true,
+        "preview": "previews/ch2-04-04.png",
+        "fingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+        "note": "已实际查看最终修正版真图；下层细水罐、双人舱和前锅炉贴合，封闭空洞消除，前缘鱼叉留无遮挡通道。"
+      },
+      "rewardEvidence": {
+        "uniqueKey": "quad:pedrail",
+        "count": 1,
+        "material": 3,
+        "identityValidated": true,
+        "totalLoad": 9240,
+        "vehicleWeight": 8916.3,
+        "note": "唯一四足与两件普通四足共同提供9240kg承重；quad活动统计记录合并普通与唯一件，不单列pedrail运动贡献，不声称外观变体独有数值加成。"
+      },
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-05",
+      "name": "AI生成·冷炉齐射",
+      "style": "counter",
+      "designIntent": "顶部四门小臼炮与两门中炮分工，双侧挂散热抑制热量，双机组双储水支持持续齐射。上层肩甲和居中机组构成完整低宽工业轮廓。",
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          7,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          6,
+          5,
+          "radiator",
+          2,
+          0
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_m",
+          2,
+          1
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ]
+      ],
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "2:3",
+      "aim": 0.8,
+      "requiredModules": [
+        "quad"
+      ],
+      "referenceStageIds": [
+        "0:0",
+        "0:1",
+        "0:2",
+        "1:0",
+        "1:1",
+        "1:2",
+        "1:3",
+        "1:4",
+        "1:5",
+        "1:6"
+      ],
+      "revision": 2,
+      "preview": "previews/ch2-04-05.png",
+      "revisionReason": "真实渲染发现小臼炮下方黑槽，将四门小臼炮下移一子格，形成低屋顶内凹火力平台；不增减模块。",
+      "budget": 3396,
+      "budgetUsage": 0.9929824561403509,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "additionalValidation": {
+        "uniqueReward": true,
+        "ordinaryMaterials": true
+      },
+      "fingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+      "validationDetails": {
+        "ruleFingerprint": "4d85e81937209444",
+        "issues": [],
+        "warnings": [],
+        "stats": {
+          "aimShrink": 0.3,
+          "aimSpeed": 0.5,
+          "demand": 120.6,
+          "equip": 100,
+          "drive": 20.574880126953122,
+          "weight": 8987.5,
+          "load": 9240,
+          "supply": 144,
+          "hp": 2413,
+          "maxHp": 2413,
+          "cockpits": 2,
+          "chassis": 3,
+          "boilers": 2,
+          "tanks": 2,
+          "water": 247.5,
+          "cool": 440,
+          "dryCool": 120,
+          "waterSave": 1,
+          "store": 0,
+          "dps": 36.785454545454535,
+          "weapons": 6,
+          "drivers": 8,
+          "heatRate": 150,
+          "heatMul": 1,
+          "evade": 0,
+          "acc": 0.06,
+          "broken": 0,
+          "damaged": 0,
+          "value": 3396,
+          "count": 19,
+          "height": 3,
+          "byId": {
+            "water": 2,
+            "armor": 2,
+            "cannon_m": 2,
+            "mortar_s": 4,
+            "cockpit": 2,
+            "boiler": 2,
+            "quad": 3,
+            "radiator": 2
+          },
+          "speed": 62,
+          "rams": 0,
+          "accel": 0.85,
+          "brake": 0.55,
+          "sway": 0.45,
+          "salvoDps": 57.9020979020979,
+          "splashDps": 0,
+          "heatDps": 870.6293706293706,
+          "tether": 0,
+          "center": 8.192219679633867,
+          "d": 2.0961098398169336,
+          "balance": "无底盘",
+          "balanceState": "无底盘",
+          "balanceTolerance": 0,
+          "comHeight": 0.7783180778032035,
+          "topHeavy": false,
+          "hip": "正常",
+          "legs": "正常",
+          "aux": {
+            "aimSpeed": 0,
+            "aimShrink": 0,
+            "sway": 1,
+            "spread": 1
+          },
+          "dryWeight": 8740,
+          "blocked": [],
+          "speedMul": 1.1940298507462688,
+          "armorSpeedFactor": 1,
+          "topSpeed": 74.02985074626866,
+          "power": 1,
+          "heatCapacity": 120.84,
+          "heatMax": 12084,
+          "boilerHeat": 125.62499999999999,
+          "heatGen": 996.2543706293706,
+          "overheat": null,
+          "rating": 515,
+          "problems": [],
+          "issues": [],
+          "thrown": false,
+          "warnings": [],
+          "canDeploy": true
+        },
+        "resultFile": "results/ch2-04-validation-r2.json"
+      },
+      "visualReview": {
+        "inspected": true,
+        "preview": "previews/ch2-04-05.png",
+        "fingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+        "note": "已实际查看修订后真图；小臼炮降低形成完整低屋顶内凹阵列。"
+      },
+      "battleTests": {
+        "referenceId": "ch2-03-01",
+        "referenceFingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+        "style": "counter",
+        "terrain": "crates",
+        "bounds": {
+          "left": 0,
+          "right": 1280
+        },
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "quad": {
+            "totals": {
+              "active": 804,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 6.7,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 936.0092269040756,
+          "meanCandidateShots": 47.55,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "resultFile": "results/ch2-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": [
+          "p",
+          "e"
+        ],
+        "outcomeNote": "正式胜率=(获胜局+0.5×平局)/120；rawWinRate单列纯获胜比例。",
+        "status": "超过目标上限",
+        "notReachedReason": "正式胜率高于60%～75%目标上限，保留可靠候选并如实标记。"
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch2-03-02",
+          "referenceFingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 96,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 16,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1407.2529850863991,
+            "meanCandidateShots": 78.33333333333333,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-02.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-03",
+          "referenceFingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 657.5581434756004,
+            "meanCandidateShots": 44.166666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-03.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-04",
+          "referenceFingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 36,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 655.2322524678913,
+            "meanCandidateShots": 36.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-04.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        },
+        {
+          "referenceId": "ch2-03-05",
+          "referenceFingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+          "referenceStyle": "veteran",
+          "candidateFingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+          "style": "counter",
+          "terrain": "crates",
+          "bounds": {
+            "left": 0,
+            "right": 1280
+          },
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "quad": {
+              "totals": {
+                "active": 39,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 6.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "四足effectStats合并普通与唯一件，接口未单列pedrail效果或运动贡献；active不换算时间。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1465.1012636818887,
+            "meanCandidateShots": 75.83333333333333,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "resultFile": "results/ch2-04-cross-05.json",
+          "sampleWarning": "每对仅6局，提示参考变化影响，不等于正式达标或不达标。"
+        }
+      ],
+      "rewardEvidence": {
+        "uniqueKey": "quad:pedrail",
+        "count": 1,
+        "material": 3,
+        "identityValidated": true,
+        "totalLoad": 9240,
+        "vehicleWeight": 8987.5,
+        "note": "唯一四足与两件普通四足共同提供9240kg承重；quad活动统计已记录，但接口合并普通与唯一四足，不能区分pedrail自身运动贡献，也不能声称同档外观变体有独有数值加成。"
+      },
+      "rewardPlanRef": "本关顶层rewardPlan"
+    }
+  ],
+  "spec": {
+    "chapter": 2,
+    "stage": 3,
+    "name": "棉花包",
+    "terrain": "crates",
+    "style": null,
+    "bounds": {
+      "left": 0,
+      "right": 1280
+    },
+    "boss": false,
+    "chapterHasBoss": true,
+    "rewardModule": null,
+    "requiredModules": [],
+    "uniqueLoot": [],
+    "mat": 3,
+    "allowedMaterials": [
+      1,
+      2,
+      3
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon"
+    ],
+    "budget": 3420,
+    "baseBudget": 3420,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 3,
+      "rewardModules": [],
+      "ordinaryMaterialCap": 2,
+      "uniqueReward": "quad:pedrail",
+      "uniqueCount": 1,
+      "uniqueMaterial": 3,
+      "note": "仅补隔离运行的已批准计划字段；地图原有唯一奖励保留，正式配置未写入。"
+    }
+  },
+  "ruleFingerprint": "4d85e81937209444",
+  "temporaryReferenceId": "ch2-04-02",
+  "temporaryReferenceFingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+  "temporaryReferenceReason": "父代理选定：完整短宽工业炮台，预算99.5%，四门中炮与双顶部小臼炮配合，跨上一关高预算参考表现稳定；正式胜率超过目标上限，保留明确标记。",
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [],
+    "uniqueLoot": [
+      {
+        "id": "quad",
+        "key": "quad:pedrail",
+        "look": "pedrail",
+        "name": "步行履带",
+        "mt": 3,
+        "chapter": 2,
+        "once": true,
+        "source": "side"
+      }
+    ],
+    "note": "奖励方案待用户工作台保存，不覆盖既有奖励或解锁；唯一件仅在存活时可选缴获，非首胜保证。"
+  },
+  "status": "completed",
+  "temporaryReferenceName": "AI生成·四管棉哨"
+}

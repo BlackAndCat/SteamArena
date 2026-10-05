@@ -25,7 +25,7 @@ const context = { SA: {
 }, document: { querySelector: () => element('div', {}) },
   location: { hash: '' }, localStorage: { getItem: () => null, setItem() {} } };
 // 在启动页面事件与网络读取之前暴露已有函数；生产文件不添加测试接口。
-vm.runInNewContext(source.split(anchor)[0] + '\n globalThis.reportCheck = { st, picks, budgetBlock, setCatalog: value => { runCatalog = value; } };\n})();', context);
+vm.runInNewContext(source.split(anchor)[0] + '\n globalThis.reportCheck = { st, picks, budgetBlock, rankingText, setCatalog: value => { runCatalog = value; } };\n})();', context);
 const render = report => {
   context.reportCheck.st.report = report;
   return context.reportCheck.picks().textContent;
@@ -43,6 +43,18 @@ assert.ok(text.includes('煤灰寡妇 · 第一章第 3 关'));
 assert.doesNotThrow(() => render(report(undefined)));
 assert.ok(render(report({ ...comparison, origin: { chapter: 0 } })).includes('煤灰寡妇'));
 assert.ok(render(report({ winRate: 0.5, games: 2 })).includes('原点车'));
+
+// 新评分按记录字段说明扣分和实际权重，旧报告的零胜率与无预算不能被追认为新扣分。
+const newRanking = { scoringVersion: 'budget-pressure-v1', weights: { strength: 0.9, efficiency: 0.1 },
+  baseTotal: 84, budgetPenalty: 55, previousWinRatePenalty: 90, total: -61 };
+text = context.reportCheck.rankingText(newRanking, 0);
+assert.ok(text.includes('强度 90%＋节约 10%') && text.includes('预算扣分 55.00') && text.includes('胜率扣分 90.00') && text.includes('扣后总分 -61.00'), text);
+assert.ok(text.includes('对上关参考 0%') && !text.includes('未测试'), '真实零胜率必须显示实测扣分');
+text = context.reportCheck.rankingText({ ...newRanking, previousWinRatePenalty: 0, total: 29 }, null);
+assert.ok(text.includes('未测试，未计胜率扣分') && !text.includes('对上关参考 0%'), '缺失胜率不能转换成零胜率');
+text = context.reportCheck.rankingText({ total: 80, previousWinRate: 0 });
+assert.ok(text.includes('已有旧评分') && text.includes('未记录') && !text.includes('90%'), text);
+assert.ok(context.reportCheck.rankingText(null).includes('未记录'));
 
 // 新报告的空必带数组必须屏蔽旧关卡奖励，旧报告仍保留回退兼容。
 context.SA.CAMPAIGN[0].stages[3] = { spec: { reward: 'biped' } };

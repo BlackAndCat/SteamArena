@@ -373,7 +373,7 @@
       [['all', '全部'], ...chaps.map(ci => [String(ci), chapterShort(ci)])].map(([v, name]) =>
         h('button', { type: 'button', class: String(st.chapter) === v ? 'on' : '', onclick: () => { st.chapter = v; st.drawer = null; render(); } }, name))) : null;
     const sum = r.lite ? h('span', { class: 'sum' }, `候选车库 · ${allRecords().length} 台`)
-      : h('span', { class: 'sum' }, h('b', {}, real.length), ' 关 · 手动选择 ', h('b', {}, manual), ' · 进化选出 ', h('b', {}, picked),
+      : h('span', { class: 'sum' }, '本页含已有记录 · ', h('b', {}, real.length), ' 关 · 手动选择 ', h('b', {}, manual), ' · 进化选出 ', h('b', {}, picked),
         ran.length - picked ? [' · ', h('span', { class: 'warn' }, `没选出 ${ran.length - picked}`)] : null,
         r.generatedAt ? ` · 生成于 ${new Date(r.generatedAt).toLocaleString()}` : null, h('span', { class: 'tip-text' }, ' · 点卡片看这一关的其他候选'));
     const sec = h('section', { id: 'picks' }, h('div', { class: 'board-h' }, h('h2', {}, '选关结果'), seg, sum));
@@ -569,7 +569,7 @@
     const s = row.s || {}, spec = s.spec || {}, ev = s.selection || {}, top = s.top || [], arch = s.archive || {};
     const car = stageCarOf(ci, si), measured = measuredFor(s, car), name = spec.name || stageName(ci, si);
     const info = [s.spec ? `场地 ${terrainName(spec.terrain)}` : null, spec.budget != null ? `预算 £${spec.budget}` : null,
-      s.spec ? `进化候选 ${s.count ?? top.length} 台` : '还没跑过进化', arch.buckets != null ? `存档覆盖 ${arch.buckets} 格` : null,
+      s.spec ? `终代种群 ${s.count ?? '未知'} 台 · 保留候选 ${top.length} 台 · 各代累计评估 ${stageEvaluations(s) ?? '未知'} 次（含重复个体）` : '还没跑过进化', arch.buckets != null ? `存档覆盖 ${arch.buckets} 格` : null,
       s.diversity ? `${s.diversity.clusterCount} 个造型簇` : null, ev.warning].filter(Boolean).join(' · ');
     const extra = evidence(spec, ev);
     // 关卡车放第一张；进化筛选按 selection.verified 的顺序（报告只存每关前几名的完整车，按名字对上）；再后面是收藏等其他车
@@ -596,6 +596,19 @@
             return cell.length ? h('td', {}, cell.map(rec => thumb(rec))) : h('td', { class: 'empty' }, '—');
           })))))) : null);
   }
+  /** 评分解释只使用报告记录的权重与扣分；旧评分不能追认成当前规则。 */
+  function rankingText(ranking, previousWinRate) {
+    if (!ranking) return '未记录选车评分';
+    if (ranking.scoringVersion !== 'budget-pressure-v1' || !Number.isFinite(ranking.baseTotal) ||
+      !Number.isFinite(ranking.budgetPenalty) || !Number.isFinite(ranking.previousWinRatePenalty))
+      return `已有旧评分 ${fix(ranking.total, 2)}（权重、预算扣分和胜率扣分未记录）`;
+    const weights = ranking.weights;
+    const rule = weights && Number.isFinite(weights.strength) && Number.isFinite(weights.efficiency)
+      ? `强度 ${Math.round(weights.strength * 100)}%＋节约 ${Math.round(weights.efficiency * 100)}%` : '权重未记录';
+    const previous = Number.isFinite(previousWinRate)
+      ? `胜率扣分 ${fix(ranking.previousWinRatePenalty, 2)}（对上关参考 ${pct(previousWinRate)}）` : '未测试，未计胜率扣分';
+    return `基础分 ${fix(ranking.baseTotal, 2)}（${rule}）－预算扣分 ${fix(ranking.budgetPenalty, 2)}－${previous}＝扣后总分 ${fix(ranking.total, 2)}；预算缺口按指数扣分，对上关参考胜率低于 45% 时扣分`;
+  }
   function candCard(rec, v, i, s, isStage = false) {
     const isPick = !isStage && !!s.selected && !rec.codeOnly && s.selected.code === rec.code;
     const fail = v ? v.failed || [] : [], other = fail.filter(k => k !== 'target');
@@ -611,7 +624,7 @@
       h('div', { class: 'cand-info' },
         `${styleName(rec.style)} · ${chassisName(rec.chassis)}${rec.archiveClass && rec.archiveClass !== 'normal' ? ` · ${classOf(rec).name}` : ''}`, h('br'),
         unmeasured ? (s.spec ? '这次进化没测它（之后改过车或性格），重跑这关就有成绩' : '还没跑过进化')
-          : ['强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}`],
+          : ['强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}${rec.ranking ? ` · ${rankingText(rec.ranking, rec.previousWinRate)}` : ''}`],
         rec.unusable ? [h('br'), h('span', { class: 'bad' }, rec.unusable)] : null,
         v && v.previousWinRate != null ? [h('br'), s.selection?.previousProvisional ? '打上关临时参考（未达标） ' : '打上一关车 ', h('b', { class: v.targetPass ? 'ok' : 'bad' }, pct(v.previousWinRate)), ` · 目标 ${targetText(v.target)}`] : null,
         !isStage && s.provisional?.code === rec.code ? [h('br'), '本关临时参考（未达标，未正式入选）'] : null,
@@ -800,7 +813,7 @@
               : kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
             kv('表现分', rec.codeOnly ? '—' : `${fix(rec.performance, 1)}${rec.efficiency ? ` · 节约原分 ${fix(rec.efficiency.total, 2)}（${rec.efficiency.count} 件 / £${fix(rec.efficiency.value)}，上限 £${fix(rec.efficiency.budget)}）` : ''}`),
-            kv('选车综合分', rec.ranking ? `${fix(rec.ranking.total, 2)} = 节约 ${fix(rec.ranking.efficiency, 1)} × 60% + 强度 ${fix(rec.ranking.strength, 1)} × 40%（均按 0～100 计）` : '待按新权重模拟'),
+            kv('选车综合分', rankingText(rec.ranking, rec.previousWinRate)),
             kv('属性', s.hp != null ? `耐久 ${fix(s.hp)} · 秒伤 ${fix(s.dps, 1)} · 升温 ${fix(s.heatDps, 1)} · 水 ${fix(s.water)} · 冷却 ${fix(s.cool, 1)} · 评分 ${fix(s.rating)} · 价值 £${fix(s.value)}` : '—')),
           budgetBlock(rec),
           h('div', { class: 'row-btns' },
@@ -960,6 +973,12 @@
     if (!(p.totalSteps > 0)) return '正在统计总步数';
     return `总进度 ${p.completedSteps || 0} / ${p.totalSteps} 步（${Math.floor((p.completedSteps || 0) / p.totalSteps * 100)}%）`;
   }
+  /** 各代候选评估次数按实际种群求和，含重复个体、不含额外最终复测，不是总战斗局数；旧报告缺指标时不推算。 */
+  function stageEvaluations(stage) {
+    const metrics = stage.generationMetrics;
+    return Array.isArray(metrics) && metrics.length > 0 && metrics.every(row => Number.isInteger(row.population))
+      ? metrics.reduce((sum, row) => sum + row.population, 0) : null;
+  }
   /** 老服务任务没有路线状态时，只读取该任务的落盘报告，不改变用户正在查看的报告。 */
   async function completedJobResult(job) {
     const result = job.result;
@@ -997,7 +1016,11 @@
     const pendingStages = Number.isInteger(result.plannedStages) ? Math.max(0, result.plannedStages - result.stages) : null;
     const skipped = failed || interrupted ? ` ${interrupted ? pendingStages == null ? '仍有关卡未完成，' : `仍有 ${pendingStages} 关未完成，` : pendingStages == null ? '后续未继续运行，' : `后续 ${pendingStages} 关未运行，`}计划中 ${Math.max(0, result.totalSteps - result.completedSteps)} 步未执行。` :
       ` 全部目标关已处理${result.completedSteps < result.totalSteps ? `，提前达标免运行的计划步骤 ${result.totalSteps - result.completedSteps} 步` : ''}。`;
-    return `${prefix}${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。${failures}${skipped}` +
+    // 本轮摘要来自服务的 fresh 报告，不能用页面合并报告中的历史关卡补齐。
+    const stages = Array.isArray(result.stageSummaries) ? result.stageSummaries.map(row =>
+      `${chapterShort(row.chapter)} · 第 ${row.stage + 1} 关 ${row.name || ''}：终代种群 ${row.population ?? '未知'} 台、保留候选 ${row.retainedCandidates ?? '未知'} 台、各代累计评估 ${row.evaluations ?? '未知'} 次（含重复个体）`).join('；') :
+      '旧任务未记录本轮逐关数量；本页可能包含已有记录，各代累计评估次数未知';
+    return `${prefix}${overallProgress(result)} · 本轮 ${result.stages} 关、${result.candidates} 台保留候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。本轮关卡：${stages}。${failures}${skipped}` +
       (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
   }
   async function pollJob(restoring = false) {

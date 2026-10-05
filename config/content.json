@@ -1600,6 +1600,12 @@
         },
         {
           "stageRef": "1:4"
+        },
+        {
+          "stageRef": "1:5"
+        },
+        {
+          "stageRef": "1:6"
         }
       ]
     },
@@ -1611,7 +1617,17 @@
         "right": 1280
       },
       "plannedStages": 6,
-      "stages": []
+      "stages": [
+        {
+          "stageRef": "2:0"
+        },
+        {
+          "stageRef": "2:1"
+        },
+        {
+          "stageRef": "2:2"
+        }
+      ]
     },
     {
       "name": "第三章 · 约克郡北方联赛",

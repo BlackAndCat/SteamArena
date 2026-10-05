@@ -1,0 +1,1366 @@
+{
+  "schemaVersion": 1,
+  "stageId": "3:5",
+  "stageName": "铁甲圣堂",
+  "source": "ai-generated",
+  "model": "gpt-6.1-sol",
+  "designProcess": "人工直接布置显式锚点；不使用随机搜索、进化、组合枚举或自动预算补装。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "referencePreviewInspected": true,
+  "spec": {
+    "chapter": 3,
+    "stage": 5,
+    "name": "铁甲圣堂",
+    "terrain": "mine",
+    "style": null,
+    "boss": true,
+    "chapterHasBoss": true,
+    "rewardModule": "boss_core",
+    "requiredModules": [
+      "boss_core"
+    ],
+    "uniqueLoot": [],
+    "mat": 4,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rangefinder",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rangefinder",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "budget": 14700,
+    "baseBudget": 14700,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.6,
+        0.7
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 4,
+      "rewardModules": [
+        "boss_core"
+      ],
+      "ordinaryMaterialCap": 3,
+      "materialExceptions": {
+        "cannon_heavy": 4
+      },
+      "proposedFixedItems": [
+        {
+          "id": "boss_core",
+          "count": 1,
+          "mt": 3
+        }
+      ],
+      "rewardNote": "规划称唯一核心但生产尚未注册唯一身份，本批使用普通钢制核心；乌兹钢锭仅规划文本，不新增库存机制。",
+      "note": "仅第三章隔离规格：普通件至多钢，新装备按本关明确要求装配；重炮依生产最低材料使用镀镍4特例；正式地图、奖励与预算未写入。",
+      "designRequirementsSource": "本批设计要求（待用户采用），不表示生产现有关卡硬必装。"
+    }
+  },
+  "candidates": [
+    {
+      "id": "ch3-06-01",
+      "name": "AI生成·圣堂重炮壁垒",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:5",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "钢制圣堂压力核心藏在上舱和辅锅炉之间r5c9，提供持续轴功率与蓄压冷却；加强履带、舱位与水箱，圣堂六段钢履带承托低位大型锅炉和大水箱；双驾驶舱低藏在前机组，顶部双臼炮补射，前缘重炮和中炮直射，机组侧挂散热维持持续火力。",
+      "requiredModules": [
+        "boss_core"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          14,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          9,
+          "boss_core",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-06-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "note": "逐张查看真实PNG：压力核心位于辅锅炉与上舱交界，前缘火炮/上层炮保护核心方向；大机组低位贴底盘，炮口畅通，第三台顶部臼炮射界留空。"
+      },
+      "budget": 14182,
+      "budgetUsage": 0.9647619047619047,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "coreReward": true
+      },
+      "fingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch3-06-02",
+      "name": "AI生成·圣堂双击卫队",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:5",
+      "style": "veteran",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "钢制圣堂压力核心藏在上舱和辅锅炉之间r5c9，提供持续轴功率与蓄压冷却；加强履带、舱位与水箱，圣堂双重炮垂直错位保持炮口畅通，双小臼炮负责高抛补射；大机组和双驾驶舱藏在前甲之后，减少武器组数以便稳定射击。",
+      "requiredModules": [
+        "boss_core"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          2
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          14,
+          "plate",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "boss_core",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-06-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "note": "逐张查看真实PNG：压力核心位于辅锅炉与上舱交界，前缘火炮/上层炮保护核心方向；大机组低位贴底盘，炮口畅通，第三台顶部臼炮射界留空。"
+      },
+      "budget": 14012,
+      "budgetUsage": 0.9531972789115646,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "coreReward": true
+      },
+      "fingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch3-06-03",
+      "name": "AI生成·圣堂排炮阵",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:5",
+      "style": "sniper",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "顶部大臼炮与四小臼炮越障，五门前缘钢中炮正射；钢压力核心承担供能和缓冲，大水箱保持矿坑长线火力，低位双舱位于前甲后。",
+      "requiredModules": [
+        "boss_core"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "cannon_m",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          5,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar_s",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "boss_core",
+          3,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "mortar",
+          3,
+          3
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-06-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "note": "逐张查看真实PNG：压力核心位于辅锅炉与上舱交界，前缘火炮/上层炮保护核心方向；大机组低位贴底盘，炮口畅通，第三台顶部臼炮射界留空。"
+      },
+      "budget": 13984,
+      "budgetUsage": 0.9512925170068027,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "coreReward": true
+      },
+      "fingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch3-06-04",
+      "name": "AI生成·圣堂牵焰兽",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:5",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "钢制圣堂压力核心藏在上舱和辅锅炉之间r5c9，提供持续轴功率与蓄压冷却；加强履带、舱位与水箱，圣堂上层重炮先手破甲，前缘鱼叉牵引和蒸汽喷射接续近战，双臼炮补射；大型供汽及大水箱提供近距持久力。",
+      "requiredModules": [
+        "boss_core"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          9,
+          14,
+          "plate",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_heavy",
+          4,
+          3
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar",
+          3,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          12,
+          "harpoon",
+          3,
+          2
+        ],
+        [
+          0,
+          8,
+          12,
+          "steamjet",
+          3,
+          1
+        ],
+        [
+          0,
+          5,
+          9,
+          "boss_core",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-06-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "note": "逐张查看真实PNG：压力核心位于辅锅炉与上舱交界，前缘火炮/上层炮保护核心方向；大机组低位贴底盘，炮口畅通，第三台顶部臼炮射界留空。"
+      },
+      "budget": 14350,
+      "budgetUsage": 0.9761904761904762,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "coreReward": true
+      },
+      "fingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch3-06-05",
+      "name": "AI生成·圣堂三击堡",
+      "source": "ai-generated",
+      "model": "gpt-6.1-sol",
+      "stageId": "3:5",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "钢制圣堂压力核心藏在上舱和辅锅炉之间r5c9，提供持续轴功率与蓄压冷却；加强履带、舱位与水箱，圣堂三门镀镍重炮分层齐射，大机组负责三主炮；后肩两门小臼炮跨越地物。六段履带平稳承托，驾驶舱双位置冗余。",
+      "requiredModules": [
+        "boss_core"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          3,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          3,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          3,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          2,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "boiler",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          3,
+          0
+        ],
+        [
+          0,
+          4,
+          12,
+          "cannon_heavy",
+          4,
+          2
+        ],
+        [
+          0,
+          6,
+          12,
+          "cannon_heavy",
+          4,
+          2
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_heavy",
+          4,
+          2
+        ],
+        [
+          0,
+          6,
+          3,
+          "mortar_s",
+          3,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "mortar_s",
+          3,
+          0
+        ],
+        [
+          0,
+          5,
+          9,
+          "boss_core",
+          3,
+          3
+        ]
+      ],
+      "rewardPlanRef": "本关顶层rewardPlan",
+      "preview": "previews/ch3-06-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "note": "逐张查看真实PNG：压力核心位于辅锅炉与上舱交界，前缘火炮/上层炮保护核心方向；大机组低位贴底盘，炮口畅通，第三台顶部臼炮射界留空。"
+      },
+      "budget": 14533,
+      "budgetUsage": 0.9886394557823129,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "coreReward": true
+      },
+      "fingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    }
+  ],
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "preview": "../chapter-2/references/1-0.png",
+      "finding": "钢罐头低宽车体、前甲保护核心；本批低位驾驶舱与前射火力分层。"
+    },
+    {
+      "stageId": "1:2",
+      "preview": "../chapter-2/references/1-2.png",
+      "finding": "顶部高抛、驾驶舱藏低、前柱甲保护机组，保持上方射界。"
+    },
+    {
+      "stageId": "1:6",
+      "preview": "../chapter-2/references/1-6.png",
+      "finding": "多段底盘承托平整前射炮列，顶部臼炮补射；避免后置独立高舱。"
+    }
+  ],
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "boss_core",
+        "mt": 3,
+        "count": 1
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "规划稿称圣堂压力核心为唯一，但当前游戏尚未注册唯一身份，本批按现有钢制核心设计并提案固定奖励×1，未保存正式奖励；保留既有核心解锁。地图乌兹钢锭×1仅为规划文案，当前批次不虚构材料锭库存机制。"
+  },
+  "ruleFingerprint": "1141e46f37b6fa21"
+}

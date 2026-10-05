@@ -1,0 +1,276 @@
+{
+  "candidates": [
+    {
+      "id": "ch2-01-01",
+      "fingerprint": "84cf5ba1536f9d26087e3a4330d8620019990a64e9dfe6b468669f739a1a361e",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-01-02",
+      "fingerprint": "c82b6870d15117f0c6d493b7a2dc67e16cc4806974861c593ed48d18193cb796",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-01-03",
+      "fingerprint": "c5480b186d6c42730178961ee17417abeeb4dd1b5ee5af4fee65531c4120c835",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-01-04",
+      "fingerprint": "3092607562bee078829e4db80b3fdc2c97c8f6af690d165f9dc738891fbb6e8a",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-01-05",
+      "fingerprint": "e2922a4d593e01b55c21fd03d594a6b191664f1cd707dda0a41e14cefd93479f",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-02-01",
+      "fingerprint": "f4416c9cf39697621ba6e4b0b1d78d9aa9c00c638a7e6020c23db15a9985afe7",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-02-02",
+      "fingerprint": "193942060ddf964eace0489aed3412d4ed71c4164248f8cc5d5052c99c90a5bf",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-02-03",
+      "fingerprint": "d06df854b535f4bfe9271bf023e32065013557c28fcbc657a1d6623cdeb5b560",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-02-04",
+      "fingerprint": "12949a2c57fdc09945ade02622cd867317d3ef46b0f5a1665e747b0b37c70c13",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-02-05",
+      "fingerprint": "e0cc18103e778c1f8ca1ffd17a18d42cc22ddef93ec193dc62ec6499e8c147f3",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-03-01",
+      "fingerprint": "c4790f8881d4027475ad4f0b1954d7c5351d4362746a7feb8837f8902bb25b5d",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-03-02",
+      "fingerprint": "21ac49812c18bfe4e23da73310f29b2e5cf4ed32f827c10e0f655f325ba80841",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-03-03",
+      "fingerprint": "d5ca5b602c4009d9b03cee8b116a8e89bcdf280f19d4f60b3e763a39ccb0fa3c",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-03-04",
+      "fingerprint": "61882490fb9ba24264e61bbc8e5f730294a09b8a4094507995c1a0df571d9675",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-03-05",
+      "fingerprint": "ddfd9242e6eac1fc33fda21dfe9563ac10a542d65a8a4fc818442a04954d235f",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-01",
+      "fingerprint": "1a37ed3c8a57f0c1868c0d7bb3e8f39b6d7308a6c534d8b2c17b252762cefceb",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-02",
+      "fingerprint": "b567857f09948c2d423ffc35e162856a83afbba70a68509c2348d20b11100e05",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-03",
+      "fingerprint": "1c1065fda0f5bc5aa011e72aa26e9e8a236937678179558caacdb459b1b73a8b",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-04",
+      "fingerprint": "10f7181265476bdae856e29ecd82674a36c74a973d8de5d7cf73e73b843f0c27",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-04-05",
+      "fingerprint": "dde57506c1876a44ddb8b999f99cd5589d3937629e4df9fd83b0e256037affc8",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-05-01",
+      "fingerprint": "c18073b1d076309814fb05a45e821f882e8fb855a8dfbd4bfe060f21edab94eb",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-05-02",
+      "fingerprint": "4efa48e226e5272ee0b8f54bf8d0b9302d4022f58c450dff054531e2cc8a8105",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-05-03",
+      "fingerprint": "e880d82c26b7a91848394218201ff36a0e246ce1d5289058dfb391ccede24361",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-05-04",
+      "fingerprint": "2f7bf5bb7562d5938012e440c9a79986d2b75c525a7fe79bd4ad79493f233aa5",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-05-05",
+      "fingerprint": "f482f282c8fcd859cc3210cd38672d0aea4afbfb250bf2bb07f1c2f35e4029f1",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-06-01",
+      "fingerprint": "ade53f0c0bd477667b1eacb017986b0e436581b3017debfa71a97bd3f6a679cb",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-06-02",
+      "fingerprint": "6710dea08da90c637c78c85f244f8d351d62b9d7efe2393e3706f7338b7d4e9c",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-06-03",
+      "fingerprint": "d5b1ccd7482134844e570e95ba177cf9a93a12197ffce05be154a61d53e135dc",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-06-04",
+      "fingerprint": "bd5a3a16482131e7f0c419db406717e9ec4d78f9a7615fdf1d541b5dfab7af82",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    },
+    {
+      "id": "ch2-06-05",
+      "fingerprint": "130dd2f9198d80fbc9b981e082f5e7e6486d360516ed5fbbd9afbac87bd5868f",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true
+      }
+    }
+  ],
+  "duplicateAnchorRejected": true,
+  "invalid": []
+}
