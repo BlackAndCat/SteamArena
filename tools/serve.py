@@ -339,7 +339,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
         return {'id': key, 'file': 'config/stage-cars.json'}
 
     def _create_stage_car(self, payload):
-        """只在首次保存时登记指定计划空位，并给进化生成器补一行逐关预算；三份文件任一写入失败都恢复原始字节。"""
+        """首次保存登记计划空位；复用已有预算且不写该文件，缺预算时补行，事务失败恢复原始字节。"""
         record = payload.get('record')
         if not isinstance(record, dict) or not isinstance(record.get('id'), str):
             raise ValueError('关卡记录不合法')
@@ -363,16 +363,18 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             if record['id'] in cars.get('records', {}) or record['id'] in cars.get('targets', []):
                 raise ValueError('该关卡已有记录，不能覆盖')
             order = lambda row: (row['chapter'], row['stage'])
-            if any(order(row) == (ci, si) for row in rules):
-                raise ValueError('该关卡已有构筑预算，不能覆盖')
-            before = sorted((row for row in rules if order(row) < (ci, si)), key=order)
-            if before:
-                steps = _ordinal(chapters, ci, si) - _ordinal(chapters, before[-1]['chapter'], before[-1]['stage'])
-                budget = int(round(before[-1]['budget'] * STAGE_BUDGET_GROWTH ** steps / 5) * 5)
-            else:
-                budget = FIRST_STAGE_BUDGET
-            name = str(record.get('name') or record['id']).strip()
-            rule = {'chapter': ci, 'stage': si, 'name': name, 'budget': budget, 'status': 'draft', 'addMods': []}
+            rule = next((row for row in rules if order(row) == (ci, si)), None)
+            missing_rule = rule is None
+            # 预演规则可能先于正式关登记；已有预算、奖励模块和状态完整保留，连文件字节都不重写。
+            if missing_rule:
+                before = sorted((row for row in rules if order(row) < (ci, si)), key=order)
+                if before:
+                    steps = _ordinal(chapters, ci, si) - _ordinal(chapters, before[-1]['chapter'], before[-1]['stage'])
+                    budget = int(round(before[-1]['budget'] * STAGE_BUDGET_GROWTH ** steps / 5) * 5)
+                else:
+                    budget = FIRST_STAGE_BUDGET
+                name = str(record.get('name') or record['id']).strip()
+                rule = {'chapter': ci, 'stage': si, 'name': name, 'budget': budget, 'status': 'draft', 'addMods': []}
             for index in range(len(stages), si + 1):
                 stages.append({'stageRef': f'{ci}:{index}', 'unfinished': True})
             stages[si] = {'stageRef': record['id']}
@@ -383,17 +385,20 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             for path in (CONTENT_FILE, STAGE_CARS_FILE, STAGE_RULES_FILE):
                 with open(path, 'rb') as stream: original[path] = stream.read()
             written = []
+            writes = [(CONTENT_FILE, lambda: _write_json(CONTENT_FILE, content)),
+                      (STAGE_CARS_FILE, lambda: _write_json(STAGE_CARS_FILE, cars))]
+            if missing_rule:
+                writes.append((STAGE_RULES_FILE, lambda: _write_rules(STAGE_RULES_FILE, sorted([*rules, rule], key=order))))
             try:
-                for path, write in ((CONTENT_FILE, lambda: _write_json(CONTENT_FILE, content)),
-                                    (STAGE_CARS_FILE, lambda: _write_json(STAGE_CARS_FILE, cars)),
-                                    (STAGE_RULES_FILE, lambda: _write_rules(STAGE_RULES_FILE, sorted([*rules, rule], key=order)))):
+                for path, write in writes:
                     write()
                     written.append(path)
             except Exception:
                 for path in written:
                     _atomic_bytes(path, original[path])
                 raise
-        return {'id': record['id'], 'rule': rule, 'file': 'config/content.json + config/stage-cars.json + tools/evolve-stage-rules.json'}
+        return {'id': record['id'], 'rule': rule, 'file': 'config/content.json + config/stage-cars.json' +
+                (' + tools/evolve-stage-rules.json' if missing_rule else '')}
 
     def _save_text(self, payload):
         """只接受当前文本稿，不按历史版本回放覆盖新稿。"""
