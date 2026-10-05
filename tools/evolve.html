@@ -48,6 +48,9 @@ code { font-family: var(--mono); font-size: 12px; }
 .gen-go .btn.act:disabled { background: var(--paper-hi); border-color: var(--line-2); color: var(--ink-3); }
 .gen-state { flex: 1 1 260px; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
 .gen-state #generation-status { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* 未达标诊断使用完整一行并换行，确保窄窗口也能看到各关失败条件及后续运行情况。 */
+.gen[data-end="failed"] .gen-state, .gen[data-end="warn"] .gen-state { flex-basis: 100%; align-items: flex-start; }
+.gen[data-end="failed"] #generation-status, .gen[data-end="warn"] #generation-status { flex: 1; overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.5; }
 .meter { flex: none; width: 110px; height: 12px; padding: 1px; border: 1px solid var(--line-2); background: var(--paper-hi); }
 .meter i { display: block; height: 100%; width: 0; background: var(--fire); transition: width 0.4s; }
 .gen[data-end="done"] .meter i { background: var(--ok); }

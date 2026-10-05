@@ -186,11 +186,11 @@ function lockedStageReport(entry, selectionFailures, SA, reference = null, seed 
   const hardConditions = { ...conditions, reward, target };
   const failed = Object.entries(hardConditions).filter(([, pass]) => !pass).map(([key]) => key);
   if (failed.length) selectionFailures.push({ chapter: spec.chapter, stage: spec.stage, name: spec.name, failed });
-  return { spec, count: 0, selected: failed.length ? null : records[0], source: 'manual', locked: true,
+  return { spec, count: 0, selected: failed.length ? null : records[0], provisional: failed.length ? records[0] : null, source: 'manual', locked: true,
     selection: { locked: true, status: failed.length ? '手工锁定车不符合本关生成约束，保留原车待修改' : '手工锁定，未改动', candidateCount: 0,
       previousWinRate: validation?.winRate ?? null, previousGames: validation?.n ?? 0,
       previousWins: validation?.wins ?? 0, previousDraws: validation?.draws ?? 0,
-      previousStyle: reference?.style || null, validationSeed: validation ? seed + 100000000 : null,
+      previousStyle: reference?.style || null, previousProvisional: !!reference?.provisional, validationSeed: validation ? seed + 100000000 : null,
       hardConditions, failed },
     top: records, archive: entry.archive };
 }
@@ -1187,7 +1187,7 @@ function selectStageCandidate(SA, scored, spec, reference, fingerprint, seed, re
     const evidence = { ...conditions, rewardPresent: conditions.reward, style: item.style,
       performance: item.performance, strength: item.strength, previousWinRate: result?.winRate ?? null,
       previousGames: result?.n ?? 0, previousWins: result?.wins ?? 0, previousDraws: result?.draws ?? 0,
-      previousName: reference?.vehicle?.name || null, previousStyle: reference?.style || null,
+      previousName: reference?.vehicle?.name || null, previousStyle: reference?.style || null, previousProvisional: !!reference?.provisional,
       validationSeed: result ? validationSeed : null, target: [config.difficulty.min, config.difficulty.max],
       targetPass, hardConditions: { ...conditions, target: targetPass } };
     evidence.failed = Object.entries(evidence.hardConditions).filter(([, pass]) => !pass).map(([key]) => key);
@@ -1202,7 +1202,8 @@ function selectStageCandidate(SA, scored, spec, reference, fingerprint, seed, re
     compareFitness(a.item, b.item))[0];
   const diversity = diversityMetrics(SA, qualified.map(row => row.item));
   const warning = qualified.length && diversity.clusterCount < config.diversity.finalMinClusters ? '多样性不足' : null;
-  return { selected: chosen?.item || null, evidence: chosen?.evidence || diagnostic?.evidence || null,
+  // 未达标车仍作为诊断候选保留；只供后续模拟临时参照，不冒充合格入选车。
+  return { selected: chosen?.item || null, fallback: chosen ? null : diagnostic?.item || null, evidence: chosen?.evidence || diagnostic?.evidence || null,
     candidateCount: candidates.length, verified: verified.map(row => ({ name: row.item.vehicle.name, ...row.evidence })),
     diversity, warning, fingerprint };
 }
@@ -1378,11 +1379,12 @@ function campaignOpponents(SA, chapter, stage, previewSpec = null) {
   });
 }
 
-// 每关完成后立即验收和确定前关父本；报告保留未通过时的前八名诊断车。
+// 每关完成后立即验收和确定前关父本；未达标时保留诊断车并用最优诊断候选继续后续模拟。
 function completedStage(SA, spec, result, reference, recent, fingerprint, seed, duelCache, origin = null, games = 6) {
   const top = result.scored.slice(0, 8), records = top.map(item => candidateRecord(SA, item, spec, fingerprint));
   const selection = result.selection || selectStageCandidate(SA, top, spec, reference, fingerprint, seed, recent, duelCache);
   const selectedIndex = top.indexOf(selection.selected);
+  const provisionalIndex = top.indexOf(selection.fallback);
   const bucketCount = Object.keys(result.archive.buckets).length;
   const archiveReport = { buckets: bucketCount, coveredRatio: bucketCount / Math.max(1, result.scored.length),
     toxic: result.archive.toxic.length, odd: result.archive.odd.length,
@@ -1393,10 +1395,11 @@ function completedStage(SA, spec, result, reference, recent, fingerprint, seed, 
   const againstOrigin = origin && selection.selected ? duel(SA, selection.selected.vehicle, origin.vehicle,
     { ...spec, style: selection.selected.style, referenceStyle: origin.style || 'wander' }, seed + 17001, games, duelCache) : null;
   return { spec, count: result.population ?? result.scored.length, selected: selectedIndex >= 0 ? records[selectedIndex] : null,
+    provisional: provisionalIndex >= 0 ? records[provisionalIndex] : null,
     originComparison: againstOrigin ? { name: origin.vehicle.name, winRate: againstOrigin.winRate,
       games: againstOrigin.n, wins: againstOrigin.wins, draws: againstOrigin.draws } : null,
     selection: { ...selection.evidence, candidateCount: selection.candidateCount, hardConditions: selection.evidence?.hardConditions || {},
-      failed: selection.evidence?.failed || ['target'], selectedIndex, verified: selection.verified, warning: selection.warning },
+      failed: selection.evidence?.failed || ['target'], selectedIndex, provisionalIndex, verified: selection.verified, warning: selection.warning },
     diversity: selection.diversity, generationMetrics: (result.generationMetrics || []).map(({ settings, ...row }) => row),
     top: records, archive: archiveReport };
 }
@@ -1486,8 +1489,7 @@ function run(options = {}) {
       const report = lockedStageReport({ spec, records: [record], archive: {} }, selectionFailures, SA, reference,
         seed + chapter * 10000 + stage * 101, duelCache);
       chapterReport.stages.push(report); all.push(record);
-      if (!report.selected) { status = 'failed'; break; }
-      reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
+      reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style, provisional: !report.selected }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
       continue;
     }
     if (reference && !SA.V.stats(reference.vehicle).canDeploy) throw new Error('上一关入选车不能出战');
@@ -1500,10 +1502,9 @@ function run(options = {}) {
     chapterReport.stages.push(report); all.push(...report.top);
     if (!report.selected) {
       selectionFailures.push({ chapter, stage, name: spec.name, failed: report.selection.failed });
-      status = 'failed'; break;
     }
-    const selected = result.scored[report.selection.selectedIndex];
-    reference = { vehicle: selected.vehicle, style: selected.style };
+    const selected = result.scored[report.selected ? report.selection.selectedIndex : report.selection.provisionalIndex];
+    reference = { vehicle: selected.vehicle, style: selected.style, provisional: !report.selected };
     previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
   }
   if (options.strict && selectionFailures.length) throw new Error('选关硬条件未全部满足：' + JSON.stringify(selectionFailures));
@@ -1667,8 +1668,7 @@ async function runAsync(options = {}) {
         const report = lockedStageReport({ spec, records: [record], archive: {} }, selectionFailures, SA, reference,
           seed + chapter * 10000 + stage * 101, duelCache);
         chapterReport.stages.push(report); all.push(record);
-        if (!report.selected) { status = 'failed'; break; }
-        reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
+        reference = { vehicle: manualWorkbenchVehicle(SA, actual.vehicle), style: record.style, provisional: !report.selected }; previous = [reference.vehicle]; recent = [reference, ...recent].slice(0, 3);
         telemetry.completedStages++; progress({ phase: 'stage-end', chapter, stage, locked: true }); checkpoint();
         continue;
       }
@@ -1706,17 +1706,16 @@ async function runAsync(options = {}) {
         selectionSeed, duelCache, origin, quickGames);
       if (pinned) report.manual = pinnedStageRecord(SA, actual, pinned, seat ? result.pinned : null, spec, reference, fingerprint, selectionSeed, duelCache);
       const manualReference = seat ? { vehicle: seat, style: actual.style || 'wander' } : null;
+      // 手工固定席位仍优先作前关参考；自动候选未达标只记诊断，不替换作者的车。
+      if (manualReference) report.provisional = null;
       report.seedProvenance = seeds.map((vehicle, sourceIndex) => ({ sourceIndex, name: vehicle.name,
         cells: cellsOf(SA, vehicle), generations: result.generationMetrics.map(row => row.seedRetention?.[sourceIndex] || null) }));
       chapterReport.stages.push(report); all.push(...report.top);
+      if (!report.selected) selectionFailures.push({ chapter, stage, name: spec.name, failed: report.selection.failed });
       telemetry.completedStages++; progress({ phase: 'selection-end', chapter, stage });
       progress({ phase: 'stage-end', chapter, stage, candidates: result.scored.length }); checkpoint();
-      if (!report.selected) {
-        selectionFailures.push({ chapter, stage, name: spec.name, failed: report.selection.failed });
-        if (!manualReference) { status = 'failed'; break; }
-      }
-      const selected = manualReference || result.scored[report.selection.selectedIndex];
-      reference = { vehicle: selected.vehicle, style: selected.style };
+      const selected = manualReference || result.scored[report.selected ? report.selection.selectedIndex : report.selection.provisionalIndex];
+      reference = { vehicle: selected.vehicle, style: selected.style, provisional: !manualReference && !report.selected };
       previous = [selected.vehicle]; recent = [reference, ...recent].slice(0, 3);
     }
     const mainHeat = SA.V.thermalSummary(), workerHeat = pool.thermalSummary();

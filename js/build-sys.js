@@ -52,3 +52,4 @@ SA.BUILD_SYS += '+stage-stat-multipliers-no-zero-text'; // 关卡敌车四项倍
 // 原点车出战失败时报告本关范围、违规部件与具体位置。
 SA.BUILD_SYS += '+stage-deploy-diagnostics';
 SA.BUILD_SYS += '+manual-stage-full-grid'; // 手工关卡车编辑、出战、进化席位与原点车统一使用完整 8×6 范围。
+SA.BUILD_SYS += '+evolve-route-continue-diagnostics'; // 未达标候选保留并作临时参考继续后续关，运行完成与筛选达标分别报告。

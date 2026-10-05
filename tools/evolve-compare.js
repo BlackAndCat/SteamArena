@@ -105,7 +105,7 @@ function origin(SA, fixturePath) {
   return { vehicle, style: fixture.style, signature };
 }
 
-// 路线一旦没有合格入选车，后续关卡标记受阻，绝不拿诊断候选补位。
+// 这里只比较连续合格入选链；未达标后的诊断路线仍如实标记为已模拟，不冒充合格车参与比较。
 function compareRun(SA, report, source) {
   const rows = new Map(report.chapters.flatMap(chapter => chapter.stages).filter(stage => stage.spec.chapter === 1 && stage.spec.stage >= 3 && stage.spec.stage <= 6)
     .map(stage => [stage.spec.stage, stage]));
@@ -113,8 +113,8 @@ function compareRun(SA, report, source) {
   let previous = first, blocked = false;
   for (const stage of [3, 4, 5, 6]) {
     const row = rows.get(stage), selected = row?.selected;
-    if (!row || blocked) { result.push({ stage, status: 'not_run', selected: false,
-      reason: '前一关未入选，路线已停止' }); blocked = true; continue; }
+    if (!row || blocked) { result.push({ stage, status: row ? 'unqualified_chain' : 'not_run', selected: !!selected,
+      reason: row ? '本关已模拟；前关未达标，未比较连续合格入选链' : '报告中没有本关模拟记录' }); blocked = true; continue; }
     // 合格候选簇只统计完成120局复测且通过全部硬条件的前八候选。
     const qualified = row.selection?.verified && (row.top || []).filter((candidate, index) => {
       const evidence = row.selection.verified[index];

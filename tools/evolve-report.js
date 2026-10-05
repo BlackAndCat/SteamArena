@@ -388,6 +388,7 @@
   const chapterTab = (ci) => h('div', { class: 'pk-tab' }, chapterShort(ci), chapterPlace(ci) ? h('small', {}, chapterPlace(ci)) : null);
   // 没选出车时，筛选里离目标最近的那一台（生成器用它的证据写失败原因）
   function diagnosticOf(s) {
+    if (s.provisional) return s.provisional;
     const ev = s.selection || {};
     const row = (ev.verified || []).find(v => v.validationSeed != null && v.validationSeed === ev.validationSeed);
     return row ? (s.top || []).find(rec => rec.name === row.name) || null : null;
@@ -456,14 +457,14 @@
         !manual && sel ? h('button', { type: 'button', class: `star${row?.favorite ? ' on' : ''}`, 'aria-pressed': String(!!row?.favorite),
           title: row?.favorite ? '已收藏：重跑时保留这台车（点一下取消）' : '收藏这台车，重跑时保留', onclick: () => toggleFavorite(sel) }, row?.favorite ? '★' : '☆') : null),
       shown ? h('div', { class: `pk-car${!manual && !sel ? ' miss' : ''}`, title: shown.name || '' },
-        carPic(shown, 230, 184, 2) || unreadable(), !manual && !sel ? h('span', { class: 'cap' }, '最接近的一台') : null,
+        carPic(shown, 230, 184, 2) || unreadable(), !manual && !sel ? h('span', { class: 'cap' }, s.provisional ? '临时参考（未达标）' : '最接近的一台') : null,
         car ? pinTag(ci, si, car) : null,
         h('span', { class: 'who' }, `${manual ? `${shown.name || car.name} · ` : ''}${styleName(shown.style)} · ${chassisName(shown.chassis)}${shown.stats?.value != null ? ` · £${fix(shown.stats.value)}` : ''}`))
         : h('div', { class: 'pk-car none' }, '没有选出车'),
       nums,
       measured?.unusable ? h('div', { class: 'pk-line bad', title: measured.unusable }, measured.unusable) : null,
       tev.previousWinRate != null ? h('div', { class: 'pk-line', title: `${tev.previousName || '上一关的车'}和它换边对打 ${tev.previousGames || '—'} 局；目标是这台车赢 ${targetText(tev.target)}` },
-        '打上一关车 ', h('b', { class: tev.targetPass ? 'ok' : 'bad' }, pct(tev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(tev.target)}`)) : null,
+        tev.previousProvisional ? '打上关临时参考（未达标） ' : '打上一关车 ', h('b', { class: tev.targetPass ? 'ok' : 'bad' }, pct(tev.previousWinRate)), h('span', { class: 'muted' }, ` · 目标 ${targetText(tev.target)}`)) : null,
       oc ? h('div', { class: 'pk-line', title: originComparisonLabel(oc) }, '对原点车胜率 ', h('b', {}, `${pct(oc.winRate)} · ${oc.games} 局`), h('span', { class: 'muted' }, ` · ${originComparisonLabel(oc)}`)) : null,
       evolvedLine,
       chips.length ? h('div', { class: 'pk-tags' }, chips) : null,
@@ -599,7 +600,8 @@
         unmeasured ? (s.spec ? '这次进化没测它（之后改过车或性格），重跑这关就有成绩' : '还没跑过进化')
           : ['强 ', h('b', {}, fix(rec.strength)), ' · 表 ', h('b', {}, fix(rec.performance)), ` · ${winText(rec)}`],
         rec.unusable ? [h('br'), h('span', { class: 'bad' }, rec.unusable)] : null,
-        v && v.previousWinRate != null ? [h('br'), '打上一关车 ', h('b', { class: v.targetPass ? 'ok' : 'bad' }, pct(v.previousWinRate)), ` · 目标 ${targetText(v.target)}`] : null,
+        v && v.previousWinRate != null ? [h('br'), s.selection?.previousProvisional ? '打上关临时参考（未达标） ' : '打上一关车 ', h('b', { class: v.targetPass ? 'ok' : 'bad' }, pct(v.previousWinRate)), ` · 目标 ${targetText(v.target)}`] : null,
+        !isStage && s.provisional?.code === rec.code ? [h('br'), '本关临时参考（未达标，未正式入选）'] : null,
         other.length ? [h('br'), other.map(k => h('span', { class: 'chip bad' }, COND[k] || k))] : null,
         missing ? [h('br'), h('span', { class: 'bad' }, `缺少奖励：${SA.MODULES[missing]?.name || missing}，不参与选关`)] : null),
       rec.codeOnly ? null : h('div', { class: 'cand-btns' },
@@ -757,7 +759,9 @@
   function screeningOf(rec) {
     const sp = rec.spec || {};
     const s = (st.report.chapters || []).find(ch => ch.chapter === sp.chapter)?.stages.find(x => x.spec?.stage === sp.stage);
-    return s && rec.name ? (s.selection?.verified || []).find(v => v.name === rec.name) || null : null;
+    const evidence = s && rec.name ? (s.selection?.verified || []).find(v => v.name === rec.name) || null : null;
+    return evidence ? { ...evidence, previousProvisional: !!s.selection.previousProvisional,
+      provisional: s.provisional?.code === rec.code } : null;
   }
   function openDetail(rec) {
     const v = vehicleOf(rec), c = classOf(rec), sp = rec.spec || {}, s = rec.stats || {}, scr = screeningOf(rec);
@@ -775,8 +779,9 @@
             kv('来源', sp.chapter != null ? `${chapterShort(sp.chapter)} · ${stageName(sp.chapter, sp.stage)} · ${terrainName(sp.terrain)}` : '—'),
             kv('分类', `${c.name} · ${styleName(rec.style)} · ${chassisName(rec.chassis)}`),
             kv('胜率（同档标尺）', `${winText(rec)}${rec.opponentCount ? ` · ${rec.opponentCount} 台标尺 · 平局计半胜` : ''}${rec.evaluationStyle ? ` · 实测性格：${styleName(rec.evaluationStyle)}` : ''}`),
-            scr ? kv('本关筛选', h('span', {}, scr.previousWinRate != null ? ['打上一关车 ', h('b', { class: scr.targetPass ? 'ok' : 'bad' }, pct(scr.previousWinRate)), ` · 目标 ${targetText(scr.target)}`] : '第一关不比上一关',
+            scr ? kv('本关筛选', h('span', {}, scr.previousWinRate != null ? [scr.previousProvisional ? '打上关临时参考（未达标） ' : '打上一关车 ', h('b', { class: scr.targetPass ? 'ok' : 'bad' }, pct(scr.previousWinRate)), ` · 目标 ${targetText(scr.target)}`] : '第一关不比上一关',
               (scr.failed || []).length ? ` · 没满足：${scr.failed.map(k => COND[k] || k).join('、')}` : ' · 硬条件全部满足')) : null,
+            scr?.provisional ? kv('临时参考', '本关未达标候选，仅供后续模拟参考，未正式入选') : null,
             rec.stageCar ? kv('关卡车', rec.pinned ? '游戏里这一关用的车 · 手动选择：进化时每代留一个席位' : '游戏里这一关用的车 · 没勾「手动选择」')
               : kv('擂台状态', `${arenaRow(rec)?.manual ? '手工修改 · ' : ''}${arenaRow(rec)?.favorite ? '已收藏，重跑保留' : '未收藏'}`),
             kv('强度分', rec.codeOnly ? '报告只保存了分享码' : `${fix(rec.strength)}${rec.strengthCi != null ? ` ± ${fix(rec.strengthCi)}` : ''}${rec.terrainStrength != null && sp.terrain && sp.terrain !== 'flat' ? `（平地 ${fix(rec.terrainStrength)}，地形专长 ${rec.terrainDelta >= 0 ? '+' : ''}${fix(rec.terrainDelta)}）` : ''}`),
@@ -877,12 +882,12 @@
   // 生成进度条：读状态文字里的百分比（文字仍由下面的轮询写），「停止生成」能点 = 正在跑
   function syncMeter() {
     const text = $('#generation-status').textContent, m = /（(\d+)%）/.exec(text), busy = !$('#stop-generation').disabled;
-    // 结束时按结果上色：完成 = 满格绿；失败 = 红；停止 = 灰（生成器的总步数是预估，完成时不一定数到 100%）
-    const end = busy ? '' : /^生成完成/.test(text) ? 'done' : /^生成失败/.test(text) ? 'failed' : /^已停止/.test(text) ? 'stopped' : '';
+    // 结束时按结果上色，条长始终按实际／计划步数显示；提前达标不填造未执行步骤。
+    const end = busy ? '' : /^生成完成/.test(text) ? 'done' : /^模拟完成/.test(text) ? 'warn' : /^生成失败/.test(text) ? 'failed' : /^已停止/.test(text) ? 'stopped' : '';
     $('#gen').classList.toggle('busy', busy);
     $('#gen').dataset.end = end;
     $('#gen-meter').hidden = !busy && !end;
-    $('#gen-meter').firstElementChild.style.width = `${end === 'done' ? 100 : m ? Math.min(100, +m[1]) : 0}%`;
+    $('#gen-meter').firstElementChild.style.width = `${m ? Math.min(100, +m[1]) : 0}%`;
     $('#generation-status').title = text;
   }
   new MutationObserver(syncMeter).observe($('#generation-status'), { childList: true, characterData: true, subtree: true });
@@ -940,6 +945,46 @@
     if (!(p.totalSteps > 0)) return '正在统计总步数';
     return `总进度 ${p.completedSteps || 0} / ${p.totalSteps} 步（${Math.floor((p.completedSteps || 0) / p.totalSteps * 100)}%）`;
   }
+  /** 老服务任务没有路线状态时，只读取该任务的落盘报告，不改变用户正在查看的报告。 */
+  async function completedJobResult(job) {
+    const result = job.result;
+    if (result.status || !/^out\/evolve-\d+\.json$/.test(result.file || '')) return result;
+    const response = await fetch(result.file, { cache: 'no-store' });
+    if (!response.ok) throw new Error('任务已结束，但对应报告暂时无法读取，请刷新重试');
+    const report = await response.json();
+    const scope = job.request?.scope;
+    // 续接报告含其他关卡的旧失败；恢复时仅取本次请求范围内的失败证据。
+    const inScope = row => scope?.type === 'route-after' ?
+      row.chapter > scope.origin.chapter || row.chapter === scope.origin.chapter && row.stage > scope.origin.stage :
+      !scope || row.chapter === scope.chapter && (scope.stage == null || row.stage === scope.stage);
+    const processed = (report.chapters || []).flatMap(ch => ch.stages.map(row => row.spec)).filter(inScope)
+      .sort((a, b) => a.chapter - b.chapter || a.stage - b.stage).slice(0, result.stages);
+    const failures = (report.selectionFailures || []).filter(row => processed.some(spec => spec.chapter === row.chapter && spec.stage === row.stage));
+    return { ...result, status: report.status || 'complete', plannedStages: scope?.type === 'route-after' ? scope.count : result.plannedStages,
+      selectionFailures: failures.map(failure => {
+        const stage = report.chapters?.find(ch => ch.chapter === failure.chapter)?.stages.find(row => row.spec.stage === failure.stage);
+        const selection = stage?.selection, rates = (selection?.verified || []).map(row => row.previousWinRate).filter(Number.isFinite);
+        return { ...failure, target: selection?.target || stage?.spec.target, previousName: selection?.previousName,
+          previousProvisional: !!selection?.previousProvisional,
+          bestWinRate: rates.length ? Math.max(...rates) : selection?.previousWinRate };
+      }) };
+  }
+  /** 路线失败已终止计算，保留原计划分母，并直接解释未执行的后续工作。 */
+  function completedJobText(job, result) {
+    const failed = result.status === 'failed', interrupted = result.status === 'interrupted';
+    const unmet = (result.selectionFailures || []).length;
+    const prefix = failed ? '生成失败：旧任务因路线筛选未达标而结束。' : interrupted ? '已停止生成：' :
+      unmet ? `模拟完成，${unmet} 关未达标（候选已保留）：` : '生成完成：';
+    const failures = (result.selectionFailures || []).map(row => {
+      const conditions = (row.failed || []).map(key => key === 'target' ? `${COND.target}${Array.isArray(row.target) ? `：目标 ${row.target.map(rate => `${Math.round(rate * 100)}%`).join('～')}` : ''}${Number.isFinite(row.bestWinRate) ? `，当前最佳 ${(row.bestWinRate * 100).toFixed(1)}%` : ''}` : COND[key] || key).join('、');
+      return `${chapterShort(row.chapter)} · 第 ${row.stage + 1} 关 ${row.name || ''}未选出车：${conditions || '没有合格候选'}${row.previousProvisional ? '（对上关未达标临时参考复测）' : ''}`;
+    }).join('；');
+    const pendingStages = Number.isInteger(result.plannedStages) ? Math.max(0, result.plannedStages - result.stages) : null;
+    const skipped = failed || interrupted ? ` ${interrupted ? pendingStages == null ? '仍有关卡未完成，' : `仍有 ${pendingStages} 关未完成，` : pendingStages == null ? '后续未继续运行，' : `后续 ${pendingStages} 关未运行，`}计划中 ${Math.max(0, result.totalSteps - result.completedSteps)} 步未执行。` :
+      ` 全部目标关已处理${result.completedSteps < result.totalSteps ? `，提前达标免运行的计划步骤 ${result.totalSteps - result.completedSteps} 步` : ''}。`;
+    return `${prefix}${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。${failures}${skipped}` +
+      (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
+  }
   async function pollJob(restoring = false) {
     clearTimeout(pollTimer);
     try {
@@ -953,10 +998,9 @@
         $('#generation-status').textContent = `${overallProgress(p)} · 已用 ${duration(job.elapsedMs ?? p.elapsedMs ?? 0)} · ${remaining} · ${label} · ${phase}${generation}`;
         pollTimer = setTimeout(pollJob, 1500);
       } else if (job.status === 'complete' && finishedJob !== job.id) {
+        const result = await completedJobResult(job);
         finishedJob = job.id;
-        const result = job.result;
-        $('#generation-status').textContent = `生成完成：${overallProgress(result)} · ${result.stages} 关、${result.candidates} 台候选，已用 ${duration(job.elapsedMs ?? result.elapsedMs)}。` +
-          (result.seedWarnings || []).map(row => `${row.name}：${row.reason}`).join('；');
+        $('#generation-status').textContent = completedJobText(job, result);
         // 刷新只是恢复当前查看位置；此前已完成的任务不能覆盖手选报告。
         // 后续轮询观察到任务完成时，仍自动展示该任务的新报告。
         if (!restoring) await refreshList(result.file);

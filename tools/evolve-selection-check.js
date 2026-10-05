@@ -39,6 +39,7 @@ function run() {
   for (const rate of [50, 80]) {
     const result = choose(rate, 11000 + rate);
     assert.strictEqual(result.selected, null, `${rate}% 候选违反目标区间仍被入选`);
+    assert(result.fallback, '未达标候选没有保留给后续模拟作临时参考');
     assert.strictEqual(result.evidence.targetPass, false, '诊断证据未记录强度失败');
     assert(result.evidence.failed.includes('target'));
   }

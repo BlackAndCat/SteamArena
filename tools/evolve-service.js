@@ -70,7 +70,8 @@ async function generate(request, emit = () => {}) {
   const scope = request.scope;
   if (!scope || scope.type !== 'route-after' && (scope.type != null || !Number.isInteger(scope.chapter))) throw new Error('请选择要生成的章节');
   const { SA } = evolve.loadGame();
-  if (scope.type === 'route-after') evolve.routeAfter(SA, scope.origin, scope.count);
+  const plannedStages = scope.type === 'route-after' ? evolve.routeAfter(SA, scope.origin, scope.count).length :
+    evolve.plannedRoute(SA).filter(row => row.chapter === scope.chapter && (scope.stage == null || row.stage === scope.stage)).length;
   const seeds = request.seeds || [];
   if (!Array.isArray(seeds) || seeds.length > 128 || seeds.some(rec => !Array.isArray(rec.cells) || rec.cells.length > 256)) throw new Error('种子车数量或模块清单不合法');
   const originVehicle = request.originVehicle;
@@ -93,7 +94,17 @@ async function generate(request, emit = () => {}) {
     onProgress: event => emit({ type: 'progress', ...event, totalSteps: event.totalSteps + 1 }) });
   const report = mergeReports(base, fresh);
   const saved = storage.writeReport(report);
-  return { file: `out/${path.basename(saved.file)}`, stages: fresh.telemetry.completedStages, candidates: fresh.candidates.length,
+  // 进程正常结束不等于路线选车达标；只传本轮失败，不能混入续接报告的旧失败。
+  const selectionFailures = fresh.selectionFailures.map(failure => {
+    const stage = fresh.chapters.find(ch => ch.chapter === failure.chapter)?.stages.find(row => row.spec.stage === failure.stage);
+    const selection = stage?.selection;
+    const rates = (selection?.verified || []).map(row => row.previousWinRate).filter(Number.isFinite);
+    return { ...failure, target: selection?.target || stage?.spec.target, previousName: selection?.previousName,
+      previousProvisional: !!selection?.previousProvisional,
+      bestWinRate: rates.length ? Math.max(...rates) : selection?.previousWinRate };
+  });
+  return { file: `out/${path.basename(saved.file)}`, status: fresh.status, selectionFailures, plannedStages,
+    stages: fresh.telemetry.completedStages, candidates: fresh.candidates.length,
     seedWarnings: fresh.seedWarnings, elapsedMs: Date.now() - startedAt,
     completedSteps: fresh.telemetry.completedSteps + 1, totalSteps: fresh.telemetry.totalSteps + 1 };
 }

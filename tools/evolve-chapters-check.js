@@ -29,7 +29,7 @@ async function run() {
     finder[0] = 1; finder[2] = 7;
     const report = await evolve.runAsync({ scope: { type: 'route-after', origin: { chapter: 1, stage: 2 }, count: 1 },
       originVehicle: origin, seed: 20261003, games: 1, workers: 2 });
-    assert(['complete', 'failed'].includes(report.status));
+    assert.strictEqual(report.status, 'complete', '筛选未达标也必须完成模拟并保留报告');
     assert.strictEqual(report.chapters.length, 1);
     assert.strictEqual(report.chapters[0].stages.length, 1);
     const stage = report.chapters[0].stages[0];
@@ -39,11 +39,12 @@ async function run() {
       const vehicle = SA.V.fromCells(rec.name, rec.cells); vehicle.lim = { ...stage.spec.grid };
       assert(evolve.legalVehicle(SA, vehicle, stage.spec), '候选违反奖励、材料、模块或预算约束');
     }
-    if (report.status === 'complete') {
+    if (stage.selected) {
       assert(stage.selected && stage.selection.previousWinRate >= 0.6 && stage.selection.previousWinRate <= 0.75);
       assert.strictEqual(stage.selection.previousGames, 120);
     } else {
-      assert.strictEqual(stage.selected, null, '失败路线不能拿诊断候选推进');
+      assert.strictEqual(stage.selected, null, '未达标候选不能冒充合格入选车');
+      assert(stage.provisional && stage.top.includes(stage.provisional), '未达标时缺少临时参考候选');
       assert(report.selectionFailures.some(row => row.chapter === 1 && row.stage === 3));
     }
     return { stages: 4, anchors, workerStage: true, diagnosticPreserved: true, originPatch: 'side(6,6)→side(6,7)' };
