@@ -235,6 +235,11 @@ SA.V = (() => {
     if (!a || !m.legPart || c !== a.c || r !== a.r + (m.legSlot === 'shin' ? 3 : 0)) return null;
     return a;
   }
+  // 机甲头盔下面才是肩膀（用户 2026-10-05，Opus 按用户要求加）：车上有机甲头盔时，骑士手臂整条都要在头盔那一行下面，
+  // 不能盖住头盔，也不能和头盔并排。helmBottom = 机甲头盔底边的下一行（没有头盔为 -1）
+  function helmBottom(v) { let b = -1; for (let r = 0; r < K.ROWS; r++) for (let c = 0; c < K.COLS; c++) { const x = v.body[r][c]; if (x && x.id === 'mech_helm') b = Math.max(b, r + fp(x.id).h); } return b; }
+  const armAboveHelm = (v, id, r, hb = helmBottom(v)) => !!M[id].knight && hb >= 0 && r < hb;
+  function armsAtOrAbove(v, row) { for (let r = 0; r < Math.min(row, K.ROWS); r++) for (let c = 0; c < K.COLS; c++) { const x = v.side[r][c]; if (x && M[x.id].knight) return true; } return false; }
   // 骑士手臂可覆盖多块车体并伸出边缘；至少贴住一个主体，腿区只容许专用腿件。
   function knightHosts(v, id, r, c, O = occ(v, 'body')) {
     if (!M[id].knight) return [];
@@ -333,6 +338,7 @@ SA.V = (() => {
       if (r + h > floorRow(v) && !legMount(v, id, r, c) && !bipedWaist(v, r, c, w, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
       const S = occ(v, 'side');
       if (cells.some(([rr, cc]) => S[rr][cc])) return no(SA.Config.text("vehicle_3ef702ab6894"));
+      if (armAboveHelm(v, id, r)) return no('骑士手臂要装在机甲头盔下面（肩膀在胸口），不能盖住头盔或和头盔并排');
       if (!sideHost(v, id, r, c, O)) return no(id === 'autoloader' ? '装弹机只能挂在至少 1×2 的火炮上，不能挂火箭、蒸汽、喷火或近战武器' : '侧挂必须完整挂在同一块足够大的装甲上');
       return { ok: true };
     }
@@ -358,6 +364,7 @@ SA.V = (() => {
     if (!near.length) return no(SA.Config.text("vehicle_08441cb986b1"));
     if (near.every(o => isRamCell(o.cell))) return no(SA.Config.text("vehicle_772300b88a8a"));
     if (ramBehind(O, r, c, h)) return no(SA.Config.text("vehicle_7da5b5f98f49"));
+    if (id === 'mech_helm' && armsAtOrAbove(v, r + h)) return no('机甲头盔这一行及以上已经挂着骑士手臂：先把手臂挪到头盔下面');
     return { ok: true };
   }
 
@@ -544,11 +551,13 @@ SA.V = (() => {
           flag('body', r, c, below.length && below.every(o => isRamCell(o.cell)) ? SA.Config.text("vehicle_c549eb415298") : SA.Config.text("vehicle_e1cb25bb5a9c"));
         }
       }
+    const hb = helmBottom(v);
     for (let r = 0; r < K.ROWS; r++)
       for (let c = 0; c < K.COLS; c++) {
         const cell = v.side[r][c];
         if (!cell) continue;
         const { w, h } = fp(cell.id), host = sideHost(v, cell.id, r, c, O);
+        if (armAboveHelm(v, cell.id, r, hb)) flag('side', r, c, '骑士手臂要装在机甲头盔下面（肩膀在胸口），不能盖住头盔或和头盔并排');
         if (M[cell.id].layer !== 'side') flag('side', r, c, '主体件不能放在侧挂层');
         if (clearanceBlocked(v, cell.id, r, c, 'side', { layer: 'side', r, c })) flag('side', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
@@ -1038,5 +1047,5 @@ SA.V = (() => {
   }
   // 载具的底盘锚点行（没有底盘时是 CH）；战斗悬挂、画面找底盘都用它
   const chassisRowOf = (v) => { const a = chassisAnchors(v)[0]; return a ? a.r : CH; };
-  return { fullGrid, widenArmor, chassisRow, chassisRowOf, bipedOf, bipedParts, legMount, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith, installThermalPredictions, thermalPrediction, clearThermalPredictions, thermalSummary };
+  return { fullGrid, helmBottom, widenArmor, chassisRow, chassisRowOf, bipedOf, bipedParts, legMount, bipedWaist, floorRow, endArmorSide, armorSpeedFactor, sideHost, weaponReloadMul, create, fromAscii, fromBig, migrate, region, inRegion, boxInRegion, occ, at, CH, each, canPlace, place, canPut, remove, move, translate, issues, layout, fromLayout, fromCells, countIds, blockedList, crewPlan, stats, clone, battleCopy, encode, decode, validLayout, validStockCell, layerOf, maxHp, alive, editorSpot, placeCheck, chassisClash, statsWith, installThermalPredictions, thermalPrediction, clearThermalPredictions, thermalSummary };
 })();

@@ -57,6 +57,16 @@ function run() {
   const rider = biped();
   assert(SA.V.canPlace(rider, 'knight_fist', 5, 6).ok);
   assert(!SA.V.canPlace(rider, 'side_cannon', 6, 6).ok);
+  // 机甲头盔下面才是肩膀（用户 2026-10-05）：手臂不能和头盔同一行或更高，头盔也不能压到已有手臂上面
+  // 手臂 3 行高、不能伸进胯行（第 8 行起），所以头盔在第 4 行时手臂正好挂在第 5～7 行（头、胸、腰）
+  const helmed = biped(); helmed.body[5][6] = SA.newCell('plate', 3); helmed.body[4][6] = SA.newCell('mech_helm', 3);
+  assert(!SA.V.canPlace(helmed, 'knight_fist', 4, 7).ok, '手臂不能和头盔并排');
+  assert(!SA.V.canPlace(helmed, 'knight_fist', 3, 6).ok, '手臂不能盖住头盔');
+  assert(SA.V.canPlace(helmed, 'knight_fist', 5, 7).ok, '头盔下面可以装手臂');
+  const armed = biped(); armed.side[5][7] = SA.newCell('knight_fist', 3);
+  assert(!SA.V.canPlace(armed, 'mech_helm', 5, 5).ok, '头盔不能压在已有手臂那一行');
+  helmed.side[4][7] = SA.newCell('knight_fist', 3);
+  assert(SA.V.issues(helmed).some(x => x.layer === 'side' && x.r === 4 && x.c === 7), '旧车里高过头盔的手臂要标红');
   rider.side[5][6] = SA.newCell('knight_fist', 3);
   assert(!SA.V.issues(rider).some(x => x.layer === 'side'));
   assert(Number.isFinite(stats(rider).dps));
