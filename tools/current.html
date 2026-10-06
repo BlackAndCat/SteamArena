@@ -28,8 +28,8 @@
 <body>
 <h1>当前开发 · 出征 v2：起伏地形、小机械、撞击反馈、音效</h1>
 <p class="lead">计划见 <code>docs/expedition-plan.md</code> §12、§13 和 <code>docs/feel-audio-plan.md</code> v0.2。这一页<b>只是样机</b>：地形、机械、撞击都是摆拍，规则以 astra 的实现为准。
-<b>要你看的</b>：① 起伏地形像不像 19 世纪的黑乡、坡度和镜头跟随舒不舒服；② 四种小机械的造型；③ 撞上去够不够爽（顿帧、镜头冲一下、散架、金属飞上车，可以逐项开关对比）；④ 音效（<b>先点一下页面</b>，浏览器才让出声）。
-背景暂借「野地」并压暗去色；废土场景另一个会话在做。</p>
+<b>要你看的</b>：① 起伏地形像不像 19 世纪的黑乡、坡度和镜头跟随舒不舒服，废土背景挑 A / B / C 哪套色调；② 四种小机械的造型；③ 撞上去够不够爽（顿帧、镜头冲一下、散架、金属飞上车，可以逐项开关对比）；④ 音效（<b>先点一下页面</b>，浏览器才让出声）。
+背景是另一个会话做的废土场景，有 A / B / C 三套色调，在卷轴预览上面切换着挑一个。</p>
 
 <h2>① 起伏地形 · 参考真实世界（英格兰黑乡）</h2>
 <div class="chart"><canvas class="px" id="chart" width="1280" height="230"></canvas></div>
@@ -55,6 +55,7 @@
   <label><input type="checkbox" id="fbSound" checked>音效</label>
   <span class="tag" id="metal">金属 0</span>
 </div>
+<div class="bar" id="looks"><span class="tag">废土场景色调（挑一个）：</span></div>
 <div class="stage"><canvas class="px" id="view" width="1280" height="720"></canvas></div>
 <p class="note">一路：岭上出发 → 下坡撞一队发条步兵 → 谷底一群拾荒爬车、驼背桥过运河、科布抽水机房 → 上罗利山时滚桶炸弹从坡上滚下来 → 山顶步哨炮车、路堑（两边砖砌挡土墙）→ 矿井架。
 地面整块画出来：煤渣路、红泥表土、下面是水平岩层，坡面和路堑把地层剖面露出来，黑色那条是黑乡出名的「厚煤层」。</p>

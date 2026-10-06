@@ -221,7 +221,9 @@ window.SA = window.SA || {};
     for (const f of st.floats) { vg.globalAlpha = Math.min(1, f.life * 2); vg.fillStyle = '#0b0e15'; vg.fillText('+1 金属', f.x + 1, f.y + 1); vg.fillStyle = P.iron[4]; vg.fillText('+1 金属', f.x, f.y); }
     vg.globalAlpha = 1; vg.textAlign = 'start';
     vg.restore();
-    // 场景的近景（栅栏、草、车轮剪影）是按平地画在画面最下沿的，起伏地形上会浮在地下，先不画（已告诉画场景的会话）
+    // 近景（栅栏、草、车轮剪影）跟着地面走：废土场景的 front 接 groundAt / refX（另一个 Opus 会话做的），
+    // 底边对准「车下地面往下 60px」（和平地战斗里一样），不再贴着画面最下沿浮在地底
+    if (sc === 'waste') SA.Scenes.front(sc, vg, VW, Math.round(gAt(st.x) - cam.y + 60), oyB, cam.x, t, { groundAt: gAt, refX: st.x });
   }
   // 罗利山的玄武岩采石场：路后面一面一级一级的暗色岩壁。每级台阶顶上一道受光边，岩面按块裂开（不规则的横缝 + 斜缝），
   // 台阶脚下一堆碎石坡；颜色压在背景的中低明度里，不抢车
@@ -286,6 +288,15 @@ window.SA = window.SA || {};
     A.load();
   }
 
+  // ---------- 废土场景的色调 A / B / C（场景在 js/scenes.js，由另一个 Opus 会话做；挑定以后它定默认值）----------
+  function buildLooks() {
+    const box = document.getElementById('looks'), list = SA.Scenes.looks ? SA.Scenes.looks('waste') : [];
+    if (!box || !list.length) return;
+    const btns = list.map(({ id, name }) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = `${id} ${name}`; b.onclick = () => { SA.Scenes.setLook('waste', id); for (const x of btns) x.classList.toggle('primary', x === b); }; return b; });
+    btns[0].classList.add('primary');
+    box.append(...btns);
+  }
+
   // ---------- 控制 ----------
   const scrub = document.getElementById('scrub'), playBtn = document.getElementById('play');
   playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; };
@@ -304,7 +315,7 @@ window.SA = window.SA || {};
     document.getElementById('metal').textContent = `金属 ${st.metal}`;
     requestAnimationFrame(frame);
   }
-  drawChart(); buildMobs(); buildBench(); reset(0);
+  drawChart(); buildMobs(); buildBench(); buildLooks(); reset(0);
   requestAnimationFrame(frame);
   SA.ExpeditionLab = { st, reset, step, draw, fb, ground, ROUTE };
 })();
