@@ -15,9 +15,8 @@ function run() {
     return v;
   };
   // 新件借现有画法占位；卡片和属性行初始化均不得因缺少专用画法而崩溃。
-  const newIds = ['leg_spring', 'leg_booster', 'knight_shield', 'knight_fist', 'knight_hammer', 'knight_sword', 'knight_cannon', 'knight_gun', 'helmet_wide'];
+  const newIds = ['leg_spring', 'leg_booster', 'knight_shield', 'knight_fist', 'knight_hammer', 'knight_sword', 'knight_cannon', 'knight_gun', 'mech_helm'];   // 2026-10-05：helmet_wide 与 Opus 的 mech_helm 重复，已删；新件改用专用画法
   for (const id of newIds) {
-    assert(SA.MODULES[id].art);
     assert.doesNotThrow(() => SA.SPR.moduleCanvas(id, 1, 2), `${id} 卡片初始化`);
     assert.doesNotThrow(() => SA.UI.statLine(id, 2), `${id} 属性行初始化`);
   }
@@ -84,9 +83,9 @@ function run() {
   assert.strictEqual(copy2.side[5][6].max, expected);
   assert.strictEqual(copy2.side[5][6].hp, copy.side[5][6].hp);
   assert.strictEqual(stats(shield).maxHp, stats(copy).maxHp);
-  assert.strictEqual(SA.fp('helmet_wide').w, 2);
-  assert.strictEqual(SA.modForVehicle(SA.newCell('helmet_wide'), rider).hp, SA.mod('helmet_wide', 2).hp);
-  assert(SA.weightOf(SA.newCell('helmet_wide')) > SA.weightOf(SA.newCell('helmet')));
+  assert.strictEqual(SA.fp('mech_helm').w, 2);   // 机甲头盔（Opus，2026-10-05）：2×1、无骑士加成、比单人舱重
+  assert.strictEqual(SA.modForVehicle(SA.newCell('mech_helm', 2), rider).hp, SA.mod('mech_helm', 2).hp);
+  assert(SA.weightOf(SA.newCell('mech_helm')) > SA.weightOf(SA.newCell('helmet')));
   // 半血盾连续出战、结算四轮不损伤时不能逐次回血；维修仍按基础耐久计费并修满。
   SA.S.reset();
   SA.S.d.vehicle = shield;

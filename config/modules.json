@@ -1701,8 +1701,7 @@
       "kg": 75,
       "legPart": "spring",
       "legSlot": "shin",
-      "desc": "真双足小腿挂件；装上才能跳，损毁后失效。自身质量参与物理，不占胯部承重。",
-      "art": "pressure_chamber"
+      "desc": "真双足小腿挂件；装上才能跳，损毁后失效。自身质量参与物理，不占胯部承重。"
     },
     "leg_booster": {
       "layer": "side",
@@ -1720,8 +1719,7 @@
       "legPart": "booster",
       "legSlot": "hip",
       "speedMul": 1.12,
-      "desc": "真双足胯部挂件，基础速度与最高速度增加12%；不占胯部承重。",
-      "art": "gyroscope"
+      "desc": "真双足胯部挂件，基础速度与最高速度增加12%；不占胯部承重。"
     },
     "knight_shield": {
       "layer": "side",
@@ -1738,8 +1736,7 @@
       "kg": 40,
       "armor": 3,
       "knight": "shield",
-      "desc": "覆盖车体的实体盾臂，靠自身耐久挡弹；双足上耐久增加40%。",
-      "art": "armor"
+      "desc": "覆盖车体的实体盾臂，靠自身耐久挡弹；双足上耐久增加40%。"
     },
     "knight_fist": {
       "layer": "side",
@@ -1760,8 +1757,7 @@
       "punchCd": 0.85,
       "punchKnock": 0.25,
       "heat": 170,
-      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-      "art": "piston"
+      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
     },
     "knight_hammer": {
       "layer": "side",
@@ -1782,8 +1778,7 @@
       "punchCd": 1.7,
       "punchKnock": 0.65,
       "heat": 170,
-      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-      "art": "piston"
+      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
     },
     "knight_sword": {
       "layer": "side",
@@ -1804,8 +1799,7 @@
       "punchCd": 1.05,
       "punchKnock": 0,
       "heat": 170,
-      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-      "art": "piston"
+      "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
     },
     "knight_cannon": {
       "name": "骑士巨炮臂",
@@ -1837,7 +1831,11 @@
       "minMt": 2,
       "knight": "ranged",
       "weaponBase": "cannon_m",
-      "art": "cannon_m"
+      "piv": [
+        16,
+        38
+      ],
+      "blen": 56
     },
     "knight_gun": {
       "name": "骑士腕枪臂",
@@ -1869,25 +1867,11 @@
       "minMt": 2,
       "knight": "ranged",
       "weaponBase": "mg_s",
-      "art": "mg_s"
-    },
-    "helmet_wide": {
-      "name": "横式头盔驾驶舱",
-      "cat": "control",
-      "layer": "body",
-      "w": 2,
-      "h": 1,
-      "cockpit": true,
-      "drivers": 1,
-      "price": 70,
-      "hp": 45,
-      "power": 5,
-      "kg": 40,
-      "q": 1,
-      "desc": "横置的两子格驾驶舱，驾驶人数与原小驾驶舱相同，新增面积计入质量。",
-      "repairRate": 0.24,
-      "minMt": 2,
-      "art": "helmet"
+      "piv": [
+        16,
+        38
+      ],
+      "blen": 38
     }
   },
   "MODULE_ORDER": [
@@ -1946,8 +1930,7 @@
     "knight_hammer",
     "knight_sword",
     "knight_cannon",
-    "knight_gun",
-    "helmet_wide"
+    "knight_gun"
   ],
   "LEG_VARIANTS": [
     {
@@ -3644,8 +3627,7 @@
         "kg": 75,
         "legPart": "spring",
         "legSlot": "shin",
-        "desc": "真双足小腿挂件；装上才能跳，损毁后失效。自身质量参与物理，不占胯部承重。",
-        "art": "pressure_chamber"
+        "desc": "真双足小腿挂件；装上才能跳，损毁后失效。自身质量参与物理，不占胯部承重。"
       },
       "leg_booster": {
         "layer": "side",
@@ -3663,8 +3645,7 @@
         "legPart": "booster",
         "legSlot": "hip",
         "speedMul": 1.12,
-        "desc": "真双足胯部挂件，基础速度与最高速度增加12%；不占胯部承重。",
-        "art": "gyroscope"
+        "desc": "真双足胯部挂件，基础速度与最高速度增加12%；不占胯部承重。"
       },
       "knight_shield": {
         "layer": "side",
@@ -3681,8 +3662,7 @@
         "kg": 40,
         "armor": 3,
         "knight": "shield",
-        "desc": "覆盖车体的实体盾臂，靠自身耐久挡弹；双足上耐久增加40%。",
-        "art": "armor"
+        "desc": "覆盖车体的实体盾臂，靠自身耐久挡弹；双足上耐久增加40%。"
       },
       "knight_fist": {
         "layer": "side",
@@ -3703,8 +3683,7 @@
         "punchCd": 0.85,
         "punchKnock": 0.25,
         "heat": 170,
-        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-        "art": "piston"
+        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
       },
       "knight_hammer": {
         "layer": "side",
@@ -3725,8 +3704,7 @@
         "punchCd": 1.7,
         "punchKnock": 0.65,
         "heat": 170,
-        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-        "art": "piston"
+        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
       },
       "knight_sword": {
         "layer": "side",
@@ -3747,8 +3725,7 @@
         "punchCd": 1.05,
         "punchKnock": 0,
         "heat": 170,
-        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。",
-        "art": "piston"
+        "desc": "侧挂近战手臂，贴身按冷却时间打击；双足上打击伤害增加40%。"
       },
       "knight_cannon": {
         "name": "骑士巨炮臂",
@@ -3780,7 +3757,11 @@
         "minMt": 2,
         "knight": "ranged",
         "weaponBase": "cannon_m",
-        "art": "cannon_m"
+        "piv": [
+          16,
+          38
+        ],
+        "blen": 56
       },
       "knight_gun": {
         "name": "骑士腕枪臂",
@@ -3812,25 +3793,11 @@
         "minMt": 2,
         "knight": "ranged",
         "weaponBase": "mg_s",
-        "art": "mg_s"
-      },
-      "helmet_wide": {
-        "name": "横式头盔驾驶舱",
-        "cat": "control",
-        "layer": "body",
-        "w": 2,
-        "h": 1,
-        "cockpit": true,
-        "drivers": 1,
-        "price": 70,
-        "hp": 45,
-        "power": 5,
-        "kg": 40,
-        "q": 1,
-        "desc": "横置的两子格驾驶舱，驾驶人数与原小驾驶舱相同，新增面积计入质量。",
-        "repairRate": 0.24,
-        "minMt": 2,
-        "art": "helmet"
+        "piv": [
+          16,
+          38
+        ],
+        "blen": 38
       }
     }
   }

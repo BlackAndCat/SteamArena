@@ -8,7 +8,7 @@ function run() {
   const { SA } = evolve.loadGame();
   // 第二章诊断池显式开放新件；正式战役的模块池与奖励不因此变化。
   const ids = ['leg_spring', 'leg_booster', 'knight_shield', 'knight_fist', 'knight_hammer',
-    'knight_sword', 'knight_cannon', 'knight_gun', 'helmet_wide'];
+    'knight_sword', 'knight_cannon', 'knight_gun', 'mech_helm'];
   const base = { chapter: 2, stage: 0, name: '双足挂件诊断', mat: 2, allowedMaterials: [2],
     grid: { cols: 8, rows: 6 }, budget: 5000,
     availableMods: ['biped', 'track', 'helmet', 'boiler_s', 'cannon_s', ...ids] };
