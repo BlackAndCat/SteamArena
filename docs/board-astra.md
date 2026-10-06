@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-- 2026-10-06 **出征后台正式开工（用户授权，优先于旧 K/J 待办）**：按 `docs/expedition-plan.md` 的样板范围推进；本次先发布下方计划与文件归属，再实施 R1。原 `HtmlGames-astra` 目录的车辆生成／工作台未提交内容保持原样，后台在独立 `main` 克隆 `Z:\AI\CodexTemp\SteamArena-astra-expedition-20261006` 工作，通过 `origin/main` 与 Opus 同步。以下是后台实施计划，不代表远征已经可玩；原有任务和历史记录保留。
+- 2026-10-06 **出征后台正式开工（用户授权，优先于旧 K/J 待办）**：计划已由 `161a600` 推送；R1 后台骨架本次落地，专项通过，完整回归存在下述基线失败。原 `HtmlGames-astra` 目录的车辆生成／工作台未提交内容保持原样，后台在独立 `main` 克隆 `Z:\AI\CodexTemp\SteamArena-astra-expedition-20261006` 工作，通过 `origin/main` 与 Opus 同步。远征画面和 R2 资源／结算尚未完成，不代表样板已经可玩；原有任务和历史记录保留。
 
 ### 出征后台实施计划与 Opus 交接（2026-10-06）
 
@@ -10,26 +10,37 @@
 
 **文件归属与避让**：
 
-- astra 将修改 `js/battle.js`、`js/build-sys.js`；新增 `js/route-data.js`（样板路线数据）、`js/route.js`（出征入口、运行规则、结果与结算）、`tools/route-check.js`（专项回归）。后续按需要修改 `js/modules.js` 的机制字段、`js/vehicle.js` 的货重／容量统计、`js/state.js` 的出征存档兼容，以及 `tools/evolve-check.js` 的检查接线。`docs/board-astra.md` 记录阶段状态与接口变更；这些后台文件请 Opus 避让。
+- astra 将修改 `js/battle.js`、`js/build-sys.js`；新增 `js/route-data.js`（样板路线数据）、`js/route.js`（出征入口、运行规则、结果与结算）、`tools/route-check.js`（专项回归）。后续按需要修改 `js/modules.js` 的机制计算及真正的数据源 `config/modules.json` 中的后台字段／新增煤货模块、`js/vehicle.js` 的货重／容量统计、`js/state.js` 的出征存档兼容，以及 `tools/evolve-check.js` 的检查接线；`elev/rest` 等视觉负责字段仍归 Opus。`docs/board-astra.md` 记录阶段状态与接口变更；这些后台文件请 Opus 避让。
 - Opus 继续负责 `js/battle-view.js`、`js/terrain-art.js`、`js/module-art.js`、`js/camp-ui.js`、`js/ui.js`、`js/main.js`、`index.html`、CSS 和视觉样机。astra 不修改、暂存或提交这些视觉文件；`config/stage-cars.json` 只读复用，不手工改车。若双方确需修改同一处，先由用户协调。
-- **请 Opus 接加载顺序**：已有 `content.js`／关卡车数据与 `battle.js` 加载后，依次加载 `js/route-data.js`、`js/route.js`，再允许界面调用 `SA.Route`。R1 提交前这些新文件尚不可用，请以本板明确标记的“接口可接”提交为准。
+- **请 Opus 接加载顺序**：已有 `content.js`／关卡车数据与 `battle.js` 加载后，依次加载 `js/route-data.js`、`js/route.js`，再允许界面调用 `SA.Route`。本次 R1 已提供这两个文件，请按最新计划 §9.1 的 O2 接入加载，并先完成下述空敌画面分支。
 - **请 Opus 尽早接最简入口与清点**：不必等完整场景和结束演出；入口、必要仪表、返航按钮和清点采用既有样式即可。造型仍按用户选择推进。后台只提供接口，不代做 UI。
 
 | 节点 | astra 工作 | 验收与交接条件 | 当前状态 |
 |---|---|---|---|
-| R1 旅程骨架 | A1/A2/A3/A4/A11：样板数据、长地形、空敌状态、接力遭遇、镜头、终点／主动返航和专用结果出口；先建立 A10 的确定性运行入口 | 同一局越过原 1280px 边界，无敌时正常行驶，连续两次遭遇结束后继续前进，终点／返航只结束一次；没有竞技场超时、奖金或关卡推进；专项与现有后台回归通过 | 计划已发布，接下来实施 |
+| R1 旅程骨架 | A1/A2/A3/A4/A11：样板数据、长地形、空敌状态、接力遭遇、镜头、终点／主动返航和专用结果出口；先建立 A10 的确定性运行入口 | 同一局越过原 1280px 边界，无敌时正常行驶，连续两次遭遇结束后继续前进，终点／返航只结束一次；没有竞技场超时、奖金或关卡推进；专项与现有后台回归通过 | 后台已落地，出征专项和相关回归通过；完整门禁受既有预算断言阻塞；界面待 Opus |
 | R2 资源与回营 | A5/A6/A7/A8/A9/A12：煤／水检查、货箱与货重、慢行拾取、停车 1.5 秒救援、障碍／遗迹、掉货、四种结束、收益／战损持久化 | 煤仓与货箱首次获取可达；指定正式可获得的参考车标定煤水和时长；终点、返航、抛锚、损毁逐项核对；遗迹成功带回才记取得；重复结算不重复发奖；已有维修／借款路径能支持再出征，否则回报并提出最小保底 | 待 R1 |
 | R3 联调与样板验收 | A10 与完整回归：r1 20 个固定种子、四种结束专项、读档与二次出征、竞技场回归；与 Opus 核对真实输入和呈现 | 玩家从正式入口完成“出征—带回—改装—再出征”；慢行与全速拾取区别可验证；参考车目标 4～6 分钟、正常直行余煤约 30%；现有竞技场检查通过 | 待 R2 与视觉接线 |
 
 **先固定的跨层约定（R1 实现后逐项公布可用状态）**：
 
-1. `SA.Route.list()` 返回路线列表；`SA.Route.start(id)` 使用当前正式车辆出发；`SA.Route.recall()` 请求免费主动返航；`SA.Route.result()` 读取本次完成结果；`SA.Route.settle(result)` 专门处理出征入档，不调用竞技场奖励流程；`SA.Route.simulate({route, vehicle, seed})` 使用正式逐帧规则，无画面运行不得写玩家存档。具体返回值在 R1 落地时一并注明。
+1. `SA.Route.list()` 返回路线列表；`SA.Route.start(id)` 使用当前正式车辆出发；`SA.Route.recall()` 请求免费主动返航；`SA.Route.result()` 读取本次完成结果；`SA.Route.settle(result)` 延至 R2 提供，专门处理出征入档，不调用竞技场奖励流程；`SA.Route.simulate({route, vehicle, seed})` 使用正式逐帧规则，无画面运行不得写玩家存档。R1 已落地的返回值见下方接口说明。
 2. `B.opts.mode === 'route'`，路线期间始终保留 `B.route`。**无敌车时使用 `B.e = null`**，请 Opus 的绘制、仪表、瞄准和输入分支按此处理；敌车退场不是整趟远征结束。`B.route.state` 为 `drive/fight/end`；其余字段沿用计划 §8，R1 尚未实现的资源字段不可作为已完成玩法。
 3. `B.ter.len` 为世界长度，`B.ter.props`／`pickups` 使用世界坐标。镜头状态仍归 `battle.js`，保持炮弹出界判定与画面共用同一镜头。敌车拴绳只限制当前敌车，不能把玩家整趟旅程钉在旧竞技场边界内。
 4. 事件沿用 `encounter/pickup/spill/coal/prop/route-end`；结果保持 `{mode:'route', route, how, dist, cargo, lost, refugees, relic, money, playerVehicle, time}`，补充本次出征身份用于避免重复结算。`how` 为 `depot/recall/stranded/wrecked`，事件与结算各只触发一次。
 5. R2 暂定采用一次性发放基础样板货箱／煤仓（A9 已授权 astra 定）；先测参考车再定容量和奖励数值，不用视觉演示车代替真实构筑。煤尽余温时限、抛锚货损取整、刷新取消未结算旅程等小口径随对应代码明确记录；任何需要改变已定玩法的取舍先报用户，不擅自扩充。
 
 **执行与验证纪律**：小步提交，`doc:` 计划先推送，随后 `sys:` 每个已验收节点立即推送到 `origin/main`；开工与提交前同步最新 `main`。所有改动 JS 跑 `node --check`，使用 `node tools/route-check.js` 做出征专项、`node tools/evolve-check.js` 做现有后台回归。首关进入／开火与战役仿真按现有检查能力及浏览器验收确认。只暂存本任务文件；遇到视觉或四足冲突停止并由用户协调。
+
+### R1 实施结果与接口可接范围（2026-10-06，本次 sys 提交）
+
+- **已实现**：r1 的 7680px 地形、空敌行驶／开火／镜头、三辆真实记录车接力、敌车拴绳、退场继续行驶、`depot/recall/wrecked` 结束。玩家状态在遭遇间保留；退敌清理鱼叉与投降计时，炮弹保留原目标引用，不把上一敌车的弹误套到下一辆。路线不会触发竞技场超时、胜负清点、奖金或进度。
+- **现可接接口**：`SA.Route.list()`；`SA.Route.start('r1')` 返回战斗状态 B；`SA.Route.recall()`；`SA.Route.result()`；`SA.Route.simulate({route:'r1', vehicle, seed, maxTime?})` 返回 `{completed,reason,result,time,dist,cleared,state}`。模拟超预算返回 `completed:false`、`reason:'budget'`、`result:null`，不能当到站；模拟结束恢复外部战斗和随机源，不写存档。**R1 未提供 `SA.Route.settle`**，请勿接成已能发奖的清点。
+- `B.route` 已有 `{id,len,x,state,encounter,next,cleared,wrecks,runId}`；`B.ter.props` 与原 `crates` 是同一批世界坐标物件，`pickups` 仅为数据／残骸物资占位。结束发 `route-end` 后清理战斗输入，用 `SA.Route.result()` 读取结果，不调用竞技场 `presentResult`。R1 结果的 `cargo/lost` 为空、`money` 为 0；煤、货位、慢行拾取、救援、货重、水量标定、`stranded` 和持久化奖励均待 R2。
+- **Opus 接线前置**：两条新增脚本已有实际文件，可按前述顺序接入。正式 `battle-view.js` 当前 `start` 的敌名、车辆绘制等路径仍直接读 `B.e.name/dead/v`；请先补 `mode === 'route'` 及 `B.e === null` 分支，再开放入口，否则空敌开局会报错。玩家瞄准／移动可在空敌时使用世界坐标；不要以“敌人死亡”结束整趟出征。此处是明确待接项，astra 未越界修改视觉文件。
+- **已接收 Opus 的最新分期（`94ea682`）**：O1 可先用 `SA.Route.list()` 的定义与 `B.route.cleared` 接路线图／路程条，R2 尚无的煤货字段先隐藏；O2 再接真实出征入口。R2 遵守用户新选定的 A 造型，只做大／小板条货筐和漏斗煤斗，预定模块 ID 分别为 `cargo_large`、`cargo_small`、`coal_bin`，供 Opus 预留外观映射；B/C 后续等级不在本次 R1 实现中。
+- **已执行验证**：六个改动 JS 语法及 `git diff --check` 通过；`node tools/route-check.js` 覆盖长地形、空敌开火、长坐标物件实伤、退敌接力、旧弹不伤下一敌、鱼叉／投降计时清理、三个已支持结束类型只生成一次结果、无竞技场超时、模拟隔离。20 个固定种子的全长 r1 均完成三个唯一遭遇并到站，另核对固定种子重复结果一致；使用的是独立 T6 强检查车，**只证明规则稳定性，不证明普通可获得样板车、4～6 分钟或余煤 30% 已标定**。
+- **现有玩法回归**：`first-stage-fix-check.run()` 实际执行并通过首关模拟输入开火；`battle-audit-check`、`high-arc-near-check`、`harpoon-check`、`biped-check` 通过。正式无画面引擎对当前 15 个可玩战役关卡逐一运行固定种子，15/15 完成且无非有限值、不改存档。独立浏览器新档进入原标题页／首关成功，所查浏览器错误与警告为 0；未把浏览器入口检查写成远征实玩验收。
+- **完整门禁未通过，已归因并保留**：`node tools/evolve-check.js` 在既有 `tools/evolve-stage-rules-check.js:10` 报 `34 !== 10`。规则表覆盖全 34 关，而断言只统计前两章 10 关；用 `161a600` 基线 `battle.js` 在内存中替换后，同一专项仍复现。相关配置／断言本次未改。该错误发生在新 `routeCheck.run()` 之前，所以出征专项另行完整运行；不跳过或放宽旧断言以制造全绿，后续门禁维护需单独处理。
 
 - 2026-10-01 序章与第一章地图边界复核：按用户要求，两章均以世界坐标 0～1280 为边界（第一章由 `cf5306b` 接入），第二章原有边界保留；战役入口、无画面模拟和进化生成均传递章节边界。外缘、速度、碰撞及撞锤限位专项通过，边界接入完成。
 - 固定 `cf5306b7803d7ca51ee8265d4c900ac2406f1c8c` 评估，隔离工作区间接炮改动；采用正式 `tools/sim.js` 的 `REF[1]`。普通关每种边界模式各 50 个固定种子（`20261001`～`20261050`），奇数局参考车在玩家侧、偶数局在敌方侧；下列胜率均为玩家参考车，平局计半胜。

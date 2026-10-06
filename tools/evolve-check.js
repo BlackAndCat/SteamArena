@@ -60,6 +60,7 @@ const auditShare = require('./share-audit-check');
 const auditVisual = require('./visual-audit-check');
 const aiRush = require('./ai-rush-check');
 const gpuHeatBounds = require('./evolve-gpu-heat-bounds-check');
+const routeCheck = require('./route-check');
 
 function auxiliaryAimCheck() {
   const { SA } = evolve.loadGame();
@@ -279,6 +280,7 @@ async function main() {
   result.meleeRules = meleeRules.run();
   result.audit = audit;
   result.aiRush = aiRush.run();
+  result.route = routeCheck.run();
   console.log(JSON.stringify(result, null, 2));
 }
 
