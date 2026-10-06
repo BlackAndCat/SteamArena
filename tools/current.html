@@ -36,8 +36,8 @@
 <body>
 <h1>当前开发 · 出征样板路线 1 · 视觉稿 v1</h1>
 <p class="lead">计划见 <code>docs/expedition-plan.md</code>。这一页<b>只是画面样机</b>：路线按计划 §4 的分段表画；敌车直接读现有关卡车；
-煤、货位、遭遇、破门都是摆拍，规则以 astra 的实现为准。<b>要你挑的</b>：③ 货箱三选一、④ 煤仓三选一（点卡片，上面的卷轴预览会立刻换上），
-以及 ⑤ 路线上的东西看着对不对。背景暂借「野地」场景并压暗去色，真正的废土场景是下一步（计划 V2）。</p>
+煤、货位、遭遇、破门都是摆拍，规则以 astra 的实现为准。<b>已定（2026-10-06）</b>：货箱、煤仓三套都做、分三个等级，样板先用 <b>A 板条货筐</b>、<b>A 漏斗煤斗</b>（③④ 里仍可点 B / C 预览）。
+画法已经搬进游戏文件 <code>js/route-art.js</code>。背景暂借「野地」场景并压暗去色，真正的废土场景是下一步（计划 V2）。</p>
 
 <h2>① 卷轴预览 · 铁匠铺 → 旧煤场</h2>
 <div class="bar">
@@ -61,10 +61,10 @@
 <h2>② 路线图 · 出征黑板上的样子（点一下跳到那里）</h2>
 <div class="map" id="mapBox"><canvas class="px" id="map" width="1536" height="240"></canvas></div>
 
-<h2>③ 货箱 · 三选一（大货箱 2×2 = 4 位，小货箱 1×1 = 1 位）</h2>
+<h2>③ 货箱 · 三个等级（样板先用 A；大货箱 2×2 = 4 位，小货箱 1×1 = 1 位）</h2>
 <div class="opts" id="cargoOpts"></div>
 
-<h2>④ 煤仓 · 三选一（1×2）</h2>
+<h2>④ 煤仓 · 三个等级（样板先用 A；1×2）</h2>
 <div class="opts" id="binOpts"></div>
 
 <h2>⑤ 路线上的东西</h2>
@@ -74,6 +74,6 @@
 <script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/coal.js"></script>
 <script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/legs.js"></script><script src="../js/stage-cars.js"></script>
-<script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script>
+<script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script><script src="../js/route-art.js"></script>
 <script src="current.js"></script><script src="labs.js"></script>
 </body></html>

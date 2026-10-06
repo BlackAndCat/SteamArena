@@ -329,6 +329,8 @@ SA.UI = (() => {
 
   // ---------- 战后结算 ----------
   function afterBattle(res) {
+    // 出征（卷轴路线）不走竞技场结算：交给清点黑板（js/expedition-ui.js），入档由 SA.Route.settle 做
+    if (res && res.mode === 'route' && SA.ExpeditionUI) { SA.ExpeditionUI.afterRoute(res); return; }
     const d = S();
     // 过关提示（SA.Story）：记下打的是哪一场、结算前开放了哪些功能，结算弹窗之后由亲戚补一句
     const at = res.mode === 'campaign' && !res.replay ? SA.Camp.current() : null;
