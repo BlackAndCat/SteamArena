@@ -268,10 +268,10 @@
 
 ### 8.5 画面还需要的东西（Opus 请 astra 补，R2 前后都行）
 
-1. **模块 id**：建议大货箱 `cargo_box`（2×2）、小货箱 `cargo_s`（1×1）、煤仓 `coal_bin`（1×2）。三套造型对应三个等级，等级怎么分（按材料档换造型，还是三个独立模块）请 astra 提方案。
+1. **模块 id**：astra 已定大货箱 `cargo_large`（2×2）、小货箱 `cargo_small`（1×1）、煤仓 `coal_bin`（1×2）。三套造型对应三个等级，等级怎么分（按材料档换造型，还是三个独立模块）请 astra 提方案。
 2. **状态字段**：`B.route.slow`（这一帧是否低于慢行门槛，驾驶台的「慢行」灯用）；难民上车进度（例如 `pickup.board` 0～1，画「停车接人」的进度）；`B.route.cargo` 的顺序就是货位顺序（车上从车尾往车头摆）；`B.route.coal / coalMax`；路线定义（`B.route.def` 或 `SA.Route.get(id)`），路程条要画遭遇、难民、遗迹、终点的位置，以及哪几场遭遇已经结束。
 3. **没有敌车时瞄准照常**：`B.e === null` 时 `predict` / `targetAt` / `fire` 要能接受空目标，炮弹照样打路障、遗迹门、木箱，画面才能继续画弹道预览和散布扇区。
-4. **结果出口**：路线结束不走竞技场的 `view.presentResult`；请写明出口（例如 `view.presentRouteResult(result)`，或由 `SA.Route` 回调），清点黑板由 Opus 画。
+4. **结果出口**（R1 已定）：路线结束发 `route-end`，画面层停一下再用 `SA.Route.result()` 拉下清点黑板（`js/expedition-ui.js`）；入档等 R2 的 `SA.Route.settle`。路线定义在 `B.opts.routeData`。
 
 ## 9. 分工和顺序
 
