@@ -5,10 +5,75 @@
 <style>
   body { padding: 16px; overflow-y: auto; }
   h1 { color: var(--brass2); font-size: 20px; margin: 0 0 8px; letter-spacing: 2px; }
-  .lead { color: var(--muted); max-width: 980px; line-height: 1.6; }
+  h2 { color: var(--brass2); font-size: 16px; margin: 28px 0 6px; letter-spacing: 1px; }
+  .lead, .note { color: var(--muted); max-width: 1100px; line-height: 1.65; }
+  .note { font-size: 13px; margin: 6px 0 0; }
+  .lead b, .note b { color: var(--text, #e8e0cc); }
+  canvas.px { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+  .stage { max-width: 1280px; position: relative; }
+  .stage canvas { width: 100%; height: auto; background: #111; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; max-width: 1280px; }
+  .bar input[type=range] { flex: 1; min-width: 200px; }
+  .bar .tag { color: var(--muted); font-size: 13px; }
+  .dash { max-width: 1280px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin-top: 2px;
+    background: #1b1714; border: 2px solid #3a2f27; border-top: 0; }
+  .dash .grp { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
+  .dash .lamp { padding: 2px 8px; border: 1px solid #4a3f37; color: #6f6154; font-size: 12px; }
+  .dash .lamp.on { color: #ffd166; border-color: #b8391b; background: #2a1a10; }
+  .map { max-width: 1280px; overflow-x: auto; border: 2px solid #3a2f27; background: #1d2621; cursor: pointer; }
+  .map canvas { height: 240px; width: auto; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; max-width: 1280px; }
+  .card { background: #1d1916; border: 2px solid #3a2f27; padding: 12px; cursor: pointer; }
+  .card.on { border-color: var(--brass2, #d9a441); box-shadow: 0 0 0 1px #4e3510 inset; }
+  .card h3 { margin: 0 0 6px; color: var(--brass2); font-size: 15px; }
+  .card .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .card figure { margin: 0; text-align: center; color: var(--muted); font-size: 12px; }
+  .card figure canvas { background: #2a2420; margin: 0 auto 4px; }
+  .card p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
+  .sheet { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; max-width: 1280px; background: #3b4136; padding: 14px; border: 2px solid #3a2f27; }
+  .sheet figure { margin: 0; text-align: center; color: #d8d2c0; font-size: 12px; }
 </style></head>
 <body>
-<h1>当前开发</h1>
-<p class="lead">现在没有等你确认的东西。上一期「双足进游戏 v9」（骑士手臂、机甲头盔、腿部件、下蹲 / 跳跃）已通过，归档在 <a href="archive/biped-v9.html">archive/biped-v9</a>；更早的双足强化在 <a href="archive/biped-v8.html">archive/biped-v8</a>。</p>
+<h1>当前开发 · 出征样板路线 1 · 视觉稿 v1</h1>
+<p class="lead">计划见 <code>docs/expedition-plan.md</code>。这一页<b>只是画面样机</b>：路线按计划 §4 的分段表画；敌车直接读现有关卡车；
+煤、货位、遭遇、破门都是摆拍，规则以 astra 的实现为准。<b>要你挑的</b>：③ 货箱三选一、④ 煤仓三选一（点卡片，上面的卷轴预览会立刻换上），
+以及 ⑤ 路线上的东西看着对不对。背景暂借「野地」场景并压暗去色，真正的废土场景是下一步（计划 V2）。</p>
+
+<h2>① 卷轴预览 · 铁匠铺 → 旧煤场</h2>
+<div class="bar">
+  <button class="btn small" id="play">暂停</button>
+  <button class="btn small" id="restart">从头开</button>
+  <span class="tag">速度</span>
+  <button class="btn small" data-speed="1">×1</button><button class="btn small" data-speed="2">×2</button><button class="btn small" data-speed="4">×4</button>
+  <input type="range" id="scrub" min="0" max="7680" step="1" value="0">
+  <span class="tag" id="where">0 m</span>
+</div>
+<div class="stage"><canvas class="px" id="view" width="1280" height="720"></canvas></div>
+<div class="dash" id="dash">
+  <div class="grp">煤<canvas class="px" id="coalG" width="124" height="20" style="width:248px;height:40px"></canvas></div>
+  <div class="grp">货位<canvas class="px" id="cargoG" width="132" height="28" style="width:264px;height:56px"></canvas></div>
+  <div class="grp"><span class="lamp" id="slowLamp">慢行 · 捡东西</span><span class="lamp" id="stopLamp">停车 · 接人</span></div>
+  <div class="grp"><canvas class="px" id="whistle" width="28" height="34" style="width:56px;height:68px"></canvas>拉汽笛返航</div>
+</div>
+<p class="note">顶上的铁条是<b>路程条</b>（替换竞技场的计时鼓）：遭遇、难民、遗迹、终点的位置一眼可见。下面的驾驶台在现有的耐久 / 热量 / 水之外加<b>煤表</b>和<b>货位格</b>，返航做成拉汽笛。
+演示的司机会<b>慢下来捡</b>一部分东西、<b>全速冲过</b>另一部分（计划 §3.3：捡东西要减速），在第二家难民那里货位已满，接不了。</p>
+
+<h2>② 路线图 · 出征黑板上的样子（点一下跳到那里）</h2>
+<div class="map" id="mapBox"><canvas class="px" id="map" width="1536" height="240"></canvas></div>
+
+<h2>③ 货箱 · 三选一（大货箱 2×2 = 4 位，小货箱 1×1 = 1 位）</h2>
+<div class="opts" id="cargoOpts"></div>
+
+<h2>④ 煤仓 · 三选一（1×2）</h2>
+<div class="opts" id="binOpts"></div>
+
+<h2>⑤ 路线上的东西</h2>
+<div class="sheet" id="props"></div>
+<p class="note">都按世界像素 1:1 画（和车同一尺度），这里放大 2 倍看。木箱沿用现在的地形货箱画法；路障、遗迹门有完好 / 破损 / 打开三种状态。</p>
+
+<script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/coal.js"></script>
+<script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/legs.js"></script><script src="../js/stage-cars.js"></script>
+<script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script>
 <script src="current.js"></script><script src="labs.js"></script>
 </body></html>
