@@ -493,12 +493,15 @@ SA.Story = (() => {
       : (C0.done ? '战役已通关' : ch.name);
     const go = h('button', { class: 'btn primary title-go', type: 'button' }, '开始游戏');
     const edit = !SA.RELEASE ? h('button', { class: 'btn small', type: 'button', 'data-story-action': '1' }, '编排开场剧情') : null;
+    // 手机竖着拿时才出现（css .title-land）：浏览器不肯转屏也能横着玩，见 js/orient.js；放在最后，不挪动作者文本按位置记的 key
+    const land = SA.Orient && SA.Orient.touch() && !SA.Orient.on()
+      ? h('button', { class: 'btn small title-land', type: 'button', 'data-page-key': 'title-land', onclick: () => SA.Orient.enter() }, SA.Config.text('orient_title_enter')) : null;
     const root = h('div', { class: 'title', role: 'dialog', 'aria-label': '蒸汽竞技场' }, bg,
       h('div', { class: 'title-card' }, em,
         h('h1', { class: 'title-name' }, '蒸汽竞技场'),
         h('div', { class: 'title-sub' }, 'STEAM  ARENA'),
         go, edit,
-        h('div', { class: 'title-save' }, fresh ? '新的存档' : `继续存档 · ${savePlace}`)));
+        h('div', { class: 'title-save' }, fresh ? '新的存档' : `继续存档 · ${savePlace}`), land));
     document.body.append(root);
     const g = bg.getContext('2d'), eg = em.getContext('2d');
     let raf = 0, t = 0, last = performance.now(), left = false;

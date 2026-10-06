@@ -158,6 +158,9 @@ SA.UI = (() => {
     dialog(SA.Config.text("home_df3d58c7d84b"), [h('p', { style: 'margin-top:0' }, SA.RELEASE ? SA.Config.text("ui_d70b4921fdf5") : SA.Config.text("ui_bb50197fd247"))], [
       !SA.RELEASE ? { label: SA.Config.text("ui_38084d301e3f"), onClick: () => SA.Camp.dev.panel() } : null,
       SA.Scenes ? { label: SA.Config.text("ui_ca3bf7a57916", `${SA.Scenes.fxOn() ? SA.Config.text("ui_39eae64cfc41") : SA.Config.text("ui_5d0ae622f61f")}`), onClick: () => { SA.Scenes.setFx(!SA.Scenes.fxOn()); SA.toast && SA.toast(SA.Config.text("ui_0729b8049e2d", `${SA.Scenes.fxOn() ? SA.Config.text("ui_c771248e511f") : SA.Config.text("ui_3fd47edce45b")}`)); } } : null,
+      // 横屏模式（js/orient.js）：手机浏览器转不过来时把整个游戏转 90° 显示；只给手机 / 平板看
+      SA.Orient?.can() ? { label: SA.Config.text(SA.Orient.on() ? "orient_exit" : "orient_enter"), onClick: () => (SA.Orient.on() ? SA.Orient.exit() : SA.Orient.enter()) } : null,
+      SA.Orient?.rotated() ? { label: SA.Config.text("orient_flip"), onClick: () => SA.Orient.flip() } : null,
       !SA.Camp?.isDesignMode?.() ? { label: SA.Config.text("ui_cb26ea7b2b32"), onClick: confirmRestartGame } : null,
       !SA.RELEASE && SA.Text ? { label: editing ? SA.Config.text("ui_4e8fb22363f8") : SA.Config.text("ui_7034b0e63dfd"), onClick: () => { SA.Text.toggle(); topbar(); } } : null,
     ].filter(Boolean));
