@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-05-biped-actions';
+SA.RULES_VERSION = '2026-10-06-harpoon-ai-pull';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -695,7 +695,8 @@ SA.Battle = (() => {
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可按 K.SPEED_BOOST 超速）
     // 地形：泥地减速、上坡慢下坡快
     const tk = s.airDuration > 0 ? { top: 1, acc: 1 } : terrainK(s, dir || Math.sign(s.vx));
-    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
+    // 绳索收绳速度叠加在自主驾驶目标上：外向驾驶仍能抵抗，断绳恢复正常制动。
+    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed + (s.tetherPullVx || 0);
     const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
@@ -703,7 +704,8 @@ SA.Battle = (() => {
     const skid = braking && Math.abs(s.vx) > own * T.SKID_SPEED_MULT + T.SKID_SPEED_OFFSET;
     // 制动倍率同时覆盖正常刹车和被撞飞后的打滑减速，不改变起步加速度。
     let acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) * s.statMultipliers.brake : K.ACCEL * s.accelK * tk.acc) * k;
-    if (!braking && dir) {
+    // 自主牵引力受本车动力限制；外部绳索提供收绳力，无动力车辆也能被拖动。
+    if (!braking && dir && !s.tetherPullVx) {
       const [left, right] = span(s), front = dir > 0 ? right : left, back = dir > 0 ? left : right;
       const grade = (groundAt(back) - groundAt(front)) / Math.max(1, right - left);
       const kg = s.mass * 1000, metresPerSec = Math.abs(s.vx) * SA.Phys.PX_M;
@@ -965,15 +967,21 @@ SA.Battle = (() => {
     e[key] = (e[key] || 0) + value;
   }
 
-  // 鱼叉牵引：按两车质量反比分摊收绳冲量，距离过远、目标损毁或超过 T.TETHER_TIMEOUT 秒自动断开。
+  // 鱼叉牵引：按两车质量反比分摊收绳速度，一对目标速度的总动量为零。
+  // 在 drive 积分前叠加，避免松手刹车吞掉牵引；货箱、车体碰撞和场地边界仍走原路径。
   function updateTether(s, o, dt) {
     const t = s.tether;
     if (!t) return;
     t.time -= dt;
     const target = o.v[t.layer] && o.v[t.layer][t.r] && o.v[t.layer][t.r][t.c];
     const dist = Math.abs(o.x - s.x);
-    if (t.time <= 0 || dist > T.TETHER_MAX_DISTANCE || !target || !alive(target) || !alive(t.cell)) { s.tether = null; return; }
-    if (dist > T.TETHER_PULL_DISTANCE) shove(s, o, Math.min(M.harpoon.tether * dt, T.TETHER_SPEED_MAX));
+    if (s.dead || o.dead || t.time <= 0 || dist > T.TETHER_MAX_DISTANCE || !target || !alive(target) || !alive(t.cell)) { s.tether = null; return; }
+    if (dist > T.TETHER_PULL_DISTANCE) {
+      const dir = Math.sign(o.x - s.x), sum = s.mass + o.mass;
+      const speed = Math.min(M.harpoon.tether, T.TETHER_SPEED_MAX);
+      s.tetherPullVx += dir * speed * 2 * o.mass / sum;
+      o.tetherPullVx -= dir * speed * 2 * s.mass / sum;
+    }
   }
 
   // 蒸汽撞锤：贴身时周期性猛击
@@ -1058,7 +1066,6 @@ SA.Battle = (() => {
     if (s.hold) s.holdSeconds += dt;
     if (s.fireHeld) s.fireHeldSeconds += dt;
     s.knightCooldown = Math.max(0, s.knightCooldown - dt);
-    updateTether(s, o, dt);
     // 蓄压罐按秒充放：富余动力存入，短缺时按 STORE_RELEASE_PER_SEC 限制释放。
     // 每帧按剩水重算质量；锅炉供能不受冷却储水限制。
     s.mass = Math.max(T.MASS_MIN_TONS, (s.dryKg + s.water) / 1000);
@@ -1263,12 +1270,15 @@ SA.Battle = (() => {
     const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow / 100 : T.AI_HEAT_LOW;
     if (s.heat / s.heatMax > heatHigh) s.hold = true; else if (s.heat / s.heatMax < heatLow) s.hold = false;
     s.retarget -= dt;
+    // 鱼叉发射后立即让出单驾驶员的主控位；连接期间不等待鱼叉装填再换炮。
+    if (s.sel === 'harpoon' && (s.tether || !s.weapons.some(w => w.cell.id === 'harpoon' && !w.blocked && alive(w.cell) && !(s.timers[w.key] > 0)))) s.retarget = 0;
     const style = normalizeAiStyle(s.style);
     if (s.chassisId === 'biped') { s.crouchHeld = false; s.jumpHeld = false; }
     const tAlive = s.target && alive(o.v[s.target.layer]?.[s.target.r]?.[s.target.c]);
     if (!tAlive || s.retarget <= 0) {
       const precise = ['sniper', 'assassin', 'disruptor'].includes(style);
-      const ranked = precise ? s.weapons.filter(w => !w.blocked).sort((a, b) => (b.m.dmg || 0) / Math.max(0.4, b.m.reload || 1) - (a.m.dmg || 0) / Math.max(0.4, a.m.reload || 1)) : [];
+      const available = s.weapons.filter(w => !w.blocked && alive(w.cell) && (w.cell.id !== 'harpoon' || (!s.tether && !(s.timers[w.key] > 0))));
+      const ranked = precise ? available.filter(w => w.cell.id !== 'harpoon').sort((a, b) => (b.m.dmg || 0) / Math.max(0.4, b.m.reload || 1) - (a.m.dmg || 0) / Math.max(0.4, a.m.reload || 1)) : [];
       let best = ranked[0], choice = precise ? priorityTarget(s, o, style, best) : null;
       // 首选炮没有有效射线时，再试其他已存活武器；始终以实际选中的炮评估目标。
       for (const w of ranked.slice(1)) {
@@ -1277,6 +1287,13 @@ SA.Battle = (() => {
         if (alt.score > 0) { best = w; choice = alt; }
       }
       s.target = precise ? choice.target : pickTarget(o, style === 'clumsy');
+      // 控制武器不按低伤害 DPS 排到最后：只在正常重选时寻找真实可达的收绳机会。
+      // priorityTarget 同时检查射界、地形和实际命中模块，装填中或已有绳索不抢主炮。
+      // 弹道能命中但中心距超过绳索长度时不能控制目标，不为无效连接占主控位。
+      for (const w of available.filter(w => w.cell.id === 'harpoon' && Math.abs(o.x - s.x) <= T.TETHER_MAX_DISTANCE)) {
+        const hook = priorityTarget(s, o, style, w);
+        if (hook.score > 0) { best = w; s.target = hook.target; break; }
+      }
       if (B.aiStats && s.target) {
         const id = o.v[s.target.layer][s.target.r][s.target.c].id, m = M[id];
         const kind = m.dmg ? 'weapon' : SA.isCockpit(id) ? 'cockpit' : m.supply ? 'boiler' : 'other';
@@ -1287,8 +1304,9 @@ SA.Battle = (() => {
       s.err = { x: gauss() * e, y: gauss() * e * T.AI_ERROR_Y_SCALE };
       s.retarget = (['sniper', 'assassin', 'disruptor'].includes(style) ? 1.3 : rnd(T.AI_RETARGET_MIN, T.AI_RETARGET_MAX)) * (Number.isFinite(profile.retargetFactor) ? profile.retargetFactor : 1);
       // 选武器组：直射打得到就直射，否则换高抛
-      s.sel = best?.cell.id || s.groups[Math.floor(random() * s.groups.length)] || null;
-      if (s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
+      const groups = s.groups.filter(id => id !== 'harpoon' && available.some(w => w.cell.id === id));
+      s.sel = best?.cell.id || groups[Math.floor(random() * groups.length)] || null;
+      if (s.sel !== 'harpoon' && s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
         const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
         const pr = w && predict(s, o, w, aimAngle(s, w, pt[0], pt[1]).a, false);
@@ -1621,6 +1639,9 @@ SA.Battle = (() => {
       B.p.crouchHeld = !!B.keys.crouch; B.p.jumpHeld = !!B.keys.jump;
     }
     ai(B.e, B.p, dt);
+    // 两端先共同算出本帧收绳目标，避免先更新的一方占据时序优势。
+    B.p.tetherPullVx = B.e.tetherPullVx = 0;
+    updateTether(B.p, B.e, dt); updateTether(B.e, B.p, dt);
     sim(B.p, B.e, dt);
     sim(B.e, B.p, dt);
     B.p.anim.step(dt); B.e.anim.step(dt);

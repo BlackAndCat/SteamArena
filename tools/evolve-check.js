@@ -25,6 +25,7 @@ const evolveSelection = require('./evolve-selection-check');
 const evolveBudgetRanking = require('./evolve-budget-ranking-check');
 const fullWorkshopGrid = require('./full-workshop-grid-check');
 const bipedCheck = require('./biped-check');
+const harpoonCheck = require('./harpoon-check');
 const evolveProgression = require('./evolve-progression-check');
 const evolveCatalog = require('./evolve-catalog-check');
 const evolveParallelValidation = require('./evolve-parallel-validation-check');
@@ -199,6 +200,7 @@ async function main() {
   const budgetRanking = evolveBudgetRanking.run();
   const workshopGrid = fullWorkshopGrid.run();
   const biped = bipedCheck.run();
+  const harpoon = harpoonCheck.run();
   const constraints = stageRules.run(), tracks = trackChain.run();
   const progression = evolveProgression.run(), diversity = evolveDiversity.run(), lockedEntry = evolveLocked.run();
   const catalog = await evolveCatalog.run();
@@ -246,6 +248,7 @@ async function main() {
   result.budgetRanking = budgetRanking;
   result.workshopGrid = workshopGrid;
   result.biped = biped;
+  result.harpoon = harpoon;
   result.progression = progression;
   result.catalog = catalog;
   result.parallelValidation = parallelValidation;

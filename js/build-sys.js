@@ -62,3 +62,4 @@ SA.BUILD_SYS += '+evolve-budget-pressure-v1'; // 强度90%＋节约10%、预算�
 SA.BUILD_SYS += '+full-workshop-grid'; // 新旧玩家车、关卡车与全部候选统一开放8×6大格，其他规则不变。
 SA.BUILD_SYS += '+mail-load-6000'; // 仅锁甲骑士腿实例的最终承重固定6000kg，普通双足和其它变体保留原值。
 SA.BUILD_SYS += '+biped-actions-knights-v1'; // 双足蹲跳、腿挂件、轻重腿与骑士机制；输入和外观由视觉层接入。
+SA.BUILD_SYS += '+harpoon-ai-inward-pull'; // 鱼叉按质量向内收绳，AI 优先有效牵引并及时恢复其他火力。
