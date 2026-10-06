@@ -18,11 +18,13 @@ SA.CUR = (() => {
     ['knight_gun', '骑士腕枪臂', '小臂指向瞄准方向，枪管从拳头前伸出（-8°～32°）'],
   ];
   const isGun = (id) => id === 'knight_cannon' || id === 'knight_gun';
-  // 一台带手臂的双足：躯干 = 竖式锅炉 + 小水罐 + 甲片，顶上机甲头盔，手臂挂在胸口
+  // 一台带手臂的双足：头盔在第 4 行，下面三行胸腹（甲片 / 竖式锅炉 / 小水罐），手臂挂在头盔下面的第 5～7 行
+  // （用户 2026-10-05：手臂不能放在头盔那一行，要更下面；手臂 3 行高又不能伸进胯行，所以头盔最高放第 4 行）
   function armCar(id, mt) {
     const v = SA.V.create('骑士臂');
     v.body[8][6] = SA.newCell('biped', mt); v.body[6][6] = SA.newCell('boiler_s', mt); v.body[6][7] = SA.newCell('tank_s', mt);
-    v.body[7][7] = SA.newCell('plate', mt); v.body[5][6] = SA.newCell('mech_helm', mt);
+    v.body[7][7] = SA.newCell('plate', mt); v.body[5][6] = SA.newCell('plate', mt); v.body[5][7] = SA.newCell('plate', mt);
+    v.body[4][6] = SA.newCell('mech_helm', mt);
     v.side[5][7] = SA.newCell(id, mt);
     return v;
   }
@@ -35,7 +37,7 @@ SA.CUR = (() => {
     g.drawImage(car, dx, dy);
   }
   // Ⓐ 手臂：近战约 1.4 秒出手一次；武器在仰角范围里来回扫；一直慢走
-  const ARM_BOX = { W: 7 * S, H: 8 * S };
+  const ARM_BOX = { W: 7 * S, H: 9 * S };
   function renderArm(cv, id, mt, st) {
     const v = carOf(id + mt, () => armCar(id, mt)), sp = st.mv ? 45 : 0, stride = LL.strideFor(sp), a = st.mv ? TAU * st.t * sp / (4 * stride) : 0;
     const o = { key: 'arm-' + id + mt, t: st.t, moving: sp > 0, speed: sp, phase: a };
@@ -45,14 +47,14 @@ SA.CUR = (() => {
     blitCar(cv, car, -(PADX + 4 * S) - 8, -(GROUND - ARM_BOX.H));
   }
   // Ⓑ 整车一轮：走 2 秒 → 跑 2 秒 → 蹲 1.6 秒 → 跳（0.15 秒蓄力 + 空中 0.8 秒，高 60px）→ 站 0.6 秒
-  const FULL = [['biped', 8, 6, 'body'], ['boiler_s', 6, 6, 'body'], ['tank_s', 7, 7, 'body'], ['plate', 6, 7, 'body'], ['mech_helm', 5, 6, 'body'],
+  const FULL = [['biped', 8, 6, 'body'], ['boiler_s', 6, 6, 'body'], ['tank_s', 7, 7, 'body'], ['plate', 6, 7, 'body'], ['plate', 5, 6, 'body'], ['plate', 5, 7, 'body'], ['mech_helm', 4, 6, 'body'],
     ['leg_spring', 11, 6, 'side'], ['leg_booster', 8, 6, 'side'], ['knight_cannon', 5, 7, 'side']];
   function fullCar(mt) {
     const v = SA.V.create('骑士整车');
     for (const [id, r, c, layer] of FULL) v[layer][r][c] = SA.newCell(id, mt);
     return v;
   }
-  const FULL_BOX = { W: 9 * S, H: 11 * S };   // 跳 60px 也装得下
+  const FULL_BOX = { W: 9 * S, H: 12 * S };   // 跳 60px 也装得下
   const PHASES = [['走', 2], ['跑', 2], ['蹲', 1.6], ['跳', 1.05], ['站', 0.6]], CYCLE = PHASES.reduce((a, [, d]) => a + d, 0);
   function poseAt(t) {
     let u = t % CYCLE;

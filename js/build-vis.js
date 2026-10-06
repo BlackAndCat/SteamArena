@@ -68,3 +68,4 @@ SA.BUILD_VIS += '+biped-gait-v2'; // 双足走路 / 跑步重做：按步频算�
 SA.BUILD_VIS += '+biped-mech-looks'; // 机甲套件 v4 进游戏：双足躯干顶角的甲片 = 肩甲，最后一列的竖式锅炉 / 小水罐 / 加压舱 = 背负锅炉 / 背水罐 / 喷汽背包（只换画面）；bipedArt 加 hipPart 挂点。
 SA.BUILD_VIS += '+mech-helm'; // 新模块机甲头盔 mech_helm（2×1，头盔居中一格 + 两侧防御饰件；5 种造型，游戏先用 A）；跳跃件 / 提速件画法定稿进 legs.js；头盔和肩甲不垫车体框架。
 SA.BUILD_VIS += '+biped-in-game'; // 头盔定稿 D；骑士手臂 6 种专用画法（近战挥动、武器绕肘瞄准）；腿部件画在腿骨 / 胯上；下蹲 / 跳跃接线（按键、触屏、腿姿、地影、喷汽、扬尘）；走跑区间 92～118。
+SA.BUILD_VIS += '+knight-arm-below-helm'; // 当前开发 v9 样车改成头盔第 4 行、手臂挂在头盔下面（规则见 vehicle.js helmBottom）。
