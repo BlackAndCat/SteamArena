@@ -295,7 +295,8 @@ SA.S = (() => {
         const restored = SA.newCell(cell.id, cell.mt || 1);
         if (cell.unique) restored.unique = cell.unique;
         if (cell.look) restored.look = cell.look;
-        SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) ? restored : null);
+        if (cell.refit) { restored.refit = cell.refit; restored.hp = SA.V.maxHp(restored); }
+        SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) || cell.refit ? restored : null);
         for (let k = 1; k <= (cell.lv || 0); k++) d().money += Math.round(SA.upCost(cell.id, k) * ECON.upgradeRefundRate);
       }
       d().money += p.scrap;
@@ -560,7 +561,9 @@ SA.S = (() => {
       const stock = SA.newCell(cell.id, cell.mt || 1);
       if (cell.unique) stock.unique = cell.unique;
       if (cell.look) stock.look = cell.look;
-      SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) ? stock : null);
+      // 专项改造随实例入库；普通耐久改装仍按原规则拆除并返款。
+      if (cell.refit) { stock.refit = cell.refit; stock.hp = SA.V.maxHp(stock); }
+      SA.S.addInv(cell.id, 1, cell.mt || 1, SA.isUnique(cell) || cell.refit ? stock : null);
     }
     d.money += back;
     return back;
@@ -585,7 +588,8 @@ SA.S = (() => {
     const check = SA.V.clone(v);
     if (cur) check[layer][cur.r][cur.c] = null;
     for (const o of clash) check.body[o.r][o.c] = null;
-    if (!SA.V.canPut(check, id, r, c).ok) return 0;
+    const candidate = stockOptions(id, mt).find(x => uniqueKey === undefined || (SA.uniqueRule(x)?.key || null) === uniqueKey);
+    if (!candidate || !SA.V.canPut(check, id, r, c, candidate).ok) return 0;
     const item = takeStock(id, mt, uniqueKey);
     if (!item) return 0;
     const old = cur && cur.cell;
@@ -619,6 +623,17 @@ SA.S = (() => {
     cell.lv = lv;
     if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
   }
+  // 专项改造沿用菜单付款职责；只允许适用实例逐级提升，耐久补差与普通改装一致。
+  function refitCell(cell, level) {
+    if (!cell || !SA.refitKind(cell.id) || !Number.isInteger(level) || level !== SA.refitLevel(cell) + 1 || level > SA.K.UP_MAX) return false;
+    let installed = false;
+    SA.V.each(d.vehicle, x => { if (x === cell) installed = true; });
+    if (installed && !SA.V.bipedOf(d.vehicle)) return false;
+    const before = SA.V.maxHp(cell);
+    cell.refit = level;
+    if (cell.hp > 0) cell.hp += SA.V.maxHp(cell) - before;
+    return true;
+  }
   function renameVehicle(name) { d.vehicle.name = name.trim() || SA.Config.text("state_3a7baff38a97"); save(); }
   function sellStock(id, mt, uniqueKey) {
     // 旧库存行未展示唯一身份；未明确指定 key 时只出售普通件，避免合并行误卖不可再次领取的奖励。
@@ -635,5 +650,5 @@ SA.S = (() => {
     for (const cell of res.removed) scrap += stashCell(cell);
     return { ...res, scrap };
   }
-  return { load, save, restartGame, ...(!SA.RELEASE ? { reset, replaceWithStarter } : {}), starterVehicle, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, renameVehicle, sellStock, installStock, removeVehicleCell };
+  return { load, save, restartGame, ...(!SA.RELEASE ? { reset, replaceWithStarter } : {}), starterVehicle, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, refitCell, renameVehicle, sellStock, installStock, removeVehicleCell };
 })();

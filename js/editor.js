@@ -413,6 +413,24 @@ SA.Editor = (() => {
       } });
   }
 
+  // 专项改造与原附加装甲共用现有菜单和支付入口；说明同时展示能力增益与腿部降速代价。
+  function refit(cell) {
+    const level = SA.refitLevel(cell) + 1;
+    if (!SA.refitKind(cell.id) || cell.hp <= 0 || level > K.UP_MAX) return;
+    if (!SA.V.bipedOf(veh())) { say('专项改造仅限双足，请先移到双足底盘上。', true); return; }
+    const info = SA.refitInfo(cell, level);
+    SA.UI.pay({ title: info.name, amount: info.cost, okLabel: `${info.name} ${level} 级`,
+      lines: [h('p', { style: 'margin-top:0' }, `${M[cell.id].name} · ${info.name} ${level} 级：${info.text}`),
+        h('p', { class: 'muted' }, '专项改造不增加重量；拆回仓库仍保留改造等级。')],
+      onPaid: () => {
+        if (!SA.S.refitCell(cell, level)) return;
+        say(`${M[cell.id].name} · ${info.name} ${level} 级`);
+        changed();
+      } });
+  }
+  // 合并库存行默认使用第一个实例，校验必须与后台实际取件保持一致。
+  const stockCell = (id, mt) => SA.S.stockOptions(id, mt)[0] || null;
+
   // 库存不够就自动购买，只有钱不够才提示贷款；仍按商店解锁和可售材料检查。
   function withStock(key, then) {
     if (d().inv[key] > 0) { then(); return; }
@@ -445,7 +463,7 @@ SA.Editor = (() => {
     const test = SA.V.clone(v);
     if (cur) test[layer][cur.r][cur.c] = null;
     for (const o of clash) test.body[o.r][o.c] = null;
-    const chk = SA.V.canPut(test, id, r, c);
+    const chk = SA.V.canPut(test, id, r, c, stockCell(id, mt));
     if (!chk.ok) { say(chk.reason, true); return; }
     withStock(key, () => {
       const old = cur && cur.cell;
@@ -597,18 +615,22 @@ SA.Editor = (() => {
       const iss = issueAt(layer, r, c);
       const fix = [pk, layer === 'body' && v.side[r][c]].filter(x => x && x.hp < SA.V.maxHp(x));
       const cost = fix.reduce((a, x) => a + SA.S.repairCost(x), 0);
-      const lv = pk.lv || 0, upName = SA.upName(pk.id);
+      const lv = pk.lv || 0, upName = SA.upName(pk.id), refitInfo = SA.refitKind(pk.id) ? SA.refitInfo(pk) : null;
       // 升级材料不在这里：改成画布上方单独的「升级材质」按钮（见 setUp）
       ctxEl.append(thumb(pk.id, pk.mt),
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(pk.id), ' ', SA.Camp.matChip(pk.mt || 1), ' ', h('span', { class: 'chip' }, pk.hp <= 0 ? SA.Config.text("editor_226b03150244") : SA.Config.text("editor_16f931d2b61c", `${pk.hp}`, `${max}`)), ' ', SA.UI.repairChip(pk), ' ',
             has('upgrade') ? h('span', { class: `chip rank ${lv ? 'on' : ''}`, title: SA.Config.text("editor_7c2e257c34bf", `${upName}`, `${lv}`, `${SA.K.UP_MAX}`) }, `${upName} ${'▲'.repeat(lv)}${'△'.repeat(SA.K.UP_MAX - lv)}`) : null, ' ',
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
+          // 改造等级和代价在低高度窗口也必须可见，不能被通用 sub 样式隐藏。
+          refitInfo ? h('div', { 'data-page-key': 'knight-refit-state' }, `${refitInfo.name} ${refitInfo.level}/${K.UP_MAX} · ${refitInfo.text}`) : SA.isBipedOnly(pk) ? h('div', {}, '双足专属') : null,
           iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, SA.Config.text("editor_49c3123bf418")),
           ''),
         h('div', { class: 'acts' },
           has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: SA.Config.text("editor_d4928db19a49", `${Math.round(SA.upHp(pk.id) * 100)}`, `${SA.K.UP_KG}`), onclick: () => upgrade(pk) },
             SA.Config.text("editor_3159ee17bc6b", `${upName}`, `${lv + 1}`, `${money(SA.upCost(pk.id, lv + 1))}`)) : null,
+          has('upgrade') && pk.hp > 0 && refitInfo && refitInfo.level < K.UP_MAX ? h('button', { class: 'btn small', disabled: !SA.V.bipedOf(v), title: SA.V.bipedOf(v) ? SA.refitInfo(pk, refitInfo.level + 1).text : '专项改造仅限双足，请先移到双足底盘上。', onclick: () => refit(pk) },
+            `${refitInfo.name} ${refitInfo.level + 1} · ${money(SA.upCost(pk.id, refitInfo.level + 1))}`) : null,
           fix.length ? h('button', { class: 'btn small', title: SA.UI.repairBrief(fix), onclick: () => repair(fix) }, SA.Config.text("editor_229d6a641972", `${money(cost)}`)) : null,
           h('button', { class: 'btn small', title: 'Delete', onclick: () => (pk.hp <= 0 && SA.isUnique(pk.id)
             ? uniqueConfirm(SA.Config.text("editor_40e1a6f0b50f", `${m.name}`), SA.Config.text("editor_fcdf6aa92335"), SA.Config.text("editor_71d597d4119c"), () => removeAt(st.pick))
@@ -985,7 +1007,7 @@ SA.Editor = (() => {
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: SA.Config.text("editor_57e9347b20fa", `${M[id].name}`) };
       if (cur && hurt(cur)) return { text: SA.Config.text("editor_3d2872b94543", `${M[cur.id].name}`), err: true };
       if (cur) return { text: SA.Config.text("editor_43c7ad13af38", `${buy}`, `${M[cur.id].name}`, `${M[id].name}`) };
-      const chk = SA.V.placeCheck(v, id, sp.r, sp.c), clash = M[id].layer === 'chassis' ? SA.V.chassisClash(v, id, null) : [];
+      const chk = SA.V.placeCheck(v, id, sp.r, sp.c, stockCell(id, mt)), clash = M[id].layer === 'chassis' ? SA.V.chassisClash(v, id, null) : [];
       if (chk.ok && clash.length) return { text: SA.Config.text("editor_a5d71e9795eb", `${buy}`, `${M[clash[0].cell.id].name}`, `${M[id].name}`) };
       return chk.ok ? { text: SA.Config.text("editor_ce8ff20e77b5", `${buy}`, `${M[id].name}`, `${where(sp.r, sp.c)}`) } : { text: SA.Config.text("editor_13e430cf8e22", `${buy}`, `${M[id].name}`, `${chk.reason}`), err: true };
     }
@@ -1170,7 +1192,7 @@ SA.Editor = (() => {
         const f = SA.fp(id), cover = new Set();
         for (let r = 0; r <= K.ROWS - f.h; r++)
           for (let c = 0; c <= K.COLS - f.w; c++)
-            if (SA.V.placeCheck(v, id, r, c).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
+            if (SA.V.placeCheck(v, id, r, c, stockCell(id, selMt)).ok) for (let i = 0; i < f.h; i++) for (let j = 0; j < f.w; j++) cover.add((r + i) * K.COLS + c + j);
         for (const k of cover) fillCell(...cellXY(Math.floor(k / K.COLS), k % K.COLS), GREEN, pulse(t, 0.06, 0.2, 2));
       }
       if (hv) {
@@ -1184,7 +1206,7 @@ SA.Editor = (() => {
           cross(bx, by, bw, bh);
         } else if (!home) {
           const bad = !SA.V.boxInRegion(v, sp.r, sp.c, sp.w, sp.h) || sp.hits.length > 1
-            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !SA.V.placeCheck(v, id, sp.r, sp.c).ok));
+            || (drag ? dropBad(drag, sp) : (cur ? hurt(cur.cell) : !SA.V.placeCheck(v, id, sp.r, sp.c, stockCell(id, selMt)).ok));
           for (const o of sp.hits) { const [bx, by, bw, bh] = boxOf(v, SA.V.layerOf(id), o.r, o.c); g.fillStyle = 'rgba(7,8,12,0.6)'; g.fillRect(bx, by, bw, bh); }
           g.globalAlpha = 0.8;
           SA.SPR.drawModule(g, id, x, y, { t, heat: 0.3, water: 1, mt: selMt });

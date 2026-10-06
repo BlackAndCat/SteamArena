@@ -57,12 +57,49 @@ function run() {
   const rider = biped();
   assert(SA.V.canPlace(rider, 'knight_fist', 5, 6).ok);
   assert(!SA.V.canPlace(rider, 'side_cannon', 6, 6).ok);
+  const knightIds = ['knight_fist', 'knight_hammer', 'knight_sword', 'knight_cannon', 'knight_gun', 'knight_shield'];
+  // 手臂可以覆盖胯本体或两侧腰挂位；底边到胯底为止，进入腿区仍然拒绝。
+  for (const id of knightIds) {
+    for (const [r, c] of [[6, 6], [7, 6], [7, 4], [7, 8]]) {
+      const waist = biped();
+      assert(SA.V.canPlace(waist, id, r, c).ok, `${id} 可以延伸到腰胯 ${r},${c}`);
+      waist.side[r][c] = SA.newCell(id, 3);
+      assert(!SA.V.issues(waist).some(x => x.layer === 'side'), `${id} 腰胯存量车校验`);
+      const imported = SA.V.decode(SA.V.encode(waist));
+      assert(imported && imported.side[r][c]?.id === id);
+      assert(!SA.V.issues(imported).some(x => x.layer === 'side'), `${id} 腰胯分享码校验`);
+    }
+    const leg = biped();
+    assert(!SA.V.canPlace(leg, id, 8, 6).ok, `${id} 不能进入腿区`);
+    leg.side[8][6] = SA.newCell(id, 3);
+    assert(SA.V.issues(leg).some(x => x.layer === 'side' && x.r === 8 && x.c === 6));
+  }
+  // 腰胯例外不豁免侧挂占格：另一条手臂、胯位提速件都不能与手臂重合。
+  for (const [id, r, c] of [['knight_shield', 6, 7], ['leg_booster', 8, 6]]) {
+    const conflict = biped(); conflict.side[r][c] = SA.newCell(id, 3);
+    assert(!SA.V.canPlace(conflict, 'knight_fist', 7, 6).ok, `手臂不能覆盖 ${id}`);
+    conflict.side[7][6] = SA.newCell('knight_fist', 3);
+    const imported = SA.V.fromLayout('重合蓝图', SA.V.layout(conflict));
+    for (const vehicle of [conflict, imported]) {
+      assert(vehicle);
+      const bad = SA.V.issues(vehicle).filter(x => x.layer === 'side');
+      assert(bad.some(x => x.r === r && x.c === c), `${id} 重合双方都要标红`);
+      assert(bad.some(x => x.r === 7 && x.c === 6), '重合手臂也要标红');
+    }
+    const shared = SA.V.decode(SA.V.encode(conflict));
+    assert(shared && shared.migrationStock.length === 1, '分享码重合件应沿用退库规则，不能丢失');
+  }
+  const floating = biped();
+  assert(!SA.V.canPlace(floating, 'knight_fist', 5, 0).ok, '手臂仍须贴住主体');
+  floating.side[5][0] = SA.newCell('knight_fist', 3);
+  assert(SA.V.issues(floating).some(x => x.layer === 'side' && x.c === 0));
   // 机甲头盔下面才是肩膀（用户 2026-10-05）：手臂不能和头盔同一行或更高，头盔也不能压到已有手臂上面
-  // 手臂 3 行高、不能伸进胯行（第 8 行起），所以头盔在第 4 行时手臂正好挂在第 5～7 行（头、胸、腰）
+  // 手臂 3 行高，可以伸入第 8～9 行的胯部；头盔下方的限制仍独立生效。
   const helmed = biped(); helmed.body[5][6] = SA.newCell('plate', 3); helmed.body[4][6] = SA.newCell('mech_helm', 3);
   assert(!SA.V.canPlace(helmed, 'knight_fist', 4, 7).ok, '手臂不能和头盔并排');
   assert(!SA.V.canPlace(helmed, 'knight_fist', 3, 6).ok, '手臂不能盖住头盔');
   assert(SA.V.canPlace(helmed, 'knight_fist', 5, 7).ok, '头盔下面可以装手臂');
+  assert(SA.V.canPlace(helmed, 'knight_fist', 7, 7).ok, '头盔下面的手臂可以延伸到胯底');
   const armed = biped(); armed.side[5][7] = SA.newCell('knight_fist', 3);
   assert(!SA.V.canPlace(armed, 'mech_helm', 5, 5).ok, '头盔不能压在已有手臂那一行');
   helmed.side[4][7] = SA.newCell('knight_fist', 3);
@@ -72,7 +109,17 @@ function run() {
   assert(Number.isFinite(stats(rider).dps));
   const track = SA.V.create(); track.body[10][6] = SA.newCell('track', 3); track.body[8][6] = SA.newCell('boiler', 3);
   assert(!SA.V.canPlace(track, 'leg_spring', 9, 6).ok);
-  assert(SA.V.canPlace(track, 'knight_cannon', 7, 6).ok);
+  // 全部骑士件双足专属：自由搭建和导入可保留旧车，但不合规件必须标红。
+  const quad = SA.V.create(); quad.body[10][6] = SA.newCell('quad', 3); quad.body[8][6] = SA.newCell('boiler', 3);
+  for (const chassis of [track, quad, SA.V.create()]) for (const id of [...knightIds, 'mech_helm']) {
+    assert(!SA.V.canPlace(chassis, id, 7, 6).ok, `${id} 不可安装在非双足底盘`);
+    const layer = SA.V.layerOf(id), stored = SA.V.clone(chassis); stored[layer][7][6] = SA.newCell(id, 3);
+    const imported = SA.V.decode(SA.V.encode(stored));
+    for (const vehicle of [stored, imported]) {
+      assert(vehicle && vehicle[layer][7][6]?.id === id, '旧车骑士件不得静默丢弃');
+      assert(SA.V.issues(vehicle).some(x => x.layer === layer && x.r === 7 && x.c === 6 && x.reason.includes('双足专属')), `${id} 非双足存量车或分享码要标红`);
+    }
+  }
   assert.strictEqual(stats(track).speedBoost, SA.K.SPEED_BOOST);
   for (const id of ['knight_fist', 'knight_hammer', 'knight_sword', 'knight_cannon', 'knight_gun', 'knight_shield']) {
     const cell = SA.newCell(id, 3), key = id === 'knight_shield' ? 'hp' : id.includes('cannon') || id.includes('gun') ? 'dmg' : 'punch';

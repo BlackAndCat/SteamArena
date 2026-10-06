@@ -86,7 +86,7 @@ SA.V = (() => {
     if (dr > 0) each(v, (cell, r, c, layer) => {
       if (layer !== 'body' || !SA.isRam(cell.id) || (r >= want && r + fp(cell.id).h <= want + 2)) return;
       v.body[r][c] = null;
-      if (canPlace(v, cell.id, want, c0 + 2).ok) v.body[want][c0 + 2] = cell; else v.body[r][c] = cell;
+      if (canPlace(v, cell.id, want, c0 + 2, cell).ok) v.body[want][c0 + 2] = cell; else v.body[r][c] = cell;
     });
     return v;
   }
@@ -267,6 +267,12 @@ SA.V = (() => {
     if (!a || r < a.r || r + h > a.r + 2) return false;
     return (c >= a.c - 2 && c + w <= a.c) || (c >= a.c + 2 && c + w <= a.c + 4);
   }
+  // 骑士手臂允许从躯干跨入腰胯，也可覆盖胯本体；底边不能越过胯底进入腿区。
+  // 横向支撑和侧挂冲突继续独立检查，普通侧挂件仍遵循原腰挂位矩形限制。
+  const knightHip = (v, id, r, h) => !!M[id].knight && !!bipedOf(v) && r + h <= floorRow(v) + 2;
+  // 模块类别与实例改造统一判定专属限制，头盔仍不触发手臂宿主规则。
+  const bipedOnly = (id, cell = null) => SA.isBipedOnly(cell || { id });
+  const KNIGHT_ONLY = '骑士组件及骑士改造件为双足专属，不能安装在其他底盘上';
   // 只允许三种实体装甲贴在连续履带/四足链的整体端部，向下伸入底盘保留区。
   // 位置判定同时供摆放、出战连通和速度计算使用，避免链内接缝被误认成车头/车尾。
   function endArmorSide(v, id, r, c) {
@@ -327,15 +333,16 @@ SA.V = (() => {
   }
 
   // 严格摆放：这个位置是否合规（能连上、不悬空）
-  function canPlace(v, id, r, c) {
+  function canPlace(v, id, r, c, cell = null) {
     const m = M[id], { w, h } = fp(id);
     const no = (reason) => ({ ok: false, reason });
     if (!fits(r, c, w, h)) return no(SA.Config.text("vehicle_7230b6f9f8a8"));
     if (!boxInRegion(v, r, c, w, h)) return no(LOCKED);
+    if (bipedOnly(id, cell) && !bipedOf(v)) return no(KNIGHT_ONLY);
     if (clearanceBlocked(v, id, r, c, layerOf(id))) return no(CLEARANCE);
     const O = occ(v, 'body'), cells = box(r, c, w, h);
     if (m.layer === 'side') {
-      if (r + h > floorRow(v) && !legMount(v, id, r, c) && !bipedWaist(v, r, c, w, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
+      if (r + h > floorRow(v) && !legMount(v, id, r, c) && !bipedWaist(v, r, c, w, h) && !knightHip(v, id, r, h)) return no(SA.Config.text("vehicle_790b7c4b3a97"));
       const S = occ(v, 'side');
       if (cells.some(([rr, cc]) => S[rr][cc])) return no(SA.Config.text("vehicle_3ef702ab6894"));
       if (armAboveHelm(v, id, r)) return no('骑士手臂要装在机甲头盔下面（肩膀在胸口），不能盖住头盔或和头盔并排');
@@ -380,13 +387,14 @@ SA.V = (() => {
   const free = (v, layer, r, c, w, h) => { const O = occ(v, layer); return box(r, c, w, h).every(([rr, cc]) => !O[rr][cc]); };
 
   // 只检查位置是否空着；返回 { ok, reason, fit }，fit 表示这个位置是否已经合规
-  function canPut(v, id, r, c) {
+  function canPut(v, id, r, c, cell = null) {
     const { w, h } = fp(id), layer = layerOf(id);
     if (!fits(r, c, w, h)) return { ok: false, reason: SA.Config.text("vehicle_7230b6f9f8a8") };
     if (!boxInRegion(v, r, c, w, h)) return { ok: false, reason: LOCKED };
     if (clearanceBlocked(v, id, r, c, layer)) return { ok: false, reason: CLEARANCE };
     if (!free(v, layer, r, c, w, h)) return { ok: false, reason: layer === 'side' ? SA.Config.text("vehicle_3ef702ab6894") : SA.Config.text("vehicle_45f9e24da252") };
-    const chk = canPlace(v, id, r, c);
+    // 自由摆放保留 ok/fit 语义，但实例骑士改造必须参与合规判定，不能只按基础 id 检查。
+    const chk = canPlace(v, id, r, c, cell);
     return { ok: true, fit: chk.ok, reason: chk.reason };
   }
 
@@ -535,6 +543,7 @@ SA.V = (() => {
         const cell = B[r][c];
         if (!cell) continue;
         const m = M[cell.id], { w, h } = fp(cell.id);
+        if (bipedOnly(cell.id, cell) && !isBiped) flag('body', r, c, KNIGHT_ONLY);
         if (m.layer === 'side') flag('body', r, c, '侧挂件必须放在侧挂层');
         if (clearanceBlocked(v, cell.id, r, c, 'body', { layer: 'body', r, c })) flag('body', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('body', r, c, LOCKED);
@@ -551,17 +560,29 @@ SA.V = (() => {
           flag('body', r, c, below.length && below.every(o => isRamCell(o.cell)) ? SA.Config.text("vehicle_c549eb415298") : SA.Config.text("vehicle_e1cb25bb5a9c"));
         }
       }
+    // 旧车或分享码可能绕过 canPlace；按实际占格标记冲突双方，不能只检查被覆盖后的占格表。
+    const sideGrid = grid(), sideConflicts = new Set();
+    each(v, (cell, r, c, layer) => {
+      if (layer !== 'side') return;
+      const f = fp(cell.id);
+      for (const [rr, cc] of box(r, c, f.w, f.h)) if (inGrid(rr, cc)) {
+        if (sideGrid[rr][cc] != null) { sideConflicts.add(sideGrid[rr][cc]); sideConflicts.add(key(r, c)); }
+        sideGrid[rr][cc] = key(r, c);
+      }
+    });
     const hb = helmBottom(v);
     for (let r = 0; r < K.ROWS; r++)
       for (let c = 0; c < K.COLS; c++) {
         const cell = v.side[r][c];
         if (!cell) continue;
         const { w, h } = fp(cell.id), host = sideHost(v, cell.id, r, c, O);
+        if (bipedOnly(cell.id, cell) && !isBiped) flag('side', r, c, KNIGHT_ONLY);
+        if (sideConflicts.has(key(r, c))) flag('side', r, c, SA.Config.text("vehicle_3ef702ab6894"));
         if (armAboveHelm(v, cell.id, r, hb)) flag('side', r, c, '骑士手臂要装在机甲头盔下面（肩膀在胸口），不能盖住头盔或和头盔并排');
         if (M[cell.id].layer !== 'side') flag('side', r, c, '主体件不能放在侧挂层');
         if (clearanceBlocked(v, cell.id, r, c, 'side', { layer: 'side', r, c })) flag('side', r, c, CLEARANCE);
         if (!boxInRegion(v, r, c, w, h)) flag('side', r, c, LOCKED);
-        else if (r + h > floor && !legMount(v, cell.id, r, c) && !(isBiped && bipedWaist(v, r, c, w, h))) flag('side', r, c, SA.Config.text("vehicle_790b7c4b3a97"));
+        else if (r + h > floor && !legMount(v, cell.id, r, c) && !(isBiped && bipedWaist(v, r, c, w, h)) && !knightHip(v, cell.id, r, h)) flag('side', r, c, SA.Config.text("vehicle_790b7c4b3a97"));
         else if (!host) flag('side', r, c, cell.id === 'autoloader' ? '装弹机只能挂在至少 1×2 的火炮上，不能挂火箭、蒸汽、喷火或近战武器' : '侧挂必须完整挂在同一块足够大的装甲上');
         else if (!(M[cell.id].knight ? knightHosts(v, cell.id, r, c, O).some(x => ok.has(key(x.r, x.c))) : ok.has(key(host.r, host.c)))) flag('side', r, c, SA.Config.text("vehicle_bc6fe015ba42"));
       }
@@ -588,7 +609,7 @@ SA.V = (() => {
       positions.sort((a, b) => Math.abs(a[0] - x.r) + Math.abs(a[1] - x.c) - Math.abs(b[0] - x.r) - Math.abs(b[1] - x.c) || Math.abs(a[0] - x.r) - Math.abs(b[0] - x.r) || a[0] - b[0] || a[1] - b[1]);
       let placed = false;
       for (const [r, c] of positions) {
-        if (!canPlace(v, x.cell.id, r, c).ok) continue;
+        if (!canPlace(v, x.cell.id, r, c, x.cell).ok) continue;
         v.body[r][c] = x.cell;
         const newIssues = issues(v).some(i => !(i.layer === 'body' && i.r === r && i.c === c) && !before.has(`${i.layer}:${i.r}:${i.c}`));
         if (!newIssues) { placed = true; break; }
@@ -714,7 +735,8 @@ SA.V = (() => {
       s.store += m.store || 0;
       s.dryCool += m.dryCool || 0;
       if (m.waterSave) s.waterSave = Math.max(K.WATER_SAVE_MIN, s.waterSave * m.waterSave);
-      if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed; s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
+      // 腿部承重由单件属性计算强化，速度代价仅在底盘汇总时应用一次。
+      if (m.layer === 'chassis') { s.chassis++; s.load += m.load; s.evade += m.evade || 0; s.acc += m.acc || 0; s.speed += m.speed * SA.refitSpeed(cell); s.accel += m.accel; s.brake += m.brake; s.sway += m.sway; }
       if (m.ram) s.rams++;
       if (SA.isCockpit(cell.id)) { s.cockpits++; s.drivers += SA.driversOf(cell.id); }
       if (m.supply) { s.boilers++; s.heatRate += m.heatRate; }
@@ -842,6 +864,7 @@ SA.V = (() => {
       const hp = M[cell.id].knight === 'shield' && bipedOf(v)
         ? cell.hp / maxHp(cell) * max : Math.round(cell.hp * maxHp(cell, v) / maxHp(cell) * hpMul);
       b[layer][r][c] = { id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: fullHp ? max : Math.min(max, hp), max };
+      if (cell.refit) b[layer][r][c].refit = cell.refit;
       if (cell.look) b[layer][r][c].look = cell.look;
       if (cell.unique) b[layer][r][c].unique = cell.unique;
     });
@@ -860,12 +883,13 @@ SA.V = (() => {
       && typeof cell.id === 'string' && Object.hasOwn(M, SA.liveId(cell.id))
       && (cell.mt == null || (Number.isInteger(cell.mt) && cell.mt >= 1 && cell.mt <= SA.MAT_MAX))
       && (cell.lv == null || (Number.isInteger(cell.lv) && cell.lv >= 0 && cell.lv <= K.UP_MAX))
+      && (cell.refit == null || (Number.isInteger(cell.refit) && cell.refit >= 0 && cell.refit <= K.UP_MAX && (!cell.refit || !!SA.refitKind(SA.liveId(cell.id)))))
       && Number.isFinite(cell.hp) && cell.hp >= 0
       && (cell.max == null || (Number.isFinite(cell.max) && cell.max > 0));
     if (!valid) return false;
     // max 只允许记录规范耐久，不能由分享码放大。先验原材料，再沿用旧件比例迁移。
     const id = Object.hasOwn(M, cell.id) ? cell.id : SA.liveId(cell.id);
-    const max = Math.round(SA.mod(id, cell.mt || 1).hp * (1 + SA.upHp(id) * (cell.lv || 0)));
+    const max = Math.round(SA.mod({ id, mt: cell.mt || 1, refit: cell.refit || 0 }).hp * (1 + SA.upHp(id) * (cell.lv || 0)));
     return cell.hp <= max && (cell.max == null || cell.max === max);
   }
   // 只验证数据结构，不拿当前摆放规则拒绝旧码或车间自由摆放；尺寸迁移仍走原来的流程。
@@ -912,6 +936,8 @@ SA.V = (() => {
       const live = SA.liveId(id);
       if (!M[live] || !inGrid(r, c)) continue;
       const cell = SA.newCell(live, mt || 1);
+      // 进化报告的实例变体保留独立改造等级；分享码仍沿用不记录材料和强化的既有协议。
+      if (variant?.refit) { cell.refit = variant.refit; SA.fixCell(cell); cell.hp = maxHp(cell); }
       if (lv) { cell.lv = lv; cell.hp = maxHp(cell); }
       if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
       v[l ? 'side' : 'body'][r][c] = SA.fixCell(cell);
@@ -989,10 +1015,10 @@ SA.V = (() => {
         if (next.length === pending.length) break;
         pending = next;
       }
-      // 历史侧挂允许标红待调整；其余非法主体仍沿用旧分享码的过滤规则。
+      // 历史侧挂和骑士专属件允许标红待调整，避免新底盘限制丢掉旧头盔；其余非法主体仍沿用旧分享码的过滤规则。
       for (const [r, c, i, variant] of pending) {
         const id = SA.liveId(SA.MODULE_ORDER[i]), layer = layerOf(id), f = fp(id);
-        if (layer !== 'side' && id !== 'pressure_chamber') continue;
+        if (layer !== 'side' && id !== 'pressure_chamber' && !bipedOnly(id)) continue;
         const cell = SA.newCell(id);
         if (variant) { if (variant.look) cell.look = variant.look; if (variant.unique) cell.unique = variant.unique; }
         SA.fixCell(cell);
@@ -1016,11 +1042,11 @@ SA.V = (() => {
     return { r, c, w: f.w, h: f.h, hits };
   }
 
-  function placeCheck(v, id, r, c) {
-    if (M[id].layer !== 'chassis') return SA.V.canPlace(v, id, r, c);
+  function placeCheck(v, id, r, c, cell = null) {
+    if (M[id].layer !== 'chassis') return SA.V.canPlace(v, id, r, c, cell);
     const test = SA.V.clone(v);
     for (const o of chassisClash(v, id, null)) test.body[o.r][o.c] = null;
-    return SA.V.canPlace(test, id, r, c);
+    return SA.V.canPlace(test, id, r, c, cell);
   }
   // 车上和新底盘冲突的底盘：不同种的全部；同种的整件底盘（chassisLimit 1）已有的那个。cur = 正好被替换的那个（不重复算）
   function chassisClash(v, id, cur) {

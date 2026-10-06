@@ -1,5 +1,6 @@
 // 模块数值、外观和材料的唯一内容源是 config/modules.json；本文件只保留运行规则。
 // legPart / legSlot：真双足腿件种类与挂位；knight：骑士主属性类别。
+// cell.refit：独立骑士／腿部承重改造等级（0～UP_MAX），与耐久改装 lv 分开；改造不增加重量。
 // BIPED_CLASSES：轻重腿速度、承重、闪避、跳高与下蹲倍率，均为机制数据。
 // 抛射武器的 spread / spreadMin 分别是散布角度上、下限（度）；测距仪会同比缩放两端。
 // tetherStrength：鱼叉可承受的向外拉扯富余动力（kW），随材料倍率提高；不以车重直接计算断裂。
@@ -98,6 +99,29 @@ SA.ramMul = (kg) => Math.max(0.5, Math.min(3, kg / 6000));
 SA.upName = (id) => (SA.isWeapon(id) ? '炮盾' : SA.MODULES[id].layer === 'chassis' ? '加固裙板' : SA.MODULES[id].layer === 'ram' ? '加厚撞面' : '附加装甲');
 SA.upHp = (id) => (SA.isWeapon(id) ? 0.3 : 0.25);   // 每级耐久 +%
 SA.upCost = (id, lv) => Math.round(SA.MODULES[id].price * SA.K.UP_COST * lv);
+// 专项改造：基础骑士件恒为双足专属，通用动力／冷却件完成骑士改造后才限制底盘。
+SA.refitKind = (id) => {
+  const m = SA.MODULES[id];
+  if (!m) return '';
+  if (id === 'biped') return 'load';
+  return m.knight || id === 'mech_helm' || ['supply', 'water', 'cool', 'dryCool'].some(k => m[k] > 0) ? 'knight' : '';
+};
+SA.refitLevel = (cell) => SA.refitKind(cell?.id) && Number.isFinite(cell.refit)
+  ? Math.max(0, Math.min(SA.K.UP_MAX, Math.floor(cell.refit))) : 0;
+SA.isBipedOnly = (cell) => !!(SA.MODULES[cell?.id]?.knight || cell?.id === 'mech_helm'
+  || (SA.refitKind(cell?.id) === 'knight' && SA.refitLevel(cell) > 0));
+SA.refitSpeed = (cell) => cell?.id === 'biped' ? 1 - SA.refitLevel(cell) * 0.05 : 1;
+// 同一说明用于改装按钮和确认框，百分比为相对未改造实例的累计加成。
+SA.refitInfo = (cell, level = SA.refitLevel(cell)) => {
+  const kind = SA.refitKind(cell.id), m = SA.MODULES[cell.id];
+  level = Math.max(0, Math.min(SA.K.UP_MAX, Math.floor(level)));
+  const attrs = m.knight === 'shield' || cell.id === 'mech_helm' ? ['耐久']
+    : m.knight === 'melee' ? ['近战伤害'] : m.knight ? ['远程伤害']
+    : [['supply', '动力'], ['water', '储水'], ['cool', '湿冷'], ['dryCool', '干冷']].filter(([k]) => m[k] > 0).map(([, name]) => name);
+  return { kind, level, name: kind === 'load' ? '承重改造' : '骑士改造', cost: SA.upCost(cell.id, level),
+    text: kind === 'load' ? `承重 +${level * 20}%，速度 -${level * 5}%；双足专属`
+      : `${attrs.join('、')} +${level * 15}%；改造后双足专属` };
+};
 // 水箱这一刻能带走多少热量（kW）：由机组回路相对环境温差决定。
 SA.coolRate = (cool, heat, cap = 50) => cool * Math.max(0, Math.min(1, (SA.Phys.temp(heat, cap) - 20) / SA.K.COOL_FULL));
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
@@ -158,7 +182,15 @@ SA.mod = (x, mt) => {
   }
   // 唯一变体的明确承重按最终kg覆盖；克隆材料缓存，不能影响同档普通件或其它唯一腿。
   const unique = typeof x === 'object' ? SA.uniqueRule(x) : null;
-  return unique?.load !== undefined ? { ...m, load: unique.load } : m;
+  let out = unique?.load !== undefined ? { ...m, load: unique.load } : m;
+  const level = typeof x === 'object' ? SA.refitLevel(x) : 0;
+  if (level) {
+    out = { ...out };
+    const keys = id === 'biped' ? ['load'] : out.knight === 'shield' || id === 'mech_helm' ? ['hp']
+      : out.knight === 'melee' ? ['punch'] : out.knight ? ['dmg', 'dmgPerSec'] : ['supply', 'water', 'cool', 'dryCool'];
+    for (const k of keys) if (out[k]) out[k] = Math.round(out[k] * (1 + level * (id === 'biped' ? 0.2 : 0.15)) * (k === 'hp' || k === 'load' ? 1 : 10)) / (k === 'hp' || k === 'load' ? 1 : 10);
+  }
+  return out;
 };
 // 车辆上下文只用于双足腿型和骑士主属性；库存、材料缓存保持纯模块属性。
 SA.modForVehicle = (cell, v) => {
@@ -170,7 +202,7 @@ SA.modForVehicle = (cell, v) => {
   if (cell.id === 'biped') {
     const unique = SA.uniqueRule(cell), kind = unique?.bipedClass || 'standard', rule = SA.K.BIPED_CLASSES[kind];
     // 已给唯一件指定最终承重时不再乘腿型倍率，其余轻／重腿继续原有规则。
-    return { ...m, bipedClass: kind, speed: m.speed * rule.speed, load: unique?.load ?? Math.round(m.load * rule.load), evade: rule.evade };
+    return { ...m, bipedClass: kind, speed: m.speed * rule.speed, load: unique?.load !== undefined ? m.load : Math.round(m.load * rule.load), evade: rule.evade };
   }
   if (!m.knight) return m;
   const out = { ...m }, mul = SA.K.BIPED_KNIGHT_MUL;
@@ -185,6 +217,9 @@ SA.newCell = (id, mt = SA.minMt(SA.liveId(id))) => {
 // 旧数据修正：退役件替代、喷射器按原材料换种类，其余模块补最低材料；保留含改装的耐久比例。
 SA.fixCell = (cell) => {
   if (!cell) return cell;
+  // 不适用的字段删除；非法、负数和超上限等级在存档入口归一，缓存定义不受实例影响。
+  const refit = SA.refitLevel(cell);
+  if (refit) cell.refit = refit; else delete cell.refit;
   const unique = SA.fixIdentity(cell);
   const id = SA.materialId(SA.liveId(cell.id), cell.mt || 1), mt = unique ? unique.mt : Math.max(cell.mt || 1, SA.minMt(id));
   if (id === cell.id && mt === (cell.mt || 1)) return cell;
@@ -209,6 +244,7 @@ SA.cellValue = (cell) => {
   let v = SA.MODULES[cell.id].price;
   for (let t = 2; t <= (cell.mt || 1); t++) v += SA.matUpCost(cell.id, t);
   for (let k = 1; k <= (cell.lv || 0); k++) v += SA.upCost(cell.id, k);
+  for (let k = 1; k <= SA.refitLevel(cell); k++) v += SA.upCost(cell.id, k);
   return v;
 };
 // 护甲：每发炮弹先减掉固定伤害（最少保留 25%）

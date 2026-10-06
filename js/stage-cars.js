@@ -30,11 +30,12 @@ SA.StageCars = (() => {
   }
   function cellsOf(vehicle) {
     const cells = [];
-    // 与工作台完整种子保持同一语义：普通车仍输出六项，带外观／唯一身份的件保留第七项。
-    // 草稿、makeRecord 和用户手动保存共用此出口，避免保存后唯一件变成普通件。
+    // 与工作台完整种子保持同一语义：普通车仍输出六项，外观／唯一身份和专项改造保留第七项。
+    // 草稿、makeRecord 和用户手动保存共用此出口，避免保存后丢失身份或改造等级。
     SA.V.each(vehicle, (cell, row, col, layer) => {
       const item = [layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0];
-      if (cell.look || cell.unique) item.push({ look: cell.look, unique: cell.unique });
+      if (cell.look || cell.unique || cell.refit) item.push({ look: cell.look, unique: cell.unique,
+        ...(cell.refit ? { refit: cell.refit } : {}) });
       cells.push(item);
     });
     return cells;

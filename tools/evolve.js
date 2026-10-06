@@ -385,6 +385,11 @@ function moduleIds(SA, spec, predicate) {
   return spec.availableMods.filter(id => SA.MODULES[id] && (!predicate || predicate(SA.MODULES[id], id)));
 }
 
+// 专属件与腿挂件共用正式装配限制；生成器不能为骑士奖励回退成履带车。
+function requiresBiped(SA, id) {
+  return !!(SA.MODULES[id]?.legPart || (id && SA.isBipedOnly({ id })));
+}
+
 function cellValue(SA, id, mt) {
   return SA.cellValue({ id, mt });
 }
@@ -581,8 +586,13 @@ function minimalVehicle(SA, spec, forcedModule = null) {
   if (required.length > 1) return requiredVehicle(SA, spec, new RNG(1009 + spec.chapter * 101 + spec.stage));
   if (!forcedModule) forcedModule = required[0] || null;
   if (forcedModule && !spec.availableMods.includes(forcedModule)) return null;
+  const needsBiped = requiresBiped(SA, forcedModule) || required.some(id => requiresBiped(SA, id));
+  if (needsBiped && !spec.availableMods.includes('biped')) return null;
   if (forcedModule && required.length === 1 && forcedModule !== required[0] && SA.MODULES[forcedModule]?.layer === 'side') {
-    const requiredBase = minimalVehicle(SA, spec);
+    // 先做普通奖励基车时仍保留额外骑士件要求的底盘，随后再挂侧件。
+    const baseSpec = needsBiped ? { ...spec, availableMods: spec.availableMods.filter(id =>
+      SA.MODULES[id]?.layer !== 'chassis' || id === 'biped') } : spec;
+    const requiredBase = minimalVehicle(SA, baseSpec);
     return requiredBase && placeSideWithHost(SA, requiredBase, spec, forcedModule) ? requiredBase : null;
   }
   const v = SA.V.create(`保底候选·${spec.chapter + 1}-${spec.stage + 1}`);
@@ -605,8 +615,6 @@ function minimalVehicle(SA, spec, forcedModule = null) {
     return false;
   };
   // 覆盖检查或奖励车明确指定底盘时，保底构筑也必须真正使用它；否则整件四足/双足永远只会回退成履带。
-  const needsBiped = SA.MODULES[forcedModule]?.legPart || required.some(id => SA.MODULES[id]?.legPart);
-  if (needsBiped && !spec.availableMods.includes('biped')) return null;
   const chassis = needsBiped ? 'biped' : forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule :
     (spec.availableMods.includes('track') ? 'track' : (moduleIds(SA, spec, m => m.layer === 'chassis')[0] || 'track'));
   putFirst(chassis);
@@ -646,7 +654,8 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
   v.lim = { ...spec.grid };
   const chassisIds = moduleIds(SA, spec, m => m.layer === 'chassis');
   const style = rng.pick(SA.Battle.aiStyles.filter(item => !item.training).map(item => item.id));
-  const needsBiped = SA.MODULES[forcedModule]?.legPart || (spec.requiredModules || []).some(id => SA.MODULES[id]?.legPart);
+  const needsBiped = requiresBiped(SA, forcedModule) ||
+    (spec.requiredModules || (spec.rewardModule ? [spec.rewardModule] : [])).some(id => requiresBiped(SA, id));
   if (needsBiped && !chassisIds.includes('biped')) return null;
   const forcedChassis = needsBiped ? 'biped' : forcedModule && SA.MODULES[forcedModule]?.layer === 'chassis' ? forcedModule : null;
   const chassis = forcedChassis || rng.pick(chassisIds) || 'track';
@@ -707,6 +716,12 @@ function randomVehicle(SA, spec, rng, forcedModule = null) {
 // 多件奖励的构筑按不同首件重复尝试；底盘、驾驶舱等核心奖励可直接替代旧核心件。
 function requiredVehicle(SA, spec, rng) {
   const required = spec.requiredModules || (spec.rewardModule ? [spec.rewardModule] : []);
+  // 多奖励逐件构筑时，先按完整清单定底盘；不能因当前首件是通用件而丢失双足要求。
+  if (required.some(id => requiresBiped(SA, id))) {
+    if (!spec.availableMods.includes('biped')) return null;
+    spec = { ...spec, availableMods: spec.availableMods.filter(id =>
+      SA.MODULES[id]?.layer !== 'chassis' || id === 'biped') };
+  }
   for (let attempt = 0; attempt < 128; attempt++) {
     const first = required.length ? required[attempt % required.length] : null;
     const partial = first ? { ...spec, requiredModules: [first] } : spec;
@@ -1181,7 +1196,12 @@ function exportPatch(SA, v, spec, boundStyle = null) {
 // 报告页按种子复现和试驾都要用原样的车（tools/evolve-report.js）
 function cellsOf(SA, v) {
   const out = [];
-  SA.V.each(v, (cell, r, c, layer) => out.push([layer === 'side' ? 1 : 0, r, c, cell.id, cell.mt || 1, cell.lv || 0]));
+  // 改造等级属于完整候选身份；必须同时进入记录和对局缓存键。
+  SA.V.each(v, (cell, r, c, layer) => {
+    const item = [layer === 'side' ? 1 : 0, r, c, cell.id, cell.mt || 1, cell.lv || 0];
+    if (cell.refit) item.push({ refit: cell.refit });
+    out.push(item);
+  });
   return out;
 }
 

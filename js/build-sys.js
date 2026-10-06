@@ -64,3 +64,4 @@ SA.BUILD_SYS += '+mail-load-6000'; // 仅锁甲骑士腿实例的最终承重固
 SA.BUILD_SYS += '+biped-actions-knights-v1'; // 双足蹲跳、腿挂件、轻重腿与骑士机制；输入和外观由视觉层接入。
 SA.BUILD_SYS += '+harpoon-ai-inward-pull'; // 鱼叉按质量向内收绳，AI 优先有效牵引并及时恢复其他火力。
 SA.BUILD_SYS += '+harpoon-power-overload'; // 鱼叉材料决定强度，向外拉扯的富余动力超限后累计断绳风险。
+SA.BUILD_SYS += '+knight-waist-exclusive-refit'; // 骑士腰胯侧挂、双足专属、功能改造与腿部承重换速。

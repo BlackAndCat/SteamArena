@@ -46,10 +46,11 @@ function campaignRegression(source) {
 /** 专项脚本各自拥有规则断言，本入口只负责组合与旧关卡结果对照。 */
 function run(source) {
   const data = require('./biped-data-check').run();
+  const refit = require('./knight-refit-check').run();
   const battle = require('./biped-battle-check').run();
   const generation = require('./biped-generation-check').run();
   const regression = campaignRegression(source ? path.resolve(source) : undefined);
-  return { data, battle, generation, regression };
+  return { data, refit, battle, generation, regression };
 }
 if (require.main === module) console.log(JSON.stringify(run(process.argv[2]), null, 2));
 module.exports = { run, campaignRegression, outcome };

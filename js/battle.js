@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-06-harpoon-power-overload';
+SA.RULES_VERSION = '2026-10-06-knight-waist-exclusive-refit';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -174,7 +174,8 @@ SA.Battle = (() => {
   // 诊断只读耐久快照，供经济模拟按实际受损模块估算修理费；不参与判定。
   function cellTelemetry(v) {
     const out = [];
-    SA.V.each(v, (cell, r, c, layer) => out.push({ id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0, hp: cell.hp, max: SA.V.maxHp(cell), r, c, layer }));
+    SA.V.each(v, (cell, r, c, layer) => out.push({ id: cell.id, mt: cell.mt || 1, lv: cell.lv || 0,
+      ...(cell.refit ? { refit: cell.refit } : {}), hp: cell.hp, max: SA.V.maxHp(cell), r, c, layer }));
     return out;
   }
 
