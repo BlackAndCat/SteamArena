@@ -2,6 +2,7 @@
 // legPart / legSlot：真双足腿件种类与挂位；knight：骑士主属性类别。
 // BIPED_CLASSES：轻重腿速度、承重、闪避、跳高与下蹲倍率，均为机制数据。
 // 抛射武器的 spread / spreadMin 分别是散布角度上、下限（度）；测距仪会同比缩放两端。
+// tetherStrength：鱼叉可承受的向外拉扯富余动力（kW），随材料倍率提高；不以车重直接计算断裂。
 window.SA = window.SA || {};
 const moduleConfig = SA.Config.get('modules');
 SA.K = moduleConfig.K;
@@ -135,10 +136,10 @@ SA.fixIdentity = (cell) => {
 
 // ---------- 材料：模块品质 = 材料 ----------
 // 1~4 用钱在车间升级（随战役解锁）；5 史诗、6 传奇还要消耗特定的锭 / 结晶，只能靠委托、缴获和 Boss 掉落获得
-// mul：耐久、伤害、动力、水、冷却、撞击、活塞、承重、护甲一起放大；产热和重量不变，所以好材料更「省」
+// mul：耐久、伤害、动力、水、冷却、撞击、活塞、承重、护甲、鱼叉强度一起放大；产热和重量不变，所以好材料更「省」
 // cost：从上一级升到这一级的费用 = 模块原价 × cost；tint / a / lite / dark：换色（'color' 混合保留原图明暗，再提亮 / 压暗）
 // 持续伤害率和单发伤害同样随材料放大；产热和射速仍沿用模块原值。
-const MAT_SCALED = ['hp', 'dmg', 'dmgPerSec', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor'];
+const MAT_SCALED = ['hp', 'dmg', 'dmgPerSec', 'supply', 'water', 'cool', 'ram', 'punch', 'load', 'armor', 'tetherStrength'];
 const modCache = new Map();
 // 某一格模块按材料放大后的定义：SA.mod(cell) 或 SA.mod(id, mt)
 SA.mod = (x, mt) => {

@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-06-harpoon-ai-pull';
+SA.RULES_VERSION = '2026-10-06-harpoon-power-overload';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -984,6 +984,26 @@ SA.Battle = (() => {
     }
   }
 
+  // 绳索抗拉上限按鱼叉实体的材料放大；负荷只取向外驾驶的当帧富余动力（kW）。
+  // 超限比例按时间累计危险度，首次超载才抽指数阈值；未超载不改变随机序列。
+  function overloadTether(s, o, dt) {
+    const t = s.tether;
+    if (!t) return;
+    if (!tetherState(s)) { s.tether = null; return; }
+    const dir = Math.sign(o.x - s.x);
+    if (Math.abs(o.x - s.x) <= T.TETHER_PULL_DISTANCE) return;
+    const outward = (side, away) => side.dir === away && side.speed > 0 && side.power > 0
+      ? Math.max(0, side.driveAvailableKw - side.driveKw) : 0;
+    const load = outward(s, -dir) + outward(o, dir);
+    const strength = SA.mod(t.cell).tetherStrength;
+    const rate = Math.max(0, load / strength - 1);
+    // 动力预算浮点相减可能在恰好满载时残留极小误差，不为这种误差抽随机数。
+    if (!(rate > 1e-12)) return;
+    if (t.breakThreshold == null) t.breakThreshold = -Math.log(1 - random());
+    t.overload = (t.overload || 0) + rate * dt;
+    if (t.overload >= t.breakThreshold) s.tether = null;
+  }
+
   // 蒸汽撞锤：贴身时周期性猛击
   function pistons(s, o, dt) {
     for (const k in s.punch) s.punch[k] = Math.max(0, s.punch[k] - dt * T.PISTON_DECAY);
@@ -1644,6 +1664,8 @@ SA.Battle = (() => {
     updateTether(B.p, B.e, dt); updateTether(B.e, B.p, dt);
     sim(B.p, B.e, dt);
     sim(B.e, B.p, dt);
+    // 双方供能和行驶需求都已更新，再结算绳索超载，避免用上一帧动力。
+    overloadTether(B.p, B.e, dt); overloadTether(B.e, B.p, dt);
     B.p.anim.step(dt); B.e.anim.step(dt);
     collide(dt);
     pistons(B.p, B.e, dt);

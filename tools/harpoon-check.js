@@ -123,14 +123,56 @@ function ai(SA, api) {
   return cases;
 }
 
+/** 恒定负荷夹具只固定距离和热状态，动力预算及断绳仍逐帧执行正式规则。 */
+function stress(SA, api, load, { mass = 1, mt = 1, dt = 0.1, seconds = 1, threshold = 100 } = {}) {
+  const B = scene(SA), s = B.p, t = s.tether, positions = [B.p.x, B.e.x];
+  t.cell.mt = mt; t.time = 100; t.breakThreshold = threshold;
+  s.dryKg *= mass; s.water = 0; s.heatRate = 0; s.speed = 60; s.storeMax = 0;
+  s.supply = s.equip + SA.Phys.driveKw(s.dryKg, s.speed) + load;
+  s.spool = 0; s.spoolDir = -1; B.keys.left = true;
+  for (let i = 0; i < Math.round(seconds / dt) && s.tether; i++) {
+    B.p.x = positions[0]; B.e.x = positions[1]; api.step(dt);
+  }
+  return { broken: !s.tether, hazard: t.overload || 0, threshold: t.breakThreshold, strength: SA.mod(t.cell).tetherStrength, spare: s.driveAvailableKw - s.driveKw };
+}
+
+/** 材料、富余动力和持续时间独立决定超载；质量不额外触发断裂。 */
+function overload(SA, api) {
+  const base = SA.mod('harpoon', 1).tetherStrength;
+  assert(Number.isFinite(base) && base > 0, '鱼叉未配置抗拉动力上限');
+  const strengths = Array.from({ length: SA.MAT_MAX }, (_, i) => SA.mod('harpoon', i + 1).tetherStrength);
+  assert(strengths.every((x, i) => i === 0 || x > strengths[i - 1]), '材料没有提高抗拉上限');
+  const safe = stress(SA, api, base, { threshold: null, seconds: 2 });
+  assert(!safe.broken && safe.hazard === 0 && safe.threshold === null, '未超载绳索断裂、累积危险或抽取阈值');
+  const sampled = stress(SA, api, base * 2, { threshold: null, seconds: 0.1 });
+  assert(Math.abs(sampled.threshold - Math.log(2)) < 1e-8, '首次超载未用固定随机数抽指数阈值');
+  const high = stress(SA, api, base * 2), heavy = stress(SA, api, base * 2, { mass: 4 });
+  assert(Math.abs(high.hazard - 1) < 1e-8, '同质量更高富余动力没有累计超载');
+  assert(Math.abs(high.hazard - heavy.hazard) < 1e-8, '相同富余动力被质量独立放大');
+  const fine = stress(SA, api, base * 2, { dt: 0.05 });
+  assert(Math.abs(fine.hazard - high.hazard) < 1e-8, '危险度不按 dt 积分');
+  const short = stress(SA, api, base * 2, { threshold: 0.75, seconds: 0.5 });
+  const long = stress(SA, api, base * 2, { threshold: 0.75, seconds: 1 });
+  const stronger = stress(SA, api, base * 3, { threshold: 0.75, seconds: 0.5 });
+  assert(!short.broken && long.broken && stronger.broken, '更大超载或更久持续没有提高断裂危险');
+  const material = stress(SA, api, base * 2, { mt: SA.MAT_MAX, threshold: 0.1 });
+  assert(!material.broken && material.hazard === 0, '高材料上限没有抵抗相同负荷');
+  return { strengths, safe, sampled, high, heavy, fine, short, long, stronger, material };
+}
+
 function run() {
   const { SA, context } = evolve.loadGame();
   // 捕获已有画面接口只读弹道，不新增生产调试接口或遥测。
   let api;
   SA.BattleView = { create(value) { api = value; return null; } };
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/battle.js'), 'utf8'), context);
+  // battle 闭包加载时捕获固定随机源；完整对局另用正式 seed，宿主随机源立即恢复。
+  const previousRandom = Math.random;
+  try {
+    Math.random = () => 0.5;
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/battle.js'), 'utf8'), context);
+  } finally { Math.random = previousRandom; }
   SA.go = () => {}; SA.S.reset();
-  return { ai: ai(SA, api), pull: pull(SA) };
+  return { ai: ai(SA, api), pull: pull(SA), overload: overload(SA, api) };
 }
 module.exports = { run };
 if (require.main === module) {
