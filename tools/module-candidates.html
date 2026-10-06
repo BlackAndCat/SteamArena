@@ -152,7 +152,8 @@
     Object.assign(c, { ox: src.ox, oy: src.oy, fw: src.fw, fh: src.fh }); return c;
   }
   const isGun = (id) => !!SA.MODULES[id] && C.isGun(id);   // 计划中的新模块在 SA.MODULES 里还没有
-  const angles = (id) => { const m = SA.MODULES[id]; return isGun(id) ? [...new Set([m.elev[0], m.rest || 0, m.elev[1]])] : [null]; };
+  // 仰角取合并后的属性（骑士炮臂 / 腕枪臂的 elev、rest 从 weaponBase 继承，原始数据里没有）
+  const angles = (id) => { const m = SA.mod(id, 1); return isGun(id) && m.elev ? [...new Set([m.elev[0], m.rest || 0, m.elev[1]])] : [null]; };
 
   // ---------- 三种来源的「一张图」：游戏里的精灵 / 夜间候选 / 样机脚本里的候选 ----------
   // item.img(o) 返回裁好边的画布（o = { mt, t, k, a }）；同一个 item 的裁切框固定，动画、开火、换材料时大小不跳

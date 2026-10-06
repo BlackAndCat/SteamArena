@@ -23,7 +23,8 @@ SA.LEGLAB = (() => {
   // ---------- 光栅器：画进自己的像素缓冲，flush() 时贴到目标画布 ----------
   function Pen(W, H) {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-    const cx2 = cv.getContext('2d'), img = cx2.createImageData(W, H), buf = new Uint32Array(img.data.buffer);
+    // 无画面检查的假画布没有 createImageData：自建等长缓冲，画法照常走（putImageData 在那里是空操作）
+    const cx2 = cv.getContext('2d'), img = cx2.createImageData(W, H) || { data: new Uint8ClampedArray(W * H * 4) }, buf = new Uint32Array(img.data.buffer);
     const m = new Uint8Array(W * H);
     let s = 1, ox = 0, oy = 0, bx0 = W, by0 = H, bx1 = -1, by1 = -1;
     const PX = (u) => (u + ox) * s, PY = (u) => (u + oy) * s;
@@ -1012,7 +1013,8 @@ SA.LEGLAB = (() => {
   //        脚落在身体正下方附近，不往前伸；摆动腿：蹬离 → 脚跟往后上收 → 顶膝往前（脚收在胯下）→ 小腿往前伸 → 落地。
   // 步幅由「步频」决定：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频（原来按 18 + 0.25v 算，步子比腿还长、脚够不着地）。
   // 接口不变：一圈车走 4 × stride（世界像素），着地那段脚相对胯往后蹬 4 × stride × duty，脚钉在地上不打滑。
-  const BIPED_LEG = 67, RUN_FROM = 76, RUN_TO = 100;
+  // 走跑过渡区间（2026-10-05 按后台新速度调）：标准双足基础 90、超速满 126，轻腿基础约 101，重腿基础约 76——巡航走、超速跑
+  const BIPED_LEG = 67, RUN_FROM = 92, RUN_TO = 118;
   const bipedRun = (v) => { const u = Math.max(0, Math.min(1, (Math.abs(v || 0) - RUN_FROM) / (RUN_TO - RUN_FROM))); return u * u * (3 - 2 * u); };
   const bipedDuty = (r) => 0.6 - 0.24 * r;
   const strideFor = (v) => {

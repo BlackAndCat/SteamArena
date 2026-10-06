@@ -269,72 +269,11 @@ SA.SPR = (() => {
   }
   // ---------- 机甲头盔（新模块 mech_helm，2×1 = 48×24；用户 2026-10-05 定）----------
   // 两格横躺，但头盔本身只占中间一格（24px）；两侧各空出半格，做成肩甲 / 护颈这类有防御感的饰件。耐久很高（数值见 config/modules.json）。
-  // 5 种方案等用户挑；游戏里用 MECH_HELM_STYLE，样机页按 q.hs 指定。都只用冷铁 / 黄铜 / 玻璃，材料色由 decorate 统一上。
-  const MECH_HELM_STYLE = 'A';
+  // 用户 2026-10-05 从 5 种方案里选定 D「指挥塔 · 斜装甲」（其余四种在 git 历史和 tools/archive/biped-v8 里）。只用冷铁 / 黄铜 / 玻璃，材料色由 decorate 统一上。
+  const MECH_HELM_STYLE = 'D';
   const HELM_GLASS = [P.glass[0], P.glass[0], P.glass[0], P.glass[1]], HELM_SOOT = [MECH_SOOT[0], MECH_SOOT[1], MECH_SOOT[1], MECH_SOOT[2]];
   const helmEyes = (pn, xs, y) => { for (const ex of xs) { pn.fill(ex, y, 2, 2, P.white); pn.fill(ex + 1, y + 1, 1, 1, P.black); } };
   const MECH_HELMS = {
-    A: {
-      name: '圆盔 · 叠片护颈', idea: 'v4 的圆盔（舷窗里看得见驾驶员）放在正中；两边各三片弧形叠片往下往外搭，像一圈护颈压在肩上。',
-      draw(pn, x, y, M) {
-        const cx = x + 24, rivet = SA.LEGLAB.U.rivet;
-        for (const sd of [-1, 1]) for (let k = 2; k >= 0; k--) {
-          const yy = y + 6 + k * 5, a = cx + sd * 9, b = cx + sd * 23;
-          pn.poly([[a, yy], [b - sd * 4, yy + 2], [b, yy + 5], [b - sd * 1, yy + 7], [a, yy + 7]]).paint(M.iron);
-          rivet(pn, sd < 0 ? b + 3 : b - 5, yy + 3);
-        }
-        pn.disc(cx, y + 11, 10).rect(cx - 10, y + 11, 20, 11).paint(M.iron);
-        pn.rect(cx - 11, y + 19, 22, 5).paint(M.brass);
-        pn.disc(cx + 2, y + 10, 6.2).paint(M.brass);
-        pn.disc(cx + 2, y + 10, 4.6).paint(HELM_GLASS, { outline: false });
-        pn.disc(cx + 2, y + 11, 3.6).paint(HELM_SOOT, { outline: false });
-        helmEyes(pn, [cx, cx + 3], y + 9);
-        pn.dot(cx - 1, y + 7, P.glass[3]);
-        pn.rect(cx - 8, y, 4, 3).paint(M.brass, { bevel: 'l' });
-        rivet(pn, cx - 8, y + 14);
-      },
-    },
-    B: {
-      name: '桶盔 · 高护颈', idea: '骑士桶盔：平顶切角，一条眼缝里露出两只眼睛，正中黄铜护鼻条；两边一对护颈压在肩上（上沿外卷、黄铜包边），头盔从中间冒出来。',
-      draw(pn, x, y, M) {
-        const cx = x + 24, rivet = SA.LEGLAB.U.rivet;
-        for (const sd of [-1, 1]) {
-          pn.poly([[cx + sd * 9, y + 24], [cx + sd * 9, y + 10], [cx + sd * 12, y + 7], [cx + sd * 18, y + 6], [cx + sd * 22, y + 9], [cx + sd * 23, y + 13], [cx + sd * 21, y + 24]]).paint(M.steel);
-          pn.ln(cx + sd * 12, y + 7, cx + sd * 18, y + 6, P.brass[2]); pn.ln(cx + sd * 18, y + 6, cx + sd * 22, y + 9, P.brass[2]);
-          rivet(pn, cx + sd * 16 - 1, y + 14); rivet(pn, cx + sd * 16 - 1, y + 20);
-        }
-        pn.poly([[cx - 10, y + 4], [cx - 7, y + 1], [cx + 7, y + 1], [cx + 10, y + 4], [cx + 10, y + 24], [cx - 10, y + 24]]).paint(M.steel);
-        pn.rect(cx - 6, y, 12, 2).paint(M.brass, { bevel: 'l' });
-        pn.fill(cx - 8, y + 9, 17, 3, P.black);
-        pn.dot(cx - 4, y + 10, P.white); pn.dot(cx + 4, y + 10, P.white);
-        pn.fill(cx, y + 8, 2, 15, P.brass[2]); pn.fill(cx + 1, y + 8, 1, 15, P.brass[1]);
-        for (const [dx, dy] of [[5, 15], [7, 15], [5, 18], [7, 18]]) pn.dot(cx + dx, y + dy, P.iron[0]);
-        pn.fill(cx - 10, y + 21, 20, 1, P.brass[2]);
-        pn.ln(cx - 8, y + 5, cx - 8, y + 20, P.iron[4]);
-      },
-    },
-    C: {
-      name: '潜水盔 · 螺栓肩座', idea: '圆顶潜水头盔：正面一只大舷窗（两道护栅），后面一只小侧窗，底下一圈黄铜螺栓领圈；两边是潜水服式的厚圆肩座，各压两颗大螺栓。',
-      draw(pn, x, y, M) {
-        const cx = x + 24;
-        for (const sd of [-1, 1]) {
-          const pts = [];
-          for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 + i / 10); pts.push([cx + sd * 16 + Math.cos(a) * 8, y + 24 + Math.sin(a) * 12]); }
-          pn.poly(pts).paint(M.iron);
-          for (const [dx, dy] of [[12, 16], [19, 18]]) { pn.disc(cx + sd * dx, y + dy, 1.6).paint(M.brass); pn.dot(cx + sd * dx, y + dy, P.brass[0]); }
-        }
-        pn.disc(cx, y + 11, 10.5).paint(M.iron);
-        pn.rect(cx - 11, y + 18, 22, 6).paint(M.brass);
-        for (const dx of [-8, -3, 3, 8]) pn.dot(cx + dx, y + 20, P.brass[0]);
-        pn.disc(cx - 6, y + 9, 2.4).paint(M.brass); pn.disc(cx - 6, y + 9, 1.4).paint(HELM_GLASS, { outline: false });
-        pn.disc(cx + 3, y + 10, 6).paint(M.brass);
-        pn.disc(cx + 3, y + 10, 4.6).paint(HELM_GLASS, { outline: false });
-        pn.disc(cx + 3, y + 11, 3.4).paint(HELM_SOOT, { outline: false });
-        helmEyes(pn, [cx + 1, cx + 4], y + 9);
-        pn.fill(cx - 2, y + 6, 10, 1, P.brass[1]); pn.fill(cx - 2, y + 14, 10, 1, P.brass[1]);
-        pn.rect(cx - 3, y, 6, 2).paint(M.brass);
-      },
-    },
     D: {
       name: '指挥塔 · 斜装甲', idea: '像坦克的指挥塔：梯形塔身、顶上舱盖、黄铜眉檐下一条观察缝；两边是往外斜下去的两层楔形装甲板，一排铆钉，最有「挡炮弹」的感觉。',
       draw(pn, x, y, M) {
@@ -353,30 +292,150 @@ SA.SPR = (() => {
         rivet(pn, cx - 8, y + 18); rivet(pn, cx + 6, y + 18);
       },
     },
-    E: {
-      name: '尖顶盔 · 钟形护颈', idea: '尖顶盔（巴西内特）配一只往前凸的猪嘴护面（侧面一颗转轴铆钉，两道眼缝、几个透气孔）；两边是往外张开的钟形护颈，带一道黄铜筋，像骑士的护喉甲。',
-      draw(pn, x, y, M) {
-        const cx = x + 24;
-        for (const sd of [-1, 1]) {
-          const top = [], rib = [];
-          for (let i = 0; i <= 8; i++) { const t = i / 8; top.push([cx + sd * (9 + 14 * t), y + 9 + 14 * Math.pow(t, 1.6)]); rib.push([cx + sd * (9 + 12 * t), y + 14 + 9 * Math.pow(t, 1.6)]); }
-          pn.poly([...top, [cx + sd * 9, y + 24]]).paint(M.steel);
-          for (let i = 1; i < rib.length; i++) pn.ln(...rib[i - 1], ...rib[i], P.brass[2]);
-        }
-        pn.poly([[cx - 10, y + 24], [cx - 10, y + 12], [cx - 7, y + 5], [cx - 1, y], [cx + 1, y], [cx + 7, y + 5], [cx + 10, y + 12], [cx + 10, y + 24]]).paint(M.iron);
-        pn.ln(cx, y + 1, cx - 3, y + 9, P.brass[2]);
-        pn.poly([[cx - 2, y + 8], [cx + 7, y + 9], [cx + 11, y + 13], [cx + 7, y + 18], [cx - 2, y + 19]]).paint(M.steel);
-        pn.fill(cx + 1, y + 12, 5, 1, P.black); pn.fill(cx + 1, y + 15, 5, 1, P.black);
-        pn.dot(cx + 2, y + 12, P.white); pn.dot(cx + 4, y + 12, P.white);
-        for (const dy of [13, 15]) pn.dot(cx + 8, y + dy, P.iron[0]);
-        pn.disc(cx - 2, y + 13, 1.5).paint(M.brass);
-        pn.rect(cx - 10, y + 21, 20, 3).paint(M.brass, { outline: false });
-      },
-    },
   };
   function mechHelmArt(x, y, q) {
     const pn = penFor(ctx.canvas);
     (MECH_HELMS[q.hs] || MECH_HELMS[MECH_HELM_STYLE]).draw(pn, x, y, mechMat(), q);
+    pn.flush(ctx);
+  }
+  // ---------- 骑士手臂（knight_*，2×3 侧挂；机甲套件 v4 的机械臂，用户 2026-10-05 全部通过）----------
+  // 肩膀属于手臂：肩关节 (x+14, y+12) → 大臂 → 肘 (x+16, y+38) → 小臂 → 手 / 武器。T1～T3 铁制、T4～T6 钢制外观，材料色由 decorate 统一上。
+  // 炮臂 / 腕枪臂的武器绕肘转，炮管正好在肘的轴线上：piv = [16, 38]，blen 见 config/modules.json（战斗的炮口和画面对得上）。
+  // q.sw 步伐摆动（-1 / 0 / 1）；q.pu 近战出手（0～4 档，4 = 刚打出）；q.a 仰角（度）；q.k 后坐（0～4 档）
+  const ARM_END = { knight_shield: 'shield', knight_fist: 'fist', knight_hammer: 'hammer', knight_sword: 'sword', knight_cannon: 'cannon', knight_gun: 'mg' };
+  const ARM_PIV = [16, 38];
+  function armHand(pn, FA, s, M, end) {
+    const rivet = SA.LEGLAB.U.rivet, shell = s === 'L' ? M.iron : M.steel;
+    if (end === 'fist' && s === 'L') {   // 三指液压爪
+      for (const [f, bend] of [[4, 3], [0, 4], [-4, 2]]) { const b = FA.p(FA.len + 5, f), t = FA.p(FA.len + 8, f + bend); pn.cap(...FA.p(FA.len, f * 0.8), ...b, 1.4).cap(...b, ...t, 1.1); }
+      pn.paint(M.brass, { bevel: 'l' });
+      pn.poly(FA.pts([[FA.len - 2, -6], [FA.len - 2, 6], [FA.len + 3, 6], [FA.len + 3, -6]])).paint(M.iron);
+      return;
+    }
+    const big = end === 'fist' ? 1 : 0.8;   // 护手拳：握着武器时小一点
+    pn.poly(FA.pts([[FA.len - 2, -6 * big], [FA.len - 2, 6.5 * big], [FA.len + 8 * big, 6 * big], [FA.len + 9 * big, -5 * big]])).paint(shell);
+    pn.ln(...FA.p(FA.len + 5 * big, -5 * big), ...FA.p(FA.len + 5 * big, 6 * big), (s === 'L' ? M.iron : M.steel)[1]);
+    if (s === 'K') pn.ln(...FA.p(FA.len - 1, -5), ...FA.p(FA.len - 1, 6), P.brass[2]);
+    void rivet;
+  }
+  function armSword(pn, wx, wy, a, M) {
+    const B = SA.LEGLAB.U.bone(wx, wy, wx + Math.cos(a) * 50, wy + Math.sin(a) * 50);
+    pn.poly(B.pts([[-7, -1.6], [-7, 1.6], [0, 1.6], [0, -1.6]])).paint(M.leather);
+    pn.disc(...B.p(-8, 0), 2).paint(M.brass);
+    pn.poly(B.pts([[5, -3], [5, 3], [48, 0.8], [52, 0], [48, -0.8]])).paint([P.iron[0], P.iron[3], P.iron[4], P.white]);
+    pn.ln(...B.p(7, 0), ...B.p(44, 0), P.iron[2]);
+    pn.poly(B.pts([[2, -8], [5, -8], [5, 8], [2, 8]])).paint(M.brass);
+  }
+  function armHammer(pn, wx, wy, a, s, M) {   // 蒸汽锤：长柄 + 锤头，锤头背后一根活塞
+    const B = SA.LEGLAB.U.bone(wx, wy, wx + Math.cos(a) * 34, wy + Math.sin(a) * 34);
+    pn.poly(B.pts([[-8, -1.8], [-8, 1.8], [30, 1.8], [30, -1.8]])).paint(M.leather);
+    pn.poly(B.pts([[33, 12], [42, 13.5], [42, 18], [33, 17]])).paint(M.steam, { bevel: 'l' });
+    pn.poly(B.pts([[26, -13], [26, 13], [44, 15], [44, -15]])).paint(s === 'L' ? M.iron : M.steel);
+    for (const aa of [29, 38]) pn.poly(B.pts([[aa, -13.5], [aa + 2, -13.5], [aa + 2, 13.5], [aa, 13.5]])).paint(M.brass, { outline: false });
+    pn.poly(B.pts([[34, -20], [38, -20], [38, -14], [34, -14]])).paint(M.dark);
+  }
+  function armShield(pn, cx, cy, s, M) {
+    if (s === 'L') {
+      const rivet = SA.LEGLAB.U.rivet;
+      pn.poly([[cx - 11, cy - 20], [cx + 11, cy - 20], [cx + 11, cy + 14], [cx, cy + 22], [cx - 11, cy + 14]]).paint(M.iron);
+      pn.ln(cx, cy - 17, cx, cy + 18, M.iron[3]);
+      pn.fill(cx - 7, cy - 14, 14, 2, P.black);
+      pn.disc(cx, cy + 1, 4).paint(M.brass); pn.dot(cx - 1, cy, P.brass[3]);
+      for (const yy of [-17, -6, 9]) { rivet(pn, cx - 10, cy + yy); rivet(pn, cx + 7, cy + yy); }
+    } else {
+      pn.poly([[cx - 13, cy - 21], [cx + 13, cy - 21], [cx + 13, cy + 3], [cx, cy + 24], [cx - 13, cy + 3]]).paint(M.brass);
+      pn.poly([[cx - 11, cy - 19], [cx + 11, cy - 19], [cx + 11, cy + 2], [cx, cy + 21], [cx - 11, cy + 2]]).paint(M.steel, { outline: false });
+      pn.ln(cx - 10, cy - 18, cx - 10, cy + 1, M.steel[3]);
+      SA.LEGLAB.U.gear(pn, cx, cy - 5, 6, 10, 0.2, M.brass, M.steel);
+      pn.fill(cx - 1, cy + 4, 2, 12, P.brass[2]);
+    }
+  }
+  // 巨炮臂：整条小臂就是一门炮，绕肘转（a = 仰角弧度）；炮管在肘的轴线上，炮口离肘 56px
+  function armCannon(pn, ex, ey, a, k, s, M) {
+    const R = s === 'L' ? M.iron : M.steel, B = SA.LEGLAB.U.bone(ex, ey, ex + Math.cos(a) * 60, ey - Math.sin(a) * 60);
+    pn.disc(...B.p(2 - k, -11), 6.5).paint(M.brass); pn.disc(...B.p(2 - k, -11), 3).paint(M.dark, { outline: false });   // 炮尾下的弹鼓
+    pn.poly(B.pts([[-8 - k, 7], [12 - k, 7], [12 - k, -8], [-8 - k, -8]])).paint(R);
+    pn.poly(B.pts([[10 - k, 5], [50 - k, 4], [50 - k, -4], [10 - k, -5]])).paint(R);
+    pn.poly(B.pts([[48 - k, 6], [56 - k, 6], [56 - k, -6], [48 - k, -6]])).paint(M.brass);
+    for (const u of [16, 28, 40]) pn.poly(B.pts([[u - k, 5], [u + 2 - k, 5], [u + 2 - k, -5], [u - k, -5]])).paint(M.brass, { outline: false });
+    pn.ln(...B.p(12 - k, 3), ...B.p(46 - k, 2), R[3]);
+  }
+  // 腕枪臂：小臂指向瞄准方向，护手拳前面伸出一根短枪管（在肘的轴线上，枪口离肘 38px），小臂上面压一只黄铜弹鼓
+  function armWristGun(pn, ex, ey, a, k, s, M) {
+    const shell = s === 'L' ? M.iron : M.steel, L = 18, FA = SA.LEGLAB.U.bone(ex, ey, ex + Math.cos(a) * L, ey - Math.sin(a) * L);
+    pn.poly(FA.pts([[0, 5], [0, -5], [L, -6], [L, 6.4]])).paint(shell);
+    pn.poly(FA.pts([[L + 6 - k, 1.4], [L + 20 - k, 1.4], [L + 20 - k, -1.4], [L + 6 - k, -1.4]])).paint(M.steel);
+    pn.poly(FA.pts([[L + 17 - k, 2.6], [L + 21 - k, 2.6], [L + 21 - k, -2.6], [L + 17 - k, -2.6]])).paint(M.brass);
+    armHand(pn, FA, s, M, 'fist');
+    pn.poly(FA.pts([[3, 5], [13, 5], [13, 9], [3, 9]])).paint(M.dark);
+    pn.disc(...FA.p(8, 11), 3.4).paint(M.brass); pn.disc(...FA.p(8, 11), 1.3).paint(M.dark, { outline: false });
+    for (const u of [4, L - 4]) pn.poly(FA.pts([[u, 9.5], [u + 2, 9.5], [u + 2, -5.5], [u, -5.5]])).paint(s === 'K' ? M.brass : M.leather, { outline: false });
+  }
+  function knightArmArt(x, y, q, id) {
+    const pn = penFor(ctx.canvas), M = mechMat(), s = (q.mt || 1) <= 3 ? 'L' : 'K', end = ARM_END[id], R = s === 'L' ? M.iron : M.steel;
+    const gun = end === 'cannon' || end === 'mg', sw = gun ? 0 : (q.sw || 0), pu = (q.pu || 0) / 4, k = (q.k || 0) / 4 * (end === 'cannon' ? 4 : 2);
+    const sx = x + 14, sy = y + 12, ex = x + ARM_PIV[0] + sw * 4, ey = y + ARM_PIV[1], aim = (q.a || 0) * Math.PI / 180;
+    const bone = SA.LEGLAB.U.bone, rivet = SA.LEGLAB.U.rivet;
+    // 手腕：拳往前上捣；剑、锤按出手进度从举起挥到打下
+    const W = { fist: [ex + 13 + 10 * pu, ey + 16 - 12 * pu], sword: [ex + 13, ey + 10], hammer: [ex + 12, ey + 12], shield: [ex + 14, ey + 4] }[end];
+    if (end === 'sword') armSword(pn, W[0], W[1], -0.62 + sw * 0.08 + 1.0 * pu, M);
+    if (end === 'hammer') armHammer(pn, W[0], W[1], 0.55 + sw * 0.1 + 0.75 * pu, s, M);
+    const UA = bone(sx, sy, ex, ey);   // 大臂
+    pn.poly(UA.pts([[0, -6], [0, 6], [UA.len, 5], [UA.len, -5]])).paint(R);
+    if (s === 'L') pn.ln(...UA.p(3, -6.2), ...UA.p(UA.len - 3, -5), M.steam[3]); else pn.ln(...UA.p(2, 2.4), ...UA.p(UA.len - 2, 2), M.steel[3]);
+    if (end === 'cannon') armCannon(pn, ex, ey, aim, k, s, M);
+    else if (end === 'mg') armWristGun(pn, ex, ey, aim, k, s, M);
+    else {
+      const FA = bone(ex, ey, W[0], W[1]);
+      pn.poly(FA.pts([[0, -5], [0, 5], [FA.len, 6.4], [FA.len, -6]])).paint(R);
+      if (s === 'K') { pn.ln(...FA.p(2, 2.4), ...FA.p(FA.len - 1, 3), M.steel[3]); pn.fill(...FA.p(FA.len - 3, -5), 1, 1, P.brass[2]); }
+      else pn.ln(...FA.p(2, -5), ...FA.p(FA.len - 2, -6), M.steam[3]);
+      if (end === 'shield') armShield(pn, W[0] + 4, W[1] - 4, s, M);
+      else armHand(pn, FA, s, M, end);
+    }
+    // 肘
+    if (s === 'L') { pn.disc(ex, ey, 4.4).paint(M.brass); pn.dot(ex, ey, P.brass[0]); }
+    else {
+      pn.disc(ex - 2.5, ey + 0.5, 5.2).paint(M.brass);
+      for (let i = 0; i < 5; i++) { const a = Math.PI * (0.55 + i / 4 * 0.9); pn.ln(ex - 2.5 + Math.cos(a) * 1.4, ey + 0.5 + Math.sin(a) * 1.4, ex - 2.5 + Math.cos(a) * 4.5, ey + 0.5 + Math.sin(a) * 4.5, M.brass[1]); }
+      pn.disc(ex + 0.5, ey, 3).paint(M.steel);
+    }
+    // 肩：关节轴套 + 肩甲（不大于大臂的两倍宽）
+    pn.disc(sx, sy, 6.5).paint(M.dark);
+    if (s === 'L') {
+      pn.poly([[sx - 9, sy - 1], [sx - 6, sy - 8], [sx + 5, sy - 9], [sx + 10, sy - 3], [sx + 8, sy + 3], [sx - 8, sy + 3]]).paint(M.iron);
+      pn.disc(sx, sy - 2, 2.6).paint(M.brass);
+      rivet(pn, sx - 6, sy - 4); rivet(pn, sx + 5, sy - 5);
+    } else {
+      pn.poly([[sx - 10, sy + 1], [sx - 8, sy - 7], [sx - 1, sy - 11], [sx + 8, sy - 9], [sx + 12, sy - 2], [sx + 11, sy + 4], [sx - 9, sy + 5]]).paint(M.steel);
+      pn.poly([[sx - 9, sy + 4], [sx + 11, sy + 3], [sx + 10, sy + 8], [sx - 8, sy + 9]]).paint(M.steel);
+      pn.ln(sx - 9, sy + 3, sx + 11, sy + 2, P.brass[2]); pn.ln(sx - 8, sy + 8, sx + 10, sy + 7, P.brass[2]);
+      pn.ln(sx - 7, sy - 6, sx - 1, sy - 10, M.steel[3]);
+      rivet(pn, sx + 5, sy - 6);
+    }
+    pn.flush(ctx);
+  }
+
+  // ---------- 腿部件的独立图标（改装台卡片、拖着摆放时用；装在双足上时改画在腿骨上，见 renderVehicle）----------
+  function legSpringIcon(x, y) {
+    const pn = penFor(ctx.canvas), M = mechMat(), B = SA.LEGLAB.U.bone(x + 12, y + 2, x + 12, y + 22);
+    pn.cap(x + 12, y + 11, x + 12, y + 22, 0.9).paint(M.steel, { bevel: 'l' });
+    for (let i = 0; i < 8; i++) pn.cap(...B.p(9 + i * 1.5, i % 2 ? 4 : -4), ...B.p(10.5 + i * 1.5, i % 2 ? -4 : 4), 0.7);
+    pn.paint(M.brass, { bevel: 'l' });
+    pn.cap(x + 12, y + 3, x + 12, y + 11, 3).paint(M.dark);
+    pn.rect(x + 8, y + 9, 8, 2).paint(M.brass, { outline: false });
+    pn.disc(x + 12, y + 3, 2.2).paint(M.brass); pn.disc(x + 12, y + 21, 2.2).paint(M.brass);
+    pn.flush(ctx);
+  }
+  function legBoosterIcon(x, y) {
+    const pn = penFor(ctx.canvas), M = mechMat();
+    for (const yy of [y + 9, y + 18]) {
+      pn.cap(x + 1, yy, x + 8, yy, 0.8).paint(M.steel, { bevel: 'l' });
+      pn.cap(x + 7, yy, x + 20, yy, 3.4).paint(M.iron);
+      pn.rect(x + 7, yy - 3.8, 2, 7.6).paint(M.brass, { outline: false });
+      pn.rect(x + 18, yy - 3.8, 2, 7.6).paint(M.brass, { outline: false });
+    }
+    pn.rect(x + 3, y + 1, 3, 6).paint(M.dark); pn.rect(x + 2, y, 5, 2).paint(M.brass);
     pn.flush(ctx);
   }
   // 腿式底盘（有腿、要画远侧腿的底盘）；amp 是旧逐格画法留下的起伏幅度，整件四足 / 真双足改用 quadBob / bipedBob
@@ -2876,6 +2935,14 @@ SA.SPR = (() => {
     helmet(x, y, o) { helmetArt(x, y, o); },
     cockpit_pair(x, y, o) { cockpitPairArt(x, y, o); },
     mech_helm(x, y, q) { mechHelmArt(x, y, q); },   // 机甲头盔（2×1，见 MECH_HELMS）
+    knight_shield(x, y, q) { knightArmArt(x, y, q, 'knight_shield'); },   // 骑士手臂（2×3 侧挂，见 knightArmArt）
+    knight_fist(x, y, q) { knightArmArt(x, y, q, 'knight_fist'); },
+    knight_hammer(x, y, q) { knightArmArt(x, y, q, 'knight_hammer'); },
+    knight_sword(x, y, q) { knightArmArt(x, y, q, 'knight_sword'); },
+    knight_cannon(x, y, q) { knightArmArt(x, y, q, 'knight_cannon'); },
+    knight_gun(x, y, q) { knightArmArt(x, y, q, 'knight_gun'); },
+    leg_spring(x, y) { legSpringIcon(x, y); },     // 腿部件：装在双足上时画在腿骨 / 胯上（renderVehicle），这里是卡片图标
+    leg_booster(x, y) { legBoosterIcon(x, y); },
     plate(x, y, q) {
       if (q && q.mech) { mechArt(x, y, q); return; }
       box(x + 2, y + 2, 20, 20, IRONL);
@@ -3057,6 +3124,8 @@ SA.SPR = (() => {
     biped(x, y, o) {
       const LL = SA.LEGLAB, pn = penFor(ctx.canvas);
       LL.bipedArt(pn, x, y, { mv: !!o.mv, a: (o.ga || 0) / 12 * Math.PI * 2, stride: o.sd || 16, run: (o.rk || 0) / 4, bd: o.bd || 0, g: o.g2 || [0, 0],
+        crouch: (o.cr || 0) / 4, air: !!o.air, tuck: (o.tk || 0) / 4,
+        legPart: o.ls ? LL.bipedParts.jumpSpring : undefined, hipPart: o.lb ? LL.bipedParts.hipBooster : undefined,
         legs: o.lk || BIPED_LOOK[(o.st || 1) - 1], wL: !!o.wL, wR: !!o.wR, phase: (o.ga || 0) * 4, t: (o.tt || 0) / 6 }, o.part || undefined);
       pn.flush(ctx);
     },
@@ -3133,6 +3202,9 @@ SA.SPR = (() => {
         if (SA.LEG_VARIANTS.some(v => v.id === 'biped' && v.look === o.look)) q.lk = o.look;
         q.mv = !!o.moving; q.ga = q.mv ? ((Math.round(A / (Math.PI * 2 / 12)) % 12) + 12) % 12 : 0; q.sd = Math.round((o.stride || 16) / 2) * 2;
         if (q.mv && o.runK) q.rk = Math.round(o.runK * 4);
+        if (o.crouch) q.cr = Math.round(o.crouch * 4);                 // 下蹲 0～4 档
+        if (o.air) { q.air = 1; q.tk = Math.round((o.tuck || 0) * 4); }   // 空中 + 收腿 0～4 档
+        if (o.ls) q.ls = 1; if (o.lb) q.lb = 1;                        // 腿上装着弹簧蹬缸 / 胯上装着增压器
         q.bd = o.bd || 0; q.part = o.part || null; q.tt = Math.floor((o.t || 0) * 6) % 36;
         if (o.wL) q.wL = true; if (o.wR) q.wR = true;
         if (o.g2 && o.g2.some(v => v)) q.g2 = o.g2.map(v => Math.round((v || 0) / 2) * 2);
@@ -3146,6 +3218,10 @@ SA.SPR = (() => {
       case 'condenser': q.fr = Math.floor((o.t || 0) * 4) % 12; break;             // 盘管滴水：12 帧一轮
     }
     if (o.hs && id === 'mech_helm') q.hs = o.hs;   // 样机页指定头盔方案
+    if (ARM_END[id]) {   // 骑士手臂：步伐摆动、近战出手、仰角、后坐
+      if (id === 'knight_cannon' || id === 'knight_gun') { q.a = angQ(o.a, 0); const k = SA.Dyn.quant(o.recoil, 4); if (k) q.k = k; }
+      else { if (o.moving) q.sw = Math.round(-Math.sin(o.gait || 0)); const pu = Math.round(Math.min(1, o.punch || 0) * 4); if (pu) q.pu = pu; }
+    }
     if (o.mech) {   // 真双足的机甲外观（见 MECH_ART）：外观名 + 自己的动画档，替换掉原模块的动画档
       for (const k of ['fr', 'lv']) delete q[k];
       q.mech = o.mech;
@@ -3460,6 +3536,9 @@ SA.SPR = (() => {
     //   顶上空着、左右至少一边空着的甲片 → 肩甲
     const MECH_OF = { boiler_s: 'backboiler', tank_s: 'backjar', pressure_chamber: 'jetpack' };
     const mechRoles = {};
+    // 腿部件（弹簧蹬缸 / 增压器）装好时画在腿骨 / 胯上，侧挂层跳过它们（SA.V.bipedParts：活着、挂位对、双足腿胯没毁）
+    const legParts = bipC >= 0 && SA.V.bipedParts ? SA.V.bipedParts(veh) : null;
+    const onLeg = new Set(legParts ? [...legParts.spring, ...legParts.booster].map(x => x.cell) : []);
     if (bipC >= 0) {
       const torso = (r, c) => r >= 0 && r < CH && c >= 0 && c < K.COLS && O[r][c] && !SA.isRam(O[r][c].cell.id) && !isChassis(O[r][c].cell.id);
       eachCell(veh.body, (cell, r, c) => {
@@ -3496,6 +3575,7 @@ SA.SPR = (() => {
             phase, gait: phase, stride, runK, mech: mechRoles[`${r},${c}`], hs: cell.id === 'mech_helm' ? o.helmStyle : undefined,
             g4: cell.id === 'quad' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
             g2: cell.id === 'biped' && o.gnd ? o.gnd[`${r},${c}`] || null : null,
+            ...(cell.id === 'biped' ? { crouch: o.crouch, air: o.air, tuck: o.tuck, ls: !!(legParts && legParts.spring.length), lb: !!(legParts && legParts.booster.length) } : {}),
             wL: cell.id === 'biped' && waist(c - 2), wR: cell.id === 'biped' && waist(c + 2),
             connL: same(c - w),
             connR: same(c + w),
@@ -3568,7 +3648,7 @@ SA.SPR = (() => {
 
     // 侧挂层：硬阴影 + 本体，明确“在另一个平面”
     eachCell(veh.side, (cell, r, c) => {
-      if (cell.hp <= 0) return;
+      if (cell.hp <= 0 || onLeg.has(cell)) return;
       const img = modSprite(cell.id, modOpts(cell, r, c));
       g.save();
       g.globalAlpha = o.dimSide ? 0.35 : 1;

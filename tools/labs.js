@@ -24,14 +24,16 @@ SA.LABS = {
   ],
   // 同一条演进线上的版本（从旧到新）
   LINES: [
-    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'mech-kit-v4', 'current', 'chassis', 'quad-tiers'] },
+    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'mech-kit-v4', 'biped-v8', 'current', 'chassis', 'quad-tiers'] },
     { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足强化 v8 · 机甲头盔', date: '2026-10-05', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期：机甲头盔做成新模块 mech_helm（2×1，头盔只占中间一格，两侧是防御饰件，耐久 150），5 种造型走游戏渲染等用户挑（A 圆盔 · 叠片护颈 / B 桶盔 · 高护颈 / C 潜水盔 · 螺栓肩座 / D 指挥塔 · 斜装甲 / E 尖顶盔 · 钟形护颈）；提速件 B 双缸增压器、跳跃件 A 弹簧蹬缸已定稿进 legs.js；折叠区是已进游戏的机甲外观和已通过的步态等', docs: ['docs/biped-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足进游戏 v9', date: '2026-10-05', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。本期（docs/biped-plan.md）：astra 双足后台第一版完成后，画面全部接进游戏——六种骑士手臂（近战挥动、武器绕肘瞄准）、机甲头盔 D、弹簧蹬缸 / 双缸增压器画在腿上、下蹲 / 跳跃（按键、腿姿、地影、喷汽、扬尘），全部游戏渲染', docs: ['docs/biped-plan.md', 'docs/board-opus.md'] },
+    { id: 'biped-v8', group: 'chassis', url: 'archive/biped-v8.html', name: '双足强化 · 轻重腿 / 步态 / 腿部件 / 机甲头盔', ver: 'v5～v8', date: '2026-10-05', status: 'shipped',
+      desc: '已进游戏：轻重腿分法、走路 / 跑步重做（步频 + 倒立摆 / 弹簧模型）、四种姿态、跳跃件 A 弹簧蹬缸、提速件 B 双缸增压器、机甲外观（肩甲 / 背负锅炉 / 背水罐 / 喷汽背包）、机甲头盔选 D 指挥塔 · 斜装甲（其余四种头盔代码在 git 0df34d5）', docs: ['docs/biped-plan.md'] },
     { id: 'battle-ui-v1', group: 'top', url: 'archive/battle-ui-v1.html', name: '战斗界面 · 三套方案', ver: 'v1', date: '2026-09-30', status: 'shipped',
       desc: '用户选 A 驾驶台，已进游戏：A 驾驶台 / B 车上见 / C 记分牌，各看常态、告急、对方挂白旗；共同改法：白旗画在最上层 + 升旗时压暗只留对方车亮、对方车顶不再挂状态和警报', docs: ['docs/board-opus.md'] },
     { id: 'mech-kit-v4', group: 'chassis', url: 'archive/mech-kit-v4.html', name: '机甲套件', ver: 'v4 已通过', date: '2026-10-05', status: 'archived',

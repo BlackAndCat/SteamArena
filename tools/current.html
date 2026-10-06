@@ -6,45 +6,31 @@
   body { padding: 16px; overflow-y: auto; }
   h1 { color: var(--brass2); font-size: 20px; margin: 0 0 4px; letter-spacing: 2px; }
   h2 { color: var(--brass2); font-size: 17px; margin: 26px 0 8px; letter-spacing: 2px; }
-  h3 { color: var(--text); font-size: 15px; margin: 14px 0 4px; }
-  h3 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
   .lead { color: var(--muted); max-width: 980px; line-height: 1.6; margin: 0 0 12px; }
   .find { background: var(--dark1); border: 2px solid var(--dark0); border-left: 4px solid var(--brass1); padding: 10px 14px; max-width: 980px; line-height: 1.65; margin-bottom: 14px; }
-  .find > b { color: var(--brass2); } .find ol, .find ul { margin: 6px 0 0; padding-left: 20px; }
+  .find > b { color: var(--brass2); } .find ol { margin: 6px 0 0; padding-left: 20px; }
   .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 12px;
     background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 0 -2px 0 var(--dark3); margin-bottom: 8px; }
   .seg { display: inline-flex; border: 2px solid var(--dark0); }
   .seg button { background: var(--dark2); border: 0; padding: 4px 12px; cursor: pointer; color: var(--text); font-weight: 700; }
   .seg button.on { background: var(--brass1); }
   canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: var(--bg2); max-width: 100%; height: auto; }
-  .lane { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: flex-end; }
-  .names { display: flex; padding-left: 48px; color: var(--muted); font-size: 12px; }
-  .names span { width: 152px; flex: none; }
-  .read { color: var(--text); line-height: 1.6; margin: 4px 0 0; max-width: 980px; }
-  table.sug { border-collapse: collapse; margin: 10px 0 4px; font-size: 13px; }
-  table.sug th, table.sug td { border: 1px solid var(--dark0); padding: 4px 10px; text-align: left; }
-  table.sug th { background: var(--dark2); color: var(--brass2); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; max-width: 1400px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 12px; max-width: 1400px; }
   .card { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 10px; }
   .card b { display: block; margin-bottom: 6px; }
+  .card .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .card .cap { color: var(--muted); font-size: 12px; margin: 6px 0 0; line-height: 1.5; }
-  .prow { background: var(--dark1); border: 2px solid var(--dark0); box-shadow: inset 2px 2px 0 var(--dark3); padding: 10px 12px; margin-bottom: 12px; max-width: 1400px; }
-  .prow > b { color: var(--brass2); font-size: 15px; }
-  .prow .idea { margin: 4px 0 8px; line-height: 1.6; }
-  .prow .legs { display: flex; flex-wrap: wrap; gap: 10px; }
-  .prow .legs figure { margin: 0; } .prow .legs figcaption { color: var(--muted); font-size: 12px; margin-top: 4px; }
-  details > summary { cursor: pointer; color: var(--brass2); font-weight: 700; font-size: 16px; margin: 24px 0 8px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 14px; }
 </style></head>
 <body>
-<h1>当前开发 · 双足强化 v8 · 机甲头盔 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 计划：docs/biped-plan.md</small></h1>
-<p class="lead">机甲头盔重新设计，并且<b>做成了游戏里的新模块</b>（<code>mech_helm</code>，2×1），不复用现有驾驶舱。下面的头盔都是游戏渲染出来的，材料色是真的。</p>
+<h1>当前开发 · 双足进游戏 v9 <small style="font-size:13px;color:var(--muted);letter-spacing:0">2026-10-05 · 计划：docs/biped-plan.md · 上一期归档在 <a href="archive/biped-v8.html">archive/biped-v8</a></small></h1>
+<p class="lead">astra 的双足后台第一版完成后，这一轮把画面全部接进了游戏。下面都是游戏渲染（和战斗里同一条路）：骑士手臂、机甲头盔（选定 D 指挥塔 · 斜装甲）、腿上的弹簧蹬缸、胯上的双缸增压器，以及走 / 跑 / 蹲 / 跳。</p>
 
-<div class="find"><b>这一轮</b>
+<div class="find"><b>这一轮进游戏的画面</b>
 <ol>
-  <li><b>新模块 · 机甲头盔</b>：占 2×1（两格横躺），但头盔本身只占正中一格；两侧各半格是护颈 / 肩甲这类防御饰件。坐 1 名驾驶员，耐久 150（双人舱 125、单人舱 45）、装甲 2，重 80 kg，修理费按驾驶舱算。和所有驾驶舱一样不能在商店买，要靠关卡奖励给——<b>解锁放在哪一关等你在后台配</b>（双足所在的第二章还没写关卡）。别的底盘也能装。</li>
-  <li><b>挑一个造型</b>（Ⓐ）：A 圆盔 · 叠片护颈 / B 桶盔 · 高护颈 / C 潜水盔 · 螺栓肩座 / D 指挥塔 · 斜装甲 / E 尖顶盔 · 钟形护颈。现在游戏里先用 A，你挑了我就换。</li>
-  <li><b>已定稿</b>：跳跃件 A 弹簧蹬缸、提速件 B 双缸增压器，画法进了 <code>js/legs.js</code>（<code>SA.LEGLAB.bipedParts</code>），等模块数据就能装上车。</li>
+  <li><b>骑士手臂</b>（Ⓐ）：v4 的机械臂搬进游戏，六种都是专用画法（原来借别的模块占位）。近战臂按出手进度挥动；炮臂、腕枪臂绕肘瞄准，炮口和战斗里的炮口位置对得上。T1～T3 铁制、T4～T6 钢制外观。</li>
+  <li><b>腿部件</b>：弹簧蹬缸装好时画在小腿后面（下蹲时弹簧被压紧），双缸增压器画在胯后下方（活塞跟着步子打）；侧挂层不再单独画一块。</li>
+  <li><b>下蹲 / 跳跃</b>（Ⓑ）：战斗里 <b>S / ↓</b> 按住下蹲、<b>W / ↑</b> 起跳；触屏摇杆下拉蹲、上推跳。蹲下腿弯、脚踩实地；空中收腿、地上有影子；起跳脚下喷汽、落地扬尘 + 小震屏。</li>
+  <li>走跑过渡按新速度挪到 92～118 px/s：标准双足巡航（90）走、超速跑，轻腿基础速度就带一点跑。</li>
 </ol></div>
 
 <div class="bar">
@@ -52,206 +38,41 @@
   <span style="color:var(--muted)">画布都是原生像素 × 2</span>
 </div>
 
-<h2>Ⓐ 机甲头盔 · 五种造型（挑一个）</h2>
-<p class="lead">每种一行：左边是近景（T1 黄铜 / T3 钢 / T5 乌兹钢），右边是装在双足车上的整车（T1 / T4，慢走）。</p>
-<div id="helms"></div>
+<h2>Ⓐ 骑士手臂（T2 熟铁 / T5 乌兹钢）</h2>
+<div class="grid" id="arms"></div>
 
-<h2>Ⓑ 已定稿 · 提速件 B 双缸增压器（游戏腿）</h2>
-<div id="hipparts"></div>
-
-<details id="prev"><summary>已通过 · 机甲外观（已进游戏）、v6 走路 / 跑步、轻重腿、四种姿态、跳跃件 A、v4 整机（点开看）</summary>
-<h2>机甲外观（已进游戏）</h2>
-<div class="grid" id="mechcars"></div>
-<div class="find" style="margin-top:8px"><b>这一版改了什么</b>
-<ol>
-  <li><b>步幅按步频算</b>：走 1.6～2 步 / 秒、跑 2.4 步 / 秒左右，步长 = 车速 ÷ 步频。原来一步比腿还长（脚够不着地）；现在走路两脚在胯前后约 ±24px，跑步时脚落在身体正下方附近（约 ±15px）。</li>
-  <li><b>走 = 倒立摆</b>：着地占 60%（有双脚着地段），着地腿在胯正下方时整车最高；摆动脚走一条关键姿势插值出来的圆滑曲线（先脚尖蹬地、过胯下时最高、落地前脚跟先着）。</li>
-  <li><b>跑 = 弹簧-质量</b>：着地只占 36%，着地中段压到最低（下压），两脚都离地时被抛到最高（腾空）。摆动腿按跑步关键姿势走：蹬离 → 脚跟往后上收 → 顶膝往前 → 小腿伸出 → 落在身体下方。机甲版收着点，粗腿不会蜷成一团。</li>
-  <li><b>走跑自动过渡</b>：车速 76～100 px/s 之间平滑从走变成跑（现在双足基础速度 78、超速满 97.5，所以超速时会跑起来）；跑起来躯干往车头前倾，每高一大格多 1px（设计稿的「整行错位」）。</li>
-  <li>你的决定都记下了：晶枝腿归标准腿；跳跃件用 A；提速件改装在胯部（不占大腿位，下一轮出方案）；头盔改成两格横躺的部件、两边补零件（进游戏时做）。</li>
-</ol></div>
-<h2>⓪ 走路 / 跑步（已进游戏）</h2>
-<div class="bar" style="position:static">
-  <label>车速 <input type="range" id="speed" min="0" max="130" step="1" value="62" style="width:260px"></label>
-  <b id="speedv" style="min-width:220px"></b>
-</div>
-<div class="lane"><canvas id="gamecar"></canvas></div>
-<p class="read">上面是游戏的整车渲染（和战斗里同一条路），拖车速看从走过渡到跑。下面两排是 15 种腿（游戏精灵、带材料色）按同一个车速走 / 跑：</p>
-<h3>走 · 62 px/s</h3><div id="gaitwalk"></div>
-<h3>跑 · 115 px/s</h3><div id="gaitrun"></div>
-
-<h2>① 轻型腿 / 重型腿</h2>
-<div id="classes"></div>
-<p class="read">建议的数值方向（交给后台定，只是方向）：</p>
-<table class="sug">
-  <tr><th></th><th>标准（主线六档）</th><th>轻型</th><th>重型</th></tr>
-  <tr><td>速度</td><td>基准</td><td>+10～15%</td><td>−15%</td></tr>
-  <tr><td>承重</td><td>基准</td><td>−15%</td><td>+40～60%（能扛重炮）</td></tr>
-  <tr><td>闪避</td><td>现在的 0.12</td><td>更高</td><td>0</td></tr>
-  <tr><td>跳跃高度</td><td>基准</td><td>×1.5</td><td>×0.5</td></tr>
-  <tr><td>下蹲</td><td>基准</td><td>基准</td><td>更稳（散布、后坐再减一档）</td></tr>
-  <tr><td>走路起伏 / 晃动</td><td>基准</td><td>更大</td><td>更小</td></tr>
-</table>
-
-<h2>② 姿态：走 / 快跑 / 下蹲 / 跳跃</h2>
-<p class="lead">每一行是一类腿 + 一套 v4 躯干：轻型 = 板簧跑刃 + 轻骑，标准 = 掷弹兵 + 突击，重型 = 蒸汽人 + 圣骑。跳跃高度是演示值：轻 1.5 格、标准 1 格、重半格多（规则里按承重余量和腿型算）。</p>
-<div class="grid" id="poses"></div>
-
-<h2>③ 腿部件</h2>
-<p class="lead">跳跃件选定 A 弹簧蹬缸（小腿位）。提速件改装在胯部、不占大腿位，下一轮出方案。下面是跳跃件装在三条腿上「走 → 蓄力 → 起跳」。</p>
-<div id="parts"></div>
-
-<h2>机甲套件 v4（2026-10-05 全部通过）</h2>
-<p class="lead">原页面：<a href="archive/mech-kit-v4.html">archive/mech-kit-v4</a>（零件表、铁制 / 钢制两种外观都在那里）。</p>
-<div class="cards" id="v4cards"></div>
-</details>
+<h2>Ⓑ 整车：走 → 跑 → 蹲 → 跳（T3 钢 / T6 以太合金）</h2>
+<div class="grid" id="full"></div>
 
 <script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
-<script src="../js/vehicle.js"></script><script src="../js/content.js"></script>
-<script src="../js/legs.js"></script><script src="biped-v2.js"></script><script src="archive/mech-kit-v4.js"></script>
+<script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/legs.js"></script>
 <script src="current.js"></script>
 <script>
 (() => {
-  const C = SA.CUR, K4 = SA.MECHKIT, st = { mv: true, t: 0 }, views = [];
+  const C = SA.CUR, st = { mv: true, t: 0 }, views = [];
   const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const canvas = (w, h, z = 2) => { const cv = mk('canvas'); cv.width = w; cv.height = h; cv.style.width = w * z + 'px'; return cv; };
-
-  // Ⓐ 机甲外观（游戏整车）
-  const CAR_A = [['biped', 8, 6], ['boiler_s', 6, 5], ['boiler', 6, 6], ['tank_tall', 6, 8], ['helmet', 5, 6], ['plate', 5, 7], ['plate', 5, 5], ['plate', 5, 8]];
-  const CAR_B = [['biped', 8, 6], ['pressure_chamber', 6, 5], ['tank_s', 5, 5], ['cannon_m', 7, 6], ['helmet', 6, 6], ['plate', 6, 7], ['tank_tall', 6, 8], ['plate', 5, 6], ['plate', 5, 7]];
-  const MC = document.getElementById('mechcars');
-  [[CAR_A, 1, '背负锅炉 + 肩甲 · T1 黄铜'], [CAR_A, 4, '背负锅炉 + 肩甲 · T4 镀镍'], [CAR_B, 1, '背水罐 + 喷汽背包 + 肩甲 · T1 黄铜'], [CAR_B, 4, '背水罐 + 喷汽背包 + 肩甲 · T4 镀镍']].forEach(([lay, mt, name], i) => {
-    const v = SA.V.create(name);
-    for (const [id, r, c] of lay) v.body[r][c] = SA.newCell(id, mt);
-    const card = mk('div', 'card'), cv = canvas(160, 228);
-    card.append(mk('b', null, name), cv); MC.append(card);
-    views.push({ cv, draw: () => {
-      const sp = st.mv ? 55 : 0, stride = SA.LEGLAB.strideFor(sp), a = st.mv ? Math.PI * 2 * st.t * sp / (4 * stride) : 0;
-      const car = SA.SPR.renderVehicle(v, { moving: sp > 0, speed: sp, phase: a, key: 'mech' + i, t: st.t });
-      const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
-      g.fillStyle = SA.PAL.bg[4]; g.fillRect(0, 288 - 72, cv.width, 12);
-      g.drawImage(car, -(SA.SPR.PADX + 4 * 24) + 10, -72);
-    } });
-  });
-
-  // Ⓑ 胯部提速件
-  const HP = document.getElementById('hipparts'), PB2 = C.PART_BOX;
-  for (const [id, part] of Object.entries(C.HIPPARTS)) {
-    const row = mk('div', 'prow');
-    row.append(mk('b', null, part.name), mk('p', 'idea', part.idea));
-    const legs = mk('div', 'legs');
-    [['light', 'blade', '轻型 · 板簧跑刃'], ['std', 'gren', '标准 · 掷弹兵'], ['heavy', 'steamman', '重型 · 蒸汽人']].forEach(([cls, leg, name], i) => {
-      const fig = mk('figure'), cv = canvas(PB2.W, PB2.H);
-      fig.append(cv, mk('figcaption', null, name)); legs.append(fig);
-      const spec = { hip: id, cls, leg, mech: null, box: PB2, t0: i * 0.6 };
-      views.push({ cv, draw: () => C.renderPart(cv, spec, st) });
-    });
-    row.append(legs); HP.append(row);
+  const AR = document.getElementById('arms');
+  for (const [id, name, cap] of C.ARMS) {
+    const card = mk('div', 'card'), row = mk('div', 'row');
+    for (const mt of [2, 5]) { const cv = canvas(C.ARM_BOX.W, C.ARM_BOX.H); row.append(cv); views.push({ cv, draw: () => C.renderArm(cv, id, mt, st) }); }
+    card.append(mk('b', null, name), row, mk('p', 'cap', cap)); AR.append(card);
   }
-
-  // Ⓐ 机甲头盔
-  const HM = document.getElementById('helms');
-  for (const [id, h] of Object.entries(C.HELMS)) {
-    const row = mk('div', 'prow');
-    row.append(mk('b', null, `${id} ${h.name}`), mk('p', 'idea', h.idea));
-    const box = mk('div', 'legs');
-    const close = canvas(C.HELM_CLOSE.W, C.HELM_CLOSE.H, 3), f0 = mk('figure');
-    f0.append(close, mk('figcaption', null, '近景 × 3：黄铜 / 钢 / 乌兹钢')); box.append(f0);
-    views.push({ cv: close, draw: () => C.renderHelmClose(close, id) });
-    for (const mt of [1, 4]) {
-      const cv = canvas(C.HELM_BOX.W, C.HELM_BOX.H), f = mk('figure');
-      f.append(cv, mk('figcaption', null, mt === 1 ? '整车 · T1 黄铜' : '整车 · T4 镀镍')); box.append(f);
-      const spec = { id, mt };
-      views.push({ cv, draw: () => C.renderHelm(cv, spec, st) });
-    }
-    row.append(box); HM.append(row);
+  const FU = document.getElementById('full');
+  for (const mt of [3, 6]) {
+    const card = mk('div', 'card'), cv = canvas(C.FULL_BOX.W, C.FULL_BOX.H), cap = mk('p', 'cap', '');
+    card.append(mk('b', null, mt === 3 ? '钢（T3）' : '以太合金（T6）'), cv, cap); FU.append(card);
+    views.push({ cv, draw: () => { cap.textContent = '现在：' + C.renderFull(cv, mt, st) + '（机甲头盔 + 弹簧蹬缸 + 双缸增压器 + 骑士巨炮臂）'; } });
   }
-
-  // ⓪ 走 / 跑
-  const car = SA.V.fromAscii('双足样车', ['........','........','..CA....','..KA....','..OW....','..B.....']);
-  const gc = document.getElementById('gamecar'); gc.width = 440; gc.height = 262; gc.style.width = 880 + 'px';
-  const sp = document.getElementById('speed'), spv = document.getElementById('speedv');
-  const showSpeed = () => { const v = +sp.value, r = SA.LEGLAB.bipedRun(v); spv.textContent = `${v} px/s · ${r <= 0 ? '走' : r >= 1 ? '跑' : '走 → 跑 ' + Math.round(r * 100) + '%'} · 步幅 ${SA.LEGLAB.strideFor(v).toFixed(1)}`; };
-  sp.addEventListener('input', showSpeed); showSpeed();
-  views.push({ cv: gc, draw: () => C.renderGameCar(gc, car, st, +sp.value) });
-  for (const [id, v] of [['gaitwalk', 62], ['gaitrun', 115]]) {
-    const { w, h } = C.gaitLaneSize(), cv = canvas(w, h), box = document.getElementById(id);
-    box.append(cv);
-    const names = mk('div', 'names'); names.style.paddingLeft = '16px';
-    for (const [, mt, name] of C.ALL_LEGS()) { const sn = mk('span', null, name); sn.style.width = '120px'; names.append(sn); }
-    box.append(names);
-    views.push({ cv, draw: () => C.renderGaitLane(cv, v, st) });
-  }
-
-  // ① 轻 / 重
-  const CL = document.getElementById('classes');
-  for (const cls of C.CLASSES) {
-    const h = mk('h3', null, cls.name); h.append(mk('small', null, cls.sub)); CL.append(h);
-    const { w, h: hh } = C.laneSize(cls), lane = mk('div', 'lane');
-    const a = canvas(w, hh), b = canvas(w, hh);
-    lane.append(a, b); CL.append(lane);
-    const names = mk('div', 'names');
-    for (const [, mt, name] of cls.legs) names.append(mk('span', null, `${name} · ${C.MAT_NAME[mt]}`));
-    CL.append(names, mk('p', 'read', cls.read));
-    views.push({ cv: a, draw: () => C.renderLane(a, cls, st, false) }, { cv: b, draw: () => C.renderLane(b, cls, st, true) });
-  }
-
-  // ② 姿态
-  const POSES = [['walk', '走'], ['run', '快跑'], ['crouch', '下蹲'], ['jump', '跳跃']];
-  const ROWS = [
-    { cls: 'light', leg: 'blade', mech: '双足 · 轻骑', name: '轻型 · 板簧跑刃' },
-    { cls: 'std', leg: 'gren', mech: '双足 · 突击', name: '标准 · 掷弹兵' },
-    { cls: 'heavy', leg: 'steamman', mech: '双足 · 圣骑', name: '重型 · 蒸汽人' },
-  ];
-  const CAPS = {
-    walk: (r) => `走：${C.WALK[r.cls]} px/s`,
-    run: (r) => `快跑：${C.RUN[r.cls]} px/s，着地只占 36%，两脚有腾空段；躯干每往上一行前倾 1px`,
-    crouch: () => '下蹲：整车沉 24px（1 子格），两脚前后分开站稳，蹲到位膝部喷一口汽',
-    jump: (r) => `跳跃：蓄力下蹲 → 起跳喷汽 → 空中收腿（影子变小）→ 落地扬尘缓冲；演示高度 ${C.JUMP_H[r.cls]}px`,
-  };
-  const PO = document.getElementById('poses'), B = C.POSE_BOX;
-  ROWS.forEach((r, ri) => POSES.forEach(([pose, pname], pi) => {
-    const card = mk('div', 'card'), cv = canvas(B.W, B.H);
-    card.append(mk('b', null, `${r.name} · ${pname}`), cv, mk('p', 'cap', CAPS[pose](r)));
-    PO.append(card);
-    const spec = { pose, cls: r.cls, leg: r.leg, mech: r.mech, t0: ri * 0.37 + pi * 0.11 };
-    views.push({ cv, draw: () => C.renderPose(cv, spec, st) });
-  }));
-
-  // ③ 腿部件
-  const PA = document.getElementById('parts'), PB = C.PART_BOX;
-  const LEGS = [['light', 'blade', '轻型 · 板簧跑刃'], ['std', 'gren', '标准 · 掷弹兵'], ['heavy', 'steamman', '重型 · 蒸汽人']];
-  for (const [id, part] of Object.entries(C.LEGPARTS)) {
-    const row = mk('div', 'prow');
-    row.append(mk('b', null, `${part.slot}位 · ${part.name}`), mk('p', 'idea', part.idea));
-    const legs = mk('div', 'legs');
-    LEGS.forEach(([cls, leg, name], i) => {
-      const fig = mk('figure'), cv = canvas(PB.W, PB.H);
-      fig.append(cv, mk('figcaption', null, name)); legs.append(fig);
-      const spec = { part: id, cls, leg, mech: null, box: PB, t0: i * 0.6 };
-      views.push({ cv, draw: () => C.renderPart(cv, spec, st) });
-    });
-    row.append(legs); PA.append(row);
-  }
-
-  // 已通过：v4 整机
-  const V4 = document.getElementById('v4cards'), v4st = { mv: true, phase: 0, t: 0, far: true, hull: true, grid: false };
-  for (const m of K4.MECHS) {
-    const card = mk('section', 'card'), cv = canvas(K4.VW, K4.VH);
-    card.append(mk('b', null, m.name), cv, mk('p', 'cap', m.note)); V4.append(card);
-    views.push({ cv, draw: () => K4.render(cv, m, v4st) });
-  }
-
   const vis = new Set();
   const io = new IntersectionObserver((es) => es.forEach(en => (en.isIntersecting ? vis.add(en.target) : vis.delete(en.target))));
   views.forEach(v => io.observe(v.cv));
   const redraw = (all) => { for (const v of views) if (all || vis.has(v.cv)) v.draw(); };
-  window.labRedraw = () => redraw(true);
-  window.labSet = (t, mv = false) => { st.t = t; st.mv = mv; v4st.t = t; redraw(true); };   // 调试：定在某个时刻
+  window.labSet = (t, mv = false) => { st.t = t; st.mv = mv; redraw(true); };
   let last = performance.now(), frozen = false;
   function tick(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    if (!frozen) { st.t += dt; v4st.t += dt; if (v4st.mv) v4st.phase += 58 * dt; }
+    if (!frozen) st.t += dt;
     redraw(false);
     requestAnimationFrame(tick);
   }

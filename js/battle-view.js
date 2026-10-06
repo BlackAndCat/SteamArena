@@ -140,12 +140,13 @@ SA.BattleView.create = function createBattleView(api) {
     // 所以车直接画在设备分辨率上：车身画布先整数倍最近邻放大，再带着旋转双线性画上去 —— 像素块大小一致，斜边平滑不抖
     const Z = cam.z * DPX;
     const aimT = B.aim && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / s.heatMax, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / s.heatMax, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, crouch: s.crouch || 0, air: (s.airDuration || 0) > 0, tuck: s.tuck || 0, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp', introCar(B.p)));
     const sur = api.surrenderState();
     const ec = SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { ...(sur ? { crewExpr: sur.crewExpression } : null), ...introCar(B.e) }));
     dg.setTransform(Z, 0, 0, Z, (shx - cam.x) * Z, (shy - cam.y) * Z);
     g = dg;
+    bipedAir(B.p); bipedAir(B.e);
     drawVehicle(B.p, pc, null, Z); drawVehicle(B.e, ec, aimT, Z);
 
     // 第 3 层：炮弹、粒子、伤害数字（世界像素，透明底）
@@ -576,6 +577,26 @@ SA.BattleView.create = function createBattleView(api) {
     hud.stage.append(hud.sur);
   }
 
+  // 真双足跳跃（docs/biped-plan.md §5.2）：车在空中时地上画一块影子（离地越高越小越淡）；起跳那一帧脚下喷汽、落地那一帧扬尘 + 小震屏。
+  // 只是画面：粒子进 B.parts（vpart，不占战斗随机流），影子画在车下面
+  const airWas = new WeakMap();
+  function bipedAir(s) {
+    if (s.chassisId !== 'biped') return;
+    const a = SA.V.bipedOf(s.v), air = (s.airDuration || 0) > 0, was = airWas.get(s) || false;
+    airWas.set(s, air);
+    if (!a) return;
+    const x = cellX(s, a.c) + C, gy = GROUND + (s.yo || 0);
+    if (air) {
+      const hgt = s.airHeight || 0, w = Math.max(12, 26 - hgt * 0.14), alpha = Math.max(0.3, 0.55 - hgt * 0.004);
+      g.save(); g.fillStyle = `rgba(7,8,12,${alpha.toFixed(2)})`;
+      g.beginPath(); g.ellipse(x, gy - 1, w, 3.5, 0, 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    if (air && !was) for (let i = 0; i < 9; i++) vpart('steam', x + vr(-12, 12), gy - 3, vr(-50, 50), vr(-70, -20), vr(0.4, 0.75));
+    if (!air && was) {
+      for (let i = 0; i < 10; i++) vpart('dust', x + vr(-22, 22), gy - 2, vr(-60, 60), vr(-45, -10), vr(0.3, 0.55));
+      B.shake = Math.max(B.shake || 0, 2.5);
+    }
+  }
   function drawVehicle(s, cvs, hl, Z) {
     const w = s.anim.body.x;                        // 后坐：本地坐标里往后挪（负 = 被往后推）
     const py = K.ROWS * C;                          // 车身画布底边 = 车底
@@ -626,7 +647,7 @@ SA.BattleView.create = function createBattleView(api) {
       const py = pivY(o), dx = x - o.pivX, dy = y - py, c = Math.cos(a), n = Math.sin(a);
       x = o.pivX + dx * c + dy * n; y = py - dx * n + dy * c;
     }
-    return [(isP(o) ? x - o.x - PADX : o.x + VW - PADX - x) / C, (y - VY - (o.yo || 0)) / C];
+    return [(isP(o) ? x - o.x - PADX : o.x + VW - PADX - x) / C, (y - VY - (pivY(o) - GROUND)) / C];   // pivY 含地形和双足姿态位移
   }
   // 一小段弦（一步 ≈ 7px，弦和抛物线相差不到 0.01px）最先撞到什么：返回 [λ, key]，λ ∈ [0, 1] 是弦上的位置。
   // 模块：在格子坐标里逐格走（DDA），第一个有活模块的格子就是入射点 —— 精确到擦边，不会从角上一穿而过；
@@ -1059,7 +1080,7 @@ SA.BattleView.create = function createBattleView(api) {
   }
 
   // ---------- 流程 ----------
-  const KEYMAP = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'fire' };
+  const KEYMAP = { KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'fire', KeyW: 'jump', ArrowUp: 'jump', KeyS: 'crouch', ArrowDown: 'crouch' };   // 跳 / 蹲只对真双足有效（battle.js updateBiped）
   function onKey(e) {
     if (!B || B.done || SA.current !== 'battle') return;
     // 开场期间不接操作；开战动画可以用空格 / 回车 / Esc 跳过（教程对话框自己处理按键）
@@ -1163,12 +1184,13 @@ SA.BattleView.create = function createBattleView(api) {
     let stick = null, aim = null;
     const stickMove = (e) => {
       const b = hud.stick.getBoundingClientRect(), R = b.width / 2 - 8;
-      const dx = clamp(e.clientX - (b.left + b.width / 2), -R, R);
-      hud.knob.style.transform = `translateX(${Math.round(dx / 2) * 2}px)`;
+      const dx = clamp(e.clientX - (b.left + b.width / 2), -R, R), dy = clamp(e.clientY - (b.top + b.height / 2), -R, R);
+      hud.knob.style.transform = `translate(${Math.round(dx / 2) * 2}px, ${Math.round(dy / 2) * 2}px)`;
       B.keys.left = dx < -R * 0.22; B.keys.right = dx > R * 0.22;
-      hud.stick.classList.toggle('on', B.keys.left || B.keys.right);
+      B.keys.jump = dy < -R * 0.55; B.keys.crouch = dy > R * 0.55;   // 上推跳、下拉蹲（真双足）
+      hud.stick.classList.toggle('on', B.keys.left || B.keys.right || B.keys.jump || B.keys.crouch);
     };
-    const stickEnd = () => { stick = null; if (B) B.keys.left = B.keys.right = false; hud.knob.style.transform = ''; hud.stick.classList.remove('on'); };
+    const stickEnd = () => { stick = null; if (B) B.keys.left = B.keys.right = B.keys.jump = B.keys.crouch = false; hud.knob.style.transform = ''; hud.stick.classList.remove('on'); };
     const inCanvas = (e) => { const rc = cv.getBoundingClientRect(); return e.clientX >= rc.left && e.clientX <= rc.right && e.clientY >= rc.top && e.clientY <= rc.bottom; };
     root.addEventListener('pointerdown', (e) => {
       if (!B || B.done) return;
@@ -1439,7 +1461,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (I.vn) { const vn = I.vn; I.vn = null; vn.close(); }
     tutGlow(null);
     B.intro = null;
-    B.keys.left = B.keys.right = B.keys.fire = false;
+    B.keys.left = B.keys.right = B.keys.fire = B.keys.jump = B.keys.crouch = false;
     B.shake = 0;
   }
   // 关键帧插值：[[t, 值…]...]
