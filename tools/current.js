@@ -1,318 +1,289 @@
-// 「当前开发」页：出征 · 样板路线 1 · 视觉稿 v1（2026-10-06）。计划见 docs/expedition-plan.md。
-// 这一页不复用：用户确认后复制到 tools/archive/expedition-v1.*，在 labs.js 登记，再换下一项。
-// 只是画面样机：路线按计划 §4 的分段表手抄一份；敌车读 config/stage-cars.json 的现有关卡车；
-// 煤、货位、遭遇、破门都是摆拍的假动作，规则以 astra 的实现为准。新件（货箱、煤仓、路线物件）全按世界像素 1:1 画。
+// 「当前开发」页：出征 v2——起伏地形（黑乡真实剖面）、小机械、撞击反馈、音效试听台（2026-10-06）。
+// 计划见 docs/expedition-plan.md §12、§13，docs/feel-audio-plan.md v0.2。这一页不复用：用户确认后复制到 tools/archive/expedition-v2.*，在 labs.js 登记。
+// 只是样机：地形、机械、撞击都是摆拍，规则以 astra 的实现为准。地面画法在 js/terrain-art.js（profileTiles），机械和碎件在 js/route-art.js，声音在 js/audio.js。
 window.SA = window.SA || {};
 (() => {
-  const P = SA.PAL, S = SA.K.CELL, PADX = SA.SPR.PADX, ROWS = SA.K.ROWS;
+  const P = SA.PAL, S = SA.K.CELL, PADX = SA.SPR.PADX, ROWS = SA.K.ROWS, RA = SA.RouteArt;
   const GROUND = 648, VW = 1280, VH = 720, LEN = 7680;
-  const RA = SA.RouteArt, { hash, wrap, pen, CARGO, BIN, sackAt, crateAt, barrelAt, relicAt, rider } = RA;
-  const { WOOD, COAL, SACK, STONE, GLOW } = RA.PAL, IR = P.iron, BR = P.brass, RU = P.rust;
-  const IRONB = [IR[0], IR[1], IR[2], IR[3]], BRASSB = [BR[0], BR[1], BR[2], BR[3]];
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-  const pick = { cargo: 'A', bin: 'A' };
-  const art = new Map(), cached = (k, make) => { if (!art.has(k)) art.set(k, make()); return art.get(k); };
-  const prop = RA.prop, coalPile = (full) => prop('coal', !full), supplyCache = (taken) => prop('supply', taken), spoils = () => prop('spoils'), waterTower = () => prop('water'),
-    barricade = (st) => prop('barricade', st), ruinGate = (st) => prop('ruinDoor', st), relicChest = () => prop('relic'), startSign = () => prop('sign'),
-    pumpHouse = () => prop('pump'), depot = () => prop('depot'), train = () => prop('train');
-  // ---------- 路线 1（计划 §4）----------
-  const R1 = {
-    hills: [{ x: 3000, w: 360, h: 44 }, { x: 5200, w: 200, h: 20 }], mud: [[3900, 4600]],
-    crates: [{ x: 900, w: 48, h: 48 }, { x: 1250, w: 48, h: 40 }, { x: 1700, w: 40, h: 56 }, { x: 6500, w: 48, h: 48 }, { x: 6552, w: 44, h: 72 }],
-    bars: [{ x: 2540, enc: 0 }, { x: 7020, enc: 2 }], gate: { x: 5560 },
-    pickups: [
-      { kind: 'coal', x: 1500, take: true }, { kind: 'supply', x: 2800, take: true }, { kind: 'refugee', x: 3400, take: true, seed: 1 },
-      { kind: 'supply', x: 3650, take: false }, { kind: 'supply', x: 4300, take: false }, { kind: 'relic', x: 5660, take: true },
-      { kind: 'refugee', x: 6000, take: true, seed: 4 }, { kind: 'coal', x: 6300, take: true },
-    ],
-    water: 5050,
-    enc: [{ car: [0, 0], name: '拾荒小车', at: 2420, take: true }, { car: [1, 0], name: '铁皮罐头', at: 4760, take: false }, { car: [1, 4], name: '推土机', at: 6880, charge: 6640, take: false }],
-    end: 7380,
-  };
-  const ground = new Float32Array(LEN + 1).fill(GROUND);
-  for (const hl of R1.hills) for (let x = Math.max(0, Math.floor(hl.x - hl.w / 2)); x <= Math.min(LEN, Math.ceil(hl.x + hl.w / 2)); x++) ground[x] -= hl.h * 0.5 * (1 + Math.cos(Math.PI * (x - hl.x) / (hl.w / 2)));
-  const gAt = (x) => ground[clamp(Math.round(x), 0, LEN)];
-  // 地形层（土坡 + 泥地）：SA.TerrainArt.layer 能按任意宽度画；切成 1280 宽的块，免得一张画布太大
-  const tiles = RA.terrainTiles(ground, R1.mud, LEN, VH, GROUND);
 
-  // ---------- 车：玩家的样车（履带 ×3 + 铲斗；车尾留出 2×2 货箱、1×2 煤仓的位置，样机里另画）+ 三辆关卡车 ----------
+  // ---------- 真实高程（EU-DEM 25 m，OpenTopoData 取样）：[离起点的米数, 海拔米] ----------
+  // 达德利城堡 (52.5114, -2.0800) → 内瑟顿 (52.4890, -2.0770) → 风车端 (52.4847, -2.0597) → 特纳山一侧 (52.4908, -2.0540) → 罗利里吉斯 (52.4800, -2.0400)
+  const REAL = [[0, 202.3], [61, 204.8], [123, 207.7], [184, 208.9], [246, 205.7], [307, 202.6], [368, 200.8], [430, 201.1], [491, 202.8], [553, 204.4], [614, 204.6], [675, 202.2], [737, 198.0], [798, 194.0], [860, 190.5], [921, 187.5], [983, 184.0], [1044, 180.6], [1105, 177.3], [1167, 175.3], [1228, 172.4], [1290, 167.9], [1351, 163.3], [1412, 160.5], [1474, 157.9], [1535, 155.1], [1597, 153.1], [1658, 151.3], [1719, 148.1], [1781, 144.5], [1842, 142.0], [1904, 140.9], [1965, 140.3], [2026, 140.0], [2088, 141.1], [2149, 142.4], [2211, 143.9], [2272, 144.9], [2333, 145.1], [2395, 142.7], [2456, 141.0], [2510, 140.3], [2571, 140.1], [2633, 139.5], [2694, 138.7], [2755, 137.5], [2816, 135.6], [2878, 133.8], [2939, 132.6], [3000, 131.5], [3062, 130.2], [3123, 126.0], [3184, 126.9], [3245, 125.3], [3307, 125.9], [3368, 126.9], [3429, 128.0], [3490, 129.9], [3552, 133.3], [3613, 135.8], [3674, 138.8], [3736, 141.2], [3783, 144.7], [3845, 149.7], [3906, 153.7], [3967, 156.1], [4029, 159.7], [4090, 165.3], [4152, 171.0], [4213, 176.9], [4274, 183.5], [4336, 189.6], [4397, 196.0], [4458, 200.1], [4520, 202.1], [4576, 201.2], [4637, 200.5], [4699, 201.1], [4760, 203.5], [4822, 204.2], [4883, 204.1], [4944, 206.3], [5006, 209.3], [5067, 212.2], [5128, 215.5], [5190, 217.9], [5251, 219.2], [5312, 220.5], [5374, 221.2], [5435, 219.4], [5496, 216.4], [5558, 211.8], [5619, 207.0], [5680, 202.1], [5742, 197.4], [5803, 193.5], [5864, 190.4], [5926, 188.5], [5987, 186.2], [6049, 183.9]];
+  const REAL_LEN = 6049, EMIN = 125.3, KX = LEN / REAL_LEN, EXAG = 3, KY = KX * EXAG;   // 横向 px/m、竖向 px/m（夸张 3 倍）
+  const PLACES = [[0, '达德利城堡岭'], [1904, '内瑟顿'], [3245, '风车端 · 运河谷底'], [3307, '科布抽水机房（1831）'], [5374, '罗利山'], [6049, '罗利里吉斯']];
+
+  // 真实剖面 → 每像素地面高度：Catmull-Rom 插值，再叠 19 世纪的人造地形（驼背桥、路堑）
+  const natural = new Float32Array(LEN + 1);
+  {
+    const pts = REAL.map(([m, e]) => [m * KX, (e - EMIN) * KY]);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      for (let x = Math.ceil(p1[0]); x <= Math.min(LEN, Math.floor(p2[0])); x++) {
+        const t = (x - p1[0]) / Math.max(1e-6, p2[0] - p1[0]), t2 = t * t, t3 = t2 * t;
+        natural[x] = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+      }
+    }
+  }
+  // 人造地形（世界 x，px）：驼背桥过运河（谷底最低点）、谷底一段路堤接桥、山顶路堑
+  const BRIDGE = { x0: 4060, x1: 4200, hump: 24 }, FILL = { x0: 3930, x1: 4060 }, CUT = { x0: 6560, x1: 7000, depth: 34 };
+  const ground = new Float32Array(LEN + 1);
+  const baseY = (x) => GROUND - natural[clamp(Math.round(x), 0, LEN)];
+  for (let x = 0; x <= LEN; x++) {
+    let h = natural[x];
+    if (x >= BRIDGE.x0 && x <= BRIDGE.x1) { const u = (x - (BRIDGE.x0 + BRIDGE.x1) / 2) / ((BRIDGE.x1 - BRIDGE.x0) / 2); h += BRIDGE.hump * Math.cos(u * Math.PI / 2) ** 2; }
+    if (x >= FILL.x0 && x < FILL.x1) { const k = (x - FILL.x0) / (FILL.x1 - FILL.x0); h = Math.max(h, natural[FILL.x0] + (natural[BRIDGE.x0] - natural[FILL.x0]) * k + 6 * Math.sin(k * Math.PI)); }
+    if (x >= CUT.x0 && x <= CUT.x1) { const r = Math.min(1, (x - CUT.x0) / 120, (CUT.x1 - x) / 120); h -= CUT.depth * (r * r * (3 - 2 * r)); }
+    ground[x] = GROUND - h;
+  }
+  const gAt = (x) => ground[clamp(Math.round(x), 0, LEN)];
+  const slopeAt = (x) => (gAt(x + 24) - gAt(x - 24)) / 48;   // > 0 = 往右下坡
+  const water = Math.round(baseY((BRIDGE.x0 + BRIDGE.x1) / 2) + 10);
+  const tiles = SA.TerrainArt.profileTiles(ground, LEN, 900, {
+    bridge: [{ x0: BRIDGE.x0, x1: BRIDGE.x1, water }],
+    fill: [{ x0: FILL.x0, x1: FILL.x1, natural: (x) => baseY(x) }],
+    cut: [{ x0: CUT.x0, x1: CUT.x1, depth: CUT.depth }],
+  });
+
+  // ---------- 剖面图 ----------
+  function drawChart() {
+    const c = document.getElementById('chart'), g = c.getContext('2d'), W = 1280, H = 230, L = 50, R = 20, T = 18, B = 34;
+    g.fillStyle = '#1d2621'; g.fillRect(0, 0, W, H);
+    const sx = (m) => L + m / REAL_LEN * (W - L - R), sy = (e) => T + (225 - e) / (225 - 120) * (H - T - B);
+    g.font = '12px sans-serif'; g.fillStyle = '#7f8a80'; g.strokeStyle = '#2f3b33';
+    for (let e = 120; e <= 220; e += 20) { g.beginPath(); g.moveTo(L, sy(e)); g.lineTo(W - R, sy(e)); g.stroke(); g.fillText(`${e} m`, 6, sy(e) + 4); }
+    for (let k = 0; k <= 6; k++) { g.fillText(`${k} km`, sx(k * 1000) - 12, H - 10); }
+    // 游戏剖面（换算回米，浅色）+ 真实剖面（粉笔白）
+    g.strokeStyle = '#a8794e'; g.lineWidth = 2; g.beginPath();
+    for (let x = 0; x <= LEN; x += 8) { const m = x / KX, e = EMIN + (GROUND - gAt(x)) / KY; x ? g.lineTo(sx(m), sy(e)) : g.moveTo(sx(m), sy(e)); }
+    g.stroke();
+    g.strokeStyle = '#e4dfcf'; g.lineWidth = 1.5; g.beginPath();
+    REAL.forEach(([m, e], i) => (i ? g.lineTo(sx(m), sy(e)) : g.moveTo(sx(m), sy(e)))); g.stroke();
+    for (const [m, e] of REAL) { g.fillStyle = '#e4dfcf'; g.fillRect(sx(m) - 1, sy(e) - 1, 2, 2); }
+    g.fillStyle = '#e4dfcf';
+    for (const [m, name] of PLACES) { const e = REAL.reduce((b, p) => (Math.abs(p[0] - m) < Math.abs(b[0] - m) ? p : b))[1]; g.fillRect(sx(m), sy(e) - 22, 1, 18); g.fillText(name, Math.min(W - 150, sx(m) + 4), sy(e) - 12); }
+    g.fillStyle = '#a8794e'; g.fillText('橙线：换算进游戏后的地面（加了驼背桥、路堑）', W - 330, H - 10);
+  }
+
+  // ---------- 车 ----------
   const PCELLS = [[0, 10, 4, 'track', 1, 0], [0, 10, 6, 'track', 1, 0], [0, 10, 8, 'track', 1, 0], [0, 10, 10, 'bucket', 1, 0],
     [0, 8, 7, 'boiler_s', 1, 0], [0, 8, 8, 'helmet', 1, 0], [0, 9, 8, 'tank_s', 1, 0], [0, 9, 9, 'cannon_m', 1, 0], [0, 8, 9, 'plate', 1, 0], [0, 8, 10, 'mg_s', 1, 0]];
-  const PV = SA.V.fromCells('样车', PCELLS);
-  const colSpan = (v) => { let a = 99, b = -1; SA.V.each(v, (cell, r, c) => { a = Math.min(a, c); b = Math.max(b, c + SA.fp(cell.id).w - 1); }); return [a, b]; };
-  const carCv = document.createElement('canvas');
-  function playerCar(t, phase, moving, speed, load, coal) {
-    const src = SA.SPR.renderVehicle(PV, { key: 'route-p', t, phase, moving, speed, heat: 0.4, water: 0.8 });
+  const PV = SA.V.fromCells('样车', PCELLS), carCv = document.createElement('canvas');
+  function playerCar(t, phase, moving, speed, load) {
+    const src = SA.SPR.renderVehicle(PV, { key: 'route-p2', t, phase, moving, speed, heat: 0.4, water: 0.8 });
     carCv.width = src.width; carCv.height = src.height;
-    const q = wrap(carCv); q.g.drawImage(src, 0, 0);
-    CARGO[pick.cargo].big(q, PADX + 4 * S, 8 * S, load);
-    BIN[pick.bin].draw(q, PADX + 6 * S, 8 * S, coal);
+    const q = RA.wrap(carCv); q.g.drawImage(src, 0, 0);
+    RA.CARGO.A.big(q, PADX + 4 * S, 8 * S, load);
+    RA.BIN.A.draw(q, PADX + 6 * S, 8 * S, 0.8);
     return carCv;
   }
-  const foes = R1.enc.map((e, i) => {
-    const rec = SA.StageCars.get(e.car[0], e.car[1]);
-    const v = SA.V.fromCells(e.name, rec.cells);
-    return { ...e, i, v, span: colSpan(v), x: e.at, state: 'wait', hp: 1, len: (colSpan(v)[1] - colSpan(v)[0] + 1) * S };
-  });
-  const darken = (() => { const c = document.createElement('canvas'); return (src) => { c.width = src.width; c.height = src.height; const g = c.getContext('2d'); g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(12,9,7,0.72)'; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; return c; }; })();
-  // 车画在世界里：底边中点踩在地面上，按坡度倾斜；dir = -1 是朝左的敌车
-  function drawCar(g, cv, span, x, dir, bob = 0) {
-    const bx = PADX + (span[0] + span[1] + 1) / 2 * S, y = gAt(x), k = (gAt(x + 70) - gAt(x - 70)) / 140;
-    g.save(); g.translate(Math.round(x), Math.round(y + bob)); g.rotate(Math.atan(k)); g.scale(dir, 1);
-    g.drawImage(cv, -Math.round(bx), -ROWS * S); g.restore();
-  }
+  const SPAN = [4, 11], HALF = (SPAN[1] - SPAN[0] + 1) * S / 2;
+
+  // ---------- 路上的东西 ----------
+  const ROUTE = {
+    crates: [{ x: 620, w: 48, h: 48 }, { x: 900, w: 44, h: 40 }, { x: 2900, w: 48, h: 56 }],
+    bar: { x: 6480 },
+    mobs: [
+      ...[1780, 1810, 1840, 1870, 1900].map(x => ({ kind: 'soldier', x })),
+      ...[2700, 2950, 3200, 3420, 3650].map(x => ({ kind: 'crawler', x })),
+      ...[5300, 5420, 5560, 5700].map((x, i) => ({ kind: 'barrel', x, release: 4700 + i * 120 })),
+      { kind: 'sentry', x: 6200 },
+    ],
+    pump: 4330, headframe: 7150, end: 7300,
+  };
 
   // ---------- 演示状态 ----------
   const view = document.getElementById('view'), vg = view.getContext('2d');
+  const fb = { stop: true, cam: true, recoil: true, debris: true, scrap: true, sound: true };
   const st = {};
   function reset(to = 0) {
-    Object.assign(st, { x: 140, v: 0, phase: 0, t: 0, coal: 1, load: [], hold: 0, mode: 'drive', note: null, noteT: 0, cam: 0, parts: [], ended: false, fight: null, gateSt: 0, gateT: 0, waterT: 0 });
-    R1.crates.forEach(c => { c.dead = false; c.hit = 0; });
-    R1.bars.forEach(b => { b.st = 0; });
-    R1.pickups.forEach(p => { p.taken = false; p.full = false; });
-    foes.forEach(f => { f.state = 'wait'; f.x = f.at; f.burn = 0; f.spoil = false; });
-    if (to > 0) fastForward(to);
+    Object.assign(st, { x: 140 + HALF, v: 0, phase: 0, t: 0, cam: { x: 0, y: GROUND + 60 - VH }, kick: 0, recoil: 0, freeze: 0, shake: 0, parts: [], bits: [], floats: [], metal: 0, ended: false });
+    ROUTE.crates.forEach(c => { c.dead = false; });
+    ROUTE.bar.st = 0;
+    ROUTE.mobs.forEach(m => { m.dead = false; m.mx = m.x; m.rolling = false; m.t = Math.random() * 3; });
+    if (to > 0) { let n = 0; while (st.x + HALF < to && n++ < 60000) step(1 / 30, true); st.parts = []; st.bits = []; st.floats = []; }
     st.cam = camTarget();
   }
-  const front = () => st.x + 96;
-  const SPEED = 60;     // 演示的满速（px/s），比履带真速快一点，省得等
+  const front = () => st.x + HALF;
   let mul = 2, playing = true;
-  function say(text, sec = 2.2) { st.note = text; st.noteT = sec; }
-  function puff(x, y, n, col, up = 60) { for (let i = 0; i < n; i++) st.parts.push({ x: x + (Math.random() - 0.5) * 20, y: y - Math.random() * 10, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * up, life: 0.6 + Math.random() * 0.6, col }); }
-  const slots = () => 4 - st.load.length;
-  function step(dt) {
-    st.t += dt;
-    if (st.noteT > 0) st.noteT -= dt;
-    st.parts = st.parts.filter(p => (p.life -= dt) > 0); for (const p of st.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt; }
-    if (st.ended) { st.v = 0; return; }
-    const f = front();
-    // 要停：难民、遗迹门、水塔、遭遇
-    if (st.mode === 'hold') { st.v = Math.max(0, st.v - 180 * dt); st.hold -= dt; if (st.holdTick) st.holdTick(dt); if (st.hold <= 0) { const done = st.onDone; st.mode = 'drive'; st.holdTick = null; st.onDone = null; if (done) done(); } return move(dt); }
-    let want = SPEED;
-    // 慢行捡东西：只有演示司机决定要捡的才减速
-    for (const p of R1.pickups) if (!p.taken && !p.full && p.take && p.kind !== 'refugee' && p.x - f < 120 && p.x - f > -60) want = SPEED * 0.3;
-    for (const e of foes) if (e.spoil && !e.spoilTaken && e.take && e.x - f < 120 && e.x - f > -60) want = SPEED * 0.3;
-    st.slow = want < SPEED;
-    st.v += clamp(want - st.v, -150 * dt, 80 * dt);
-    // 木箱、路障：撞上就碎，顿一下
-    for (const c of R1.crates) if (!c.dead && f >= c.x - c.w / 2) { c.dead = true; st.v *= 0.45; puff(c.x, gAt(c.x) - c.h / 2, 14, WOOD[4]); }
-    for (const b of R1.bars) if (b.st < 2 && f >= b.x - 30 && foes[b.enc].state === 'dead') { b.st = 2; st.v *= 0.35; puff(b.x, gAt(b.x) - 30, 22, IR[2]); }
-    // 拾取
-    for (const p of R1.pickups) {
-      if (p.taken || p.full) continue;
-      if (p.kind === 'refugee' && f >= p.x - 50) {
-        if (!slots()) { p.full = true; say('货位满了，接不了这家人'); continue; }
-        st.mode = 'hold'; st.hold = 1.8; st.onDone = () => { p.taken = true; st.load.push('refugee'); say('接上一家难民（占 1 位）'); };
-        say('停车 · 接人'); return move(dt);
-      }
-      if (p.kind === 'relic' && st.gateSt < 2) continue;
-      if (Math.abs(p.x - (st.x + 40)) < 30) {
-        if (!p.take) { if (st.v > SPEED * 0.5 && !p.saidSkip) { p.saidSkip = true; say(p.x === 4300 ? '泥地正中那箱，不下去捡了' : '全速冲过去：不减速就捡不到'); } continue; }
-        if (p.kind === 'coal') { p.taken = true; st.coal = Math.min(1, st.coal + 0.15); say('慢行铲上一堆煤 +15%'); puff(p.x, gAt(p.x) - 10, 10, COAL[3]); }
-        else if (!slots()) { p.full = true; say('货位满了'); }
-        else { p.taken = true; st.load.push(p.kind); say(p.kind === 'relic' ? '拿到遗迹件！' : '慢行捡到一箱物资'); }
-      }
+  const sfx = (name, x, vol) => { if (fb.sound && SA.Audio) SA.Audio.play(name, { x: clamp((x - st.cam.x) / VW, 0, 1), vol }); };
+  function crush(x, y, kind, heavy) {
+    // 撞击反馈：顿帧 / 镜头冲撞 / 车头反冲 / 碎件 / 金属飞上车 / 声音，按被撞的东西分量
+    const w = { crate: 0.35, soldier: 0.3, crawler: 0.5, barrel: 0.8, sentry: 1, barricade: 1 }[kind] || 0.5, speed = clamp(st.v / 75, 0.3, 1.6);
+    if (fb.stop) st.freeze = Math.max(st.freeze, 0.025 + 0.05 * w);
+    if (fb.cam) st.kick = Math.max(st.kick, 6 + 10 * w * speed);
+    if (fb.recoil) st.recoil = Math.max(st.recoil, 2 + 4 * w);
+    st.v *= 1 - 0.35 * w;
+    if (fb.debris) {
+      const list = kind === 'crate' || kind === 'barricade' ? ['stave', 'stave', 'plate', 'stave'] : RA.DEBRIS[kind] || ['plate'];
+      for (const [i, t] of list.entries()) st.parts.push({ type: t, x: x + (Math.random() - 0.5) * 10, y: y - 6 - Math.random() * 10, vx: 60 + Math.random() * 140 * speed + i * 10, vy: -120 - Math.random() * 160, rot: Math.floor(Math.random() * 4), spin: 6 + Math.random() * 10, life: 3 });
+      for (let i = 0; i < 8; i++) st.parts.push({ dust: true, x: x + (Math.random() - 0.5) * 20, y: y - Math.random() * 10, vx: (Math.random() - 0.3) * 80, vy: -Math.random() * 60, life: 0.6 + Math.random() * 0.5 });
+      if (kind !== 'crate') for (let i = 0; i < 6; i++) st.parts.push({ spark: true, x, y: y - 8, vx: 40 + Math.random() * 160, vy: -60 - Math.random() * 140, life: 0.25 + Math.random() * 0.2 });
     }
-    for (const e of foes) if (e.spoil && !e.spoilTaken && Math.abs(e.x - (st.x + 40)) < 30) {
-      if (!e.take) { e.spoilTaken = true; continue; }
-      if (slots()) { e.spoilTaken = true; st.load.push('supply'); say('从残骸上拆下一包零件'); }
+    if (kind !== 'crate' && kind !== 'barricade' && fb.scrap) {
+      const n = kind === 'sentry' ? 4 : kind === 'barrel' ? 2 : kind === 'soldier' ? 1 : 2;
+      for (let i = 0; i < n; i++) st.bits.push({ x, y: y - 10, t: 0, dur: 0.55 + i * 0.08, h: 60 + Math.random() * 50, delay: 0.08 * i });
     }
-    // 遗迹门：停车，开炮把门轰开
-    if (st.gateSt === 0 && f >= R1.gate.x - 40) {
-      st.mode = 'hold'; st.hold = 2.6; st.gateT = 0; say('停车 · 轰开遗迹门');
-      st.holdTick = (d) => { st.gateT += d; const s = st.gateT > 1.7 ? 2 : st.gateT > 0.8 ? 1 : 0; if (s !== st.gateSt) { st.gateSt = s; puff(R1.gate.x, gAt(R1.gate.x) - 60, 24, STONE[3], 90); } if (Math.random() < d * 6) muzzle(); };
-      return move(dt);
-    }
-    if (!st.waterDone && f >= R1.water + 10) { st.waterDone = true; st.mode = 'hold'; st.hold = 1.2; say('水塔下停一停：补满水'); return move(dt); }
-    // 遭遇：敌车登场 → 对打 → 打爆 → 残骸变成拆件
-    for (const e of foes) {
-      if (e.state === 'wait' && f >= e.at - e.len / 2 - 300) { e.state = 'fight'; e.ft = 0; say(`遭遇 · ${e.name}`, 2.8); st.fight = e; }
-      if (e.state === 'fight') {
-        e.ft += dt;
-        if (e.charge) e.x = Math.max(e.charge, e.x - 70 * dt);
-        st.mode = 'hold'; st.hold = 0.05;
-        if (Math.random() < dt * 5) muzzle(); if (Math.random() < dt * 4) puff(e.x + (Math.random() - 0.5) * e.len, gAt(e.x) - 60 - Math.random() * 80, 6, P.fire[2], 40);
-        if (e.ft > 3.2) { e.state = 'dead'; e.burn = 1.6; puff(e.x, gAt(e.x) - 60, 30, P.steam[1], 90); st.coal -= 0.04; st.fight = null; say(`${e.name} 被打爆了`); }
-        return move(dt);
-      }
-      if (e.state === 'dead' && e.burn > 0) { e.burn -= dt; if (e.burn <= 0) e.spoil = true; }
-    }
-    if (f >= R1.end) { st.ended = true; say('抵达旧煤场 · 坐运煤小火车回家', 99); }
-    move(dt);
+    if (kind === 'crate') sfx('crush.wood', x);
+    else if (kind === 'barricade') { sfx('hit.plate', x); sfx('crush.wood', x, 0.7); }
+    else if (kind === 'barrel') { sfx('boom', x); st.shake = Math.max(st.shake, 8); for (let i = 0; i < 14; i++) st.parts.push({ fire: true, x, y: y - 10, vx: (Math.random() - 0.5) * 220, vy: -Math.random() * 200, life: 0.3 + Math.random() * 0.4 }); }
+    else { sfx('crush.machine', x); if (heavy) sfx('hit.metal.heavy', x, 0.8); }
+    sfx('ram.thud', x, 0.35 + 0.5 * w);
   }
-  function muzzle() { const x = front() - 20, y = gAt(x) - 7 * S + 12; st.parts.push({ x: x + 30, y, vx: 0, vy: 0, life: 0.12, col: P.fire[3], big: 1 }); }
-  function move(dt) {
-    const d = st.v * dt;
-    st.x += d; st.phase += d;
-    st.coal = Math.max(0, st.coal - d * 0.9 / 7400);
-    if (st.fight && st.fight.state !== 'fight') st.fight = null;
+  function step(dt, silent) {
+    st.t += dt;
+    if (st.freeze > 0 && !silent) { st.freeze -= dt; return; }   // 顿帧：世界停一下，画面照常
+    // 碎件、金属、飘字
+    for (const p of st.parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (!p.dust) p.vy += 520 * dt; else p.vy += 30 * dt; const gy = gAt(p.x); if (!p.dust && !p.spark && !p.fire && p.y > gy - 2) { p.y = gy - 2; p.vy *= -0.3; p.vx *= 0.5; p.spin *= 0.5; } }
+    st.parts = st.parts.filter(p => p.life > 0);
+    for (const b of st.bits) { if (b.delay > 0) { b.delay -= dt; continue; } b.t += dt; if (b.t >= b.dur && !b.done) { b.done = true; st.metal++; st.floats.push({ x: st.x - 72, y: gAt(st.x) - 120, life: 0.9 }); if (!silent) sfx('scrap.pickup', st.x, 0.7); } }
+    st.bits = st.bits.filter(b => !b.done);
+    for (const f of st.floats) { f.life -= dt; f.y -= 30 * dt; }
+    st.floats = st.floats.filter(f => f.life > 0);
+    st.kick *= Math.pow(0.02, dt); st.recoil *= Math.pow(0.01, dt); st.shake *= Math.pow(0.02, dt);
+    if (st.ended) { st.v = 0; return; }
+    // 车速：上坡慢、下坡快
+    const sl = slopeAt(st.x), want = 75 * clamp(1 + sl * 1.6, 0.45, 1.5);
+    st.v += clamp(want - st.v, -160 * dt, 70 * dt);
+    st.x += st.v * dt; st.phase += st.v * dt;
+    const f = front();
+    for (const c of ROUTE.crates) if (!c.dead && f >= c.x - c.w / 2) { c.dead = true; if (!silent) crush(c.x, gAt(c.x) - c.h / 2, 'crate'); }
+    if (ROUTE.bar.st < 2 && f >= ROUTE.bar.x - 30) { ROUTE.bar.st = 2; if (!silent) crush(ROUTE.bar.x, gAt(ROUTE.bar.x) - 30, 'barricade'); }
+    for (const m of ROUTE.mobs) {
+      if (m.dead) continue;
+      m.t += dt;
+      // 行为（摆拍）：步兵往左慢走、爬车往左爬；滚桶等车开上坡后被放下来，顺坡往下滚、越滚越快
+      if (m.kind === 'soldier') m.mx -= 12 * dt;
+      else if (m.kind === 'crawler') m.mx -= 8 * dt;
+      else if (m.kind === 'barrel') { if (!m.rolling && f >= m.release) m.rolling = true; if (m.rolling) { m.vx = Math.min(140, (m.vx || 20) + 90 * Math.max(0, -slopeAt(m.mx)) * dt + 10 * dt); m.mx -= m.vx * dt; } }
+      if (f >= m.mx - 8) { m.dead = true; if (!silent) crush(m.mx, gAt(m.mx) - 10, m.kind, m.kind === 'sentry'); }
+    }
+    if (f >= ROUTE.end) st.ended = true;
   }
   function camTarget() {
-    if (st.fight) return (st.x + st.fight.x) / 2 - VW / 2;
-    return clamp(st.x - 380, 0, LEN - VW);
+    const sl = slopeAt(st.x + 200), gy = gAt(st.x);
+    return { x: clamp(st.x - 430, 0, LEN - VW), y: gy - VH * 0.72 + sl * 160 };
   }
-  function fastForward(to) { let guard = 0; while (front() < to && !st.ended && guard++ < 40000) step(1 / 30); st.note = null; }
 
   // ---------- 画 ----------
   const bd = document.createElement('canvas'); bd.width = VW; bd.height = VH; const bg = bd.getContext('2d');
+  const scene = () => (SA.Scenes.NAMES.waste && SA.Scenes.get('waste') ? 'waste' : 'wild');
   function draw() {
-    const t = performance.now() / 1000, cam = { x: st.cam, y: GROUND + 60 - VH, w: VW, h: VH }, ox = Math.floor(cam.x), oy = Math.floor(cam.y);
-    // 背景：暂借「野地」，压暗去色当废土（真正的废土场景是计划 V2）
+    const t = performance.now() / 1000, sh = st.shake > 0.3 ? (Math.random() - 0.5) * st.shake : 0;
+    const cam = { x: st.cam.x + (fb.cam ? st.kick : 0), y: st.cam.y + sh, w: VW, h: VH };
+    const ox = Math.floor(cam.x), oy = Math.floor(cam.y);
+    // 背景：竖直视差——镜头上下走，远景只跟着动两成；背景底下（远处的地面）用一块平的暗色接住，不露天
+    const oyB = Math.round(-12 + (cam.y + 12) * 0.2), sc = scene();
     bg.setTransform(1, 0, 0, 1, 0, 0); bg.imageSmoothingEnabled = false;
-    SA.Scenes.back('wild', bg, VW, VH, oy, cam.x, t, {});
-    const vis = (x, w = 400) => x + w > cam.x && x - w < cam.x + VW;
-    const putOn = (g, a, x, y) => { if (vis(x, a.c.width)) g.drawImage(a.c, Math.round(x - a.ax), Math.round(y - a.ay)); };
-    const put = (a, x, dy = 0) => putOn(vg, a, x, gAt(x) + dy);
-    bg.save(); bg.translate(-ox, -oy); SA.Scenes.floor('wild', bg, cam);
-    // 地标站在地面的远端（路后面），和背景一起压暗去色
-    putOn(bg, pumpHouse(), R1.gate.x + 60, 566); putOn(bg, depot(), 7470, 566); putOn(bg, waterTower(), R1.water, 606);
-    bg.restore();
+    SA.Scenes.back(sc, bg, VW, VH, oyB, cam.x, t, {});
+    bg.fillStyle = '#2a3022'; bg.fillRect(0, 552 - oyB, VW, VH);
     vg.setTransform(1, 0, 0, 1, 0, 0); vg.imageSmoothingEnabled = false;
-    vg.filter = 'saturate(0.45) sepia(0.3) brightness(0.88)'; vg.drawImage(bd, 0, 0); vg.filter = 'none';
+    vg.filter = sc === 'wild' ? 'saturate(0.4) sepia(0.35) brightness(0.8)' : 'none'; vg.drawImage(bd, 0, 0); vg.filter = 'none';
     vg.save(); vg.translate(-ox, -oy);
-    put(startSign(), 260);
-    // 地形（土坡、泥地）
+    const vis = (x, w = 400) => x + w > cam.x && x - w < cam.x + VW;
+    const put = (a, x, y) => { if (a && vis(x, a.c.width)) vg.drawImage(a.c, Math.round(x - a.ax), Math.round(y - a.ay)); };
+    // 地标（路后面）：科布抽水机房、罗利山采石场的岩壁、山顶矿井架
+    put(RA.prop('pump'), ROUTE.pump, gAt(ROUTE.pump) + 6);
+    quarry(vg, 4700, 5700, vis);
+    put(RA.prop('depot'), ROUTE.headframe, gAt(ROUTE.headframe) + 6);
+    put(RA.prop('sign'), 260, gAt(260));
+    // 地面（整块）
     for (const tl of tiles) if (vis(tl.x + 640, 700)) vg.drawImage(tl.c, tl.x, 0);
-    put(train(), 7440);
-    for (const c of R1.crates) { if (!vis(c.x)) continue; const y1 = gAt(c.x); if (c.dead) SA.TerrainArt.rubble(vg, c.x - c.w / 2 - 6, c.x + c.w / 2 + 6, y1); else SA.TerrainArt.crate(vg, c.x - c.w / 2, y1 - c.h, c.w, c.h, 1, 0); }
-    for (const b of R1.bars) put(barricade(b.st), b.x);
-    put(ruinGate(st.gateSt), R1.gate.x);
-    // 拾取物
-    for (const p of R1.pickups) {
-      if (!vis(p.x)) continue;
-      if (p.kind === 'coal') put(coalPile(!p.taken), p.x);
-      else if (p.kind === 'supply') put(supplyCache(p.taken), p.x);
-      else if (p.kind === 'relic' && !p.taken) { const a = relicChest(), y = gAt(p.x); const k = 0.5 + 0.5 * Math.sin(t * 3); vg.globalAlpha = 0.25 + 0.2 * k; vg.fillStyle = GLOW[2]; for (let r = 18; r > 6; r -= 4) vg.fillRect(Math.round(p.x - r), Math.round(y - 12 - r / 2), r * 2, r); vg.globalAlpha = 1; put(a, p.x); }
-      else if (p.kind === 'refugee' && !p.taken) refugeeGroup(p, t);
+    for (const c of ROUTE.crates) { if (!vis(c.x)) continue; const y1 = gAt(c.x); if (c.dead) SA.TerrainArt.rubble(vg, c.x - c.w / 2 - 6, c.x + c.w / 2 + 6, y1); else SA.TerrainArt.crate(vg, c.x - c.w / 2, y1 - c.h, c.w, c.h, 1, 0); }
+    put(RA.prop('barricade', ROUTE.bar.st), ROUTE.bar.x, gAt(ROUTE.bar.x));
+    // 小机械（走动帧按时间换）
+    for (const m of ROUTE.mobs) {
+      if (m.dead || !vis(m.mx, 60)) continue;
+      const fr = m.kind === 'barrel' ? Math.floor((m.rolling ? (m.x - m.mx) / 4 : 0)) : m.kind === 'sentry' ? Math.floor(m.t * 1.2) : Math.floor(m.t * (m.kind === 'soldier' ? 6 : 5));
+      const a = RA.mob(m.kind, ((fr % 8) + 8) % 8), y = gAt(m.mx) + (m.kind === 'soldier' && fr % 2 ? -1 : 0);
+      put(a, m.mx, y);
     }
-    for (const e of foes) if (e.spoil && !e.spoilTaken) put(spoils(), e.x);
-    // 敌车
-    for (const e of foes) {
-      if (!vis(e.x, 300) || (e.state === 'dead' && e.burn <= 0)) continue;
-      const cv = SA.SPR.renderVehicle(e.v, { key: `route-e${e.i}`, t, phase: e.at - e.x, moving: e.state === 'fight' && !!e.charge, speed: 40, heat: 0.5, water: 0.7 });
-      drawCar(vg, e.state === 'dead' ? darken(cv) : cv, e.span, e.x, -1);
-      if (e.state === 'dead') puff(e.x, gAt(e.x) - 50, 1, P.steam[0], 50);
+    // 车：顺着坡倾斜；反冲时往后一缩、车头微抬
+    const sl = clamp(Math.atan(slopeAt(st.x)), -0.45, 0.45), cv = playerCar(t, st.phase, st.v > 2, st.v, ['supply', 'refugee']);
+    const bx = PADX + (SPAN[0] + SPAN[1] + 1) / 2 * S;
+    vg.save(); vg.translate(Math.round(st.x - (fb.recoil ? st.recoil : 0)), Math.round(gAt(st.x))); vg.rotate(sl - (fb.recoil ? st.recoil * 0.008 : 0)); vg.drawImage(cv, -Math.round(bx), -ROWS * S); vg.restore();
+    // 碎件 / 尘土 / 火星 / 火
+    for (const p of st.parts) {
+      vg.globalAlpha = Math.min(1, p.life * 2);
+      if (p.dust) { vg.fillStyle = '#5c544a'; vg.fillRect(Math.round(p.x), Math.round(p.y), 4, 4); }
+      else if (p.spark) { vg.fillStyle = P.brass[3]; vg.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
+      else if (p.fire) { vg.fillStyle = p.life > 0.3 ? P.fire[3] : P.fire[1]; vg.fillRect(Math.round(p.x) - 3, Math.round(p.y) - 3, 6, 6); }
+      else put(RA.piece(p.type, p.rot + Math.floor((3 - p.life) * p.spin)), p.x, p.y + 4);
     }
-    // 玩家
-    drawCar(vg, playerCar(t, st.phase, st.v > 2, st.v, st.load, st.coal), [4, 11], st.x, 1);
-    // 粒子
-    for (const p of st.parts) { vg.globalAlpha = Math.min(1, p.life * 2); vg.fillStyle = p.col; const s = p.big ? 8 : 3; vg.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s); }
     vg.globalAlpha = 1;
+    // 金属片：沿弧线飞进车里的货箱
+    for (const b of st.bits) {
+      if (b.delay > 0) continue;
+      const k = clamp(b.t / b.dur, 0, 1), tx = st.x - 72, ty = gAt(st.x) - 84, x = b.x + (tx - b.x) * k, y = b.y + (ty - b.y) * k - Math.sin(k * Math.PI) * b.h;
+      put(RA.piece('scrap', Math.floor(k * 8)), x, y);
+    }
+    vg.font = 'bold 16px sans-serif'; vg.textAlign = 'center';
+    for (const f of st.floats) { vg.globalAlpha = Math.min(1, f.life * 2); vg.fillStyle = '#0b0e15'; vg.fillText('+1 金属', f.x + 1, f.y + 1); vg.fillStyle = P.iron[4]; vg.fillText('+1 金属', f.x, f.y); }
+    vg.globalAlpha = 1; vg.textAlign = 'start';
     vg.restore();
-    SA.Scenes.front('wild', vg, VW, VH, oy, cam.x, t);
-    hud(t);
+    // 场景的近景（栅栏、草、车轮剪影）是按平地画在画面最下沿的，起伏地形上会浮在地下，先不画（已告诉画场景的会话）
   }
-  function refugeeGroup(p, t) { RA.refugees(vg, p.x, gAt(p.x), t, { seed: p.seed, near: Math.abs(front() - p.x) < 260, sad: p.full }); }
-  // 顶上的路程条（替换计时鼓）+ 演示旁白
-  function hud(t) {
-    const x0 = 400, w = 480, y0 = 10;
-    const q = wrap(view);
-    q.box(x0 - 14, y0, w + 28, 30, [IR[0], IR[1], IR[2], IR[3]]);
-    for (const rx of [x0 - 10, x0 + w + 8]) { q.px(rx, y0 + 4, IR[4]); q.px(rx, y0 + 24, IR[4]); }
-    q.R(x0, y0 + 18, w, 2, P.dark[1]); q.R(x0, y0 + 18, Math.round(w * clamp(front() / R1.end, 0, 1)), 2, BR[2]);
-    const at = (x) => x0 + Math.round(w * x / R1.end);
-    for (const e of foes) { const xx = at(e.at); q.R(xx - 3, y0 + 7, 7, 7, e.state === 'dead' ? IR[1] : RU[2]); q.R(xx - 2, y0 + 8, 5, 5, e.state === 'dead' ? IR[2] : RU[3]); q.px(xx, y0 + 10, IR[0]); }
-    for (const p of R1.pickups) if (p.kind === 'refugee') { const xx = at(p.x); q.disc(xx, y0 + 10, 3, p.taken ? IR[2] : '#d8d2c0'); }
-    { const xx = at(R1.gate.x); q.disc(xx, y0 + 10, 3.5, st.gateSt === 2 ? IR[2] : GLOW[2]); q.px(xx, y0 + 10, IR[0]); }
-    { const xx = at(R1.end); q.R(xx, y0 + 4, 1, 12, P.white); q.R(xx + 1, y0 + 4, 6, 4, RU[3]); }
-    const cx = at(clamp(front(), 0, R1.end)); q.R(cx - 4, y0 + 15, 9, 5, BR[2]); q.R(cx - 3, y0 + 14, 5, 1, BR[3]); q.px(cx - 3, y0 + 20, IR[0]); q.px(cx + 3, y0 + 20, IR[0]);
-    if (st.note && st.noteT > 0) {
-      vg.font = 'bold 18px sans-serif'; const tw = vg.measureText(st.note).width;
-      q.box(VW / 2 - tw / 2 - 16, 56, tw + 32, 32, [BR[0], BR[1], '#3a2a14', BR[2]]);
-      vg.fillStyle = '#f5e6c0'; vg.textAlign = 'center'; vg.textBaseline = 'middle'; vg.fillText(st.note, VW / 2, 73); vg.textAlign = 'start';
+  // 罗利山的玄武岩采石场：路后面一面一级一级的暗色岩壁。每级台阶顶上一道受光边，岩面按块裂开（不规则的横缝 + 斜缝），
+  // 台阶脚下一堆碎石坡；颜色压在背景的中低明度里，不抢车
+  const quarryCache = new Map();
+  const ROCK = ['#1d1c1b', '#262422', '#2d2a27', '#36322e', '#45403a'];
+  function quarry(g, x0, x1, vis) {
+    for (let x = x0; x < x1; x += 200) {
+      if (!vis(x + 100, 220)) continue;
+      const key = `${x}`;
+      if (!quarryCache.has(key)) {
+        // 一块 200 宽的岩壁：三级台阶，每级顶上一道受光边；岩面平涂，只有零星的层理横缝和节理竖缝；底边按每一列的地面收进路里（坡上不悬空）
+        const W = 200, top0 = Math.min(...Array.from({ length: W }, (_, i) => gAt(x + i))) - 120, H = Math.ceil(Math.max(...Array.from({ length: W }, (_, i) => gAt(x + i))) - top0 + 8);
+        const q = RA.pen(W, H), r = (a, b) => RA.hash(a + x, b);
+        const benches = [0, 1, 2].map(k => ({ x0: k * 66 + Math.round(r(k, 1) * 10), drop: k * 20 + Math.round(r(k, 2) * 10) }));
+        for (let i = 0; i < W; i++) {
+          const base = Math.round(gAt(x + i) - top0) + 6;
+          let top = 4;
+          for (const b of benches) if (i >= b.x0) top = 4 + b.drop + (r(i >> 2, 3) < 0.3 ? 1 : 0);
+          const edge = Math.min(i, W - 1 - i); if (edge < 12) top = Math.max(top, base - edge * 14);   // 两头斜着收进坡里
+          for (let y = top; y < base; y++) {
+            // 岩面平涂：只有零星一截的层理缝，和每级台阶下沿一道阴影
+            const bed = (y - top) % 26 === 13 && r(i >> 3, y) < 0.35;
+            q.px(i, y, y === top ? ROCK[4] : y === top + 1 ? ROCK[3] : bed ? ROCK[1] : y > base - 16 ? ROCK[1] : ROCK[2]);
+          }
+          if (r(i, 7) < 0.2) q.px(i, top - 1, '#353f2c');
+        }
+        for (let k = 0; k < 70; k++) { const px = Math.round(r(k, 9) * (W - 3)), gb = Math.round(gAt(x + px) - top0) + 4, py = gb - Math.round(Math.pow(r(k, 10), 2) * 18); q.R(px, py, 3, 2, ROCK[r(k, 11) < 0.5 ? 3 : 1]); }
+        quarryCache.set(key, { c: q.c, y: top0 });
+      }
+      const Q = quarryCache.get(key); g.drawImage(Q.c, x, Math.round(Q.y));
     }
-  }
-  // 驾驶台：煤表 + 货位格（HTML 外框里的两块小画布）+ 汽笛
-  const coalG = wrap(document.getElementById('coalG')), cargoG = wrap(document.getElementById('cargoG'));
-  function dash(t) {
-    coalG.g.clearRect(0, 0, 124, 20);
-    coalG.box(0, 0, 124, 20, [IR[0], IR[1], P.dark[1], IR[2]]);
-    const n = Math.ceil(st.coal * 20), low = st.coal < 0.2;
-    for (let i = 0; i < 20; i++) { const x = 3 + i * 6; if (i < n) { coalG.R(x, 4, 5, 12, low && Math.floor(t * 4) % 2 ? P.fire[1] : COAL[2]); coalG.R(x, 4, 5, 1, COAL[4]); coalG.px(x, 5, COAL[3]); } else coalG.R(x, 4, 5, 12, P.dark[0]); }
-    cargoG.g.clearRect(0, 0, 132, 28);
-    for (let i = 0; i < 4; i++) {
-      const x = i * 33; cargoG.box(x, 0, 30, 28, [BR[0], BR[1], '#2a2016', BR[2]]);
-      const k = st.load[i]; if (!k) continue;
-      if (k === 'refugee') cargoG.img(rider(i + 1), x + 9, 6);
-      else if (k === 'relic') relicAt(cargoG, x + 15, 22);
-      else [sackAt, crateAt, barrelAt][i % 3](cargoG, x + 15, 24);
-    }
-    document.getElementById('slowLamp').classList.toggle('on', !!st.slow && !st.ended);
-    document.getElementById('stopLamp').classList.toggle('on', st.mode === 'hold' && !st.fight);
-    document.getElementById('where').textContent = `${Math.round(front() * 1.5 / 24)} m`;
-  }
-  {
-    const q = wrap(document.getElementById('whistle'));
-    q.box(9, 2, 10, 18, BRASSB); q.R(11, 4, 1, 14, BR[3]); q.R(8, 0, 12, 3, BR[1]); q.R(10, 20, 8, 3, BR[0]);
-    q.R(13, 23, 2, 6, IR[1]); q.box(9, 28, 10, 6, IRONB);
   }
 
-  // ---------- ② 路线图（出征黑板）----------
-  function drawMap() {
-    const m = wrap(document.getElementById('map')), W = 1536, H = 240, k = W / LEN, chalk = '#e4dfcf', dim = '#9a978a';
-    m.R(0, 0, W, H, '#1d2621');
-    for (let i = 0; i < 900; i++) m.px(hash(i, 1) * W, hash(i, 2) * H, '#243029');
-    const gy = (x) => 170 - (GROUND - gAt(x)) * 1.2;
-    for (let x = 0; x < W; x++) { const y = gy(x / k); m.px(x, y, chalk); if (hash(x, 3) < 0.7) m.px(x, y + 1, dim); }
-    for (const [a, b] of R1.mud) for (let x = a * k; x < b * k; x += 4) m.line(x, 176, x + 6, 184, dim);
-    for (const c of R1.crates) m.R(c.x * k - 3, gy(c.x) - 8, 6, 7, dim);
-    for (const b of R1.bars) { const x = b.x * k; m.line(x - 5, gy(b.x) - 12, x + 5, gy(b.x) - 2, chalk); m.line(x + 5, gy(b.x) - 12, x - 5, gy(b.x) - 2, chalk); }
-    m.g.globalCompositeOperation = 'source-over';
-    for (const e of foes) {
-      const src = SA.SPR.renderVehicle(e.v, { key: 'map-e', t: 0 }), c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
-      const g = c.getContext('2d'); g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#d98a6a'; g.fillRect(0, 0, c.width, c.height);
-      const sc = 0.32, bx = PADX + (e.span[0] + e.span[1] + 1) / 2 * S;
-      m.g.save(); m.g.translate(e.at * k, gy(e.at)); m.g.scale(-sc, sc); m.g.drawImage(c, -bx, -ROWS * S); m.g.restore();
-      m.disc(e.at * k, gy(e.at) - 40, 15, (a, b) => (Math.abs(Math.hypot(a, b) - 0.92) < 0.09 ? '#d98a6a' : null));
-    }
-    const icon = (x, kind) => { const X = x * k, Y = gy(x) - 22; if (kind === 'coal') m.R(X - 4, Y + 10, 8, 5, '#6a7286'); else if (kind === 'supply') { m.R(X - 4, Y + 6, 8, 8, chalk); m.R(X - 3, Y + 7, 6, 6, '#1d2621'); m.line(X - 3, Y + 7, X + 2, Y + 12, chalk); } else if (kind === 'refugee') { m.disc(X - 3, Y + 6, 2.5, chalk); m.disc(X + 3, Y + 7, 2.2, chalk); m.R(X - 6, Y + 9, 12, 5, chalk); } else if (kind === 'relic') m.disc(X, Y + 8, 5, GLOW[2]); };
-    for (const p of R1.pickups) icon(p.x, p.kind);
-    m.R(R1.water * k - 1, gy(R1.water) - 26, 2, 26, dim); m.R(R1.water * k - 5, gy(R1.water) - 32, 10, 7, P.water[2]);
-    m.R(R1.gate.x * k - 6, gy(R1.gate.x) - 26, 3, 26, chalk); m.R(R1.gate.x * k + 3, gy(R1.gate.x) - 26, 3, 26, chalk); m.line(R1.gate.x * k - 6, gy(R1.gate.x) - 28, R1.gate.x * k + 6, gy(R1.gate.x) - 28, chalk);
-    m.R(R1.end * k, gy(R1.end) - 34, 2, 34, chalk); m.R(R1.end * k + 2, gy(R1.end) - 34, 12, 8, '#d98a6a');
-    m.g.font = '13px sans-serif'; m.g.fillStyle = chalk;
-    const segs = [[0, '院门'], [640, '碎石路'], [1920, '拦路 · 拾荒小车'], [2560, '土坡 · 难民'], [3840, '泥洼 · 铁皮罐头'], [4800, '水泵站遗迹'], [5760, '煤场前哨 · 推土机'], [7040, '旧煤场']];
-    for (const [x, s] of segs) { m.R(x * k, 8, 1, 200, '#33423a'); m.g.fillText(s, x * k + 6, 24); }
-    m.g.fillStyle = dim; m.g.fillText('泥地：履带吃香，双足吃亏', 3900 * k + 4, 204); m.g.fillText('补水', R1.water * k - 12, gy(R1.water) - 38);
-  }
-
-  // ---------- ③ ④ 选项卡片 ----------
+  // ---------- 小机械的展示表 ----------
   function big(c, s) { const o = document.createElement('canvas'); o.className = 'px'; o.width = c.width; o.height = c.height; o.getContext('2d').drawImage(c, 0, 0); o.style.width = `${c.width * s}px`; o.style.height = `${c.height * s}px`; return o; }
-  const fig = (c, s, cap) => { const f = document.createElement('figure'); f.append(big(c, s)); f.append(cap); return f; };
-  function cards(box, table, which, render) {
-    box.innerHTML = '';
-    for (const [k, o] of Object.entries(table)) {
-      const card = document.createElement('div'); card.className = `card ${pick[which] === k ? 'on' : ''}`;
-      const h = document.createElement('h3'); h.textContent = `${o.name}${pick[which] === k ? '　· 预览中' : ''}`;
-      const row = document.createElement('div'); row.className = 'row';
-      render(o, row);
-      const p = document.createElement('p'); p.textContent = o.desc;
-      card.append(h, row, p);
-      card.onclick = () => { pick[which] = k; buildCards(); };
-      box.append(card);
+  function buildMobs() {
+    const box = document.getElementById('mobs'), anims = [];
+    for (const [kind, name] of [['crawler', '拾荒爬车'], ['barrel', '滚桶炸弹'], ['soldier', '发条步兵'], ['sentry', '步哨炮车']]) {
+      const f = document.createElement('figure'), first = RA.mob(kind, 0).c, c = big(first, 4);
+      f.append(c, document.createTextNode(name)); box.append(f);
+      anims.push({ kind, c, n: RA.MOBS[kind].frames });
     }
+    const f = document.createElement('figure'), q = RA.pen(110, 12);
+    ['gear', 'plate', 'spring', 'key', 'wheel', 'coat', 'stave', 'scrap'].forEach((t, i) => q.img(RA.piece(t, 0).c, i * 13 + 2, 2));
+    f.append(big(q.c, 4), document.createTextNode('碎件：齿轮 · 铁片 · 弹簧 · 钥匙 · 小轮 · 军装 · 桶板 · 金属片')); box.append(f);
+    setInterval(() => { const k = Math.floor(performance.now() / 160); for (const a of anims) { const src = RA.mob(a.kind, k % a.n).c, g = a.c.getContext('2d'); g.clearRect(0, 0, a.c.width, a.c.height); g.drawImage(src, 0, 0); } }, 160);
   }
-  function buildCards() {
-    cards(document.getElementById('cargoOpts'), CARGO, 'cargo', (o, row) => {
-      for (const [load, cap] of [[[], '空'], [['supply', 'supply'], '两件物资'], [['supply', 'refugee', 'supply', 'refugee'], '装满（含难民）']]) { const q = pen(48, 48); o.big(q, 0, 0, load); row.append(fig(q.c, 3, cap)); }
-      for (const [load, cap] of [[[], '小 · 空'], [['refugee'], '小 · 一人']]) { const q = pen(24, 24); o.small(q, 0, 0, load); row.append(fig(q.c, 3, cap)); }
-    });
-    cards(document.getElementById('binOpts'), BIN, 'bin', (o, row) => {
-      for (const [lv, cap] of [[1, '满'], [0.5, '半'], [0.15, '快没了'], [0, '空']]) { const q = pen(24, 48); o.draw(q, 0, 0, lv); row.append(fig(q.c, 3, cap)); }
-    });
-  }
-  function buildSheet() {
-    const box = document.getElementById('props'); box.innerHTML = '';
-    const add = (a, cap) => box.append(fig(a.c, 2, cap));
-    add(coalPile(true), '煤堆'); add(coalPile(false), '煤堆 · 铲走后');
-    add(supplyCache(false), '物资箱'); add(supplyCache(true), '物资箱 · 捡走后'); add(spoils(), '残骸拆件');
-    { const q = pen(110, 40); [[-30, 0], [-6, 1], [18, 2]].forEach(([dx, k], i) => { q.img(SA.Coal.draw(SA.Coal.crew(`难民${1 + k}`), { size: 'sprite', pose: i === 1 ? 'wave' : 'cheer', expr: 'happy', look: -1 }), 40 + dx, 0); q.R(46 + dx + 6 + 20 - 20, 34, 7, 6, SACK[1]); }); q.R(96, 0, 3, 40, WOOD[2]); q.R(99, 1, 10, 7, '#d8d2c0'); add({ c: q.c }, '难民一家 · 路牌下挥白布'); }
-    add(barricade(0), '掠夺者路障'); add(barricade(1), '路障 · 打坏'); add(barricade(2), '路障 · 撞开');
-    add(ruinGate(0), '遗迹门 · 锁着'); add(ruinGate(1), '遗迹门 · 链子断了'); add(ruinGate(2), '遗迹门 · 轰开'); add(relicChest(), '遗迹箱（发以太光）');
-    add(waterTower(), '水塔'); add(startSign(), '院门口的路牌');
-    { const q = pen(320, 270); q.img(pumpHouse().c, 0, 0); box.append(fig(q.c, 1, '地标 · 废弃水泵站（1 倍）')); }
-    { const q = pen(360, 300); q.img(depot().c, 0, 0); box.append(fig(q.c, 1, '地标 · 旧煤场井架 + 绞车房（1 倍）')); }
-    add(train(), '终点 · 平板车 + 小水柜机车');
+
+  // ---------- 音效试听台 ----------
+  function buildBench() {
+    const box = document.getElementById('bench'), A = SA.Audio, s = A.settings();
+    for (const [id, key] of [['vMaster', 'master'], ['vSfx', 'sfx'], ['vUi', 'ui']]) { const el = document.getElementById(id); el.value = s[key]; el.oninput = () => A.settings({ [key]: +el.value }); }
+    const NAMES = { 'crush.wood': '撞碎木箱', 'crush.machine': '小机械散架', 'crush.rock': '砖石 / 煤渣', 'hit.plate': '铁皮 / 路障 / 装甲重击', 'hit.metal.light': '机枪打铁、小碎件', 'hit.metal.medium': '金属中击', 'hit.metal.heavy': '金属重击', 'ram.thud': '车头撞上的闷响', 'scrap.pickup': '金属片飞上车', 'boom': '爆炸', 'boom.big': '大爆炸', 'cannon.fire': '开炮', 'cannon.hit': '炮弹命中', 'gun.shot': '小炮 / 机枪', 'steam.hiss': '泄压 / 蒸汽', 'chain': '铁链 / 闩锁', 'ui.click': '界面 · 点击', 'ui.switch': '界面 · 拨杆', 'ui.confirm': '界面 · 确认', 'ui.error': '界面 · 不行' };
+    for (const [name, b] of Object.entries(A.BANK)) {
+      const d = document.createElement('div'); d.className = 'snd';
+      d.innerHTML = `<b>${NAMES[name] || name}</b> <span>${name}</span>`;
+      const vs = document.createElement('div'); vs.className = 'vs';
+      const rnd = document.createElement('button'); rnd.className = 'btn small'; rnd.textContent = '随机'; rnd.onclick = () => A.play(name); vs.append(rnd);
+      for (let i = 0; i < b.n; i++) { const bt = document.createElement('button'); bt.className = 'btn small'; bt.textContent = String(i); bt.onclick = () => A.play(name, { v: i }); vs.append(bt); }
+      d.append(vs); box.append(d);
+    }
+    A.load();
   }
 
   // ---------- 控制 ----------
@@ -320,18 +291,20 @@ window.SA = window.SA || {};
   playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; };
   document.getElementById('restart').onclick = () => { reset(0); playing = true; playBtn.textContent = '暂停'; };
   for (const b of document.querySelectorAll('[data-speed]')) b.onclick = () => { mul = +b.dataset.speed; };
-  scrub.oninput = () => { reset(+scrub.value); };
-  document.getElementById('mapBox').onclick = (e) => { const r = e.currentTarget.querySelector('canvas').getBoundingClientRect(); reset(clamp((e.clientX - r.left) / r.width * LEN, 0, LEN)); };
+  scrub.oninput = () => reset(+scrub.value);
+  for (const [id, k] of [['fbStop', 'stop'], ['fbCam', 'cam'], ['fbRecoil', 'recoil'], ['fbDebris', 'debris'], ['fbScrap', 'scrap'], ['fbSound', 'sound']]) { const el = document.getElementById(id); el.onchange = () => { fb[k] = el.checked; }; }
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (playing) for (let i = 0; i < mul; i++) step(dt);
-    st.cam += (camTarget() - st.cam) * Math.min(1, dt * 3);
-    draw(); dash(now / 1000);
+    const tg = camTarget(); st.cam.x += (tg.x - st.cam.x) * Math.min(1, dt * 4); st.cam.y += (tg.y - st.cam.y) * Math.min(1, dt * 3);
+    draw();
     if (document.activeElement !== scrub) scrub.value = Math.round(front());
+    document.getElementById('where').textContent = `${Math.round(front() / KX)} m（真实）`;
+    document.getElementById('metal').textContent = `金属 ${st.metal}`;
     requestAnimationFrame(frame);
   }
-  reset(0); buildCards(); buildSheet(); drawMap();
+  drawChart(); buildMobs(); buildBench(); reset(0);
   requestAnimationFrame(frame);
-  SA.ExpeditionLab = { st, reset, step, draw, pick };
+  SA.ExpeditionLab = { st, reset, step, draw, fb, ground, ROUTE };
 })();

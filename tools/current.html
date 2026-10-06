@@ -14,32 +14,29 @@
   .stage canvas { width: 100%; height: auto; background: #111; }
   .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; max-width: 1280px; }
   .bar input[type=range] { flex: 1; min-width: 200px; }
-  .bar .tag { color: var(--muted); font-size: 13px; }
-  .dash { max-width: 1280px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin-top: 2px;
-    background: #1b1714; border: 2px solid #3a2f27; border-top: 0; }
-  .dash .grp { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
-  .dash .lamp { padding: 2px 8px; border: 1px solid #4a3f37; color: #6f6154; font-size: 12px; }
-  .dash .lamp.on { color: #ffd166; border-color: #b8391b; background: #2a1a10; }
-  .map { max-width: 1280px; overflow-x: auto; border: 2px solid #3a2f27; background: #1d2621; cursor: pointer; }
-  .map canvas { height: 240px; width: auto; }
-  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; max-width: 1280px; }
-  .card { background: #1d1916; border: 2px solid #3a2f27; padding: 12px; cursor: pointer; }
-  .card.on { border-color: var(--brass2, #d9a441); box-shadow: 0 0 0 1px #4e3510 inset; }
-  .card h3 { margin: 0 0 6px; color: var(--brass2); font-size: 15px; }
-  .card .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-  .card figure { margin: 0; text-align: center; color: var(--muted); font-size: 12px; }
-  .card figure canvas { background: #2a2420; margin: 0 auto 4px; }
-  .card p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
-  .sheet { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; max-width: 1280px; background: #3b4136; padding: 14px; border: 2px solid #3a2f27; }
+  .bar .tag, .bar label { color: var(--muted); font-size: 13px; }
+  .bar label { display: inline-flex; gap: 4px; align-items: center; }
+  .chart { max-width: 1280px; border: 2px solid #3a2f27; background: #1d2621; }
+  .chart canvas { width: 100%; height: auto; }
+  .sheet { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-end; max-width: 1280px; background: #3b4136; padding: 14px; border: 2px solid #3a2f27; }
   .sheet figure { margin: 0; text-align: center; color: #d8d2c0; font-size: 12px; }
+  .bench { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; max-width: 1280px; }
+  .snd { background: #1d1916; border: 1px solid #3a2f27; padding: 8px; color: var(--muted); font-size: 13px; }
+  .snd b { color: var(--brass2); }
+  .snd .vs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 </style></head>
 <body>
-<h1>当前开发 · 出征样板路线 1 · 视觉稿 v1</h1>
-<p class="lead">计划见 <code>docs/expedition-plan.md</code>。这一页<b>只是画面样机</b>：路线按计划 §4 的分段表画；敌车直接读现有关卡车；
-煤、货位、遭遇、破门都是摆拍，规则以 astra 的实现为准。<b>已定（2026-10-06）</b>：货箱、煤仓三套都做、分三个等级，样板先用 <b>A 板条货筐</b>、<b>A 漏斗煤斗</b>（③④ 里仍可点 B / C 预览）。
-画法已经搬进游戏文件 <code>js/route-art.js</code>。背景暂借「野地」场景并压暗去色，真正的废土场景是下一步（计划 V2）。</p>
+<h1>当前开发 · 出征 v2：起伏地形、小机械、撞击反馈、音效</h1>
+<p class="lead">计划见 <code>docs/expedition-plan.md</code> §12、§13 和 <code>docs/feel-audio-plan.md</code> v0.2。这一页<b>只是样机</b>：地形、机械、撞击都是摆拍，规则以 astra 的实现为准。
+<b>要你看的</b>：① 起伏地形像不像 19 世纪的黑乡、坡度和镜头跟随舒不舒服；② 四种小机械的造型；③ 撞上去够不够爽（顿帧、镜头冲一下、散架、金属飞上车，可以逐项开关对比）；④ 音效（<b>先点一下页面</b>，浏览器才让出声）。
+背景暂借「野地」并压暗去色；废土场景另一个会话在做。</p>
 
-<h2>① 卷轴预览 · 铁匠铺 → 旧煤场</h2>
+<h2>① 起伏地形 · 参考真实世界（英格兰黑乡）</h2>
+<div class="chart"><canvas class="px" id="chart" width="1280" height="230"></canvas></div>
+<p class="note">真实高程：欧洲 25 m 数字高程模型（EU-DEM，经 OpenTopoData），沿 <b>达德利城堡岭 → 内瑟顿 → 风车端（运河谷底）→ 罗利山 → 罗利里吉斯</b> 取样 100 个点，全长 6.05 km、海拔 125～221 m、最陡 10.8%。
+换算到游戏：横向压进 7680 px，竖向夸张 3 倍，高低差约 365 px，最陡约 32%（车身最大倾角约 24°）。谷底的科布抽水机房（1831 年）是真实的遗迹。</p>
+
+<h2>② 卷轴预览 · 镜头跟着地形上下走</h2>
 <div class="bar">
   <button class="btn small" id="play">暂停</button>
   <button class="btn small" id="restart">从头开</button>
@@ -48,32 +45,36 @@
   <input type="range" id="scrub" min="0" max="7680" step="1" value="0">
   <span class="tag" id="where">0 m</span>
 </div>
-<div class="stage"><canvas class="px" id="view" width="1280" height="720"></canvas></div>
-<div class="dash" id="dash">
-  <div class="grp">煤<canvas class="px" id="coalG" width="124" height="20" style="width:248px;height:40px"></canvas></div>
-  <div class="grp">货位<canvas class="px" id="cargoG" width="132" height="28" style="width:264px;height:56px"></canvas></div>
-  <div class="grp"><span class="lamp" id="slowLamp">慢行 · 捡东西</span><span class="lamp" id="stopLamp">停车 · 接人</span></div>
-  <div class="grp"><canvas class="px" id="whistle" width="28" height="34" style="width:56px;height:68px"></canvas>拉汽笛返航</div>
+<div class="bar">
+  <span class="tag">撞击反馈：</span>
+  <label><input type="checkbox" id="fbStop" checked>顿帧</label>
+  <label><input type="checkbox" id="fbCam" checked>镜头冲撞</label>
+  <label><input type="checkbox" id="fbRecoil" checked>车头反冲</label>
+  <label><input type="checkbox" id="fbDebris" checked>散架碎件</label>
+  <label><input type="checkbox" id="fbScrap" checked>金属飞上车</label>
+  <label><input type="checkbox" id="fbSound" checked>音效</label>
+  <span class="tag" id="metal">金属 0</span>
 </div>
-<p class="note">顶上的铁条是<b>路程条</b>（替换竞技场的计时鼓）：遭遇、难民、遗迹、终点的位置一眼可见。下面的驾驶台在现有的耐久 / 热量 / 水之外加<b>煤表</b>和<b>货位格</b>，返航做成拉汽笛。
-演示的司机会<b>慢下来捡</b>一部分东西、<b>全速冲过</b>另一部分（计划 §3.3：捡东西要减速），在第二家难民那里货位已满，接不了。</p>
+<div class="stage"><canvas class="px" id="view" width="1280" height="720"></canvas></div>
+<p class="note">一路：岭上出发 → 下坡撞一队发条步兵 → 谷底一群拾荒爬车、驼背桥过运河、科布抽水机房 → 上罗利山时滚桶炸弹从坡上滚下来 → 山顶步哨炮车、路堑（两边砖砌挡土墙）→ 矿井架。
+地面整块画出来：煤渣路、红泥表土、下面是水平岩层，坡面和路堑把地层剖面露出来，黑色那条是黑乡出名的「厚煤层」。</p>
 
-<h2>② 路线图 · 出征黑板上的样子（点一下跳到那里）</h2>
-<div class="map" id="mapBox"><canvas class="px" id="map" width="1536" height="240"></canvas></div>
+<h2>③ 小机械 · 四种</h2>
+<div class="sheet" id="mobs"></div>
+<p class="note">都朝左（迎着往右开的车），比车小得多（车宽 6～8 格，它们 1～1.5 格）。从左到右：拾荒爬车（履带 + 抓钳 + 背着破烂筐）、滚桶炸弹（引信冒火星，滚动 8 帧）、发条步兵（背后的钥匙在转，走路 4 帧）、步哨炮车（开火那一帧炮管后坐）。最右是散架时飞出去的碎件和金属片。</p>
 
-<h2>③ 货箱 · 三个等级（样板先用 A；大货箱 2×2 = 4 位，小货箱 1×1 = 1 位）</h2>
-<div class="opts" id="cargoOpts"></div>
-
-<h2>④ 煤仓 · 三个等级（样板先用 A；1×2）</h2>
-<div class="opts" id="binOpts"></div>
-
-<h2>⑤ 路线上的东西</h2>
-<div class="sheet" id="props"></div>
-<p class="note">都按世界像素 1:1 画（和车同一尺度），这里放大 2 倍看。木箱沿用现在的地形货箱画法；路障、遗迹门有完好 / 破损 / 打开三种状态。</p>
+<h2>④ 音效试听台（CC0 素材，已经处理好放在 <code>audio/</code>）</h2>
+<div class="bar">
+  <label>总音量 <input type="range" id="vMaster" min="0" max="1" step="0.05"></label>
+  <label>音效 <input type="range" id="vSfx" min="0" max="1" step="0.05"></label>
+  <label>界面 <input type="range" id="vUi" min="0" max="1" step="0.05"></label>
+</div>
+<div class="bench" id="bench"></div>
+<p class="note">每个名字是游戏里用的一类声音，下面的数字是变体（游戏里随机挑一个、音高随机微调，不会机械重复）。哪个不对味告诉我名字和序号，我再换素材。来源和授权见 <code>audio/LICENSES.md</code>。</p>
 
 <script src="../js/palette.js"></script><script src="../js/config.js"></script><script src="../js/coal.js"></script>
 <script src="../js/modules.js"></script><script src="../js/module-art.js"></script><script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script>
 <script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/legs.js"></script><script src="../js/stage-cars.js"></script>
-<script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script><script src="../js/route-art.js"></script>
+<script src="../js/terrain-art.js"></script><script src="../js/scenes.js"></script><script src="../js/route-art.js"></script><script src="../js/audio.js"></script>
 <script src="current.js"></script><script src="labs.js"></script>
 </body></html>

@@ -30,8 +30,10 @@ SA.LABS = {
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发 · 出征样板路线 1', ver: 'v1', date: '2026-10-06', status: 'explore',
-      desc: '出征（卷轴路线）的画面样机：路线 1 卷轴预览（遭遇三辆现有关卡车、慢行捡东西、停车接难民、轰开遗迹门、抵达旧煤场）+ 路程条 / 煤表 / 货位格；出征黑板路线图；货箱三选一、煤仓三选一；路线物件和地标。等用户挑', docs: ['docs/expedition-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发 · 出征 v2', ver: 'v2', date: '2026-10-06', status: 'explore',
+      desc: '起伏地形（黑乡真实高程剖面 → 19 世纪地形 → 卷轴预览，镜头竖直跟随）+ 小机械四种 + 撞击反馈 + 音效试听台。等用户看', docs: ['docs/expedition-plan.md', 'docs/feel-audio-plan.md'] },
+    { id: 'expedition-v1', group: 'top', url: 'archive/expedition-v1.html', name: '出征样板路线 1 · 视觉稿', ver: 'v1', date: '2026-10-06', status: 'shipped',
+      desc: '已进游戏（用户选货箱 A、煤仓 A，三套造型以后做三个等级）：路线 1 卷轴预览、出征黑板路线图、货箱 / 煤仓三套方案、路线物件和地标；画法在 js/route-art.js', docs: ['docs/expedition-plan.md'] },
     { id: 'biped-v9', group: 'chassis', url: 'archive/biped-v9.html', name: '双足进游戏 · 骑士手臂 / 头盔 / 腿部件 / 蹲跳', ver: 'v9', date: '2026-10-05', status: 'shipped',
       desc: '已进游戏（用户通过）：六种骑士手臂（近战挥动、武器绕肘瞄准，装在机甲头盔下面）、机甲头盔 D 指挥塔 · 斜装甲、弹簧蹬缸 / 双缸增压器画在腿上、下蹲 / 跳跃（按键、触屏、腿姿、地影、喷汽、扬尘），全部游戏渲染', docs: ['docs/biped-plan.md'] },
     { id: 'biped-v8', group: 'chassis', url: 'archive/biped-v8.html', name: '双足强化 · 轻重腿 / 步态 / 腿部件 / 机甲头盔', ver: 'v5～v8', date: '2026-10-05', status: 'shipped',

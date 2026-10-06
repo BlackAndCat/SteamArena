@@ -496,5 +496,95 @@ SA.RouteArt = (() => {
     q.R(6, 13, 1, 2, IR[2]); q.box(3, 14, 7, 4, IRONB);
     return q.c;
   }
-  return { PAL: { WOOD, COAL, SACK, TARP, BRICK, STONE, IVY, GLOW }, hash, wrap, pen, CARGO, BIN, contents, sackAt, crateAt, barrelAt, relicAt, rider, prop, refugees, terrainTiles, dress, strip, coalGauge, cargoSlots, whistle };
+  // ---------- 小机械（docs/expedition-plan.md §12）：拾荒爬车 · 滚桶炸弹 · 发条步兵 · 步哨炮车 ----------
+  // 都朝左画（迎着往右开的玩家），世界像素 1:1；mob(kind, frame) 返回 { c, ax, ay }（落地点 = 底边中点），按帧缓存
+  const TIN = ['#2a2d33', '#454a52', '#6a707a', '#9aa1aa', '#c8ced4'];   // 镀锡铁皮（发条兵的脸、肚子）
+  const COAT = ['#3a1712', '#5e241a', '#7e3424', '#9c4a34'];            // 褪色的红军装
+  function crawler(f) {
+    const q = pen(32, 22), ph = f % 2;
+    // 履带：一圈铁带 + 三个负重轮，链节按帧错开
+    q.R(3, 14, 26, 7, IR[0]); q.R(4, 15, 24, 5, IR[1]); q.R(4, 15, 24, 1, IR[2]);
+    for (let x = 4 + ph * 2; x < 28; x += 4) { q.px(x, 14, IR[2]); q.px(x, 20, IR[2]); }
+    for (const wx of [8, 16, 24]) { q.disc(wx, 17.5, 2.2, IR[2]); q.px(wx - 1, 16, IR[3]); q.px(wx, 18, IR[0]); }
+    // 车身：锈铁小箱 + 铆钉；背后一截小烟囱
+    q.box(8, 6, 17, 9, [RU[0], RU[1], RU[2], RU[3]]); for (const rx of [10, 15, 20]) q.px(rx, 8, IR[4]);
+    q.R(23, 1, 3, 6, IR[0]); q.R(24, 2, 1, 5, IR[2]); q.R(22, 0, 5, 2, IR[1]);
+    // 背上的破烂筐：铁丝格 + 冒出来的齿轮和一截管子
+    q.R(9, 2, 12, 4, IR[0]); for (let x = 10; x < 21; x += 2) q.px(x, 3, IR[2]); q.R(10, 4, 10, 1, IR[1]);
+    q.disc(13, 1.5, 2, (a, b) => (Math.hypot(a, b) > 0.6 ? BR[1] : BR[0])); q.px(12, 0, BR[3]); q.R(16, 0, 4, 2, IR[3]); q.px(16, 0, IR[4]);
+    // 抓钳：从车头伸出的臂 + 一开一合的两片钳口
+    q.R(3, 9, 6, 2, IR[1]); q.px(4, 9, IR[3]);
+    const open = ph ? 2 : 1;
+    q.R(0, 9 - open, 4, 1, IR[2]); q.px(0, 10 - open, IR[2]); q.R(0, 11 + open, 4, 1, IR[2]); q.px(0, 10 + open, IR[2]); q.R(3, 8 - open, 1, 2 + open * 2 + 2, IR[0]);
+    return { c: q.c, ax: 16, ay: 22 };
+  }
+  function rollBarrel(f) {
+    const q = pen(26, 26), a = f / 8 * Math.PI * 2, cx = 12.5, cy = 13.5, r = 10;
+    q.disc(cx, cy, r, (u, v) => { const d = Math.hypot(u, v); return d > 0.88 ? RU[0] : u + v < -0.5 ? RU[3] : u + v > 0.6 ? RU[1] : RU[2]; });
+    // 两道铁箍跟着转：画成过圆心的两条弦
+    for (const off of [-0.5, 0.5]) { const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux; for (let t = -r + 1; t <= r - 1; t += 0.5) { const x = cx + ux * t + nx * off * r * 0.8, y = cy + uy * t + ny * off * r * 0.8; if (Math.hypot(x - cx, y - cy) < r - 0.8) q.px(x, y, IR[1]); } }
+    for (let k = 0; k < 4; k++) { const b = a + k * Math.PI / 2; q.px(cx + Math.cos(b) * (r - 3), cy + Math.sin(b) * (r - 3), IR[4]); }
+    // 引信：从桶口伸出来，跟着桶转；头上一点火星（按帧闪）
+    const fx = cx + Math.cos(a - 0.6) * (r + 1), fy = cy + Math.sin(a - 0.6) * (r + 1);
+    q.line(cx + Math.cos(a - 0.6) * (r - 2), cy + Math.sin(a - 0.6) * (r - 2), fx, fy, SACK[3]);
+    q.px(fx, fy, f % 2 ? P.fire[3] : P.fire[2]); if (f % 2) { q.px(fx + 1, fy - 1, P.fire[2]); q.px(fx - 1, fy - 1, P.fire[3]); }
+    return { c: q.c, ax: 12, ay: 24 };
+  }
+  function soldier(f) {
+    const q = pen(16, 28), step = [0, 1, 0, -1][f % 4];
+    // 腿：灰裤子，走路一前一后
+    q.R(5 + step, 20, 2, 7, IR[1]); q.R(8 - step, 20, 2, 7, IR[2]); q.R(4 + step, 26, 3, 2, IR[0]); q.R(8 - step, 26, 3, 2, IR[0]);
+    // 身子：红军装 + 两条白交叉带 + 铜扣
+    q.box(4, 11, 8, 10, COAT); q.line(5, 12, 10, 19, P.steam[2]); q.line(10, 12, 5, 19, P.steam[1]); q.px(7, 16, BR[3]);
+    // 头：镀锡圆脸 + 两点眼睛 + 八字胡；高筒军帽（帽徽黄铜）
+    q.disc(8, 8, 3.2, (u, v) => (u + v < -0.4 ? TIN[4] : TIN[3])); q.px(6, 8, TIN[0]); q.px(9, 8, TIN[0]); q.R(6, 10, 4, 1, TIN[1]);
+    q.R(5, 0, 7, 6, P.dark[1]); q.R(5, 0, 7, 1, P.dark[3]); q.R(4, 5, 9, 1, P.dark[0]); q.px(8, 2, BR[3]); q.px(8, 3, BR[2]);
+    // 小火枪：斜扛，枪口朝左前
+    q.line(1, 9, 9, 17, WOOD[3]); q.line(0, 8, 3, 11, IR[2]); q.px(0, 8, IR[3]);
+    // 背后的发条钥匙：转动（4 帧：横 / 斜 / 竖 / 斜）
+    const kx = 13, ky = 14; q.R(12, 14, 2, 1, BR[1]);
+    const ks = [[[0, -2], [0, 2]], [[-1, -2], [1, 2]], [[-2, 0], [2, 0]], [[-1, 2], [1, -2]]][f % 4];
+    for (const [dx, dy] of ks) { q.R(kx + 1 + Math.max(0, dx), ky + Math.min(0, dy), 2, 2, BR[2]); q.px(kx + 1 + Math.max(0, dx), ky + Math.min(0, dy), BR[3]); }
+    return { c: q.c, ax: 8, ay: 28 };
+  }
+  function sentry(f) {
+    const q = pen(38, 28), rec = f % 3 === 1 ? 2 : 0;
+    // 车架后拖着地 + 远侧轮
+    q.line(20, 21, 36, 26, WOOD[1], 3); q.line(20, 20, 36, 25, WOOD[4]);
+    q.disc(22, 20, 6, IR[0]);
+    // 挡弹板（在炮管后面）：铆接铁板
+    q.box(12, 3, 10, 15, [IR[0], IR[1], IR[2], IR[3]]); for (const ry of [5, 15]) { q.px(14, ry, IR[4]); q.px(19, ry, IR[4]); }
+    // 炮管从挡弹板中间穿出来、朝左，开火那一帧往后缩；炮口一圈黄铜
+    q.R(1 + rec, 8, 20, 5, IR[0]); q.R(2 + rec, 9, 18, 3, IR[2]); q.R(2 + rec, 9, 18, 1, IR[4]); q.R(2 + rec, 11, 18, 1, IR[1]);
+    q.R(0 + rec, 7, 3, 7, BR[1]); q.R(0 + rec, 7, 3, 1, BR[3]); q.R(17, 7, 3, 7, BR[0]);
+    if (f % 3 === 1) { q.R(0, 9, 1, 3, P.fire[3]); }
+    // 近侧大轮（在炮管下面）：辐条 + 铁箍
+    q.disc(15, 20, 7, (u, v) => { const d = Math.hypot(u, v), ang = Math.atan2(v, u); return d > 0.8 ? (u + v < 0 ? IR[3] : IR[1]) : d < 0.22 ? BR[2] : Math.abs(Math.sin(ang * 3)) * d < 0.2 ? WOOD[4] : null; });
+    return { c: q.c, ax: 19, ay: 28 };
+  }
+  const MOBS = { crawler: { draw: crawler, frames: 2 }, barrel: { draw: rollBarrel, frames: 8 }, soldier: { draw: soldier, frames: 4 }, sentry: { draw: sentry, frames: 3 } };
+  const mob = (kind, frame = 0) => { const m = MOBS[kind]; return m ? cached(`mob:${kind}:${frame % m.frames}`, () => m.draw(frame % m.frames)) : null; };
+  // 散架的碎件（翻滚：按 90° 转四个朝向，像素画不旋转）；scrap = 飞上车的金属片
+  const PIECES = {
+    gear: (q) => q.disc(3.5, 3.5, 3.4, (u, v) => { const d = Math.hypot(u, v), a = Math.atan2(v, u); return d < 0.3 ? null : d > 0.75 && Math.cos(a * 6) < 0 ? null : u + v < 0 ? BR[3] : BR[1]; }),
+    plate: (q) => { q.R(0, 1, 6, 4, IR[0]); q.R(1, 1, 5, 3, IR[2]); q.px(1, 1, IR[4]); q.px(4, 2, IR[4]); },
+    spring: (q) => { for (let y = 0; y < 7; y++) q.px(y % 2 ? 3 : 1, y, IR[3]); q.px(2, 0, IR[2]); },
+    key: (q) => { q.R(0, 2, 5, 2, BR[2]); q.R(4, 0, 2, 6, BR[1]); q.px(0, 2, BR[3]); },
+    wheel: (q) => q.disc(3.5, 3.5, 3.5, (u, v) => { const d = Math.hypot(u, v); return d > 0.7 ? IR[1] : d < 0.25 ? BR[2] : Math.abs(u) < 0.2 || Math.abs(v) < 0.2 ? WOOD[4] : null; }),
+    coat: (q) => { q.R(0, 0, 5, 4, COAT[2]); q.R(0, 0, 5, 1, COAT[3]); q.px(2, 2, P.steam[2]); },
+    stave: (q) => { q.R(0, 0, 7, 2, RU[2]); q.R(0, 0, 7, 1, RU[3]); q.px(3, 1, IR[1]); },
+    scrap: (q) => { q.R(0, 0, 3, 3, IR[2]); q.px(0, 0, IR[4]); q.px(2, 2, IR[1]); },
+  };
+  function piece(type, rot = 0) {
+    return cached(`piece:${type}:${rot & 3}`, () => {
+      const q = pen(8, 8); (PIECES[type] || PIECES.plate)(q);
+      if (!(rot & 3)) return { c: q.c, ax: 4, ay: 4 };
+      const o = pen(8, 8); o.g.translate(4, 4); o.g.rotate((rot & 3) * Math.PI / 2); o.g.drawImage(q.c, -4, -4);
+      return { c: o.c, ax: 4, ay: 4 };
+    });
+  }
+  // 每种机械散架时掉哪些碎件
+  const DEBRIS = { crawler: ['gear', 'plate', 'wheel', 'spring', 'plate'], barrel: ['stave', 'stave', 'plate', 'stave'], soldier: ['coat', 'key', 'spring', 'gear'], sentry: ['wheel', 'plate', 'plate', 'gear', 'spring'] };
+
+  return { PAL: { WOOD, COAL, SACK, TARP, BRICK, STONE, IVY, GLOW }, hash, wrap, pen, CARGO, BIN, contents, sackAt, crateAt, barrelAt, relicAt, rider, prop, refugees, terrainTiles, dress, strip, coalGauge, cargoSlots, whistle, MOBS, mob, piece, DEBRIS };
 })();

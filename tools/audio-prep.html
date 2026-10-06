@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音效素材处理</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { padding: 16px; overflow-y: auto; }
+  h1 { color: var(--brass2); font-size: 20px; margin: 0 0 8px; }
+  .lead { color: var(--muted); max-width: 1000px; line-height: 1.6; }
+  table { border-collapse: collapse; margin-top: 10px; }
+  td, th { border-bottom: 1px solid #3a2f27; padding: 4px 8px; font-size: 13px; color: var(--muted); text-align: left; }
+  td b { color: #e8e0cc; }
+</style></head>
+<body>
+<h1>音效素材处理（开发用）</h1>
+<p class="lead">把 <code>tools/out/audio-src/</code> 里下载好的 CC0 原始素材处理成游戏用的短音（单声道、22.05 kHz、16 位 WAV、峰值 -1 dBFS）。
+「原始」放下载来的文件，「处理后」放切好、重采样后的结果。写进 <code>audio/</code> 用 <code>node tools/audio-export.mjs</code>（需要先开 <code>python tools/serve.py 5190</code>）。
+原始素材不进仓库，来源和下载地址见 <code>audio/LICENSES.md</code>。</p>
+<table id="list"><tr><th>名字</th><th>变体</th><th>原始文件</th><th>原始</th><th>处理后</th><th>时长</th><th>响度</th></tr></table>
+<script src="../js/audio.js"></script><script src="audio-prep.js"></script>
+<script>
+  const P = SA.AudioPrep, tb = document.getElementById('list');
+  let ac = null;
+  const say = (buf) => { ac = ac || new AudioContext(); const s = ac.createBufferSource(); s.buffer = buf; s.connect(ac.destination); s.start(); };
+  for (const [name, list] of Object.entries(P.MAP)) list.forEach((path, i) => {
+    const tr = document.createElement('tr');
+    const td = (html) => { const c = document.createElement('td'); c.innerHTML = html; tr.append(c); return c; };
+    td(i ? '' : `<b>${name}</b>`); td(String(i)); td(path);
+    const raw = td(''), done = td(''), dur = td(''), rms = td('');
+    const b1 = document.createElement('button'); b1.className = 'btn small'; b1.textContent = '▶'; b1.onclick = async () => say(await P.decode(path)); raw.append(b1);
+    const b2 = document.createElement('button'); b2.className = 'btn small'; b2.textContent = '▶'; b2.onclick = async () => { const r = await P.prep(name, path); dur.textContent = r.dur.toFixed(2) + ' s'; rms.textContent = r.rms.toFixed(1) + ' dBFS'; say(r.buf); }; done.append(b2);
+    tb.append(tr);
+  });
+</script>
+</body></html>
