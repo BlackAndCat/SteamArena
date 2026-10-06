@@ -65,3 +65,5 @@ SA.BUILD_SYS += '+biped-actions-knights-v1'; // 双足蹲跳、腿挂件、轻�
 SA.BUILD_SYS += '+harpoon-ai-inward-pull'; // 鱼叉按质量向内收绳，AI 优先有效牵引并及时恢复其他火力。
 SA.BUILD_SYS += '+harpoon-power-overload'; // 鱼叉材料决定强度，向外拉扯的富余动力超限后累计断绳风险。
 SA.BUILD_SYS += '+knight-waist-exclusive-refit'; // 骑士腰胯侧挂、双足专属、功能改造与腿部承重换速。
+SA.BUILD_SYS += '+ai-design-chapters-4-5'; // 第四、五章直接设计候选；工作台种子保留专项改造，新关草稿采用明确缴获提案。
+SA.BUILD_SYS += '+release-through-ch2-05'; // 正式发布开放到第二章第五关，序章与第一章一并开放。

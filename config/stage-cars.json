@@ -14,7 +14,9 @@
     "1:6",
     "2:0",
     "2:1",
-    "2:2"
+    "2:2",
+    "2:3",
+    "2:4"
   ],
   "records": {
     "0:0": {
@@ -1039,7 +1041,12 @@
       "terrain": "mud",
       "boss": false,
       "prize": 290,
-      "unlock": null,
+      "unlock": {
+        "mods": [
+          "autoloader"
+        ],
+        "feat": []
+      },
       "uniqueLoot": [],
       "rewardItems": [],
       "rewardMoney": true,
@@ -1051,8 +1058,8 @@
       "weakness": "泥地拖住它，躲在货箱后面高抛",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-04T10:08:38.731Z",
-      "rules": "2026-10-03-ai-styles",
+      "updatedAt": "2026-10-06T06:50:00.207Z",
+      "rules": "2026-10-06-knight-waist-exclusive-refit",
       "analysis": {
         "rating": 249,
         "value": 1287,
@@ -1073,6 +1080,12 @@
           0.8
         ],
         "performanceMin": 35
+      },
+      "statMultipliers": {
+        "hp": 1,
+        "damage": 1,
+        "speed": 1,
+        "brake": 1
       }
     },
     "1:5": {
@@ -1416,7 +1429,8 @@
       "prize": 460,
       "unlock": {
         "mods": [
-          "boiler"
+          "boiler",
+          "mg2"
         ],
         "feat": []
       },
@@ -1431,8 +1445,8 @@
       "weakness": "小臼炮越顶对轰；双足冲进臼炮的近处盲区贴身；侧炮藏在重装甲后面磨",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-05T06:08:39.159Z",
-      "rules": "2026-10-03-ai-styles",
+      "updatedAt": "2026-10-06T06:51:06.517Z",
+      "rules": "2026-10-06-knight-waist-exclusive-refit",
       "analysis": {
         "rating": 342,
         "value": 1635,
@@ -1462,7 +1476,7 @@
         [
           0,
           6,
-          4,
+          3,
           "boiler_s",
           1,
           0
@@ -1470,24 +1484,16 @@
         [
           0,
           6,
-          5,
-          "cockpit_pair",
-          2,
-          0
-        ],
-        [
-          0,
-          6,
-          6,
-          "mortar_s",
+          4,
+          "water",
           1,
           0
         ],
         [
           0,
           6,
-          7,
-          "mortar_s",
+          6,
+          "mortar",
           2,
           0
         ],
@@ -1495,7 +1501,7 @@
           0,
           6,
           8,
-          "armor",
+          "plate",
           1,
           0
         ],
@@ -1503,23 +1509,23 @@
           0,
           6,
           9,
-          "armor",
+          "plate",
           1,
           0
         ],
         [
           0,
           7,
-          6,
-          "tank_s",
+          8,
+          "steamjet",
           1,
           0
         ],
         [
           0,
-          7,
-          7,
-          "tank_s",
+          8,
+          3,
+          "boiler_s",
           1,
           0
         ],
@@ -1528,15 +1534,15 @@
           8,
           4,
           "cockpit_pair",
-          2,
+          1,
           0
         ],
         [
           0,
           8,
           5,
-          "tank_tall",
-          2,
+          "cockpit_pair",
+          1,
           0
         ],
         [
@@ -1552,7 +1558,7 @@
           8,
           8,
           "cannon_m",
-          2,
+          1,
           0
         ],
         [
@@ -1588,14 +1594,14 @@
           0
         ]
       ],
-      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+WPjOeDn+mBkyIsImIiOltbNiw0LDQ0XSxbNiw1LDI2XSxbNiw2LDM1XSxbNiw3LDM1XSxbNiw4LDZdLFs2LDksNl0sWzcsNiwxOF0sWzcsNywxOF0sWzgsNCwyNl0sWzgsNSwxOV0sWzgsNiw0XSxbOCw4LDIwXSxbOSw4LDM3XSxbMTAsNCwwXSxbMTAsNiwwXSxbMTAsOCwwXV0sInMiOltdLCJhIjoyLCJwdiI6MiwibXMiOltdfQ==",
+      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+eCieWgoSIsImIiOltbNiwzLDQ0XSxbNiw0LDVdLFs2LDYsOV0sWzYsOCwxN10sWzYsOSwxN10sWzcsOCwzN10sWzgsMyw0NF0sWzgsNCwyNl0sWzgsNSwyNl0sWzgsNiw0XSxbOCw4LDIwXSxbOSw4LDM3XSxbMTAsNCwwXSxbMTAsNiwwXSxbMTAsOCwwXV0sInMiOltdLCJhIjoyLCJwdiI6MiwibXMiOltdfQ==",
       "statMultipliers": {
         "hp": 1,
         "damage": 1,
         "speed": 1,
         "brake": 1
       },
-      "style": "veteran",
+      "style": "counter",
       "aim": 0.95,
       "terrain": "yard",
       "boss": false,
@@ -1617,19 +1623,19 @@
       "weakness": "撞角把墙顶开",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-05T11:28:59.426Z",
-      "rules": "2026-10-03-ai-styles",
+      "updatedAt": "2026-10-06T00:36:02.421Z",
+      "rules": "2026-10-05-biped-actions",
       "analysis": {
-        "rating": 272,
-        "value": 1965,
-        "weight": 6441.5,
-        "drive": 11.416552265624999,
-        "water": 121.5,
-        "overheat": 24,
-        "dps": 18.269510489510488,
-        "hp": 1509
+        "rating": 278,
+        "value": 2042,
+        "weight": 7212.5,
+        "drive": 12.783029296874998,
+        "water": 112.5,
+        "overheat": 18,
+        "dps": 18.821122994652406,
+        "hp": 1505
       },
-      "vehicleName": "AI生成·双烟道",
+      "vehicleName": "AI生成·炉堡",
       "spec": {
         "terrain": "yard",
         "reward": null,
@@ -1647,40 +1653,8 @@
       "cells": [
         [
           0,
-          5,
-          5,
-          "tank_s",
-          2,
-          0
-        ],
-        [
-          0,
-          5,
-          6,
-          "mortar_s",
-          2,
-          0
-        ],
-        [
-          0,
-          5,
-          7,
-          "mortar_s",
-          2,
-          1
-        ],
-        [
-          0,
           6,
           4,
-          "cockpit_pair",
-          2,
-          0
-        ],
-        [
-          0,
-          6,
-          5,
           "armor",
           2,
           0
@@ -1688,18 +1662,50 @@
         [
           0,
           6,
+          5,
+          "boiler_s",
+          2,
+          0
+        ],
+        [
+          0,
           6,
-          "pressure_chamber",
-          1,
+          6,
+          "cockpit_pair",
+          2,
           0
         ],
         [
           0,
           6,
           7,
-          "boiler_s",
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "mortar_s",
           2,
-          1
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "cannon_m",
+          2,
+          0
         ],
         [
           0,
@@ -1712,20 +1718,20 @@
         [
           1,
           6,
-          5,
+          4,
           "radiator",
           2,
           0
         ]
       ],
-      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+eri+W8j+aireeCriIsImIiOltbNSw1LDE4XSxbNSw2LDM1XSxbNSw3LDM1XSxbNiw0LDI2XSxbNiw1LDZdLFs2LDYsMjVdLFs2LDcsNDRdLFs4LDYsMl1dLCJzIjpbWzYsNSwyN11dLCJhIjoyLCJwdiI6MiwibXMiOltdfQ==",
+      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+WPjOaireaKm+WwhCIsImIiOltbNiw0LDZdLFs2LDUsNDRdLFs2LDYsMjZdLFs2LDcsMTldLFs2LDgsMzVdLFs2LDksMzVdLFs3LDgsMjBdLFs4LDYsMl1dLCJzIjpbWzYsNCwyN11dLCJhIjoyLCJwdiI6MiwibXMiOltdfQ==",
       "statMultipliers": {
         "hp": 1,
         "damage": 1,
         "speed": 1,
         "brake": 1
       },
-      "style": "sniper",
+      "style": "counter",
       "aim": 0.95,
       "terrain": "flat",
       "boss": false,
@@ -1748,19 +1754,19 @@
       "weakness": "散热片、冷凝器管住热，打一下就走",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-05T11:46:59.267Z",
-      "rules": "2026-10-03-ai-styles",
+      "updatedAt": "2026-10-06T00:04:16.115Z",
+      "rules": "2026-10-05-biped-actions",
       "analysis": {
-        "rating": 177,
-        "value": 1058,
-        "weight": 2850.9,
-        "drive": 8.210759044921874,
-        "water": 38.4,
+        "rating": 170,
+        "value": 1140,
+        "weight": 2871.3,
+        "drive": 9.541744892578125,
+        "water": 56.3,
         "overheat": null,
-        "dps": 8.713846153846152,
-        "hp": 783
+        "dps": 7.07497246116715,
+        "hp": 843
       },
-      "vehicleName": "AI生成·立式梭炮",
+      "vehicleName": "AI生成·双梭抛射",
       "spec": {
         "terrain": "flat",
         "reward": null,
@@ -1778,31 +1784,63 @@
       "cells": [
         [
           0,
+          6,
+          2,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "tank_tall",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "armor_heavy",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "cannon_s",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
           4,
-          0,
-          "cockpit_pair",
+          "mortar_s",
           1,
           0
         ],
         [
           0,
-          6,
-          0,
-          "condenser",
+          7,
+          5,
+          "mortar_s",
           1,
           0
         ],
         [
           0,
-          6,
-          1,
-          "boiler_s",
+          7,
+          9,
+          "cannon_s",
           1,
           0
         ],
         [
           0,
-          6,
+          8,
           2,
           "boiler_s",
           1,
@@ -1810,56 +1848,16 @@
         ],
         [
           0,
-          6,
+          8,
           3,
-          "mortar_s",
-          1,
-          0
-        ],
-        [
-          0,
-          6,
-          4,
-          "mortar_s",
-          1,
-          0
-        ],
-        [
-          0,
-          6,
-          5,
-          "cannon_s",
-          1,
-          0
-        ],
-        [
-          0,
-          7,
-          3,
-          "plate",
-          1,
-          0
-        ],
-        [
-          0,
-          7,
-          4,
-          "plate",
-          1,
-          0
-        ],
-        [
-          0,
-          7,
-          5,
-          "cannon_s",
+          "boiler_s",
           1,
           0
         ],
         [
           0,
           8,
-          0,
+          4,
           "cockpit_pair",
           1,
           0
@@ -1867,7 +1865,15 @@
         [
           0,
           8,
-          1,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
           "tank_tall",
           1,
           0
@@ -1875,26 +1881,18 @@
         [
           0,
           8,
-          2,
-          "boiler",
-          1,
-          0
-        ],
-        [
-          0,
           8,
-          4,
-          "mg2",
-          1,
-          0
+          "cannon_m",
+          2,
+          1
         ],
         [
           0,
-          10,
-          0,
-          "track",
-          1,
-          0
+          9,
+          8,
+          "harpoon",
+          2,
+          1
         ],
         [
           0,
@@ -1909,18 +1907,42 @@
           10,
           4,
           "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          1,
+          0
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          1,
+          0
+        ],
+        [
+          1,
+          6,
+          7,
+          "side_cannon",
           1,
           0
         ]
       ],
-      "code": "SA2.eyJuIjoi57ue55uYIiwiYiI6W1s0LDAsMjZdLFs2LDAsMjhdLFs2LDEsNDRdLFs2LDIsNDRdLFs2LDMsMzVdLFs2LDQsMzVdLFs2LDUsMjFdLFs3LDMsMTddLFs3LDQsMTddLFs3LDUsMjFdLFs4LDAsMjZdLFs4LDEsMTldLFs4LDIsNF0sWzgsNCwzNl0sWzEwLDAsMF0sWzEwLDIsMF0sWzEwLDQsMF1dLCJzIjpbXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+eJteeCieatpeahpSIsImIiOltbNiwyLDVdLFs2LDYsMTldLFs2LDcsN10sWzYsOSwyMV0sWzcsNCwzNV0sWzcsNSwzNV0sWzcsOSwyMV0sWzgsMiw0NF0sWzgsMyw0NF0sWzgsNCwyNl0sWzgsNSw0XSxbOCw3LDE5XSxbOCw4LDIwXSxbOSw4LDMwXSxbMTAsMiwwXSxbMTAsNCwwXSxbMTAsNiwwXSxbMTAsOCwwXV0sInMiOltbNiw3LDExXV0sImEiOjIsInB2IjoyLCJtcyI6W119",
       "statMultipliers": {
         "hp": 1,
         "damage": 1,
         "speed": 1,
         "brake": 1
       },
-      "style": "kite",
+      "style": "rush",
       "aim": 0.95,
       "terrain": "hills",
       "boss": true,
@@ -1929,7 +1951,9 @@
         "mods": [
           "harpoon"
         ],
-        "feat": []
+        "feat": [
+          "bet"
+        ]
       },
       "uniqueLoot": [],
       "rewardItems": [],
@@ -1942,19 +1966,19 @@
       "weakness": "先打掉鱼叉；待在 760px 外用直射或高抛；车头装撞角，被拉过去正好撞",
       "source": "manual",
       "locked": true,
-      "updatedAt": "2026-10-05T06:23:47.065Z",
+      "updatedAt": "2026-10-06T00:13:12.437Z",
       "rules": "2026-10-03-ai-styles",
       "analysis": {
-        "rating": 342,
-        "value": 1635,
-        "weight": 6551.3,
-        "drive": 11.611155609375,
-        "water": 56.3,
-        "overheat": 15.5,
-        "dps": 23.31145299145299,
-        "hp": 1444
+        "rating": 287,
+        "value": 2342,
+        "weight": 9472.6,
+        "drive": 16.788703406249997,
+        "water": 247.60000000000002,
+        "overheat": null,
+        "dps": 8.956776239633381,
+        "hp": 2087
       },
-      "vehicleName": "绞盘",
+      "vehicleName": "AI生成·牵炉步桥",
       "spec": {
         "terrain": "hills",
         "reward": null,
@@ -1962,6 +1986,446 @@
         "targetStrength": [
           0.6,
           0.7
+        ],
+        "performanceMin": 35
+      }
+    },
+    "2:3": {
+      "version": 1,
+      "id": "2:3",
+      "cells": [
+        [
+          0,
+          6,
+          3,
+          "water",
+          1,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          9,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          3,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          2,
+          "quad",
+          3,
+          0,
+          {
+            "look": "pedrail",
+            "unique": "quad:pedrail"
+          }
+        ],
+        [
+          0,
+          10,
+          6,
+          "quad",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          10,
+          "quad",
+          2,
+          0
+        ],
+        [
+          1,
+          6,
+          7,
+          "radiator",
+          2,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoiQUnnlJ/miJDCt+Wbm+euoeajieWTqCIsImIiOltbNiwzLDVdLFs2LDUsNF0sWzYsNyw2XSxbNiw4LDM1XSxbNiw5LDM1XSxbNiwxMCw2XSxbNiwxMSwyMF0sWzcsOCwxN10sWzcsOSwxN10sWzcsMTEsMjBdLFs4LDMsM10sWzgsNSw0XSxbOCw3LDVdLFs4LDksM10sWzgsMTEsMjBdLFs5LDExLDIwXSxbMTAsMiwxLHsibG9vayI6InBlZHJhaWwiLCJ1bmlxdWUiOiJxdWFkOnBlZHJhaWwifV0sWzEwLDYsMV0sWzEwLDEwLDFdXSwicyI6W1s2LDcsMjddXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "statMultipliers": {
+        "hp": 1,
+        "damage": 1,
+        "speed": 1,
+        "brake": 1
+      },
+      "style": "counter",
+      "aim": 0.95,
+      "terrain": "crates",
+      "boss": false,
+      "prize": 980,
+      "unlock": {
+        "mods": [
+          "quad",
+          "rangefinder"
+        ],
+        "feat": [],
+        "mat": 3
+      },
+      "uniqueLoot": [
+        {
+          "id": "quad",
+          "key": "quad:pedrail",
+          "look": "pedrail",
+          "name": "步行履带",
+          "mt": 3,
+          "chapter": 2,
+          "once": true,
+          "source": "side"
+        }
+      ],
+      "rewardItems": [],
+      "rewardMoney": true,
+      "victoryRepairFree": false,
+      "repairFree": false,
+      "name": "棉花包",
+      "pilot": "运棉车夫 奈德",
+      "blurb": "慢吞吞的运棉车，只会远远扫机炮",
+      "weakness": "鱼叉拉过来就撞",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-10-06T06:53:29.341Z",
+      "rules": "2026-10-06-knight-waist-exclusive-refit",
+      "analysis": {
+        "rating": 550,
+        "value": 3403,
+        "weight": 9237.5,
+        "drive": 21.147199462890622,
+        "water": 247.5,
+        "overheat": 21.5,
+        "dps": 44.77090909090908,
+        "hp": 2540
+      },
+      "vehicleName": "AI生成·四管棉哨",
+      "spec": {
+        "terrain": "crates",
+        "reward": null,
+        "lesson": "爽关：慢吞吞的运棉车，只会远远扫机炮 → 鱼叉拉过来就撞",
+        "targetStrength": [
+          0.65,
+          0.8
+        ],
+        "performanceMin": 35
+      }
+    },
+    "2:4": {
+      "version": 1,
+      "id": "2:4",
+      "cells": [
+        [
+          0,
+          6,
+          5,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_m",
+          2,
+          1
+        ],
+        [
+          0,
+          7,
+          6,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          7,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          8,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          9,
+          "mortar_s",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          5,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          7,
+          "water",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "boiler",
+          2,
+          0
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          3,
+          0
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          3,
+          0
+        ],
+        [
+          1,
+          6,
+          5,
+          "rangefinder",
+          1,
+          0
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          2,
+          0
+        ],
+        [
+          1,
+          7,
+          5,
+          "gyroscope",
+          1,
+          0
+        ]
+      ],
+      "code": "SA2.eyJuIjoi6ZKi56CnIiwiYiI6W1s2LDUsNl0sWzYsMTAsNl0sWzYsMTEsMjBdLFs3LDYsMzVdLFs3LDcsMzVdLFs3LDgsMzVdLFs3LDksMzVdLFs3LDExLDIwXSxbOCw1LDRdLFs4LDcsNV0sWzgsOSwzXSxbOCwxMSw0XSxbMTAsNSwwXSxbMTAsNywwXSxbMTAsOSwwXSxbMTAsMTEsMF1dLCJzIjpbWzYsNSw0MF0sWzYsMTAsMjddLFs3LDUsNDFdXSwiYSI6MiwicHYiOjIsIm1zIjpbXX0=",
+      "statMultipliers": {
+        "hp": 1,
+        "damage": 1,
+        "speed": 1,
+        "brake": 1
+      },
+      "style": "rush",
+      "aim": 0.95,
+      "terrain": "flat",
+      "boss": false,
+      "prize": 1130,
+      "unlock": null,
+      "uniqueLoot": [],
+      "rewardItems": [],
+      "rewardMoney": true,
+      "victoryRepairFree": false,
+      "repairFree": false,
+      "name": "钢砧",
+      "pilot": "锻工 格斯",
+      "blurb": "钢甲车头 + 撞角，硬顶会把自己的撞击件撞碎（反震）",
+      "weakness": "先拆它的撞头，或者加厚自己的撞面",
+      "source": "manual",
+      "locked": true,
+      "updatedAt": "2026-10-06T06:53:29.762Z",
+      "rules": "2026-10-06-knight-waist-exclusive-refit",
+      "analysis": {
+        "rating": 383,
+        "value": 3717,
+        "weight": 8610,
+        "drive": 15.259879687499996,
+        "water": 135,
+        "overheat": 52,
+        "dps": 24.377118881118875,
+        "hp": 2213
+      },
+      "vehicleName": "钢砧",
+      "spec": {
+        "terrain": "flat",
+        "reward": null,
+        "lesson": "进阶：钢甲车头 + 撞角，硬顶会把自己的撞击件撞碎（反震）→ 先拆它的撞头，或者加厚自己的撞面",
+        "targetStrength": [
+          0.65,
+          0.8
         ],
         "performanceMin": 35
       }

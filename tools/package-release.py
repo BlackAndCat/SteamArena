@@ -152,7 +152,7 @@ def main():
         raise ValueError("--text-source 不再使用，请直接保存到 sourceRoot/config/text.json")
 
     if args.publish and any((args.settings, args.output_root, args.source_root, args.chapters is not None)):
-        raise ValueError("--publish 固定使用当前主仓、tools/out 和开放 2 章，仅可指定 --version")
+        raise ValueError("--publish 固定使用当前主仓、tools/out 和开放 3 章，仅可指定 --version")
 
     settings_path = args.settings or ROOT / "tools/out/publish-settings.json"
     settings = json.loads(settings_path.read_text(encoding="utf-8-sig")) if settings_path.exists() and not args.publish else {}
@@ -167,7 +167,8 @@ def main():
         raise ValueError("发行输出根目录及其上级不能是符号链接或 junction")
     out.mkdir(parents=True, exist_ok=True)
     out = out.resolve()
-    chapters = 2 if args.publish else args.chapters if args.chapters is not None else settings.get("chapters", 2)
+    # 开放序章、第一章及第二章；当前第二章正式关卡止于第五关。
+    chapters = 3 if args.publish else args.chapters if args.chapters is not None else settings.get("chapters", 3)
     if type(chapters) is not int or not 1 <= chapters <= 6:
         raise ValueError("开放章节数必须是 1～6 的整数")
     version = args.version or datetime.now().strftime("%Y%m%d-%H%M%S")
