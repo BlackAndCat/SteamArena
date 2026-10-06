@@ -1778,7 +1778,7 @@ SA.Scenes = (() => {
   // g 已经平移到镜头（世界坐标）；groundAt(x) = 地面高度；t = 秒
   function barriers(id, g, bounds, groundAt, t) {
     if (!bounds) return;
-    const b = barricade(id), gl = Math.round(groundAt(Math.max(0, bounds.left))), gr = Math.round(groundAt(Math.min(1280, bounds.right)));
+    const b = barricade(id), gl = Math.round(groundAt(Math.max(0, bounds.left))), gr = Math.round(groundAt(bounds.right));   // 出征路线的右端在世界长度处（groundAt 越界时回平地）
     g.drawImage(b.left, Math.round(bounds.left - b.w + 6), gl - b.h + 2);
     g.drawImage(b.right, Math.round(bounds.right - 6), gr - b.h + 2);
     if (!SA.Coal) return;
