@@ -24,14 +24,16 @@ SA.LABS = {
   ],
   // 同一条演进线上的版本（从旧到新）
   LINES: [
-    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'mech-kit-v4', 'biped-v8', 'current', 'chassis', 'quad-tiers'] },
+    { name: '双足 / 四足底盘', items: ['biped-lab', 'biped-v2', 'mech-kit', 'mech-kit-v4', 'biped-v8', 'biped-v9', 'chassis', 'quad-tiers'] },
     { name: '火炮家族', items: ['cannon-s', 'cannon-hi', 'gun-family'] },
   ],
   ITEMS: [
     { id: 'candidates', group: 'top', url: 'module-candidates.html', name: '模块造型 · 全部进度', ver: 'v4', date: '2026-09-28', status: 'live',
       desc: '全部 46 个模块一个画廊，按计划表分档、一个模块一行：已完成的盖「已通过」印章看定稿；有候选的并排放候选（金框 = 已选，含竖式锅炉 A / B / C）；游戏里还没有 / 没候选的只占一窄行。默认只看 T1，可切六档；想法、1×、剪影、仰角收在「细节」里', docs: ['docs/art-plan.md', 'docs/board-opus.md'] },
-    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '双足进游戏 v9', date: '2026-10-05', status: 'explore',
-      desc: '只放正在开发、等开发者确认的东西（不复用）。本期（docs/biped-plan.md）：astra 双足后台第一版完成后，画面全部接进游戏——六种骑士手臂（近战挥动、武器绕肘瞄准）、机甲头盔 D、弹簧蹬缸 / 双缸增压器画在腿上、下蹲 / 跳跃（按键、腿姿、地影、喷汽、扬尘），全部游戏渲染', docs: ['docs/biped-plan.md', 'docs/board-opus.md'] },
+    { id: 'current', group: 'top', url: 'current.html', name: '当前开发', ver: '空', date: '2026-10-05', status: 'explore',
+      desc: '只放正在开发、等开发者确认的东西（不复用）。现在没有等确认的项；上一期双足进游戏 v9 已通过、归档', docs: ['docs/board-opus.md'] },
+    { id: 'biped-v9', group: 'chassis', url: 'archive/biped-v9.html', name: '双足进游戏 · 骑士手臂 / 头盔 / 腿部件 / 蹲跳', ver: 'v9', date: '2026-10-05', status: 'shipped',
+      desc: '已进游戏（用户通过）：六种骑士手臂（近战挥动、武器绕肘瞄准，装在机甲头盔下面）、机甲头盔 D 指挥塔 · 斜装甲、弹簧蹬缸 / 双缸增压器画在腿上、下蹲 / 跳跃（按键、触屏、腿姿、地影、喷汽、扬尘），全部游戏渲染', docs: ['docs/biped-plan.md'] },
     { id: 'biped-v8', group: 'chassis', url: 'archive/biped-v8.html', name: '双足强化 · 轻重腿 / 步态 / 腿部件 / 机甲头盔', ver: 'v5～v8', date: '2026-10-05', status: 'shipped',
       desc: '已进游戏：轻重腿分法、走路 / 跑步重做（步频 + 倒立摆 / 弹簧模型）、四种姿态、跳跃件 A 弹簧蹬缸、提速件 B 双缸增压器、机甲外观（肩甲 / 背负锅炉 / 背水罐 / 喷汽背包）、机甲头盔选 D 指挥塔 · 斜装甲（其余四种头盔代码在 git 0df34d5）', docs: ['docs/biped-plan.md'] },
     { id: 'battle-ui-v1', group: 'top', url: 'archive/battle-ui-v1.html', name: '战斗界面 · 三套方案', ver: 'v1', date: '2026-09-30', status: 'shipped',
