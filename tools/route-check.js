@@ -64,6 +64,131 @@ function finite(value) {
   else if (value && typeof value === 'object') for (const part of Object.values(value)) finite(part);
 }
 
+
+/** 资源边界与配置隔离走真实步进；工程夹具只验证机制，不作为普通车平衡验收。 */
+function resourceChecks(rt, player) {
+  const { SA } = rt;
+  const start = def => SA.Battle.startState({ mode: 'route', vehicle: player, routeData: def || route() });
+  const step = seconds => { for (let i = 0; i < Math.round(seconds * 60); i++) rt.api().step(1 / 60); };
+  let B = start();
+  const idleBefore = B.route.coal;
+  step(2);
+  const idleUsed = idleBefore - B.route.coal;
+  assert(Math.abs(idleUsed - 2 * 0.0015) < 1e-8, '怠速错误按满功率烧煤');
+  B = start(); B.keys.right = true;
+  step(2);
+  const driveUsed = B.route.coalBurned;
+  assert(driveUsed > idleUsed, '真实驾驶没有增加煤耗');
+  B = start(); B.keys.fire = true; B.aimScreen = [1000, 340];
+  step(2);
+  assert(B.p.events.fire > 0 && B.route.coalBurned > idleUsed, '真实开火没有增加煤耗');
+
+  B = start(); B.route.coal = 0;
+  step(1 / 60);
+  assert(B.done && B.result.how === 'stranded' && B.result.cause === 'coal' && B.t === 0, '煤归零没有立即结束');
+  step(1); assert.strictEqual(B.route.events.filter(e => e.type === 'route-end').length, 1);
+  B = start(); B.p.heat = B.p.heatMax;
+  step(1 / 60);
+  assert(B.done && B.result.cause === 'overheat' && B.t === 0, '120°C 没有立即结束');
+  B = start(); B.p.water = 0; B.p.heat = 0;
+  step(1);
+  assert(!B.done && B.p.water === 0, '无水被单独判负');
+  B = start();
+  B.p.x += 7400 - rt.api().frontEdge(B.p) - 0.001;
+  B.p.vx = 20; B.keys.right = true; B.route.coal = 1e-10;
+  step(1 / 60);
+  assert(B.done && B.result.cause === 'coal' && B.result.dist >= 7400, '同帧到站优先于缺煤');
+
+  B = start(route({ pickups: [{ kind: 'coal', x: 200, amount: 0.15 }] }));
+  B.route.coal *= 0.5; B.p.vx = 300; B.keys.right = true;
+  step(1 / 60);
+  assert(!B.ter.pickups[0].taken && !B.route.coalPicked, '高速仍自动拾煤');
+  B = start(route({ pickups: [{ kind: 'coal', x: 200, amount: 0.15 }] }));
+  B.route.coal *= 0.5;
+  step(1 / 60);
+  assert(B.ter.pickups[0].taken && B.route.coalPicked > 0, '慢行不能补煤');
+  assert(B.route.events.some(e => e.type === 'pickup' && e.kind === 'coal' && e.amount > 0));
+  B = start(route({ pickups: [{ kind: 'water', x: 200, amount: 5 }] }));
+  B.p.water = 0;
+  step(1 / 60);
+  assert(B.p.water === 5 && B.route.waterPicked === 5, '水塔记录替代实际补水');
+  B = start(route({ pickups: ['supply', 'refugee', 'relic'].map(kind => ({ kind, x: 200 })) }));
+  step(1 / 60);
+  assert.strictEqual(B.route.events.filter(e => e.type === 'node').length, 3);
+  assert.strictEqual(B.route.events.filter(e => e.type === 'pickup').length, 0, '计划货物节点虚构实际领取');
+  assert(B.ter.pickups.every(p => !p.taken));
+
+  const config = SA.Route.getConfig();
+  assert(SA.Route.validateConfig(config).ok);
+  const original = JSON.stringify(config);
+  for (const edit of [c => { c.fuel.kgPerKj = 0; }, c => { c.routes[0].end.x = 99999; },
+    c => { c.routes[0].encounters[0].car = '99:99'; }, c => { c.routes[0].encounters[1].at = 1; },
+    c => { c.routes[0].pickups[0].amount = -1; }, c => { c.routes[0].props[0].hp = NaN; },
+    c => { c.routes[0].encounters[0].vehicle = player; }]) {
+    const invalid = JSON.parse(original); edit(invalid);
+    assert(!SA.Route.configure(invalid).ok);
+    assert.strictEqual(JSON.stringify(SA.Route.getConfig()), original, '失败配置仍写入页面');
+  }
+  B = SA.Route.start('r1');
+  const active = JSON.stringify(B.opts.routeData);
+  const edited = JSON.parse(original); edited.routes[0].name = '后续配置'; edited.routes[0].encounters[0].at = 500;
+  assert(SA.Route.configure(edited).ok);
+  assert.strictEqual(JSON.stringify(B.opts.routeData), active, '配置污染正在远征的数据');
+  assert.strictEqual(SA.Route.list()[0].name, '后续配置');
+  assert(SA.Route.configure(config).ok);
+  B.p.x += 600 - rt.api().frontEdge(B.p) + 1;
+  step(1 / 60);
+  assert(B.e && B.route.encounter.i === 0, '第一敌未在600px实际出场');
+  assert(rt.api().frontEdge(B.e) <= 1120 && rt.api().frontEdge(B.e) >= 600, '第一敌仍在旧远处');
+  const predicted = SA.Route.plan({ route: 'r1', vehicle: player });
+  assert.strictEqual(predicted.totalEnemies, 3);
+  assert.strictEqual(predicted.totals.conditionalSupply, 3);
+  assert(predicted.coalMax > 0 && predicted.speed > 0 && predicted.heatLimit === 120);
+  assert(predicted.nodes.every(n => Number.isFinite(n.eta) && n.eta === n.x / predicted.speed));
+
+  // 普通起步车只能报真实结果，不要求到站或给它工程用的额外煤量。
+  const starter = SA.S.starterVehicle();
+  const ordinary = SA.Route.simulate({ route: 'r1', vehicle: starter, seed: 20261007, maxTime: 600 });
+  finite(ordinary);
+  assert(ordinary.events.some(e => e.type === 'encounter-start'), '普通起步车没有接触提前的首敌');
+  assert(ordinary.samples.length > 1 && ordinary.events.every(e => e.t <= ordinary.time));
+  if (ordinary.completed) assert(ordinary.result.cause && ordinary.result.resources);
+  const firstEnemy = ordinary.events.find(e => e.type === 'encounter-start');
+  return { idleUsed, driveUsed, firstEnemyAt: firstEnemy.t, ordinary: { reason: ordinary.reason,
+    cause: ordinary.result?.cause || null, time: ordinary.time, dist: ordinary.dist,
+    resources: ordinary.result?.resources || ordinary.samples[ordinary.samples.length - 1] } };
+}
+
+/** 基础速度只改一次，标准/轻/重双足仍走原类系数和正式动力预算；以实帧稳定巡航核对预计速度。 */
+function speedChecks(rt) {
+  const { SA } = rt, results = [];
+  for (const [id, look, base] of [['track', null, 96], ['quad', null, 124], ['biped', null, 180], ['biped', 'stilt', 180], ['biped', 'skirt', 180]]) {
+    const vehicle = SA.V.create('速度检查' + id + (look || ''));
+    const r = SA.V.chassisRow(id);
+    vehicle.body[r][6] = SA.newCell(id, 6);
+    if (look) { vehicle.body[r][6].look = look; SA.fixCell(vehicle.body[r][6]); }
+    vehicle.body[r - 2][6] = SA.newCell('boiler_s', 6);
+    vehicle.body[r - 1][7] = SA.newCell('helmet', 6);
+    assert(SA.V.stats(vehicle).canDeploy, JSON.stringify(SA.V.issues(vehicle)));
+    assert.strictEqual(SA.MODULES[id].speed, base);
+    const now = SA.V.stats(vehicle);
+    SA.MODULES[id].speed = base / 2;
+    vm.runInContext('modCache.clear()', rt.context); // 对照旧数据必须清材料缓存，不能拿旧缓存假冒两套配置。
+    const old = SA.V.stats(vehicle);
+    SA.MODULES[id].speed = base;
+    vm.runInContext('modCache.clear()', rt.context);
+    assert(Math.abs(now.speed / old.speed - 2) < 1e-8, '腿型/改装叠乘速度');
+    const plan = SA.Route.plan({ route: 'r1', vehicle });
+    const B = SA.Battle.startState({ mode: 'route', vehicle, routeData: route() });
+    B.keys.right = true; B.p.vx = plan.speed;
+    for (let i = 0; i < 60; i++) rt.api().step(1 / 60);
+    assert(!B.done && Math.abs(B.p.vx - plan.speed) < 0.01, `预计与实速不一致：${id}/${look} ${plan.speed}/${B.p.vx}`);
+    assert.strictEqual(B.speed, 1, '基础速度变更改变了游戏时钟');
+    results.push({ id, look, base, paper: now.speed, actual: B.p.vx });
+  }
+  return results;
+}
+
 function run() {
   const rt = runtime(), { SA } = rt, player = car(SA);
   SA.S.d.vehicle = player;
@@ -204,9 +329,10 @@ function run() {
   assert.strictEqual(JSON.stringify(SA.Route.simulate({ route: 'r1', vehicle: player, seed: 1, maxTime: 600 })),
     JSON.stringify(firstFull), '含真实遭遇的固定种子不能复现');
   assert.strictEqual(rt.writes(), 0); assert.strictEqual(JSON.stringify(SA.S.d), saved);
+  const resources = resourceChecks(rt, player), speeds = speedChecks(rt);
   const duel = SA.Battle.simulate({ p: player, e: weak, terrain: 'flat', seed: 42 });
   assert(['p', 'e', 'draw'].includes(duel.winner)); finite(duel);
-  return { longTerrain: true, emptyEnemyFire: true, encounters: 3, exits: 4, seeds: 20, outcomes,
+  return { longTerrain: true, emptyEnemyFire: true, encounters: 3, exits: 4, seeds: 20, outcomes, resources, speeds,
     simulationBudget: true, noSaveWrites: true, arenaWinner: duel.winner };
 }
 

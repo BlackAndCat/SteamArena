@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "fuel": {
+    "capacityPerKw": 0.4,
+    "kgPerKj": 0.0015,
+    "idleKw": 1
+  },
+  "routes": [
+    {
+      "id": "r1",
+      "name": "铁匠铺 → 旧煤场",
+      "len": 7680,
+      "scene": "waste",
+      "hills": [
+        {
+          "x": 3000,
+          "w": 360,
+          "h": 44
+        },
+        {
+          "x": 5200,
+          "w": 200,
+          "h": 20
+        }
+      ],
+      "mud": [
+        [
+          3900,
+          4600
+        ]
+      ],
+      "props": [
+        {
+          "kind": "crate",
+          "x": 900,
+          "w": 48,
+          "h": 48,
+          "hp": 40
+        },
+        {
+          "kind": "crate",
+          "x": 1250,
+          "w": 48,
+          "h": 48,
+          "hp": 40
+        },
+        {
+          "kind": "crate",
+          "x": 1700,
+          "w": 48,
+          "h": 48,
+          "hp": 40
+        },
+        {
+          "kind": "crate",
+          "x": 6500,
+          "w": 48,
+          "h": 48,
+          "hp": 40
+        },
+        {
+          "kind": "crate",
+          "x": 6560,
+          "w": 48,
+          "h": 48,
+          "hp": 40
+        },
+        {
+          "kind": "barricade",
+          "x": 1120,
+          "w": 64,
+          "h": 72,
+          "hp": 120
+        },
+        {
+          "kind": "ruinDoor",
+          "x": 5550,
+          "w": 72,
+          "h": 120,
+          "hp": 300
+        },
+        {
+          "kind": "barricade",
+          "x": 5600,
+          "w": 64,
+          "h": 72,
+          "hp": 120
+        }
+      ],
+      "pickups": [
+        {
+          "kind": "coal",
+          "x": 1500,
+          "amount": 0.15
+        },
+        {
+          "kind": "supply",
+          "x": 2800
+        },
+        {
+          "kind": "supply",
+          "x": 3650
+        },
+        {
+          "kind": "supply",
+          "x": 4300
+        },
+        {
+          "kind": "refugee",
+          "x": 3400,
+          "n": 1
+        },
+        {
+          "kind": "refugee",
+          "x": 6000,
+          "n": 1
+        },
+        {
+          "kind": "coal",
+          "x": 6300,
+          "amount": 0.15
+        },
+        {
+          "kind": "relic",
+          "x": 5600,
+          "gate": 5550
+        }
+      ],
+      "encounters": [
+        {
+          "at": 600,
+          "car": "0:0",
+          "name": "拾荒小车",
+          "style": "rookie",
+          "guard": 1080,
+          "leash": 1120
+        },
+        {
+          "at": 2600,
+          "car": "1:0",
+          "name": "铁皮罐头",
+          "style": "turtle",
+          "guard": 3350,
+          "leash": 3400
+        },
+        {
+          "at": 5000,
+          "car": "1:4",
+          "name": "推土机",
+          "style": "rush",
+          "guard": 5500,
+          "leash": 5600,
+          "charge": true
+        }
+      ],
+      "end": {
+        "x": 7400,
+        "bonus": 3
+      }
+    }
+  ]
+}

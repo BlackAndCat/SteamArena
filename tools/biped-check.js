@@ -19,6 +19,10 @@ function campaignRegression(source) {
   const fixture = require('./biped-baseline-fixtures.json');
   const oldEvolve = source ? require(path.join(source, 'tools/evolve.js')) : null;
   const old = oldEvolve ? oldEvolve.loadGame().SA : null, current = evolve.loadGame().SA;
+  // 此专项只隔离双足机制对旧履带战果的影响，不评估全局速度调参。
+  // 在本函数独立 VM 中锁旧基础速度并同步已生成的材料缓存；正式 track=96 由 route-check 验证。
+  current.MODULES.track.speed = 48;
+  for (let mt = 1; mt <= current.MAT_MAX; mt++) current.mod('track', mt).speed = 48;
   const cases = [];
   for (const chapter of [0, 1]) for (const stage of [0, 1, 2]) {
     const record = fixture.vehicles.find(row => row.chapter === chapter && row.stage === stage);

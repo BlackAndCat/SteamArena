@@ -34,6 +34,7 @@ function scene(SA) {
   for (let i = 0; i < 180 && !B.p.tether; i++) { B.p.focus = 1; SA.Battle.debug.step(1 / 60); }
   assert(B.p.tether, '真实鱼叉未连接');
   B.keys.fire = false; B.p.vx = B.e.vx = 0;
+  B.p.appliedTetherVx = B.e.appliedTetherVx = 0; // 夹具把两车放回静止，收绳速度的历史分量也必须同步归零。
   return B;
 }
 
@@ -74,13 +75,40 @@ function pull(SA) {
   }
   // 同样的外向自主驾驶，有绳时速度必须被抵消；不要求牵引压过所有发动机。
   const speeds = [];
+  const driveStates = [];
   for (const connected of [false, true]) {
     const B = scene(SA); if (!connected) B.p.tether = null;
     B.p.spool = 0; B.p.spoolDir = -1; B.p.vx = -30; B.keys.left = true;
     SA.Battle.debug.step(0.5); speeds.push(B.p.vx);
+    driveStates.push({ connected, pull: B.p.tetherPullVx, applied: B.p.appliedTetherVx, tether: !!B.p.tether, distance: Math.abs(B.e.x - B.p.x) });
   }
-  assert(speeds[1] > speeds[0], '外向驾驶没有受到收绳抵抗');
-  return { cases, invalidations: 5, resistingSpeeds: speeds };
+  assert(speeds[1] > speeds[0], '外向驾驶没有受到收绳抵抗：' + JSON.stringify({ speeds, driveStates }));
+  // 新旧基础速度都必须在首帧产生抵抗，不能等到接近目标最高速度才体现；这里只对照速度，不放大鱼叉强度。
+  const speedScales = [];
+  for (const scale of [0.5, 1]) {
+    const firstFrame = [];
+    for (const connected of [false, true]) {
+      const B = scene(SA); if (!connected) B.p.tether = null;
+      B.p.speed *= scale;
+      B.p.spool = 0; B.p.spoolDir = -1; B.p.vx = -30; B.keys.left = true;
+      SA.Battle.debug.step(1 / 60); firstFrame.push(B.p.vx);
+    }
+    assert(firstFrame[1] > firstFrame[0], `速度倍率${scale}的首帧牵引被自主加速吞掉`);
+    speedScales.push({ scale, firstFrame });
+  }
+  const release = scene(SA);
+  release.p.tether.breakThreshold = 100; // 延长这一个定向夹具的超载容忍，仅为检查断绳瞬间的惯性，不改生产强度。
+  release.p.vx = -30; release.p.spool = 0; release.p.spoolDir = -1; release.keys.left = true;
+  SA.Battle.debug.step(0.2);
+  assert(release.p.appliedTetherVx > 0, '未建立可测的收绳速度分量');
+  const beforeCut = release.p.vx;
+  release.p.tether = null; release.keys.left = false;
+  SA.Battle.debug.step(1 / 60);
+  const k = Math.max(SA.K.BATTLE.MASS_ACCEL_MIN, Math.min(SA.K.BATTLE.MASS_ACCEL_MAX, Math.sqrt(SA.K.BATTLE.MASS_ACCEL_FACTOR / release.p.mass)));
+  const maxBrake = Math.max(SA.K.BRAKE * release.p.brakeK, SA.K.SKID) * k / 60;
+  assert(Math.abs(release.p.vx - beforeCut) <= maxBrake + 1e-6, '断绳瞬间抹掉已有实际速度');
+  assert.strictEqual(release.p.appliedTetherVx, 0, '已断绳仍把历史速度当成外力施加');
+  return { cases, invalidations: 5, resistingSpeeds: speeds, speedScales, release: { beforeCut, afterCut: release.p.vx } };
 }
 
 /** 固定种子完整对局同时验收控制武器和主炮，重复运行必须逐字段一致。 */

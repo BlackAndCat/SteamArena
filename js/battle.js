@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-06-route-r1';
+SA.RULES_VERSION = '2026-10-07-route-fuel-speed2';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -497,6 +497,8 @@ SA.Battle = (() => {
     }
     // 连续喷射的 heat 是自身每秒产热，普通武器的 heat 是每轮（齐射也只算一轮）。
     s.heat += w.m.heatPerSec ? w.m.heat * w.m.reload : w.m.heat;
+    // 出征煤耗只计真正发射的工作：kW × 一次装填周期秒 = kJ，未发射的武器不常驻烧煤。
+    if (B.route && isP(s)) B.route.activityKj += (w.m.power || 0) * w.m.reload * s.power;
     // 制退与反作用：炮管后坐（动态模块）、车身被往后推、整车晃一下；越重的车越稳
     const dir = isP(s) ? 1 : -1, up = w.m.arc === 'high';
     s.anim.gun(w.key, w.m);
@@ -689,6 +691,11 @@ SA.Battle = (() => {
 
   // 惯性：起步要憋气再加速，松开/反向要先制动滑行；越重越慢
   function drive(s, dt) {
+    // 上帧车速包含收绳分量；先恢复自主驱动速度，避免高目标速度的限加速吞掉绳索抵抗。
+    // 外部收绳独立推进后再合成实际车速，移动、碰撞、炮口和下一帧供能仍使用同一份 vx。
+    // 收绳解除时把已有分量留在实际惯性里，由原 drive 自然制动/加速；不能在断绳帧直接扣掉它。
+    const roadVx = s.vx, pull = s.tetherPullVx || 0, previousPull = pull ? s.appliedTetherVx || 0 : 0;
+    s.vx -= previousPull;
     let dir = s.dead || s.crouch > 0 || s.jumpCharge > 0 ? 0 : s.dir;
     if (s.chassisId === 'biped' && (s.crouch > 0 || s.jumpCharge > 0)) s.vx = 0;
     s.spooling = false;
@@ -700,8 +707,7 @@ SA.Battle = (() => {
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可按 K.SPEED_BOOST 超速）
     // 地形：泥地减速、上坡慢下坡快
     const tk = s.airDuration > 0 ? { top: 1, acc: 1 } : terrainK(s, dir || Math.sign(s.vx));
-    // 绳索收绳速度叠加在自主驾驶目标上：外向驾驶仍能抵抗，断绳恢复正常制动。
-    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed + (s.tetherPullVx || 0);
+    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
     const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
@@ -710,18 +716,21 @@ SA.Battle = (() => {
     // 制动倍率同时覆盖正常刹车和被撞飞后的打滑减速，不改变起步加速度。
     let acc = (braking ? Math.max(K.BRAKE * s.brakeK, skid ? K.SKID : 0) * s.statMultipliers.brake : K.ACCEL * s.accelK * tk.acc) * k;
     // 自主牵引力受本车动力限制；外部绳索提供收绳力，无动力车辆也能被拖动。
-    if (!braking && dir && !s.tetherPullVx) {
+    if (!braking && dir) {
       const [left, right] = span(s), front = dir > 0 ? right : left, back = dir > 0 ? left : right;
       const grade = (groundAt(back) - groundAt(front)) / Math.max(1, right - left);
-      const kg = s.mass * 1000, metresPerSec = Math.abs(s.vx) * SA.Phys.PX_M;
+      const kg = s.mass * 1000, metresPerSec = Math.abs(roadVx) * SA.Phys.PX_M;
       const tractionN = Math.max(0, s.driveAvailableKw || 0) * 1000 * SA.Phys.TRANSMISSION / Math.max(0.4, metresPerSec);
       const resistanceN = kg * SA.Phys.GRAVITY * (SA.Phys.ROLL + grade);
       const physicalAcc = Math.max(0, (tractionN - resistanceN) / kg / SA.Phys.PX_M);
       acc = Math.min(acc, physicalAcc);
     }
-    const vx0 = s.vx;
     if (s.airDuration > 0) s.vx += clamp(dir * s.speed * 0.25 - s.vx, -25 * dt, 25 * dt);
     else s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
+    // 收绳速度沿原加速尺度平滑建立；自主驱动和牵引各自推进，最后合成同一实际速度。
+    const pullAcc = K.ACCEL * k;
+    s.appliedTetherVx = pull ? previousPull + clamp(pull - previousPull, -pullAcc * dt, pullAcc * dt) : 0;
+    s.vx += s.appliedTetherVx;
     // 颠簸：速度变化越猛越颠（起步、刹车、撞击），慢慢平复
     // 颠簸：当前速度和「平滑速度」的差（起步、刹车、撞击时大；开火的小后坐几乎不算）
     s.vxs = (s.vxs == null ? s.vx : s.vxs + (s.vx - s.vxs) * Math.min(1, dt * T.SPEED_SMOOTHING));
@@ -1033,6 +1042,7 @@ SA.Battle = (() => {
       const dc = tgt.c;
       s.punch[key] = 1;
       s.heat += pm.heat;
+      if (B.route && isP(s)) B.route.activityKj += (pm.power || 0) * pm.punchCd * s.power;
       meleeDamage(o, s, { layer: 'body', r: tgt.r, c: dc, hitR: tr }, SA.armorCut(SA.mod(tgt.cell), pm.punch));
       shove(s, o, pm.punchKnock || T.PISTON_SHOVE);   // 撞锤的推力同样是一对冲量：推重车时自己被弹开得更多
       const x = frontEdge(s), y = cellY(row, s) + HALF;
@@ -1651,9 +1661,9 @@ SA.Battle = (() => {
   function step(dt) {
     // 实时画面与手动调试均不得在升旗或确认期间偷跑物理、炮弹或结算。
     if (!B || B.done) return;
-    if (B.surrender === 'raising' || B.surrender === 'asked') return;
     if (B.route) advanceRoute();
     if (B.done) return;
+    if (B.surrender === 'raising' || B.surrender === 'asked') return;
     const beforeX = B.telemetry ? { p: B.p.x, e: B.e.x } : null;
     B.t += dt;
     B.ramCd = Math.max(0, B.ramCd - dt);
@@ -1747,6 +1757,8 @@ SA.Battle = (() => {
     }
     B.shots = B.shots.filter(s => !s.done);
 
+    if (B.route) updateRouteResources(dt);
+    if (B.done) return;
     if (!B.headless && view && view.tick) view.tick(dt);
 
     if (B.route) {
@@ -1807,10 +1819,74 @@ SA.Battle = (() => {
   // ---------- 持续出征局 ----------
   let routeSerial = 0;
 
+  /** 单局真实监控：沿游戏内秒数记录，节点经过不等于领取，数量上限避免长时间测试占用过多内存。 */
+  function routeEvent(type, label, details = {}) {
+    const route = B.route;
+    if (route.events.length >= 4096) { route.monitorTruncated = true; return; }
+    route.events.push({ t: B.t, x: clamp(frontEdge(B.p), 0, route.len), type, label, ...details });
+  }
+
+  /** 每秒采样实际煤、水和温度，结束追加最后一帧；不读取预计奖励或计划数量。 */
+  function sampleRoute(force = false) {
+    const r = B.route;
+    if (!force && B.t < r.nextSample) return;
+    if (r.samples.length >= 3601) { r.monitorTruncated = true; return; }
+    if (r.samples.length && r.samples[r.samples.length - 1].t === B.t) return;
+    r.samples.push({ t: B.t, x: clamp(frontEdge(B.p), 0, r.len), coal: r.coal, coalMax: r.coalMax,
+      water: B.p.water, waterMax: B.p.waterMax, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity),
+      enemiesStarted: r.next, enemiesCleared: r.cleared.length });
+    r.nextSample = Math.floor(B.t) + 1;
+  }
+
+  /** 同帧优先检查资源失败：120°C、煤归零、战损，均先于补给复活或终点到站。水为零只改变冷却。 */
+  function routeFailure() {
+    if (SA.Phys.temp(B.p.heat, B.p.heatCapacity) >= 120) return { how: 'wrecked', cause: 'overheat' };
+    if (B.route.coal <= 0) return { how: 'stranded', cause: 'coal' };
+    if (B.p.dead) return { how: 'wrecked', cause: B.p.failureType === 'overheat' ? 'overheat' : 'combat' };
+    return null;
+  }
+
+  /** 按真实行驶速度与可用驱动功率估计工作，不把静止车辆视为满负荷；发射/撞锤活动另按实际动作计 kJ。 */
+  function updateRouteResources(dt) {
+    const r = B.route, p = B.p, fuel = B.opts.routeData.fuel;
+    const drive = Math.min(Math.max(0, p.driveAvailableKw || 0), SA.Phys.driveKw(p.mass * 1000, Math.abs(p.vx)));
+    const used = Math.max(fuel.idleKw, drive) * dt + r.activityKj;
+    r.activityKj = 0;
+    const burned = Math.min(r.coal, used * fuel.kgPerKj);
+    r.coal -= burned; r.coalBurned += burned;
+    const failure = routeFailure();
+    if (failure) { endRoute(failure.how, failure.cause); return; }
+    const [left, right] = span(p), slow = Math.abs(p.vx) <= p.speed * (p.speedMul || 0) * p.statMultipliers.speed / 3;
+    for (const pickup of B.ter.pickups) {
+      if (pickup.taken || pickup.x < left || pickup.x > right) continue;
+      let amount = 0;
+      // 煤堆量为最大煤量的比例，水塔可给定 L 数或补满；只在实际增量大于零时记拾取和视觉事件。
+      if (pickup.kind === 'coal' && slow) {
+        amount = Math.min(r.coalMax - r.coal, r.coalMax * pickup.amount);
+        if (amount > 0) { r.coal += amount; r.coalPicked += amount; }
+      } else if (pickup.kind === 'water' && Math.abs(p.vx) <= 3) {
+        amount = Math.min(p.waterMax - p.water, pickup.amount ?? p.waterMax);
+        if (amount > 0) { p.water += amount; r.waterPicked += amount; }
+      }
+      if (amount > 0) {
+        pickup.taken = true;
+        routeEvent('pickup', pickup.kind === 'coal' ? '补充煤炭' : '补充冷却水', { kind: pickup.kind, amount });
+        emit('pickup', { kind: pickup.kind, x: pickup.x, y: groundAt(pickup.x), n: amount, amount });
+      }
+    }
+    if (r.coal / r.coalMax <= 0.2 && !r.coalLow) {
+      r.coalLow = true; routeEvent('coal-low', '煤量低于 20%', { kind: 'coal', amount: r.coal }); emit('coal', { level: 'low' });
+    } else if (r.coal / r.coalMax > 0.25) r.coalLow = false;
+    sampleRoute();
+  }
+
   /** 从车辆副本建立一趟完整旅程；遭遇只替换敌车，玩家损伤、热量、水和装填始终连续。 */
   function startRouteState(opts) {
     if (!opts.headless) SA.go('battle');
-    const def = opts.routeData, vehicle = opts.vehicle || SA.S.d.vehicle;
+    // 即使开发者直接调用 startState，活动局也不能持有编辑器可变的路线引用。
+    const def = JSON.parse(JSON.stringify(opts.routeData)), vehicle = opts.vehicle || SA.S.d.vehicle;
+    def.fuel = def.fuel || SA.Route.getConfig().fuel;
+    opts = { ...opts, routeData: def };
     const pShift = frontShift(vehicle);
     B = { opts, headless: !!opts.headless, pShift, bounds: { left: 0, right: def.len }, ter: makeTerrain(def),
       t: 0, shots: [], parts: [], texts: [], shake: 0, aim: null, ending: 0, done: false, hudT: 0, ramCd: 0, contact: false,
@@ -1818,15 +1894,19 @@ SA.Battle = (() => {
       keys: { left: false, right: false, fire: false, crouch: false, jump: false },
       cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null,
       route: { id: def.id, len: def.len, x: 0, state: 'drive', encounter: null, next: 0, cleared: [], wrecks: [],
+        coal: 0, coalMax: 0, coalBurned: 0, coalPicked: 0, waterPicked: 0, activityKj: 0, coalLow: false,
+        events: [], samples: [], seenNodes: {}, nextSample: 0, monitorTruncated: false,
         runId: opts.headless ? 'simulation' : 'route-' + Date.now() + '-' + ++routeSerial } };
     B.p = makeSide(shiftVeh(SA.V.battleCopy(vehicle, 1, false), pShift), vehicle.name, !!opts.headless, 0.8, 0);
     B.p.x -= span(B.p)[0]; // 以车尾贴院门开局，不沿用竞技场的两车初始间距。
     B.p.style = 'rush';
     B.p.homeX = B.p.goalX = B.p.x;
     B.e = null;
+    B.route.coal = B.route.coalMax = B.p.supply * def.fuel.capacityPerKw;
     settle(B.p, 0);
     camera(1);
     advanceRoute();
+    sampleRoute();
     return B;
   }
 
@@ -1846,12 +1926,14 @@ SA.Battle = (() => {
     B.contact = false; B.ramCd = 0;
     B.p.target = null; B.p.co.target = null; B.p.retarget = 0;
     emit('encounter', { name: enc.name, x: frontEdge(e) });
+    routeEvent('encounter-start', enc.name, { encounterIndex: i });
   }
 
   /** 清除上一场的鱼叉、投降、目标和接触状态，留下世界坐标残骸与待 R2 拾取的物资。 */
   function retireRouteEnemy() {
     const e = B.e, encounter = B.route.encounter;
     B.route.cleared.push({ ...encounter, surrendered: B.surrender === 'accepted', reason: e.reason });
+    routeEvent('encounter-end', e.name, { encounterIndex: encounter.i });
     B.route.wrecks.push({ x: e.x, vehicle: e.v, name: e.name });
     B.ter.pickups.push({ kind: 'supply', x: frontEdge(e), taken: false, encounter: encounter.i });
     B.p.tether = null; e.tether = null;
@@ -1863,14 +1945,20 @@ SA.Battle = (() => {
   }
 
   /** 路线结束出口只触发一次，结果不含竞技场胜负奖励；还原玩家车格坐标供后续战损结算。 */
-  function endRoute(how) {
+  function endRoute(how, cause = how) {
     if (!B?.route || B.done) return false;
     B.route.state = 'end'; B.done = true; B.frozen = false;
     B.p.dir = 0; B.p.fireHeld = false;
-    B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, dist: B.route.x,
+    B.route.x = Math.max(B.route.x, clamp(frontEdge(B.p), 0, B.route.len));
+    const resources = { coal: B.route.coal, coalMax: B.route.coalMax, coalBurned: B.route.coalBurned, coalPicked: B.route.coalPicked,
+      water: B.p.water, waterMax: B.p.waterMax, waterPicked: B.route.waterPicked, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity) };
+    B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, cause, resources, dist: B.route.x,
       cargo: [], lost: [], refugees: 0, relic: null, money: 0,
       playerVehicle: shiftVeh(SA.V.clone(B.p.v), -B.pShift), time: B.t };
-    emit('route-end', { how });
+    if (cause === 'coal') { routeEvent('coal-empty', '煤炭耗尽', { kind: 'coal', amount: 0 }); emit('coal', { level: 'empty' }); }
+    routeEvent('route-end', '出征结束：' + cause, { how, cause });
+    sampleRoute(true);
+    emit('route-end', { how, cause, resources });
     // 画面通过 route-end 和 Route.result() 展示清点；不调用竞技场 presentResult 或存档结算。
     if (!B.headless && view) view.teardown();
     return true;
@@ -1878,8 +1966,18 @@ SA.Battle = (() => {
 
   /** 玩家损毁优先于到站；击败敌车后继续原局，未解决的遭遇不会被终点越过而丢失。 */
   function advanceRoute() {
+    if (B.done) return;
     B.route.x = Math.max(B.route.x, clamp(frontEdge(B.p), 0, B.route.len));
-    if (B.p.dead) { endRoute('wrecked'); return; }
+    const failure = routeFailure();
+    if (failure) { endRoute(failure.how, failure.cause); return; }
+    // 记录达到的静态节点；物资、难民和遗迹只记 node，尚未实现领取不能发 pickup 或收益。
+    for (const key of ['props', 'pickups']) for (const [i, node] of B.ter[key].entries()) {
+      const x = key === 'props' ? (node.x0 + node.x1) / 2 : node.x, id = key + '-' + i;
+      if (!B.route.seenNodes[id] && B.route.x >= x) {
+        B.route.seenNodes[id] = true;
+        routeEvent('node', '到达节点：' + node.kind, { kind: node.kind, nodeId: id, nodeX: x });
+      }
+    }
     if (B.e?.dead) retireRouteEnemy();
     const def = B.opts.routeData;
     const enc = def.encounters[B.route.next];
@@ -1890,7 +1988,8 @@ SA.Battle = (() => {
   /** 主动返航可在遭遇和投降等待期间请求；损毁车辆仍必须按 wrecked 结束。 */
   function recallRoute() {
     if (!B?.route || B.done) return false;
-    return endRoute(B.p.dead ? 'wrecked' : 'recall');
+    const failure = routeFailure();
+    return failure ? endRoute(failure.how, failure.cause) : endRoute('recall');
   }
 
   /** 同步真实物理模拟：临时替换局状态和引擎随机源，finally 恢复外部游戏，不碰正式存档。 */
@@ -1903,6 +2002,7 @@ SA.Battle = (() => {
       while (!B.done && B.t + dt <= o.maxTime + 1e-8) step(dt);
       return { completed: B.done, reason: B.done ? B.result.how : 'budget', result: B.result || null,
         time: B.t, dist: B.route.x, cleared: B.route.cleared.map(enc => ({ ...enc })),
+        events: B.route.events, samples: B.route.samples, monitorTruncated: B.route.monitorTruncated,
         state: { x: B.p.x, vx: B.p.vx, heat: B.p.heat, water: B.p.water, hp: hpFrac(B.p),
           enemyX: B.e?.x ?? null, camera: { ...B.cam } } };
     } finally { B = keep; random = previousRandom; }

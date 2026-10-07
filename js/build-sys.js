@@ -68,3 +68,4 @@ SA.BUILD_SYS += '+knight-waist-exclusive-refit'; // 骑士腰胯侧挂、双足�
 SA.BUILD_SYS += '+ai-design-chapters-4-5'; // 第四、五章直接设计候选；工作台种子保留专项改造，新关草稿采用明确缴获提案。
 SA.BUILD_SYS += '+release-through-ch2-05'; // 正式发布开放到第二章第五关，序章与第一章一并开放。
 SA.BUILD_SYS += '+route-r1'; // 持续出征局、长地形、接力遭遇与隔离无画面模拟；资源和结算待 R2。
+SA.BUILD_SYS += '+route-fuel-monitor-speed2'; // 基础底盘双倍速度、正式路线配置、实际煤水补给与热煤终止及节奏监控。

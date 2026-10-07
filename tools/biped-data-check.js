@@ -24,7 +24,7 @@ function run() {
   for (const [look, kind] of [[null, 'standard'], ['crystal', 'standard'], ['stilt', 'light'], ['blade', 'light'], ['panto', 'light'], ['bellows', 'light'], ['skirt', 'heavy'], ['mail', 'heavy'], ['steamman', 'heavy'], ['templar', 'heavy']]) {
     const v = biped(look), s = stats(v), rule = SA.K.BIPED_CLASSES[kind], cell = v.body[8][6];
     assert.strictEqual(s.bipedClass, kind);
-    assert.strictEqual(s.speed, 90 * rule.speed);
+    assert.strictEqual(s.speed, SA.MODULES.biped.speed * rule.speed);
     assert.strictEqual(s.load, SA.uniqueRule(cell)?.load ?? Math.round(SA.mod(cell).load * rule.load));
     assert.strictEqual(s.evade, rule.evade);
     assert.strictEqual(s.speedBoost, 1.4);
