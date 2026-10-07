@@ -128,9 +128,13 @@ SA.Editor = (() => {
 
   function fit() {
     if (!cv || !stage.isConnected) return;
-    const aw = stage.clientWidth - 16, ah = stage.clientHeight - 16;
+    // 横屏窄蓝图按实际内容区适配，扣除内边距，不让最小比例把画布推到邻栏。
+    const landscape = matchMedia('(orientation: landscape) and (max-width: 1100px)').matches;
+    const style = landscape ? getComputedStyle(stage) : null;
+    const aw = landscape ? Math.max(1, stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) : stage.clientWidth - 16;
+    const ah = landscape ? Math.max(1, stage.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) : stage.clientHeight - 16;
     let s = Math.min(aw / W, ah / H);
-    s = s >= 1 ? Math.floor(s * 4) / 4 : Math.max(0.3, s);
+    s = s >= 1 ? Math.floor(s * 4) / 4 : landscape ? s : Math.max(0.3, s);
     cv.style.width = `${Math.round(W * s)}px`;
     cv.style.height = `${Math.round(H * s)}px`;
   }
