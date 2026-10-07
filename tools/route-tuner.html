@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>出征节奏编辑与监控</title>
+  <style>
+    body { margin: 24px auto; max-width: 1400px; padding: 0 20px; font: 15px/1.5 sans-serif; color: #242424; }
+    h1 { font-size: 22px; } h2 { font-size: 18px; margin: 20px 0 8px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+    label { display: inline-flex; align-items: center; gap: 6px; }
+    input, select, button { font: inherit; padding: 5px; } input[type=number] { width: 100px; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    th, td { border: 1px solid #ccc; padding: 5px; text-align: left; } th { background: #eee; }
+    td input, td select { box-sizing: border-box; width: 100%; min-width: 85px; }
+    .scroll { overflow-x: auto; } .muted { color: #666; } .error { color: #a72020; } .ok { color: #176a31; }
+    #status { min-height: 24px; white-space: pre-wrap; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    canvas { width: 100%; max-width: 1000px; height: 220px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>出征节奏编辑与监控</h1>
+  <a href="config-editor.html">返回正式配置编辑</a>
+  <p class="muted">坐标单位为世界像素，时间为游戏内秒。预计时间不含战斗和停车。供应、难民、遗迹节点仅列计划，不代表已领取奖励。保存只在点击按钮后写入 config/routes.json。</p>
+  <p id="status" role="status" aria-live="polite">正在加载正式配置……</p>
+  <div class="controls">
+    <label>路线 <select id="route"></select></label>
+    <label>测试车辆 <select id="vehicle"></select></label>
+    <label>种子 <input id="seed" type="number" step="1" value="1"></label>
+    <label>模拟预算（秒） <input id="budget" type="number" min="1" max="600" value="600"></label>
+  </div>
+  <h2>煤炭参数</h2>
+  <div class="controls">
+    <label>煤容量（kg/kW） <input id="capacityPerKw" type="number" min="0" step="0.01"></label>
+    <label>燃煤（kg/kJ） <input id="kgPerKj" type="number" min="0" step="0.0001"></label>
+    <label>最低怠速（kW） <input id="idleKw" type="number" min="0" step="0.1"></label>
+  </div>
+  <h2>路线与终点</h2>
+  <div class="controls">
+    <label>名称 <input id="routeName"></label>
+    <label>长度 <input id="len" type="number" min="1"></label>
+    <label>终点 x <input id="endX" type="number" min="0"></label>
+    <label>终点 bonus <input id="bonus" type="number" min="0"></label>
+  </div>
+  <h2>敌人遭遇 <button id="addEncounter" type="button">新增一行</button></h2>
+  <p class="muted">触发 at：玩家行至此处时开始遭遇；出现 guard：敌车初始位置；拴绳 leash：敌车前进边界。敌车引用只使用正式 StageCars 记录。</p>
+  <div class="scroll"><table><thead><tr><th>名称</th><th>触发 at</th><th>出现 guard</th><th>拴绳 leash</th><th>敌车 car</th><th>操作</th></tr></thead><tbody id="encounters"></tbody></table></div>
+  <h2>拾取与计划节点 <button id="addPickup" type="button">新增一行</button></h2>
+  <p class="muted">煤 amount 为煤容量比例（0～1，如 0.15 表示补入容量的 15%），水 amount 为 L，n 为人数，module 为模块 ID；未填写的可选字段保持缺省。未知字段、地形与物件保留原数据。</p>
+  <div class="scroll"><table><thead><tr><th>kind</th><th>x</th><th>amount</th><th>n</th><th>module</th><th>操作</th></tr></thead><tbody id="pickups"></tbody></table></div>
+  <div class="controls">
+    <button id="preview" type="button">校验并预览草稿</button>
+    <button id="save" type="button" disabled>保存预览过的正式 JSON</button>
+    <button id="simulate" type="button">真实模拟草稿</button>
+  </div>
+  <h2>计划监控</h2><pre id="planSummary">尚未预览</pre>
+  <div class="scroll"><table><thead><tr><th>x</th><th>预计秒</th><th>类型</th><th>节点</th><th>计划奖励 / 敌人 / 详情</th></tr></thead><tbody id="planNodes"></tbody></table></div>
+  <details><summary>待保存 JSON（只读预览）</summary><pre id="json"></pre></details>
+  <h2>实际模拟</h2><pre id="simulationSummary">尚未模拟</pre>
+  <div class="scroll"><table><thead><tr><th>实际秒</th><th>x</th><th>事件</th><th>说明</th><th>实际拾取 / 遭遇序号</th></tr></thead><tbody id="events"></tbody></table></div>
+  <p class="muted">折线：黑色煤余量百分比，蓝色水余量百分比，红色温度（°C）。无容量时为 0；精确数值见样本表。</p>
+  <canvas id="chart" width="1000" height="220" aria-label="煤水温度时间曲线"></canvas>
+  <details><summary>资源与敌人数时间样本</summary><div class="scroll"><table><thead><tr><th>秒</th><th>x</th><th>煤 kg / 容量</th><th>水 L / 容量</th><th>温度 °C</th><th>已开始敌人数</th><th>已清除敌人数</th></tr></thead><tbody id="samples"></tbody></table></div></details>
+  <!-- 工具禁用 config.js 的旧作者缓存自动迁入；不调用 S.load 或任何存档写接口。 -->
+  <script>window.SA = { RELEASE: true };</script>
+  <script src="../js/palette.js"></script><script src="../js/config.js"></script>
+  <script src="../js/modules.js"></script><script src="../js/module-art.js"></script>
+  <script src="../js/dynamics.js"></script><script src="../js/sprites.js"></script><script src="../js/legs.js"></script>
+  <script src="../js/vehicle.js"></script><script src="../js/content.js"></script><script src="../js/stage-cars.js"></script>
+  <script src="../js/state.js"></script><script src="../js/ui.js"></script><script src="../js/camp.js"></script>
+  <script src="../js/camp-ui.js"></script><script src="../js/terrain-art.js"></script>
+  <script src="../js/battle.js"></script><script src="../js/route-data.js"></script><script src="../js/route.js"></script>
+  <script src="route-tuner.js"></script>
+</body>
+</html>

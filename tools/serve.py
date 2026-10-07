@@ -132,6 +132,99 @@ def _write_json(path, data):
     _atomic_bytes(path, (json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8'))
 
 
+def _validate_routes(data):
+    """保存前检查出征配置关键约束；只读正式引用，不改写未知字段或其他配置。"""
+    def number(value, label, low=0, high=math.inf, positive=False, integer=False):
+        try:
+            valid = (type(value) in (int, float) and math.isfinite(value)
+                     and low <= value <= high and (not positive or value > 0)
+                     and (not integer or float(value).is_integer()))
+        except OverflowError:
+            valid = False
+        if not valid:
+            raise ValueError(f'{label} 必须是有效范围内的有限数字')
+
+    def obj(value, label):
+        if not isinstance(value, dict): raise ValueError(f'{label} 必须是对象')
+        return value
+
+    def array(value, label):
+        if not isinstance(value, list): raise ValueError(f'{label} 必须是数组')
+        return value
+
+    def text(value, label):
+        if not isinstance(value, str) or not value.strip(): raise ValueError(f'{label} 必须是非空文本')
+
+    def finite_tree(value):
+        # 包括未编辑的扩展字段，避免 JSON 的 NaN/Infinity 进入正式文件。
+        if type(value) in (int, float): number(value, '配置数字', -math.inf)
+        elif isinstance(value, dict):
+            for item in value.values(): finite_tree(item)
+        elif isinstance(value, list):
+            for item in value: finite_tree(item)
+
+    finite_tree(data)
+    if type(data.get('version')) is not int or data['version'] != 1: raise ValueError('出征配置版本必须为 1')
+    fuel = obj(data.get('fuel'), 'fuel')
+    for key in ('capacityPerKw', 'kgPerKj', 'idleKw'): number(fuel.get(key), f'fuel.{key}', positive=True)
+    routes = array(data.get('routes'), 'routes')
+    if not routes: raise ValueError('至少需要一条路线')
+    records = _json_file(STAGE_CARS_FILE).get('records', {})
+    modules = _json_file(MODULES_FILE).get('MODULES', {})
+    seen = set()
+    for route in routes:
+        obj(route, '路线'); text(route.get('id'), '路线 id'); text(route.get('name'), '路线 name')
+        if route['id'] in seen: raise ValueError('路线 id 重复')
+        seen.add(route['id'])
+        length = route.get('len'); number(length, '路线长度', high=1000000, positive=True, integer=True)
+        end = obj(route.get('end'), 'end'); number(end.get('x'), '终点 x', high=length)
+        if 'bonus' in end: number(end['bonus'], '终点 bonus')
+        for hill in array(route.get('hills'), 'hills'):
+            obj(hill, '山丘'); number(hill.get('x'), '山丘 x', high=length)
+            number(hill.get('w'), '山丘 w', positive=True); number(hill.get('h'), '山丘 h')
+        for mud in array(route.get('mud'), 'mud'):
+            array(mud, '泥地范围')
+            if len(mud) != 2: raise ValueError('泥地范围需要两个坐标')
+            number(mud[0], '泥地起点', high=length); number(mud[1], '泥地终点', low=mud[0], high=length)
+        props = array(route.get('props'), 'props')
+        for prop in props:
+            obj(prop, '物件')
+            if prop.get('kind') not in ('crate', 'barricade', 'ruinDoor'): raise ValueError('物件 kind 不合法')
+            number(prop.get('x'), '物件 x', high=length)
+            for key in ('w', 'h', 'hp'): number(prop.get(key), f'物件 {key}', positive=True)
+        for pickup in array(route.get('pickups'), 'pickups'):
+            obj(pickup, '拾取节点')
+            if pickup.get('kind') not in ('coal', 'water', 'supply', 'refugee', 'relic'): raise ValueError('拾取 kind 不合法')
+            number(pickup.get('x'), '拾取 x', high=length)
+            if 'n' in pickup: number(pickup['n'], '拾取 n', positive=True, integer=True)
+            if 'amount' in pickup or pickup['kind'] == 'coal':
+                number(pickup.get('amount'), '拾取 amount', high=1 if pickup['kind'] == 'coal' else math.inf, positive=True)
+            if 'module' in pickup and (pickup['kind'] != 'relic' or pickup['module'] not in modules):
+                raise ValueError('只有遗迹可引用正式 module')
+            if 'gate' in pickup:
+                number(pickup['gate'], '遗迹门 x', high=length)
+                if not any(prop['kind'] == 'ruinDoor' and prop['x'] == pickup['gate'] for prop in props):
+                    raise ValueError('遗迹 gate 没有对应 ruinDoor')
+        previous = -1
+        for encounter in array(route.get('encounters'), 'encounters'):
+            obj(encounter, '遭遇'); text(encounter.get('name'), '遭遇 name')
+            at = encounter.get('at'); number(at, '遭遇 at', high=end['x'])
+            if at <= previous: raise ValueError('遭遇 at 必须严格递增')
+            previous = at
+            guard = encounter.get('guard'); number(guard, '遭遇 guard', low=at, high=length)
+            number(encounter.get('leash'), '遭遇 leash', low=guard, high=length)
+            car = encounter.get('car')
+            if not isinstance(car, str) or not re.fullmatch(r'\d+:\d+', car): raise ValueError('遭遇 car 不合法')
+            record = records.get(car)
+            if not isinstance(record, dict) or not (record.get('cells') or record.get('code')): raise ValueError('遭遇 car 缺少正式车辆记录')
+            if 'vehicle' in encounter: raise ValueError('配置不能内嵌遭遇 vehicle，请引用正式 car')
+            if 'charge' in encounter and not isinstance(encounter['charge'], bool): raise ValueError('遭遇 charge 必须是布尔值')
+            # 与 modules.js 当前 AI 目录一致，只约束正式配置的性格引用。
+            styles = ('rookie', 'clumsy', 'misjudge', 'hesitant', 'wander', 'turtle', 'rush', 'kite',
+                      'evade', 'counter', 'burst', 'sniper', 'assassin', 'disruptor', 'veteran')
+            if 'style' in encounter and encounter['style'] not in styles: raise ValueError('遭遇 style 不存在')
+
+
 def _merge_fields(target, changes):
     """仅合并工作台指定的模块字段，保留外观及未知扩展字段。"""
     for key, value in changes.items():
@@ -474,7 +567,9 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
             raise ValueError('配置名称或内容不合法')
         path = os.path.join(CONFIG_ROOT, name + '.json')
         if not os.path.isfile(path): raise ValueError('配置不存在')
-        with MODULE_SAVE_LOCK: _write_json(path, data)
+        with MODULE_SAVE_LOCK:
+            if name == 'routes': _validate_routes(data)
+            _write_json(path, data)
         return {'file': 'config/' + name + '.json'}
 
     def _migrate(self, payload):
