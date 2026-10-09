@@ -652,18 +652,54 @@
       ],
       "pickups": [
         {
+          "kind": "supply",
+          "x": 900
+        },
+        {
+          "kind": "refugee",
+          "x": 1650,
+          "n": 1
+        },
+        {
+          "kind": "supply",
+          "x": 2450
+        },
+        {
           "kind": "coal",
           "x": 2560,
           "amount": 0.15
+        },
+        {
+          "kind": "refugee",
+          "x": 3500,
+          "n": 1
         },
         {
           "kind": "water",
           "x": 4330
         },
         {
+          "kind": "supply",
+          "x": 4600
+        },
+        {
           "kind": "coal",
           "x": 5060,
           "amount": 0.2
+        },
+        {
+          "kind": "refugee",
+          "x": 5960,
+          "n": 1
+        },
+        {
+          "kind": "supply",
+          "x": 6420
+        },
+        {
+          "kind": "refugee",
+          "x": 7060,
+          "n": 1
         }
       ],
       "mobs": [
@@ -774,6 +810,7 @@
   ],
   "economy": {
     "metal": 5,
-    "supply": 40
+    "supply": 40,
+    "relic": 120
   }
 }

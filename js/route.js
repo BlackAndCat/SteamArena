@@ -98,11 +98,11 @@ SA.Route = (() => {
       totals[p.kind] = (totals[p.kind] || 0) + (['coal', 'water'].includes(p.kind) ? 1 : p.n || 1);
       if (p.kind === 'coal') totals.coalCapacityFraction += p.amount;
       if (p.kind === 'water') { if (p.amount === undefined) totals.waterFillNodes++; else totals.waterLitres += p.amount; }
-      add('pickup-' + i, p.x, 'pickup', p.kind, { ...p, planned: true, requires: p.kind === 'coal' ? '慢行' : p.kind === 'water' ? '停车' : '领取尚未实现' });
+      add('pickup-' + i, p.x, 'pickup', p.kind, { ...p, planned: true, requires: '开过去就捡' });
     }
     for (const [i, e] of def.encounters.entries()) {
       add('encounter-' + i, e.at, 'encounter', e.name, { car: e.car, guard: e.guard, leash: e.leash });
-      add('wreck-' + i, e.guard, 'conditional', '击败敌车后的物资', { kind: 'supply', conditional: true, encounterIndex: i, requires: '击败敌车；领取尚未实现' });
+      add('wreck-' + i, e.guard, 'conditional', '击败敌车后的物资', { kind: 'supply', conditional: true, encounterIndex: i, requires: '击败敌车后开过去就捡' });
     }
     totals.conditionalSupply = def.encounters.length;
     add('depot', def.end.x, 'depot', '终点站台', { bonus: def.end.bonus || 0, planned: true, requires: '抵达；奖励结算尚未实现' });
@@ -136,18 +136,21 @@ SA.Route = (() => {
     const d = SA.S.d;
     if (!r || r.mode !== 'route' || !d || !r.runId || settledRuns.has(r.runId)) return r;
     settledRuns.add(r.runId);
-    const eco = config.economy || { metal: 5, supply: 40 }, def = SA.ROUTES[r.route];
+    const eco = { metal: 5, supply: 40, relic: 120, ...(config.economy || {}) }, def = SA.ROUTES[r.route];
     const metalKept = r.how === 'wrecked' ? Math.floor((r.metal || 0) / 2) : r.metal || 0;
     const bonus = r.how === 'depot' && def && def.end ? (def.end.bonus || 0) * eco.supply : 0;
-    const money = metalKept * eco.metal + bonus;
+    const cargo = r.cargo || [], count = (k) => cargo.filter(c => (typeof c === 'string' ? c : c.kind) === k).length;
+    const goods = count('supply') * eco.supply + count('relic') * eco.relic;
+    const money = metalKept * eco.metal + bonus + goods;
     const rec = d.route || (d.route = { best: {}, runs: 0, metal: 0 });
+    rec.refugees = (rec.refugees || 0) + count('refugee');
     rec.best = rec.best || {};
     const bestBefore = rec.best[r.route] || 0;
     rec.best[r.route] = Math.max(bestBefore, Math.round(r.dist || 0));
     rec.runs = (rec.runs || 0) + 1; rec.metal = (rec.metal || 0) + metalKept;
     d.money += money;
     SA.S.save();
-    return Object.assign(r, { money, metalKept, bonus, bestBefore, best: rec.best[r.route], settled: true });
+    return Object.assign(r, { money, metalKept, bonus, goods, bestBefore, best: rec.best[r.route], settled: true });
   }
   /** 这条路线以前走到的最远处（px），没走过是 0 */
   const best = (id) => (SA.S.d && SA.S.d.route && SA.S.d.route.best && SA.S.d.route.best[id]) || 0;

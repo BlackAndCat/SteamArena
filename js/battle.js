@@ -1909,22 +1909,27 @@ SA.Battle = (() => {
     r.coal -= burned; r.coalBurned += burned;
     const failure = routeFailure();
     if (failure) { endRoute(failure.how, failure.cause); return; }
-    const [left, right] = span(p), slow = Math.abs(p.vx) <= p.speed * (p.speedMul || 0) * p.statMultipliers.speed / 3;
+    // 2026-10-09 用户定：所有东西开过去就捡，不用减速、不用停车（玩家要的是狂飙突进，急刹会难受）。
+    // 煤仓缺的不到这堆煤的三成就先不铲（留着以后再来），水满了不补；物资、残骸零件、难民、遗迹件进车上的货物清单 B.route.cargo，不限格数
+    const [left, right] = span(p);
     for (const pickup of B.ter.pickups) {
       if (pickup.taken || pickup.x < left || pickup.x > right) continue;
       let amount = 0;
       // 煤堆量为最大煤量的比例，水塔可给定 L 数或补满；只在实际增量大于零时记拾取和视觉事件。
-      if (pickup.kind === 'coal' && slow) {
-        amount = Math.min(r.coalMax - r.coal, r.coalMax * pickup.amount);
+      if (pickup.kind === 'coal') {
+        amount = r.coalMax - r.coal >= r.coalMax * pickup.amount * 0.3 ? Math.min(r.coalMax - r.coal, r.coalMax * pickup.amount) : 0;
         if (amount > 0) { r.coal += amount; r.coalPicked += amount; }
-      } else if (pickup.kind === 'water' && Math.abs(p.vx) <= 3) {
+      } else if (pickup.kind === 'water') {
         amount = Math.min(p.waterMax - p.water, pickup.amount ?? p.waterMax);
         if (amount > 0) { p.water += amount; r.waterPicked += amount; }
+      } else if (CARGO_KINDS.includes(pickup.kind)) {
+        amount = pickup.n || 1;
+        for (let i = 0; i < amount; i++) r.cargo.push(pickup.kind === 'spoils' ? 'supply' : pickup.kind);
       }
       if (amount > 0) {
         pickup.taken = true;
-        routeEvent('pickup', pickup.kind === 'coal' ? '补充煤炭' : '补充冷却水', { kind: pickup.kind, amount });
-        emit('pickup', { kind: pickup.kind, x: pickup.x, y: groundAt(pickup.x), n: amount, amount });
+        routeEvent('pickup', PICKUP_LABEL[pickup.kind] || '拾取', { kind: pickup.kind, amount });
+        emit('pickup', { kind: pickup.kind, x: pickup.x, y: groundAt(pickup.x), n: amount, amount, encounter: pickup.encounter });
       }
     }
     if (r.coal / r.coalMax <= 0.2 && !r.coalLow) {
@@ -1981,6 +1986,9 @@ SA.Battle = (() => {
   const mobCtx = { groundAt, frontEdge, lowFront, playerAt, hurtNear, hurtArea, target: mobTarget, block: mobBlock, emit,
     hurt: (imp, dmg) => damage(B.p, null, imp, dmg), playerVx: () => B.p.vx, random: () => random(), rnd: (a, b) => rnd(a, b) };
 
+  const CARGO_KINDS = ['supply', 'spoils', 'refugee', 'relic'];
+  const PICKUP_LABEL = { coal: '补充煤炭', water: '补充冷却水', supply: '捡到物资', spoils: '拆到零件', refugee: '接上难民', relic: '拿到遗迹件' };
+
   /** 从车辆副本建立一趟完整旅程；遭遇只替换敌车，玩家损伤、热量、水和装填始终连续。 */
   function startRouteState(opts) {
     if (!opts.headless) SA.go('battle');
@@ -1995,7 +2003,7 @@ SA.Battle = (() => {
       keys: { left: false, right: false, fire: false, crouch: false, jump: false },
       cam: { x: 0, y: 0, z: 1, w: W, h: H }, aimScreen: null,
       route: { id: def.id, len: def.len, x: 0, state: 'drive', encounter: null, next: 0, cleared: [], wrecks: [],
-        coal: 0, coalMax: 0, coalBurned: 0, coalPicked: 0, waterPicked: 0, activityKj: 0, coalLow: false,
+        coal: 0, coalMax: 0, coalBurned: 0, coalPicked: 0, waterPicked: 0, activityKj: 0, coalLow: false, cargo: [],
         events: [], samples: [], seenNodes: {}, nextSample: 0, monitorTruncated: false,
         runId: opts.headless ? 'simulation' : 'route-' + Date.now() + '-' + ++routeSerial } };
     B.p = makeSide(shiftVeh(SA.V.battleCopy(vehicle, 1, false), pShift), vehicle.name, !!opts.headless, 0.8, 0);
@@ -2047,6 +2055,17 @@ SA.Battle = (() => {
     B.p.grinding = false; B.p.grind = 0; B.p.grindT = 0;
   }
 
+  /** 车上的货：被打爆时物资和遗迹件各丢一半（取整后丢多的那一半），难民跟着拖车回来；其余结束方式全带回 */
+  function cargoResult(how) {
+    const all = B.route.cargo || [], cargo = [], lost = [], seen = {};
+    for (const k of all) {
+      const n = all.filter(x => x === k).length;
+      seen[k] = (seen[k] || 0) + 1;
+      (how === 'wrecked' && k !== 'refugee' && seen[k] > Math.floor(n / 2) ? lost : cargo).push(k);
+    }
+    return { cargo, lost, refugees: cargo.filter(k => k === 'refugee').length, relic: cargo.includes('relic') ? 'relic' : null };
+  }
+
   /** 路线结束出口只触发一次，结果不含竞技场胜负奖励；还原玩家车格坐标供后续战损结算。 */
   function endRoute(how, cause = how) {
     if (!B?.route || B.done) return false;
@@ -2056,7 +2075,7 @@ SA.Battle = (() => {
     const resources = { coal: B.route.coal, coalMax: B.route.coalMax, coalBurned: B.route.coalBurned, coalPicked: B.route.coalPicked,
       water: B.p.water, waterMax: B.p.waterMax, waterPicked: B.route.waterPicked, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity) };
     B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, cause, resources, dist: B.route.x,
-      cargo: [], lost: [], refugees: 0, relic: null, money: 0, metal: B.route.metal || 0, broken: B.route.broken || 0,
+      ...cargoResult(how), money: 0, metal: B.route.metal || 0, broken: B.route.broken || 0,
       playerVehicle: shiftVeh(SA.V.clone(B.p.v), -B.pShift), time: B.t };
     if (cause === 'coal') { routeEvent('coal-empty', '煤炭耗尽', { kind: 'coal', amount: 0 }); emit('coal', { level: 'empty' }); }
     routeEvent('route-end', '出征结束：' + cause, { how, cause });

@@ -99,24 +99,25 @@ function resourceChecks(rt, player) {
   step(1 / 60);
   assert(B.done && B.result.cause === 'coal' && B.result.dist >= 7400, '同帧到站优先于缺煤');
 
+  // 2026-10-09 用户定：开过去就捡，高速也捡得到；煤满了就留在原地
   B = start(route({ pickups: [{ kind: 'coal', x: 200, amount: 0.15 }] }));
   B.route.coal *= 0.5; B.p.vx = 300; B.keys.right = true;
   step(1 / 60);
-  assert(!B.ter.pickups[0].taken && !B.route.coalPicked, '高速仍自动拾煤');
-  B = start(route({ pickups: [{ kind: 'coal', x: 200, amount: 0.15 }] }));
-  B.route.coal *= 0.5;
-  step(1 / 60);
-  assert(B.ter.pickups[0].taken && B.route.coalPicked > 0, '慢行不能补煤');
+  assert(B.ter.pickups[0].taken && B.route.coalPicked > 0, '高速开过煤堆没捡到');
   assert(B.route.events.some(e => e.type === 'pickup' && e.kind === 'coal' && e.amount > 0));
-  B = start(route({ pickups: [{ kind: 'water', x: 200, amount: 5 }] }));
-  B.p.water = 0;
+  B = start(route({ pickups: [{ kind: 'coal', x: 200, amount: 0.15 }] }));
   step(1 / 60);
-  assert(B.p.water === 5 && B.route.waterPicked === 5, '水塔记录替代实际补水');
+  assert(!B.ter.pickups[0].taken && !B.route.coalPicked, '煤仓几乎是满的还把煤堆铲走');
+  B = start(route({ pickups: [{ kind: 'water', x: 200, amount: 5 }] }));
+  B.p.water = 0; B.p.vx = 300; B.keys.right = true;
+  step(1 / 60);
+  assert(B.p.water === 5 && B.route.waterPicked === 5, '高速开过水塔没补水');
   B = start(route({ pickups: ['supply', 'refugee', 'relic'].map(kind => ({ kind, x: 200 })) }));
+  B.p.vx = 300; B.keys.right = true;
   step(1 / 60);
   assert.strictEqual(B.route.events.filter(e => e.type === 'node').length, 3);
-  assert.strictEqual(B.route.events.filter(e => e.type === 'pickup').length, 0, '计划货物节点虚构实际领取');
-  assert(B.ter.pickups.every(p => !p.taken));
+  assert.strictEqual(B.route.events.filter(e => e.type === 'pickup').length, 3, '高速开过物资 / 难民 / 遗迹没捡到');
+  assert.strictEqual(JSON.stringify(B.route.cargo), JSON.stringify(['supply', 'refugee', 'relic']));
 
   const config = SA.Route.getConfig();
   assert(SA.Route.validateConfig(config).ok);
@@ -340,8 +341,10 @@ function run() {
   assert.strictEqual(SA.S.d.money, money0 + paid.money);
   SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-1', how: 'depot', dist: 7400, metal: 7 });
   assert.strictEqual(SA.S.d.money, money0 + paid.money, '同一趟结算了两次');
-  const wrecked = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-2', how: 'wrecked', dist: 3000, metal: 7 });
+  const wrecked = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-2', how: 'wrecked', dist: 3000, metal: 7, cargo: ['supply', 'refugee'] });
   assert.strictEqual(wrecked.metalKept, 3); assert.strictEqual(wrecked.bonus, 0);
+  assert.strictEqual(wrecked.goods, eco.supply, '带回的物资没折钱');
+  assert.strictEqual(SA.S.d.route.refugees, 1, '难民没记进院子');
   assert.strictEqual(SA.Route.best('r1'), 7400, '最远距离被较短的一趟覆盖');
   return { longTerrain: true, emptyEnemyFire: true, encounters: 3, exits: 4, seeds: 20, outcomes, resources, speeds,
     simulationBudget: true, noSaveWrites: true, arenaWinner: duel.winner };
