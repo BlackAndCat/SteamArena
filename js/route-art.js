@@ -436,7 +436,7 @@ SA.RouteArt = (() => {
   function dress(def) {
     if (!def) return [];
     if (Array.isArray(def.dress)) return def.dress.map(d => ({ ...d }));   // 路线数据自己写了布景（起伏路线的地标位置跟着真实地形走）
-    const out = [{ kind: 'sign', x: 260 }];
+    const out = [{ kind: 'sign', x: 540 }];   // 出发路牌立在院门外（院子见 js/route-view.js）
     const door = (def.props || []).find(p => p.kind === 'ruinDoor');
     if (door) out.push({ kind: 'pump', x: door.x + 60, back: true });
     const end = def.end && (def.end.x != null ? def.end.x : def.end);

@@ -141,6 +141,7 @@
     "route_surrender_refuse": "拒绝：接着打，这一场不会再问第二次。",
     "route_tally_unsaved": "样板：收益和战损要等后台 R2 接上才会存进档",
     "route_metal": "金属",
+    "route_depart": "出发！",
     "route_best_flag": "上次到这",
     "route_tally_metal": "金属 {{0}} 块 · 撞碎打碎小机械 {{1}} 个",
     "route_tally_metal_half": "金属 {{0}} 块（车被打爆，只捡回一半）· 撞碎打碎小机械 {{1}} 个",

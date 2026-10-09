@@ -38,6 +38,17 @@
 | Mixkit | 2858 Gear metallic lock sound、2857 Gear fast lock tap、2757 Metal tank gear shift（切短） | https://mixkit.co/free-sound-effects/metal/、/engine/ | `track-clank-0～3` |
 | Mixkit + Kenney | Mixkit 2980 Factory metal hard hit、833 Metal hammer hit、783 Submarine metal impact；Kenney impactMetal_heavy_000 | https://mixkit.co/free-sound-effects/metal/ | `hit-metal-heavy-0～3` |
 
+### 第三批：中弹声（2026-10-09 经用户同意下载）
+
+用户：打在钢板上的声音像金属敲击，不像真的中弹。一发打在车上改成两层同时放：闷响层 + 很短的金属「嘣」层（切掉嗡嗡响的尾音）；炮弹另有带炸裂感的重击；跳弹换成真的弹飞声。
+
+| 来源 | 编号 / 作者 | 地址 | → 本目录 |
+|---|---|---|---|
+| Mixkit | 2655 Fast impact blow、2150 Impact of a blow、2299 Short bass hit、2143 Hard and quick punch（各切 0.2～0.35 s） | https://mixkit.co/free-sound-effects/hit/、/impact/ | `hit-thud-0～3` |
+| Mixkit | 2765 Sword strikes armor、2795 Heavy sword smashes metal（只留最脆的头） | https://mixkit.co/free-sound-effects/hit/ | `hit-ping-0～1` |
+| Mixkit | 1687 Dramatic metal explosion impact、3046 Golem stomp、2795 Heavy sword smashes metal | https://mixkit.co/free-sound-effects/impact/ | `hit-shell-0～2` |
+| Freesound（CC0） | 30932 bullet ricochet（aust_paul），切三个变体 | https://freesound.org/s/30932/ | `hit-ricochet-0～2` |
+
 第一批里被第二批替换掉的（`boom`、`cannon-fire`、`cannon-hit`、`gun-shot`、`hit-metal-heavy` 的旧素材）不再使用，上表第一批对应的行只作历史记录。
 
 名字和文件的对应以 `tools/audio-prep.js` 的 `MAP` 为准；游戏里按名字播放（`js/audio.js` 的 `BANK`）。

@@ -21,6 +21,11 @@ SA.AudioPrep = (() => {
     'hit.metal.light': seq(KI + 'impactMetal_light_', 0, 4),
     'hit.metal.medium': seq(KI + 'impactMetal_medium_', 0, 4),
     'hit.metal.heavy': [MK(2980), MK(833), cut(MK(783), 0, 1.2), KI + 'impactMetal_heavy_000.ogg'],
+    // 中弹（2026-10-09 第三批）：一发打在车上 = 闷响层 + 很短的金属「嘣」层（只留最脆的头，切掉会嗡嗡响的尾音）；炮弹另有带炸裂感的重击
+    'hit.thud': [cut(MK(2655), 0.01, 0.35), cut(MK(2150), 0.1, 0.32), cut(MK(2299), 0.05, 0.35), cut(MK(2143), 0.02, 0.22)],
+    'hit.ping': [cut(MK(2765), 0.03, 0.16), cut(MK(2795), 0.06, 0.2)],
+    'hit.shell': [cut(MK(1687), 0, 1.1), cut(MK(3046), 1.45, 1.0), cut(MK(2795), 0.06, 0.5)],
+    'hit.ricochet': [cut(FS(30932), 0, 0.6), cut(FS(30932), 0.95, 0.6), cut(FS(30932), 1.58, 0.75)],
     'ram.thud': seq(KI + 'impactPunch_heavy_', 0, 4),
     'scrap.pickup': [KR + 'handleCoins.ogg', KR + 'handleCoins2.ogg'],
     // 爆炸、炮声、枪声（第二批，游戏音效）

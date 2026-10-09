@@ -41,7 +41,7 @@ SA.RouteView = (() => {
    */
   function make(o) {
     const A = SA.RouteArt, groundAt = o.groundAt, GROUND = o.GROUND;
-    const st = { stop: 0, kick: 0, pieces: [], bits: [], flags: [], flyers: [], sndT: {}, best: 0, bestShown: false };
+    const st = { stop: 0, kick: 0, pieces: [], bits: [], flags: [], flyers: [], sndT: {}, best: 0, bestShown: false, smokeT: 0, departed: false };
     const B = () => o.getB();
     const def = () => { const b = B(); return (b && b.opts && b.opts.routeData) || null; };
     const profile = () => { const b = B(); return !!(b && b.ter && b.ter.natural); };
@@ -57,6 +57,83 @@ SA.RouteView = (() => {
       if (feel === 2) vol = Math.min(1.6, vol * 1.4);
       if (gap) { const now = performance.now() / 1000; if (now - (st.sndT[name] || 0) < gap) return; st.sndT[name] = now; }
       SA.Audio.play(name, { x: x == null ? 0.5 : pan(x), vol, pitch });
+    }
+
+    // ---------- 出发的院子（2026-10-09 用户：出发时要有从院子出发的感觉）----------
+    // 主页的铁匠铺院子（js/home-scene.js 的房子层 + 院子地面，640×360 原生像素，和车同一尺度）摆在路线起点：车一开局就停在铁匠铺门口，
+    // 老汤姆、皮普、远房亲戚站在门口送行；院墙尽头一对院门柱，近的那根画在车前面——车从它后面开出去，就是「出了院门」。
+    // 配色用院子的雨夜色板（暗红砖、门里炉火亮着），和废土的黄昏天光搭得上
+    const YARD = { wk: 'rain', x0: -212, feet: 299, gate: 444 }, HS = SA.HomeScene;
+    const yardImg = HS && HS.layer ? HS.layer(YARD.wk, { ground: true, build: true }) : null;
+    const yardY = () => Math.round(groundAt(90) - YARD.feet);   // 院子的站位线对准车出发处的路面
+    const CAST = [['home_d095d42ab435', -186, 'salute'], ['home_8a44e806c998', -120, 'wave'], ['home_21b8ff00a6c9', -58, 'cheer']];
+    const castImg = (key, pose) => sprite(`cast|${key}|${pose}`, () => { const n = SA.Config.text(key); return SA.Coal.draw(SA.Coal.byName[n] || SA.Coal.crew(n), { size: 'scene', pose, look: 1, expr: pose === 'hold' ? 'normal' : 'happy' }); });
+    function drawYard(g, cam) {
+      if (!yardImg || cam.x > YARD.gate + 80 || cam.x + cam.w < YARD.x0) return;
+      const y0 = yardY(), t = performance.now() / 1000, b = B();
+      g.drawImage(yardImg, 0, 0, yardImg.width, YARD.feet + 3, YARD.x0, y0, yardImg.width, YARD.feet + 3);   // 只画到站位线，往下是路面
+      // 门里的炉火：一明一暗
+      const fl = 0.5 + 0.3 * Math.sin(t * 9) + 0.2 * Math.sin(t * 23.7);
+      g.globalAlpha = 0.35 + 0.25 * fl; g.fillStyle = '#ff9a3c'; g.fillRect(YARD.x0 + 166, y0 + 229, 24, 12);
+      g.globalAlpha = 0.12 + 0.1 * fl; g.fillRect(YARD.x0 + 150, y0 + 214, 56, 36); g.globalAlpha = 1;
+      // 送行的人：车还在附近就挥手、欢呼，开远了放下手
+      const near = b && b.p ? o.frontEdge(b.p) < 700 : true;
+      for (const [key, x, pose] of CAST) {
+        const ps = near ? (Math.floor(t * 2.6 + x) % 2 ? pose : 'cheer') : 'hold', c = castImg(key, ps);
+        g.drawImage(c, Math.round(x - c.width / 2), Math.round(groundAt(x) - 48));
+      }
+      gatePost(g, YARD.gate - 12, false);
+    }
+    // 院门柱：砖柱 + 石帽；远的那根顶上挂一盏煤气灯
+    function gatePost(g, x, nearOne) {
+      const gy = Math.round(groundAt(x)), h = nearOne ? 74 : 92, w = nearOne ? 12 : 14, B2 = A.PAL.BRICK, S2 = A.PAL.STONE;
+      g.fillStyle = B2[nearOne ? 1 : 2]; g.fillRect(x, gy - h, w, h + 6);
+      g.fillStyle = B2[0]; for (let yy = gy - h + 3; yy < gy; yy += 4) g.fillRect(x, yy, w, 1);
+      g.fillStyle = S2[nearOne ? 2 : 3]; g.fillRect(x - 2, gy - h - 5, w + 4, 5); g.fillStyle = S2[4]; g.fillRect(x - 2, gy - h - 5, w + 4, 1);
+      if (!nearOne) {
+        g.fillStyle = P.iron[1]; g.fillRect(x + w / 2 - 1, gy - h - 16, 2, 11);
+        const fl = 0.75 + 0.25 * Math.sin(performance.now() / 130);
+        g.fillStyle = P.iron[0]; g.fillRect(x + w / 2 - 4, gy - h - 26, 8, 10);
+        g.fillStyle = `rgba(255,190,110,${fl})`; g.fillRect(x + w / 2 - 3, gy - h - 25, 6, 8);
+        g.globalAlpha = 0.12 * fl; g.fillStyle = '#ffcf8a'; g.fillRect(x + w / 2 - 22, gy - h - 40, 44, 36); g.globalAlpha = 1;
+      }
+    }
+    // 路边的废墟（js/route-ruins.js）：按路线定种子摆好；院子、地标、遭遇路障、桥、路堑、终点附近不放；难民身后放一间有人住的破屋
+    const ruins = (() => {
+      const d = def(), T = B() && B().ter;
+      if (!d || !SA.RouteRuins) return [];
+      const keep = [[-800, YARD.gate + 140]], end = d.end && (d.end.x != null ? d.end.x : d.end);
+      for (const dr of A.dress(d)) if (dr.back) keep.push([dr.x - 190, dr.x + 190]);
+      for (const p of d.props || []) if (p.kind !== 'crate') keep.push([p.x - 80, p.x + 80]);
+      const clear = (d.encounters || []).map(e => [e.guard - 140, e.leash + 60]);   // 遭遇的战场：近处留空，打起来看得清
+      for (const f of d.features || []) keep.push([f.x0 - 40, f.x1 + 40]);
+      for (const k of d.pickups || []) if (k.kind === 'water') keep.push([k.x - 60, k.x + 60]);
+      if (end != null) keep.push([end - 220, (d.len || end) + 2000]);
+      const refugees = (d.pickups || []).filter(k => k.kind === 'refugee').map(k => k.x);
+      return SA.RouteRuins.layout(d, { keep, clear, refugees, slope: (x) => (groundAt(x + 30) - groundAt(x - 30)) / 60 });
+    })();
+    // 路后面一层（地面之前画）：院子、废墟
+    function drawBack(g) {
+      const b = B(), cam = b.cam;
+      drawYard(g, cam);
+      if (SA.RouteRuins) SA.RouteRuins.draw(g, ruins, groundAt, (x, w) => x + w > cam.x - 8 && x - w < cam.x + cam.w + 8);
+    }
+    // 院子的动效：烟囱冒烟；开局那一下：泄压的蒸汽 +「出发！」
+    function yardTick(dt) {
+      const b = B();
+      if (!b || !b.p) return;
+      if (!st.departed) {
+        st.departed = true;
+        const f = o.frontEdge(b.p);
+        b.texts.push({ str: SA.Config.text('route_depart'), x: f - 60, y: groundAt(f) - 170, col: '#efe6cf', plaque: P.brass[2], life: 1.8, max: 1.8 });
+        snd('steam.hiss', f, 0.7, 0, 0.9);
+      }
+      st.smokeT -= dt;
+      if (st.smokeT <= 0 && b.cam.x < YARD.gate + 200) {
+        st.smokeT = 0.35;
+        const y0 = yardY();
+        part('smoke', YARD.x0 + 312 + vr(-6, 6), y0 + 12, vr(-8, 14), vr(-40, -24), vr(1.6, 2.4));
+      }
     }
 
     // ---------- 打击感 ----------
@@ -139,6 +216,7 @@ SA.RouteView = (() => {
     function hold(dt) { if (st.stop > 0) { st.stop -= dt; return true; } return false; }
     function tick(dt) {
       const b = B();
+      yardTick(dt);
       st.kick *= Math.pow(0.004, dt);
       for (const p of st.pieces) {
         p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 620 * dt;
@@ -239,6 +317,7 @@ SA.RouteView = (() => {
         if (f.glow) { g.globalAlpha = 0.35; g.fillStyle = A.PAL.GLOW[2]; g.fillRect(Math.round(x - 10), Math.round(y - 10), 20, 20); g.globalAlpha = 1; }
         g.drawImage(f.img, Math.round(x - f.img.width * s / 2), Math.round(y - f.img.height * s / 2), Math.round(f.img.width * s), Math.round(f.img.height * s));
       }
+      if (b.cam.x < YARD.gate + 60) gatePost(g, YARD.gate + 8, true);
       for (const f of st.flags) {
         if (!f.ring) continue;
         const k = 1 - f.life / f.max, r = Math.round(8 + f.r * k);
@@ -261,7 +340,7 @@ SA.RouteView = (() => {
     }
 
     current = { say };
-    return { event, hold, tick, kickX, terrainTiles, backOy, nearArgs, drawWorld, drawFx, drawLabels, profile, best: () => st.best };
+    return { event, hold, tick, kickX, terrainTiles, backOy, nearArgs, drawBack, drawWorld, drawFx, drawLabels, profile, best: () => st.best };
   }
 
   // 驾驶台的金属计数：一小堆铁片 + 像素数字（原生像素，界面上放大 2 倍）

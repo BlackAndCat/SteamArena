@@ -17,10 +17,10 @@ SA.BattleAudio = (() => {
   const PITCH = { mg_s: 1.15, mg2: 1.08, mg_heavy: 0.92, knight_gun: 1.05, cannon_s: 1.05, mortar_s: 0.9, harpoon: 1.2, rocket_rack: 1.35,
     side_cannon: 1.05, cannon_heavy: 0.82, cannon_giant: 0.68, mortar: 0.8, flamer: 0.55, steamjet: 1.1 };
   const GAP = { flamer: 0.2, steamjet: 0.2 };   // 连续喷射：至少隔这么久才再响一次
-  const TRACK_STEP = 30, LEG_STEP = 46;           // 履带每走多少 px 咔哒一下；腿每走多少 px 落一脚
+  const TRACK_STEP = 36, LEG_STEP = 46;           // 履带每走多少 px 咔哒一下；腿每走多少 px 落一脚
 
   function make(o) {
-    const B = o.getB, st = { sndT: {}, dist: { p: 0, e: 0 }, last: 0, on: false, dog: 0 };
+    const B = o.getB, st = { sndT: {}, dist: { p: 0, e: 0 }, last: 0, on: false, dog: 0, rico: -1e9, hitT: -1e9 };
     const isRoute = () => { const b = B(); return !!(b && b.opts && b.opts.mode === 'route'); };
     // 出征里按 F 切到「灰盒」时，战斗声也一起关掉（js/route-view.js 的打击感实验）
     const muted = () => !SA.Audio || (isRoute() && SA.RouteView && SA.RouteView.feel && SA.RouteView.feel() === 0);
@@ -41,14 +41,27 @@ SA.BattleAudio = (() => {
           if (d.id === 'harpoon') snd('chain', d.x, 0.7);
           break;
         }
-        case 'impact': if (d.big && !d.mob) snd('cannon.hit', d.x, 0.7); break;
+        case 'impact': impact(d); break;
         case 'particles': if (d.boom) snd(d.boom.n >= 24 ? 'boom.big' : 'boom', d.boom.x, 0.9); break;
-        case 'ricochet': snd('hit.metal.light', d.x, 0.6, 0.04, 1.3); break;
+        case 'ricochet': st.rico = performance.now(); snd('hit.ricochet', d.x, 0.55, 0.06); break;
         case 'shatter': snd('hit.plate', d.x, 0.7, 0.05); break;
         case 'text':
-          if (/^\d+$/.test(d.str)) { const v = +d.str; snd(v < 10 ? 'hit.metal.light' : v < 25 ? 'hit.metal.medium' : 'hit.metal.heavy', d.x, v < 10 ? 0.4 : 0.75, 0.03); }
+          // 炮弹 / 子弹的中弹声由 impact 放；剩下的伤害（撞击、溅射、啃咬）只配一下轻的闷响
+          if (/^\d+$/.test(d.str) && performance.now() - st.hitT > 120) snd('hit.thud', d.x, Math.min(0.55, 0.2 + +d.str / 60), 0.06, 0.8);
           break;
       }
+    }
+
+    // 中弹：打在车上 = 闷响 + 很短的金属「嘣」（炮弹换成带炸裂感的重击）；同一刻的跳弹已经放了弹飞声，就不再「嘣」；
+    // 落在地上的大炮弹 = 炮弹落地；打中木箱 = 木头碎
+    function impact(d) {
+      if (d.car) {
+        st.hitT = performance.now();
+        const rico = st.hitT - st.rico < 30, near = d.p ? 1 : 0.8;
+        if (d.big) { snd('hit.shell', d.x, 0.9 * near, 0.05); snd('hit.thud', d.x, 0.6 * near, 0, 0.7); }
+        else { snd('hit.thud', d.x, 0.45 * near, 0.03, 1.15); if (!rico) snd('hit.ping', d.x, 0.3 * near, 0.05, 1.05 + Math.random() * 0.3); }
+      } else if (d.crate) snd('crush.wood', d.x, d.big ? 0.8 : 0.4, 0.05);
+      else if (d.big && !d.mob) snd('cannon.hit', d.x, 0.7);
     }
 
     // 每帧：履带咔哒、腿的脚步按走过的距离触发；自己车的发动机两条循环按车速调音量和快慢
@@ -61,17 +74,18 @@ SA.BattleAudio = (() => {
         const v = Math.abs(s.vx || 0), mine = key === 'p', x = s.pivX;
         st.dist[key] += v * dt;
         if (s.chassisId === 'track') {
-          if (st.dist[key] >= TRACK_STEP) { st.dist[key] %= TRACK_STEP; snd('track.clank', x, (mine ? 0.55 : 0.35) * Math.min(1, 0.3 + v / 110), 0, 0.9 + Math.min(0.3, v / 400)); }
+          if (st.dist[key] >= TRACK_STEP) { st.dist[key] %= TRACK_STEP; snd('track.clank', x, (mine ? 0.42 : 0.22) * Math.min(1, 0.3 + v / 120), 0, 0.9 + Math.min(0.3, v / 400)); }
         } else if (s.chassisId === 'quad' || s.chassisId === 'biped') {
           if (st.dist[key] >= LEG_STEP) { st.dist[key] %= LEG_STEP; snd('track.clank', x, mine ? 0.45 : 0.3, 0, 0.62); }
         }
       }
       const p = b.p;
       if (p.dead || b.done || muted()) { stop(); return; }
-      const v = Math.abs(p.vx || 0), k = Math.min(1.4, v / Math.max(40, p.speed || 90)), x = pan(p.pivX);
-      // 怠速一直在（车越快越响、越高）；行驶的蒸汽喷吐从停车时的 0 渐起，播放速度（= 喷吐节奏）跟车速
-      SA.Audio.loop('engine.idle', 'bt-eng-idle', { vol: 0.55 + 0.3 * k, rate: 0.85 + 0.25 * k, x });
-      SA.Audio.loop('engine.run', 'bt-eng-run', { vol: Math.min(1, k * 1.15), rate: 0.6 + 0.7 * k, x });
+      const v = Math.abs(p.vx || 0), k = Math.min(1.4, v / Math.max(40, p.speed || 90)), x = pan(p.pivX), gas = p.dir ? 1 : 0.5;
+      // 怠速是背景里低低的一层（过 600 Hz 低通，车快了稍微亮一点）；行驶的蒸汽喷吐从停车时的 0 渐起，播放速度（= 喷吐节奏）跟车速，
+      // 音量随车速的平方上去、封顶 0.8，松油门减半——听得见车在使劲，但不盖过枪炮
+      SA.Audio.loop('engine.idle', 'bt-eng-idle', { vol: 0.6 + 0.2 * k, rate: 0.85 + 0.2 * k, x, lp: 600 + 500 * k });
+      SA.Audio.loop('engine.run', 'bt-eng-run', { vol: Math.min(0.8, 0.85 * k * k) * gas, rate: 0.6 + 0.65 * k, x, lp: 1800 + 1400 * k });
       st.on = true;
       // 看门狗：战斗画面突然不跑了（切走页面、跳出战斗），半秒内把发动机声收掉
       if (!st.dog) st.dog = setInterval(() => { if (performance.now() - st.last > 500) stop(); }, 250);

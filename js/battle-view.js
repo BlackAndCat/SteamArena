@@ -96,7 +96,7 @@ SA.BattleView.create = function createBattleView(api) {
   let BD = null;
   const sceneT = () => performance.now() / 1000;
   function drawBackdrop(vw, vh, oy) { SA.Scenes.back(BD, g, vw, vh, RV && RV.profile() ? RV.backOy(B.cam) : oy, B.cam.x, sceneT(), B.opts); }   // 起伏路线：远景竖直视差
-  function drawFloor() { if (!(RV && RV.profile())) SA.Scenes.floor(BD, g, B.cam); if (B.bounds) SA.Scenes.barriers(BD, g, B.bounds, groundAt, sceneT()); if (isRoute()) drawDress(true); }   // 有场地边界时两头摆路障
+  function drawFloor() { if (!(RV && RV.profile())) SA.Scenes.floor(BD, g, B.cam); if (B.bounds) SA.Scenes.barriers(BD, g, B.bounds, groundAt, sceneT()); if (isRoute()) drawDress(true); if (RV) RV.drawBack(g); }   // RV.drawBack：出发的院子、路边废墟   // 有场地边界时两头摆路障
 
   // ---------- 出征（卷轴路线，docs/expedition-plan.md）：B.opts.mode === 'route'，没有敌车时 B.e === null ----------
   // 规则状态（B.route、B.ter.props / pickups）归 battle.js / js/route.js；这里只画。物件、布景、界面件的画法在 js/route-art.js
