@@ -20,13 +20,13 @@ SA.Audio = (() => {
     'boom': { n: 4, vol: 0.9, pitch: 0.06, limit: 3 },            // 爆炸（滚桶、模块殉爆）
     'boom.big': { n: 2, vol: 1, pitch: 0.04, limit: 2 },          // 大爆炸（锅炉、巨炮）
     'cannon.fire': { n: 4, vol: 0.9, pitch: 0.05, limit: 3 },     // 中、大口径炮（第二批：混好的游戏炮声）
-    'cannon.small': { n: 3, vol: 0.75, pitch: 0.06, limit: 3 },   // 小炮、小臼炮、鱼叉、步哨炮车
+    'cannon.small': { n: 2, vol: 0.8, pitch: 0.06, limit: 3 },   // 小炮、小臼炮、鱼叉、步哨炮车
     'cannon.hit': { n: 3, vol: 0.8, pitch: 0.05, limit: 3 },      // 炮弹落地
     'gun.shot': { n: 4, vol: 0.5, pitch: 0.06, limit: 5 },        // 机枪单发（从连发里切出来的）
     'gun.heavy': { n: 3, vol: 0.6, pitch: 0.05, limit: 4 },       // 重机枪单发
     'engine.idle': { n: 1, vol: 0.2, pitch: 0, limit: 2 },        // 发动机怠速（循环）：退到背景里，压低、过低通
     'engine.run': { n: 1, vol: 0.3, pitch: 0, limit: 2 },         // 蒸汽机行驶喷吐（循环，速度跟车速）
-    'track.clank': { n: 4, vol: 0.35, pitch: 0.12, limit: 6 },    // 履带：每过一节履带板响一下
+    'track.clank': { n: 3, vol: 0.3, pitch: 0.12, limit: 6 },    // 履带：每过一节履带板响一下
     'hit.thud': { n: 4, vol: 0.7, pitch: 0.08, limit: 5 },        // 中弹的闷响层
     'hit.ping': { n: 2, vol: 0.45, pitch: 0.15, limit: 4 },       // 中弹的金属「嘣」层（很短）
     'hit.shell': { n: 3, vol: 0.85, pitch: 0.06, limit: 3 },      // 炮弹打在车上

@@ -193,7 +193,7 @@ SA.RouteView = (() => {
         case 'mob-blast': blastFx(d); return true;
         case 'mob-hit': for (let i = 0; i < 4; i++) part('spark', d.x, d.y, vr(-120, 120), vr(-160, -20), vr(0.12, 0.25)); snd('hit.metal.light', d.x, 0.5, 0.05); return true;
         case 'mob-fire':
-          if (d.kind === 'sentry') { for (let i = 0; i < 6; i++) part('flash', d.x - vr(0, 8), d.y + vr(-2, 2), -vr(30, 110), vr(-40, 10), vr(0.06, 0.14)); part('smoke', d.x - 6, d.y, -20, -24, 0.8); snd('cannon.fire', d.x, 0.45, 0, 1.25); }
+          if (d.kind === 'sentry') { for (let i = 0; i < 6; i++) part('flash', d.x - vr(0, 8), d.y + vr(-2, 2), -vr(30, 110), vr(-40, 10), vr(0.06, 0.14)); part('smoke', d.x - 6, d.y, -20, -24, 0.8); snd('cannon.small', d.x, 0.6, 0, 1.3); snd('gun.shot', d.x, 0.3, 0, 0.95); }   // 步哨炮车：小炮 + 枪声的脆头
           else { part('flash', d.x - 2, d.y, -60, 0, 0.06); snd('gun.shot', d.x, 0.22, 0.04, 1.3); }
           return true;
         case 'mob-chew': for (let i = 0; i < 5; i++) part('spark', d.x, d.y, vr(-80, 40), vr(-140, -30), vr(0.1, 0.25), P.brass[3]); snd('hit.metal.light', d.x, 0.35, 0.12, 1.2); return true;
@@ -257,6 +257,8 @@ SA.RouteView = (() => {
         bridge: pick('bridge').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, water: Math.round(natY((f.x0 + f.x1) / 2 + PAD) + 10) })),
         fill: pick('fill').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, natural: natY })),
         cut: pick('cut').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, depth: f.depth })),
+        rubble: pick('rubble').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, natural: natY })),
+        span: pick('span').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, natural: natY })),
       });
       for (const t of tiles) t.x -= PAD;
       return tiles;

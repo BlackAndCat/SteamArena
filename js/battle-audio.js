@@ -14,10 +14,10 @@ SA.BattleAudio = (() => {
     flamer: 'steam.hiss', steamjet: 'steam.hiss',
   };
   // 音高：越大的炮越低沉，小机枪清脆一点
-  const PITCH = { mg_s: 1.15, mg2: 1.08, mg_heavy: 0.92, knight_gun: 1.05, cannon_s: 1.05, mortar_s: 0.9, harpoon: 1.2, rocket_rack: 1.35,
+  const PITCH = { mg_s: 1.15, mg2: 1.08, mg_heavy: 0.92, knight_gun: 1.05, cannon_s: 1.25, mortar_s: 1.15, harpoon: 1.2, rocket_rack: 1.35,
     side_cannon: 1.05, cannon_heavy: 0.82, cannon_giant: 0.68, mortar: 0.8, flamer: 0.55, steamjet: 1.1 };
   const GAP = { flamer: 0.2, steamjet: 0.2 };   // 连续喷射：至少隔这么久才再响一次
-  const TRACK_STEP = 36, LEG_STEP = 46;           // 履带每走多少 px 咔哒一下；腿每走多少 px 落一脚
+  const TRACK_STEP = 44, LEG_STEP = 46;           // 履带每走多少 px 咔哒一下；腿每走多少 px 落一脚
 
   function make(o) {
     const B = o.getB, st = { sndT: {}, dist: { p: 0, e: 0 }, last: 0, on: false, dog: 0, rico: -1e9, hitT: -1e9 };
@@ -38,6 +38,7 @@ SA.BattleAudio = (() => {
         case 'fire': {
           const name = FIRE[d.id] || (d.shell ? 'cannon.fire' : 'gun.shot');
           snd(name, d.x, d.p ? 1 : 0.7, GAP[d.id] || 0, PITCH[d.id]);
+          if (name === 'cannon.small') snd('gun.shot', d.x, d.p ? 0.35 : 0.3, 0, 0.9);   // 小炮叠一层枪声的脆头，不闷
           if (d.id === 'harpoon') snd('chain', d.x, 0.7);
           break;
         }
@@ -73,10 +74,13 @@ SA.BattleAudio = (() => {
         if (!s || s.dead) continue;
         const v = Math.abs(s.vx || 0), mine = key === 'p', x = s.pivX;
         st.dist[key] += v * dt;
+        // 敌车的履带 / 脚步只在离你近时响
+        const far = !mine && b.p && Math.abs((s.pivX || 0) - (b.p.pivX || 0)) > 650;
         if (s.chassisId === 'track') {
-          if (st.dist[key] >= TRACK_STEP) { st.dist[key] %= TRACK_STEP; snd('track.clank', x, (mine ? 0.42 : 0.22) * Math.min(1, 0.3 + v / 120), 0, 0.9 + Math.min(0.3, v / 400)); }
+          // 履带：低、钝的「咚」（压低音高），间隔放稀并随机漏掉三成，听着不机械；车越快越轻地融进去（音量封顶）
+          if (st.dist[key] >= TRACK_STEP) { st.dist[key] %= TRACK_STEP; if (!far && Math.random() > 0.3) snd('track.clank', x, (mine ? 0.3 : 0.14) * Math.min(1, 0.35 + v / 160), 0, 0.68 + Math.random() * 0.1); }
         } else if (s.chassisId === 'quad' || s.chassisId === 'biped') {
-          if (st.dist[key] >= LEG_STEP) { st.dist[key] %= LEG_STEP; snd('track.clank', x, mine ? 0.45 : 0.3, 0, 0.62); }
+          if (st.dist[key] >= LEG_STEP) { st.dist[key] %= LEG_STEP; if (!far) snd('track.clank', x, mine ? 0.32 : 0.16, 0, 0.55); }
         }
       }
       const p = b.p;

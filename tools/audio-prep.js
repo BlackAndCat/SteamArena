@@ -32,7 +32,7 @@ SA.AudioPrep = (() => {
     'boom': [MK(2809), MK(2800), MK(1694), MK(1687)],
     'boom.big': [MK(2777), MK(2782)],
     'cannon.fire': [FS(127845), FS(162455), MK(1700), MK(2773)],               // 中、大口径炮
-    'cannon.small': [MK(1662), FS(165390), MK(2186)],                           // 小炮、小臼炮、鱼叉、步哨炮车
+    'cannon.small': [MK(1662), FS(165390)],                                     // 小炮、小臼炮、鱼叉、步哨炮车（去掉了偏闷的带回声那个）
     'cannon.hit': [MK(2758), MK(2801), MK(2186)],                               // 炮弹落地
     // 机枪：从连发录音里切单发（带完整尾音的那几发）；重机枪单独一组
     'gun.shot': [cut(FS(165394), 0.035, 0.17), cut(FS(165394), 0.385, 0.17), cut(FS(380349), 1.6, 0.2), cut(FS(380349), 2.165, 0.2)],
@@ -41,7 +41,7 @@ SA.AudioPrep = (() => {
     'engine.idle': [{ f: MK(2753), at: 0.6, len: 4, loop: true }],
     'engine.run': [{ f: MK(1628), at: 37.55, len: 1.9, loop: true }],
     // 履带：每过一节履带板响一下金属咔哒（齿轮锁、换挡的金属声切短）
-    'track.clank': [cut(MK(2858), 0.06, 0.13), cut(MK(2858), 0.2, 0.18), cut(MK(2857), 0.07, 0.18), cut(MK(2757), 0.1, 0.22)],
+    'track.clank': [cut(MK(2858), 0.06, 0.13), cut(MK(2858), 0.2, 0.18), cut(MK(2857), 0.07, 0.18)],   // 播放时压低音高，听着是钝的「咚」
     'steam.hiss': [1, 2, 3].map(i => `steam_hisses/steam hisses - Marker #${i}.wav`),
     'chain': [KR + 'metalLatch.ogg', KR + 'metalClick.ogg'],
     'ui.click': [1, 2, 3].map(i => `${KU}click${i}.ogg`),

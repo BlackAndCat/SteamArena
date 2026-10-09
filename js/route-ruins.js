@@ -170,14 +170,55 @@ SA.RouteRuins = (() => {
     return { c: q.c, ax: Math.round((w + 6) / 2), ay: base, w: w + 6 };
   }
 
-  const KINDS = { cottage, wall, chimney, shed, boiler, cart, tree, post, heap, fence };
-  const BIG = new Set(['cottage', 'wall', 'chimney', 'shed']);
-  // 远处的压暗一层（和背景的雾色混）
-  function sprite(kind, seed, far, lived) {
-    const key = `${kind}|${seed}|${far ? 1 : 0}|${lived ? 1 : 0}`;
+  // 塌掉的工厂：两层高的砖壳，成排拱窗（全黑），铁屋架只剩几榀，一侧连着大烟囱；墙头参差
+  function factory(seed) {
+    const r = rngOf(seed), w = 190 + Math.round(r() * 80), h = 110 + Math.round(r() * 40), base = h + 70;
+    const q = A.pen(w + 40, base + FOOT), x0 = 10;
+    bricks(q, x0, base - h, w, h, seed);
+    for (let k = 0; k < 3; k++) { const tx = x0 + 20 + k * (w - 40) / 2; q.line(tx - 30, base - h + 2, tx, base - h - 26, IR[1], 2); q.line(tx, base - h - 26, tx + 30, base - h + 2, IR[1], 2); q.line(tx, base - h - 26, tx, base - h + 2, IR[0], 1); }   // 铁屋架
+    jag(q, x0, w, base - h, 34, seed, 5);
+    for (const row of [base - h + 22, base - h + 64]) for (let wx = x0 + 10; wx < x0 + w - 18; wx += 26) {
+      if (hash(wx, row + seed) < 0.12) continue;
+      for (let yy = 0; yy < 26; yy++) { const hw = yy < 6 ? Math.sqrt(Math.max(0, 36 - (6 - yy) ** 2)) : 6; q.R(wx + 6 - hw, row + yy, hw * 2, 1, '#0e0a08'); }
+      q.R(wx - 1, row + 26, 14, 2, STONE[2]);
+    }
+    q.R(x0, base - 14, w, 14, STONE[1]); q.R(x0, base - 14, w, 1, STONE[3]);
+    const cx = x0 + w - 6;   // 大烟囱
+    bricks(q, cx, base - h - 60, 22, h + 60, seed + 3); q.R(cx, base - h - 60, 1, h + 60, BRICK[0]); q.R(cx + 21, base - h - 60, 1, h + 60, BRICK[0]);
+    jag(q, cx, 22, base - h - 60, 8, seed + 4, 2);
+    ivy(q, x0, base - h, Math.round(w * 0.25), h, seed + 6, 0.8);
+    rubble(q, x0 + w * 0.5, base, w * 0.9, seed + 7, 12);
+    foot(q, w + 40, base, seed);
+    return { c: q.c, ax: Math.round((w + 40) / 2), ay: base, w: w + 40 };
+  }
+  // 一排连栋小楼：3～4 间挨着，高低不一，屋顶塌得各不一样，有的只剩山墙
+  function terrace(seed) {
+    const r = rngOf(seed), n = 3 + Math.floor(r() * 2), unit = 38 + Math.round(r() * 8), w = n * unit, base = 112;
+    const q = A.pen(w + 12, base + FOOT), x0 = 6;
+    for (let i = 0; i < n; i++) {
+      const ux = x0 + i * unit, wh = 54 + Math.round(r() * 30), gable = 18 + Math.round(r() * 8);
+      bricks(q, ux, base - wh, unit, wh, seed + i);
+      if (r() < 0.6) for (let k = 0; k < unit; k++) { const t = 1 - Math.abs(k - unit / 2) / (unit / 2); bricks(q, ux + k, base - wh - Math.round(t * gable), 1, Math.round(t * gable), seed + i); }
+      jag(q, ux, unit, base - wh - gable, Math.round(gable * (0.4 + r() * 0.8)), seed + i * 3, 3);
+      q.R(ux, base - wh, 1, wh, BRICK[0]);
+      q.R(ux + 8, base - wh + 14, 10, 12, '#0e0a08'); q.R(ux + 22, base - 30, 10, 30, '#0e0a08');
+      if (r() < 0.5) { bricks(q, ux + unit - 12, base - wh - gable - 14, 8, 16, seed + i + 9); }
+    }
+    rubble(q, x0 + w / 2, base, w, seed + 5, 8);
+    foot(q, w + 12, base, seed);
+    return { c: q.c, ax: Math.round((w + 12) / 2), ay: base, w: w + 12 };
+  }
+
+  const KINDS = { cottage, wall, chimney, shed, boiler, cart, tree, post, heap, fence, factory, terrace };
+  const BIG = new Set(['cottage', 'wall', 'chimney', 'shed', 'factory', 'terrace']);
+  // 远近三层：0 近（原色）/ 1 中（压暗两成）/ 2 远（压暗四成，和背景的雾色混）
+  const DIM = [0, 0.22, 0.42];
+  function sprite(kind, seed, depth, lived) {
+    depth = depth === true ? 2 : depth || 0;
+    const key = `${kind}|${seed}|${depth}|${lived ? 1 : 0}`;
     if (!cache.has(key)) {
       const s = kind === 'cottage' ? cottage(seed, lived) : KINDS[kind](seed);
-      if (far) { const g = s.c.getContext('2d'); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(22,18,16,0.42)'; g.fillRect(0, 0, s.c.width, s.c.height); g.globalCompositeOperation = 'source-over'; }
+      if (depth) { const g = s.c.getContext('2d'); g.globalCompositeOperation = 'source-atop'; g.fillStyle = `rgba(22,18,16,${DIM[depth]})`; g.fillRect(0, 0, s.c.width, s.c.height); g.globalCompositeOperation = 'source-over'; }
       cache.set(key, s);
     }
     return cache.get(key);
@@ -205,16 +246,34 @@ SA.RouteRuins = (() => {
       }
       x += (r() < 0.25 ? 600 + r() * 500 : 160 + r() * 360);   // 簇和簇之间：多半是短空隙，偶尔一大片空地
     }
-    out.sort((a, b) => (b.far ? 1 : 0) - (a.far ? 1 : 0));   // 远的先画
+    // 废墟区（路线数据 ruins: [{ x0, x1 }]）：一大片挤在一起，三排（远 / 中 / 近）各自密密地排，远排多放工厂、连栋楼这种大件
+    for (const z of def.ruins || []) {
+      const rows = [[2, ['factory', 'terrace', 'factory', 'chimney', 'wall', 'terrace'], 50, 120], [1, ['terrace', 'cottage', 'wall', 'chimney', 'shed', 'factory'], 45, 110], [0, ['wall', 'heap', 'boiler', 'fence', 'cart', 'post', 'shed', 'heap'], 55, 150]];
+      for (const [depth, pool, a, b] of rows) {
+        for (let x = z.x0 + r() * a; x < z.x1; x += a + r() * (b - a)) {
+          if (depth === 0 && ((o.clear || []).some(([c0, c1]) => x > c0 && x < c1) || nearRef(x))) continue;
+          out.push({ kind: pool[Math.floor(r() * pool.length)], x: Math.round(x), seed: Math.floor(r() * 1e6), depth, far: depth === 2, lived: false });
+        }
+      }
+    }
+    // 碎砖坡（features 里的 rubble）：坡顶插几截断墙、碎砖堆，坡后面立一座塌了的工厂
+    for (const f of (def.features || []).filter(f => f.kind === 'rubble')) {
+      const mid = (f.x0 + f.x1) / 2, span = f.x1 - f.x0;
+      out.push({ kind: 'factory', x: Math.round(mid + (r() - 0.5) * span * 0.3), seed: Math.floor(r() * 1e6), depth: 1, far: false });
+      for (let k = 0; k < 3; k++) out.push({ kind: k === 1 ? 'wall' : 'heap', x: Math.round(f.x0 + span * (0.25 + 0.25 * k) + (r() - 0.5) * 30), seed: Math.floor(r() * 1e6), depth: 0, far: false });
+    }
+    for (const it of out) if (it.depth == null) it.depth = it.far ? 2 : 0;
+    out.sort((a, b) => b.depth - a.depth);   // 远的先画
     return out;
   }
 
-  /** 画：g 已经平移到世界坐标；seen(x, w) 判断镜头看不看得到；远的往上提 10px（站在路后面的田里） */
+  /** 画：g 已经平移到世界坐标；seen(x, w) 判断镜头看不看得到；远的往上提 10px、中的 5px（站在路后面的田里） */
+  const LIFT = [3, -5, -10];
   function draw(g, list, groundAt, seen) {
     for (const it of list) {
-      if (!seen(it.x, 160)) continue;
-      const s = sprite(it.kind, it.seed, it.far, it.lived);
-      g.drawImage(s.c, Math.round(it.x - s.ax), Math.round(groundAt(it.x) + (it.far ? -10 : 3) - s.ay));
+      if (!seen(it.x, 200)) continue;
+      const s = sprite(it.kind, it.seed, it.depth, it.lived);
+      g.drawImage(s.c, Math.round(it.x - s.ax), Math.round(groundAt(it.x) + LIFT[it.depth || 0] - s.ay));
     }
   }
 

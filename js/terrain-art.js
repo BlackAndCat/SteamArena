@@ -138,6 +138,44 @@ SA.TerrainArt = (() => {
   const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
   const RGB = new Map();
   const rgb = (c) => { if (!RGB.has(c)) RGB.set(c, hex(c)); return RGB.get(c); };
+  // 表土和下面的水平岩层（nat = 原地面的 y）：表土 18px，再往下按世界 y 取岩层，越深越暗
+  function soil(x, y, nat) {
+    if (y - nat < 18) return y - nat === 0 ? MARL[3] : y - nat === 17 && bayer(x, y) < 0.5 ? MARL[0] : (hash(x, y) < 0.015 ? MARL[3] : MARL[2]);
+    // 水平岩层：按世界 y（带一点倾角）取层；层顶一行暗边；煤层里零星反光
+    const k = ((y + x * 0.035) % PERIOD + PERIOD) % PERIOD;
+    let acc = 0, band = STRATA[0], edge = false;
+    for (const b of STRATA) { if (k < acc + b[0]) { band = b; edge = k - acc < 1; break; } acc += b[0]; }
+    let col = edge ? band[2] : band[1];
+    if (band === STRATA[2] && !edge && hash(x >> 1, y) < 0.02) col = '#2e2f38';
+    const deep = (y - nat - 18) / 150;   // 表土下面 0～150px 慢慢沉进暗处
+    if (deep > 0.25 && bayer(x, y) < Math.min(1, (deep - 0.25) * 1.4)) col = DEEP;
+    return col;
+  }
+  // 碎砖坡的坡体：4×3 的碎砖块、石块、黑缝，错开排
+  function rubbleCol(x, y) {
+    const by = Math.floor(y / 3), bx = (x + (by % 2) * 2) >> 2, v = hash(bx, by);
+    if (y % 3 === 0 && hash(bx, by + 7) < 0.6) return '#1c1714';
+    return v < 0.16 ? BRK[3] : v < 0.42 ? BRK[2] : v < 0.6 ? CAP[1] : v < 0.78 ? BRK[1] : v < 0.9 ? CAP[0] : '#241e1b';
+  }
+  const IRN = ['#14161b', '#262a33', '#3a404c', '#59606e'];
+  function spanColumn(lx, x, top, sp, put) {
+    const u = x - sp.x0, L = sp.x1 - sp.x0, floor = Math.round(sp.natural(x)), pier = u < 12 || L - u < 12;
+    for (let y = Math.max(0, top); y < top + 900; y++) {
+      const d = y - top;
+      let col = null;
+      if (y >= floor) col = y === floor ? CIN[3] : soil(x, y, floor + 1);          // 沟底
+      if (pier && d >= 7 && y < floor + 4) col = (d % 4 === 3) ? BRK[0] : ((x + ((d >> 2) % 2) * 3) % 6 === 0 ? BRK[1] : BRK[2]);   // 砖桥墩
+      if (d === 0) col = CAP[2];
+      else if (d < 3) col = IRN[2];
+      else if (d < 7) col = d === 4 && x % 6 === 0 ? IRN[3] : IRN[1];           // 桥面大梁 + 铆钉
+      else if (d < 27 && !pier) {                                                   // 桁架：上下弦 + 斜腹杆 + 竖杆
+        const k = d - 7, m = ((u % 24) + 24) % 24;
+        if (k >= 18 || m < 2 || Math.abs(k - m * 0.75) < 1.1 || Math.abs(k - (24 - m) * 0.75) < 1.1) col = k >= 18 ? IRN[1] : IRN[2];
+      }
+      if (col) put(lx, y, col);
+      if (y >= floor + 200) break;
+    }
+  }
   function profileTiles(ground, len, H, o = {}, tw = 1280) {
     const gy = (x) => ground[Math.max(0, Math.min(len, x))];
     const within = (list, x) => (list || []).find(r => x >= r.x0 && x <= r.x1);
@@ -149,8 +187,10 @@ SA.TerrainArt = (() => {
       const put = (x, y, col) => { if (y < 0 || y >= H) return; const i = (y * w + x) * 4, v = rgb(col); D[i] = v[0]; D[i + 1] = v[1]; D[i + 2] = v[2]; D[i + 3] = 255; };
       for (let lx = 0; lx < w; lx++) {
         const x = tx + lx, top = Math.round(gy(x)), sl = gy(x + 3) - gy(x - 3);
-        const fill = within(o.fill, x), bridge = within(o.bridge, x);
-        const nat = fill ? Math.max(top + 7, Math.round(fill.natural(x))) : top + 7;
+        const fill = within(o.fill, x), bridge = within(o.bridge, x), rub = within(o.rubble, x), span = within(o.span, x);
+        // 架空桁架桥：桥面 + 铁桁架，桥下镂空（透出后面的田野），沟底照常画土层；两头砖桥墩
+        if (span) { spanColumn(lx, x, top, span, put); continue; }
+        const nat = fill ? Math.max(top + 7, Math.round(fill.natural(x))) : rub ? Math.max(top + 7, Math.round(rub.natural(x))) : top + 7;
         for (let y = Math.max(0, top); y < H; y++) {
           const d = y - top;
           let col;
@@ -158,18 +198,8 @@ SA.TerrainArt = (() => {
           else if (d < 6) col = (d === 3 || d === 5) && (x % 9) < 5 ? CIN[1] : CIN[2];
           else if (d === 6) col = CIN[1];
           else if (bridge && y <= bridge.water + 22) { col = null; }   // 桥身和运河另画
-          else if (y < nat) col = hash(x >> 1, y >> 1) < 0.04 ? CIN[3] : (y === nat - 1 ? CIN[0] : CIN[1]);   // 路堤的煤渣填方
-          else if (y - nat < 18) col = y - nat === 0 ? MARL[3] : y - nat === 17 && bayer(x, y) < 0.5 ? MARL[0] : (hash(x, y) < 0.015 ? MARL[3] : MARL[2]);
-          else {
-            // 水平岩层：按世界 y（带一点倾角）取层；层顶一行暗边；煤层里零星反光
-            const k = ((y + x * 0.035) % PERIOD + PERIOD) % PERIOD;
-            let acc = 0, band = STRATA[0], edge = false;
-            for (const b of STRATA) { if (k < acc + b[0]) { band = b; edge = k - acc < 1; break; } acc += b[0]; }
-            col = edge ? band[2] : band[1];
-            if (band === STRATA[2] && !edge && hash(x >> 1, y) < 0.02) col = '#2e2f38';
-            const deep = (y - nat - 18) / 150;   // 表土下面 0～150px 慢慢沉进暗处
-            if (deep > 0.25 && bayer(x, y) < Math.min(1, (deep - 0.25) * 1.4)) col = DEEP;
-          }
+          else if (y < nat) col = rub ? rubbleCol(x, y) : hash(x >> 1, y >> 1) < 0.04 ? CIN[3] : (y === nat - 1 ? CIN[0] : CIN[1]);   // 碎砖坡 / 路堤的煤渣填方
+          else col = soil(x, y, nat);
           if (col) put(lx, y, col);
         }
         // 驼背桥：桥身砖拱，拱洞里是暗处和运河水
