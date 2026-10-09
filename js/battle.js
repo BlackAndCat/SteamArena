@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-07-route-fuel-speed2';
+SA.RULES_VERSION = '2026-10-09-route-director-v1';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -19,6 +19,9 @@ SA.Battle = (() => {
 
   // 无画面模拟可以注入固定种子；正常游戏仍使用浏览器的随机数。
   let random = Math.random;
+  let liveRouteRandom = null;
+  /** 真实远征拥有自己的随机流；结束或切模式后恢复外部随机流，隔离竞技场与后续工具。 */
+  function restoreRouteRandom() { if (liveRouteRandom) { random = liveRouteRandom; liveRouteRandom = null; } }
   const seededRandom = (seed) => {
     let state = (Number(seed) >>> 0) || 1;
     return () => {
@@ -1175,7 +1178,10 @@ SA.Battle = (() => {
     drive(s, dt);
     const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
-      heatKw: s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util), weaponKw: 0,
+      // 野外持续驱动的传动废热回流锅炉：按真实轴功率产热，仍经过统一散热、水耗与热容量计算。
+      heatKw: s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util)
+        + (B.route && isP(s) && s.dir && Math.abs(s.vx) > 1 ? Math.min(B.opts.routeData.difficulty?.driveWasteHeatCap || Infinity,
+          Math.min(baseSupply, s.driveKw * s.speedMul) * (B.opts.routeData.difficulty?.driveWasteHeat || 0)) : 0), weaponKw: 0,
       cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave, capacity: s.heatCapacity,
     });
     s.heat = result.heat; s.water = result.water;
@@ -1186,11 +1192,11 @@ SA.Battle = (() => {
     s.minWater = Math.min(s.minWater, s.water);
     markTelemetry(s);
     if (s.heat >= s.heatMax) { kill(s, SA.Config.text("battle_39f68a635696")); return; }
-    const aimPt = isHuman(s) ? B.aim : o ? aiAimPoint(s, o) : null;
+    const aimPt = isHuman(s) ? B.aim : o ? aiAimPoint(s, o) : B.route && isP(s) ? SA.RouteMobs?.aimPoint(B, frontEdge(s)) : null;
     const aiming = s.fireHeld && aimPt && s.power > 0 && !s.hold && (!o || !o.dead);
     // 玩家松开按键的这一帧也算开火（提前松手 = 用当前稳定度打出去）
     const firing = aiming || (isHuman(s) && s.release && aimPt && s.power > 0 && (!o || !o.dead));
-    const at = firing ? targetAt(o, aimPt[0], aimPt[1]) : null;
+    const at = firing && o ? targetAt(o, aimPt[0], aimPt[1]) : null;
     const side = !!at && at.layer === 'side';
     if (firing) {
       markTelemetry(s);
@@ -1716,8 +1722,18 @@ SA.Battle = (() => {
     if (B.e) B.e.kickCooldown = Math.max(0, B.e.kickCooldown - dt);
     if (B.ter) for (const c of B.ter.crates) { c.shake = Math.max(0, c.shake - dt); c.touch = Math.max(0, (c.touch || 0) - dt); }
     if (B.p.isAI) {
-      if (B.e) ai(B.p, B.e, dt);
-      else { B.p.dir = 1; B.p.fireHeld = false; B.p.target = null; } // 无敌模拟只向前行驶，遇敌恢复真实战斗 AI。
+      if (B.e) {
+        ai(B.p, B.e, dt);
+        // 出征自动驾驶在热控停火期间松开驱动，切断持续传动废热，让原阈值的冷却循环真正完成。
+        // 仅作用于自动驾驶决斗，不替玩家松键，也不改变竞技场 AI 或热败阈值。
+        if (B.route && B.p.hold) B.p.dir = 0;
+      }
+      else {
+        B.p.dir = 1; B.p.target = null;
+        const point = SA.RouteMobs?.aimPoint(B, frontEdge(B.p));
+        B.p.fireHeld = !!point;
+        // 无敌车时真实瞄准最近的小机械，保持向前行驶；使用原武器热量与弹道。
+      }
     }
     else {
       if (!B.p.dead) B.p.dir = (B.keys.right ? 1 : 0) - (B.keys.left ? 1 : 0);
@@ -1879,23 +1895,61 @@ SA.Battle = (() => {
     route.events.push({ t: B.t, x: clamp(frontEdge(B.p), 0, route.len), type, label, ...details });
   }
 
-  /** 每秒采样实际煤、水和温度，结束追加最后一帧；不读取预计奖励或计划数量。 */
+  /** 阶段时钟只读战斗时间，固定种子可复现；决斗结束显式进入喘息期。 */
+  function setDirectorPhase(phase) {
+    const d = B.route.director;
+    d.phase = phase; d.since = B.t;
+    if (phase === 'peak') d.peaks++;
+    if (phase === 'relax') d.relaxations++;
+    routeEvent('director-phase', '导演阶段：' + phase, { phase });
+  }
+  /** 每秒以实际损血、附近敌人和热量更新压力；预算只限制供应数量，完全不调整攻击数值。 */
+  function updateDirector() {
+    const r = B.route, d = r.director, config = B.opts.routeData.difficulty, hp = hpFrac(B.p);
+    d.hpLoss = Math.max(0, d.lastHp - hp); d.lastHp = hp;
+    d.nearby = (B.mobs || []).filter(m => m.state !== 'dead' && Math.abs(m.x - frontEdge(B.p)) <= 600).length
+      + (B.e && !B.e.dead && Math.abs(frontEdge(B.e) - frontEdge(B.p)) <= 600 ? 1 : 0);
+    const duelNearby = B.e && !B.e.dead && Math.abs(frontEdge(B.e) - frontEdge(B.p)) <= 600;
+    d.weightedThreat = d.nearby + (duelNearby ? 5 : 0);
+    // 决斗整车按六名小机械的实际威胁计权，原 nearby 仍保留真实单位数供验收。
+    const stimulus = Math.min(1, 0.8 * d.weightedThreat / 3 + 0.2 * SA.Phys.temp(B.p.heat, B.p.heatCapacity) / 120);
+    // 实际近敌与损血立即抬高压力，威胁消失后每秒缓慢衰减；热量仅作低基线，不能重复累加。
+    d.I = clamp(Math.max(10 * d.hpLoss, stimulus, d.I * 0.85), 0, 1);
+    if (!config) return;
+    const elapsed = B.t - d.since;
+    if (d.phase === 'build' && d.I >= 0.7) setDirectorPhase('peak');
+    else if (d.phase === 'peak' && elapsed >= 4) setDirectorPhase('fade');
+    else if (d.phase === 'fade' && d.I < 0.3) setDirectorPhase('relax');
+    else if (d.phase === 'relax' && elapsed >= 8 && !B.e) setDirectorPhase('build');
+    const segment = Math.min(config.segmentCount - 1, Math.floor(r.x / r.len * config.segmentCount));
+    while (r.segments.length < segment) r.segments.push({ index: r.segments.length, passed: true, hp });
+    const teaching = [0, 0.35, 0.5, 0.7][config.runIndex] ?? 1;
+    // 每段额度逐渐累加；DDA 系数逐段冻结，不让上一段剩余点数受到下一段系数追溯修改。
+    let budget = 0;
+    for (let i = 0; i <= segment; i++) budget += config.baseBudget / config.segmentCount * teaching
+      * Math.pow(config.powerScore, 0.8) * (1 + 0.6 * i / config.segmentCount) * (config.dda[i] || 1);
+    d.budget = budget;
+  }
+  /** 每秒采样实际资源、压力和威胁数量，结束追加最后一帧；不以预计奖励代替真实拾取。 */
   function sampleRoute(force = false) {
     const r = B.route;
     if (!force && B.t < r.nextSample) return;
     if (r.samples.length >= 3601) { r.monitorTruncated = true; return; }
     if (r.samples.length && r.samples[r.samples.length - 1].t === B.t) return;
+    updateDirector();
     r.samples.push({ t: B.t, x: clamp(frontEdge(B.p), 0, r.len), coal: r.coal, coalMax: r.coalMax,
       water: B.p.water, waterMax: B.p.waterMax, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity),
-      enemiesStarted: r.next, enemiesCleared: r.cleared.length });
+      enemiesStarted: r.next, enemiesCleared: r.cleared.length, hp: hpFrac(B.p), hpLoss: r.director.hpLoss,
+      nearby: r.director.nearby, weightedThreat: r.director.weightedThreat || 0, I: r.director.I, phase: r.director.phase, budget: r.director.budget,
+      spent: r.director.spent, spawned: r.director.spawned });
     r.nextSample = Math.floor(B.t) + 1;
   }
 
-  /** 同帧优先检查资源失败：120°C、煤归零、战损，均先于补给复活或终点到站。水为零只改变冷却。 */
+  /** 同帧优先检查结束条件：过热安全回家、煤归零搁浅、真实战损击毁；均先于补给或到站。水为零只改变冷却。 */
   function routeFailure() {
-    if (SA.Phys.temp(B.p.heat, B.p.heatCapacity) >= 120) return { how: 'wrecked', cause: 'overheat' };
+    if (SA.Phys.temp(B.p.heat, B.p.heatCapacity) >= 120) return { how: 'overheated', cause: 'overheat' };
     if (B.route.coal <= 0) return { how: 'stranded', cause: 'coal' };
-    if (B.p.dead) return { how: 'wrecked', cause: B.p.failureType === 'overheat' ? 'overheat' : 'combat' };
+    if (B.p.dead) return B.p.failureType === 'overheat' ? { how: 'overheated', cause: 'overheat' } : { how: 'wrecked', cause: 'combat' };
     return null;
   }
 
@@ -1994,6 +2048,11 @@ SA.Battle = (() => {
     if (!opts.headless) SA.go('battle');
     // 即使开发者直接调用 startState，活动局也不能持有编辑器可变的路线引用。
     const def = JSON.parse(JSON.stringify(opts.routeData)), vehicle = opts.vehicle || SA.S.d.vehicle;
+    if (def.mobs?.length && !SA.RouteMobs) throw new Error('出征小机械规则未加载：route-mobs.js');
+    if (!opts.headless) {
+      restoreRouteRandom();
+      if (def.difficulty) { liveRouteRandom = random; random = seededRandom(def.difficulty.seed); }
+    }
     def.fuel = def.fuel || SA.Route.getConfig().fuel;
     opts = { ...opts, routeData: def };
     const pShift = frontShift(vehicle);
@@ -2005,6 +2064,7 @@ SA.Battle = (() => {
       route: { id: def.id, len: def.len, x: 0, state: 'drive', encounter: null, next: 0, cleared: [], wrecks: [],
         coal: 0, coalMax: 0, coalBurned: 0, coalPicked: 0, waterPicked: 0, activityKj: 0, coalLow: false, cargo: [],
         events: [], samples: [], seenNodes: {}, nextSample: 0, monitorTruncated: false,
+        director: { I: 0, phase: 'build', since: 0, nearby: 0, hpLoss: 0, lastHp: 1, budget: 0, spent: 0, spawned: 0, peaks: 0, relaxations: 0 }, segments: [],
         runId: opts.headless ? 'simulation' : 'route-' + Date.now() + '-' + ++routeSerial } };
     B.p = makeSide(shiftVeh(SA.V.battleCopy(vehicle, 1, false), pShift), vehicle.name, !!opts.headless, 0.8, 0);
     B.p.x -= span(B.p)[0]; // 以车尾贴院门开局，不沿用竞技场的两车初始间距。
@@ -2025,7 +2085,7 @@ SA.Battle = (() => {
   function spawnRouteEnemy(enc, i) {
     const stats = SA.StageCars.statMultipliers(enc.statMultipliers);
     const ev = shiftVeh(SA.V.battleCopy(enc.vehicle, stats.hp, true), frontShift(enc.vehicle));
-    const e = B.e = makeSide(ev, enc.name, true, enc.aim || 0.8, enc.guard, stats);
+    const e = B.e = makeSide(ev, enc.name, true, enc.aim ?? 0.8, enc.guard, stats);
     e.x += enc.guard - frontEdge(e);
     e.homeX = e.goalX = e.x;
     e.style = normalizeAiStyle(enc.style);
@@ -2045,6 +2105,7 @@ SA.Battle = (() => {
     const e = B.e, encounter = B.route.encounter;
     B.route.cleared.push({ ...encounter, surrendered: B.surrender === 'accepted', reason: e.reason });
     routeEvent('encounter-end', e.name, { encounterIndex: encounter.i });
+    if (B.opts.routeData.difficulty) setDirectorPhase('relax');
     B.route.wrecks.push({ x: e.x, vehicle: e.v, name: e.name });
     B.ter.pickups.push({ kind: 'supply', x: frontEdge(e), taken: false, encounter: encounter.i });
     B.p.tether = null; e.tether = null;
@@ -2077,12 +2138,19 @@ SA.Battle = (() => {
     B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, cause, resources, dist: B.route.x,
       ...cargoResult(how), money: 0, metal: B.route.metal || 0, broken: B.route.broken || 0,
       playerVehicle: shiftVeh(SA.V.clone(B.p.v), -B.pShift), time: B.t };
+    B.result.difficulty = B.opts.routeData.difficulty || null;
+    B.result.director = { ...B.route.director };
+    const count = B.opts.routeData.difficulty?.segmentCount || 4;
+    const failureX = B.route.encounter ? B.opts.routeData.encounters[B.route.encounter.i].at : B.route.x;
+    const segment = Math.min(count - 1, Math.floor(failureX / B.route.len * count));
+    B.result.segments = [...B.route.segments.filter(s => s.index < segment), { index: segment, passed: how === 'depot', hp: hpFrac(B.p) }];
     if (cause === 'coal') { routeEvent('coal-empty', '煤炭耗尽', { kind: 'coal', amount: 0 }); emit('coal', { level: 'empty' }); }
     routeEvent('route-end', '出征结束：' + cause, { how, cause });
     sampleRoute(true);
     emit('route-end', { how, cause, resources });
     // 画面通过 route-end 和 Route.result() 展示清点；不调用竞技场 presentResult 或存档结算。
     if (!B.headless && view) view.teardown();
+    if (!B.headless) restoreRouteRandom();
     return true;
   }
 
@@ -2107,7 +2175,7 @@ SA.Battle = (() => {
     if (!B.e && !enc && B.route.x >= def.end.x) endRoute('depot');
   }
 
-  /** 主动返航可在遭遇和投降等待期间请求；损毁车辆仍必须按 wrecked 结束。 */
+  /** 主动返航可在遭遇和投降等待期间请求；真实战损仍按 wrecked，过热始终安全回家。 */
   function recallRoute() {
     if (!B?.route || B.done) return false;
     const failure = routeFailure();
@@ -2121,7 +2189,7 @@ SA.Battle = (() => {
       random = seededRandom(o.seed);
       startRouteState({ mode: 'route', headless: true, routeData: o.routeData, vehicle: o.vehicle });
       const dt = 1 / 30;
-      while (!B.done && B.t + dt <= o.maxTime + 1e-8) step(dt);
+      while (!B.done && (!o.stopAfterEncounter || B.route.cleared.length < Number(o.stopAfterEncounter)) && B.t + dt <= o.maxTime + 1e-8) step(dt);
       return { completed: B.done, reason: B.done ? B.result.how : 'budget', result: B.result || null,
         time: B.t, dist: B.route.x, cleared: B.route.cleared.map(enc => ({ ...enc })),
         events: B.route.events, samples: B.route.samples, monitorTruncated: B.route.monitorTruncated,
@@ -2132,6 +2200,7 @@ SA.Battle = (() => {
 
   function startState(opts) {
     if (opts.mode === 'route') return startRouteState(opts);
+    restoreRouteRandom();
     SA.go('battle');
     const d = SA.S.d;
     const pShift = frontShift(d.vehicle);
@@ -2282,5 +2351,5 @@ SA.Battle = (() => {
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });
-  return { start, route: { simulate: simulateRoute, recall: recallRoute, result: () => B?.route ? B.result || null : null }, aiStyles, normalizeAiStyle, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
+  return { start, scoreDuel: simulate, route: { simulate: simulateRoute, recall: recallRoute, result: () => B?.route ? B.result || null : null }, aiStyles, normalizeAiStyle, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
 })();

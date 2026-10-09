@@ -32,14 +32,21 @@ SA.RouteMobs = (() => {
   function init(B, def, ctx) {
     X = ctx;
     B.mobs = []; B.mobShots = [];
+    B.route.mobGroups = [];
     B.route.metal = 0; B.route.broken = 0;
     for (const g of def.mobs || []) {
+      if (def.difficulty && !def.difficulty.teaching) { B.route.mobGroups.push({ ...g }); continue; }
+      spawnGroup(B, g);
+      if (def.difficulty) B.route.director.spawned += Math.max(1, g.n || 1);
+    }
+  }
+  /** 同类组保持作者的原位置与画面接口；导演只决定是否启用和买得起的数量。 */
+  function spawnGroup(B, g) {
       const K = KINDS[g.kind];
-      if (!K) continue;
+      if (!K) return;
       for (let i = 0; i < Math.max(1, g.n || 1); i++)
         B.mobs.push({ id: B.mobs.length, kind: g.kind, x: g.x + i * (g.gap || K.w + 12), vx: 0, hp: K.hp, max: K.hp, state: 'sleep',
           t: X.random() * 3, cd: K.fire ? K.fire.every * (0.25 + 0.75 * X.random()) : 0, aim: 0, acc: 0, release: g.release != null ? g.release : null, flash: 0, roll: 0, fired: 0 });
-    }
   }
 
   /** 炮弹命中测试（只给玩家的炮弹和弹道预览用）：返回机械下标，没打中返回 -1 */
@@ -103,6 +110,15 @@ SA.RouteMobs = (() => {
   function step(B, dt) {
     if (!B.mobs || !X) return;
     const p = B.p, front = X.frontEdge(p);
+    // 在组进入前方 800px 时一次决定刷或跳过；非蓄势阶段保留空档，不追补已经越过的组。
+    for (const group of B.route.mobGroups || []) {
+      if (group.decided || group.x - front > 800) continue;
+      group.decided = true;
+      const d = B.route.director, price = group.price || { soldier: 1, crawler: 2, sentry: 5, barrel: 3 }[group.kind];
+      if (d.phase !== 'build' || B.e || group.x < front) continue;
+      const n = Math.min(group.n || 1, Math.floor((d.budget - d.spent) / price));
+      if (n > 0) { spawnGroup(B, { ...group, n }); d.spent += n * price; d.spawned += n; }
+    }
     for (const m of B.mobs) {
       if (m.state === 'dead') continue;
       const K = KINDS[m.kind];

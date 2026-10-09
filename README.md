@@ -113,6 +113,9 @@ AI 性格专项行为验收运行 `node tools/ai-style-check.js`；四构筑固�
 | `tools/evolve.html` · `evolve-report.js` | 进化擂台：定向生成、胜率、收藏、手工候选回流；与数值自测共用入口 |
 | `js/evolve-arena.js` · `tools/evolve-service.js` · `evolve_service.py` | 独立候选库、指定章 / 关生成、进程进度与局部报告合并；不写正式关卡 |
 | `tools/sim.html` · `sim.js` | 嵌入擂台的数值自测：战役关卡检验、对战矩阵 + 评分校准、模块性价比表；用 `SA.Battle.simulate` 无画面对打 |
+| `config/routes.json` · `js/route.js` · `js/route-mobs.js` | 出征路线、按趟数和战力的预算、决斗选车、导演刷怪、过热全额返营与分段难度调整；正式列表 r2 首位，首战位置由 `firstDuelAt` 配置；画面由 Opus 维护 |
+| `tools/route-tuner.html` · `route-tuner.js` | 出征配置编辑与真实模拟监控；`SA.Route.plan/simulate` 支持 `runIndex`、`seed` 和 `dda`，`difficulty:false` 用于原静态路线回归 |
+| `tools/route-check.js` · `route-difficulty-check.js` | 分别用 `node tools/route-check.js` 验证出征生命周期、`node tools/route-difficulty-check.js` 跑前五趟固定车型与 20 个种子的真实难度验收；`--probe` 只输出调参实况，不代表验收通过 |
 | `js/terrain-art.js` | 地形像素画法：土坡、泥地、木货箱、碎木（战斗和 `tools/terrain-lab.html` 共用） |
 | `js/build-sys.js` · `js/build-vis.js` | 后台与视觉分别维护的构建标记；`SA.BUILD` 在 `js/main.js` 中拼接 |
 | `docs/game-design.md` | 游戏节奏与目标：战役结构、材料、敌人设计、地形与数值自测计划 |

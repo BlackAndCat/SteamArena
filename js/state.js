@@ -17,6 +17,8 @@ SA.S = (() => {
       money: SA.RULES.initial.money, debt: 0, rep: 0, season: 1, round: 0,
       inv: {}, ingots: {},   // 新档先用四件初始车作教学，首胜再领取小水罐。
       vehicle: starterVehicle(),
+      // 出发计数在真实出发时写入；结算次数独立保留，路线教学与动态调整在重开时清零。
+      route: { best: {}, runs: 0, departures: 0, routeRuns: {}, dda: {}, streaks: {}, metal: 0 },
       // 领取账本按奖励 key 记；stockCells 保存有身份或迁移耐久的库存实例，inv 仍是供现有车间读取的总件数。
       uniqueClaims: {}, stockCells: [],
       bet: null,
@@ -34,6 +36,12 @@ SA.S = (() => {
     d.ingots = d.ingots || {};
     d.uniqueClaims = d.uniqueClaims || {};
     d.stockCells = d.stockCells || [];
+    d.route = d.route || { best: {}, runs: 0, metal: 0 };
+    d.route.departures = d.route.departures ?? d.route.runs ?? 0;
+    // 老档只有总趟数：最远记录出现过的路线继承该计数，未去过的路线从教学开始。
+    d.route.routeRuns = d.route.routeRuns || Object.fromEntries(Object.keys(d.route.best || {}).map(id => [id, d.route.runs || 0]));
+    d.route.firstRoute = d.route.firstRoute || Object.keys(d.route.routeRuns)[0] || null;
+    d.route.dda = d.route.dda || {}; d.route.streaks = d.route.streaks || {};
     const oldArmor = !d.vehicle.av;         // 铁装甲 2×2 → 1×2 之前的存档：车上的由 migrate 拆成两块，库存里的数量翻倍
     d.vehicle = SA.V.migrate(d.vehicle);   // 旧格式换算成子格，同时解除旧车的小网格限位
     d.camp.grid = SA.V.fullGrid();         // 新旧存档均开放完整车间，旧扩建进度不限制可用空间

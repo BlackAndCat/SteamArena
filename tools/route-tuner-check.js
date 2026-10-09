@@ -22,7 +22,7 @@ function element(tag = 'div') {
 /** 使用真实 StageCars 车作当前存档，比较读写次数与草稿经过模拟后的可保存性。 */
 async function run() {
   const { SA, context } = loadGame();
-  for (const file of ['js/route-data.js', 'js/route.js'])
+  for (const file of ['js/route-mobs.js', 'js/battle.js', 'js/route-data.js', 'js/route.js'])
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, { filename: file });
   assert.equal(typeof SA.Route.getConfig, 'function', '请先同步本轮核心接口');
   const vehicle = SA.StageCars.vehicle(SA.StageCars.get(0, 0), '当前存档测试车');
@@ -59,6 +59,7 @@ async function run() {
   elements.simulate.dispatch('click'); await flush();
   assert(elements.simulationSummary.textContent.includes('实际结束原因'), elements.status.textContent);
   const cause = simulation.result?.cause || simulation.cause || simulation.reason;
+  assert(simulation.result?.broken > 0, '真实路线模拟漏载小机械规则');
   assert(elements.simulationSummary.textContent.includes(`实际结束原因：${cause}`));
   const cleared = Array.isArray(simulation.cleared) ? simulation.cleared.length : simulation.cleared;
   assert(elements.simulationSummary.textContent.includes(`清除敌人数：${cleared}`));

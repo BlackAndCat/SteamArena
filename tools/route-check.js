@@ -7,8 +7,9 @@ const vm = require('vm');
 const evolve = require('./evolve');
 
 /** 在正式 VM 规则中截获画面层接口和事件，以真实 step 检查后台生命周期。 */
-function runtime() {
+function runtime({ release = false } = {}) {
   const { SA, context } = evolve.loadGame();
+  SA.RELEASE = release;
   let api;
   let randomCalls = 0;
   context.Math = Object.create(Math);
@@ -19,7 +20,7 @@ function runtime() {
     return { gameSpeed: () => 1, tick() {}, emit(type, data) { events.push({ type, data }); }, teardown() {},
       start(opts) { return api.startState(opts); }, presentResult() { throw new Error('出征误入竞技场结算'); } };
   } };
-  for (const file of ['js/battle.js', 'js/route-data.js', 'js/route.js'])
+  for (const file of ['js/route-mobs.js', 'js/battle.js', 'js/route-data.js', 'js/route.js'])
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, { filename: file });
   SA.go = () => {};
   SA.S.reset();
@@ -130,7 +131,7 @@ function resourceChecks(rt, player) {
     assert(!SA.Route.configure(invalid).ok);
     assert.strictEqual(JSON.stringify(SA.Route.getConfig()), original, '失败配置仍写入页面');
   }
-  B = SA.Route.start('r1');
+  B = SA.Battle.startState({ mode: 'route', vehicle: SA.S.d.vehicle, routeData: SA.Route.prepare('r1', { difficulty: false }) });
   const active = JSON.stringify(B.opts.routeData);
   const edited = JSON.parse(original); edited.routes[0].name = '后续配置'; edited.routes[0].encounters[0].at = 500;
   assert(SA.Route.configure(edited).ok);
@@ -141,7 +142,7 @@ function resourceChecks(rt, player) {
   step(1 / 60);
   assert(B.e && B.route.encounter.i === 0, '第一敌未在600px实际出场');
   assert(rt.api().frontEdge(B.e) <= 1120 && rt.api().frontEdge(B.e) >= 600, '第一敌仍在旧远处');
-  const predicted = SA.Route.plan({ route: 'r1', vehicle: player });
+  const predicted = SA.Route.plan({ route: 'r1', vehicle: player, difficulty: false });
   assert.strictEqual(predicted.totalEnemies, 3);
   assert.strictEqual(predicted.totals.conditionalSupply, 3);
   assert(predicted.coalMax > 0 && predicted.speed > 0 && predicted.heatLimit === 120);
@@ -149,7 +150,7 @@ function resourceChecks(rt, player) {
 
   // 普通起步车只能报真实结果，不要求到站或给它工程用的额外煤量。
   const starter = SA.S.starterVehicle();
-  const ordinary = SA.Route.simulate({ route: 'r1', vehicle: starter, seed: 20261007, maxTime: 600 });
+  const ordinary = SA.Route.simulate({ route: 'r1', vehicle: starter, seed: 20261007, maxTime: 600, difficulty: false });
   finite(ordinary);
   assert(ordinary.events.some(e => e.type === 'encounter-start'), '普通起步车没有接触提前的首敌');
   assert(ordinary.samples.length > 1 && ordinary.events.every(e => e.t <= ordinary.time));
@@ -179,7 +180,7 @@ function speedChecks(rt) {
     SA.MODULES[id].speed = base;
     vm.runInContext('modCache.clear()', rt.context);
     assert(Math.abs(now.speed / old.speed - 2) < 1e-8, '腿型/改装叠乘速度');
-    const plan = SA.Route.plan({ route: 'r1', vehicle });
+    const plan = SA.Route.plan({ route: 'r1', vehicle, difficulty: false });
     const B = SA.Battle.startState({ mode: 'route', vehicle, routeData: route() });
     B.keys.right = true; B.p.vx = plan.speed;
     for (let i = 0; i < 60; i++) rt.api().step(1 / 60);
@@ -194,11 +195,11 @@ function run() {
   const rt = runtime(), { SA } = rt, player = car(SA);
   SA.S.d.vehicle = player;
   const saved = JSON.stringify(SA.S.d), originalRandom = rt.context.Math?.random;
-  const def = SA.Route.list()[0];
+  const def = SA.Route.list().find(r => r.id === 'r1');
   assert.strictEqual(def.len, 7680);
   def.len = 1;
-  assert.strictEqual(SA.Route.list()[0].len, 7680, '路线列表泄漏可变引用');
-  SA.Route.start('r1');
+  assert.strictEqual(SA.Route.list().find(r => r.id === 'r1').len, 7680, '路线列表泄漏可变引用');
+  SA.Battle.startState({ mode: 'route', vehicle: SA.S.d.vehicle, routeData: SA.Route.prepare('r1', { difficulty: false }) });
   let B = rt.api().getState();
   assert.strictEqual(B.e, null);
   assert.strictEqual(B.ter.len, 7680);
@@ -296,14 +297,14 @@ function run() {
   B = SA.Battle.startState({ mode: 'route', vehicle: player, routeData: route() });
   B.p.heat = B.p.heatMax + 10000;
   rt.api().step(1 / 60);
-  assert.strictEqual(SA.Route.result().how, 'wrecked', '无敌时过热未正常结束');
+  assert.strictEqual(SA.Route.result().how, 'overheated', '无敌时过热没有按安全收尾结束');
   assert.strictEqual(JSON.stringify(SA.S.d), saved, '出征修改了正式存档');
   assert.strictEqual(rt.writes(), 0, '出征写入 localStorage');
   // 出征本身不写档（上面两条）；回院子的清点黑板调用 SA.Route.settle 才入档，下面单独检查
   assert.strictEqual(typeof SA.Route.settle, 'function');
 
   const keep = B;
-  const sample = { route: route(), vehicle: player, seed: 42, maxTime: 4 };
+  const sample = { route: route(), vehicle: player, seed: 42, maxTime: 4, difficulty: false };
   const calls = rt.randomCalls();
   const first = SA.Route.simulate(sample), second = SA.Route.simulate(sample);
   assert.strictEqual(JSON.stringify(first), JSON.stringify(second), '固定种子不可复现');
@@ -314,12 +315,12 @@ function run() {
   rt.api().rnd(0, 1);
   assert.strictEqual(rt.randomCalls(), calls + 1, '模拟结束未恢复引擎原随机源');
   finite(first);
-  const arrived = SA.Route.simulate({ route: route({ len: 1500, end: { x: 800 } }), vehicle: player, seed: 42, maxTime: 120 });
+  const arrived = SA.Route.simulate({ route: route({ len: 1500, end: { x: 800 } }), vehicle: player, seed: 42, maxTime: 120, difficulty: false });
   assert(arrived.completed && arrived.result.how === 'depot', '自动行驶未通过真实步进到站');
   const outcomes = {};
   let firstFull;
   for (let seed = 1; seed <= 20; seed++) {
-    const value = SA.Route.simulate({ route: 'r1', vehicle: player, seed, maxTime: 600 });
+    const value = SA.Route.simulate({ route: 'r1', vehicle: player, seed, maxTime: 600, difficulty: false });
     finite(value);
     assert(value.completed && value.result.how === 'depot', '强检查车未完成真实 r1');
     assert.strictEqual(value.cleared.length, 3, '到站前漏过遭遇');
@@ -328,7 +329,7 @@ function run() {
     if (seed === 1) firstFull = value;
     outcomes[value.reason] = (outcomes[value.reason] || 0) + 1;
   }
-  assert.strictEqual(JSON.stringify(SA.Route.simulate({ route: 'r1', vehicle: player, seed: 1, maxTime: 600 })),
+  assert.strictEqual(JSON.stringify(SA.Route.simulate({ route: 'r1', vehicle: player, seed: 1, maxTime: 600, difficulty: false })),
     JSON.stringify(firstFull), '含真实遭遇的固定种子不能复现');
   assert.strictEqual(rt.writes(), 0); assert.strictEqual(JSON.stringify(SA.S.d), saved);
   const resources = resourceChecks(rt, player), speeds = speedChecks(rt);
@@ -351,4 +352,4 @@ function run() {
 }
 
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
-module.exports = { run };
+module.exports = { run, runtime };
