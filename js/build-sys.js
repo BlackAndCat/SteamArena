@@ -76,3 +76,4 @@ SA.BUILD_SYS += '+route-difficulty-director'; // 出发趟数与战力预算、�
 
 // 并行预载启动配置和脚本，并在独立后台线程预热精确匹配的出征计划。
 SA.BUILD_SYS += '+parallel-startup+route-preload';
+SA.BUILD_SYS += '+impact-notify'; // 模块中弹、打中木箱时发只通知的 impact 事件（中弹声分子弹 / 炮弹），不改状态。

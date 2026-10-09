@@ -1790,6 +1790,7 @@ SA.Battle = (() => {
           if (sh.weapon && sh.weapon.splash) SA.RouteMobs.blast(B, sh.x, sh.y, sh.weapon.splash.r, sh.dmg * sh.weapon.splash.k, 'shot', res.mob);
           emit('impact', { x: sh.x, y: sh.y, big: !!sh.big, p: true, mob: true });
         } else if (res.crate != null) {
+          emit('impact', { x: sh.x, y: sh.y, big: !!sh.big, p: sh.from === B.p, crate: true });
           hitCrate(res.crate, sh.dmg);
         } else if (res !== 'out') {
           // 护甲：每发先减掉固定伤害（机枪打装甲只冒火星）
@@ -1799,6 +1800,7 @@ SA.Battle = (() => {
           if (sh.focusAtFire) sh.from.events.chargedHit++;
           if (sh.weapon && sh.weapon.arc === 'high') sh.from.events.highHit++;
           damage(sh.to, sh.from, res, projectileDamage(sh.to, sh.from, res, sh.dmg, sh.weapon));
+          emit('impact', { x: sh.x, y: sh.y, big: !!sh.big, p: sh.from === B.p, car: true, w: sh.weaponCell && sh.weaponCell.id });   // 只通知画面（中弹声），不改状态
           // 抛射架与其他带 splash 的武器共享溅射规则，命中点附近的模块按距离衰减。
           if (sh.weapon && sh.weapon.splash) {
             const hitBox = modCenter(sh.to, res.layer, res.r, res.c);
