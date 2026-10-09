@@ -79,3 +79,4 @@ SA.BUILD_VIS += '+route-pickup-hop-fan-fix'; // 出征：路上没敌车时散�
 SA.BUILD_VIS += '+battle-audio-game-sfx'; // 所有战斗都有声音：游戏音效第二批（Mixkit + Freesound CC0），开火按武器分，发动机怠速 + 蒸汽喷吐跟车速，履带咔哒。
 SA.BUILD_VIS += '+hit-layers-quiet-engine-yard-ruins'; // 中弹闷响 + 短「嘣」、发动机压低过低通；出征从铁匠铺院子出发、难民身后破屋、路边成簇的废墟。
 SA.BUILD_VIS += '+crisp-small-cannon-soft-tracks-ruin-districts-bridges'; // 小炮更脆、履带钝而稀；工厂 / 连栋楼废墟区、铁桁架桥、碎砖坡画法。
+SA.BUILD_VIS += '+soft-tracks-lowpass'; // 履带 / 脚步过 550～650 Hz 低通（2 kHz 以上能量从 46% 降到约 1%），蒸汽喷吐、怠速再压暗。

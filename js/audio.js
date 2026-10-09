@@ -111,6 +111,8 @@ SA.Audio = (() => {
     src.playbackRate.value = (o.pitch || 1) * (1 + (Math.random() * 2 - 1) * (b.pitch || 0));
     const g = c.createGain(); const vol = b.vol * (o.vol == null ? 1 : o.vol); g.gain.value = vol;
     let node = src;
+    // o.lp：低通（Hz），滤掉刺耳的高频（履带、脚步用）
+    if (o.lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; f.Q.value = 0.5; node.connect(f); node = f; }
     node.connect(g); node = g;
     if (o.x != null && c.createStereoPanner) { const pan = c.createStereoPanner(); pan.pan.value = Math.max(-0.8, Math.min(0.8, (o.x - 0.5) * 1.6)); node.connect(pan); node = pan; }
     node.connect(buses[b.bus || 'sfx']);
