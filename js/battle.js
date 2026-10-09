@@ -198,7 +198,8 @@ SA.Battle = (() => {
     return { id: key, def, len, ground, natural, mud: def.mud || [], crates, props: crates, pickups: (def.pickups || []).map(p => ({ ...p, taken: false })) };
   }
   // 起伏路线（docs/expedition-plan.md §13）：profile = [[x, 比 GROUND 高多少], ...] 控制点，Catmull-Rom 插值成每像素的地面；
-  // features 里会改地面高度的人造地形：bridge（驼背桥，hump 拱高）、fill（桥前路堤，从 x0 的原地面拉到 x1）、cut（路堑，往下挖 depth）。
+  // features 里会改地面高度的人造地形：bridge（驼背桥，hump 拱高）、fill（桥前路堤，从 x0 的原地面拉到 x1）、cut（路堑，往下挖 depth）、
+  // span（架空桁架桥，桥下挖沟 depth）、rubble（碎砖坡，高 h）。
   // 返回原地面高度（不含人造地形），画面层画路堤、运河要用
   function profileGround(ground, len, pts, feats) {
     const nat = new Float32Array(len + 1);
@@ -211,11 +212,24 @@ SA.Battle = (() => {
         nat[x] = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
       }
     }
+    // 架空桥（span）：桥面从两头的原地面拉直线，桥下的原地面挖成一道沟（画面上透过桁架看得到沟底），车在桥面上走
+    const deck = new Map();
+    for (const f of feats) if (f.kind === 'span') {
+      const a = at(f.x0), b = at(f.x1);
+      for (let x = Math.max(0, Math.ceil(f.x0)); x <= Math.min(len, Math.floor(f.x1)); x++) {
+        const t = (x - f.x0) / Math.max(1, f.x1 - f.x0);
+        deck.set(x, a + (b - a) * t);
+        nat[x] -= (f.depth || 80) * Math.pow(Math.sin(Math.PI * t), 0.6);
+      }
+    }
     for (let x = 0; x <= len; x++) {
       let h = nat[x];
       for (const f of feats) {
         if (x < f.x0 || x > f.x1) continue;
-        if (f.kind === 'bridge') { const u = (x - (f.x0 + f.x1) / 2) / ((f.x1 - f.x0) / 2); h += (f.hump || 24) * Math.cos(u * Math.PI / 2) ** 2; }
+        if (f.kind === 'span') h = deck.get(x) ?? h;
+        // 碎砖坡（rubble）：塌掉的建筑堆成的坡，要爬过去；坡面有一点点起伏（幅度很小，不让车抖）
+        else if (f.kind === 'rubble') { const u = (x - (f.x0 + f.x1) / 2) / ((f.x1 - f.x0) / 2), env = Math.cos(u * Math.PI / 2) ** 2; h += env * ((f.h || 40) + Math.sin(x * 0.06) + 0.6 * Math.sin(x * 0.15 + 1)); }
+        else if (f.kind === 'bridge') { const u = (x - (f.x0 + f.x1) / 2) / ((f.x1 - f.x0) / 2); h += (f.hump || 24) * Math.cos(u * Math.PI / 2) ** 2; }
         else if (f.kind === 'fill') { const k = (x - f.x0) / Math.max(1, f.x1 - f.x0); h = Math.max(h, at(f.x0) + (at(f.x1) - at(f.x0)) * k + 6 * Math.sin(k * Math.PI)); }
         else if (f.kind === 'cut') { const r = Math.min(1, (x - f.x0) / 120, (f.x1 - x) / 120); h -= (f.depth || 0) * (r * r * (3 - 2 * r)); }
       }
@@ -476,7 +490,9 @@ SA.Battle = (() => {
       // 起伏路线：镜头竖直跟着车走——画面底边 = 车下（两车里低的那辆）地面往下 60，往坡的方向多看一点（上坡往上抬、下坡往下看）
       const ps = span(B.p), pc = (ps[0] + ps[1]) / 2, gp = groundAt(pc), es = B.e ? span(B.e) : null, ge = es ? groundAt((es[0] + es[1]) / 2) : gp;
       // 下坡：前方 520px 处的路面也要在画面里（底边往下放）；上坡不用管，画面上方本来就看得到坡顶
-      const want = Math.max(Math.max(gp, ge) + 60, groundAt(pc + 520) + 50);
+      // 过架空桥 / 路堤时，原地面（沟底）在路面下面：镜头往下多看一点，看得见桥下的沟（最多 160px）
+      const floor = GROUND - B.ter.natural[clamp(Math.round(pc), 0, B.ter.len)];
+      const want = Math.max(Math.max(gp, ge) + 60, groundAt(pc + 520) + 50, Math.min(floor + 30, gp + 160));
       cam.bot = cam.bot == null || dt >= 1 ? want : cam.bot + (want - cam.bot) * Math.min(1, dt * 3);
       cam.y = cam.bot - sh;
     } else cam.y = GROUND + 60 - sh;
