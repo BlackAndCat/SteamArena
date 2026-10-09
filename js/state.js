@@ -14,11 +14,11 @@ SA.S = (() => {
 
   function fresh() {
     return {
-      money: SA.RULES.initial.money, debt: 0, rep: 0, season: 1, round: 0,
+      money: SA.RULES.initial.money, debt: 0, rep: 0, season: 1, round: 0, playMode: 'campaign',
       inv: {}, ingots: {},   // 新档先用四件初始车作教学，首胜再领取小水罐。
       vehicle: starterVehicle(),
       // 出发计数在真实出发时写入；结算次数独立保留，路线教学与动态调整在重开时清零。
-      route: { best: {}, runs: 0, departures: 0, routeRuns: {}, dda: {}, streaks: {}, metal: 0 },
+      route: { best: {}, runs: 0, departures: 0, routeRuns: {}, dda: {}, streaks: {}, metal: 0, materials: 0, defeatedEnemies: 0, radiatorRewardClaimed: false },
       // 领取账本按奖励 key 记；stockCells 保存有身份或迁移耐久的库存实例，inv 仍是供现有车间读取的总件数。
       uniqueClaims: {}, stockCells: [],
       bet: null,
@@ -37,6 +37,11 @@ SA.S = (() => {
     d.uniqueClaims = d.uniqueClaims || {};
     d.stockCells = d.stockCells || [];
     d.route = d.route || { best: {}, runs: 0, metal: 0 };
+    // 旧档无法推算历史敌车数或制作物资；从新结算累计，不把金币倒换成物资。
+    d.playMode = d.playMode === 'route' ? 'route' : 'campaign';
+    d.route.materials = d.route.materials ?? 0;
+    d.route.defeatedEnemies = d.route.defeatedEnemies ?? 0;
+    d.route.radiatorRewardClaimed = !!d.route.radiatorRewardClaimed;
     d.route.departures = d.route.departures ?? d.route.runs ?? 0;
     // 老档只有总趟数：最远记录出现过的路线继承该计数，未去过的路线从教学开始。
     d.route.routeRuns = d.route.routeRuns || Object.fromEntries(Object.keys(d.route.best || {}).map(id => [id, d.route.runs || 0]));
@@ -179,7 +184,7 @@ SA.S = (() => {
   }
   // 买下 n 个模块进库存
   function buy(id, n = 1) {
-    if (!buyable(id)) return false;
+    if (isRouteMode() || !buyable(id)) return false;
     const cost = SA.buyPrice(id) * n;
     if (d.money < cost) return false;
     d.money -= cost; addInv(id, n, SA.buyMt(id));
@@ -610,9 +615,26 @@ SA.S = (() => {
 
   // 编辑器操作：付款在原确认入口扣除，其余模块变更在此执行。
   // 商店只卖本进度已解锁或当前章节作者指定的有效模块；所有驾驶舱只靠初始装备和缴获获得。
-  const buyable = (id) => typeof id === 'string' && Object.hasOwn(SA.MODULES, id) && !Object.hasOwn(SA.RETIRED, id)
+  const shopEligible = (id) => typeof id === 'string' && Object.hasOwn(SA.MODULES, id) && !Object.hasOwn(SA.RETIRED, id)
     && !SA.isCockpit(id) && SA.Camp.has('shop') && SA.Camp.shopMods().has(id)
     && !SA.isUnique(id) && SA.minMt(id) <= SA.Camp.maxMat();
+  // 工坊模式跨院子、车间和重载持久保留；设计工具仍使用它原有的免费规则。
+  function setPlayMode(mode) { if (mode !== 'route' && mode !== 'campaign') return false; d.playMode = mode; return true; }
+  function isRouteMode() { return d?.playMode === 'route' && !SA.Camp?.isDesignMode?.(); }
+  const craftPrice = (id) => SA.buyPrice(id);
+  const craftable = (id) => isRouteMode() && shopEligible(id);
+  const buyable = (id) => isRouteMode() ? craftable(id) : shopEligible(id);
+  // 先完成全部检查再扣款入库，同一次操作只存档一次，非法数量不改变物资和库存。
+  function craft(id, n = 1) {
+    const balance = d.route.materials || 0;
+    if (!Number.isSafeInteger(n) || n <= 0) return { ok: false, cost: 0, reason: '制作数量必须是正整数', balance };
+    if (!craftable(id)) return { ok: false, cost: 0, reason: '模块尚未解锁制作', balance };
+    const cost = craftPrice(id) * n;
+    if (!Number.isSafeInteger(cost) || cost < 0) return { ok: false, cost: 0, reason: '制作数量过大', balance };
+    if (balance < cost) return { ok: false, cost, reason: '制作物资不足', balance };
+    d.route.materials = balance - cost; addInv(id, n, SA.buyMt(id)); save();
+    return { ok: true, cost, balance: d.route.materials };
+  }
   function payAmount(amount) { d.money -= amount; save(); }
   function repay(n) { const x = Math.min(n, d.debt); d.debt -= x; d.money -= x; }
   function repairCells(cells) { for (const c of cells) c.hp = SA.V.maxHp(c); }
@@ -658,5 +680,5 @@ SA.S = (() => {
     for (const cell of res.removed) scrap += stashCell(cell);
     return { ...res, scrap };
   }
-  return { load, save, restartGame, ...(!SA.RELEASE ? { reset, replaceWithStarter } : {}), starterVehicle, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, refitCell, renameVehicle, sellStock, installStock, removeVehicleCell };
+  return { load, save, restartGame, ...(!SA.RELEASE ? { reset, replaceWithStarter } : {}), starterVehicle, get d() { return d; }, addInv, invCount, takeBest, stockOptions, takeStock, addIngots, hasUnique, claimUnique, LOAN_CAP, loanRoom, borrow, buy, repairCost, opponent, odds, Cloud, Blueprints, arenaEntries, placeBet, cancelBet, settleBattle, stashCell, matUpInfo, buyable, setPlayMode, isRouteMode, craftPrice, craftable, craft, payAmount, repay, repairCells, upgradeMaterial, upgradeCell, refitCell, renameVehicle, sellStock, installStock, removeVehicleCell };
 })();

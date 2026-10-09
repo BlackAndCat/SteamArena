@@ -11,7 +11,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { fork, spawn, spawnSync } = require('node:child_process');
 
-const SUPPORTED_HEAT_RULE_SHA256 = 'd85405f0cb241e86deb413872ee07ff02347db635f9bb37ec129a2076cf95792';
+const SUPPORTED_HEAT_RULE_SHA256 = 'f9495fd8d4933d4dcb7956ccb05e07257e1e7f5ea38cd34a828e9beace395f6c';
 const chromePath = [path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
   path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe')]
   .find(file => fs.existsSync(file));
@@ -25,6 +25,10 @@ function currentHeatRuleSHA256() {
     temp: modules.match(/  temp: \(heat, cap\) =>[^\r\n]*/)?.[0],
     thermal: modules.match(/  thermalStep: \(heat, water, dt, p\) => \{[\s\S]*?\r?\n  \},/)?.[0],
     cool: modules.match(/SA\.coolRate = [^\r\n]*/)?.[0],
+    waterPower: modules.match(/  waterCoolingPower: [\s\S]*?\r?\n[^\r\n]*,/)?.[0],
+    waterEfficiency: modules.match(/  waterCoolingEfficiency: [\s\S]*?\r?\n[^\r\n]*,/)?.[0],
+    waterConfig: ['WATER_FLOW', 'WATER_HEAT_PER_L', 'WATER_SOFT_LIMIT'].map(key =>
+      JSON.parse(fs.readFileSync(path.join(__dirname, '../config/modules.json'), 'utf8')).K[key]),
     loop: vehicle.match(/    let heat = 0;\r?\n    for \(let t = 0; t < 300; t \+= 0\.5\) \{[\s\S]*?\r?\n    return Infinity;/)?.[0],
   };
   if (Object.values(parts).some(part => !part)) return null;

@@ -1,6 +1,15 @@
 {
   "version": 1,
   "messages": {
+    "route_craft_cost": "{{0}} 制作物资",
+    "route_craft_button": "制作 · {{0}} 物资",
+    "route_craft_verb": "制作",
+    "route_craft_hint": "库存用完后自动消耗制作物资补充",
+    "route_craft_wallet": "制作物资 · {{0}}",
+    "route_craft_short": "制作物资不足：需要 {{0}}，现有 {{1}}",
+    "route_craft_done": "已制作 {{0}}，消耗 {{1}} 物资，剩余 {{2}}",
+    "route_tally_materials": "本次制作物资 +{{0}} · 累计 {{1}}",
+    "route_craft_reward": "获得 {{0}} ×{{1}} · 已解锁制作",
     "ui_repair_free_done": "本场参赛车已免费修复",
     "camp_unlock_grid": "改装台扩建到 {{0}} 列 × {{1}} 层",
     "camp_unlock_material": "材料「{{0}}」：属性 ×{{1}}，在车间点「升级材质」再点车上的模块即可升级",

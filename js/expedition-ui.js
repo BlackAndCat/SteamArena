@@ -12,6 +12,8 @@ SA.ExpeditionUI = (() => {
 
   function afterRoute(result) {
     const r = result || { mode: 'route', how: 'recall' };
+    // 先设置上下文，随后结算的既有保存一并持久化，避免额外写档。
+    SA.S.setPlayMode('route');
     if (SA.Route && SA.Route.settle && r.runId && !settled.has(r.runId)) { settled.add(r.runId); SA.Route.settle(r); }   // 补上 money / metalKept / best 等
     if (SA.Arena && SA.Arena.unmount) SA.Arena.unmount();
     document.querySelector('#modal').hidden = true;   // 战斗里没关的对话框（返航确认、白旗）不留到院子里
@@ -60,10 +62,11 @@ SA.ExpeditionUI = (() => {
         h('div', { class: 'ar-title' }, UI.img(X.brush(SA.Config.text('route_tally'), 22, X.INK, '#b59c6c', 3), 2)),
         h('div', { class: 'ar-tally' },
           h('div', { class: 'nt' }, SA.Config.text('route_tally_got')),
-          slots(cargo) || (r.metalKept || r.bonus ? null : h('div', { class: 'px-small' }, SA.Config.text('route_tally_none'))),
+          slots(cargo) || (r.metalKept || r.bonus || r.materials || (r.items || r.rewards?.items || []).length ? null : h('div', { class: 'px-small' }, SA.Config.text('route_tally_none'))),
           r.metalKept ? h('div', { class: 'ar-metal' }, UI.img(SA.RouteView ? SA.RouteView.metalBadge(r.metalKept) : document.createElement('canvas'), 2)) : null,
           r.bonus ? h('div', {}, SA.Config.text('route_tally_depot_bonus')) : null,
-          r.money ? h('div', {}, SA.Config.text('route_tally_money'), ' ', UI.num(SA.UI.money(r.money))) : null,
+          h('div', {}, SA.Config.text('route_tally_materials', r.materials || 0, SA.S.d.route.materials || 0)),
+          ...(r.items || r.rewards?.items || []).map(item => h('div', {}, SA.Config.text('route_craft_reward', SA.MODULES[item.id].name, item.n))),
           lost.length ? [h('div', { class: 'nt' }, SA.Config.text('route_tally_lost')), h('div', { class: 'ar-lost' }, slots(lost))] : null),
         r.playerVehicle ? h('div', { class: 'ar-cars' }, carPrint(r.playerVehicle)) : null));
     const side = h('section', { class: 'ar-side', 'data-page-key': 'route-tally-side' },

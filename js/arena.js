@@ -16,10 +16,21 @@ SA.Arena = (() => {
   const st = { mode: 'camp', pick: { camp: null, side: null, tour: null, street: null, friendly: null, route: null }, bet: null, openCh: null };
   let root = null;
 
+  // 用户选择的玩法影响车间钱包，只有切换时落盘，重绘和再次打开不重复保存。
+  function selectPlayMode(mode) {
+    const next = mode === 'route' ? 'route' : 'campaign';
+    if (d().playMode === next) return;
+    SA.S.setPlayMode(next);
+    SA.S.save();
+  }
+
   // quiet：战后结算会接着弹窗，先不弹章节开场
   function open(mode, quiet) {
     if (mode) st.mode = mode;
+    else if (SA.S.isRouteMode()) st.mode = 'route';
     if (!modes().some(([k]) => k === st.mode)) st.mode = 'camp';
+    // 当前玩法保留到车间、返院和重载，普通战役页签恢复金币经济。
+    selectPlayMode(st.mode);
     st.pick.tour = null; st.pick.camp = null;   // 每次进来都默认选中当前这一场
     root = SA.Home.board({ instant: !!quiet });   // 院子里拉下黑板，返回黑板上的内容容器
     render();
@@ -69,7 +80,7 @@ SA.Arena = (() => {
   // ---------- 左：黑板（打过的划掉，要打的圈起来，选中的框起来；底下粉笔画场地）----------
   function tabsEl() {
     const D = d(), ms = modes();
-    return ms.length > 1 ? h('div', { class: 'ch-tabs' }, ms.map(([k, n]) => h('button', { class: `ch-tab ${st.mode === k ? 'on' : ''}`, onclick: () => { st.mode = k; render(); } }, n, k === 'tour' ? ` · ${D.round + 1}` : ''))) : null;
+    return ms.length > 1 ? h('div', { class: 'ch-tabs' }, ms.map(([k, n]) => h('button', { class: `ch-tab ${st.mode === k ? 'on' : ''}`, onclick: () => { st.mode = k; selectPlayMode(k); render(); } }, n, k === 'tour' ? ` · ${D.round + 1}` : ''))) : null;
   }
   function board(list, cur) {
     const D = d(), UI = SA.PX.ui, X = SA.PX;

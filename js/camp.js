@@ -91,8 +91,9 @@ SA.Camp = (() => {
   const d = () => SA.S.d;
   const c = () => d().camp;
 
-  const has = (f) => c().feat.includes(f);
-  const hasMod = (id) => c().mods.includes(id);
+  // 出征初期即可用工坊；战役功能进度不变，散热器资格来自独立的一次性奖励。
+  const has = (f) => c().feat.includes(f) || (SA.S.isRouteMode() && ['garage', 'shop'].includes(f));
+  const hasMod = (id) => c().mods.includes(id) || (SA.S.isRouteMode() && id === 'radiator' && d().route.radiatorRewardClaimed);
   const maxMat = () => c().mat;
   // 旧存档和历史扩建奖励保留，但有效车间始终等于物理底图。
   const grid = () => SA.V.fullGrid();
@@ -130,6 +131,7 @@ SA.Camp = (() => {
   // 已通关关卡、已完成章节与本章作者白名单可售；背包和一般解锁仍照常使用 C.mods。
   function shopMods() {
     const C = c(), available = new Set(SA.CAMP_START.mods);
+    if (SA.S.isRouteMode() && d().route.radiatorRewardClaimed) available.add('radiator');
     for (let ci = 0; ci < chapterCount(); ci++) {
       const chapter = SA.CAMPAIGN[ci];
       if (C.done || ci < C.ch || ci === C.ch) for (let si = 0; si < chapter.stages.length; si++) {

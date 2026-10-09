@@ -4,6 +4,8 @@
 // BIPED_CLASSES：轻重腿速度、承重、闪避、跳高与下蹲倍率，均为机制数据。
 // 抛射武器的 spread / spreadMin 分别是散布角度上、下限（度）；测距仪会同比缩放两端。
 // tetherStrength：鱼叉可承受的向外拉扯富余动力（kW），随材料倍率提高；不以车重直接计算断裂。
+// WATER_FLOW：湿冷额定流量倍率，限于 0～3；WATER_HEAT_PER_L：每升热水排出的基准热量（kJ/L）。
+// WATER_SOFT_LIMIT：湿冷效率开始衰减的温度（°C）；120 °C 过热线不变，高温仍能缓慢水冷。
 window.SA = window.SA || {};
 const moduleConfig = SA.Config.get('modules');
 SA.K = moduleConfig.K;
@@ -82,14 +84,26 @@ SA.Phys = {
   fmtWater: l => `${l.toFixed(1)} L`,
   fmtHeat: kj => `${kj.toFixed(0)} kJ`,
   fmtTemp: c => `${c.toFixed(0)} °C`,
-  // 储水只参与冷却蒸发；锅炉轴功率及其产热不受储水量限制。
+  // 温控阀供水功率（kW）：默认 60 °C 开始、90 °C 全开；低温巡航交给干冷，流量倍率封顶 3。
+  waterCoolingPower: (cool, heat, cap, flow = SA.K.WATER_FLOW, softLimit = SA.K.WATER_SOFT_LIMIT, coolFull = SA.K.COOL_FULL) => cool * Math.max(0, Math.min(3, flow))
+    * Math.max(0, Math.min(1, (SA.Phys.temp(heat, cap) - (softLimit - coolFull)) / coolFull)),
+  // 高温时热水排出效率连续下降：90 °C 以下为 1，120 °C 为 1/4；更高温仍为正值。
+  waterCoolingEfficiency: (heat, cap, softLimit = SA.K.WATER_SOFT_LIMIT) => 1 / (1 + 3 * Math.max(0, SA.Phys.temp(heat, cap) - softLimit)
+    / (120 - softLimit)),
+  // 储水只参与热水排出散热；锅炉轴功率及其产热不受储水量限制。
+  // 热输入、干冷、湿冷按同一顺序用于实战和预测；水量与移热量使用同一实际流量，避免空耗或负数。
   thermalStep: (heat, water, dt, p) => {
     const shaftKw = p.shaftKw;
     heat = Math.max(0, heat + (p.heatKw * (p.shaftKw ? shaftKw / p.shaftKw : 0) + p.weaponKw + (shaftKw ? SA.K.IDLE_HEAT : 0)) * dt);
     const passive = Math.min(heat, (SA.K.DISSIPATE + p.dryCool) * Math.max(0, (SA.Phys.temp(heat, p.capacity) - 20) / 30) * dt);
     heat -= passive;
-    const cooled = Math.min(heat, SA.coolRate(p.cool, heat, p.capacity) * dt, water * 2257 / p.waterSave);
-    heat -= cooled; water -= cooled / 2257 * p.waterSave;
+    // 捕获的预测输入自带三项热参数快照；实战未传快照时读取当前配置。
+    const waterHeatPerL = p.waterHeatPerL ?? SA.K.WATER_HEAT_PER_L;
+    const heatPerL = waterHeatPerL / p.waterSave * SA.Phys.waterCoolingEfficiency(heat, p.capacity, p.waterSoftLimit);
+    const usedWater = Math.min(water, SA.Phys.waterCoolingPower(p.cool, heat, p.capacity, p.waterFlow, p.waterSoftLimit, p.coolFull) * dt
+      / waterHeatPerL * p.waterSave, heat / heatPerL);
+    const cooled = usedWater * heatPerL;
+    heat -= cooled; water -= usedWater;
     return { heat: Math.max(0, heat), water: Math.max(0, water), shaftKw, cooled, passive };
   },
 };
@@ -122,8 +136,8 @@ SA.refitInfo = (cell, level = SA.refitLevel(cell)) => {
     text: kind === 'load' ? `承重 +${level * 20}%，速度 -${level * 5}%；双足专属`
       : `${attrs.join('、')} +${level * 15}%；改造后双足专属` };
 };
-// 水箱这一刻能带走多少热量（kW）：由机组回路相对环境温差决定。
-SA.coolRate = (cool, heat, cap = 50) => cool * Math.max(0, Math.min(1, (SA.Phys.temp(heat, cap) - 20) / SA.K.COOL_FULL));
+// 当前有效湿冷功率（kW）：cool 是模块额定值，实际值包含流量倍率、温差开启和高温衰减；不含库存限制。
+SA.coolRate = (cool, heat, cap = 50) => SA.Phys.waterCoolingPower(cool, heat, cap) * SA.Phys.waterCoolingEfficiency(heat, cap);
 SA.isRam = (id) => SA.MODULES[id].layer === 'ram';
 
 // 唯一腿部外观：材料取造型原档，每种独立缴获一次。半人马同材料的速度、动力、重量均与普通四足一致。

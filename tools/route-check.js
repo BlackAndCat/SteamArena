@@ -65,6 +65,37 @@ function finite(value) {
   else if (value && typeof value === 'object') for (const part of Object.values(value)) finite(part);
 }
 
+/** 失驱只能由模拟驾驶员在战后主动返航；真人毁轨仍可留场，交战及评分停止点不提前结束。 */
+function stalledDriverChecks(rt, player) {
+  const { SA } = rt;
+  const breakTrack = B => {
+    let track;
+    SA.V.each(B.p.v, (cell, r, c) => { if (!track && cell.id === 'track') track = { r, c }; });
+    assert(track);
+    SA.Battle.debug.damage('p', track.r, track.c, 'body', 1e6);
+    assert(B.p.thrown && B.p.speed === 0, '真实毁轨未触发失驱');
+  };
+  let B = SA.Battle.startState({ mode: 'route', vehicle: player, routeData: route() });
+  breakTrack(B); rt.api().step(1 / 30);
+  assert(!B.done && !B.e, '真人失驱被自动结束');
+  assert(SA.Route.recall()); assert.strictEqual(SA.Route.result().how, 'recall');
+  const enemy = car(SA, null);
+  B = SA.Battle.startState({ mode: 'route', vehicle: player, routeData: route({
+    encounters: [{ at: 0, guard: 700, leash: 900, name: '失驱交战检查车', style: 'turtle', vehicle: enemy }] }) });
+  assert(B.e); breakTrack(B); rt.api().step(1 / 30);
+  assert(!B.done && B.e, '仍在交战时自动返航');
+  const scored = SA.Battle.route.simulate({ routeData: SA.Route.prepare('r1', { vehicle: player, seed: 14, difficulty: false }),
+    vehicle: player, seed: 14, maxTime: 600, stopAfterEncounter: 3 });
+  assert.strictEqual(scored.cleared.length, 3);
+  assert(!scored.completed && scored.result === null, '评分停止点被返航结算覆盖');
+  const middle = require('./route-difficulty-check').fixtures(SA).middle;
+  const stuck = SA.Route.simulate({ route: 'r2', vehicle: middle, runIndex: 5, seed: 1006, maxTime: 600 });
+  assert(stuck.completed && stuck.reason === 'recall', '第五趟固定失驱种子仍耗尽预算');
+  assert.strictEqual(stuck.result.how, 'recall');
+  return { liveManualRecall: true, activeEnemyContinues: true, scoringStopsFirst: true,
+    run5: { seed: 1006, how: stuck.reason, time: stuck.time, cleared: stuck.cleared.length, arrived: stuck.reason === 'depot' } };
+}
+
 
 /** 资源边界与配置隔离走真实步进；工程夹具只验证机制，不作为普通车平衡验收。 */
 function resourceChecks(rt, player) {
@@ -282,6 +313,7 @@ function run() {
   assert(B.route.cleared[2].surrendered);
   B.p.x = 7200; rt.api().step(1 / 60);
   assert.strictEqual(SA.Route.result().how, 'depot');
+  assert.strictEqual(SA.Route.result().enemiesCleared, 3, '击败及投降敌车没有进入结算奖励计数');
   assert(!SA.Route.recall()); rt.api().step(1 / 60);
   assert.strictEqual(rt.events.filter(e => e.type === 'route-end').length, 1);
 
@@ -322,34 +354,38 @@ function run() {
   for (let seed = 1; seed <= 20; seed++) {
     const value = SA.Route.simulate({ route: 'r1', vehicle: player, seed, maxTime: 600, difficulty: false });
     finite(value);
-    assert(value.completed && value.result.how === 'depot', '强检查车未完成真实 r1');
+    assert(value.completed && value.result.how === (seed === 14 ? 'recall' : 'depot'), '强检查车未完成真实 r1');
     assert.strictEqual(value.cleared.length, 3, '到站前漏过遭遇');
+    assert.strictEqual(value.result.enemiesCleared, value.cleared.length);
     assert.strictEqual(new Set(value.cleared.map(enc => enc.i)).size, 3, '遭遇重复计算');
-    assert(value.dist >= SA.ROUTES.r1.end.x, '未到终点却判到站');
+    if (value.result.how === 'depot') assert(value.dist >= SA.ROUTES.r1.end.x, '未到终点却判到站');
     if (seed === 1) firstFull = value;
     outcomes[value.reason] = (outcomes[value.reason] || 0) + 1;
   }
   assert.strictEqual(JSON.stringify(SA.Route.simulate({ route: 'r1', vehicle: player, seed: 1, maxTime: 600, difficulty: false })),
     JSON.stringify(firstFull), '含真实遭遇的固定种子不能复现');
+  assert.strictEqual(outcomes.depot, 19); assert.strictEqual(outcomes.recall, 1);
+  const stalledDriver = stalledDriverChecks(rt, player);
   assert.strictEqual(rt.writes(), 0); assert.strictEqual(JSON.stringify(SA.S.d), saved);
   const resources = resourceChecks(rt, player), speeds = speedChecks(rt);
   const duel = SA.Battle.simulate({ p: player, e: weak, terrain: 'flat', seed: 42 });
   assert(['p', 'e', 'draw'].includes(duel.winner)); finite(duel);
-  // 结算（docs/expedition-fun.md §5）：金属 × 单价 + 到站时终点物资；被打爆只留一半金属；记最远距离；同一趟只结一次
+  // 结算：金属和终点物资折成制作物资；被打爆只留一半金属；同一趟只结一次。
   const eco = SA.Route.getConfig().economy, money0 = SA.S.d.money;
   const paid = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-1', how: 'depot', dist: 7400, metal: 7 });
-  assert.strictEqual(paid.money, 7 * eco.metal + SA.ROUTES.r1.end.bonus * eco.supply);
-  assert.strictEqual(SA.S.d.money, money0 + paid.money);
+  assert.strictEqual(paid.materials, 7 * eco.metal + SA.ROUTES.r1.end.bonus * eco.supply);
+  assert.strictEqual(SA.S.d.money, money0);
+  assert.strictEqual(SA.S.d.route.materials, paid.materials);
   SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-1', how: 'depot', dist: 7400, metal: 7 });
-  assert.strictEqual(SA.S.d.money, money0 + paid.money, '同一趟结算了两次');
+  assert.strictEqual(SA.S.d.route.materials, paid.materials, '同一趟结算了两次');
   const wrecked = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-2', how: 'wrecked', dist: 3000, metal: 7, cargo: ['supply', 'refugee'] });
   assert.strictEqual(wrecked.metalKept, 3); assert.strictEqual(wrecked.bonus, 0);
-  assert.strictEqual(wrecked.goods, eco.supply, '带回的物资没折钱');
+  assert.strictEqual(wrecked.goods, eco.supply, '带回的补给没有折成制作物资');
   assert.strictEqual(SA.S.d.route.refugees, 1, '难民没记进院子');
   assert.strictEqual(SA.Route.best('r1'), 7400, '最远距离被较短的一趟覆盖');
   return { longTerrain: true, emptyEnemyFire: true, encounters: 3, exits: 4, seeds: 20, outcomes, resources, speeds,
-    simulationBudget: true, noSaveWrites: true, arenaWinner: duel.winner };
+    simulationBudget: true, noSaveWrites: true, stalledDriver, arenaWinner: duel.winner };
 }
 
+module.exports = { run, runtime, car, stalledDriverChecks };
 if (require.main === module) console.log(JSON.stringify(run(), null, 2));
-module.exports = { run, runtime };

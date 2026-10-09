@@ -56,7 +56,8 @@ SA.BattleView.create = function createBattleView(api) {
     else if (type === 'encounter') routeTelegram(SA.Config.text('route_encounter', data.name || ''));
     else if (type === 'route-end') {
       const res = () => (SA.Route && SA.Route.result ? SA.Route.result() : B.result);
-      setTimeout(() => { if (SA.ExpeditionUI) SA.ExpeditionUI.afterRoute(res() || { mode: 'route', how: data.how }); else SA.nav('home'); }, data.how === 'recall' ? 500 : 1100);
+      // 结束后战斗循环已停止；保留当前回调绘制的末帧，下一帧直接清点，不再定格等待。
+      requestAnimationFrame(() => { if (SA.ExpeditionUI) SA.ExpeditionUI.afterRoute(res() || { mode: 'route', how: data.how }); else SA.nav('home'); });
     }
     else if (type === 'pickup' || type === 'spill') {
       const y = data.y != null ? data.y : groundAt(data.x), key = type === 'spill' ? 'route_spill' : `route_pickup_${data.kind}`;

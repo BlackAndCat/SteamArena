@@ -93,15 +93,18 @@ function overheatCheck(rt, vehicle) {
   assert.strictEqual(r.cause, 'overheat');
   assert.deepStrictEqual(Array.from(r.cargo), ['supply', 'supply', 'spoils', 'refugee', 'relic']);
   assert.strictEqual(r.lost.length, 0);
-  const before = SA.S.d.money, paid = SA.Route.settle(r);
+  const before = SA.S.d.money, materialsBefore = SA.S.d.route.materials, paid = SA.Route.settle(r);
   assert.strictEqual(paid.metalKept, 7, '过热仍扣除金属');
   const economy = SA.Route.getConfig().economy;
   assert.strictEqual(paid.goods, 2 * economy.supply + economy.relic, '过热带回的物资/遗迹没有全额折价');
-  assert.strictEqual(paid.money, paid.goods + 7 * economy.metal, '过热结算遗漏了金属收益');
-  assert.strictEqual(SA.S.d.money, before + paid.money);
-  const after = SA.S.d.money;
+  assert.strictEqual(paid.money, 0, '出征仍增加金币');
+  assert.strictEqual(paid.materials, paid.goods + 7 * economy.metal, '过热结算遗漏了制作物资');
+  assert.strictEqual(SA.S.d.money, before);
+  assert.strictEqual(SA.S.d.route.materials, materialsBefore + paid.materials);
+  const after = SA.S.d.route.materials;
   SA.Route.settle(r);
-  assert.strictEqual(SA.S.d.money, after, '同局物资重复领取');
+  assert.strictEqual(SA.S.d.route.materials, after, '同局物资重复领取');
+  assert.strictEqual(SA.S.d.money, before);
   return { how: r.how, metalKept: paid.metalKept, cargo: Array.from(r.cargo) };
 }
 
@@ -312,6 +315,47 @@ function heatControlCheck(rt, vehicle) {
   return true;
 }
 
+/** 独立成长案例：真实打赢两辆敌车并结算领奖，库存实例挂到合法装甲上；不替换原概率验收车。 */
+function growthCheck(rt, cars) {
+  const { SA } = rt;
+  SA.S.reset(); SA.S.setPlayMode('route');
+  const victories = [];
+  for (const runIndex of [3, 4]) {
+    const sim = SA.Route.simulate({ route: 'r2', vehicle: cars.upgraded, runIndex, seed: 1001, maxTime: 600 });
+    assert(sim.result && sim.result.enemiesCleared === 1, '成长案例未真实击败敌车');
+    // headless 的固定 simulation 身份不用于正式记账；为两次独立测试结算赋各自身份。
+    const paid = SA.Route.settle({ ...sim.result, runId: 'growth-check-' + runIndex });
+    victories.push({ runIndex, how: sim.reason, enemiesCleared: paid.enemiesCleared });
+  }
+  assert.strictEqual(SA.S.d.route.defeatedEnemies, 2);
+  assert.strictEqual(SA.S.invCount('radiator'), 1);
+  assert(SA.S.craftable('radiator'));
+  // 原中期车没有侧挂宿主；两辆对照车均加同一块黄铜装甲，只比较获赠散热器的作用。
+  const baseline = SA.V.clone(cars.middle);
+  assert(SA.V.place(baseline, 'armor', 4, 8, 1).ok);
+  const grown = SA.V.clone(baseline);
+  grown.name = '两敌胜利后散热器成长车';
+  assert(SA.V.canPlace(grown, 'radiator', 4, 8).ok);
+  SA.S.installStock(grown, 'radiator', 4, 8, 1, 'side', null, []);
+  assert.strictEqual(SA.S.invCount('radiator'), 0);
+  assert.strictEqual(grown.side[4][8].id, 'radiator');
+  assert(SA.V.stats(grown).canDeploy, JSON.stringify(SA.V.issues(grown)));
+  assert(SA.V.stats(grown).dryCool > SA.V.stats(baseline).dryCool);
+  const options = { runIndex: 5, seed: 1001, maxTime: 60 };
+  const basePlan = SA.Route.prepare('r2', { ...options, vehicle: baseline });
+  const grownPlan = SA.Route.prepare('r2', { ...options, vehicle: grown });
+  assert.strictEqual(grownPlan.encounters.length, 2);
+  // 用相同正式地图隔离散热器效果，避免选敌差异混入冷却比较。
+  const baseSim = SA.Battle.route.simulate({ routeData: basePlan, vehicle: baseline, ...options });
+  const grownSim = SA.Battle.route.simulate({ routeData: basePlan, vehicle: grown, ...options });
+  finite(baseSim); finite(grownSim);
+  const baseTemperature = baseSim.samples.at(-1).temperature, grownTemperature = grownSim.samples.at(-1).temperature;
+  assert(grownTemperature < baseTemperature, '合法装上的散热器未在正式步进降低温度');
+  SA.S.reset();
+  return { victories, legalStockInstall: true, baseline: { how: baseSim.reason, temperature: baseTemperature },
+    radiator: { how: grownSim.reason, temperature: grownTemperature }, power: grownPlan.difficulty.powerScore };
+}
+
 /** 默认命令严格验收；--probe 仅在调参时打印真实样本，不能作为通过报告。 */
 function run({ probe = false, count = 20 } = {}) {
   const rt = runtime(), { SA } = rt, cars = fixtures(SA);
@@ -325,6 +369,7 @@ function run({ probe = false, count = 20 } = {}) {
     checks.release = releaseCheck();
     checks.config = configCheck(SA);
     checks.heatControl = heatControlCheck(rt, cars.middle);
+    checks.growth = growthCheck(rt, cars);
   }
   const reports = [];
   for (const [runIndex, vehicle] of [[1, cars.starter], [2, cars.cooled], [3, cars.upgraded], [4, cars.upgraded], [5, cars.middle]]) {
@@ -362,4 +407,4 @@ if (require.main === module) {
   console.log(JSON.stringify({ passed: result.passed, checks: result.checks }));
 }
 module.exports = { run, fixtures, batch, summarize, planningCheck, adaptationCheck,
-  historyCheck, liveSeedCheck, quantityOnlyCheck, releaseCheck, configCheck, heatControlCheck };
+  historyCheck, liveSeedCheck, quantityOnlyCheck, releaseCheck, configCheck, heatControlCheck, growthCheck };

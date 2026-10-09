@@ -70,18 +70,18 @@ for (let ci = 0; ci < SA.CAMPAIGN.length; ci++) for (let si = 0; si < SA.CAMPAIG
 // 每一关都要查到（后台新建关卡后自动跟上）
 assert.strictEqual(stageCount, SA.CAMPAIGN.reduce((n, ch) => n + ch.stages.filter(st => !st.unfinished).length, 0), '有关卡没查到储水');
 
-// 锅炉供能不消耗储水，冷却蒸发才消耗储水。
+// 锅炉供能不消耗储水，热水排出散热才消耗储水。
 const base = { shaftKw: 60, heatKw: 75, weaponKw: 0, cool: 0, dryCool: 0, waterSave: 1, capacity: 50 };
 const dry = P.thermalStep(100, 0, 1 / 60, base);
 near(dry.shaftKw, 60); near(dry.water, 0);
 const last = P.thermalStep(100, 0.001, 1 / 60, { ...base, cool: 200 });
 assert(last.water >= 0 && last.water <= 0.001);
-const cooled = P.thermalStep(100, 0.001, 1 / 60, { ...base, shaftKw: 0, cool: 200 });
-assert(cooled.cooled <= 0.001 * P.LATENT_KJ_L + 1e-9);
-near(cooled.water, 0.001 - cooled.cooled / P.LATENT_KJ_L);
+const cooled = P.thermalStep(3000, 0.001, 1 / 60, { ...base, shaftKw: 0, cool: 200 });
+assert(cooled.cooled <= 0.001 * SA.K.WATER_HEAT_PER_L + 1e-9);
+near(cooled.water, 0.001 - cooled.cooled / SA.K.WATER_HEAT_PER_L);
 const running = P.thermalStep(0, 1, 1, base);
 near(running.water, 1);
-const wetCooling = P.thermalStep(100, 1, 1, { ...base, shaftKw: 0, cool: 200 });
+const wetCooling = P.thermalStep(3000, 1, 1, { ...base, shaftKw: 0, cool: 200 });
 assert(wetCooling.water < 1 && wetCooling.cooled > 0);
 
 // 同质量下高坡在指定速度所需功率更大；6 PS 牵引四吨车不能免费获得额定加速度。
@@ -91,7 +91,7 @@ const hillKw = kg * P.GRAVITY * (P.ROLL + 0.1) * v / P.TRANSMISSION / 1000;
 assert(sixPsKw > flatKw && sixPsKw < hillKw);
 assert(P.driveKw(kg, 48) > sixPsKw);
 
-// 真正开一局：纸面满水质量、蒸汽耗水、回路升温及水重变化进入战斗状态。
+// 真正开一局：纸面满水质量、散热耗水、回路升温及水重变化进入战斗状态。
 const side = startFight(starter, starter).p;
 near(side.mass * 1000, stats.weight);
 near(side.supply, stats.supply);

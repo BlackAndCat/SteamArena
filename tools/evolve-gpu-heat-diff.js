@@ -37,17 +37,28 @@ function fixture() {
 
   const base = { water: 0, shaftKw: 1, heatKw: 100, weaponKw: 0, cool: 0,
     dryCool: 0, waterSave: 1, capacity: 50, idleHeat: SA.K.IDLE_HEAT,
-    dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL };
+    dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL,
+    waterFlow: SA.K.WATER_FLOW, waterHeatPerL: SA.K.WATER_HEAT_PER_L, waterSoftLimit: SA.K.WATER_SOFT_LIMIT };
   add('手工边界', '首步过热', { ...base, heatKw: 20000 });
   add('手工边界', '不发生过热', { ...base, heatKw: 0, shaftKw: 0 });
   add('手工边界', '耗尽储水', { ...base, water: 1, cool: 200, heatKw: 180 });
   add('手工边界', '持续冷却', { ...base, water: 1000, cool: 200, heatKw: 180 });
+  for (const waterFlow of [0, 1, 3]) add('热参数快照', `流量 ${waterFlow}`, { ...base, water: 1000, cool: 200, heatKw: 180, waterFlow });
+  add('热参数快照', '不同热水移热', { ...base, water: 2, cool: 200, heatKw: 180, waterHeatPerL: 400 });
+  add('热参数快照', '不同软上限', { ...base, water: 100, cool: 200, heatKw: 180, waterSoftLimit: 80 });
+  add('热参数快照', '不同阀门开启温差', { ...base, water: 100, cool: 200, heatKw: 180, coolFull: 20 });
+  add('热参数快照', '低负载阀门关闭', { ...base, water: 100, cool: 200, heatKw: 25 });
+  // 首帧干冷后的温度落在阀门及高温效率边界两侧，核对连续开启与保守回退。
+  for (const temp of [60, 90, 120]) for (const offset of [-0.001, 0, 0.001]) {
+    const beforePassive = base.capacity * (temp + offset - 20) / (1 - base.dissipate * 0.5 / base.capacity / 30);
+    add('热参数快照', `首帧温度 ${temp + offset}`, { ...base, water: 0.1, cool: 200, heatKw: beforePassive * 2 - base.idleHeat });
+  }
   add('手工边界', '边界外的极小值应回退', { ...base, water: 1e-30 });
 
   // 原规则二分找出各首次过热步数的临界热功率，检查阈值两侧及第 600 步。
   function expected(input) {
     const t = SA.heatReference(input.weaponKw, input.cool, input.water, input.dryCool,
-      input.waterSave, input.capacity, input.shaftKw, input.heatKw);
+      input.waterSave, input.capacity, input.shaftKw, input.heatKw, input);
     return Number.isFinite(t) ? Math.round(t * 2) : 0;
   }
   for (const step of [1, 2, 30, 300, 599, 600]) {
@@ -85,7 +96,7 @@ async function main() {
   let { rows, labels, groups, expected } = fixture();
   if (process.argv.includes('--diagnose')) {
     const selected = rows.map((_, i) => i).filter(i => groups[i] === '真实关卡车' ||
-      groups[i] === '手工边界' || groups[i] === '首次过热临界' && labels[i].includes(' 1 步') ||
+      groups[i] === '手工边界' || groups[i] === '热参数快照' || groups[i] === '首次过热临界' && labels[i].includes(' 1 步') ||
       labels[i] === '固定种子 0' || labels[i] === '固定种子 100' ||
       labels[i] === '固定种子 512' || labels[i] === '固定种子 1024' ||
       labels[i] === '固定种子 1536');

@@ -37,6 +37,17 @@ SA.Editor = (() => {
   const d = () => SA.S.d;
   const veh = () => d().vehicle;
   const money = (n) => SA.UI.money(n);
+  // 出征制作使用独立物资钱包；竞技场购买继续显示英镑，不混用余额。
+  const routeMode = () => SA.S.isRouteMode();
+  const partPrice = (id) => routeMode() ? SA.Config.text('route_craft_cost', SA.S.craftPrice(id)) : money(SA.buyPrice(id));
+  const buyLabel = (id) => routeMode() ? SA.Config.text('route_craft_button', SA.S.craftPrice(id)) : SA.Config.text('editor_e328d285d23a', money(SA.buyPrice(id)));
+  function craftPart(id) {
+    const result = SA.S.craft(id);
+    if (!result.ok) { say(SA.Config.text('route_craft_short', result.cost, result.balance), true); return false; }
+    say(SA.Config.text('route_craft_done', M[id].name, result.cost, result.balance));
+    SA.UI.topbar();
+    return true;
+  }
   const hurt = (cell) => cell && cell.hp > 0 && cell.hp < SA.V.maxHp(cell);
   const where = (r, c) => SA.Config.text("editor_817a33140466", `${K.ROWS - r}`, `${c + 1}`);   // 子格坐标，从地面往上数
   const kid = (k) => SA.parseKey(k).id, kmt = (k) => SA.parseKey(k).mt;
@@ -489,6 +500,8 @@ SA.Editor = (() => {
     if (d().inv[key] > 0) { then(); return; }
     const id = kid(key), m = M[id];
     if (kmt(key) !== SA.buyMt(id) || !buyable(id)) { say(has('shop') ? SA.Config.text("editor_6cf70cc8390e", `${m.name}`) : SA.Config.text("editor_b5b94de06ec2"), true); st.sel = null; renderDock(); return; }
+    // 出征先制作再安装；材料不足不贷款，且由规则层一次完成扣料和入库。
+    if (routeMode()) { if (craftPart(id)) then(); return; }
     // 钱够就直接买，不弹确认；钱不够才会问要不要贷款
     SA.UI.pay({
       title: SA.Config.text("editor_1abee404f72e", `${fullName(id, SA.buyMt(id))}`), amount: SA.buyPrice(id), okLabel: SA.Config.text("editor_f753a207c3ea"), confirm: false,
@@ -574,6 +587,8 @@ SA.Editor = (() => {
   function buyOne(id) {
     const m = M[id];
     if (!buyable(id)) return;
+    // 单独制作已经由规则层保存，刷新界面即可，避免重复写同一份存档。
+    if (routeMode()) { if (craftPart(id)) refresh(); return; }
     SA.UI.pay({ title: SA.Config.text("editor_1abee404f72e", `${fullName(id, SA.buyMt(id))}`), amount: SA.buyPrice(id), okLabel: SA.Config.text("editor_cc6f86bd41a6"), confirm: false,
       lines: [h('div', { class: 'dlg-item' }, SA.SPR.moduleCanvas(id, 1), h('div', {}, h('b', {}, m.name), h('div', { class: 'muted' }, SA.UI.statLine(id))))],
       onPaid: () => { const k = SA.invKey(id, SA.buyMt(id)); SA.S.addInv(id, 1, SA.buyMt(id)); say(SA.Config.text("editor_8c84a6bd7f9e", `${fullName(id, SA.buyMt(id))}`, `${d().inv[k]}`)); changed(); } });
@@ -644,10 +659,10 @@ SA.Editor = (() => {
       ctxEl.append(thumb(id, mt),
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
-            n ? h('span', { class: 'chip' }, SA.Config.text("editor_990f4dd8bc60", `${n}`)) : canBuy ? h('span', { class: 'chip buy' }, SA.Config.text("editor_9916d8c2dbd0", `${money(SA.buyPrice(id))}`)) : h('span', { class: 'chip no' }, SA.isUnique(id) ? SA.Config.text("editor_d0de8bf9232c") : SA.Config.text("editor_c7f346912802"))),
-          h('div', { class: 'sub' }, SA.isUnique(id) ? SA.Config.text("editor_304cfa37aa08") : canBuy ? SA.Config.text("editor_1e43b7128f91") : n ? SA.Config.text("editor_445832485e78") : SA.Config.text("editor_d951caeadf68"))),
+            n ? h('span', { class: 'chip' }, SA.Config.text("editor_990f4dd8bc60", `${n}`)) : canBuy ? h('span', { class: 'chip buy' }, routeMode() ? SA.Config.text('route_craft_cost', SA.S.craftPrice(id)) : SA.Config.text("editor_9916d8c2dbd0", `${money(SA.buyPrice(id))}`)) : h('span', { class: 'chip no' }, SA.isUnique(id) ? SA.Config.text("editor_d0de8bf9232c") : SA.Config.text("editor_c7f346912802"))),
+          h('div', { class: 'sub' }, SA.isUnique(id) ? SA.Config.text("editor_304cfa37aa08") : canBuy ? (routeMode() ? SA.Config.text('route_craft_hint') : SA.Config.text("editor_1e43b7128f91")) : n ? SA.Config.text("editor_445832485e78") : SA.Config.text("editor_d951caeadf68"))),
         h('div', { class: 'acts' },
-          canBuy ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, SA.Config.text("editor_e328d285d23a", `${money(SA.buyPrice(id))}`)) : null,
+          canBuy ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, buyLabel(id)) : null,
           n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, SA.Config.text("editor_822dd009ddaf", `${money(SA.cellValue({ id, mt }) * 0.5)}`)) : null,
           h('button', { class: 'btn small', title: SA.Config.text("editor_a7ef6e62ce6f"), onclick: cancelSelection }, SA.Config.text("editor_2cd0f3be8738"))));
       return;
@@ -718,7 +733,7 @@ SA.Editor = (() => {
     const owned = Object.values(d().inv).reduce((a, n) => a + n, 0);
     toolsEl.append(title(SA.Config.text("editor_7d9c9bca7baf"), h('span', { class: 'muted' }, SA.Config.text("editor_a96bcf971039", `${owned}`))),
       has('shop') ? h('div', { class: 'panel-row' },
-        h('span', { class: 'muted' }, st.shop ? SA.Config.text("editor_ef91a815f304") : SA.Config.text("editor_e9b1471ac85a")),
+        h('span', { class: 'muted' }, routeMode() ? SA.Config.text('route_craft_wallet', d().route.materials || 0) : st.shop ? SA.Config.text("editor_ef91a815f304") : SA.Config.text("editor_e9b1471ac85a")),
         h('label', { class: `switch ${st.shop ? 'on' : ''}`, title: SA.Config.text("editor_66a163f614e7") },
           h('input', { type: 'checkbox', checked: st.shop, onchange: (e) => { st.shop = e.target.checked; renderTools(); renderInv(); } }),
           h('span', { class: 'knob' }), SA.Config.text("editor_61f96c6aac6a"))) : h('div', { class: 'panel-row' }, h('span', { class: 'muted' }, SA.Config.text("editor_9ac7a3e16717"))));
@@ -809,7 +824,7 @@ SA.Editor = (() => {
         h('span', { class: 'mid' },
           h('span', { class: 'nm' }, m.name), h('span', { class: 'mt' }, SA.Camp.matChip(mt), ' ', SA.UI.uniqueBadge(id))),
         n ? h('span', { class: 'cnt' }, h('b', {}, `×${n}`), h('small', {}, SA.Config.text("editor_780c5fd5b105")))
-          : h('span', { class: 'cnt buy' }, h('b', {}, money(m.price)), h('small', {}, SA.Config.text("editor_cc6f86bd41a6"))));
+          : h('span', { class: 'cnt buy' }, h('b', {}, partPrice(id)), h('small', {}, routeMode() ? SA.Config.text('route_craft_verb') : SA.Config.text("editor_cc6f86bd41a6"))));
         SA.PX.ui.tip(row, () => modTip(id, mt));
         row.addEventListener('pointerdown', (e) => { if (e.button === 0) beginPress(e, { kind: 'inv', id, key }); });
         row.addEventListener('pointermove', onMove);
@@ -822,7 +837,7 @@ SA.Editor = (() => {
       h('b', {}, SA.Config.text("editor_934c41f01b3a")),
       h('span', { class: 'muted' }, has('shop') ? SA.Config.text("editor_8f7abe76989b") : SA.Config.text("editor_f7a79c7f5b47")),
       has('shop') ? h('button', { class: 'btn primary', onclick: () => { st.shop = true; renderTools(); renderInv(); } }, SA.Config.text("editor_e3e0b1d93238")) : null));
-    else if (shop) invEl.prepend(h('div', { class: 'shop-note' }, SA.Config.text("editor_fae9f709ca12")));
+    else if (shop) invEl.prepend(h('div', { class: 'shop-note' }, routeMode() ? SA.Config.text('route_craft_hint') : SA.Config.text("editor_fae9f709ca12")));
     invEl.scrollTop = keep;
   }
 
@@ -1055,7 +1070,7 @@ SA.Editor = (() => {
         if (sp.hits.length > 1) return { text: SA.Config.text("editor_f48c28de1e1e"), err: true };
         return { text: cur ? SA.Config.text("editor_a462c4d4dd7e", `${M[dragCell.id].name}`, `${M[cur.id].name}`) : SA.Config.text("editor_d0d9887d9d2f", `${where(sp.r, sp.c)}`) };
       }
-      const buy = d().inv[key] > 0 ? '' : SA.Config.text("editor_027e2242db96", `${money(SA.buyPrice(id))}`);
+      const buy = d().inv[key] > 0 ? '' : routeMode() ? `${buyLabel(id)} · ` : SA.Config.text("editor_027e2242db96", `${money(SA.buyPrice(id))}`);
       if (sp.hits.length > 1) return { text: SA.Config.text("editor_3c28233de0ef"), err: true };
       if (cur && cur.id === id && (cur.mt || 1) === mt) return { text: SA.Config.text("editor_57e9347b20fa", `${M[id].name}`) };
       if (cur && hurt(cur)) return { text: SA.Config.text("editor_3d2872b94543", `${M[cur.id].name}`), err: true };

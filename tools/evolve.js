@@ -1743,6 +1743,13 @@ async function createThermalPreheater(SA, options, telemetry) {
           heat.gpuDispatchReadbackMs += result.telemetry?.gpuDispatchReadbackMs || 0;
           heat.gpuRoundTripMs += result.telemetry?.roundTripMs || 0;
           if ((!Array.isArray(steps) && !ArrayBuffer.isView(steps)) || steps.length !== missing.length) throw new Error('GPU 返回条数不匹配');
+          // 认证模式必须同时核对精度声明及有效条目的证明计数；仅有步数不能作为认证缓存。
+          // 显式 f32 仍保留专用进化 VM 的近似预热行为，不将其标为认证结果。
+          if (precision === 'certified') {
+            const validCount = Array.from(steps).filter(step => Number.isInteger(step) && step >= 0 && step <= 600).length;
+            if (result.telemetry?.precision !== 'certified' || result.telemetry?.approximate !== false
+                || result.telemetry?.certified !== validCount) throw new Error('GPU 认证精度或证明计数不匹配');
+          }
         } catch (error) {
           const reason = error?.message || String(error);
           heat.fallbackReasons[reason] = (heat.fallbackReasons[reason] || 0) + missing.length;

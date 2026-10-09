@@ -23,13 +23,20 @@ const watchdog = setTimeout(() => {
 function fixtures(SA) {
   const base = { water: 0, shaftKw: 1, heatKw: 100, weaponKw: 0, cool: 0,
     dryCool: 0, waterSave: 1, capacity: 50, idleHeat: SA.K.IDLE_HEAT,
-    dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL };
+    dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL,
+    waterFlow: SA.K.WATER_FLOW, waterHeatPerL: SA.K.WATER_HEAT_PER_L, waterSoftLimit: SA.K.WATER_SOFT_LIMIT };
   const rows = [
     { label: '正常积热', input: base },
     { label: '水量耗尽', input: { ...base, water: 0.8, cool: 200, heatKw: 180 } },
     { label: '持续稳定', input: { ...base, water: 1000, cool: 200, heatKw: 180 } },
     { label: '首步过热', input: { ...base, heatKw: 20000 } },
     { label: '小于 1 的热容量', input: { ...base, capacity: 0.5, heatKw: 400 } },
+    { label: '额定流量快照', input: { ...base, water: 1000, cool: 200, heatKw: 180, waterFlow: 1 } },
+    { label: '关闭湿冷快照', input: { ...base, water: 1000, cool: 200, heatKw: 180, waterFlow: 0 } },
+    { label: '热水单位移热快照', input: { ...base, water: 2, cool: 200, heatKw: 180, waterHeatPerL: 400 } },
+    { label: '高温软上限快照', input: { ...base, water: 100, cool: 200, heatKw: 180, waterSoftLimit: 80 } },
+    { label: '阀门开启温差快照', input: { ...base, water: 100, cool: 200, heatKw: 180, coolFull: 20 } },
+    { label: '低负载关闭阀门', input: { ...base, water: 100, cool: 200, heatKw: 25 } },
   ];
   // 利用真实热循环二分首次过热临界值，专门观察 f32 舍入导致的边界偏移。
   for (const target of [1, 2, 30, 300, 600]) {
@@ -65,7 +72,7 @@ function cpuForecast(SA, input) {
     const next = SA.Phys.thermalStep(heat, water, 0.5, {
       shaftKw: input.shaftKw, heatKw: input.heatKw, weaponKw: input.weaponKw,
       cool: input.cool, dryCool: input.dryCool, waterSave: input.waterSave,
-      capacity: input.capacity,
+      capacity: input.capacity, coolFull: input.coolFull, waterFlow: input.waterFlow, waterHeatPerL: input.waterHeatPerL, waterSoftLimit: input.waterSoftLimit,
     });
     heat = next.heat; water = next.water;
     if (heat >= 100 * input.capacity) return { steps: step, time: step * 0.5, heat, water };
@@ -92,6 +99,14 @@ function packingRegression(input) {
   assert.equal(f32.packed[4], near);
   assert.equal(f32.packed[5], near);
   assert.ok(certified.packed[4] < value && certified.packed[5] > value);
+  assert.equal(f32.packed.length, 28, '输入须包含十四个双向包围字段');
+  for (const [field, offset] of [['waterFlow', 22], ['waterHeatPerL', 24], ['waterSoftLimit', 26]]) {
+    assert.equal(f32.packed[offset], Math.fround(row[field]), `${field} 未进入真实装包`);
+    assert.ok(certified.packed[offset] <= row[field] && row[field] <= certified.packed[offset + 1]);
+  }
+  const pair = context.window.HeatKernel.packInputs([row, { ...row, waterFlow: 1 }], 'f32');
+  assert.equal(pair.packed[50], 1, '第二行流量快照偏移应为 28 + 22');
+  assert.equal(context.window.HeatKernel.packInputs([{ ...row, waterSoftLimit: 120 }], 'certified').unsupported.length, 1);
   return { value, near, f32: Array.from(f32.packed.slice(4, 6)),
     certified: Array.from(certified.packed.slice(4, 6)) };
 }

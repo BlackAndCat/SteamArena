@@ -82,23 +82,27 @@ SA.Home = (() => {
     // ---------- 车：院子的主角，站在画面正中的前景；2 倍（太大才 1 倍）----------
     // 描一圈暗边把剪影和背景分开，朝光的边加轮廓光；影子跟着天气走；铜角框慢慢呼吸
     const full = () => SA.SPR.renderVehicle(D.vehicle, { key: 'home', t: performance.now() / 1000, heat: 0.45, water: 0.8 });
-    const box = (() => { const src = full(), dd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height).data;
+    const firstFrame = full();
+    const box = (() => { const src = firstFrame, dd = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, src.width, src.height).data;
       let x0 = src.width, y0 = src.height, x1 = -1, y1 = -1;
       for (let y = 0; y < src.height; y++) for (let x = 0; x < src.width; x++) if (dd[(y * src.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       return x1 < 0 ? { x: 0, y: 0, w: 1, h: 1 } : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; })();
     const cs = box.w * 2 <= 560 && box.h * 2 <= 440 ? 2 : 1, pad = HS.HERO_PAD * cs, cw = box.w * cs + pad * 2, chh = box.h * cs + pad * 2;
     const cx = Math.round(640 - cw / 2), cy = CAR_BOTTOM + pad - chh;   // 画布四周多 pad；车图本身的底边踩在 CAR_BOTTOM
     const carCv = document.createElement('canvas'); carCv.width = box.w + HS.HERO_PAD * 2; carCv.height = box.h + HS.HERO_PAD * 2; carCv.className = 'px-img'; carCv.style.cssText = `width:${cw}px;height:${chh}px`;
-    const crop = () => { const k = document.createElement('canvas'); k.width = box.w; k.height = box.h; k.getContext('2d').drawImage(full(), box.x, box.y, box.w, box.h, 0, 0, box.w, box.h); return k; };
-    const paintCar = () => { const g = carCv.getContext('2d'); g.clearRect(0, 0, carCv.width, carCv.height); g.drawImage(HS.hero(crop(), WX), 0, 0); };
-    paintCar();
+    const crop = (src = full()) => { const k = document.createElement('canvas'); k.width = box.w; k.height = box.h; k.getContext('2d').drawImage(src, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h); return k; };
+    const paintCar = (src = crop()) => { const g = carCv.getContext('2d'); g.clearRect(0, 0, carCv.width, carCv.height); g.drawImage(HS.hero(src, WX), 0, 0); };
+    // 精灵池会复用整车画布：立即裁成独立首帧，供描边与车影共用，避免返院时重复画整车。
+    // 定时动画仍不传参数，每次重新渲染和裁切，不跨帧复用画面。
+    const firstCar = crop(firstFrame);
+    paintCar(firstCar);
     const probs = stats.problems;
     const br = UI.brackets(cw + 24, chh + 24); br.classList.add('home-br');
     const carEl = h('div', { class: 'ab home-car', style: `left:${cx - 12}px;top:${cy - 12}px;width:${cw + 24}px;height:${chh + 24}px;padding:12px`, title: SA.Config.text("home_eb748b3c9f79"), onclick: () => SA.nav('garage') },
       carCv, br,
       h('div', { class: 'home-hint' }, UI.tag(h('span', {}, SA.Config.text("home_a9aec0ff1676")))),
       probs.length ? h('div', { style: 'position:absolute;left:0;top:-22px', title: probs.join('\n') }, UI.stamp(SA.Config.text("home_8b8b24c3d896", `${probs.length}`), 'background:#efe4c6')) : null);
-    const cshadow = HS.carShadow(crop(), WX);
+    const cshadow = HS.carShadow(firstCar, WX);
     const carShadow = ab(cx + pad + cshadow.ox * cs, cy + pad + cshadow.oy * cs, UI.img(cshadow.c, cs));
     // ---------- 路标：只留出战（街头赛、锦标赛都在出战页里）、车间（朝左指着铺子）、银行 ----------
     const SIGNS = [[SA.Config.text("arena_a7caf88fcaa9"), () => SA.nav('arena'), true, true, 1], [SA.Config.text("home_98d39d5eed3f"), () => SA.nav('garage'), has('garage'), false, -1], [SA.Config.text("home_920e88c5a602"), () => SA.UI.openBank(), has('bank'), false, 1]].filter(s => s[2]);

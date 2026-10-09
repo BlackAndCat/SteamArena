@@ -489,22 +489,31 @@ SA.Route = (() => {
   }
 
   /**
-   * 出征回来入档（玩法见 docs/expedition-fun.md §5）：金属和终点站台的物资换成钱（被打爆只捡回一半金属），
+   * 出征回来入档：金属、补给、遗迹和终点物资折成制作物资（被打爆只捡回一半金属），
    * 记下每条路线走到的最远处（下次路上插「上次到这」的旗子）。车由院子的伙计免费修好，出征不带回战损。
-   * 同一趟（runId）只结一次；返回补上 money / metalKept / bonus / bestBefore / best 的结果，清点黑板照着画。
+   * 同一趟只结一次；最近结算身份持久保存，避免结果重载后重复记账和发奖。
    */
   const settledRuns = new Set();
   function settle(r) {
     const d = SA.S.d;
-    if (!r || r.mode !== 'route' || !d || !r.runId || settledRuns.has(r.runId)) return r;
+    if (!r || r.mode !== 'route' || !d || !r.runId || r.settled || settledRuns.has(r.runId) || d.route?.lastSettledRunId === r.runId) return r;
     settledRuns.add(r.runId);
     const eco = { metal: 5, supply: 40, relic: 120, ...(config.economy || {}) }, def = SA.ROUTES[r.route];
     const metalKept = r.how === 'wrecked' ? Math.floor((r.metal || 0) / 2) : r.metal || 0;
     const bonus = r.how === 'depot' && def && def.end ? (def.end.bonus || 0) * eco.supply : 0;
     const cargo = r.cargo || [], count = (k) => cargo.filter(c => (typeof c === 'string' ? c : c.kind) === k).length;
     const goods = count('supply') * eco.supply + count('relic') * eco.relic;
-    const money = metalKept * eco.metal + bonus + goods;
+    const materials = metalKept * eco.metal + bonus + goods;
     const rec = d.route || (d.route = { best: {}, runs: 0, metal: 0 });
+    rec.materials = (rec.materials || 0) + materials;
+    rec.lastSettledRunId = r.runId;
+    // 旧档只从本次真实结果累计；达到第二辆敌车时奖励一次黄铜散热器，不改战役解锁。
+    rec.defeatedEnemies = (rec.defeatedEnemies || 0) + (Number.isSafeInteger(r.enemiesCleared) && r.enemiesCleared > 0 ? r.enemiesCleared : 0);
+    const items = [];
+    if (rec.defeatedEnemies >= 2 && !rec.radiatorRewardClaimed) {
+      SA.S.addInv('radiator', 1, 1); rec.radiatorRewardClaimed = true;
+      items.push({ id: 'radiator', n: 1, mt: 1 });
+    }
     rec.refugees = (rec.refugees || 0) + count('refugee');
     rec.best = rec.best || {};
     const bestBefore = rec.best[r.route] || 0;
@@ -525,9 +534,8 @@ SA.Route = (() => {
         } else { streak.failed = 0; streak.healthy = 0; }
       }
     }
-    d.money += money;
     SA.S.save();
-    return Object.assign(r, { money, metalKept, bonus, goods, bestBefore, best: rec.best[r.route], settled: true });
+    return Object.assign(r, { money: 0, materials, items, rewards: { items }, metalKept, bonus, goods, bestBefore, best: rec.best[r.route], settled: true });
   }
   /** 这条路线以前走到的最远处（px），没走过是 0 */
   const best = (id) => (SA.S.d && SA.S.d.route && SA.S.d.route.best && SA.S.d.route.best[id]) || 0;

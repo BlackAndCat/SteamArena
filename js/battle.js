@@ -1192,6 +1192,7 @@ SA.Battle = (() => {
     s.speedMul = (s.driveKw ? Math.min(s.speedBoost || K.SPEED_BOOST, s.driveAvailableKw / s.driveKw) : 0) * s.armorSpeedFactor;
     updateBiped(s, dt);
     drive(s, dt);
+    const waterBeforeCooling = s.water;
     const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
       // 野外持续驱动的传动废热回流锅炉：按真实轴功率产热，仍经过统一散热、水耗与热容量计算。
@@ -1201,7 +1202,8 @@ SA.Battle = (() => {
       cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave, capacity: s.heatCapacity,
     });
     s.heat = result.heat; s.water = result.water;
-    const saved = result.cooled / SA.Phys.LATENT_KJ_L * (1 - s.waterSave);
+    // 由实际耗水反推相同冷却量的无冷凝耗水；高温效率已包含在实际热循环中。
+    const saved = (waterBeforeCooling - result.water) * Math.max(0, 1 / s.waterSave - 1);
     if (saved > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).waterSave) effect(s, cell.id, 'waterSaved', saved); });
     if (s.dryCool > 0) SA.V.each(s.v, cell => { if (alive(cell) && SA.mod(cell).dryCool) effect(s, cell.id, 'dryCool', result.passive * SA.mod(cell).dryCool / (K.DISSIPATE + s.dryCool)); });
     s.maxHeat = Math.max(s.maxHeat, s.heat);
@@ -2163,6 +2165,8 @@ SA.Battle = (() => {
     const resources = { coal: B.route.coal, coalMax: B.route.coalMax, coalBurned: B.route.coalBurned, coalPicked: B.route.coalPicked,
       water: B.p.water, waterMax: B.p.waterMax, waterPicked: B.route.waterPicked, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity) };
     B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, cause, resources, dist: B.route.x,
+      // 只累计正式敌车胜利（含投降）；小机械的 broken 不参与散热器奖励进度。
+      enemiesCleared: B.route.cleared.length,
       ...cargoResult(how), money: 0, metal: B.route.metal || 0, broken: B.route.broken || 0,
       playerVehicle: shiftVeh(SA.V.clone(B.p.v), -B.pShift), time: B.t };
     B.result.difficulty = B.opts.routeData.difficulty || null;
@@ -2231,7 +2235,16 @@ SA.Battle = (() => {
       random = seededRandom(o.seed);
       startRouteState({ mode: 'route', headless: true, routeData: o.routeData, vehicle: o.vehicle });
       const dt = 1 / 30;
-      while (!B.done && (!o.stopAfterEncounter || B.route.cleared.length < Number(o.stopAfterEncounter)) && B.t + dt <= o.maxTime + 1e-8) step(dt);
+      while (!B.done && (!o.stopAfterEncounter || B.route.cleared.length < Number(o.stopAfterEncounter)) && B.t + dt <= o.maxTime + 1e-8) {
+        step(dt);
+        // 模拟驾驶员在战后确认底盘永久失驱时按原返航按钮；失败和胜场评分先于此动作。
+        // 不看瞬时速度或供汽预留，避免把起步、热控、下蹲误认为掉链；真人仍自行决定返航。
+        if (!B.done && (!o.stopAfterEncounter || B.route.cleared.length < Number(o.stopAfterEncounter)) && !B.e && B.p.speed <= 0) {
+          let chassisAlive = false;
+          SA.V.each(B.p.v, cell => { if (M[cell.id].layer === 'chassis' && alive(cell)) chassisAlive = true; });
+          if (B.p.thrown || B.p.bipedLegDead || !chassisAlive) recallRoute();
+        }
+      }
       return { completed: B.done, reason: B.done ? B.result.how : 'budget', result: B.result || null,
         time: B.t, dist: B.route.x, cleared: B.route.cleared.map(enc => ({ ...enc })),
         events: B.route.events, samples: B.route.samples, monitorTruncated: B.route.monitorTruncated,

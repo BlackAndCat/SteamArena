@@ -651,11 +651,11 @@ SA.V = (() => {
     return { groups, selected: sel, autoGroups, loaders: Math.max(0, drivers) };
   }
 
-  function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw) {
+  function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw, thermalInput = {}) {
     thermalCounters.cpuForecastCalls++;
     let heat = 0;
     for (let t = 0; t < 300; t += 0.5) {
-      const next = SA.Phys.thermalStep(heat, water, 0.5, { shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity });
+      const next = SA.Phys.thermalStep(heat, water, 0.5, { ...thermalInput, shaftKw, heatKw, weaponKw, cool: coolRate, dryCool, waterSave, capacity });
       heat = next.heat; water = next.water;
       if (heat >= (120 - 20) * capacity) return t + 0.5;
     }
@@ -664,7 +664,9 @@ SA.V = (() => {
 
   // 仅在进化器显式安装认证结果时复用；键包含全部热输入和规则实现，普通游戏仍走精确热循环。
   const thermalRuleVersion = [SA.Phys.thermalStep, SA.Phys.temp, SA.coolRate,
-    SA.K.IDLE_HEAT, SA.K.DISSIPATE, SA.K.COOL_FULL].map(String).join('|');
+    SA.Phys.waterCoolingPower, SA.Phys.waterCoolingEfficiency,
+    SA.K.IDLE_HEAT, SA.K.DISSIPATE, SA.K.COOL_FULL,
+    SA.K.WATER_FLOW, SA.K.WATER_HEAT_PER_L, SA.K.WATER_SOFT_LIMIT].map(String).join('|');
   // 双层键把完整规则源码只存一次，单项键保留所有热输入的原始数值。
   const thermalPredictions = new Map([[thermalRuleVersion, new Map()]]);
   const thermalCache = thermalPredictions.get(thermalRuleVersion);
@@ -802,7 +804,9 @@ SA.V = (() => {
     s.heatGen = s.boilerHeat + weaponHeat;
     const thermalInput = { water: s.water, shaftKw: Math.min(s.supply, s.demand), heatKw: s.boilerHeat,
       weaponKw: weaponHeat, cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave,
-      capacity: s.heatCapacity, idleHeat: SA.K.IDLE_HEAT, dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL };
+      capacity: s.heatCapacity, idleHeat: SA.K.IDLE_HEAT, dissipate: SA.K.DISSIPATE, coolFull: SA.K.COOL_FULL,
+      // 固定字段顺序同时构成缓存键；热调参数变更后不复用上一组流量的预测。
+      waterFlow: SA.K.WATER_FLOW, waterHeatPerL: SA.K.WATER_HEAT_PER_L, waterSoftLimit: SA.K.WATER_SOFT_LIMIT };
     if (options?.captureThermalInput) options.captureThermalInput(thermalInput);
     // 构筑筛选只读机械字段时延迟求热：不生成伪造的过热时间或综合评分。
     if (!options?.deferHeat) {
@@ -812,7 +816,7 @@ SA.V = (() => {
         thermalCounters[predicted.source === 'gpu' ? 'gpuCacheHits' : 'cpuCacheHits']++;
       }
       s.overheat = predicted ? predicted.time :
-        overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, thermalInput.shaftKw, s.boilerHeat);
+        overheatTime(weaponHeat, s.cool, s.water, s.dryCool, s.waterSave, s.heatCapacity, thermalInput.shaftKw, s.boilerHeat, thermalInput);
       if (!predicted && key) writeThermalCache(key, { time: s.overheat, source: 'cpu' });
       s.rating = Math.round(s.hp / 12 + s.dps * 5 + s.salvoDps * 0.8 + s.splashDps + s.heatDps / 25 + s.tether + s.store * 0.014 + s.dryCool * 0.16 + (1 - s.waterSave) * 120 + s.evade * 60 + s.rams * 15 + Math.min(s.overheat, 120) / 4);
     }

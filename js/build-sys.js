@@ -71,7 +71,7 @@ SA.BUILD_SYS += '+route-r1'; // 持续出征局、长地形、接力遭遇与隔
 SA.BUILD_SYS += '+route-fuel-monitor-speed2'; // 基础底盘双倍速度、正式路线配置、实际煤水补给与热煤终止及节奏监控。
 SA.BUILD_SYS += '+route-tuner'; // 正式后台可编辑出征节奏，预览节点时间并监控真实模拟，保存时校验路线数据。
 SA.BUILD_SYS += '+route-r2-mobs'; // 出征起伏地形、小机械规则、下坡超速与上坡掉速、金属结算与最远纪录（用户授权 Opus 改，docs/expedition-fun.md §9）。
-SA.BUILD_SYS += '+route-drive-through-pickups'; // 出征拾取开过去就捡（用户定），货物清单、被打爆丢一半、物资与遗迹件折钱、难民记人数。
+SA.BUILD_SYS += '+route-drive-through-pickups'; // 出征拾取开过去就捡（用户定），货物清单、被打爆丢一半、物资与遗迹件折算制作物资、难民记人数。
 SA.BUILD_SYS += '+route-difficulty-director'; // 出发趟数与战力预算、真实胜率选敌、强度导演、轻度难度调整及过热全货返营。
 
 // 并行预载启动配置和脚本，并在独立后台线程预热精确匹配的出征计划。
@@ -83,3 +83,8 @@ SA.BUILD_SYS += '+route-map-first';
 SA.BUILD_SYS += '+route-span-rubble-terrain'; // 出征地形：架空桥（span）、碎砖坡（rubble），r2 高度 ×1.7（用户要求），镜头过桥往下看。
 SA.BUILD_SYS += '+i18n-en'; // 独立语言配置、英文文案、一键切换及按语言隔离作者保存。
 SA.BUILD_SYS += '+i18n-flag-picker'; // 显示当前语言国旗，展开后明确选择目标语言并标记当前项。
+
+// 出征返院取消静止等待；累计第二敌车送散热片；模块使用制作物资。
+SA.BUILD_SYS += '+fast-yard-return+route-material-crafting';
+// 共享温控水冷：低温停水、中温开阀、高温衰减，预测与认证 GPU 同步。
+SA.BUILD_SYS += '+thermostatic-water-v1';
