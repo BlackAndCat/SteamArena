@@ -241,7 +241,7 @@ function packageCheck() {
   assert.strictEqual(scriptPaths[0], 'js/release.js', '发行标志必须最先载入');
   const configPaths = fs.readdirSync(path.join(dir, 'config')).filter(name => name.endsWith('.json')).map(name => `config/${name}`);
   const expected = new Set(['index.html', '.gitattributes', 'release-manifest.json',
-    'js/stage-cars.js', ...configPaths, ...stylePaths, ...scriptPaths]);
+    'js/stage-cars.js', 'js/route-worker.js', ...configPaths, ...stylePaths, ...scriptPaths]);
   const found = [];
   function walk(folder) {
     for (const item of fs.readdirSync(folder, { withFileTypes: true })) {
@@ -256,6 +256,9 @@ function packageCheck() {
   assert.deepStrictEqual(found.sort(), [...expected].sort(), '发行目录含额外工具或缺少游戏文件');
   const { SA } = runtime(true);
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'release-manifest.json'), 'utf8'));
+  // 动态 Worker 同样必须来自当前源码并写进内容指纹，不能遗漏或打入旧版本。
+  assert.strictEqual(crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, 'js/route-worker.js'))).digest('hex'),
+    manifest.sourceHashes['js/route-worker.js'], '出征预热 Worker 与发行清单不一致');
   const gitAttributes = fs.readFileSync(path.join(dir, '.gitattributes'));
   assert(/(?:^|\r?\n)\* -text\r?\n$/.test(gitAttributes.toString('utf8')),
     '发行仓必须禁用 Git 文本转换');

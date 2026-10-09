@@ -1,9 +1,10 @@
-// 所有可编辑内容统一从 config/*.json 同步加载，供既有脚本按原顺序初始化。
+// 可编辑内容统一从 config/*.json 加载；首页先异步预取，工具页保留同步读取接口。
 (function () {
   const host = typeof window === 'undefined' ? self : window;
   const page = typeof document === 'undefined' ? null : document;
   const SA = host.SA = host.SA || {};
   const source = page?.currentScript?.src || location.href;
+  const preloadPage = page?.currentScript?.hasAttribute?.('data-sa-preload');
   const projectRoot = new URL('../', source);
   const cache = Object.create(null);
   const renderedKeys = new Map();
@@ -63,6 +64,30 @@
     }
   }
   SA.Config = {
+    // 首页启动前并行填充缓存，随后既有脚本仍可用 get 同步取得配置对象。
+    // 不改变旧数据迁入的先后关系：执行到这里时，迁移 POST 已经完成。
+    preload(names) {
+      return Promise.all(names.map(name => {
+        if (!/^[a-z][a-z0-9-]*$/.test(name)) return Promise.reject(new Error('非法配置名：' + name));
+        if (cache[name]) return Promise.resolve(cache[name]);
+        return new Promise((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          const suffix = SA.RELEASE && SA.RELEASE_VERSION ? '?v=' + encodeURIComponent(SA.RELEASE_VERSION) : '';
+          request.open('GET', new URL('config/' + name + '.json' + suffix, projectRoot).href, true);
+          if (!SA.RELEASE) request.setRequestHeader('Cache-Control', 'no-cache');
+          request.onload = () => {
+            if (request.status !== 200) { reject(new Error(`${name}.json：HTTP ${request.status}`)); return; }
+            try { cache[name] = JSON.parse(request.responseText); }
+            catch { reject(new Error(`${name}.json 不是有效 JSON。`)); return; }
+            resolve(cache[name]);
+          };
+          request.onerror = () => reject(new Error(`${name}.json：网络请求失败。`));
+          request.send();
+        });
+      }));
+    },
+    // 异步引导发生配置或脚本错误时，沿用现有可见错误提示和旧数据保留行为。
+    fail,
     get(name) {
       if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new Error('非法配置名：' + name);
       if (cache[name]) return cache[name];
@@ -89,5 +114,5 @@
     },
     keyForText(rendered) { return renderedKeys.get(String(rendered)) || null; },
   };
-  if (page && page.title === '') page.title = SA.Config.text('page_title');
+  if (page && !preloadPage && page.title === '') page.title = SA.Config.text('page_title');
 })();

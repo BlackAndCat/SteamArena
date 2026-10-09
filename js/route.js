@@ -3,6 +3,72 @@ window.SA = window.SA || {};
 SA.Route = (() => {
   const copy = value => JSON.parse(JSON.stringify(value));
   let config = copy(SA.Config.get('routes'));
+  // 预热只在独立 Worker 中执行真实模拟；主线程最多保留两份完整计划，不写存档。
+  const warmPlans = new Map();
+  let warmWorker = null, warmTask = null, workerUnavailable = false, workerEnvironment = null;
+  const workerSource = typeof document !== 'undefined' && document.currentScript?.src;
+  const workerUrl = workerSource ? new URL('route-worker.js', workerSource) : null;
+  // 发行脚本的版本查询串也传给 Worker 及其依赖，避免静态托管缓存混用规则版本。
+  if (workerUrl) workerUrl.search = SA.RELEASE_VERSION ? '?v=' + encodeURIComponent(SA.RELEASE_VERSION) : new URL(workerSource).search;
+
+  /** 完整输入快照也作为命中键：作者调参、换车、趟数和 DDA 改变后绝不复用旧计划。 */
+  function preparationInput(route, options = {}) {
+    const vehicle = options.vehicle || SA.S.d?.vehicle;
+    const modules = copy(SA.Config.get('modules'));
+    for (const key of ['K', 'MODULES', 'MODULE_ORDER', 'LEG_VARIANTS', 'MATS', 'INGOTS']) modules[key] = copy(SA[key]);
+    const content = copy(SA.Config.get('content'));
+    for (const key of Object.keys(content)) if (SA[key] !== undefined && typeof SA[key] !== 'function' && key !== 'ORDERS') content[key] = copy(SA[key]);
+    return { route: typeof route === 'string' ? SA.ROUTES[route] : route,
+      options: { ...options, vehicle }, record: SA.S.d?.route || {},
+      configs: { modules, rules: SA.RULES || SA.Config.get('rules'), content, ui: SA.Config.get('ui'),
+        'stage-cars': SA.StageCars.data, routes: config },
+      starter: SA.S.starterVehicle(), rulesVersion: SA.RULES_VERSION, build: SA.BUILD_SYS };
+  }
+
+  /** 返回当前输入的准备状态；只检查缓存，不启动模拟，供加载器和自动化验收调用。 */
+  function preparationStatus(id, options = {}) {
+    const key = JSON.stringify(preparationInput(id, options));
+    return warmPlans.has(key) ? 'ready' : warmTask?.key === key ? 'pending' : 'cold';
+  }
+
+  /** 单任务后台预热。相同输入不重复排队，输入过时立即终止；失败仍由同步入口兜底。 */
+  function preload(id, options = {}) {
+    if (workerUnavailable || !workerUrl || typeof Worker === 'undefined' || !SA.S.d?.vehicle) return Promise.resolve(false);
+    const input = preparationInput(id, options), key = JSON.stringify(input);
+    if (warmPlans.has(key)) return Promise.resolve(true);
+    if (warmTask?.key === key) return warmTask.promise;
+    if (warmTask) { warmWorker.terminate(); warmWorker = null; warmTask.resolve(false); warmTask = null; }
+    const environment = JSON.stringify({ configs: input.configs, starter: input.starter, rulesVersion: input.rulesVersion, build: input.build });
+    // 评分可跨趟复用，但依赖的模块、作者车或规则变化必须重新建立隔离运行时。
+    if (warmWorker && workerEnvironment !== environment) { warmWorker.terminate(); warmWorker = null; }
+    workerEnvironment = environment;
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    const task = warmTask = { key, promise, resolve };
+    try {
+      if (!warmWorker) warmWorker = new Worker(workerUrl);
+      const taskWorker = warmWorker;
+      taskWorker.onmessage = event => {
+        if (warmTask !== task || warmWorker !== taskWorker) return;
+        if (event.data.ok) {
+          if (warmPlans.size >= 2) warmPlans.delete(warmPlans.keys().next().value);
+          warmPlans.set(key, event.data.plan);
+        }
+        if (event.data.restart) { taskWorker.terminate(); warmWorker = null; }
+        warmTask = null; resolve(!!event.data.ok);
+      };
+      taskWorker.onerror = () => {
+        // 已终止旧任务的错误可能稍后送达，不能终止另一输入刚创建的新 Worker。
+        if (warmTask !== task || warmWorker !== taskWorker) return;
+        taskWorker.terminate(); warmWorker = null; workerUnavailable = true;
+        warmTask = null; resolve(false);
+      };
+      taskWorker.postMessage(input);
+    } catch {
+      warmWorker?.terminate(); warmWorker = null; warmTask = null; workerUnavailable = true; resolve(false);
+    }
+    return promise;
+  }
   const pickupKinds = ['coal', 'water', 'supply', 'refugee', 'relic'];
   const propKinds = ['crate', 'barricade', 'ruinDoor'];
 
@@ -88,6 +154,15 @@ SA.Route = (() => {
 
   /** 每次出发重新读取真实关卡车，并复制地形、节点、燃煤参数；测试路线可携带独立车辆夹具。 */
   function prepare(route, options = {}) {
+    const input = preparationInput(route, options);
+    // 工具和 Worker 没有浏览器 Worker，继续走原同步算法；热命中始终交付副本。
+    if (warmPlans.size) {
+      const cached = warmPlans.get(JSON.stringify(input));
+      if (cached) return copy(cached);
+    }
+    // 冷回退也遵守相同规则边界；热调模块/地形/燃煤后不能使用旧评分。
+    const environment = JSON.stringify({ configs: input.configs, starter: input.starter, rulesVersion: input.rulesVersion, build: input.build });
+    if (duelEnvironment !== environment) { duelCache.clear(); duelEnvironment = environment; }
     const def = typeof route === 'string' ? SA.ROUTES[route] : route;
     if (!def || !Number.isFinite(def.len) || def.len <= 0 || !def.end) throw new Error('找不到有效出征路线');
     const out = copy(def);
@@ -108,6 +183,7 @@ SA.Route = (() => {
   }
 
   const duelCache = new Map();
+  let duelEnvironment = null;
   /** 真实决斗评分以实际进入本场的种子作分母，先前失败另记全趟概率，不把山顶目标偷换成到站率。 */
   function scoreRouteDuel(routeData, vehicle, count) {
     const rules = copy(routeData);
@@ -322,7 +398,12 @@ SA.Route = (() => {
   }
 
   /** 返回数据副本供黑板呈现，调用者不能通过改列表污染正式路线。 */
-  function list() { return Object.values(SA.ROUTES).map(copy); }
+  function list() {
+    const id = SA.S.d?.route?.firstRoute;
+    // 优先当前路线，只预热一条，避免列表重绘让多路线互相取消。
+    if (SA.S.d?.vehicle) preload(SA.ROUTES[id] ? id : Object.keys(SA.ROUTES)[0]);
+    return Object.values(SA.ROUTES).map(copy);
+  }
   /** 使用正式当前车辆出发；成功开局后登记实际出发，界面通过 route-end 和 result 获取终止原因。 */
   function start(id, options = {}) {
     const vehicle = SA.S.d?.vehicle;
@@ -389,6 +470,6 @@ SA.Route = (() => {
 
   const initial = validateConfig(config);
   if (!initial.ok) throw new Error('出征配置非法：' + initial.errors.join('；'));
-  return { list, start, simulate, prepare, powerScore, plan, settle, best, getConfig: () => copy(config), validateConfig, configure,
+  return { list, start, simulate, prepare, preload, preparationStatus, powerScore, plan, settle, best, getConfig: () => copy(config), validateConfig, configure,
     recall: () => SA.Battle.route.recall(), result: () => SA.Battle.route.result() };
 })();

@@ -73,3 +73,6 @@ SA.BUILD_SYS += '+route-tuner'; // 正式后台可编辑出征节奏，预览节
 SA.BUILD_SYS += '+route-r2-mobs'; // 出征起伏地形、小机械规则、下坡超速与上坡掉速、金属结算与最远纪录（用户授权 Opus 改，docs/expedition-fun.md §9）。
 SA.BUILD_SYS += '+route-drive-through-pickups'; // 出征拾取开过去就捡（用户定），货物清单、被打爆丢一半、物资与遗迹件折钱、难民记人数。
 SA.BUILD_SYS += '+route-difficulty-director'; // 出发趟数与战力预算、真实胜率选敌、强度导演、轻度难度调整及过热全货返营。
+
+// 并行预载启动配置和脚本，并在独立后台线程预热精确匹配的出征计划。
+SA.BUILD_SYS += '+parallel-startup+route-preload';

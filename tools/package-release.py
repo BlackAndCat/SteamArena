@@ -194,7 +194,8 @@ def main():
     config_files = sorted(f"config/{p.name}" for p in (source_root / "config").glob("*.json"))
     if not config_files or "config/text.json" not in config_files:
         raise ValueError("正式配置缺少 config/text.json")
-    files = list(dict.fromkeys(["index.html", *entry.styles, *entry.scripts, "js/stage-cars.js", *config_files]))
+    # 后台预热由 route.js 动态创建，不会成为首页 script 标签，须显式纳入同一发行包。
+    files = list(dict.fromkeys(["index.html", *entry.styles, *entry.scripts, "js/stage-cars.js", "js/route-worker.js", *config_files]))
     sources = {name: source_file(source_root, name) for name in files}
     document = json.loads(sources["config/text.json"].read_text(encoding="utf-8-sig"))
     if not isinstance(document.get("values"), dict) or not isinstance(document.get("removedElements"), list):

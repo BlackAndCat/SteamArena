@@ -28,7 +28,8 @@ SA.nav = (name, arg, quiet) => {
   else SA.Editor.open(arg);
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+// 异步引导可能在 DOM 就绪后载入入口；两种加载路径都只执行一次原初始化。
+function initializeGame() {
   SA.PX.init();   // 像素界面件的九宫格 / 齿轮 / 桌面纹理挂到 CSS 变量上
   SA.S.load();
   SA.Camp.backfill();
@@ -42,7 +43,9 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!SA.RELEASE && location.hash === '#sandbox=evolve') { history.replaceState(null, '', location.pathname); SA.Camp.dev.sandbox('evolve'); return; }
   // 开始界面：点「开始游戏」后，全新存档先演开场、直接进第一场；老存档回到原来的页面
   SA.Story.title(() => { SA.nav(SA.Camp.has('garage') ? 'home' : 'arena'); SA.Story.begin(); });
-});
+}
+if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initializeGame, { once: true });
+else initializeGame();
 
 // 调试用：控制台输入 SA.reset() 重开存档
 if (!SA.RELEASE) SA.reset = () => { SA.S.reset(); SA.Story.reset(); SA.nav('home'); };
