@@ -24,13 +24,24 @@ function start({ href = 'https://example.test/', stored, blocked = false, docume
   const before = JSON.stringify(fixtures);
   const saved = new Map([['steam_arena_save_v2', '{"money":1234,"wins":2}']]);
   if (stored) saved.set(manifest.storageKey, stored);
-  const elements = [], events = new Map(), requests = [];
+  const elements = [], events = new Map(), windowEvents = new Map(), requests = [], observers = [];
+  // 选择器使用真实父子结构；保留节点属性、焦点与事件，以验证点击不会误切下一语言。
+  const element = tag => ({
+    tagName: tag.toUpperCase(), style: {}, attributes: {}, children: [],
+    setAttribute(name, value) { this.attributes[name] = value; },
+    getAttribute(name) { return this.attributes[name]; },
+    append(...children) { this.children.push(...children); },
+    contains(target) { return this === target || this.children.some(child => child.contains?.(target)); },
+    focus() { document.activeElement = this; },
+    addEventListener(type, callback) { this[type] = callback; },
+  });
   const document = {
     currentScript: { src: 'https://example.test/js/config.js', hasAttribute: () => true },
     readyState: 'complete', documentElement: {}, title: '',
     body: { append: element => elements.push(element) },
     getElementById: () => null,
-    createElement: () => ({ style: {}, setAttribute() {}, addEventListener(type, callback) { this[type] = callback; } }),
+    createElement: element,
+    createTextNode: text => ({ textContent: text }),
     addEventListener(type, callback) { events.set(type, callback); },
     removeEventListener(type) { events.delete(type); },
   };
@@ -46,7 +57,8 @@ function start({ href = 'https://example.test/', stored, blocked = false, docume
       setRequestHeader() {}
       send() { this.status = 200; this.responseText = JSON.stringify(fixtures[this.name]); }
     },
-    MutationObserver: class { constructor(callback) { this.callback = callback; } observe() {} },
+    MutationObserver: class { constructor(callback) { this.callback = callback; observers.push(this); } observe() {} },
+    addEventListener(type, callback) { windowEvents.set(type, callback); },
     fetch: async (url, options) => {
       requests.push({ url, ...options, body: JSON.parse(options.body) });
       return { ok: true, json: async () => ({ revision: '测试版本' }) };
@@ -57,14 +69,14 @@ function start({ href = 'https://example.test/', stored, blocked = false, docume
   for (const file of ['js/config.js', 'js/i18n.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   }
-  return { context, fixtures, before, saved, elements, events, requests };
+  return { context, fixtures, before, saved, elements, events, windowEvents, requests, observers };
 }
 
 async function check() {
   const zh = start();
   assert.equal(zh.context.SA.I18n.locale, 'zh-CN');
   assert.equal(zh.context.SA.Config.text('page_title'), chinese.messages.page_title);
-  assert.equal(zh.elements[0].textContent, 'English');
+  assert.equal(zh.elements[0].children[0].children[0].src, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(manifest.locales[0].flag));
   assert.equal(start({ stored: 'unknown' }).context.SA.I18n.locale, 'zh-CN');
   assert.equal(start({ stored: 'en' }).context.SA.I18n.locale, 'en');
   assert.equal(start({ href: 'https://example.test/?lang=zh-CN', stored: 'en' }).context.SA.I18n.locale, 'zh-CN');
@@ -73,7 +85,47 @@ async function check() {
   const SA = en.context.SA;
   assert.equal(en.context.document.documentElement.lang, 'en');
   assert.equal(en.context.document.title, english.messages.page_title);
-  assert.equal(en.elements[0].textContent, '简体中文');
+  assert.equal(en.elements[0].children[0].children[0].src, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(manifest.locales[1].flag));
+
+  // 展开只显示选项，点击当前项不会导航；显式选择其他国旗才改变语言。
+  const choosing = start({ stored: 'en' });
+  const [trigger, menu] = choosing.elements[0].children;
+  assert.equal(menu.hidden, true);
+  trigger.click();
+  assert.equal(menu.hidden, false);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+  assert.equal(menu.children[0].getAttribute('aria-pressed'), 'false');
+  assert.equal(menu.children[1].getAttribute('aria-pressed'), 'true');
+  assert.equal(menu.children[1].children[1].textContent, 'English ✓');
+  assert.equal(choosing.context.location.destination, undefined);
+  menu.children[1].click();
+  assert.equal(menu.hidden, true);
+  assert.equal(choosing.context.location.destination, undefined);
+  trigger.click();
+  choosing.events.get('pointerdown')({ target: {} });
+  assert.equal(menu.hidden, true, '点击外部应收起');
+  trigger.click();
+  let stopped = false;
+  choosing.windowEvents.get('keydown')({ target: {}, key: 'Escape', stopImmediatePropagation() { stopped = true; } });
+  assert.equal(menu.hidden, true, 'Esc 应收起');
+  assert.equal(stopped, true);
+  assert.equal(choosing.context.document.activeElement, trigger);
+  trigger.click();
+  choosing.context.SA.Text = { hasPending: () => true };
+  choosing.context.confirm = () => false;
+  menu.children[0].click();
+  assert.equal(choosing.context.location.destination, undefined, '取消放弃草稿时不切换');
+  assert.equal(menu.hidden, false);
+  choosing.context.confirm = () => true;
+  menu.children[0].click();
+  assert.equal(new URL(choosing.context.location.destination).searchParams.get('lang'), 'zh-CN');
+  assert.equal(choosing.saved.get(manifest.storageKey), 'zh-CN');
+  assert.equal(choosing.saved.get('steam_arena_save_v2'), '{"money":1234,"wins":2}');
+  trigger.click();
+  choosing.context.SA.current = 'battle';
+  choosing.observers[0].callback();
+  assert.equal(trigger.disabled, true);
+  assert.equal(menu.hidden, true, '进入战斗应收起选择器');
   assert.equal(SA.Config.text('camp_reward_item', 'Gear', 2), english.messages.camp_reward_item.replace('{{0}}', 'Gear').replace('{{1}}', '2'));
   assert.equal(SA.Config.get('text').locale, 'en');
   assert.equal(SA.Config.get('ui'), SA.Config.get('ui'), '重复读取应保持语言视图的引用');

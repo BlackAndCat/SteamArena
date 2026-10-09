@@ -2,20 +2,22 @@
   "version": 1,
   "defaultLocale": "zh-CN",
   "storageKey": "steam_arena_locale_v1",
-  "help": "默认中文沿用原配置；新增语言时复制 lang-en.json 并在 locales 中登记。messages 对应 ui.json 的文案键，configs 使用 JSON Pointer，仅覆盖字符串；text 是本语言的剧情与自定义文本。遗漏的键回退中文，机制数值和模块 ID 不参与翻译。",
+  "help": "默认中文沿用原配置；新增语言时复制 lang-en.json 并在 locales 中登记。flag 是旗帜 SVG 源码，随配置一起打包；messages 对应 ui.json 的文案键，configs 使用 JSON Pointer，仅覆盖字符串；text 是本语言的剧情与自定义文本。遗漏的键回退中文，机制数值和模块 ID 不参与翻译。",
   "locales": [
     {
       "id": "zh-CN",
       "label": "简体中文",
+      "flag": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 20'><rect width='30' height='20' fill='#de2910'/><defs><path id='s' d='M0 -1 .2245 -.309 .9511 -.309 .3633 .118 .5878 .809 0 .382 -.5878 .809 -.3633 .118 -.9511 -.309 -.2245 -.309Z' fill='#ffde00'/></defs><use href='#s' transform='translate(5 5) scale(3)'/><use href='#s' transform='translate(10 2) rotate(239)'/><use href='#s' transform='translate(12 4) rotate(262)'/><use href='#s' transform='translate(12 7) rotate(286)'/><use href='#s' transform='translate(10 9) rotate(309)'/></svg>",
       "file": null,
-      "switchTitle": "切换语言（战斗结束后可切换）",
+      "switchTitle": "选择语言（战斗结束后可选择）",
       "pendingWarning": "本页有尚未保存的文本修改。放弃这些修改并切换语言？"
     },
     {
       "id": "en",
       "label": "English",
+      "flag": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'><clipPath id='s'><path d='M0 0h60v30H0z'/></clipPath><clipPath id='t'><path d='M30 15h30v15zM30 15v15H0zM30 15H0V0zM30 15V0h30z'/></clipPath><g clip-path='url(#s)'><path d='M0 0h60v30H0z' fill='#012169'/><path d='M0 0l60 30M60 0L0 30' stroke='#fff' stroke-width='6'/><path d='M0 0l60 30M60 0L0 30' stroke='#c8102e' stroke-width='4' clip-path='url(#t)'/><path d='M30 0v30M0 15h60' stroke='#fff' stroke-width='10'/><path d='M30 0v30M0 15h60' stroke='#c8102e' stroke-width='6'/></g></svg>",
       "file": "lang-en",
-      "switchTitle": "Switch language (available after battle)",
+      "switchTitle": "Choose language (available after battle)",
       "pendingWarning": "There are unsaved text edits. Discard them and switch language?"
     }
   ]

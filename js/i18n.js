@@ -108,24 +108,68 @@
     return true;
   }
 
-  // 独立的一键入口复用现有按钮样式，无需修改院子、设置弹窗或战斗界面。
-  // 文本作者模式忽略此控件；界面重建时同步战斗禁用状态，不安装轮询计时器。
+  // 旗帜入口显示当前语言；展开后由玩家明确选择，不再把下一种语言显示成当前状态。
+  // 旗帜 SVG 从配置生成图片，避免 Windows 将国旗表情显示成字母，也无需外部资源。
   function mount() {
+    const picker = document.createElement('div');
+    picker.id = 'sa-language-picker';
+    picker.setAttribute('data-sa-text-mirror', '1');
+    picker.style.cssText = 'position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:10000';
+    const flag = option => {
+      const image = document.createElement('img');
+      image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(option.flag);
+      image.alt = '';
+      image.width = 30; image.height = 20;
+      image.style.cssText = 'object-fit:contain;vertical-align:middle';
+      return image;
+    };
     const button = document.createElement('button');
-    const next = languages[(languages.indexOf(language) + 1) % languages.length];
     button.id = 'sa-language-switch';
     button.type = 'button';
     button.className = 'btn small';
-    button.textContent = next.label;
-    button.title = language.switchTitle;
-    button.setAttribute('aria-label', language.switchTitle);
-    button.setAttribute('data-sa-text-mirror', '1');
-    button.style.cssText = 'position:fixed;left:max(8px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));z-index:10000';
-    button.addEventListener('click', () => setLocale(next.id));
-    const update = () => { button.disabled = SA.current === 'battle'; };
+    button.title = `${language.label} · ${language.switchTitle}`;
+    button.setAttribute('aria-label', button.title);
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', 'sa-language-menu');
+    button.append(flag(language), document.createTextNode(' ▾'));
+    const menu = document.createElement('div');
+    menu.id = 'sa-language-menu';
+    menu.hidden = true;
+    menu.setAttribute('role', 'group');
+    menu.setAttribute('aria-label', language.switchTitle);
+    menu.style.cssText = 'position:absolute;left:0;top:calc(100% + 4px);min-width:160px;padding:6px;background:#202631;border:1px solid #bfa163';
+    const close = () => { menu.hidden = true; button.setAttribute('aria-expanded', 'false'); };
+    const options = languages.map(option => {
+      const item = document.createElement('button');
+      const selected = option.id === language.id;
+      item.type = 'button';
+      item.className = 'btn small';
+      item.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;margin:2px 0;text-align:left';
+      item.setAttribute('aria-pressed', String(selected));
+      item.append(flag(option), document.createTextNode(option.label + (selected ? ' ✓' : '')));
+      item.addEventListener('click', () => {
+        if (selected || setLocale(option.id)) { close(); button.focus(); }
+      });
+      menu.append(item);
+      return item;
+    });
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      menu.hidden = !menu.hidden;
+      button.setAttribute('aria-expanded', String(!menu.hidden));
+      if (!menu.hidden) options[languages.indexOf(language)].focus();
+    });
+    // 点击外部或按 Esc 收起；键盘在选择器内操作时不触发标题页的开始游戏快捷键。
+    document.addEventListener('pointerdown', event => { if (!picker.contains(event.target)) close(); });
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !menu.hidden) { event.stopImmediatePropagation(); close(); button.focus(); return; }
+      if (picker.contains(event.target) && ['Enter', ' '].includes(event.key)) event.stopImmediatePropagation();
+    }, true);
+    const update = () => { button.disabled = SA.current === 'battle'; if (button.disabled) close(); };
     update();
     new MutationObserver(update).observe(document.getElementById('screen') || document.body, { childList: true, subtree: true });
-    document.body.append(button);
+    picker.append(button, menu);
+    document.body.append(picker);
   }
 
   SA.I18n = {

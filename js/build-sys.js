@@ -82,3 +82,4 @@ SA.BUILD_SYS += '+impact-notify'; // 模块中弹、打中木箱时发只通知�
 SA.BUILD_SYS += '+route-map-first';
 SA.BUILD_SYS += '+route-span-rubble-terrain'; // 出征地形：架空桥（span）、碎砖坡（rubble），r2 高度 ×1.7（用户要求），镜头过桥往下看。
 SA.BUILD_SYS += '+i18n-en'; // 独立语言配置、英文文案、一键切换及按语言隔离作者保存。
+SA.BUILD_SYS += '+i18n-flag-picker'; // 显示当前语言国旗，展开后明确选择目标语言并标记当前项。
