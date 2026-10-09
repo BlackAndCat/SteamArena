@@ -94,29 +94,16 @@
 
 **我听不到声音。** 我能测响度、峰值、时长，保证不爆音、各声音音量一致；好不好听、够不够劲，要你在试听台上判断。
 
-### 3.1.1 第二批：更真实、年代对得上的录音（2026-10-09 候选，等用户批准下载）
+### 3.1.1 第二批：做游戏用的音效（2026-10-09 用户批准，已进游戏）
 
-用户：音效不太好，要更有真实感的枪炮、履带、发动机声，但不要太先进。下面都是 Freesound 上的 **CC0**（已逐个打开页面核对），优先挑 1930～60 年代好莱坞片场老音效的数字化转录（craigsmith 上传的 USC Cinema 转录库，带一点老底噪，正合年代感）和真实古董机器的实录。下载的是 Freesound 公开的高质量试听版（128 kbps mp3），处理成 22.05 kHz 单声道后音质差别听不出来；原始 wav 要登录才能下。
+用户：音效不太好，要更有真实感的枪炮、履带、发动机声（但不要太先进）；先找了一轮真实录音候选，用户改成**要免费的游戏音效，不要真实录音**。
 
-| # | 用途 | 素材 | 作者 | 试听版大小 |
-|---|---|---|---|---|
-| 1 | 自己车的锅炉怠速（循环） | [S07-26 Stanley Steamer Automobile; steady idle](https://freesound.org/people/craigsmith/sounds/675238/)：1900 年代真正上路的斯坦利蒸汽汽车，53 秒 | craigsmith | 1.1 MB |
-| 2 | 行驶中的蒸汽机（循环，跟车速变调） | [Running ship steam engine](https://freesound.org/people/derplayer/sounds/587171/)：1885 年明轮船「迈森号」的双缸复合蒸汽机，9 秒 | derplayer | 0.2 MB |
-| 3 | 敌车、重车开过去 | [Passing Steam Traction Engine 2](https://freesound.org/people/mike_stranks/sounds/407391/)：英国古董蒸汽牵引车（路上跑的蒸汽拖拉机），24 秒 | mike_stranks | 0.6 MB |
-| 4 | 履带的隆隆声和慢行（循环） | [G15-26 Tanks Close Up](https://freesound.org/people/craigsmith/sounds/438122/)：老坦克近距离怠速、慢慢开，3 分半 | craigsmith | 4.6 MB |
-| 5 | 履带起步、加速 | [t26_moving_01](https://freesound.org/people/greatmganga/sounds/329800/)：芬兰帕罗拉坦克博物馆的 T-26 轻坦克实录，14 秒 | greatmganga | 0.3 MB |
-| 6 | 机枪（老式） | [S19-33 Gatling gun](https://freesound.org/people/craigsmith/sounds/675620/)：老片场的加特林机枪，8 秒 | craigsmith | 0.2 MB |
-| 7 | 机枪（近距离） | [Gatling Gun Close](https://freesound.org/people/mikewest/sounds/239596/)：加特林机枪近距离实录，8 秒 | mikewest | 0.2 MB |
-| 8 | 小口径枪、发条步兵的火枪 | [44_black_powder](https://freesound.org/people/Jon285/sounds/34708/)：1860 年代罗杰斯-斯宾塞黑火药左轮，6 发，22 秒 | Jon285 | 0.5 MB |
-| 9 | 大炮开火 + 炮弹呼啸 | [R12-28 Cannon Shot and Whistling](https://freesound.org/people/craigsmith/sounds/486026/)，8 秒 | craigsmith | 0.2 MB |
-| 10 | 大炮的几种变体 | [S17-18 Bombardment; sharp cannon blasts](https://freesound.org/people/craigsmith/sounds/675136/)，32 秒 | craigsmith | 0.7 MB |
-| 11 | 小炮（37 mm）、步哨炮车 | [S20-48 A squad firing 37mm anti tank guns](https://freesound.org/people/craigsmith/sounds/675587/)，14 秒 | craigsmith | 0.3 MB |
-| 12 | 锅炉爆炸（过热、殉爆） | [R20-34 Steam Engine Explodes](https://freesound.org/people/craigsmith/sounds/483285/)：火车锅炉爆裂，6 秒 | craigsmith | 0.1 MB |
-| 13 | 泄压、大股蒸汽 | [S41-18 Large burst of steam](https://freesound.org/people/craigsmith/sounds/675574/)，约 4 秒 | craigsmith | 0.3 MB |
+- **来源**：Mixkit（21 个，Mixkit 免费授权：商业游戏可用、不用署名、不能原样转卖）+ Freesound CC0（6 个，混好的游戏炮声、多层重机枪）。用户同意放宽「只用 CC0」到「免费商用、不用署名」。明细见 `audio/LICENSES.md`。没用 Sonniss GDC 包：网站有人机验证，只能手动下载，而且每份好几 GB。
+- **新的名字**：`cannon.small`（小炮）、`gun.heavy`（重机枪）、`engine.idle`（发动机怠速，循环）、`engine.run`（蒸汽机行驶喷吐，循环）、`track.clank`（履带咔哒 / 腿的脚步）；换了素材的：`boom`、`boom.big`、`cannon.fire`、`cannon.hit`、`gun.shot`、`hit.metal.heavy`。
+- **处理**：`tools/audio-prep.js` 的 `MAP` 条目可以写 `{ f, at, len, loop }`——从连发录音里切单发（机枪），或者切一段做成无缝循环（尾部 60 ms 和开头交叉淡化）。
+- **接法**：新文件 `js/battle-audio.js`（`SA.BattleAudio`），**所有战斗**都有声音（原来只有出征有）：开火按武器分声音和音高、炮弹落地、爆炸、模块挨打、跳弹、甲片碎裂、泄压；自己车的发动机两条循环按车速调音量和播放速度（喷吐的节奏跟车速）；履带每走 30 px 咔哒一下，四足 / 双足每走 46 px 落一脚。出征特有的（小机械、拾取、撞碎）还在 `js/route-view.js`。`js/audio.js` 加了 `setLoop`（实时调循环的音量、速度、左右位置）和 `stopAll`。
 
-合计约 9.6 MB，放 `tools/out/audio-src/`（不进仓库），处理后进 `audio/`，来源写进 `audio/LICENSES.md`。没选的：独立战争重演现场（58 MB，满场人声和回声，切不出干净的单发）、各种合成的「机枪」「激光炮」（不像真的）。
-
-接进游戏的打算：怠速 + 行驶两层循环跟着车速交叉淡入淡出、音高随车速升高；履带循环只在履带底盘时响、音量跟车速；开火按武器挑（机枪 → 6/7，小炮 → 11，大炮 → 9/10，臼炮 → 10 压低音高）；过热炸车 → 12。
+（真实录音的候选清单作废，不下载。）
 
 ### 3.2 第一批音效清单（约 35 个，每个 3～4 个变体）
 
