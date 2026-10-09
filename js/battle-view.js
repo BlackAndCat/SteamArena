@@ -759,9 +759,9 @@ SA.BattleView.create = function createBattleView(api) {
   function fanSeg(ctx, x0, y0, x1, y1) {
     const o = ctx.o;
     let best = Infinity, key = null;
-    const [u0, v0] = fanUV(o, x0, y0), [u1, v1] = fanUV(o, x1, y1);
+    const [u0, v0] = o ? fanUV(o, x0, y0) : [-1, -1], [u1, v1] = o ? fanUV(o, x1, y1) : [-1, -1];   // 出征路上没有敌车：只算货箱和地面
     const du = u1 - u0, dv = v1 - v0;
-    if (Math.max(u0, u1) >= 0 && Math.min(u0, u1) < K.COLS && Math.max(v0, v1) >= 0 && Math.min(v0, v1) < K.ROWS) {
+    if (o && Math.max(u0, u1) >= 0 && Math.min(u0, u1) < K.COLS && Math.max(v0, v1) >= 0 && Math.min(v0, v1) < K.ROWS) {
       let cu = Math.floor(u0), cv = Math.floor(v0), lam = 0;
       const su = du > 0 ? 1 : -1, sv = dv > 0 ? 1 : -1;
       const tdu = du ? 1 / Math.abs(du) : Infinity, tdv = dv ? 1 / Math.abs(dv) : Infinity;
@@ -1027,13 +1027,10 @@ SA.BattleView.create = function createBattleView(api) {
         h('div', { class: 'dash-lamps' }, hud.lampBox = LAMPS.map((_, i) => h('div', { class: 'dash-lamp' }, hud.lamps[i], hud.lampLabels[i])))));
     const route = isRoute();
     if (route) {
-      hud.coal = pxCanvas(); hud.cargo = pxCanvas(); hud.rLamps = [pxCanvas(), pxCanvas()];
+      hud.coal = pxCanvas(); hud.cargo = pxCanvas();
       hud.routeBox = h('div', { class: 'dash-route', 'data-page-key': 'route-dash' },
         hud.coalFig = fig(hud.coal, SA.Config.text('route_coal')), hud.cargoFig = fig(hud.cargo, SA.Config.text('route_cargo')),
-        hud.metalFig = fig(hud.metal = pxCanvas(), SA.Config.text('route_metal')),
-        h('div', { class: 'dash-lamps' },
-          hud.slowLamp = h('div', { class: 'dash-lamp', title: SA.Config.text('route_lamp_slow_title') }, hud.rLamps[0], h('span', {}, SA.Config.text('route_lamp_slow'))),
-          hud.stopLamp = h('div', { class: 'dash-lamp', title: SA.Config.text('route_lamp_stop_title') }, hud.rLamps[1], h('span', {}, SA.Config.text('route_lamp_stop')))));
+        hud.metalFig = fig(hud.metal = pxCanvas(), SA.Config.text('route_metal')));   // 2026-10-09 用户定开过去就捡，原来的「慢行 / 停车」灯去掉
     }
     // 出征的返航：拉汽笛，救援车把车拖回院子，货全带回（SA.Route.recall）；竞技场照旧是撤退
     const recall = () => SA.UI.dialog(SA.Config.text('route_recall'), h('p', {}, SA.Config.text('route_recall_confirm')),
@@ -1179,12 +1176,6 @@ SA.BattleView.create = function createBattleView(api) {
     const cargo = R.cargo || [], cmax = R.cargoMax || 0;
     hud.cargoFig.style.display = cmax ? '' : 'none';
     if (cmax) paint(hud.cargo, `${cmax}|${cargo.map(c => (typeof c === 'string' ? c : c.kind)[0]).join('')}`, () => A.cargoSlots(cargo, cmax));
-    const X = SA.PX, slow = !!R.slow, stop = !!(R.boarding || (T.pickups || []).some(k => k.board > 0 && !k.taken));
-    hud.slowLamp.style.display = R.slow != null ? '' : 'none';
-    hud.stopLamp.style.display = (T.pickups || []).some(k => k.kind === 'refugee') ? '' : 'none';
-    paint(hud.rLamps[0], `${slow}`, () => X.lamp(slow, P.gauge[2]));
-    paint(hud.rLamps[1], `${stop}`, () => X.lamp(stop, P.brass[3]));
-    hud.slowLamp.lastChild.classList.toggle('on', slow); hud.stopLamp.lastChild.classList.toggle('on', stop);
     const name = B.e ? B.e.name : '';
     if (hud.foePlate.textContent !== name) hud.foePlate.textContent = name;
     hud.foePlate.style.visibility = B.e ? '' : 'hidden';
@@ -1963,17 +1954,24 @@ SA.BattleView.create = function createBattleView(api) {
     beginIntro(opts);
     let last = performance.now();
     const mine = B;   // 每场战斗一个循环：换了新的一场，旧循环自己退出
+    let loopErr = 0;
     const loop = (now) => {
       if (SA.current !== 'battle' || B !== mine || B.done) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      if (B.intro) introStep(dt);
-      else {
-        api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
-        if (!B.frozen && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
-      }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
-      draw();
-      introDraw();
-      hudTick(dt);
+      // 某一帧出错时不让整个画面定住：记到控制台，开发版在屏幕上提示一行（同一个错误 3 秒内只提示一次），下一帧照常接着跑
+      try {
+        if (B.intro) introStep(dt);
+        else {
+          api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
+          if (!B.frozen && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
+        }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
+        draw();
+        introDraw();
+        hudTick(dt);
+      } catch (err) {
+        console.error(err);
+        if (!SA.RELEASE && now - loopErr > 3000) { loopErr = now; SA.UI.toast(`画面出错：${err && err.message}`); }
+      }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);

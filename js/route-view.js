@@ -24,6 +24,7 @@ SA.RouteView = (() => {
     current.say(`打击感：${FEEL_NAMES[feel]}（F 切换）`);
   });
 
+  const SPRITES = new Map();   // 拾取时飞上车的小图（难民、物资箱、遗迹件）
   // 受击闪白：把机械那一帧涂成白色剪影（缓存）
   const whiteCache = new Map();
   function white(a, key) {
@@ -40,7 +41,7 @@ SA.RouteView = (() => {
    */
   function make(o) {
     const A = SA.RouteArt, groundAt = o.groundAt, GROUND = o.GROUND;
-    const st = { stop: 0, kick: 0, pieces: [], bits: [], flags: [], sndT: {}, best: 0, bestShown: false };
+    const st = { stop: 0, kick: 0, pieces: [], bits: [], flags: [], flyers: [], sndT: {}, best: 0, bestShown: false };
     const B = () => o.getB();
     const def = () => { const b = B(); return (b && b.opts && b.opts.routeData) || null; };
     const profile = () => { const b = B(); return !!(b && b.ter && b.ter.natural); };
@@ -86,6 +87,27 @@ SA.RouteView = (() => {
       for (let i = 0; i < 10; i++) part('debris', d.x + vr(-8, 8), d.y, vr(-200, 200), vr(-280, -80), vr(0.6, 1.1), i % 2 ? P.rust[2] : P.iron[1]);
     }
 
+    // ---------- 开过去就捡：难民一家跳上车（欢呼的碳球小人），物资箱、遗迹件沿弧线飞进车里 ----------
+    const sprite = (key, make) => { if (!SPRITES.has(key)) SPRITES.set(key, make()); return SPRITES.get(key); };
+    const person = (seed) => sprite(`p${seed}`, () => SA.Coal.draw(SA.Coal.crew(`难民${seed}`), { size: 'sprite', pose: 'cheer', expr: 'happy', look: 1 }));
+    const crate = () => sprite('crate', () => { const q = A.pen(12, 12); A.crateAt(q, 6, 10); return q.c; });
+    const relic = () => sprite('relic', () => { const q = A.pen(14, 14); A.relicAt(q, 7, 12); return q.c; });
+    function pickupFx(d) {
+      if (!feel) return;
+      const y = d.y != null ? d.y : groundAt(d.x);
+      if (d.kind === 'refugee') {
+        const seed = Math.round(d.x / 97);
+        [[-24, 0], [-4, 1], [14, 2]].forEach(([dx, k], i) => st.flyers.push({ img: person(seed + k), x: d.x + dx, y: y - 14, t: 0, dur: 0.55 + i * 0.08, h: 70 + i * 16, delay: 0.07 * i, w: 40 }));
+        snd('ui.confirm', d.x, 0.55); snd('chain', d.x, 0.35);
+      } else if (d.kind === 'supply' || d.kind === 'spoils') {
+        for (let i = 0; i < (d.encounter != null ? 3 : 2); i++) st.flyers.push({ img: crate(), x: d.x + vr(-10, 10), y: y - 8, t: 0, dur: 0.45 + i * 0.07, h: vr(50, 80), delay: 0.06 * i, w: 12 });
+        snd('crush.wood', d.x, 0.45); snd('scrap.pickup', d.x, 0.5);
+      } else if (d.kind === 'relic') {
+        st.flyers.push({ img: relic(), x: d.x, y: y - 10, t: 0, dur: 0.7, h: 110, delay: 0, w: 14, glow: true });
+        snd('ui.confirm', d.x, 0.7); stop(0.05);
+      }
+    }
+
     // ---------- 视觉事件：返回 true = 已处理完（battle-view 不再管），false = 只加了声音，照常往下走 ----------
     function event(type, d) {
       const b = B();
@@ -109,7 +131,7 @@ SA.RouteView = (() => {
           else snd(d.kind === 'crate' ? 'crush.wood' : 'hit.plate', d.x, 0.35, 0.14);
           return false;
         case 'text': if (/^\d+$/.test(d.str) && b) { const v = +d.str; snd(v < 10 ? 'hit.metal.light' : v < 25 ? 'hit.metal.medium' : 'hit.metal.heavy', d.x, v < 10 ? 0.45 : 0.8, 0.03); } return false;
-        case 'pickup': snd(d.kind === 'water' ? 'steam.hiss' : 'crush.rock', d.x, 0.6); return false;
+        case 'pickup': if (d.kind === 'coal' || d.kind === 'water') snd(d.kind === 'water' ? 'steam.hiss' : 'crush.rock', d.x, 0.6); else pickupFx(d); return false;
         case 'encounter': snd('chain', null, 0.6); return false;
         default: return false;
       }
@@ -139,6 +161,8 @@ SA.RouteView = (() => {
         }
       }
       st.bits = st.bits.filter(q => !q.done);
+      for (const f of st.flyers) { if (f.delay > 0) f.delay -= dt; else f.t += dt; }
+      st.flyers = st.flyers.filter(f => f.t < f.dur);
     }
     // 金属飞进车里的哪儿：车身中段偏上（有货箱就是货箱的位置）
     function carSpot() { const b = B(), f = o.frontEdge(b.p); return [f - 96, groundAt(f - 96) - 76]; }
@@ -210,6 +234,13 @@ SA.RouteView = (() => {
         const k = clamp(q.t / q.dur, 0, 1), e = k * k * (3 - 2 * k), x = q.x + (tx - q.x) * e, y = q.y + (ty - q.y) * e - Math.sin(k * Math.PI) * q.h;
         const a = A.piece('scrap', Math.floor(k * 8));
         g.drawImage(a.c, Math.round(x - a.ax), Math.round(y - a.ay));
+      }
+      for (const f of st.flyers) {
+        if (f.delay > 0) continue;
+        const k = clamp(f.t / f.dur, 0, 1), e = k * k * (3 - 2 * k), x = f.x + (tx - f.x) * e, y = f.y + (ty - f.y) * e - Math.sin(k * Math.PI) * f.h;
+        const s = f.w > 20 ? 1 - 0.45 * k : 1;   // 小人越飞越小（落进车里）
+        if (f.glow) { g.globalAlpha = 0.35; g.fillStyle = A.PAL.GLOW[2]; g.fillRect(Math.round(x - 10), Math.round(y - 10), 20, 20); g.globalAlpha = 1; }
+        g.drawImage(f.img, Math.round(x - f.img.width * s / 2), Math.round(y - f.img.height * s / 2), Math.round(f.img.width * s), Math.round(f.img.height * s));
       }
       for (const f of st.flags) {
         if (!f.ring) continue;
