@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-09-route-director-v1';
+SA.RULES_VERSION = '2026-10-09-route-director-opening-v1';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -1673,6 +1673,7 @@ SA.Battle = (() => {
   // 画面层只发出操作请求；泄压、投降和撤退的状态变化统一留在规则层。
   function vent() {
     if (!B || B.p.vented || B.p.dead) return false;
+    if (routePlanWaiting()) return false;
     if (B.surrender === 'raising' || B.surrender === 'asked') return false;
     B.p.vented = true;
     B.p.ventCount++;
@@ -1709,9 +1710,16 @@ SA.Battle = (() => {
     return true;
   }
 
+  /** 共用加载边界：泄压等直接操作也不能绕过暂停，返航仍走独立结束入口。 */
+  function routePlanWaiting() {
+    const waiting = B?.route && B.opts.routeData.encounters[B.route.next];
+    return !!(waiting?.pending && frontEdge(B.p) >= waiting.at - 600);
+  }
   function step(dt) {
     // 实时画面与手动调试均不得在升旗或确认期间偷跑物理、炮弹或结算。
     if (!B || B.done) return;
+    // 敌车仍在后台评分时，靠近首次未知遭遇便暂停整段规则步进；不推进时间、资源或随机流。
+    if (routePlanWaiting()) return;
     if (B.route) advanceRoute();
     if (B.done) return;
     if (B.surrender === 'raising' || B.surrender === 'asked') return;
@@ -2079,7 +2087,8 @@ SA.Battle = (() => {
     settle(B.p, 0);
     camera(1);
     advanceRoute();
-    sampleRoute();
+    // 极短路线可在开局已经触达首战；等敌车注入后再做原本同一时点的首个采样。
+    if (!def.encounters[B.route.next]?.pending || B.route.x < def.encounters[B.route.next].at) sampleRoute();
     return B;
   }
 
@@ -2173,7 +2182,7 @@ SA.Battle = (() => {
     if (B.e?.dead) retireRouteEnemy();
     const def = B.opts.routeData;
     const enc = def.encounters[B.route.next];
-    if (!B.e && enc && B.route.x >= enc.at) spawnRouteEnemy(enc, B.route.next++);
+    if (!B.e && enc && !enc.pending && B.route.x >= enc.at) spawnRouteEnemy(enc, B.route.next++);
     if (!B.e && !enc && B.route.x >= def.end.x) endRoute('depot');
   }
 
@@ -2182,6 +2191,21 @@ SA.Battle = (() => {
     if (!B?.route || B.done) return false;
     const failure = routeFailure();
     return failure ? endRoute(failure.how, failure.cause) : endRoute('recall');
+  }
+
+  /** 仅当前仍在战斗页的同一趟允许接收晚到规划；退出、结束或新开局后消息没有副作用。 */
+  function routeActive(runId) { return !!(B?.route && B.route.runId === runId && !B.done && SA.current === 'battle'); }
+  /** 只填入已校准的真实遭遇，不重建地形、小机械、玩家、随机流，也不再次登记出发。 */
+  function attachRoutePlan(runId, plan) {
+    if (!routeActive(runId)) return false;
+    const pending = B.opts.routeData.encounters;
+    if (!pending.some(enc => enc.pending) || pending.length !== plan.encounters?.length) return false;
+    if (pending.some((enc, i) => !plan.encounters[i].vehicle || ['at', 'guard', 'leash', 'targetWinRate']
+      .some(key => enc[key] !== plan.encounters[i][key]))) return false;
+    B.opts.routeData.encounters = JSON.parse(JSON.stringify(plan.encounters));
+    // at=0 的合法短路线必须在原开局时点生成敌车并采样，不多消耗一个模拟步。
+    advanceRoute(); sampleRoute();
+    return true;
   }
 
   /** 同步真实物理模拟：临时替换局状态和引擎随机源，finally 恢复外部游戏，不碰正式存档。 */
@@ -2353,5 +2377,5 @@ SA.Battle = (() => {
     vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation,
     emit: (type, data) => emit(type, data),
   });
-  return { start, scoreDuel: simulate, route: { simulate: simulateRoute, recall: recallRoute, result: () => B?.route ? B.result || null : null }, aiStyles, normalizeAiStyle, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
+  return { start, scoreDuel: simulate, route: { simulate: simulateRoute, recall: recallRoute, active: routeActive, attachPlan: attachRoutePlan, result: () => B?.route ? B.result || null : null }, aiStyles, normalizeAiStyle, ...(!SA.RELEASE ? { startState, simulate, debug } : {}), reloadProgress, ricochetChance, emit, tetherState, vent, retreat, acceptSurrender, refuseSurrender, surrenderState, advanceSurrender, skipSurrenderAnimation };
 })();

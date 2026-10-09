@@ -171,7 +171,11 @@ SA.BattleView.create = function createBattleView(api) {
     const len = T.len || W;
     if (len > W && SA.RouteArt) {   // 出征的长路线：切成 1280 宽的块缓存，只画镜头看得到的块
       if (!T.tiles) T.tiles = T.natural && RV ? RV.terrainTiles(T) : SA.RouteArt.terrainTiles(T.ground, T.mud || [], len, H, GROUND);
-      for (const tl of T.tiles) if (camSees(tl.x + tl.c.width / 2, tl.c.width / 2)) g.drawImage(tl.c, tl.x, 0);
+      // 先用地块宽度判定可见性，避免读取惰性 canvas 时提前生成整条路线。
+      for (const tl of T.tiles) {
+        const width = tl.width == null ? tl.c.width : tl.width;
+        if (camSees(tl.x + width / 2, width / 2)) g.drawImage(tl.c, tl.x, 0);
+      }
     } else {
       if (!T.art && (((T.def && T.def.hills) || []).length || (T.mud || []).length)) T.art = SA.TerrainArt.layer(T.ground, T.mud || [], W, H, GROUND);   // 土坡 + 泥地：静态像素层，只画一次
       if (T.art) g.drawImage(T.art, 0, 0);

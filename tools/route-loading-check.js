@@ -96,14 +96,41 @@ if (!isMainThread) {
     }
     assert.strictEqual(await SA.Route.preload('r2', { runIndex: 0 }), false, '非法任务应结束为失败');
     assert(await SA.Route.preload('r2', { runIndex: 1 }), '单任务错误不应禁用其他合法预热');
+    // 界面冷入口先开图，不在主线程补跑评分；第二次旧卡片点击不得另开一局或阻止首局注入。
+    let launches = 0, mainSimulations = 0;
+    const originalStart = SA.Battle.start, originalSimulation = SA.Battle.route.simulate;
+    SA.Battle.start = options => { launches++; return originalStart(options); };
+    SA.Battle.route.simulate = options => { mainSimulations++; return originalSimulation(options); };
+    SA.go = name => { SA.current = name; };
+    SA.current = 'arena';
+    const joined = SA.Route.preload('r2', { runIndex: 3, seed: 303 });
+    const isCurrent = () => SA.current === 'arena';
+    const olderLaunch = SA.Route.startWhenReady('r2', { runIndex: 3, seed: 303, isCurrent });
+    const latestLaunch = SA.Route.startWhenReady('r2', { runIndex: 3, seed: 303, isCurrent });
+    const opened = await olderLaunch;
+    assert(opened && opened.opts.routeData.encounters.some(enc => enc.pending), '冷入口没有先开前段地图');
+    assert.strictEqual(await latestLaunch, false); assert(await joined);
+    assert(opened.opts.routeData.encounters.every(enc => !enc.pending && enc.vehicle), '旧卡片请求阻止了有效规划注入');
+    assert.strictEqual(launches, 1, '重复拉杆开了两局');
+    assert.strictEqual(mainSimulations, 0, '等待后台期间主线程重复跑评分');
+    // 教学仍为原同步快速开局，不增加后台加载等待。
+    assert(await SA.Route.startWhenReady('r2', { runIndex: 1, seed: 304 }));
+    assert.strictEqual(launches, 2); assert.strictEqual(mainSimulations, 0);
+    const beforeWrites = rt.writes();
+    assert.strictEqual(await SA.Route.startWhenReady('r2', { runIndex: 3, isCurrent: () => false }), false);
+    assert.strictEqual(launches, 2); assert.strictEqual(rt.writes(), beforeWrites, '开图前取消仍写了账本');
+    SA.Battle.route.simulate = originalSimulation;
     const fallback = plain(SA.Route.prepare('r2', { runIndex: 1 }));
     context.Worker = class { constructor() { throw new Error('模拟浏览器不支持 Worker'); } };
     vm.runInContext(fs.readFileSync(path.join(root, 'js/route.js'), 'utf8'), context);
     assert.strictEqual(await SA.Route.preload('r2', { runIndex: 1 }), false);
     assert.deepStrictEqual(plain(SA.Route.prepare('r2', { runIndex: 1 })), fallback, 'Worker 失败改变同步回退');
+    assert(await SA.Route.startWhenReady('r2', { runIndex: 1 }), 'Worker 不可用时界面入口未回退');
+    assert.strictEqual(launches, 3);
     console.log(JSON.stringify({ completePlanEqual: true, liveBattleUnchanged: true, noSaveWrites: true,
       invalidation: ['vehicle', 'routeRuns', 'dda', 'modules', 'fuel', 'route', 'stageCars'], comparedRuns: [3, 4, 5], staleTaskCancelled: true,
       staleErrorIgnored: true, failedTaskRecovered: true, workerUnavailableFallback: true,
+      asyncStart: { pendingMerged: true, coldMapFirst: true, mainSimulations, singleLaunch: true, invalidViewCancelled: true },
       coldMs: +coldMs.toFixed(2), hotMs: +hotMs.toFixed(2), workerMs: +workerMs.toFixed(2), listMs: +listMs.toFixed(2) }));
   }
   run().catch(error => { console.error(error); process.exitCode = 1; })

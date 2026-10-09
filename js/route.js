@@ -37,7 +37,7 @@ SA.Route = (() => {
     const input = preparationInput(id, options), key = JSON.stringify(input);
     if (warmPlans.has(key)) return Promise.resolve(true);
     if (warmTask?.key === key) return warmTask.promise;
-    if (warmTask) { warmWorker.terminate(); warmWorker = null; warmTask.resolve(false); warmTask = null; }
+    if (warmTask) { warmWorker.terminate(); warmWorker = null; warmTask.cancelled = true; warmTask.resolve(false); warmTask = null; }
     const environment = JSON.stringify({ configs: input.configs, starter: input.starter, rulesVersion: input.rulesVersion, build: input.build });
     // 评分可跨趟复用，但依赖的模块、作者车或规则变化必须重新建立隔离运行时。
     if (warmWorker && workerEnvironment !== environment) { warmWorker.terminate(); warmWorker = null; }
@@ -163,6 +163,14 @@ SA.Route = (() => {
     // 冷回退也遵守相同规则边界；热调模块/地形/燃煤后不能使用旧评分。
     const environment = JSON.stringify({ configs: input.configs, starter: input.starter, rulesVersion: input.rulesVersion, build: input.build });
     if (duelEnvironment !== environment) { duelCache.clear(); duelEnvironment = environment; }
+    const out = resolveRoute(route);
+    if (options.difficulty !== false) planDifficulty(out, options);
+    if (out.mobs?.length && !SA.RouteMobs) throw new Error('难度规划需要小机械，但未加载 route-mobs.js');
+    return out;
+  }
+
+  /** 开图和完整规划共用作者路线解析，不在加载阶段改造或替换真实车辆。 */
+  function resolveRoute(route) {
     const def = typeof route === 'string' ? SA.ROUTES[route] : route;
     if (!def || !Number.isFinite(def.len) || def.len <= 0 || !def.end) throw new Error('找不到有效出征路线');
     const out = copy(def);
@@ -177,10 +185,22 @@ SA.Route = (() => {
       if (!vehicle) throw new Error('遭遇关卡车尚未配置：' + enc.car);
       return { ...enc, vehicle, aim: enc.aim ?? stage.aim, statMultipliers: enc.statMultipliers ?? stage.statMultipliers };
     });
-    if (options.difficulty !== false) planDifficulty(out, options);
-    if (out.mobs?.length && !SA.RouteMobs) throw new Error('难度规划需要小机械，但未加载 route-mobs.js');
     return out;
   }
+
+  /** 捕获开局前的路线、账本和作者候选；失败回退从这些副本完成原趟，不读已递增的出发计数。 */
+  function openingPreparation(route, options) {
+    const input = copy(preparationInput(route, options)), base = resolveRoute(input.route), plan = copy(base);
+    if (options.difficulty !== false) planDifficulty(plan, input.options, true);
+    const frozen = { difficulty: copy(plan.difficulty || null), records: input.configs['stage-cars'].records, starter: input.starter };
+    return { input, plan, complete() {
+      const out = copy(base);
+      if (options.difficulty !== false) planDifficulty(out, input.options, false, frozen);
+      return out;
+    } };
+  }
+  /** 低成本开图方案只冻结敌车的数量、位置和目标；未完成的遭遇没有虚构敌车或名字。 */
+  function prepareOpening(route, options = {}) { return openingPreparation(route, options).plan; }
 
   const duelCache = new Map();
   let duelEnvironment = null;
@@ -324,17 +344,17 @@ SA.Route = (() => {
         ...scores.map(item => ({ name: item.candidate.name, car: item.candidate.car || null, aim: item.candidate.aim, fine: true, ...item.measured }))] };
   }
   /** 冻结本趟的输入与威胁计划。教学只保留煤、物资和两三名步兵，静态作者数据不被改写。 */
-  function planDifficulty(out, options) {
+  function planDifficulty(out, options, opening = false, frozen = null) {
     const vehicle = options.vehicle || SA.S.d?.vehicle;
     if (!vehicle) throw new Error('难度规划缺少车辆');
     const rec = SA.S.d?.route, routeRun = (rec?.routeRuns?.[out.id] || 0) + 1;
     const firstRoute = rec?.firstRoute || Object.keys(rec?.routeRuns || {})[0] || out.id;
-    const runIndex = options.runIndex ?? (routeRun + (firstRoute === out.id ? 0 : 2));
+    const runIndex = frozen?.difficulty?.runIndex ?? options.runIndex ?? (routeRun + (firstRoute === out.id ? 0 : 2));
     if (!Number.isInteger(runIndex) || runIndex < 1) throw new Error('出发趟数必须是正整数');
     const params = { baseBudget: 24, segmentCount: 4, ...(config.difficulty || {}) };
     // 未指定种子的正式出发按路线与有效趟数派生；模拟显式传入默认 1，保持工具兼容。
     const seed = options.seed ?? [...out.id].reduce((hash, c) => Math.imul(hash ^ c.charCodeAt(0), 16777619) >>> 0, runIndex);
-    out.difficulty = { ...params, runIndex, effectiveRunIndex: runIndex, routeRun, powerScore: powerScore(vehicle), seed,
+    out.difficulty = frozen?.difficulty ? copy(frozen.difficulty) : { ...params, runIndex, effectiveRunIndex: runIndex, routeRun, powerScore: powerScore(vehicle), seed,
       dda: copy(options.dda || SA.S.d?.route?.dda?.[out.id] || {}), teaching: runIndex <= 2 };
     if (runIndex <= 2) {
       out.encounters = []; out.props = [];
@@ -342,31 +362,33 @@ SA.Route = (() => {
       out.mobs = [{ kind: 'soldier', x: 300, n: runIndex === 1 ? 2 : 3, gap: 90 }];
       return;
     }
-    // 弱车是现有起步构筑的完整合法车辆，只有供汽、驾驶、底盘和一门炮，绝不加伤害补偿。
-    const weak = { name: '废土学徒', vehicle: SA.S.starterVehicle(), aim: 0.65, style: 'balanced' };
-    const candidates = [...out.encounters.filter(e => runIndex >= (e.minRun || 1))];
+    const authored = out.encounters;
+    out.mobs = (out.mobs || []).filter(g => runIndex >= Math.max(g.minRun || 1, ({ soldier: 1, crawler: 3, sentry: 3, barrel: 4 }[g.kind] || 1)));
+    if (!out.mobs.length) out.mobs = Array.from({ length: 8 }, (_, i) => ({ kind: i % 3 === 2 ? 'crawler' : 'soldier', x: 600 + i * 800, n: 3 }));
+    // 第三趟的前奏只两名步兵，给首次决斗保留冷却水；后半程仍使用作者的成熟组与点数预算。
+    if (runIndex <= 4) out.mobs = [{ kind: 'soldier', x: 1200, n: runIndex === 3 ? 2 : 3, gap: 140 }, ...out.mobs.filter(g => g.x > 8200)];
+    const targets = runIndex === 3 ? [0.9] : runIndex === 4 ? [0.8] : [0.75, 0.6];
+    const slots = targets.map((target, i) => {
+      const at = i ? out.len * 0.8 : Math.min(out.firstDuelAt ?? 3500, out.len * 0.38);
+      return { targetWinRate: target, at, guard: at + 400, leash: Math.min(out.len, at + 1000) };
+    });
+    if (opening) { out.encounters = slots.map(slot => ({ ...slot, pending: true })); return; }
+    // 候选评分只在完整规划中运行；前段地形、小机械和资源与开图方案共用以上同一套处理。
+    const weak = { name: '废土学徒', vehicle: frozen?.starter || SA.S.starterVehicle(), aim: 0.65, style: 'balanced' };
+    const candidates = [...authored.filter(e => runIndex >= (e.minRun || 1))];
     const authoredCars = new Set(candidates.map(candidate => candidate.car));
-    // 候选池复用全部已经存在的合法关卡记录；只读既有车，不生成或覆盖正式战役车。
-    for (const [car, stage] of Object.entries(SA.StageCars.data.records || {})) {
+    for (const [car, stage] of Object.entries(frozen?.records || SA.StageCars.data.records || {})) {
       if (candidates.some(candidate => candidate.car === car)) continue;
       const vehicle = SA.StageCars.vehicle(stage, stage.name);
       if (!vehicle || !SA.V.stats(vehicle).canDeploy) continue;
       candidates.push({ car, name: stage.name || vehicle.name, vehicle, aim: stage.aim ?? 0.8, style: stage.style,
         statMultipliers: stage.statMultipliers });
     }
-    // 原型弱车仅在没有既有合法记录时兜底；正常路线优先使用已存在的关卡候选。
     if (!candidates.length) candidates.push(weak);
-    out.mobs = (out.mobs || []).filter(g => runIndex >= Math.max(g.minRun || 1, ({ soldier: 1, crawler: 3, sentry: 3, barrel: 4 }[g.kind] || 1)));
-    if (!out.mobs.length) out.mobs = Array.from({ length: 8 }, (_, i) => ({ kind: i % 3 === 2 ? 'crawler' : 'soldier', x: 600 + i * 800, n: 3 }));
-    // 第三趟的前奏只两名步兵，给首次决斗保留冷却水；后半程仍使用作者的成熟组与点数预算。
-    if (runIndex <= 4) out.mobs = [{ kind: 'soldier', x: 1200, n: runIndex === 3 ? 2 : 3, gap: 140 }, ...out.mobs.filter(g => g.x > 8200)];
-    const targets = runIndex === 3 ? [0.9] : runIndex === 4 ? [0.8] : [0.75, 0.6];
     out.encounters = [];
-    targets.forEach((target, i) => {
-      // 首场位置由路线作者配置；未配置的旧路线沿用 3500px，短路线仍限制在前段。
-      const at = i ? out.len * 0.8 : Math.min(out.firstDuelAt ?? 3500, out.len * 0.38);
+    slots.forEach(({ targetWinRate: target, at, guard, leash }) => {
       const picked = chooseDuel(vehicle, candidates, target, null, runIndex === 3, out, at, authoredCars);
-      out.encounters.push({ ...picked, at, guard: at + 400, leash: Math.min(out.len, at + 1000) });
+      out.encounters.push({ ...picked, at, guard, leash });
     });
   }
 
@@ -398,18 +420,60 @@ SA.Route = (() => {
   }
 
   /** 返回数据副本供黑板呈现，调用者不能通过改列表污染正式路线。 */
-  function list() {
-    const id = SA.S.d?.route?.firstRoute;
-    // 优先当前路线，只预热一条，避免列表重绘让多路线互相取消。
-    if (SA.S.d?.vehicle) preload(SA.ROUTES[id] ? id : Object.keys(SA.ROUTES)[0]);
-    return Object.values(SA.ROUTES).map(copy);
+  function list() { return Object.values(SA.ROUTES).map(copy); }
+  let launchToken = 0;
+  /**
+   * 界面专用出发入口：成熟路线先用共享前段开图，后台完成后只注入真实敌车，不等待整批评分。
+   * 开局前核对请求、存档身份、完整输入和视图；开局后只认本趟 runId，避免晚消息影响新局。
+   * 同步 start 继续供工具与旧调用使用；不支持 Worker 或任务失败时仍按原同步算法安全回退。
+   */
+  async function startWhenReady(id, options = {}) {
+    const token = ++launchToken, save = SA.S.d;
+    const { isCurrent = () => true, ...settings } = options;
+    const frozen = copy({ ...settings, vehicle: save?.vehicle });
+    const key = JSON.stringify(preparationInput(id, frozen));
+    const current = () => token === launchToken && SA.S.d === save && isCurrent()
+      && JSON.stringify(preparationInput(id, { ...frozen, vehicle: SA.S.d?.vehicle })) === key;
+    if (!current()) return false;
+    if (!frozen.vehicle || !SA.V.stats(frozen.vehicle).canDeploy) throw new Error('当前车辆不能出征');
+    if (warmPlans.has(key) || frozen.difficulty === false) return start(id, frozen);
+    const opening = openingPreparation(id, frozen);
+    if (opening.plan.difficulty.teaching) return start(id, frozen);
+    const pending = preload(id, frozen);
+    if (!warmTask || workerUnavailable) { await pending; return current() ? start(id, frozen) : false; }
+    if (!current()) return false;
+    const battle = startPrepared(id, opening.plan), runId = battle.route.runId;
+    pending.then(ok => {
+      if (!SA.Battle.route.active(runId)) return;
+      try {
+        let plan = ok && warmPlans.get(key);
+        if (!plan) {
+          const environment = input => JSON.stringify({ configs: input.configs, starter: input.starter,
+            rulesVersion: input.rulesVersion, build: input.build });
+          if (environment(opening.input) !== environment(preparationInput(id, frozen))) {
+            SA.Battle.route.recall(); SA.UI?.toast('规则已更新，请重新出发'); return;
+          }
+          plan = opening.complete();
+        }
+        if (!SA.Battle.route.attachPlan(runId, plan) && SA.Battle.route.active(runId))
+          throw new Error('出征规划未完成，请重新出发');
+      } catch (error) {
+        if (SA.Battle.route.active(runId)) { SA.Battle.route.recall(); SA.UI?.toast(error.message); }
+      }
+    });
+    return battle;
   }
   /** 使用正式当前车辆出发；成功开局后登记实际出发，界面通过 route-end 和 result 获取终止原因。 */
   function start(id, options = {}) {
     const vehicle = SA.S.d?.vehicle;
     if (!vehicle || !SA.V.stats(vehicle).canDeploy) throw new Error('当前车辆不能出征');
     const routeData = prepare(id, { ...options, vehicle });
+    return startPrepared(id, routeData);
+  }
+  /** 开局成功才记一笔出发；后台补齐规划只修改活动局的遭遇，不再次进入此入口。 */
+  function startPrepared(id, routeData) {
     const battle = SA.Battle.start({ mode: 'route', routeData });
+    if (!battle) return battle;
     const rec = SA.S.d.route || (SA.S.d.route = { best: {}, runs: 0, metal: 0 });
     rec.departures = (rec.departures || 0) + 1;
     rec.firstRoute = rec.firstRoute || Object.keys(rec.routeRuns || {})[0] || id;
@@ -470,6 +534,6 @@ SA.Route = (() => {
 
   const initial = validateConfig(config);
   if (!initial.ok) throw new Error('出征配置非法：' + initial.errors.join('；'));
-  return { list, start, simulate, prepare, preload, preparationStatus, powerScore, plan, settle, best, getConfig: () => copy(config), validateConfig, configure,
+  return { list, start, startWhenReady, simulate, prepare, prepareOpening, preload, preparationStatus, powerScore, plan, settle, best, getConfig: () => copy(config), validateConfig, configure,
     recall: () => SA.Battle.route.recall(), result: () => SA.Battle.route.result() };
 })();

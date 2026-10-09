@@ -61,7 +61,7 @@ SA.Text = (() => {
   let readyResolve;
   const ready = new Promise(resolve => { readyResolve = resolve; });
 
-  const fileName = () => 'config/text.json';
+  const fileName = () => SA.I18n?.file() || 'config/text.json';
   const sourceDocument = SA.Config.get('text');
   const safeKey = key => typeof key === 'string' && key.length > 0 && key.length <= 240;
   // 剧情编排入口及编辑器自身是功能控件，页面选字模式不能拦截其点击或扫描其文字。
@@ -740,6 +740,14 @@ SA.Text = (() => {
     const revision = changeRevision, uiRevision = uiChangeRevision;
     let serverRevision;
     try {
+      // 独立语言包由多语言模块一次写入；保持中文原有保存协议及草稿版本检查。
+      if ((saveText || saveUi) && SA.I18n?.translated()) {
+        serverRevision = (await SA.I18n.saveDocuments(payload, uiPayload)).revision;
+        if (saveText) { Object.assign(sourceDocument, payload); dirty = changeRevision !== revision; }
+        if (saveUi) { savedUiMessages = { ...uiPayload.messages }; uiDirty = uiChangeRevision !== uiRevision; }
+        updateToolbar(dirty || uiDirty ? '本次写入完成；后续修改仍待保存' : '已写入正式配置');
+        return { ok: true, file: fileName(), revision: serverRevision, pending: dirty || uiDirty, document: payload };
+      }
       if (saveText) {
         const response = await fetch(config.saveUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!response.ok) {
@@ -817,6 +825,7 @@ SA.Text = (() => {
 
   function init(options = {}) {
     Object.assign(config, options);
+    if (SA.I18n) config.locale = SA.I18n.locale;
     if (started) return api;
     started = true;
     if (document.head) {
@@ -843,6 +852,7 @@ SA.Text = (() => {
     init, ready, load: reload, get, t: get, set, register, registerUi, homeLines, homeTips, bindText, bindAttr, canvas, draw,
     enterEdit, exitEdit, toggle, save, reset, remove, onChange,
     isEditing: () => editing,
+    hasPending: () => dirty || uiDirty,
     file: fileName,
     refresh: () => scan(),
   };

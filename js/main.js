@@ -33,6 +33,8 @@ function initializeGame() {
   SA.PX.init();   // 像素界面件的九宫格 / 齿轮 / 桌面纹理挂到 CSS 变量上
   SA.S.load();
   SA.Camp.backfill();
+  // 在标题与院子停留期间提前准备默认路线；列表展示不再猜测上一次出征的路线。
+  queueMicrotask(() => { const id = Object.keys(SA.ROUTES || {})[0]; if (id) SA.Route?.preload(id); });
   document.querySelector('#modal').addEventListener('pointerdown', (e) => {
     if (e.target.id === 'modal') SA.UI.closeModal();
   });

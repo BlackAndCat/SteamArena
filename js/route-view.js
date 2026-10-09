@@ -253,6 +253,7 @@ SA.RouteView = (() => {
       const natY = (x) => GROUND - nat[clamp(Math.round(x - PAD), 0, len)];
       const pick = (k) => feats.filter(f => f.kind === k);
       const tiles = SA.TerrainArt.profileTiles(ground, ground.length - 1, TILE_H, {
+        lazy: true,   // 首帧只生成镜头可见地块，其余保持元数据，经过时再缓存像素。
         bridge: pick('bridge').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, water: Math.round(natY((f.x0 + f.x1) / 2 + PAD) + 10) })),
         fill: pick('fill').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, natural: natY })),
         cut: pick('cut').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, depth: f.depth })),

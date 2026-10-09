@@ -18,6 +18,10 @@ AI 性格专项行为验收运行 `node tools/ai-style-check.js`；四构筑固�
 
 普通游戏的「设置」可两次确认后删除当前进度并从开场重来；蓝图库和作者设计会保留，设计模式不显示此入口。
 
+游戏右下角的语言按钮一键切换简体中文 / English，刷新后保留选择；战斗中暂时禁用，返回院子后可切换。语言偏好与游戏存档分开保存，也可用 `?lang=en` 或 `?lang=zh-CN` 指定。中文沿用原配置，英文由 `config/lang-en.json` 提供；缺少的文案回退中文。作者模式编辑英文时，保存写入英文语言包，不覆盖中文配置。
+
+多语言登记表为 `config/i18n.json`。新增语言时复制英文包并登记 `id`、`label`、`file`（配置文件名，不含 `.json`）、`switchTitle` 和 `pendingWarning`。语言包的 `messages` 与 `config/ui.json` 键对应，保留 `{{0}}` 等占位符；`configs` 按 JSON Pointer 路径覆盖模块、战役、路线等配置中的显示文字，禁止改动 ID、枚举、数值或 CSS 类名；`text` 保存本语言剧情和页面文字，台词中的角色 ID、动作、分镜及 `{关卡名}` 等命名占位符保持原样。检查运行 `node tools/i18n-check.js`。
+
 侧边栏「页面管理」可开启编辑：点击页面元素或文字画布，选择当前文字或父元素，删除文字或隐藏所选元素。悬浮内容可在编辑模式按 F8 固定，再点击编辑；再次按 F8 释放。「编辑版本」固定为原始版本与编辑版本，原始版只供预览，编辑版文字和元素优先加载，刷新默认回到编辑版。通过 `python tools/serve.py` 打开 http://localhost:5173 ，点击保存后由本机服务写入正式配置：剧情、闲谈和无法唯一对应的页面文字写入 `config/text.json`，可唯一对应的界面文案写入 `config/ui.json`。保存失败时本页编辑仍保留，需重试；不会转存到浏览器草稿或选择本机文件。出战只列已击败的关卡和当前下一场，未解锁章节及未来场数不展示。
 
 需要让 AI 快速操作或批量测试 HTML5 游戏时，可启动零依赖的本地 MCP：`python tools/html5_game_mcp.py`。它通过 Chrome DevTools Protocol 提供脚本执行、键鼠输入、固定步长推进和蒸汽竞技场无画面模拟；完整工具说明见 [docs/html5-game-mcp.md](docs/html5-game-mcp.md)。

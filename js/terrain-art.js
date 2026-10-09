@@ -142,8 +142,9 @@ SA.TerrainArt = (() => {
     const gy = (x) => ground[Math.max(0, Math.min(len, x))];
     const within = (list, x) => (list || []).find(r => x >= r.x0 && x <= r.x1);
     const tiles = [];
-    for (let tx = 0; tx <= len; tx += tw) {
-      const w = Math.min(tw, len - tx + 1), c = document.createElement('canvas'); c.width = w; c.height = H;
+    // 每块沿用完整像素算法；惰性模式只把生成时机推迟到该块首次进入镜头。
+    const render = (tx, w) => {
+      const c = document.createElement('canvas'); c.width = w; c.height = H;
       const g = c.getContext('2d'), img = g.createImageData(w, H), D = img.data;
       const put = (x, y, col) => { if (y < 0 || y >= H) return; const i = (y * w + x) * 4, v = rgb(col); D[i] = v[0]; D[i + 1] = v[1]; D[i + 2] = v[2]; D[i + 3] = 255; };
       for (let lx = 0; lx < w; lx++) {
@@ -199,7 +200,15 @@ SA.TerrainArt = (() => {
         }
       }
       g.putImageData(img, 0, 0);
-      tiles.push({ x: tx, c });
+      return c;
+    };
+    for (let tx = 0; tx <= len; tx += tw) {
+      const w = Math.min(tw, len - tx + 1);
+      if (o.lazy) {
+        let c;
+        // 捕获未加边缘偏移的 tx；调用方调整 tile.x 时不会改变像素的世界坐标。
+        tiles.push({ x: tx, width: w, get c() { return c || (c = render(tx, w)); } });
+      } else tiles.push({ x: tx, c: render(tx, w) });
     }
     return tiles;
   }

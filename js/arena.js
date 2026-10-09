@@ -217,11 +217,15 @@ SA.Arena = (() => {
       h('div', { class: 'px-small' }, SA.Config.text('route_load_coal')),
       cap && cap.cargo != null ? h('div', { class: 'px-small' }, SA.Config.text('route_load_cargo', cap.cargo)) : null,
       h('div', { class: 'px-small' }, SA.Config.text('route_load_slow'))]));
+    // 按当前实际选中的路线预热；同输入复用已有任务，不改变黑板或拉杆的画面。
+    SA.Route.preload(r.id);
     const why = !s.canDeploy ? SA.Config.text('arena_ea58e9813630') : null;
     const go = () => {
       if (why) { SA.UI.toast(why); return; }
       document.querySelector('#modal').hidden = true;
-      SA.Route.start(r.id);
+      // 离页、重绘、换页签或换路线会取消等待中的出发，异步失败沿既有提示路径呈现。
+      SA.Route.startWhenReady(r.id, { isCurrent: () => SA.current === 'arena' && st.mode === 'route'
+        && st.pick.route === r.id && card.isConnected }).catch(error => SA.UI.toast(error.message));
     };
     return [
       card,
