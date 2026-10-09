@@ -435,6 +435,7 @@ SA.RouteArt = (() => {
   // 路线上的布景（纯画面，不进规则数据）：出发路牌、遗迹门后面的水泵站、终点的井架和运煤小火车。按路线定义里的物件位置推出来
   function dress(def) {
     if (!def) return [];
+    if (Array.isArray(def.dress)) return def.dress.map(d => ({ ...d }));   // 路线数据自己写了布景（起伏路线的地标位置跟着真实地形走）
     const out = [{ kind: 'sign', x: 260 }];
     const door = (def.props || []).find(p => p.kind === 'ruinDoor');
     if (door) out.push({ kind: 'pump', x: door.x + 60, back: true });

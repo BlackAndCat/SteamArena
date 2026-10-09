@@ -148,7 +148,7 @@ SA.Arena = (() => {
       return h('button', { class: `ch-row ${cur && cur.id === r.id ? 'on' : ''}`, 'data-page-key': `arena:route:${r.id}`, onclick: () => { st.pick.route = r.id; render(); } },
         h('span', { class: 'ck' }, done ? '✓' : ''),
         h('span', { class: 'nm' }, name, !done ? UI.img(X.ellipse(w + 10, 17, SA.PAL.fire[3], 0.06), 2, 'position:absolute;left:-14px;top:-4px') : null),
-        h('span', { class: 'who' }, r.best ? `${meters(r.best)} m` : ''));
+        h('span', { class: 'who' }, SA.Route.best && SA.Route.best(r.id) ? `${meters(SA.Route.best(r.id))} m` : ''));   // 这条路线走到过的最远处
     });
     return [tabsEl(), h('div', { class: 'ch-list' }, rows), h('div', { class: 'ch-foot' }, SA.Config.text('route_list_foot')), garageSign()];
   }
@@ -156,7 +156,9 @@ SA.Arena = (() => {
   function routeSketch(r, W = 236) {
     const X = SA.PX, INK = X.INK, RED = X.RED, k = X.C(W, 64), len = Math.max(1, routeEnd(r) || r.len || 1), G = 48;
     const sx = (x) => Math.round(x / len * (W - 14)) + 4;
-    const yAt = (x) => { let y = 0; for (const hl of r.hills || []) { const d0 = Math.abs(x - hl.x); if (d0 < hl.w / 2) y = Math.max(y, hl.h * 0.5 * (1 + Math.cos(Math.PI * d0 / (hl.w / 2)))); } return G - Math.round(y / 4); };
+    // 起伏路线按 profile 控制点线性插值（缩 9 倍），否则按土坡
+    const prof = (x) => { const P = r.profile; let i = 1; while (i < P.length - 1 && P[i][0] < x) i++; const a = P[i - 1], b = P[i], k = Math.max(0, Math.min(1, (x - a[0]) / Math.max(1, b[0] - a[0]))); return a[1] + (b[1] - a[1]) * k; };
+    const yAt = (x) => { if (r.profile && r.profile.length > 1) return G - Math.round(prof(x) / 9); let y = 0; for (const hl of r.hills || []) { const d0 = Math.abs(x - hl.x); if (d0 < hl.w / 2) y = Math.max(y, hl.h * 0.5 * (1 + Math.cos(Math.PI * d0 / (hl.w / 2)))); } return G - Math.round(y / 4); };
     for (let px = 0; px < W - 6; px++) { const x = (px - 4) / (W - 14) * len; if (X.hash(px, 3, 7) > 0.08) k.p(px, yAt(x), INK); }
     for (const [a, b] of r.mud || []) for (let px = sx(a); px < sx(b); px += 3) k.p(px, G + 2, '#7a6a3a');
     const at = (o) => (o.x != null ? o.x : (o.x0 + o.x1) / 2);
@@ -193,7 +195,7 @@ SA.Arena = (() => {
     const UI = SA.PX.ui, X = SA.PX;
     const note = (title, ...body) => h('div', { class: 'ar-stick px-sk px-sk-note px-drop' }, UI.img(X.tape(24), 2, 'position:absolute;left:50%;top:-14px;margin-left:-24px'), h('div', { class: 'nt' }, title), ...body);
     const line = (key) => h('div', { class: 'nb' }, SA.Config.text(key));
-    const terr = [(r.mud || []).length ? 'route_terrain_mud' : null, (r.hills || []).length ? 'route_terrain_hills' : null, (r.props || []).length ? 'route_terrain_crates' : null].filter(Boolean);
+    const terr = [r.profile ? 'route_terrain_profile' : null, (r.mobs || []).length ? 'route_terrain_mobs' : null, (r.mud || []).length ? 'route_terrain_mud' : null, (r.hills || []).length ? 'route_terrain_hills' : null, (r.props || []).length ? 'route_terrain_crates' : null].filter(Boolean);
     const count = (kind) => (r.pickups || []).filter(p => p.kind === kind).length;
     return [
       terr.length ? note(SA.Config.text('route_note_terrain'), ...terr.map(line)) : null,

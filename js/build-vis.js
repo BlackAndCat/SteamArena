@@ -74,3 +74,4 @@ SA.BUILD_VIS += '+landscape-shell'; // 横屏模式（js/orient.js）：手机�
 SA.BUILD_VIS += '+route-o1'; // 出征（卷轴路线）O1：标题页入口 + 出战黑板「出征」页签 + 路线战斗画面（空敌车、长地形分块、路障 / 遗迹门 / 拾取物 / 残骸 / 布景、路程条、驾驶台煤表 / 货位 / 慢行停车灯、拉汽笛返航、遭遇电报）+ 清点黑板；画法在 js/route-art.js
 SA.BUILD_VIS += '+waste-scene'; // 出征废土场景 js/scenes.js 'waste'（塌了的厂区天际线、断高架桥、煤气罐框架、风车骨架、两倍宽废墟、煤渣路；A 锈黄昏 / B 煤烟霾 / C 冷灰晨，样机挑色调；近景可跟起伏地面）。游戏里出征仍借野地
 SA.BUILD_VIS += '+mobile-landscape-workshop-sidebar'; // 横屏车间大蓝图与单一操作侧栏，性能/零件切换保留完整功能，方向切换恢复原布局。
+SA.BUILD_VIS += '+route-r2-fun'; // 出征黑乡路线：起伏地面与竖直视差、小机械、撞碎打击感与音效、上次到这的旗子、清点金属与纪录（docs/expedition-fun.md）。

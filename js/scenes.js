@@ -16,7 +16,7 @@ SA.Scenes = (() => {
   function pick(opts = {}) {
     if (opts.scene && NAMES[opts.scene]) return opts.scene;
     if (opts.mode === 'side') return 'wild';
-    if (opts.mode === 'route') return 'wild';   // 出征：废土场景（docs/expedition-plan.md V2）出稿前先借野地
+    if (opts.mode === 'route') return opts.routeData && NAMES[opts.routeData.scene] ? opts.routeData.scene : 'wild';   // 出征：路线数据指定场景（黑乡路线用废土），没写就借野地
     if (opts.mode === 'campaign' && /^0,/.test(opts.storyKey || '')) return 'forge';
     if (opts.mode === 'campaign' && /^1,/.test(opts.storyKey || '')) return 'alley';   // 第一章 · 白教堂后巷
     if (opts.mode === 'campaign' && /^2,/.test(opts.storyKey || '')) return 'suburb';  // 第二章 · 伦敦郊区

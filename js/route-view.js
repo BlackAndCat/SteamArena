@@ -1,0 +1,250 @@
+// 出征的画面补充（玩法见 docs/expedition-fun.md）：起伏地面、背景竖直视差、小机械和它们的子弹、
+// 撞碎时的打击感（顿帧、镜头冲一下、散架碎件、金属片飞上车、+金属飘字）、「上次到这」的旗子、出征的音效。
+// 规则在 js/battle.js、js/route-mobs.js；这里只读 B 画东西、听视觉事件放声音。js/battle-view.js 在出征时 make() 一份，挂在几个钩子上。
+window.SA = window.SA || {};
+
+SA.RouteView = (() => {
+  const P = SA.PAL;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const vr = (a, b) => a + Math.random() * (b - a);
+  // 撞碎时的分量：顿帧、镜头冲撞都按它放大
+  const WEIGHT = { soldier: 0.3, crawler: 0.5, barrel: 0.8, sentry: 1 };
+  const TILE_H = 840;   // 起伏地面的分块高度：镜头最低能看到 GROUND + 110 左右，留够
+  // 打击感档位（开发者实验用，docs/expedition-fun.md §6）：0 灰盒（不顿帧、不冲镜头、没有碎件、没有声音）/ 1 正常 / 2 夸张（全部加倍）。
+  // 夸张版突然好玩了 → 缺的是反馈；夸张版还是无聊 → 是设计问题；灰盒版里做选择依然有意思 → 设计是对的。战斗中按 F 切换
+  const FEEL_KEY = 'sa-route-feel', FEEL_NAMES = ['灰盒', '正常', '夸张'];
+  let feel = 1;
+  try { const v = localStorage.getItem(FEEL_KEY); if (v === '0' || v === '2') feel = +v; } catch (e) { /* 读不到就用正常档 */ }
+  const FK = () => [0, 1, 2.2][feel];
+  let current = null;   // 当前这一场的钩子（F 键只对它生效）
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyF' || SA.RELEASE || !current || SA.current !== 'battle' || e.target.closest?.('input, textarea, select')) return;
+    feel = (feel + 1) % 3;
+    try { localStorage.setItem(FEEL_KEY, String(feel)); } catch (err) { /* 只在本次生效 */ }
+    current.say(`打击感：${FEEL_NAMES[feel]}（F 切换）`);
+  });
+
+  // 受击闪白：把机械那一帧涂成白色剪影（缓存）
+  const whiteCache = new Map();
+  function white(a, key) {
+    if (!whiteCache.has(key)) {
+      const c = document.createElement('canvas'); c.width = a.c.width; c.height = a.c.height;
+      const k = c.getContext('2d'); k.drawImage(a.c, 0, 0); k.globalCompositeOperation = 'source-atop'; k.fillStyle = '#fff6e0'; k.fillRect(0, 0, c.width, c.height);
+      whiteCache.set(key, { c, ax: a.ax, ay: a.ay });
+    }
+    return whiteCache.get(key);
+  }
+
+  /**
+   * o：{ getB, groundAt, frontEdge, GROUND, W, H } —— battle-view 的接口。返回一组钩子（全部只在出征时调用）
+   */
+  function make(o) {
+    const A = SA.RouteArt, groundAt = o.groundAt, GROUND = o.GROUND;
+    const st = { stop: 0, kick: 0, pieces: [], bits: [], flags: [], sndT: {}, best: 0, bestShown: false };
+    const B = () => o.getB();
+    const def = () => { const b = B(); return (b && b.opts && b.opts.routeData) || null; };
+    const profile = () => { const b = B(); return !!(b && b.ter && b.ter.natural); };
+    try { st.best = SA.Route && SA.Route.best ? SA.Route.best(def() && def().id) : 0; } catch (e) { st.best = 0; }
+    if (SA.Audio) SA.Audio.load();
+    if (feel !== 1 && !SA.RELEASE) setTimeout(() => say(`打击感：${FEEL_NAMES[feel]}（F 切换）`), 400);
+    function say(str) { const b = B(); if (!b || !b.p) return; const f = o.frontEdge(b.p); b.texts.push({ str, x: f - 60, y: groundAt(f) - 150, col: '#efe6cf', plaque: P.brass[2], life: 2.2, max: 2.2 }); }
+
+    // ---------- 声音 ----------
+    const pan = (x) => { const c = B().cam; return clamp((x - c.x) / Math.max(1, c.w), 0, 1); };
+    function snd(name, x, vol = 1, gap = 0, pitch) {
+      if (!SA.Audio || !feel) return;
+      if (feel === 2) vol = Math.min(1.6, vol * 1.4);
+      if (gap) { const now = performance.now() / 1000; if (now - (st.sndT[name] || 0) < gap) return; st.sndT[name] = now; }
+      SA.Audio.play(name, { x: x == null ? 0.5 : pan(x), vol, pitch });
+    }
+
+    // ---------- 打击感 ----------
+    const stop = (s) => { if (feel) st.stop = Math.min(0.11 * FK(), Math.max(st.stop, s * FK())); };
+    const kick = (px) => { if (feel) st.kick = Math.max(st.kick, px * FK()); };
+    function part(type, x, y, vx, vy, life, col) { if (!feel) return; for (let i = 0; i < (feel === 2 ? 2 : 1); i++) B().parts.push({ type, x: x + (i ? vr(-6, 6) : 0), y, vx: vx * (i ? vr(0.8, 1.3) : 1), vy: vy * (i ? vr(0.8, 1.3) : 1), life, max: life, col, spin: vr(8, 22) }); }
+    function crush(d) {
+      const b = B(), w = WEIGHT[d.kind] || 0.5, ram = d.by === 'ram', fast = clamp(Math.abs(d.vx || 0) / 90, 0.4, 1.6);
+      if (ram) { stop(0.025 + 0.05 * w); kick(5 + 9 * w * fast); }
+      else if (d.kind === 'sentry') stop(0.03);
+      // 散架：每种机械掉自己的碎件（翻滚着往车前方飞），加尘土、火星
+      const list = feel ? (A.DEBRIS[d.kind] || ['plate']).concat(feel === 2 ? A.DEBRIS[d.kind] || [] : []) : [], fwd = ram ? Math.max(40, d.vx || 0) : 0;
+      if (feel === 2) B().shake = Math.max(B().shake, 4 + 5 * w);
+      for (const [i, t] of list.entries()) st.pieces.push({ t, x: d.x + vr(-5, 5), y: d.y - vr(2, 10), vx: fwd * vr(0.6, 1.4) + vr(-60, 90) + i * 6, vy: vr(-260, -110), rot: Math.floor(vr(0, 4)), spin: vr(6, 16), life: vr(2.2, 3), max: 3 });
+      for (let i = 0; i < 8; i++) part('dust', d.x + vr(-12, 12), d.y + vr(0, 8), vr(-60, 80), vr(-70, -10), vr(0.4, 0.8));
+      if (d.kind !== 'barrel') for (let i = 0; i < 7; i++) part('spark', d.x, d.y - 4, vr(-40, 200) * (ram ? 1 : 0.6), vr(-200, -40), vr(0.15, 0.35), i % 3 ? P.brass[3] : P.white);
+      // 金属片：沿弧线一块块飞进车里，最后一块到了飘「+N 金属」
+      const n = feel ? d.metal || 0 : 0;
+      for (let i = 0; i < n; i++) st.bits.push({ x: d.x, y: d.y - 6, t: 0, dur: 0.5 + i * 0.07 + vr(0, 0.08), h: vr(50, 110), delay: 0.06 * i, last: i === n - 1 ? n : 0 });
+      if (d.kind === 'barrel') return;   // 炸药桶的声音在爆炸里
+      snd('crush.machine', d.x, d.kind === 'soldier' ? 0.6 : 0.9);
+      if (ram) snd('ram.thud', d.x, 0.35 + 0.5 * w);
+      if (d.kind === 'sentry') snd('hit.metal.heavy', d.x, 0.8);
+    }
+    function blastFx(d) {
+      stop(0.06); kick(6);
+      st.flags.push({ ring: true, x: d.x, y: d.y, r: d.r, life: 0.3, max: 0.3 });
+      for (let i = 0; i < 10; i++) part('debris', d.x + vr(-8, 8), d.y, vr(-200, 200), vr(-280, -80), vr(0.6, 1.1), i % 2 ? P.rust[2] : P.iron[1]);
+    }
+
+    // ---------- 视觉事件：返回 true = 已处理完（battle-view 不再管），false = 只加了声音，照常往下走 ----------
+    function event(type, d) {
+      const b = B();
+      switch (type) {
+        case 'mob-break': crush(d); return true;
+        case 'mob-blast': blastFx(d); return true;
+        case 'mob-hit': for (let i = 0; i < 4; i++) part('spark', d.x, d.y, vr(-120, 120), vr(-160, -20), vr(0.12, 0.25)); snd('hit.metal.light', d.x, 0.5, 0.05); return true;
+        case 'mob-fire':
+          if (d.kind === 'sentry') { for (let i = 0; i < 6; i++) part('flash', d.x - vr(0, 8), d.y + vr(-2, 2), -vr(30, 110), vr(-40, 10), vr(0.06, 0.14)); part('smoke', d.x - 6, d.y, -20, -24, 0.8); snd('cannon.fire', d.x, 0.45, 0, 1.25); }
+          else { part('flash', d.x - 2, d.y, -60, 0, 0.06); snd('gun.shot', d.x, 0.22, 0.04, 1.3); }
+          return true;
+        case 'mob-chew': for (let i = 0; i < 5; i++) part('spark', d.x, d.y, vr(-80, 40), vr(-140, -30), vr(0.1, 0.25), P.brass[3]); snd('hit.metal.light', d.x, 0.35, 0.12, 1.2); return true;
+        case 'mob-grind': for (let i = 0; i < 6; i++) part('spark', d.x, d.y, vr(-150, 30), vr(-160, -20), vr(0.12, 0.3)); kick(2); snd('hit.plate', d.x, 0.45, 0.15); return true;
+        case 'mob-shot-hit': for (let i = 0; i < 4; i++) part('spark', d.x, d.y, vr(-100, 100), vr(-140, -20), vr(0.1, 0.2)); if (d.kind === 'sentry') { part('smoke', d.x, d.y, 0, -30, 0.7); snd('cannon.hit', d.x, 0.55); } return true;
+        case 'mob-shot-ground': for (let i = 0; i < (d.kind === 'sentry' ? 8 : 2); i++) part('dust', d.x, d.y - 2, vr(-60, 60), vr(-90, -20), vr(0.3, 0.6)); if (d.kind === 'sentry') snd('cannon.hit', d.x, 0.35); return true;
+        case 'fire': snd(d.shell ? 'cannon.fire' : 'gun.shot', d.x, d.p ? (d.shell ? 0.9 : 0.5) : 0.65, d.shell ? 0 : 0.05); return true;
+        case 'impact': if (d.big && !d.mob) snd('cannon.hit', d.x, 0.7); return true;
+        case 'particles': if (d.boom) snd(d.boom.n >= 24 ? 'boom.big' : 'boom', d.boom.x, 0.9); return false;
+        case 'prop':
+          if (d.state === 'break') { if (d.kind === 'crate') { snd('crush.wood', d.x, 1); stop(0.03); kick(4); } else if (d.kind === 'barricade') { snd('hit.plate', d.x); snd('crush.wood', d.x, 0.8); stop(0.05); kick(7); } else snd('crush.rock', d.x); }
+          else snd(d.kind === 'crate' ? 'crush.wood' : 'hit.plate', d.x, 0.35, 0.14);
+          return false;
+        case 'text': if (/^\d+$/.test(d.str) && b) { const v = +d.str; snd(v < 10 ? 'hit.metal.light' : v < 25 ? 'hit.metal.medium' : 'hit.metal.heavy', d.x, v < 10 ? 0.45 : 0.8, 0.03); } return false;
+        case 'pickup': snd(d.kind === 'water' ? 'steam.hiss' : 'crush.rock', d.x, 0.6); return false;
+        case 'encounter': snd('chain', null, 0.6); return false;
+        default: return false;
+      }
+    }
+
+    // ---------- 每帧 ----------
+    // 顿帧：返回 true 表示这一帧世界停住（画面照画）
+    function hold(dt) { if (st.stop > 0) { st.stop -= dt; return true; } return false; }
+    function tick(dt) {
+      const b = B();
+      st.kick *= Math.pow(0.004, dt);
+      for (const p of st.pieces) {
+        p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 620 * dt;
+        const gy = groundAt(p.x) - 2;
+        if (p.y > gy) { p.y = gy; p.vy *= -0.32; p.vx *= 0.55; p.spin *= 0.5; }
+      }
+      st.pieces = st.pieces.filter(p => p.life > 0);
+      for (const f of st.flags) f.life -= dt;
+      st.flags = st.flags.filter(f => f.life > 0);
+      for (const q of st.bits) {
+        if (q.delay > 0) { q.delay -= dt; continue; }
+        q.t += dt;
+        if (q.t >= q.dur && !q.done) {
+          q.done = true;
+          if (q.last) { const [cx, cy] = carSpot(); b.texts.push({ str: `+${q.last} ${SA.Config.text('route_metal')}`, x: cx, y: cy - 30, col: P.iron[4], plaque: P.brass[2], life: 1, max: 1 }); }
+          snd('scrap.pickup', q.x, 0.6, 0.05);
+        }
+      }
+      st.bits = st.bits.filter(q => !q.done);
+    }
+    // 金属飞进车里的哪儿：车身中段偏上（有货箱就是货箱的位置）
+    function carSpot() { const b = B(), f = o.frontEdge(b.p); return [f - 96, groundAt(f - 96) - 76]; }
+    const kickX = () => -Math.round(st.kick);
+
+    // ---------- 画 ----------
+    // 起伏地面：按 1280 宽分块整块画出来（路面煤渣带、红泥表土、岩层、驼背桥 + 运河、桥前路堤、路堑挡土墙）
+    // 两头各多画一屏（地面接着端点的高度平铺），开局车尾、终点以后都不露空
+    function terrainTiles(T) {
+      const feats = (T.def && T.def.features) || [], nat = T.natural, len = T.len, PAD = 1280;
+      const ground = new Float32Array(len + 1 + PAD * 2);
+      for (let i = 0; i < ground.length; i++) ground[i] = T.ground[clamp(i - PAD, 0, len)];
+      const natY = (x) => GROUND - nat[clamp(Math.round(x - PAD), 0, len)];
+      const pick = (k) => feats.filter(f => f.kind === k);
+      const tiles = SA.TerrainArt.profileTiles(ground, ground.length - 1, TILE_H, {
+        bridge: pick('bridge').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, water: Math.round(natY((f.x0 + f.x1) / 2 + PAD) + 10) })),
+        fill: pick('fill').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, natural: natY })),
+        cut: pick('cut').map(f => ({ x0: f.x0 + PAD, x1: f.x1 + PAD, depth: f.depth })),
+      });
+      for (const t of tiles) t.x -= PAD;
+      return tiles;
+    }
+    // 背景的竖直视差：远景只跟镜头上下走两成（平地时和原来一样）
+    function backOy(cam) { const base = GROUND + 60 - cam.h; return Math.round(base + (cam.y - base) * 0.2); }
+    // 近景剪影的底边：车下地面往下 60（和平地战斗一样），跟着起伏走
+    function nearArgs(cam) { const b = B(), f = o.frontEdge(b.p) - 90; return { vh: Math.round(groundAt(f) - cam.y + 60), opt: { groundAt, refX: f } }; }
+
+    // 世界层（地面之后、车之前）：小机械、「上次到这」的旗子
+    function drawWorld(g) {
+      const b = B(), cam = b.cam, seen = (x, w) => x + w > cam.x - 8 && x - w < cam.x + cam.w + 8;
+      if (st.best > 0 && seen(st.best, 40)) flagPost(g, st.best, groundAt(st.best));
+      for (const m of b.mobs || []) {
+        if (m.state === 'dead' || !seen(m.x, 40)) continue;
+        const ps = SA.RouteMobs.pose(m), fr = ((ps.frame % A.MOBS[m.kind].frames) + A.MOBS[m.kind].frames) % A.MOBS[m.kind].frames;
+        let a = A.mob(m.kind, fr);
+        if (!a) continue;
+        if (ps.flash) a = white(a, `${m.kind}:${fr}`);
+        const y = groundAt(m.x) + (m.kind === 'soldier' && fr % 2 ? -1 : 0);
+        g.drawImage(a.c, Math.round(m.x - a.ax), Math.round(y - a.ay));
+        if (m.kind === 'soldier' && ps.aim) { g.fillStyle = P.iron[1]; g.fillRect(Math.round(m.x - 12), Math.round(y - 15), 7, 2); }   // 举枪
+      }
+    }
+    // 「上次到这」：一根木杆挂一面红三角旗
+    function flagPost(g, x, y) {
+      x = Math.round(x); y = Math.round(y);
+      g.fillStyle = P.dark[0]; g.fillRect(x - 1, y - 46, 3, 46);
+      g.fillStyle = P.leather[2]; g.fillRect(x, y - 46, 1, 46);
+      const wave = Math.round(Math.sin(performance.now() / 260) * 1.5);
+      g.fillStyle = P.rust[1]; for (let i = 0; i < 9; i++) g.fillRect(x + 2, y - 45 + i, 14 - Math.abs(i - 4) * 3 + (i === 4 ? wave : 0), 1);
+      g.fillStyle = P.rust[3]; g.fillRect(x + 2, y - 45, 5, 1);
+      g.fillStyle = P.dark[0]; g.fillRect(x - 3, y - 2, 7, 2);
+    }
+    // 特效层（和炮弹、粒子一起）：机械的子弹 / 小炮弹、散架碎件、飞上车的金属片、炸药桶的冲击圈
+    function drawFx(g) {
+      const b = B();
+      for (const s of b.mobShots || []) {
+        if (s.kind === 'sentry') { g.fillStyle = P.dark[0]; g.fillRect(Math.round(s.x) - 3, Math.round(s.y) - 3, 6, 6); g.fillStyle = P.iron[2]; g.fillRect(Math.round(s.x) - 2, Math.round(s.y) - 2, 4, 4); g.fillStyle = P.iron[4]; g.fillRect(Math.round(s.x) - 2, Math.round(s.y) - 2, 2, 1); }
+        else { const k = 0.012; SA.SPR.useCtx(g); SA.SPR.line(Math.round(s.x - s.vx * k), Math.round(s.y - s.vy * k), Math.round(s.x), Math.round(s.y), 2, P.brass[3]); }
+      }
+      for (const p of st.pieces) {
+        g.globalAlpha = Math.min(1, p.life * 2);
+        const a = A.piece(p.t, p.rot + Math.floor((p.max - p.life) * p.spin));
+        g.drawImage(a.c, Math.round(p.x - a.ax), Math.round(p.y - a.ay));
+      }
+      g.globalAlpha = 1;
+      const [tx, ty] = carSpot();
+      for (const q of st.bits) {
+        if (q.delay > 0) continue;
+        const k = clamp(q.t / q.dur, 0, 1), e = k * k * (3 - 2 * k), x = q.x + (tx - q.x) * e, y = q.y + (ty - q.y) * e - Math.sin(k * Math.PI) * q.h;
+        const a = A.piece('scrap', Math.floor(k * 8));
+        g.drawImage(a.c, Math.round(x - a.ax), Math.round(y - a.ay));
+      }
+      for (const f of st.flags) {
+        if (!f.ring) continue;
+        const k = 1 - f.life / f.max, r = Math.round(8 + f.r * k);
+        g.globalAlpha = 0.6 * (1 - k); g.strokeStyle = P.fire[3]; g.lineWidth = 3;
+        g.beginPath(); g.arc(Math.round(f.x), Math.round(f.y), r, 0, Math.PI * 2); g.stroke();
+        g.globalAlpha = 1;
+      }
+    }
+    // 叠加层（矢量字）：旗子上的「上次到这」小牌
+    function drawLabels(g) {
+      const b = B(), cam = b.cam;
+      if (!(st.best > 0) || st.best < cam.x - 60 || st.best > cam.x + cam.w + 60) return;
+      const x = Math.round(st.best), y = Math.round(groundAt(st.best) - 58), str = SA.Config.text('route_best_flag');
+      g.font = 'bold 12px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const w = Math.ceil(g.measureText(str).width) + 10;
+      g.fillStyle = 'rgba(7,8,12,0.8)'; g.fillRect(x - w / 2, y - 9, w, 18);
+      g.strokeStyle = P.rust[2]; g.lineWidth = 1; g.strokeRect(x - w / 2 + 0.5, y - 8.5, w - 1, 17);
+      g.fillStyle = '#efe6cf'; g.fillText(str, x, y + 1);
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    }
+
+    current = { say };
+    return { event, hold, tick, kickX, terrainTiles, backOy, nearArgs, drawWorld, drawFx, drawLabels, profile, best: () => st.best };
+  }
+
+  // 驾驶台的金属计数：一小堆铁片 + 像素数字（原生像素，界面上放大 2 倍）
+  function metalBadge(n) {
+    const nc = SA.PX.num(String(n), '#d8d4c8', { shadow: '#0b0e15' }), c = document.createElement('canvas');
+    c.width = 13 + nc.width; c.height = 10;
+    const k = c.getContext('2d'), A = SA.RouteArt;
+    k.drawImage(A.piece('plate', 0).c, 0, 3); k.drawImage(A.piece('scrap', 0).c, 5, 4); k.drawImage(A.piece('gear', 0).c, 3, 0);
+    k.drawImage(nc, 13, 2);
+    return c;
+  }
+
+  return { make, metalBadge };
+})();

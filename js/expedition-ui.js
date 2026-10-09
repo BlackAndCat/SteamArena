@@ -12,7 +12,7 @@ SA.ExpeditionUI = (() => {
 
   function afterRoute(result) {
     const r = result || { mode: 'route', how: 'recall' };
-    if (SA.Route && SA.Route.settle && r.runId && !settled.has(r.runId)) { settled.add(r.runId); SA.Route.settle(r); }
+    if (SA.Route && SA.Route.settle && r.runId && !settled.has(r.runId)) { settled.add(r.runId); SA.Route.settle(r); }   // 补上 money / metalKept / best 等
     if (SA.Arena && SA.Arena.unmount) SA.Arena.unmount();
     document.querySelector('#modal').hidden = true;   // 战斗里没关的对话框（返航确认、白旗）不留到院子里
     const root = SA.Home.board({});
@@ -26,6 +26,12 @@ SA.ExpeditionUI = (() => {
     let src = X.trim(SA.SPR.renderVehicle(v, { key: 'route-tally', t: 0, heat: 0.3, water: 0.6 }));
     if (src.width > 160 || src.height > 76) { const k = document.createElement('canvas'); k.width = Math.ceil(src.width / 2); k.height = Math.ceil(src.height / 2); const g = k.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, k.width, k.height); src = k; }
     const c = X.ui.img(X.engrave(src, [42, 26, 5], [184, 57, 27]), 1); c.classList.add('ar-car'); return c;
+  }
+  // 和上次比：破了纪录写多走了多少，没破写离旗子还差多少
+  function bestLine(r) {
+    if (!r.bestBefore) return SA.Config.text('route_tally_best_first');
+    if (r.dist > r.bestBefore) return SA.Config.text('route_tally_best', meters(r.dist - r.bestBefore));
+    return SA.Config.text('route_tally_best_left', meters(r.bestBefore - r.dist));
   }
   function render(root, r) {
     const UI = SA.PX.ui, X = SA.PX, A = SA.RouteArt;
@@ -41,8 +47,11 @@ SA.ExpeditionUI = (() => {
       h('div', { class: 'ch-list' },
         line(SA.Config.text(HOW[r.how] || 'route_end_recall'), 'font-size:20px'),
         line(SA.Config.text('route_tally_dist', meters(r.dist), clock(r.time))),
+        r.settled ? line(bestLine(r), r.best > r.bestBefore ? 'color:#ffd36b' : '') : null,
+        r.broken || r.metal ? line(SA.Config.text(r.how === 'wrecked' ? 'route_tally_metal_half' : 'route_tally_metal', r.metalKept != null ? r.metalKept : r.metal || 0, r.broken || 0)) : null,
         refugees ? line(SA.Config.text('route_tally_refugees', refugees)) : null,
-        r.relic ? line(SA.Config.text('route_tally_relic')) : null),
+        r.relic ? line(SA.Config.text('route_tally_relic')) : null,
+        r.settled ? line(SA.Config.text('route_tally_fixed'), 'opacity:.75') : null),
       !SA.Route || !SA.Route.settle ? h('div', { class: 'ch-foot' }, SA.Config.text('route_tally_unsaved')) : null);
     const slots = (items) => (A && items.length ? UI.img(A.cargoSlots(items, items.length), 2) : null);
     const mid = h('section', { class: 'ar-mid', 'data-page-key': 'route-tally-mid' },
@@ -51,7 +60,9 @@ SA.ExpeditionUI = (() => {
         h('div', { class: 'ar-title' }, UI.img(X.brush(SA.Config.text('route_tally'), 22, X.INK, '#b59c6c', 3), 2)),
         h('div', { class: 'ar-tally' },
           h('div', { class: 'nt' }, SA.Config.text('route_tally_got')),
-          slots(cargo) || h('div', { class: 'px-small' }, SA.Config.text('route_tally_none')),
+          slots(cargo) || (r.metalKept || r.bonus ? null : h('div', { class: 'px-small' }, SA.Config.text('route_tally_none'))),
+          r.metalKept ? h('div', { class: 'ar-metal' }, UI.img(SA.RouteView ? SA.RouteView.metalBadge(r.metalKept) : document.createElement('canvas'), 2)) : null,
+          r.bonus ? h('div', {}, SA.Config.text('route_tally_depot_bonus')) : null,
           r.money ? h('div', {}, SA.Config.text('route_tally_money'), ' ', UI.num(SA.UI.money(r.money))) : null,
           lost.length ? [h('div', { class: 'nt' }, SA.Config.text('route_tally_lost')), h('div', { class: 'ar-lost' }, slots(lost))] : null),
         r.playerVehicle ? h('div', { class: 'ar-cars' }, carPrint(r.playerVehicle)) : null));

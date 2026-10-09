@@ -14,6 +14,7 @@ SA.BattleView.create = function createBattleView(api) {
   const tiltOf = api.tiltOf, pivY = api.pivY, toWorld = api.toWorld;
   const step = api.step;
   let B = null, cv, g, dg, wc, wrap, hud = {};
+  let RV = null;   // 出征的画面补充（js/route-view.js）：起伏地面、小机械、打击感、音效；竞技场为 null
   let DPX = 1;
   // 触屏（手指为主的设备）：战斗换成手机布局（js 加 .touchui，css/style.css 排版），教程讲触屏操作
   let touchUI = false;
@@ -42,6 +43,7 @@ SA.BattleView.create = function createBattleView(api) {
   function emit(type, data = {}) {
     sync();
     if (!B || B.headless) return;
+    if (RV && RV.event(type, data)) return;
     if (type === 'part') B.parts.push({ ...data, max: data.life });
     else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
     else if (type === 'particles') for (const p of data.items || []) B.parts.push({ ...p, max: p.life });
@@ -91,8 +93,8 @@ SA.BattleView.create = function createBattleView(api) {
   // 近景（废料堆、长草、前排观众）压在车前面、画面最下沿，移动得比车还快。场景动效用自己的时钟，不跟战斗暂停
   let BD = null;
   const sceneT = () => performance.now() / 1000;
-  function drawBackdrop(vw, vh, oy) { SA.Scenes.back(BD, g, vw, vh, oy, B.cam.x, sceneT(), B.opts); }
-  function drawFloor() { SA.Scenes.floor(BD, g, B.cam); if (B.bounds) SA.Scenes.barriers(BD, g, B.bounds, groundAt, sceneT()); if (isRoute()) drawDress(true); }   // 有场地边界时两头摆路障
+  function drawBackdrop(vw, vh, oy) { SA.Scenes.back(BD, g, vw, vh, RV && RV.profile() ? RV.backOy(B.cam) : oy, B.cam.x, sceneT(), B.opts); }   // 起伏路线：远景竖直视差
+  function drawFloor() { if (!(RV && RV.profile())) SA.Scenes.floor(BD, g, B.cam); if (B.bounds) SA.Scenes.barriers(BD, g, B.bounds, groundAt, sceneT()); if (isRoute()) drawDress(true); }   // 有场地边界时两头摆路障
 
   // ---------- 出征（卷轴路线，docs/expedition-plan.md）：B.opts.mode === 'route'，没有敌车时 B.e === null ----------
   // 规则状态（B.route、B.ter.props / pickups）归 battle.js / js/route.js；这里只画。物件、布景、界面件的画法在 js/route-art.js
@@ -107,7 +109,9 @@ SA.BattleView.create = function createBattleView(api) {
     if (!A) return;
     const def = routeDef(), T = B.ter;
     const like = { props: (T.props || []).map(p => ({ kind: p.kind, x: propX(p) })), end: def ? def.end : B.route && B.route.end };
-    for (const d of A.dress(like)) if (!!d.back === back) putArt(A.prop(d.kind), d.x, back ? GROUND - 82 : groundAt(d.x));
+    if (def && def.dress) like.dress = def.dress;
+    const hilly = RV && RV.profile();   // 起伏路线：远端地标站在自己脚下的地面上
+    for (const d of A.dress(like)) if (!!d.back === back) putArt(A.prop(d.kind), d.x, back ? (hilly ? groundAt(d.x) + 6 : GROUND - 82) : groundAt(d.x));
   }
   // 路障 / 遗迹门：0 完好 · 1 打坏一半 · 2 打开（倒了）；煤堆、物资、残骸捡走了就换成「捡走后」的样子
   const propStage = (p) => (p.dead ? 2 : p.max && p.hp / p.max < 0.5 ? 1 : 0);
@@ -152,7 +156,10 @@ SA.BattleView.create = function createBattleView(api) {
     drawDress(false);
   }
 
-  function drawNear(vw, vh, oy) { SA.Scenes.front(BD, g, vw, vh, oy, B.cam.x, sceneT()); }
+  function drawNear(vw, vh, oy) {
+    if (RV && RV.profile()) { const n = RV.nearArgs(B.cam); SA.Scenes.front(BD, g, vw, n.vh, RV.backOy(B.cam), B.cam.x, sceneT(), n.opt); return; }   // 近景跟着起伏的地面走
+    SA.Scenes.front(BD, g, vw, vh, oy, B.cam.x, sceneT());
+  }
 
   // ---------- 绘制 ----------
   // 地形：土坡填满到地面、泥地一层湿泥、货箱（木板 + 铁包角，越破裂纹越多）
@@ -161,7 +168,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (!T) return;
     const len = T.len || W;
     if (len > W && SA.RouteArt) {   // 出征的长路线：切成 1280 宽的块缓存，只画镜头看得到的块
-      if (!T.tiles) T.tiles = SA.RouteArt.terrainTiles(T.ground, T.mud || [], len, H, GROUND);
+      if (!T.tiles) T.tiles = T.natural && RV ? RV.terrainTiles(T) : SA.RouteArt.terrainTiles(T.ground, T.mud || [], len, H, GROUND);
       for (const tl of T.tiles) if (camSees(tl.x + tl.c.width / 2, tl.c.width / 2)) g.drawImage(tl.c, tl.x, 0);
     } else {
       if (!T.art && (((T.def && T.def.hills) || []).length || (T.mud || []).length)) T.art = SA.TerrainArt.layer(T.ground, T.mud || [], W, H, GROUND);   // 土坡 + 泥地：静态像素层，只画一次
@@ -217,10 +224,11 @@ SA.BattleView.create = function createBattleView(api) {
     g.save();
     g.translate(-ox, -oy);
     drawFloor();
-    const shx = B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0, shy = B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0;
+    const shx = (B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0) + (RV ? RV.kickX() : 0), shy = B.shake ? Math.round(rnd(-B.shake, B.shake)) : 0;   // RV.kickX：撞碎东西时镜头往前冲一下
     g.save();
     g.translate(shx, shy);
     drawTerrain();
+    if (RV) RV.drawWorld(g);
     g.restore();
     g.restore();
     // 第 1 层：背景 + 地面 + 地形（世界像素）
@@ -308,6 +316,7 @@ SA.BattleView.create = function createBattleView(api) {
       g.globalAlpha = 1;
     }
     for (const tx of B.texts) if (PIXEL_TEXT.test(tx.str)) SA.SPR.text(g, tx.str, tx.x, Math.round(tx.y), tx.col);
+    if (RV) RV.drawFx(g);
     g.restore();
     drawNear(vw, vh, oy);   // 近景压在车和炮弹前面
     present(vw, vh, ox, oy, false);
@@ -318,8 +327,9 @@ SA.BattleView.create = function createBattleView(api) {
     dg.imageSmoothingEnabled = false;
     g = dg;
     fxLabels();
+    if (RV) RV.drawLabels(g);
     B.previewInfo = null;
-    if (B.aim && !B.p.dead && B.e && !B.e.dead) drawPreview(aimT);   // 出征时没有敌车：弹道预览等 battle.js 的 predict 接受空目标后再画（docs/expedition-plan.md §8.5）
+    if (B.aim && !B.p.dead && (B.e ? !B.e.dead : !!RV)) drawPreview(aimT);   // 出征路上没有敌车时也画弹道（打小机械、木箱）   // 出征时没有敌车：弹道预览等 battle.js 的 predict 接受空目标后再画（docs/expedition-plan.md §8.5）
     if (!sur) drawDmg();   // 升白旗时伤害数字也收起来
     dg.setTransform(Z, 0, 0, Z, -cam.x * Z, -cam.y * Z);
     if (B.aim && !sur) reticle(B.aim[0], B.aim[1], aimT);
@@ -1020,6 +1030,7 @@ SA.BattleView.create = function createBattleView(api) {
       hud.coal = pxCanvas(); hud.cargo = pxCanvas(); hud.rLamps = [pxCanvas(), pxCanvas()];
       hud.routeBox = h('div', { class: 'dash-route', 'data-page-key': 'route-dash' },
         hud.coalFig = fig(hud.coal, SA.Config.text('route_coal')), hud.cargoFig = fig(hud.cargo, SA.Config.text('route_cargo')),
+        hud.metalFig = fig(hud.metal = pxCanvas(), SA.Config.text('route_metal')),
         h('div', { class: 'dash-lamps' },
           hud.slowLamp = h('div', { class: 'dash-lamp', title: SA.Config.text('route_lamp_slow_title') }, hud.rLamps[0], h('span', {}, SA.Config.text('route_lamp_slow'))),
           hud.stopLamp = h('div', { class: 'dash-lamp', title: SA.Config.text('route_lamp_stop_title') }, hud.rLamps[1], h('span', {}, SA.Config.text('route_lamp_stop')))));
@@ -1163,6 +1174,8 @@ SA.BattleView.create = function createBattleView(api) {
     const hasCoal = R.coal != null && !!R.coalMax, cf = hasCoal ? R.coal / R.coalMax : 0;
     hud.coalFig.style.display = hasCoal ? '' : 'none';
     if (hasCoal) { paint(hud.coal, `${Math.ceil(cf * 10)}|${cf < 0.2 && blink}`, () => A.coalGauge(cf, blink)); hud.coalFig.classList.toggle('bad', cf < 0.2); }
+    hud.metalFig.style.display = R.metal != null && (B.mobs || R.metal) ? '' : 'none';
+    if (R.metal != null && SA.RouteView) paint(hud.metal, `${R.metal}`, () => SA.RouteView.metalBadge(R.metal));
     const cargo = R.cargo || [], cmax = R.cargoMax || 0;
     hud.cargoFig.style.display = cmax ? '' : 'none';
     if (cmax) paint(hud.cargo, `${cmax}|${cargo.map(c => (typeof c === 'string' ? c : c.kind)[0]).join('')}`, () => A.cargoSlots(cargo, cmax));
@@ -1395,6 +1408,7 @@ SA.BattleView.create = function createBattleView(api) {
 
   function tick(dt) {
     if (!B) return;
+    if (RV) RV.tick(dt);
     for (const p of B.parts) {
       p.life -= dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -1892,6 +1906,7 @@ SA.BattleView.create = function createBattleView(api) {
     api.startState(opts);
     B = api.getState();
     BD = SA.Scenes.pick(opts);
+    RV = isRoute() && SA.RouteView ? SA.RouteView.make({ getB: () => B, groundAt, frontEdge, GROUND, W, H }) : null;
 
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
@@ -1954,7 +1969,7 @@ SA.BattleView.create = function createBattleView(api) {
       if (B.intro) introStep(dt);
       else {
         api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
-        if (!B.frozen) step(dt * B.speed);
+        if (!B.frozen && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
       }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
       draw();
       introDraw();
