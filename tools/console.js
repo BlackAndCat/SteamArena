@@ -233,13 +233,14 @@
     try { sessionStorage.removeItem(STAGE_SWAP_KEY); } catch (e) { /* 隐私模式 */ }
     return v;
   }
-  // 奖励提案只合并到本页草稿；重复导入保留已有数量和唯一件对象，仅补明确解锁集合，不写正式配置。
-  function mergeAiRewardPlan(f, plan) {
+  // 新建关卡采用候选明确的缴获提案，避免地图占位奖励与所选车辆冲突；已有正式关卡仍保留用户奖励。
+  // 提案只影响本页草稿，重复导入不增加数量，不写正式配置。
+  function mergeAiRewardPlan(f, plan, freshStage) {
     if (plan?.status !== 'proposal-not-saved') return;
     for (const item of plan.fixedItems || []) {
       if (!f.rewardItems.some(old => old.id === item.id && (old.mt || 1) === (item.mt || 1))) f.rewardItems.push(clone(item));
     }
-    const loot = f.lootText.trim() ? JSON.parse(f.lootText) : [];
+    const loot = !freshStage && f.lootText.trim() ? JSON.parse(f.lootText) : [];
     for (const item of plan.uniqueLoot || []) if (!loot.some(old => old.key === item.key)) loot.push(clone(item));
     f.lootText = JSON.stringify(loot, null, 2);
     // 明确提案仅补模块／功能集合；现有其它解锁字段及用户值全部保留。
@@ -960,7 +961,7 @@
           '主线和三条支线画成一张图：悬浮看关名、车的剪影和奖励，点一下进工作台或剧情。', `设计稿 v${SA.CAMPAIGN_MAP.version} · 游戏里 ${stages.length} 关`) : null,
         card('stage', '关卡', `${stages.length} 关`, '一关一个工作区：拼装关卡车、改文字和奖励、测强度、写剧情和闲聊。', `${manual} 辆手工关卡车`),
         el('a.card', { href: 'ai-designs.html', target: '_blank', rel: 'noopener' },
-          el('h3', { text: 'AI设计候选' }), el('p', { text: '第二、三章 · 60台候选 · 送工作台改装' })),
+          el('h3', { text: 'AI设计候选' }), el('p', { text: '第二～五章 · 120台候选 · 送工作台改装' })),
         card('story', '剧情', `${scenes.length} 幕`, '开场、教程、每关战前战后、功能开放。改完看对话框预览。', `${edited} 幕改过`),
         card('chat', '院子闲聊', `${ownChat} 个范围`, '全局、每章、每关的闲聊和多人对答。', '单独编排的范围'),
         cur ? card('open/current', '当前开发', null, cur.desc, `${cur.ver} · ${cur.date}`) : null,
@@ -1907,7 +1908,7 @@
           if (typeof swap.style === 'string' && STYLE[swap.style]) { f.style = swap.style; touchFields(key); }
           if (aiDesign) {
             f.vehicleName = swap.name; name.value = swap.name;
-            mergeAiRewardPlan(f, swap.rewardPlan);
+            mergeAiRewardPlan(f, swap.rewardPlan, newStageDrafts.has(key));
             touchFields(key);
           }
           changed(`已换上${aiDesign ? 'AI 设计候选' : '进化擂台'}的「${swap.name || '候选车'}」，点保存才会变成这一关的车`);

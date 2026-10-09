@@ -1,0 +1,1391 @@
+{
+  "schemaVersion": 1,
+  "stageId": "5:3",
+  "stageName": "煤灰寡妇·复仇",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 5,
+    "stage": 3,
+    "name": "煤灰寡妇·复仇",
+    "terrain": "yard",
+    "style": null,
+    "boss": true,
+    "chapterHasBoss": true,
+    "rewardModule": "boss_ram",
+    "requiredModules": [
+      "boss_ram",
+      "mortar"
+    ],
+    "uniqueLoot": [
+      {
+        "id": "boss_ram",
+        "key": "boss_ram",
+        "mt": 5,
+        "once": true,
+        "source": "salvage"
+      }
+    ],
+    "mat": 5,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope",
+      "boss_ram"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope",
+      "boss_ram"
+    ],
+    "budget": 91020,
+    "baseBudget": 91020,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.6,
+        0.7
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 5,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "proposedFixedItems": [],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "uniqueReward": "boss_ram",
+      "uniqueMaterial": 5,
+      "uniqueCount": 1,
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [],
+    "uniqueLoot": [
+      {
+        "id": "boss_ram",
+        "key": "boss_ram",
+        "mt": 5,
+        "once": true,
+        "source": "salvage"
+      }
+    ],
+    "note": "唯一液压撞头可选缴获提案，使用已注册身份且每车恰好一件。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch5-04-01",
+      "name": "AI生成·煤灰寡妇复仇炮车",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:3",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "继承第一章寡妇的顶置高抛，乌兹钢机组装在低平台；真实液压撞头在履带最前端，重炮有独立射界。",
+      "requiredModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          1,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          3,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          13,
+          "boss_ram",
+          5,
+          3,
+          {
+            "unique": "boss_ram"
+          }
+        ],
+        [
+          0,
+          7,
+          2,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          5,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          6,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-04-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "6a0e08beeb23db095733374fbbff739afc08d7a5de3494a46b52077fe2aa5530",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 27188,
+      "budgetUsage": 0.2987035816304109,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "6a0e08beeb23db095733374fbbff739afc08d7a5de3494a46b52077fe2aa5530",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-04-02",
+      "name": "AI生成·寡妇火雨复仇",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:3",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "高抛与抛射架负责越过工厂障碍，前重炮凿甲；撞头维持接敌后的反击能力。",
+      "requiredModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          1,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          3,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          13,
+          "boss_ram",
+          5,
+          3,
+          {
+            "unique": "boss_ram"
+          }
+        ],
+        [
+          0,
+          7,
+          2,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          5,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          6,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-04-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "daa03d3aa8a53fd67860ababae231ca0a8d27af197c55d9487b7ee7d317b36c8",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 27504,
+      "budgetUsage": 0.3021753460777851,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "daa03d3aa8a53fd67860ababae231ca0a8d27af197c55d9487b7ee7d317b36c8",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-04-03",
+      "name": "AI生成·寡妇三层齐射",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:3",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "中炮分三层排在前甲外，双高抛在后背；比重炮版更强调连续齐射与撞击。",
+      "requiredModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          1,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          3,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          13,
+          "boss_ram",
+          5,
+          3,
+          {
+            "unique": "boss_ram"
+          }
+        ],
+        [
+          0,
+          7,
+          2,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          5,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          6,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          5,
+          0
+        ]
+      ],
+      "preview": "previews/ch5-04-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "46956bf9a1542ce315ae17472a09d2c33fec879fa29df713586e23895f1a840e",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 27022,
+      "budgetUsage": 0.2968798066359042,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "46956bf9a1542ce315ae17472a09d2c33fec879fa29df713586e23895f1a840e",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-04-04",
+      "name": "AI生成·寡妇套索撞槌",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:3",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "鱼叉拉近目标后由液压撞头接手，重炮与高抛仍提供主伤害；保持旧寡妇的前低后高轮廓。",
+      "requiredModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          1,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          3,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          13,
+          "boss_ram",
+          5,
+          3,
+          {
+            "unique": "boss_ram"
+          }
+        ],
+        [
+          0,
+          7,
+          2,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          5,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          6,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-04-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "393be2fc22c81d048a7b273be5ee6389ea7d7d9ab6d9db30f4a24bb422dea323",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 27701,
+      "budgetUsage": 0.30433970555921774,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "393be2fc22c81d048a7b273be5ee6389ea7d7d9ab6d9db30f4a24bb422dea323",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-04-05",
+      "name": "AI生成·寡妇冷却护卫",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:3",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "一门高抛加储水背包，降低持续交火的冷却压力；重炮、中炮与撞头组成稳健三段攻击。",
+      "requiredModules": [
+        "boss_ram",
+        "mortar"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          1,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          3,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          13,
+          "boss_ram",
+          5,
+          3,
+          {
+            "unique": "boss_ram"
+          }
+        ],
+        [
+          0,
+          7,
+          2,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          5,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          10,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          10,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          6,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          11,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-04-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "1df7d4c3b8189f8ca8a65bfb93f67bf7df7bcea926bf886f9db38a50ba6607f8",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 26240,
+      "budgetUsage": 0.2882882882882883,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "1df7d4c3b8189f8ca8a65bfb93f67bf7df7bcea926bf886f9db38a50ba6607f8",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

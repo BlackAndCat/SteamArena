@@ -1,0 +1,1858 @@
+{
+  "schemaVersion": 1,
+  "stageId": "4:1",
+  "stageName": "二号样车「铁龟」",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 4,
+    "stage": 1,
+    "name": "二号样车「铁龟」",
+    "terrain": "crates",
+    "style": null,
+    "boss": false,
+    "chapterHasBoss": true,
+    "rewardModule": "armor",
+    "requiredModules": [
+      "armor",
+      "mortar_s"
+    ],
+    "uniqueLoot": [],
+    "mat": 5,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "budget": 21170,
+    "baseBudget": 21170,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 5,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "proposedFixedItems": [
+        {
+          "id": "armor",
+          "mt": 4,
+          "count": 2
+        }
+      ],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "armor",
+        "mt": 4,
+        "count": 2
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "无实际模块奖励的规划关补镀镍装甲×2；下注功能仍为原规划，未在本次实现。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch4-02-01",
+      "name": "AI生成·铁龟双臼堡",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:1",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "六段履带承托低矮龟壳，双臼越过货箱；三列前甲、单列后甲，明确留后部弱点。 短诊断发现双小臼无法有效削减上一关多炮车，故增加一门顶置高抛并加固前甲；保留双小臼、厚前甲与薄后甲主题。",
+      "requiredModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "water",
+          4,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          2,
+          "tank_tall",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          5,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          11,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          13,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "mortar",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-02-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "153561404274d63cccf16d5b75faee69327bbd30f18ae4329beef74fbc7f5b10",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 16838,
+      "budgetUsage": 0.7953708077468116,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "153561404274d63cccf16d5b75faee69327bbd30f18ae4329beef74fbc7f5b10",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch4-02-02",
+      "name": "AI生成·铁龟长背型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:1",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "双臼拉开布置，背部加蓄压罐保护供汽；四人舱仍低置，前甲不遮蔽高抛线。 短诊断发现双小臼无法有效削减上一关多炮车，故增加一门顶置高抛并加固前甲；保留双小臼、厚前甲与薄后甲主题。",
+      "requiredModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "water",
+          4,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          2,
+          "tank_tall",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          4,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "pressure_tank",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          11,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          13,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "mortar",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-02-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "604d86c589fc0db130ddcef003bbf3f14bb68fdc748146ad338e669f2dcb0d89",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 17727,
+      "budgetUsage": 0.8373641946150212,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "604d86c589fc0db130ddcef003bbf3f14bb68fdc748146ad338e669f2dcb0d89",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch4-02-03",
+      "name": "AI生成·铁龟前盾型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:1",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "双臼集中后背，前方多一层短甲台；正面耐打但后端锅炉靠近薄甲。 短诊断发现双小臼无法有效削减上一关多炮车，故增加一门顶置高抛并加固前甲；保留双小臼、厚前甲与薄后甲主题。",
+      "requiredModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "water",
+          4,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          2,
+          "tank_tall",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "mortar",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-02-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "060c47e642b21b5b36975622a8f7b24ffcfa08aba4268abe72d5513211b2b757",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 17262,
+      "budgetUsage": 0.8153991497401984,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "060c47e642b21b5b36975622a8f7b24ffcfa08aba4268abe72d5513211b2b757",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch4-02-04",
+      "name": "AI生成·铁龟水冷型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:1",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "增加背部储水，强调长时间抛射；炮位分置储水两侧，顶盖保持台阶而非堆成高塔。 短诊断发现双小臼无法有效削减上一关多炮车，故增加一门顶置高抛并加固前甲；保留双小臼、厚前甲与薄后甲主题。",
+      "requiredModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "water",
+          4,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          2,
+          "tank_tall",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          5,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          11,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          13,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "mortar",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-02-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "3276f1b5e8ddd247b3e39a403cd42f0ec1e7704ce86e6334dc56dbdad02b95cd",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 17392,
+      "budgetUsage": 0.8215399149740198,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "3276f1b5e8ddd247b3e39a403cd42f0ec1e7704ce86e6334dc56dbdad02b95cd",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch4-02-05",
+      "name": "AI生成·铁龟指挥型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:1",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "保留双臼和前厚甲，背部多一座低指挥舱形成备用驾驶链；不是全向无弱点堡垒。 短诊断发现双小臼无法有效削减上一关多炮车，故增加一门顶置高抛并加固前甲；保留双小臼、厚前甲与薄后甲主题。",
+      "requiredModules": [
+        "armor",
+        "mortar_s"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          2,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          4,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "water",
+          4,
+          3
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          2,
+          "tank_tall",
+          4,
+          3
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          7,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          6,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          3,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "mortar_s",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          5,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          10,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          11,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          13,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "mortar",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-02-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "4d942bf9e30bfa1bee6db287d1ec78787669252d9f1e46c40f8e39b97d7618bf",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 18892,
+      "budgetUsage": 0.8923948984411904,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "4d942bf9e30bfa1bee6db287d1ec78787669252d9f1e46c40f8e39b97d7618bf",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

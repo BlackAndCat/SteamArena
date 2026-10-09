@@ -58,12 +58,14 @@
     if (name) vehicle.name = name;
     return vehicle;
   }
-  // 完整车辆种子只保存拼装数据，保留材料、等级和外观／唯一变体；可由 parseVehicle 原样回读。
+  // 完整车辆种子只保存拼装数据，保留材料、等级、外观／唯一变体和专项改造；可由 parseVehicle 原样回读。
   function exportVehicle(vehicle, SA) {
     const cells = [];
     SA.V.each(vehicle, (cell, row, col, layer) => {
       const item = [layer === 'side' ? 1 : 0, row, col, cell.id, cell.mt || 1, cell.lv || 0];
-      if (cell.look || cell.unique) item.push({ look: cell.look, unique: cell.unique });
+      // 与 StageCars.cellsOf 共用第七项语义，避免导出后丢失腿部承重或骑士改造等级。
+      if (cell.look || cell.unique || cell.refit) item.push({ look: cell.look, unique: cell.unique,
+        ...(cell.refit ? { refit: cell.refit } : {}) });
       cells.push(item);
     });
     return JSON.stringify({ name: vehicle.name, cells });

@@ -1,0 +1,3113 @@
+{
+  "schemaVersion": 1,
+  "stageId": "4:3",
+  "stageName": "零号样车",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "completed",
+  "spec": {
+    "chapter": 4,
+    "stage": 3,
+    "name": "零号样车",
+    "terrain": "flat",
+    "style": null,
+    "boss": false,
+    "chapterHasBoss": true,
+    "rewardModule": "gyroscope",
+    "requiredModules": [
+      "gyroscope"
+    ],
+    "uniqueLoot": [],
+    "mat": 2,
+    "allowedMaterials": [
+      1,
+      2
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "budget": 30485,
+    "baseBudget": 30485,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 2,
+      "ordinaryMaterialCap": 2,
+      "rewardModules": [
+        "gyroscope"
+      ],
+      "proposedFixedItems": [
+        {
+          "id": "gyroscope",
+          "mt": 2,
+          "count": 1
+        }
+      ],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "gyroscope",
+        "mt": 2,
+        "count": 1
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "陀螺仪熟铁模块固定奖励提案。保留三十年前旧样车的弱势，不为高预算换成乌兹钢。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch4-04-01",
+      "name": "AI生成·零号老锅炉",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:3",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "巨大的旧黄铜锅炉与熟铁中炮还原早期试验车；陀螺仪装前甲，整车低矮、没有现代副炮。",
+      "requiredModules": [
+        "gyroscope"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          3,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "gyroscope",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          2,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-04-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "本关刻意保留黄铜／熟铁旧样车与休息关定位，不升高材质消耗预算。"
+      },
+      "budget": 3679,
+      "budgetUsage": 0.12068230277185502,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch4-03-03",
+        "referenceFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "referenceStyle": "wander",
+        "candidateFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+        "style": "turtle",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 0,
+        "draws": 0,
+        "losses": 120,
+        "winRate": 0,
+        "rawWinRate": 0,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": true,
+        "rewardEffects": {
+          "gyroscope": {
+            "totals": {
+              "active": 424,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.533333333333333,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 126.67827752329829,
+          "meanCandidateShots": 3.6416666666666666,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 68
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+        "resultFile": "results/ch4-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-45",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "gyroscope": {
+          "totals": {
+            "active": 424,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 3.533333333333333,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch4-03-01",
+          "referenceFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 18,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 101.35000000000002,
+            "meanCandidateShots": 5.166666666666667,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-02",
+          "referenceFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 21,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 123.03333333333332,
+            "meanCandidateShots": 4.833333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-04",
+          "referenceFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 16,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.6666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 106.81,
+            "meanCandidateShots": 4.333333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-05",
+          "referenceFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "232d338aca923094dc21090e7e210ea9733447c7983117f650afd6f566b93abd",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 26,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.333333333333333,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 163.34675835921237,
+            "meanCandidateShots": 4.166666666666667,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-05.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch4-04-02",
+      "name": "AI生成·零号双炮原型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:3",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "在旧底架上追加上层中炮，甲片撑起短炮台；仍采用旧机组，作为技术演进的早期双炮样机。",
+      "requiredModules": [
+        "gyroscope"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          3,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "gyroscope",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          7,
+          11,
+          "cannon_m",
+          2,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-04-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "本关刻意保留黄铜／熟铁旧样车与休息关定位，不升高材质消耗预算。"
+      },
+      "budget": 3855,
+      "budgetUsage": 0.1264556339183205,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch4-03-03",
+        "referenceFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "referenceStyle": "wander",
+        "candidateFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+        "style": "counter",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 0,
+        "draws": 0,
+        "losses": 120,
+        "winRate": 0,
+        "rawWinRate": 0,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": true,
+        "rewardEffects": {
+          "gyroscope": {
+            "totals": {
+              "active": 512,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 4.266666666666667,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 224.1850606330175,
+          "meanCandidateShots": 7.95,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 57
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+        "resultFile": "results/ch4-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-45",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "gyroscope": {
+          "totals": {
+            "active": 512,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 4.266666666666667,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch4-03-01",
+          "referenceFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 27,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 275.1366666666666,
+            "meanCandidateShots": 11,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-02",
+          "referenceFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 19,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.1666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 298.06666666666666,
+            "meanCandidateShots": 11.666666666666666,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-04",
+          "referenceFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 25,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.166666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 237.59333333333336,
+            "meanCandidateShots": 10.166666666666666,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 1
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-05",
+          "referenceFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "f5b7c20aad3b7fc1d58efab72554584d49afaf9fe67f64053fd07fe3609c8c2f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 23,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 251.69284526673644,
+            "meanCandidateShots": 8.666666666666666,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-05.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch4-04-03",
+      "name": "AI生成·零号测绘车",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:3",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "大锅炉背后是矮水罐，上层小臼用于测绘弹道；新陀螺仪安装在旧壳上。",
+      "requiredModules": [
+        "gyroscope"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          3,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "gyroscope",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          6,
+          "mortar_s",
+          2,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-04-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "本关刻意保留黄铜／熟铁旧样车与休息关定位，不升高材质消耗预算。"
+      },
+      "budget": 3791,
+      "budgetUsage": 0.12435624077415122,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch4-03-03",
+        "referenceFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "referenceStyle": "wander",
+        "candidateFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+        "style": "turtle",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 0,
+        "draws": 0,
+        "losses": 120,
+        "winRate": 0,
+        "rawWinRate": 0,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": true,
+        "rewardEffects": {
+          "gyroscope": {
+            "totals": {
+              "active": 522,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 4.35,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 170.65607853760224,
+          "meanCandidateShots": 7.316666666666666,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 73
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+        "resultFile": "results/ch4-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-45",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "gyroscope": {
+          "totals": {
+            "active": 522,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 4.35,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch4-03-01",
+          "referenceFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 20,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 238.06999999999996,
+            "meanCandidateShots": 11.833333333333334,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 1
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-02",
+          "referenceFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 22,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.6666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 227.44666666666663,
+            "meanCandidateShots": 11.833333333333334,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-04",
+          "referenceFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 17,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 199.78333333333333,
+            "meanCandidateShots": 9.333333333333334,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-05",
+          "referenceFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "f96de72e562c0ec2563d8d0ae5f3bf9a49704b438b32375167af1fcbae366f76",
+          "style": "turtle",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 28,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 4.666666666666667,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 182.02571554074507,
+            "meanCandidateShots": 9.333333333333334,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-05.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch4-04-04",
+      "name": "AI生成·零号修补车",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:3",
+      "style": "wander",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "机组顶部加一层熟铁补片，保留前低炮和完整旧锅炉轮廓；低预算符合剧情休息关。",
+      "requiredModules": [
+        "gyroscope"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          3,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "gyroscope",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          3,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          4,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          6,
+          5,
+          "plate",
+          2,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-04-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "本关刻意保留黄铜／熟铁旧样车与休息关定位，不升高材质消耗预算。"
+      },
+      "budget": 3736,
+      "budgetUsage": 0.12255207479088076,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch4-03-03",
+        "referenceFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "referenceStyle": "wander",
+        "candidateFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+        "style": "wander",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 0,
+        "draws": 0,
+        "losses": 120,
+        "winRate": 0,
+        "rawWinRate": 0,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": true,
+        "rewardEffects": {
+          "gyroscope": {
+            "totals": {
+              "active": 466,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.8833333333333333,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 128.93830151517398,
+          "meanCandidateShots": 3.725,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 63
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+        "resultFile": "results/ch4-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-45",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "gyroscope": {
+          "totals": {
+            "active": 466,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 3.8833333333333333,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch4-03-01",
+          "referenceFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+          "style": "wander",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 17,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 150.17666666666668,
+            "meanCandidateShots": 5.833333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-02",
+          "referenceFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+          "style": "wander",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 21,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 132.55,
+            "meanCandidateShots": 5.333333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-04",
+          "referenceFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+          "style": "wander",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 20,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 112.27000000000004,
+            "meanCandidateShots": 5.833333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 1
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-05",
+          "referenceFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "b4d5bec0a189865708d8cf1d4042d2d8751ae53fb0613cc24b0e776f0b220f7a",
+          "style": "wander",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 17,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 171.82423343341762,
+            "meanCandidateShots": 5.166666666666667,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-05.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    },
+    {
+      "id": "ch4-04-05",
+      "name": "AI生成·零号备用指挥车",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:3",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "背部增设双人备用舱，保留单门中炮；让玩家能观察旧式指挥冗余而非火力堆叠。",
+      "requiredModules": [
+        "gyroscope"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          3,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          5,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          7,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          9,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          10,
+          11,
+          "track",
+          2,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          1,
+          0
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          2,
+          0
+        ],
+        [
+          1,
+          8,
+          11,
+          "gyroscope",
+          2,
+          0
+        ],
+        [
+          0,
+          8,
+          12,
+          "cannon_m",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          12,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          9,
+          13,
+          "plate",
+          2,
+          0
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit_pair",
+          2,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-04-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "本关刻意保留黄铜／熟铁旧样车与休息关定位，不升高材质消耗预算。"
+      },
+      "budget": 3911,
+      "budgetUsage": 0.1282926029194686,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch4-03-03",
+        "referenceFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "referenceStyle": "wander",
+        "candidateFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+        "style": "counter",
+        "terrain": "flat",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 0,
+        "draws": 0,
+        "losses": 120,
+        "winRate": 0,
+        "rawWinRate": 0,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": true,
+        "rewardEffects": {
+          "gyroscope": {
+            "totals": {
+              "active": 433,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.6083333333333334,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 0,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 130.46803696619799,
+          "meanCandidateShots": 4.241666666666666,
+          "noShotGames": 0,
+          "failureCounts": {
+            "dry": 62
+          },
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+        "resultFile": "results/ch4-04-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "below-45",
+        "notReachedReason": "正式胜率低于目标；保留合法候选供用户甄选，不改策略或种子修饰成绩。"
+      },
+      "rewardEvidence": {
+        "gyroscope": {
+          "totals": {
+            "active": 433,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 3.6083333333333334,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 0,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch4-03-01",
+          "referenceFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 22,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.6666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 151.58333333333334,
+            "meanCandidateShots": 5.833333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 3
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-02",
+          "referenceFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 20,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 132.55,
+            "meanCandidateShots": 5.5,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 2
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-04",
+          "referenceFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 20,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 100.46666666666668,
+            "meanCandidateShots": 3.8333333333333335,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 2
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch4-03-05",
+          "referenceFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+          "referenceStyle": "counter",
+          "candidateFingerprint": "b1d9b43c11a734e5ecf8be6f461b07060207c6d6962a83f1014d4de718baba0f",
+          "style": "counter",
+          "terrain": "flat",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 0,
+          "draws": 0,
+          "losses": 6,
+          "winRate": 0,
+          "rawWinRate": 0,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": true,
+          "rewardEffects": {
+            "gyroscope": {
+              "totals": {
+                "active": 21,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 0,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 153.10698052352188,
+            "meanCandidateShots": 4.833333333333333,
+            "noShotGames": 0,
+            "failureCounts": {
+              "dry": 2
+            },
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json",
+          "resultFile": "results/ch4-04-cross-05.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a",
+  "reference": {
+    "id": "ch4-03-03",
+    "name": "AI生成·野兔跳弹猎手",
+    "fingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+    "sourceFile": "artifacts/ai-vehicles/chapter-4/ch4-03-candidates.json"
+  }
+}

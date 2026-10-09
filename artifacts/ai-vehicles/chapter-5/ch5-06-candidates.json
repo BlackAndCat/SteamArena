@@ -1,0 +1,1819 @@
+{
+  "schemaVersion": 1,
+  "stageId": "5:5",
+  "stageName": "维多利亚女王号",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 5,
+    "stage": 5,
+    "name": "维多利亚女王号",
+    "terrain": "flat",
+    "style": null,
+    "boss": true,
+    "chapterHasBoss": true,
+    "rewardModule": "cannon_giant",
+    "requiredModules": [
+      "cannon_giant"
+    ],
+    "uniqueLoot": [
+      {
+        "id": "cannon_giant",
+        "key": "cannon_giant",
+        "mt": 6,
+        "once": true,
+        "source": "salvage"
+      }
+    ],
+    "mat": 6,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope",
+      "boss_ram",
+      "cannon_giant"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope",
+      "boss_ram",
+      "cannon_giant"
+    ],
+    "budget": 131070,
+    "baseBudget": 131070,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.6,
+        0.7
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 6,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "cannon_giant"
+      ],
+      "proposedFixedItems": [],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "uniqueReward": "cannon_giant",
+      "uniqueMaterial": 6,
+      "uniqueCount": 1,
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [],
+    "uniqueLoot": [
+      {
+        "id": "cannon_giant",
+        "key": "cannon_giant",
+        "mt": 6,
+        "once": true,
+        "source": "salvage"
+      }
+    ],
+    "note": "唯一以太巨炮为可选缴获；以太结晶与两阶段决赛仍属规划，本批只提供现有引擎可运行的单阶段候选。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch5-06-01",
+      "name": "AI生成·女王号加冕堡垒",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:5",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "完整六层炮堡：以太巨炮坐正中上层，乌兹重炮守前缘，双大锅炉配三组水冷支撑；仅呈现单阶段车辆。",
+      "requiredModules": [
+        "cannon_giant"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          14,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          1,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          4,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          7,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          14,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          15,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          14,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          12,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          0,
+          6,
+          "cannon_giant",
+          6,
+          3,
+          {
+            "unique": "cannon_giant"
+          }
+        ],
+        [
+          0,
+          7,
+          6,
+          "boss_core",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          7,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          14,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          14,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-06-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "e6065da51d1b25b4aba51a4bc443bc6edcb9f4e5d98bd41b2da36a0306bfca09",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 41604,
+      "budgetUsage": 0.31741817349507895,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "e6065da51d1b25b4aba51a4bc443bc6edcb9f4e5d98bd41b2da36a0306bfca09",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-06-02",
+      "name": "AI生成·女王号皇家火雨",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:5",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "巨炮与双臼构成高抛主群，前缘双联机枪守近距离；巨炮顶部留空，底座构成六层轮廓。",
+      "requiredModules": [
+        "cannon_giant"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          14,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          1,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          4,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          7,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          14,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          15,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          14,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          12,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          0,
+          6,
+          "cannon_giant",
+          6,
+          3,
+          {
+            "unique": "cannon_giant"
+          }
+        ],
+        [
+          0,
+          7,
+          6,
+          "boss_core",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          7,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          10,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          14,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          14,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-06-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "fb92b46a00aea0806d6d31ed168b7531595ba320906947b516b84067555f4528",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 41842,
+      "budgetUsage": 0.3192339971007858,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "fb92b46a00aea0806d6d31ed168b7531595ba320906947b516b84067555f4528",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-06-03",
+      "name": "AI生成·女王号重炮王冠",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:5",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "巨炮之外以前方重炮、中炮与鱼叉形成曲直配合；双大锅炉藏在底层，玩家仍可绕开高抛落点攻击机组。",
+      "requiredModules": [
+        "cannon_giant"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          14,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          1,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          4,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          7,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          14,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          15,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          14,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          12,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          0,
+          6,
+          "cannon_giant",
+          6,
+          3,
+          {
+            "unique": "cannon_giant"
+          }
+        ],
+        [
+          0,
+          7,
+          6,
+          "boss_core",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          7,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          14,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          14,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-06-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "896231e9c6b6b500acc84da9bf1c013a0e59d3ffebba60b563497be29725b39a",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 42433,
+      "budgetUsage": 0.32374303807125965,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "896231e9c6b6b500acc84da9bf1c013a0e59d3ffebba60b563497be29725b39a",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-06-04",
+      "name": "AI生成·女王号长战堡垒",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:5",
+      "style": "turtle",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "巨炮配大容量分散储水，减少屋顶副炮而增加续航；前缘重炮保持威胁，主锅炉仍是可破坏弱点。",
+      "requiredModules": [
+        "cannon_giant"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          14,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          1,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          4,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          7,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          14,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          15,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          14,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          12,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          0,
+          6,
+          "cannon_giant",
+          6,
+          3,
+          {
+            "unique": "cannon_giant"
+          }
+        ],
+        [
+          0,
+          7,
+          6,
+          "boss_core",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          7,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          14,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          14,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-06-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "0bf83ea4b071cc52dba2593d1d315dac77b5604636f19a532b7cd3278e47ea3a",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 40656,
+      "budgetUsage": 0.31018539711604487,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "0bf83ea4b071cc52dba2593d1d315dac77b5604636f19a532b7cd3278e47ea3a",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-06-05",
+      "name": "AI生成·女王号四组军乐",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:5",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "巨炮、重炮、双联机枪与中炮分组，低层双驾驶舱指挥；巨炮唯一身份保真，不假装已有两阶段切换机制。",
+      "requiredModules": [
+        "cannon_giant"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          2,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          4,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          6,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          10,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          14,
+          "track",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          1,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          4,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          7,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          14,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          15,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          8,
+          14,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          4,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          6,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          8,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          12,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          0,
+          6,
+          "cannon_giant",
+          6,
+          3,
+          {
+            "unique": "cannon_giant"
+          }
+        ],
+        [
+          0,
+          7,
+          6,
+          "boss_core",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          7,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          4,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          2,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          10,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          13,
+          "cannon_heavy",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          14,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          14,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-06-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "cd12db2e532a2746d87bd0c666b47f03d13ad31eb1a8e6a0a0b0f6b5e74021f6",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 43502,
+      "budgetUsage": 0.33189898527504386,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "cd12db2e532a2746d87bd0c666b47f03d13ad31eb1a8e6a0a0b0f6b5e74021f6",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

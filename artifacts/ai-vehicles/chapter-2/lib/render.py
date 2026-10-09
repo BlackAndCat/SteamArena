@@ -38,7 +38,7 @@ def main():
     inputs = [pathlib.Path(item) for item in sys.argv[1].split(',')]
     documents = [json.loads(item.read_text(encoding='utf-8')) for item in inputs]
     # 章名由输入stageId确定，第三章复用同一真实渲染流程；不重新输出已完成章节的原图。
-    chapter_names = {2: '第二章', 3: '第三章'}
+    chapter_names = {2: '第二章', 3: '第三章', 4: '第四章', 5: '第五章'}
     chapter_label = '、'.join(dict.fromkeys(chapter_names.get(int(document['stageId'].split(':')[0]),
         '第' + document['stageId'].split(':')[0] + '章') for document in documents))
     data = {'candidates': [car for document in documents for car in document['candidates']]}
@@ -99,9 +99,9 @@ def main():
               canvas.height = Math.ceil(items.length/cols)*height+64; const ctx = canvas.getContext('2d');
               ctx.fillStyle = '#e8dcb5';ctx.fillRect(0,0,canvas.width,canvas.height);
               ctx.imageSmoothingEnabled = false;ctx.font = '16px sans-serif';
-              ctx.fillStyle='#34210f';ctx.fillText('AI生成 · gpt-6.1-sol · '+%s+' · '+items.length+'台'+
+              ctx.fillStyle='#34210f';ctx.fillText('AI生成 · '+%s+' · '+items.length+'台'+
                 (items.every(item=>item.recommended)?'推荐参考车':'候选'),8,22);
-              ctx.font='14px sans-serif';ctx.fillText('真实游戏渲染 · 每车120局 · 胜率=(胜+0.5×平)/总局数 · 双方瞄准0.8 · 各车目标见卡片',8,44);
+              ctx.font='14px sans-serif';ctx.fillText('真实游戏渲染 · 测试局数见卡片 · 胜率=(胜+0.5×平)/总局数 · 双方瞄准0.8 · 各车目标见卡片',8,44);
               for(let i=0;i<items.length;i++) { const item=items[i], img=new Image();
                 img.src=item.png;await img.decode();const x=i%%cols*width,y=Math.floor(i/cols)*height+64;
                 ctx.drawImage(img,x,y+70);ctx.fillStyle='#34210f';ctx.font='16px sans-serif';

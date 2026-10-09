@@ -1,0 +1,1390 @@
+{
+  "schemaVersion": 1,
+  "stageId": "5:1",
+  "stageName": "黑龙",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 5,
+    "stage": 1,
+    "name": "黑龙",
+    "terrain": "mine",
+    "style": null,
+    "boss": false,
+    "chapterHasBoss": true,
+    "rewardModule": "flamer",
+    "requiredModules": [
+      "flamer",
+      "rocket_rack"
+    ],
+    "uniqueLoot": [
+      {
+        "id": "quad",
+        "key": "quad:dragon",
+        "look": "dragon",
+        "name": "黑龙",
+        "mt": 6,
+        "chapter": 5,
+        "once": true,
+        "source": "side"
+      }
+    ],
+    "mat": 6,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "budget": 63210,
+    "baseBudget": 63210,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.65,
+        0.8
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 6,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "proposedFixedItems": [],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "uniqueReward": "quad:dragon",
+      "uniqueMaterial": 6,
+      "uniqueCount": 1,
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [],
+    "uniqueLoot": [
+      {
+        "id": "quad",
+        "key": "quad:dragon",
+        "look": "dragon",
+        "name": "黑龙",
+        "mt": 6,
+        "chapter": 5,
+        "once": true,
+        "source": "side"
+      }
+    ],
+    "note": "真实唯一黑龙为可选缴获；仅该底盘用以太6，普通装备上限乌兹5，不把全车静默升至以太。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch5-02-01",
+      "name": "AI生成·黑龙熔炉",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:1",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "真实黑龙四足串联成低宽龙身，两层喷火器守正面，背部抛射架越过矿坑遮挡；重甲围住驾驶舱。 矿坑短诊断显示大量喷火未形成有效伤害，故在前甲顶增加中炮，补充射程与穿甲，保留双喷火器和抛射架。",
+      "requiredModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "quad",
+          6,
+          3,
+          {
+            "unique": "quad:dragon",
+            "look": "dragon"
+          }
+        ],
+        [
+          0,
+          10,
+          4,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          5,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-02-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "61f68118bd172d1f8274e410a89f4d18ebe122947531b1ea1144927b976a7b0d",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 22652,
+      "budgetUsage": 0.3583610188261351,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "61f68118bd172d1f8274e410a89f4d18ebe122947531b1ea1144927b976a7b0d",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch5-02-02",
+      "name": "AI生成·黑龙火雨",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:1",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "双背部抛射架与双喷火器兼顾远近，前甲形成短鼻；唯一黑龙只保留一件，其余为普通乌兹四足。 矿坑短诊断显示大量喷火未形成有效伤害，故在前甲顶增加中炮，补充射程与穿甲，保留双喷火器和抛射架。",
+      "requiredModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "quad",
+          6,
+          3,
+          {
+            "unique": "quad:dragon",
+            "look": "dragon"
+          }
+        ],
+        [
+          0,
+          10,
+          4,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          5,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-02-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "ea6992faabbd8ad5db9f52f8e25a1d37fa4c3b3db1fc5a46199ad4c7616a814f",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 22968,
+      "budgetUsage": 0.36336022781205507,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "ea6992faabbd8ad5db9f52f8e25a1d37fa4c3b3db1fc5a46199ad4c7616a814f",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch5-02-03",
+      "name": "AI生成·黑龙猎叉",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:1",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "两层火焰之外加入鱼叉，把目标留在喷口范围；后背保留抛射架，前缘炮口不被甲板遮挡。 矿坑短诊断显示大量喷火未形成有效伤害，故在前甲顶增加中炮，补充射程与穿甲，保留双喷火器和抛射架。",
+      "requiredModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "quad",
+          6,
+          3,
+          {
+            "unique": "quad:dragon",
+            "look": "dragon"
+          }
+        ],
+        [
+          0,
+          10,
+          4,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          5,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-02-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "0af50f1bce203ee00464fd804398b8cbbec898cc1ec8ee0ce7e5b3b4ed9535b6",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 22983,
+      "budgetUsage": 0.36359753203607026,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "0af50f1bce203ee00464fd804398b8cbbec898cc1ec8ee0ce7e5b3b4ed9535b6",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch5-02-04",
+      "name": "AI生成·黑龙重颚",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:1",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "前上方中炮补穿甲，两层喷火器继续压迫近身；抛射与高抛成对置于龙背。 矿坑短诊断显示大量喷火未形成有效伤害，故在前甲顶增加中炮，补充射程与穿甲，保留双喷火器和抛射架。",
+      "requiredModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "quad",
+          6,
+          3,
+          {
+            "unique": "quad:dragon",
+            "look": "dragon"
+          }
+        ],
+        [
+          0,
+          10,
+          4,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          5,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "mortar",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          12,
+          "cannon_m",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "plate",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-02-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "42e19a56b0d0be279f3a2e5c744c631446b5b8b2fbaabd6e353cf0c286d125a1",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 23418,
+      "budgetUsage": 0.3704793545325107,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "42e19a56b0d0be279f3a2e5c744c631446b5b8b2fbaabd6e353cf0c286d125a1",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    },
+    {
+      "id": "ch5-02-05",
+      "name": "AI生成·黑龙冷凝堡",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:1",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 2,
+      "designIntent": "减少一门高抛换成大水冷背包，双喷火与抛射架构成三组核心武器；侧散热柱保护前甲。 矿坑短诊断显示大量喷火未形成有效伤害，故在前甲顶增加中炮，补充射程与穿甲，保留双喷火器和抛射架。",
+      "requiredModules": [
+        "flamer",
+        "rocket_rack"
+      ],
+      "cells": [
+        [
+          0,
+          10,
+          0,
+          "quad",
+          6,
+          3,
+          {
+            "unique": "quad:dragon",
+            "look": "dragon"
+          }
+        ],
+        [
+          0,
+          10,
+          4,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          8,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          10,
+          12,
+          "quad",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          3,
+          "boiler_l",
+          5,
+          3
+        ],
+        [
+          0,
+          7,
+          6,
+          "water_l",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          9,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          8,
+          11,
+          "armor",
+          5,
+          0
+        ],
+        [
+          1,
+          6,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          1,
+          8,
+          11,
+          "radiator",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          5,
+          5,
+          "boiler",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          2,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          3,
+          5,
+          "rocket_rack",
+          5,
+          3
+        ],
+        [
+          0,
+          3,
+          7,
+          "water",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          9,
+          12,
+          "flamer",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          12,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          6,
+          13,
+          "armor",
+          5,
+          0
+        ],
+        [
+          0,
+          5,
+          12,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-02-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "7cf77a462aaf201660bac71af088fedbf922f839dcdcb9fdd1446713ad1e3a70",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "优先升级主火力、机组与驾驶舱；剩余预算保留为后续手工改装空间，不通过冗余小件填满车间。"
+      },
+      "budget": 21704,
+      "budgetUsage": 0.3433633918683753,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "7cf77a462aaf201660bac71af088fedbf922f839dcdcb9fdd1446713ad1e3a70",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed",
+      "revisionNote": "固定种子短诊断后的唯一一次火力／防护修订；正式成绩仅对应修订后结构。"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

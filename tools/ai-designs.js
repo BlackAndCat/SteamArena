@@ -1,9 +1,9 @@
 /* AI 定制候选浏览器：直接读最终设计数据，选择与工作台草稿导入不写正式关卡。 */
 'use strict';
 (() => {
-  // 两章真实候选与图片已齐；未完成正式测试的车仍显示待测状态，章节目录独立。
-  const chapters = [2,3];
-  const chapterName = chapter => ({2:'第二章',3:'第三章'}[chapter] || `第${chapter}章`);
+  // 第二至五章的合法候选和真实预览已齐，测试结果按原记录显示，章节目录独立。
+  const chapters = [2,3,4,5];
+  const chapterName = chapter => ({2:'第二章',3:'第三章',4:'第四章',5:'第五章'}[chapter] || `第${chapter}章`);
   const baseOf = stage => `../artifacts/ai-vehicles/chapter-${stage.stageId.split(':')[0]}/`;
   const fileOf = stage => `ch${stage.stageId.split(':')[0]}-0${Number(stage.stageId.split(':')[1])+1}-candidates.json`;
   const files = chapters.flatMap(chapter => [1,2,3,4,5,6].map(stage => `../artifacts/ai-vehicles/chapter-${chapter}/ch${chapter}-0${stage}-candidates.json`));

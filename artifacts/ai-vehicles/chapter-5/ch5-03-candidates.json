@@ -1,0 +1,915 @@
+{
+  "schemaVersion": 1,
+  "stageId": "5:2",
+  "stageName": "双足舞者",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 5,
+    "stage": 2,
+    "name": "双足舞者",
+    "terrain": "flat",
+    "style": null,
+    "boss": true,
+    "chapterHasBoss": true,
+    "rewardModule": "mg2",
+    "requiredModules": [
+      "mg2",
+      "spike"
+    ],
+    "uniqueLoot": [],
+    "mat": 5,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core",
+      "gyroscope"
+    ],
+    "budget": 75850,
+    "baseBudget": 75850,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.6,
+        0.7
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 5,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "mg2",
+        "spike"
+      ],
+      "proposedFixedItems": [
+        {
+          "id": "mg2",
+          "mt": 5,
+          "count": 1
+        }
+      ],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "mg2",
+        "mt": 5,
+        "count": 1
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "无实际模块的乌兹钢锭规划改为乌兹双联机枪×1提案。提速、跳跃新件尚无本批解锁来源，因此不擅自装入。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch5-03-01",
+      "name": "AI生成·舞者双枪燕尾",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:2",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "双联机枪上下错层，撞角直接贴胯；背水与前方撞角配平，保留高速双足的紧凑燕尾形。",
+      "requiredModules": [
+        "mg2",
+        "spike"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          0,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "spike",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          1,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          4,
+          8,
+          "cockpit",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          10,
+          "mg2",
+          5,
+          1
+        ]
+      ],
+      "preview": "previews/ch5-03-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "bbdec6b1b100bb3cd08117c073621bcdc72fe7bf6ede983f15e916952a8fcc8c",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 10084,
+      "budgetUsage": 0.1329466051417271,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "bbdec6b1b100bb3cd08117c073621bcdc72fe7bf6ede983f15e916952a8fcc8c",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-03-02",
+      "name": "AI生成·舞者穿甲步",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:2",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "肩顶中炮补穿甲，双联机枪和撞角保持近身压制；三级承重改造后仍保留双足速度优势。",
+      "requiredModules": [
+        "mg2",
+        "spike"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          0,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "spike",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          1,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          4,
+          8,
+          "cockpit",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          3,
+          10,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-03-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "5812894eba43dc05eb3a70bc4fb2040452b71acc02e38dc4b89afd0950552120",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 10954,
+      "budgetUsage": 0.1444166117336849,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "5812894eba43dc05eb3a70bc4fb2040452b71acc02e38dc4b89afd0950552120",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-03-03",
+      "name": "AI生成·舞者牵引步",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:2",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "肩顶鱼叉留住目标，随后撞角前冲；机组分置腿轴前后，整车不加厚重外围甲。",
+      "requiredModules": [
+        "mg2",
+        "spike"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          0,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "spike",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          1,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          4,
+          8,
+          "cockpit",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          3,
+          10,
+          "harpoon",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-03-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "4618bbd772b08c0daf1d59e0861b98074a8e759b7985b5794d640917579cf713",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 11467,
+      "budgetUsage": 0.15117996044825313,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "4618bbd772b08c0daf1d59e0861b98074a8e759b7985b5794d640917579cf713",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-03-04",
+      "name": "AI生成·舞者弧线步",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:2",
+      "style": "wander",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "背部小臼提供越障火力，双联机枪覆盖追击；同一撞角让玩家比较迂回与直接冲锋。",
+      "requiredModules": [
+        "mg2",
+        "spike"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          0,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "spike",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          1,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          4,
+          8,
+          "cockpit",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          3,
+          6,
+          "mortar_s",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch5-03-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "d139d5211a11274b98c4897c117007077189af19d614b5838f831011651cd288",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 10638,
+      "budgetUsage": 0.14025049439683587,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "d139d5211a11274b98c4897c117007077189af19d614b5838f831011651cd288",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch5-03-05",
+      "name": "AI生成·舞者银肩步",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "5:2",
+      "style": "rush",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "给驾驶舱上方加短肩甲，枪口保持裸露；不用额外火炮，以轻防护保住冲锋指挥链。",
+      "requiredModules": [
+        "mg2",
+        "spike"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          0,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "spike",
+          5,
+          3
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          1,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          5,
+          0,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          4,
+          8,
+          "cockpit",
+          5,
+          1
+        ],
+        [
+          0,
+          4,
+          10,
+          "mg2",
+          5,
+          1
+        ],
+        [
+          0,
+          3,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          9,
+          "plate",
+          4,
+          0
+        ]
+      ],
+      "preview": "previews/ch5-03-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "e4bca2cf9c2106a1fd4a2fb1f2d765ce6e41a763949197f838a0780ab2e71799",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 10184,
+      "budgetUsage": 0.1342649967040211,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "e4bca2cf9c2106a1fd4a2fb1f2d765ce6e41a763949197f838a0780ab2e71799",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

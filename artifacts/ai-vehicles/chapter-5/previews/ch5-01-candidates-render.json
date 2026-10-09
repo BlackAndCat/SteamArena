@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ch5-01-01",
+    "out": "artifacts\\ai-vehicles\\chapter-5\\previews\\ch5-01-01.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "50ca7fa2a142549971dd295e870b5efb81be90599515457ab4e7965a42729717",
+    "pngFingerprint": "523653d0a5a2cd5c9e419f264892d700f0a65250f2a03da34596e2ba70e60526"
+  },
+  {
+    "id": "ch5-01-02",
+    "out": "artifacts\\ai-vehicles\\chapter-5\\previews\\ch5-01-02.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "b828e24f0bc2c32d30b3403d47f968ada76f9c5720644c5bf38d8df0913efcfb",
+    "pngFingerprint": "6906b50b08134f87dd844e44a428e18968f8cdbaf9c1547d744d51345c16b20d"
+  },
+  {
+    "id": "ch5-01-03",
+    "out": "artifacts\\ai-vehicles\\chapter-5\\previews\\ch5-01-03.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "6a188c8103fffa6c69bf55210aa9b1517e04d0c34e51d285907d4faa15339945",
+    "pngFingerprint": "a612b09ae3b535b5e17b6e3e78cda36ef0a94271dd90479dfcc4e3cb803385d3"
+  },
+  {
+    "id": "ch5-01-04",
+    "out": "artifacts\\ai-vehicles\\chapter-5\\previews\\ch5-01-04.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "800830bc9419ca1bee626a0ff102b2ea3786f58fc1778d95e4306f6fe9bdbbcd",
+    "pngFingerprint": "b6bd94a24dd539e8a98f722f5226ce9c385505f16eb83c6b4691a51cb90038f2"
+  },
+  {
+    "id": "ch5-01-05",
+    "out": "artifacts\\ai-vehicles\\chapter-5\\previews\\ch5-01-05.png",
+    "width": 440,
+    "height": 302,
+    "cellsFingerprint": "7a79ce7dfbf83602a0c7810b644fa592fb37d28edc9595c588f670686e4ec20c",
+    "pngFingerprint": "a318a8915c0ced1d2df05db4f96616fb64c1d977f5727f6a2b17996a5fc61b4a"
+  }
+]

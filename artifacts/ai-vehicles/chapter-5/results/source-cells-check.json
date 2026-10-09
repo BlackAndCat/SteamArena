@@ -1,0 +1,306 @@
+{
+  "candidates": [
+    {
+      "id": "ch5-01-01",
+      "fingerprint": "7d76bb81ce4f74a6c314abca709e1d3a5f08dc27604236cb3f4fc97e294f4c4c",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-01-02",
+      "fingerprint": "d9c45a7303afe93b4bf06d69d700193f8b087c340ee3f4db2764e2fa0cf0b31f",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-01-03",
+      "fingerprint": "09831cb35c971eb8078a336fb7e49a8cc0c7679b381aa3e341e2fef92b41f757",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-01-04",
+      "fingerprint": "ee6693663dd59e817a1d38f01bd1c99da1828277ec62d5114678356173616d38",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-01-05",
+      "fingerprint": "b5e868b043c1d831a5454f4171228a2a1fda5995b4f8abac530058bbb44a5729",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-02-01",
+      "fingerprint": "61f68118bd172d1f8274e410a89f4d18ebe122947531b1ea1144927b976a7b0d",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-02-02",
+      "fingerprint": "ea6992faabbd8ad5db9f52f8e25a1d37fa4c3b3db1fc5a46199ad4c7616a814f",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-02-03",
+      "fingerprint": "0af50f1bce203ee00464fd804398b8cbbec898cc1ec8ee0ce7e5b3b4ed9535b6",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-02-04",
+      "fingerprint": "42e19a56b0d0be279f3a2e5c744c631446b5b8b2fbaabd6e353cf0c286d125a1",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-02-05",
+      "fingerprint": "7cf77a462aaf201660bac71af088fedbf922f839dcdcb9fdd1446713ad1e3a70",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-03-01",
+      "fingerprint": "bbdec6b1b100bb3cd08117c073621bcdc72fe7bf6ede983f15e916952a8fcc8c",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-03-02",
+      "fingerprint": "5812894eba43dc05eb3a70bc4fb2040452b71acc02e38dc4b89afd0950552120",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-03-03",
+      "fingerprint": "4618bbd772b08c0daf1d59e0861b98074a8e759b7985b5794d640917579cf713",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-03-04",
+      "fingerprint": "d139d5211a11274b98c4897c117007077189af19d614b5838f831011651cd288",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-03-05",
+      "fingerprint": "e4bca2cf9c2106a1fd4a2fb1f2d765ce6e41a763949197f838a0780ab2e71799",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-04-01",
+      "fingerprint": "6a0e08beeb23db095733374fbbff739afc08d7a5de3494a46b52077fe2aa5530",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-04-02",
+      "fingerprint": "daa03d3aa8a53fd67860ababae231ca0a8d27af197c55d9487b7ee7d317b36c8",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-04-03",
+      "fingerprint": "46956bf9a1542ce315ae17472a09d2c33fec879fa29df713586e23895f1a840e",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-04-04",
+      "fingerprint": "393be2fc22c81d048a7b273be5ee6389ea7d7d9ab6d9db30f4a24bb422dea323",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-04-05",
+      "fingerprint": "1df7d4c3b8189f8ca8a65bfb93f67bf7df7bcea926bf886f9db38a50ba6607f8",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-05-01",
+      "fingerprint": "c12678690156210d24321cf68af5cc0fbe4edf520a05a50242593dc70a203c21",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-05-02",
+      "fingerprint": "026d8ebf7e94cdf1213d16d418fd3f61bb9f8d0433db17699839a7fbda0eae26",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-05-03",
+      "fingerprint": "27aaea650759ea8b1e0f6635592b6ccb071d9192025540792509a4c60b9b33c6",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-05-04",
+      "fingerprint": "6b3cf6499d3d4dc42c7a4072b9d15c2efd672169e1eac224eb9c422c3d71a7f1",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-05-05",
+      "fingerprint": "80a31c2f22d11fa2b98ef2e41931ef949d5b25f9c12519bcae8c001d502ab0a9",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-06-01",
+      "fingerprint": "e6065da51d1b25b4aba51a4bc443bc6edcb9f4e5d98bd41b2da36a0306bfca09",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-06-02",
+      "fingerprint": "fb92b46a00aea0806d6d31ed168b7531595ba320906947b516b84067555f4528",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-06-03",
+      "fingerprint": "896231e9c6b6b500acc84da9bf1c013a0e59d3ffebba60b563497be29725b39a",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-06-04",
+      "fingerprint": "0bf83ea4b071cc52dba2593d1d315dac77b5604636f19a532b7cd3278e47ea3a",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    },
+    {
+      "id": "ch5-06-05",
+      "fingerprint": "cd12db2e532a2746d87bd0c666b47f03d13ad31eb1a8e6a0a0b0f6b5e74021f6",
+      "validation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      }
+    }
+  ],
+  "duplicateAnchorRejected": true,
+  "invalid": []
+}

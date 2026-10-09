@@ -1,0 +1,945 @@
+{
+  "schemaVersion": 1,
+  "stageId": "4:2",
+  "stageName": "三号样车「野兔」",
+  "source": "ai-generated",
+  "model": "Codex 主线程（本轮授权接手）",
+  "designProcess": "模型逐车直接设计显式锚点；共用底架仅展开固定清单，不走进化、随机搜索、自动装配或自动预算填充。",
+  "designTargetWinRate": [
+    0.6,
+    0.75
+  ],
+  "status": "draft",
+  "spec": {
+    "chapter": 4,
+    "stage": 2,
+    "name": "三号样车「野兔」",
+    "terrain": "flat",
+    "style": null,
+    "boss": true,
+    "chapterHasBoss": true,
+    "rewardModule": "mg2",
+    "requiredModules": [
+      "mg2",
+      "harpoon"
+    ],
+    "uniqueLoot": [],
+    "mat": 5,
+    "allowedMaterials": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "grid": {
+      "cols": 8,
+      "rows": 6
+    },
+    "allowedModules": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "availableMods": [
+      "track",
+      "helmet",
+      "boiler_s",
+      "tank_s",
+      "mg_s",
+      "plate",
+      "bucket",
+      "tank_tall",
+      "cannon_s",
+      "armor",
+      "boiler",
+      "water",
+      "mg",
+      "cannon_m",
+      "autoloader",
+      "mortar_s",
+      "biped",
+      "cockpit_pair",
+      "mortar",
+      "cockpit",
+      "spike",
+      "mg2",
+      "quad",
+      "mg_heavy",
+      "steamjet",
+      "radiator",
+      "harpoon",
+      "rangefinder",
+      "piston",
+      "boss_lens",
+      "flamer",
+      "cannon_heavy",
+      "rocket_rack",
+      "boiler_l",
+      "water_l",
+      "pressure_tank",
+      "boss_core"
+    ],
+    "budget": 25405,
+    "baseBudget": 25405,
+    "budgetStatus": "draft",
+    "target": {
+      "bossWinRate": [
+        0.6,
+        0.7
+      ]
+    },
+    "planningPatch": {
+      "enemyMaterial": 5,
+      "ordinaryMaterialCap": 5,
+      "rewardModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "proposedFixedItems": [
+        {
+          "id": "mg2",
+          "mt": 4,
+          "count": 1
+        }
+      ],
+      "designRequirementsSource": "本批直接设计提案，待用户采用；没有写入正式关卡。",
+      "note": "预算读取逐关权威表。全车间开放；唯一件材料只对该身份生效，普通件不随之提升。"
+    }
+  },
+  "rewardPlan": {
+    "status": "proposal-not-saved",
+    "fixedItems": [
+      {
+        "id": "mg2",
+        "mt": 4,
+        "count": 1
+      }
+    ],
+    "uniqueLoot": [],
+    "note": "双联机枪固定奖励提案。完整8×6车间沿用用户要求，不重新锁回规划7×6。"
+  },
+  "referenceLearning": [
+    {
+      "stageId": "1:0",
+      "finding": "沿用人工铁皮罐头的低位机组和前柱甲，把动力、水与驾驶员装进连续轮廓。"
+    },
+    {
+      "stageId": "1:2",
+      "finding": "沿用煤灰寡妇顶置高抛、前置直射的分工，不在直射炮前堆甲。"
+    },
+    {
+      "stageId": "1:6",
+      "finding": "多段底盘承托成组火力，底盘数由平台宽度确定，避免散乱悬空附件。"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "ch4-03-01",
+      "name": "AI生成·野兔游骑兵",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:2",
+      "style": "kite",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "鱼叉牵制与腰线双联机枪配合；两侧水箱压低重心，三级承重改造承担双侧水箱，速度相应下降15%。",
+      "requiredModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          3,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          3,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          4,
+          0
+        ]
+      ],
+      "preview": "previews/ch4-03-01.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 8053,
+      "budgetUsage": 0.3169848455028538,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "cf6f7d142e204e0159a0b9302546a06d40f942c9fd7bb113a63e5bada5fddfe9",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch4-03-02",
+      "name": "AI生成·野兔双叉型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:2",
+      "style": "kite",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "上身增加第二支鱼叉，错开两条发射线；双联机枪持续覆盖，被牵住时仍能反击。",
+      "requiredModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          3,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          3,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          8,
+          "harpoon",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-03-02.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 9436,
+      "budgetUsage": 0.3714229482385357,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "a6b661c055bb9854b0c654910485b648d3b79ec1c87d172e9739c056912cf07f",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch4-03-03",
+      "name": "AI生成·野兔跳弹猎手",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:2",
+      "style": "wander",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "顶端一门中炮增加穿甲，背水保障双联机枪持续射击；保持紧凑肩线。",
+      "requiredModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          3,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          3,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          8,
+          "cannon_m",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-03-03.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 8923,
+      "budgetUsage": 0.351230072820311,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "26d7afa6a5ba0ac071d41d54fbade43d72b861a8d9d6e1343181d49307d401c5",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch4-03-04",
+      "name": "AI生成·野兔小臼侦骑",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:2",
+      "style": "kite",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "背包上装一门小臼补越障，正面继续鱼叉与双联机枪；不会堆成长枪柱。",
+      "requiredModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          3,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          3,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "water",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          6,
+          "mortar_s",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-03-04.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 8607,
+      "budgetUsage": 0.3387915764613265,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "0b27a0638d415cbfbf8a475fb0bac768565b814eb5e86ac5ececd3b18aa4bc42",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    },
+    {
+      "id": "ch4-03-05",
+      "name": "AI生成·野兔双控型",
+      "source": "ai-generated",
+      "model": "Codex 主线程（本轮授权接手）",
+      "stageId": "4:2",
+      "style": "counter",
+      "aim": 0.8,
+      "revision": 1,
+      "designIntent": "背部水箱换备用驾驶舱，提升指挥链生存；肩顶补小水罐，代价是储水较少。",
+      "requiredModules": [
+        "mg2",
+        "harpoon"
+      ],
+      "cells": [
+        [
+          0,
+          8,
+          8,
+          "biped",
+          5,
+          3,
+          {
+            "refit": 3
+          }
+        ],
+        [
+          0,
+          8,
+          6,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          8,
+          10,
+          "water",
+          4,
+          0,
+          {
+            "refit": 1
+          }
+        ],
+        [
+          0,
+          6,
+          6,
+          "boiler",
+          5,
+          3,
+          {
+            "refit": 2
+          }
+        ],
+        [
+          0,
+          6,
+          8,
+          "cockpit",
+          5,
+          3
+        ],
+        [
+          0,
+          6,
+          10,
+          "mg2",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          6,
+          "cockpit",
+          4,
+          0
+        ],
+        [
+          0,
+          5,
+          8,
+          "harpoon",
+          5,
+          3
+        ],
+        [
+          0,
+          4,
+          8,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          4,
+          9,
+          "plate",
+          4,
+          0
+        ],
+        [
+          0,
+          3,
+          6,
+          "tank_s",
+          5,
+          3
+        ]
+      ],
+      "preview": "previews/ch4-03-05.png",
+      "previewInspection": {
+        "inspected": true,
+        "cellsFingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+        "method": "逐关联系图检查游戏实际PNG；确认轮廓连贯、炮位分层、唯一腿外观及六层巨炮无遮挡。",
+        "inspector": "本轮主线程",
+        "date": "2026-10-06"
+      },
+      "budgetTradeoff": {
+        "note": "单对双足承重、重心与速度优先；装备已按功能选材升级，未用预算不通过无作用填充件补齐。"
+      },
+      "budget": 9009,
+      "budgetUsage": 0.3546152332218067,
+      "validation": {
+        "construction": true,
+        "grid": true,
+        "modulePool": true,
+        "materials": true,
+        "budget": true,
+        "reward": true
+      },
+      "inputValidation": {
+        "noDuplicateAnchors": true,
+        "cellsPreserved": true,
+        "sourceCells": true,
+        "refitLevels": true
+      },
+      "additionalValidation": {
+        "ordinaryMaterials": true,
+        "uniqueReward": true,
+        "chassisTheme": true
+      },
+      "fingerprint": "c9b321c9f31bc95944fdeb35743cf3f51a1c955ac1cf80df30412e41cd0f905c",
+      "validationDetails": {
+        "issues": [],
+        "warnings": [],
+        "problems": []
+      },
+      "validationStatus": "passed"
+    }
+  ],
+  "ruleFingerprint": "cd5cb6be23a0e88a"
+}

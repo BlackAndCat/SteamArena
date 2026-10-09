@@ -41,13 +41,14 @@ function vehicle(SA, record, grid) {
   const v = SA.V.fromCells(record.name, record.cells);
   v.lim = { ...grid }; return v;
 }
-// 保留每件部件的层、锚点、模块、材料与等级；唯一件自动补齐外观身份不参与核心字段比较。
+// 保留每件部件的层、锚点、模块、材料、等级与专项改造；标准外观的自动补齐不参与比较。
 function sourceCellsConditions(SA, car, v) {
   const anchors = new Set(car.cells.map(cell => `${cell[0]}:${cell[1]}:${cell[2]}`));
-  const core = list => list.map(([l,r,c,id,mt=1,lv=0]) => JSON.stringify([l,r,c,id,mt,lv])).sort();
+  const core = list => list.map(([l,r,c,id,mt=1,lv=0,extra]) => JSON.stringify([l,r,c,id,mt,lv,extra?.refit ?? 0])).sort();
   const rebuilt = SA.StageCars.cellsOf(v);
   return { noDuplicateAnchors: anchors.size === car.cells.length, cellsPreserved: rebuilt.length === car.cells.length,
-    sourceCells: JSON.stringify(core(car.cells)) === JSON.stringify(core(rebuilt)) };
+    sourceCells: JSON.stringify(core(car.cells)) === JSON.stringify(core(rebuilt)),
+    refitLevels: car.cells.every(cell => Number.isInteger(cell[6]?.refit ?? 0) && (cell[6]?.refit ?? 0) >= 0 && (cell[6]?.refit ?? 0) <= 3) };
 }
 // 读取既有手工记录，仅导出参考数据，不修改用户配置。
 function references(SA) {

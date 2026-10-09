@@ -9,7 +9,7 @@
     0.6,
     0.75
   ],
-  "status": "draft",
+  "status": "completed",
   "referencePreviewInspected": true,
   "spec": {
     "chapter": 3,
@@ -378,7 +378,417 @@
         "warnings": [],
         "problems": []
       },
-      "validationStatus": "passed"
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-05-05",
+        "referenceFingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+        "style": "counter",
+        "terrain": "mine",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boss_core": {
+            "totals": {
+              "active": 359,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 48000,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 2.9916666666666667,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 400,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 1548.174191855544,
+          "meanCandidateShots": 46.99166666666667,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+        "resultFile": "results/ch3-06-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boss_core": {
+          "totals": {
+            "active": 359,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 48000,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 2.9916666666666667,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 400,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-05-01",
+          "referenceFingerprint": "fb08a619016bad4e8d82e7b8fcb9987d756fdc10f1e0efdbc996cfea771193af",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+          "style": "counter",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 15,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1247.7166666666665,
+            "meanCandidateShots": 31.833333333333332,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-02",
+          "referenceFingerprint": "45006f2178cf50a8e791dad7a409154e045f8d695c4c0cdc823c069aea20c589",
+          "referenceStyle": "evade",
+          "candidateFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+          "style": "counter",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 14,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1451.103511165159,
+            "meanCandidateShots": 46.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-03",
+          "referenceFingerprint": "e0c3c0da633abc84d20fa05f7eec31c67ed6e512edcc6e8afd43b462eab32e1c",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+          "style": "counter",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1079.663207306696,
+            "meanCandidateShots": 30.666666666666668,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-04",
+          "referenceFingerprint": "84b6362b42bbd1e67830438d544951fe22d86969c5cf0b3b29def0306507bd0c",
+          "referenceStyle": "rush",
+          "candidateFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+          "style": "counter",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1550.7,
+            "meanCandidateShots": 45.666666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
     },
     {
       "id": "ch3-06-02",
@@ -610,7 +1020,417 @@
         "warnings": [],
         "problems": []
       },
-      "validationStatus": "passed"
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-05-05",
+        "referenceFingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+        "style": "veteran",
+        "terrain": "mine",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boss_core": {
+            "totals": {
+              "active": 335,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 48000,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 2.7916666666666665,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 400,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 1486.6831666666665,
+          "meanCandidateShots": 32.05833333333333,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+        "resultFile": "results/ch3-06-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boss_core": {
+          "totals": {
+            "active": 335,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 48000,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 2.7916666666666665,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 400,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-05-01",
+          "referenceFingerprint": "fb08a619016bad4e8d82e7b8fcb9987d756fdc10f1e0efdbc996cfea771193af",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+          "style": "veteran",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 17,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.8333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1346.8333333333335,
+            "meanCandidateShots": 24.166666666666668,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-02",
+          "referenceFingerprint": "45006f2178cf50a8e791dad7a409154e045f8d695c4c0cdc823c069aea20c589",
+          "referenceStyle": "evade",
+          "candidateFingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+          "style": "veteran",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 15,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1237.7,
+            "meanCandidateShots": 26.333333333333332,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-03",
+          "referenceFingerprint": "e0c3c0da633abc84d20fa05f7eec31c67ed6e512edcc6e8afd43b462eab32e1c",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+          "style": "veteran",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1220.4333333333332,
+            "meanCandidateShots": 20.666666666666668,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-04",
+          "referenceFingerprint": "84b6362b42bbd1e67830438d544951fe22d86969c5cf0b3b29def0306507bd0c",
+          "referenceStyle": "rush",
+          "candidateFingerprint": "aefa63fd398cd7d19b664745ae5fc76735b8945eea601cbfd2b556c2ec8cd1f2",
+          "style": "veteran",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1348.0433333333335,
+            "meanCandidateShots": 38.833333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
     },
     {
       "id": "ch3-06-03",
@@ -874,7 +1694,417 @@
         "warnings": [],
         "problems": []
       },
-      "validationStatus": "passed"
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-05-05",
+        "referenceFingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+        "style": "sniper",
+        "terrain": "mine",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boss_core": {
+            "totals": {
+              "active": 295,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 48000,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 2.4583333333333335,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 400,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 1463.0208244107562,
+          "meanCandidateShots": 61.266666666666666,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+        "resultFile": "results/ch3-06-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boss_core": {
+          "totals": {
+            "active": 295,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 48000,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 2.4583333333333335,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 400,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-05-01",
+          "referenceFingerprint": "fb08a619016bad4e8d82e7b8fcb9987d756fdc10f1e0efdbc996cfea771193af",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+          "style": "sniper",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 14,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1324.9766666666671,
+            "meanCandidateShots": 51.833333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-02",
+          "referenceFingerprint": "45006f2178cf50a8e791dad7a409154e045f8d695c4c0cdc823c069aea20c589",
+          "referenceStyle": "evade",
+          "candidateFingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+          "style": "sniper",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 13,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.1666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1399.266666666667,
+            "meanCandidateShots": 59.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-03",
+          "referenceFingerprint": "e0c3c0da633abc84d20fa05f7eec31c67ed6e512edcc6e8afd43b462eab32e1c",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+          "style": "sniper",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1296.2333333333338,
+            "meanCandidateShots": 52.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-04",
+          "referenceFingerprint": "84b6362b42bbd1e67830438d544951fe22d86969c5cf0b3b29def0306507bd0c",
+          "referenceStyle": "rush",
+          "candidateFingerprint": "9758c4009dbd0dc96e065cd29823d84019bf61f5c0362069f9673c37c6964f8d",
+          "style": "sniper",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1425.2666666666673,
+            "meanCandidateShots": 57.333333333333336,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
     },
     {
       "id": "ch3-06-04",
@@ -1114,7 +2344,417 @@
         "warnings": [],
         "problems": []
       },
-      "validationStatus": "passed"
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-05-05",
+        "referenceFingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+        "style": "rush",
+        "terrain": "mine",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boss_core": {
+            "totals": {
+              "active": 459,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 48000,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 3.825,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 400,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 1519.3985913195863,
+          "meanCandidateShots": 379.5,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+        "resultFile": "results/ch3-06-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boss_core": {
+          "totals": {
+            "active": 459,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 48000,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 3.825,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 400,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-05-01",
+          "referenceFingerprint": "fb08a619016bad4e8d82e7b8fcb9987d756fdc10f1e0efdbc996cfea771193af",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+          "style": "rush",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 21,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.5,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1211.6533333333336,
+            "meanCandidateShots": 288.6666666666667,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-02",
+          "referenceFingerprint": "45006f2178cf50a8e791dad7a409154e045f8d695c4c0cdc823c069aea20c589",
+          "referenceStyle": "evade",
+          "candidateFingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+          "style": "rush",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 19,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 3.1666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1356.4733333333334,
+            "meanCandidateShots": 350,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-03",
+          "referenceFingerprint": "e0c3c0da633abc84d20fa05f7eec31c67ed6e512edcc6e8afd43b462eab32e1c",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+          "style": "rush",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1158.9283333333335,
+            "meanCandidateShots": 310.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-04",
+          "referenceFingerprint": "84b6362b42bbd1e67830438d544951fe22d86969c5cf0b3b29def0306507bd0c",
+          "referenceStyle": "rush",
+          "candidateFingerprint": "859bcfcc21d2a6bd367457b7e5a7c5e1659660965a03abc1fc78412f67bfb758",
+          "style": "rush",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1491.8166666666666,
+            "meanCandidateShots": 406.8333333333333,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
     },
     {
       "id": "ch3-06-05",
@@ -1330,7 +2970,417 @@
         "warnings": [],
         "problems": []
       },
-      "validationStatus": "passed"
+      "validationStatus": "passed",
+      "battleTests": {
+        "referenceId": "ch3-05-05",
+        "referenceFingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+        "referenceStyle": "counter",
+        "candidateFingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+        "style": "turtle",
+        "terrain": "mine",
+        "candidateAim": 0.8,
+        "referenceAim": 0.8,
+        "referenceOriginalAim": 0.8,
+        "seedBase": 20261005,
+        "seedPairs": 60,
+        "games": 120,
+        "wins": 120,
+        "draws": 0,
+        "losses": 0,
+        "winRate": 1,
+        "rawWinRate": 1,
+        "target": [
+          0.6,
+          0.75
+        ],
+        "reachedTarget": false,
+        "below45": false,
+        "rewardEffects": {
+          "boss_core": {
+            "totals": {
+              "active": 314,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 48000,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "meanPerGame": {
+              "active": 2.6166666666666667,
+              "fire": 0,
+              "hit": 0,
+              "tether": 0,
+              "energy": 400,
+              "waterSaved": 0,
+              "dryCool": 0
+            },
+            "missingGames": 0,
+            "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+          }
+        },
+        "diagnostics": {
+          "meanCandidateDamage": 1486.473189738598,
+          "meanCandidateShots": 30.516666666666666,
+          "noShotGames": 0,
+          "failureCounts": {},
+          "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+        },
+        "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+        "resultFile": "results/ch3-06-formal.json",
+        "seeds": [
+          20261005,
+          20261006,
+          20261007,
+          20261008,
+          20261009,
+          20261010,
+          20261011,
+          20261012,
+          20261013,
+          20261014,
+          20261015,
+          20261016,
+          20261017,
+          20261018,
+          20261019,
+          20261020,
+          20261021,
+          20261022,
+          20261023,
+          20261024,
+          20261025,
+          20261026,
+          20261027,
+          20261028,
+          20261029,
+          20261030,
+          20261031,
+          20261032,
+          20261033,
+          20261034,
+          20261035,
+          20261036,
+          20261037,
+          20261038,
+          20261039,
+          20261040,
+          20261041,
+          20261042,
+          20261043,
+          20261044,
+          20261045,
+          20261046,
+          20261047,
+          20261048,
+          20261049,
+          20261050,
+          20261051,
+          20261052,
+          20261053,
+          20261054,
+          20261055,
+          20261056,
+          20261057,
+          20261058,
+          20261059,
+          20261060,
+          20261061,
+          20261062,
+          20261063,
+          20261064
+        ],
+        "pairedSides": true,
+        "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。",
+        "status": "above-target",
+        "notReachedReason": "正式胜率超过目标上限，保留真实结果。"
+      },
+      "rewardEvidence": {
+        "boss_core": {
+          "totals": {
+            "active": 314,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 48000,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "meanPerGame": {
+            "active": 2.6166666666666667,
+            "fire": 0,
+            "hit": 0,
+            "tether": 0,
+            "energy": 400,
+            "waterSaved": 0,
+            "dryCool": 0
+          },
+          "missingGames": 0,
+          "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+        }
+      },
+      "crossTests": [
+        {
+          "referenceId": "ch3-05-01",
+          "referenceFingerprint": "fb08a619016bad4e8d82e7b8fcb9987d756fdc10f1e0efdbc996cfea771193af",
+          "referenceStyle": "kite",
+          "candidateFingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+          "style": "turtle",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 14,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.3333333333333335,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1134.9833333333333,
+            "meanCandidateShots": 20.666666666666668,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-01.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-02",
+          "referenceFingerprint": "45006f2178cf50a8e791dad7a409154e045f8d695c4c0cdc823c069aea20c589",
+          "referenceStyle": "evade",
+          "candidateFingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+          "style": "turtle",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 13,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2.1666666666666665,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1337.9166666666667,
+            "meanCandidateShots": 25.666666666666668,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-02.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-03",
+          "referenceFingerprint": "e0c3c0da633abc84d20fa05f7eec31c67ed6e512edcc6e8afd43b462eab32e1c",
+          "referenceStyle": "sniper",
+          "candidateFingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+          "style": "turtle",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1200.0833333333333,
+            "meanCandidateShots": 23.5,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-03.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        },
+        {
+          "referenceId": "ch3-05-04",
+          "referenceFingerprint": "84b6362b42bbd1e67830438d544951fe22d86969c5cf0b3b29def0306507bd0c",
+          "referenceStyle": "rush",
+          "candidateFingerprint": "dbb00c184244aef82489fff414d1e2de709bee291a1da76bba1ec8fdd27f217b",
+          "style": "turtle",
+          "terrain": "mine",
+          "candidateAim": 0.8,
+          "referenceAim": 0.8,
+          "referenceOriginalAim": 0.8,
+          "seedBase": 20261005,
+          "seedPairs": 3,
+          "games": 6,
+          "wins": 6,
+          "draws": 0,
+          "losses": 0,
+          "winRate": 1,
+          "rawWinRate": 1,
+          "target": [
+            0.6,
+            0.75
+          ],
+          "reachedTarget": false,
+          "below45": false,
+          "rewardEffects": {
+            "boss_core": {
+              "totals": {
+                "active": 12,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 2400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "meanPerGame": {
+                "active": 2,
+                "fire": 0,
+                "hit": 0,
+                "tether": 0,
+                "energy": 400,
+                "waterSaved": 0,
+                "dryCool": 0
+              },
+              "missingGames": 0,
+              "note": "仅汇总effectStats实际字段，不推断未暴露的伤害或常规冷却量；active等字段不擅自换算单位。"
+            }
+          },
+          "diagnostics": {
+            "meanCandidateDamage": 1455.3666666666668,
+            "meanCandidateShots": 33.666666666666664,
+            "noShotGames": 0,
+            "failureCounts": {},
+            "note": "伤害和开火直接来自simulate返回值；未提供的数值保存null。失败类型为终局状态记录，不推断原因。"
+          },
+          "referenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json",
+          "resultFile": "results/ch3-06-cross-04.json",
+          "seeds": [
+            20261005,
+            20261006,
+            20261007
+          ],
+          "pairedSides": true,
+          "outcomeNote": "固定种子同局双方换位；胜率按（胜＋0.5×平）÷总局数，直接simulate，不走进化。"
+        }
+      ]
     }
   ],
   "referenceLearning": [
@@ -1362,5 +3412,16 @@
     "uniqueLoot": [],
     "note": "规划稿称圣堂压力核心为唯一，但当前游戏尚未注册唯一身份，本批按现有钢制核心设计并提案固定奖励×1，未保存正式奖励；保留既有核心解锁。地图乌兹钢锭×1仅为规划文案，当前批次不虚构材料锭库存机制。"
   },
-  "ruleFingerprint": "1141e46f37b6fa21"
+  "ruleFingerprint": "1141e46f37b6fa21",
+  "reference": {
+    "id": "ch3-05-05",
+    "name": "AI生成·锁甲排炮侍从",
+    "fingerprint": "e98b1f4be26976daca18f4b3c14c1e3765191c19c08e24d8c51fa8e46686a35d",
+    "sourceFile": "artifacts/ai-vehicles/chapter-3/ch3-05-candidates.json"
+  },
+  "temporaryReferenceId": "ch3-06-01",
+  "temporaryReferenceName": "AI生成·圣堂重炮壁垒",
+  "temporaryReferenceFingerprint": "a4c3553d52381e27839df935dc700cd0c6050072be38cb0e5bbdcc90391e1121",
+  "temporaryReferenceSourceFile": "artifacts/ai-vehicles/chapter-3/ch3-06-candidates.json",
+  "temporaryReferenceReason": "五台正式均120/120胜且四组交叉各6/6胜，通用型01火力搭配均衡，作为本批章末参考；100%明确超目标，不能称平衡达标；对手来自合法但偏弱的6000kg第五关，小样本交叉不扩称其它对手泛化。"
 }
