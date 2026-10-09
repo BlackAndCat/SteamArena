@@ -123,14 +123,11 @@ SA.RouteView = (() => {
         case 'mob-grind': for (let i = 0; i < 6; i++) part('spark', d.x, d.y, vr(-150, 30), vr(-160, -20), vr(0.12, 0.3)); kick(2); snd('hit.plate', d.x, 0.45, 0.15); return true;
         case 'mob-shot-hit': for (let i = 0; i < 4; i++) part('spark', d.x, d.y, vr(-100, 100), vr(-140, -20), vr(0.1, 0.2)); if (d.kind === 'sentry') { part('smoke', d.x, d.y, 0, -30, 0.7); snd('cannon.hit', d.x, 0.55); } return true;
         case 'mob-shot-ground': for (let i = 0; i < (d.kind === 'sentry' ? 8 : 2); i++) part('dust', d.x, d.y - 2, vr(-60, 60), vr(-90, -20), vr(0.3, 0.6)); if (d.kind === 'sentry') snd('cannon.hit', d.x, 0.35); return true;
-        case 'fire': snd(d.shell ? 'cannon.fire' : 'gun.shot', d.x, d.p ? (d.shell ? 0.9 : 0.5) : 0.65, d.shell ? 0 : 0.05); return true;
-        case 'impact': if (d.big && !d.mob) snd('cannon.hit', d.x, 0.7); return true;
-        case 'particles': if (d.boom) snd(d.boom.n >= 24 ? 'boom.big' : 'boom', d.boom.x, 0.9); return false;
+        case 'fire': case 'impact': return true;   // 开火、落地的声音在 js/battle-audio.js（所有战斗共用）
         case 'prop':
           if (d.state === 'break') { if (d.kind === 'crate') { snd('crush.wood', d.x, 1); stop(0.03); kick(4); } else if (d.kind === 'barricade') { snd('hit.plate', d.x); snd('crush.wood', d.x, 0.8); stop(0.05); kick(7); } else snd('crush.rock', d.x); }
           else snd(d.kind === 'crate' ? 'crush.wood' : 'hit.plate', d.x, 0.35, 0.14);
           return false;
-        case 'text': if (/^\d+$/.test(d.str) && b) { const v = +d.str; snd(v < 10 ? 'hit.metal.light' : v < 25 ? 'hit.metal.medium' : 'hit.metal.heavy', d.x, v < 10 ? 0.45 : 0.8, 0.03); } return false;
         case 'pickup': if (d.kind === 'coal' || d.kind === 'water') snd(d.kind === 'water' ? 'steam.hiss' : 'crush.rock', d.x, 0.6); else pickupFx(d); return false;
         case 'encounter': snd('chain', null, 0.6); return false;
         default: return false;
@@ -277,5 +274,5 @@ SA.RouteView = (() => {
     return c;
   }
 
-  return { make, metalBadge };
+  return { make, metalBadge, feel: () => feel };
 })();

@@ -17,11 +17,16 @@ SA.Audio = (() => {
     'hit.metal.heavy': { n: 4, vol: 0.85, pitch: 0.05, limit: 4 },
     'ram.thud': { n: 4, vol: 0.9, pitch: 0.05, limit: 3 },        // 车头撞上东西的闷响
     'scrap.pickup': { n: 2, vol: 0.5, pitch: 0.12, limit: 3 },    // 金属碎片飞上车
-    'boom': { n: 3, vol: 0.9, pitch: 0.06, limit: 3 },            // 爆炸（滚桶、模块殉爆）
+    'boom': { n: 4, vol: 0.9, pitch: 0.06, limit: 3 },            // 爆炸（滚桶、模块殉爆）
     'boom.big': { n: 2, vol: 1, pitch: 0.04, limit: 2 },          // 大爆炸（锅炉、巨炮）
-    'cannon.fire': { n: 4, vol: 0.85, pitch: 0.05, limit: 3 },
-    'cannon.hit': { n: 3, vol: 0.85, pitch: 0.05, limit: 3 },
-    'gun.shot': { n: 4, vol: 0.5, pitch: 0.1, limit: 4 },
+    'cannon.fire': { n: 4, vol: 0.9, pitch: 0.05, limit: 3 },     // 中、大口径炮（第二批：混好的游戏炮声）
+    'cannon.small': { n: 3, vol: 0.75, pitch: 0.06, limit: 3 },   // 小炮、小臼炮、鱼叉、步哨炮车
+    'cannon.hit': { n: 3, vol: 0.8, pitch: 0.05, limit: 3 },      // 炮弹落地
+    'gun.shot': { n: 4, vol: 0.5, pitch: 0.06, limit: 5 },        // 机枪单发（从连发里切出来的）
+    'gun.heavy': { n: 3, vol: 0.6, pitch: 0.05, limit: 4 },       // 重机枪单发
+    'engine.idle': { n: 1, vol: 0.35, pitch: 0, limit: 2 },       // 发动机怠速（循环）
+    'engine.run': { n: 1, vol: 0.5, pitch: 0, limit: 2 },         // 蒸汽机行驶喷吐（循环，速度跟车速）
+    'track.clank': { n: 4, vol: 0.35, pitch: 0.12, limit: 6 },    // 履带：每过一节履带板响一下
     'steam.hiss': { n: 3, vol: 0.6, pitch: 0.08, limit: 2 },
     'chain': { n: 2, vol: 0.6, pitch: 0.08, limit: 2 },
     'ui.click': { n: 3, vol: 0.5, pitch: 0.04, limit: 2, bus: 'ui' },
@@ -111,17 +116,29 @@ SA.Audio = (() => {
     recent.set(name, { t: now, g, max: Math.min(1.6, vol * 1.8) });
     return src;
   }
-  // 持续声（蒸汽嘶、挤压）：同一个 key 只放一条，循环到 stop
+  // 持续声（发动机、蒸汽嘶）：同一个 key 只放一条，循环到 stop；o.rate = 播放速度（同时变调），o.x = 左右位置
   function loop(name, key, o = {}) {
-    if (loops.has(key)) return;
+    if (loops.has(key)) { setLoop(key, o); return; }
     const b = BANK[name], c = ensure();
-    if (!b || !c || c.state !== 'running') return;
+    if (!b || !c || c.state !== 'running' || set.mute) return;
     const buf = buffers.get(`${name}#0`);
     if (!buf) { fetchBuf(name, 0); return; }
-    const src = c.createBufferSource(); src.buffer = buf; src.loop = true;
+    const src = c.createBufferSource(); src.buffer = buf; src.loop = true; src.playbackRate.value = o.rate || 1;
     const g = c.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(b.vol * (o.vol == null ? 1 : o.vol), c.currentTime + 0.08);
-    src.connect(g); g.connect(buses[b.bus || 'sfx']); src.start();
-    loops.set(key, { src, g });
+    let node = g; src.connect(g);
+    const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+    if (pan) { pan.pan.value = o.x != null ? Math.max(-0.8, Math.min(0.8, (o.x - 0.5) * 1.6)) : 0; g.connect(pan); node = pan; }
+    node.connect(buses[b.bus || 'sfx']); src.start();
+    loops.set(key, { src, g, pan, base: b.vol });
+  }
+  // 实时调一条循环：音量、播放速度、左右位置都平滑过渡（不咔哒）
+  function setLoop(key, o = {}) {
+    const L = loops.get(key);
+    if (!L || !ctx) return;
+    const t = ctx.currentTime;
+    if (o.vol != null) L.g.gain.setTargetAtTime(L.base * o.vol, t, 0.06);
+    if (o.rate != null) L.src.playbackRate.setTargetAtTime(Math.max(0.3, Math.min(3, o.rate)), t, 0.08);
+    if (o.x != null && L.pan) L.pan.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, (o.x - 0.5) * 1.6)), t, 0.08);
   }
   function stop(key) {
     const L = loops.get(key);
@@ -129,5 +146,6 @@ SA.Audio = (() => {
     L.g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12); L.src.stop(ctx.currentTime + 0.14);
     loops.delete(key);
   }
-  return { BANK, file, base, play, loop, stop, load, settings, unlock, ctx: () => ctx };
+  const stopAll = () => { for (const k of [...loops.keys()]) stop(k); };
+  return { BANK, file, base, play, loop, setLoop, stop, stopAll, load, settings, unlock, ctx: () => ctx };
 })();

@@ -276,7 +276,7 @@ window.SA = window.SA || {};
   function buildBench() {
     const box = document.getElementById('bench'), A = SA.Audio, s = A.settings();
     for (const [id, key] of [['vMaster', 'master'], ['vSfx', 'sfx'], ['vUi', 'ui']]) { const el = document.getElementById(id); el.value = s[key]; el.oninput = () => A.settings({ [key]: +el.value }); }
-    const NAMES = { 'crush.wood': '撞碎木箱', 'crush.machine': '小机械散架', 'crush.rock': '砖石 / 煤渣', 'hit.plate': '铁皮 / 路障 / 装甲重击', 'hit.metal.light': '机枪打铁、小碎件', 'hit.metal.medium': '金属中击', 'hit.metal.heavy': '金属重击', 'ram.thud': '车头撞上的闷响', 'scrap.pickup': '金属片飞上车', 'boom': '爆炸', 'boom.big': '大爆炸', 'cannon.fire': '开炮', 'cannon.hit': '炮弹命中', 'gun.shot': '小炮 / 机枪', 'steam.hiss': '泄压 / 蒸汽', 'chain': '铁链 / 闩锁', 'ui.click': '界面 · 点击', 'ui.switch': '界面 · 拨杆', 'ui.confirm': '界面 · 确认', 'ui.error': '界面 · 不行' };
+    const NAMES = { 'crush.wood': '撞碎木箱', 'crush.machine': '小机械散架', 'crush.rock': '砖石 / 煤渣', 'hit.plate': '铁皮 / 路障 / 装甲重击', 'hit.metal.light': '机枪打铁、小碎件', 'hit.metal.medium': '金属中击', 'hit.metal.heavy': '金属重击', 'ram.thud': '车头撞上的闷响', 'scrap.pickup': '金属片飞上车', 'boom': '爆炸', 'boom.big': '大爆炸', 'cannon.fire': '开炮（中、大口径）', 'cannon.small': '小炮 / 小臼炮', 'cannon.hit': '炮弹落地', 'gun.shot': '机枪单发', 'gun.heavy': '重机枪单发', 'engine.idle': '发动机怠速（循环）', 'engine.run': '蒸汽机行驶（循环）', 'track.clank': '履带咔哒 / 脚步', 'steam.hiss': '泄压 / 蒸汽', 'chain': '铁链 / 闩锁', 'ui.click': '界面 · 点击', 'ui.switch': '界面 · 拨杆', 'ui.confirm': '界面 · 确认', 'ui.error': '界面 · 不行' };
     for (const [name, b] of Object.entries(A.BANK)) {
       const d = document.createElement('div'); d.className = 'snd';
       d.innerHTML = `<b>${NAMES[name] || name}</b> <span>${name}</span>`;

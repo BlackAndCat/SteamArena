@@ -76,3 +76,4 @@ SA.BUILD_VIS += '+waste-scene'; // 出征废土场景 js/scenes.js 'waste'（塌
 SA.BUILD_VIS += '+mobile-landscape-workshop-sidebar'; // 横屏车间大蓝图与单一操作侧栏，性能/零件切换保留完整功能，方向切换恢复原布局。
 SA.BUILD_VIS += '+route-r2-fun'; // 出征黑乡路线：起伏地面与竖直视差、小机械、撞碎打击感与音效、上次到这的旗子、清点金属与纪录（docs/expedition-fun.md）。
 SA.BUILD_VIS += '+route-pickup-hop-fan-fix'; // 出征：路上没敌车时散布扇区不再空引用（画面定住），帧循环出错不再整个停；难民跳上车、物资飞进车，去掉慢行 / 停车灯。
+SA.BUILD_VIS += '+battle-audio-game-sfx'; // 所有战斗都有声音：游戏音效第二批（Mixkit + Freesound CC0），开火按武器分，发动机怠速 + 蒸汽喷吐跟车速，履带咔哒。

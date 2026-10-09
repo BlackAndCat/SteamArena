@@ -15,6 +15,7 @@ SA.BattleView.create = function createBattleView(api) {
   const step = api.step;
   let B = null, cv, g, dg, wc, wrap, hud = {};
   let RV = null;   // 出征的画面补充（js/route-view.js）：起伏地面、小机械、打击感、音效；竞技场为 null
+  let BA = null;   // 战斗音效（js/battle-audio.js）：所有战斗都有
   let DPX = 1;
   // 触屏（手指为主的设备）：战斗换成手机布局（js 加 .touchui，css/style.css 排版），教程讲触屏操作
   let touchUI = false;
@@ -43,6 +44,7 @@ SA.BattleView.create = function createBattleView(api) {
   function emit(type, data = {}) {
     sync();
     if (!B || B.headless) return;
+    if (BA) BA.event(type, data);   // 只放声音，不拦截
     if (RV && RV.event(type, data)) return;
     if (type === 'part') B.parts.push({ ...data, max: data.life });
     else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
@@ -1019,7 +1021,7 @@ SA.BattleView.create = function createBattleView(api) {
     hud.note = h('div', { class: 'dash-note px-sk px-sk-paper' });
     hud.keys = h('div', { class: 'dash-keys' });
     hud.keySig = null;
-    hud.vent = PXI().btn(SA.Config.text('battle_view_vent'), { kind: 'dng', title: SA.Config.text('battle_view_vent_title'), onclick: () => { if (api.vent()) { hud.vent.disabled = true; hud.vent.className = 'px-btn off'; } } });
+    hud.vent = PXI().btn(SA.Config.text('battle_view_vent'), { kind: 'dng', title: SA.Config.text('battle_view_vent_title'), onclick: () => { if (api.vent()) { if (BA) BA.vent(); hud.vent.disabled = true; hud.vent.className = 'px-btn off'; } } });
     const car = h('div', { class: 'dash-car' },
       hud.gaugeFig = fig(hud.gauge, SA.Config.text('battle_view_boiler')), hud.tubeFig = fig(hud.tube, SA.Config.text('battle_view_water')),
       h('div', { class: 'dash-hull' },
@@ -1400,6 +1402,7 @@ SA.BattleView.create = function createBattleView(api) {
   function tick(dt) {
     if (!B) return;
     if (RV) RV.tick(dt);
+    if (BA) BA.tick(dt);
     for (const p of B.parts) {
       p.life -= dt;
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -1898,6 +1901,8 @@ SA.BattleView.create = function createBattleView(api) {
     B = api.getState();
     BD = SA.Scenes.pick(opts);
     RV = isRoute() && SA.RouteView ? SA.RouteView.make({ getB: () => B, groundAt, frontEdge, GROUND, W, H }) : null;
+    if (BA) BA.stop();
+    BA = SA.BattleAudio && SA.Audio ? SA.BattleAudio.make({ getB: () => B }) : null;
 
     const screen = document.querySelector('#screen');
     screen.innerHTML = '';
@@ -2017,6 +2022,6 @@ SA.BattleView.create = function createBattleView(api) {
     // 出征结束由 route-end 事件接到清点黑板（js/expedition-ui.js）；这里留一个直接调用的口子
     presentRouteResult: (result) => { if (SA.ExpeditionUI) SA.ExpeditionUI.afterRoute(result); else SA.nav('home'); },
     skipIntro: () => { sync(); if (B && B.intro) endIntro(); },
-    teardown: () => { if (typeof window !== 'undefined') { window.removeEventListener('resize', fit); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); } },
+    teardown: () => { if (BA) BA.stop(); if (typeof window !== 'undefined') { window.removeEventListener('resize', fit); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); } },
   };
 };

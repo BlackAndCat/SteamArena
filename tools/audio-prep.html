@@ -24,9 +24,10 @@
   for (const [name, list] of Object.entries(P.MAP)) list.forEach((path, i) => {
     const tr = document.createElement('tr');
     const td = (html) => { const c = document.createElement('td'); c.innerHTML = html; tr.append(c); return c; };
-    td(i ? '' : `<b>${name}</b>`); td(String(i)); td(path);
+    const file = typeof path === 'string' ? path : path.f, label = typeof path === 'string' ? path : `${path.f} @${path.at || 0}s${path.len ? ' +' + path.len + 's' : ''}${path.loop ? '（循环）' : ''}`;
+    td(i ? '' : `<b>${name}</b>`); td(String(i)); td(label);
     const raw = td(''), done = td(''), dur = td(''), rms = td('');
-    const b1 = document.createElement('button'); b1.className = 'btn small'; b1.textContent = '▶'; b1.onclick = async () => say(await P.decode(path)); raw.append(b1);
+    const b1 = document.createElement('button'); b1.className = 'btn small'; b1.textContent = '▶'; b1.onclick = async () => say(await P.decode(file)); raw.append(b1);
     const b2 = document.createElement('button'); b2.className = 'btn small'; b2.textContent = '▶'; b2.onclick = async () => { const r = await P.prep(name, path); dur.textContent = r.dur.toFixed(2) + ' s'; rms.textContent = r.rms.toFixed(1) + ' dBFS'; say(r.buf); }; done.append(b2);
     tb.append(tr);
   });
