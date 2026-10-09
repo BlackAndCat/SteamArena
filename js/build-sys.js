@@ -81,3 +81,4 @@ SA.BUILD_SYS += '+impact-notify'; // 模块中弹、打中木箱时发只通知�
 // 出征先开地图，后台完成真实敌车规划；地形按镜头可见块生成并复用。
 SA.BUILD_SYS += '+route-map-first';
 SA.BUILD_SYS += '+route-span-rubble-terrain'; // 出征地形：架空桥（span）、碎砖坡（rubble），r2 高度 ×1.7（用户要求），镜头过桥往下看。
+SA.BUILD_SYS += '+i18n-en'; // 独立语言配置、英文文案、一键切换及按语言隔离作者保存。

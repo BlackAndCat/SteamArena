@@ -2334,8 +2334,10 @@ SA.Battle = (() => {
         feedback(id, value) {
           const raw = localStorage.getItem(KEY), payload = raw ? JSON.parse(raw) : { version: 1, records: [] };
           const row = payload.records.find(item => item.id === id);
-          if (!row || ![SA.Config.text("battle_21c3183d825b"), SA.Config.text("battle_43932aa17701"), SA.Config.text("battle_c42008a148a6")].includes(value)) return false;
-          row.feedback = value; localStorage.setItem(KEY, JSON.stringify(payload)); return true;
+          const key = ["battle_21c3183d825b", "battle_43932aa17701", "battle_c42008a148a6"].find(key => SA.Config.text(key) === value);
+          if (!row || !key) return false;
+          // 评价文字可翻译，校准记录仍按原中文协议保存，避免换语言后拆成两种类别。
+          row.feedback = SA.I18n?.sourceText(key) ?? value; localStorage.setItem(KEY, JSON.stringify(payload)); return true;
         },
         clear() { localStorage.removeItem(KEY); },
       };

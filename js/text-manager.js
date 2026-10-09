@@ -126,7 +126,8 @@ SA.Text = (() => {
   function get(key, fallback = '') {
     if (key.startsWith('ui:')) return uiConfig().messages[key.slice(3)] ?? fallback;
     if (key in values) return values[key];
-    return key in defaults ? defaults[key] : String(fallback == null ? '' : fallback);
+    const value = key in defaults ? defaults[key] : String(fallback == null ? '' : fallback);
+    return SA.I18n?.translate(value) ?? value;
   }
 
   // Home 每次重建都可能产生新的敌手或车况文案，因此仅刷新本接口注册的默认值。
@@ -202,7 +203,7 @@ SA.Text = (() => {
       : oldPathKey ? values[oldPathKey]
         : entry.legacyKey && entry.legacyKey in values ? values[entry.legacyKey]
         : entry.semantic && keyEntries.get(entry.key)?.size && Array.from(keyEntries.get(entry.key)).some(item => item.explicit)
-          ? get(entry.key, entry.fallback) : entry.fallback;
+          ? get(entry.key, entry.fallback) : SA.I18n?.translate(entry.fallback) ?? entry.fallback;
   }
 
   function applyEntry(entry) {
