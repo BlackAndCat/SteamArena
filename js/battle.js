@@ -186,14 +186,41 @@ SA.Battle = (() => {
     const key = id && typeof id === 'object' ? id.id : SA.TERRAINS[id] ? id : 'flat';
     const def = id && typeof id === 'object' ? id : SA.TERRAINS[key], len = def.len || W;
     const ground = new Float32Array(len + 1).fill(GROUND);
+    const natural = def.profile ? profileGround(ground, len, def.profile, def.features || []) : null;
     for (const hl of def.hills || [])
       for (let x = Math.max(0, Math.floor(hl.x - hl.w / 2)); x <= Math.min(len, Math.ceil(hl.x + hl.w / 2)); x++)
         ground[x] -= hl.h * 0.5 * (1 + Math.cos(Math.PI * (x - hl.x) / (hl.w / 2)));
     const at = (x) => ground[Math.max(0, Math.min(len, Math.round(x)))];
     const crates = (def.props || def.crates || []).map(c => { const y1 = at(c.x); return { kind: c.kind || 'crate', x0: c.x - c.w / 2, x1: c.x + c.w / 2, y0: y1 - c.h, y1, hp: c.hp, max: c.hp, dead: false, shake: 0 }; });
-    return { id: key, def, len, ground, mud: def.mud || [], crates, props: crates, pickups: (def.pickups || []).map(p => ({ ...p, taken: false })) };
+    return { id: key, def, len, ground, natural, mud: def.mud || [], crates, props: crates, pickups: (def.pickups || []).map(p => ({ ...p, taken: false })) };
   }
-  const groundAt = (x) => (B && B.ter && x >= 0 && x <= B.ter.len ? B.ter.ground[Math.round(x)] : GROUND);   // 路线按世界长度取样，地形以外仍是平地
+  // 起伏路线（docs/expedition-plan.md §13）：profile = [[x, 比 GROUND 高多少], ...] 控制点，Catmull-Rom 插值成每像素的地面；
+  // features 里会改地面高度的人造地形：bridge（驼背桥，hump 拱高）、fill（桥前路堤，从 x0 的原地面拉到 x1）、cut（路堑，往下挖 depth）。
+  // 返回原地面高度（不含人造地形），画面层画路堤、运河要用
+  function profileGround(ground, len, pts, feats) {
+    const nat = new Float32Array(len + 1);
+    const at = (x) => nat[Math.max(0, Math.min(len, Math.round(x)))];
+    for (let x = 0; x <= len; x++) nat[x] = x <= pts[0][0] ? pts[0][1] : pts[pts.length - 1][1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      for (let x = Math.max(0, Math.ceil(p1[0])); x <= Math.min(len, Math.floor(p2[0])); x++) {
+        const t = (x - p1[0]) / Math.max(1e-6, p2[0] - p1[0]), t2 = t * t, t3 = t2 * t;
+        nat[x] = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+      }
+    }
+    for (let x = 0; x <= len; x++) {
+      let h = nat[x];
+      for (const f of feats) {
+        if (x < f.x0 || x > f.x1) continue;
+        if (f.kind === 'bridge') { const u = (x - (f.x0 + f.x1) / 2) / ((f.x1 - f.x0) / 2); h += (f.hump || 24) * Math.cos(u * Math.PI / 2) ** 2; }
+        else if (f.kind === 'fill') { const k = (x - f.x0) / Math.max(1, f.x1 - f.x0); h = Math.max(h, at(f.x0) + (at(f.x1) - at(f.x0)) * k + 6 * Math.sin(k * Math.PI)); }
+        else if (f.kind === 'cut') { const r = Math.min(1, (x - f.x0) / 120, (f.x1 - x) / 120); h -= (f.depth || 0) * (r * r * (3 - 2 * r)); }
+      }
+      ground[x] = GROUND - h;
+    }
+    return nat;
+  }
+  const groundAt = (x) => (B && B.ter && x >= 0 && x <= B.ter.len ? B.ter.ground[Math.round(x)] : B && B.ter && B.ter.natural ? B.ter.ground[x < 0 ? 0 : B.ter.len] : GROUND);   // 路线按世界长度取样，地形以外仍是平地（起伏路线两头接着端点的高度往外平铺）
   const crateAt = (x, y) => (B && B.ter ? B.ter.crates.findIndex(c => !c.dead && x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1) : -1);
   // 整车在世界里的左右边缘
   const span = (s) => (isP(s) ? [cellX(s, s.minCol), cellX(s, s.frontCol) + C] : [cellX(s, s.frontCol), cellX(s, s.minCol) + C]);
@@ -424,6 +451,7 @@ SA.Battle = (() => {
         if (hit) return hit;
       }
     }
+    if (B.mobs && sh.from === B.p) { const mi = SA.RouteMobs.hitTest(B, sh.x, sh.y); if (mi >= 0) return { mob: mi }; }   // 出征的小机械只挡玩家的炮弹
     const cr = crateAt(sh.x, sh.y);
     if (cr >= 0) return { crate: cr };
     if (sh.y >= groundAt(sh.x)) return 'ground';
@@ -441,12 +469,19 @@ SA.Battle = (() => {
     const sw = W / cam.z, sh = H / cam.z;
     const tx = (pr + er) / 2 - sw / 2;
     cam.x += (tx - cam.x) * Math.min(1, dt * 4);
-    cam.y = GROUND + 60 - sh;
+    if (B.route && B.ter && B.ter.natural) {
+      // 起伏路线：镜头竖直跟着车走——画面底边 = 车下（两车里低的那辆）地面往下 60，往坡的方向多看一点（上坡往上抬、下坡往下看）
+      const ps = span(B.p), pc = (ps[0] + ps[1]) / 2, gp = groundAt(pc), es = B.e ? span(B.e) : null, ge = es ? groundAt((es[0] + es[1]) / 2) : gp;
+      // 下坡：前方 520px 处的路面也要在画面里（底边往下放）；上坡不用管，画面上方本来就看得到坡顶
+      const want = Math.max(Math.max(gp, ge) + 60, groundAt(pc + 520) + 50);
+      cam.bot = cam.bot == null || dt >= 1 ? want : cam.bot + (want - cam.bot) * Math.min(1, dt * 3);
+      cam.y = cam.bot - sh;
+    } else cam.y = GROUND + 60 - sh;
     cam.w = sw; cam.h = sh;
     B.aim = B.aimScreen ? [cam.x + B.aimScreen[0] / cam.z, cam.y + B.aimScreen[1] / cam.z] : null;
   }
   function predict(s, o, w, deg, side, jitter = 0) {
-    const sh = { ...launch(s, w, deg, jitter), side };
+    const sh = { ...launch(s, w, deg, jitter), side, from: s };
     const pts = [];
     for (let i = 0; i < T.PREVIEW_STEPS; i++) {
       const res = advance(sh, o, T.PREVIEW_STEP);
@@ -468,7 +503,7 @@ SA.Battle = (() => {
       for (let i = 0; i < n / 2; i++) items.push({ type: 'debris', x: data.x, y: data.y, vx: rnd(-160, 160), vy: rnd(-250, -60), life: rnd(0.8, 1.4), col: random() < 0.5 ? P.iron[2] : P.dark[3] });
       for (let i = 0; i < n / 3; i++) items.push({ type: 'smoke', x: data.x + rnd(-12, 12), y: data.y, vx: rnd(-20, 20), vy: rnd(-70, -30), life: rnd(1, 1.8) });
       B.shake = Math.max(B.shake, 7);
-      if (!B.headless && view) view.emit('particles', { items });
+      if (!B.headless && view) view.emit('particles', { items, boom: { x: data.x, y: data.y, n } });
       return;
     }
     if (!B.headless && view) view.emit(type, data);
@@ -490,6 +525,7 @@ SA.Battle = (() => {
     s.events.fire += count;
     const charged = focus >= 0.999;
     const muzzleShot = launch(s, w, barrel(s, w), 0);
+    emit('fire', { x: muzzleShot.x, y: muzzleShot.y, id: w.cell.id, shell: w.m.proj === 'shell', p: isP(s) });   // 只通知画面（声音），不改状态
     for (let i = 0; i < count; i++) {
       const sh = launch(s, w, barrel(s, w), count > 1 ? gauss() * spread : jit);
       const tick = w.m.reload < 1 && w.m.heatPerSec ? w.m.reload : 1;
@@ -707,7 +743,13 @@ SA.Battle = (() => {
     // 最高速度 = 底盘速度 × 动力比（锅炉富余可按 K.SPEED_BOOST 超速）
     // 地形：泥地减速、上坡慢下坡快
     const tk = s.airDuration > 0 ? { top: 1, acc: 1 } : terrainK(s, dir || Math.sign(s.vx));
-    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed;
+    // 出征：顺着下坡开可以超过平地最高速（冲下坡撞一排机械是爽点），坡越陡越快，最多 +60%；上坡照旧由下面的牵引力方程拖慢
+    let downhill = 1;
+    if (B.route && dir && s.airDuration <= 0) {
+      const [l0, r0] = span(s), dg = (groundAt(dir > 0 ? r0 : l0) - groundAt(dir > 0 ? l0 : r0)) / Math.max(1, r0 - l0);
+      if (dg > 0) downhill = 1 + Math.min(0.6, dg * 2.2);
+    }
+    const top = dir * s.speed * (s.speedMul || 0) * tk.top * s.statMultipliers.speed * downhill;
     const k = clamp(Math.sqrt(T.MASS_ACCEL_FACTOR / s.mass), T.MASS_ACCEL_MIN, T.MASS_ACCEL_MAX);
     const braking = s.vx !== 0 && (top === 0 || Math.sign(top) !== Math.sign(s.vx) || Math.abs(top) < Math.abs(s.vx));
     // 被撞飞（速度超过自己能开出的最高速度）：履带和脚在地上打滑，急停。正常松手 / 掉头仍按原来的刹车慢慢停
@@ -724,6 +766,8 @@ SA.Battle = (() => {
       const resistanceN = kg * SA.Phys.GRAVITY * (SA.Phys.ROLL + grade);
       const physicalAcc = Math.max(0, (tractionN - resistanceN) / kg / SA.Phys.PX_M);
       acc = Math.min(acc, physicalAcc);
+      // 出征的长坡：牵引力顶不住坡阻时车会掉速，直到两者平衡（重车、小锅炉爬陡坡明显变慢）；竞技场的小土坡不受影响
+      if (B.route && resistanceN > tractionN && Math.sign(s.vx) === dir) s.vx -= dir * Math.min(Math.abs(s.vx), (resistanceN - tractionN) / kg / SA.Phys.PX_M * dt);
     }
     if (s.airDuration > 0) s.vx += clamp(dir * s.speed * 0.25 - s.vx, -25 * dt, 25 * dt);
     else s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
@@ -1165,8 +1209,9 @@ SA.Battle = (() => {
     // 多出来的驾驶员：每人接管一组「当前没在手操」的武器，自己挑目标开火（枪法比玩家差）
     const crew = SA.V.crewPlan(s.weapons, s.drivers, s.sel);
     s.coGroups = crew.autoGroups;
-    const coPt = s.coGroups.length && o && !o.dead && s.power > 0 && !s.hold ? copilotAim(s, o, dt) : null;
-    const coAt = coPt ? targetAt(o, coPt[0], coPt[1]) : null;
+    // 出征路上没有敌车时，副驾驶自己挑最近的小机械打（js/route-mobs.js）
+    const coPt = s.coGroups.length && s.power > 0 && !s.hold ? (o ? (!o.dead ? copilotAim(s, o, dt) : null) : B.mobs && isP(s) ? SA.RouteMobs.aimPoint(B, frontEdge(s)) : null) : null;
+    const coAt = coPt && o ? targetAt(o, coPt[0], coPt[1]) : null;
     // 每名驾驶员只装一门；优先接近完成的炮，同进度随机挑选以免实体顺序固定优先权。
     const waiting = s.weapons.filter(w => s.timers[w.key] > 0);
     for (let i = 0; i < crew.loaders && waiting.length; i++) {
@@ -1691,6 +1736,7 @@ SA.Battle = (() => {
     B.p.anim.step(dt);
     if (B.e) { B.e.anim.step(dt); collide(dt); pistons(B.p, B.e, dt); pistons(B.e, B.p, dt); enforceBounds(B.e); }
     enforceBounds(B.p);
+    if (B.mobs) SA.RouteMobs.step(B, dt);
     // 进化评分只保存时间摘要，不保存逐帧录像；同一帧由双方共享一份距离统计。
     if (B.metrics && B.e) {
       const distance = Math.abs(frontEdge(B.e) - frontEdge(B.p));
@@ -1720,6 +1766,13 @@ SA.Battle = (() => {
           const gy = groundAt(sh.x);
           for (let k = 0; k < 6; k++) emit('part', { type: 'dust', x: sh.x, y: gy, vx: rnd(-75, 75), vy: rnd(-100, -30), life: rnd(0.3, 0.6), col: undefined });
           if (sh.big) emit('part', { type: 'smoke', x: sh.x, y: gy - 6, vx: 0, vy: -30, life: 0.8, col: undefined });
+          emit('impact', { x: sh.x, y: gy, big: !!sh.big, p: sh.from === B.p });
+          // 出征：落在小机械旁边也算（溅射武器按它的溅射半径，大炮弹一小圈，机枪擦边）
+          if (B.mobs && sh.from === B.p) SA.RouteMobs.blast(B, sh.x, gy, sh.weapon && sh.weapon.splash ? sh.weapon.splash.r : sh.big ? 26 : 8, sh.dmg * (sh.weapon && sh.weapon.splash ? sh.weapon.splash.k : 0.6), 'shot');
+        } else if (res.mob != null) {
+          SA.RouteMobs.hurt(B, res.mob, sh.dmg, 'shot');
+          if (sh.weapon && sh.weapon.splash) SA.RouteMobs.blast(B, sh.x, sh.y, sh.weapon.splash.r, sh.dmg * sh.weapon.splash.k, 'shot', res.mob);
+          emit('impact', { x: sh.x, y: sh.y, big: !!sh.big, p: true, mob: true });
         } else if (res.crate != null) {
           hitCrate(res.crate, sh.dmg);
         } else if (res !== 'out') {
@@ -1880,6 +1933,54 @@ SA.Battle = (() => {
     sampleRoute();
   }
 
+  // ---------- 出征的小机械（js/route-mobs.js）用的引擎接口 ----------
+  // 贴地那几行的最前沿：小机械只碰得到车底附近 h 像素以内的模块（车头高处伸出去的炮管、撞角从它们头顶越过去）
+  function lowFront(s, h) {
+    let bottom = -1;
+    for (let r = K.ROWS - 1; r >= 0 && bottom < 0; r--) if (rowFront(s, r)) bottom = r;
+    if (bottom < 0) return frontEdge(s);
+    let x = -Infinity;
+    for (let r = bottom; r >= Math.max(0, bottom - Math.ceil((h + 6) / C) + 1); r--) { const o = rowFront(s, r); if (o) x = Math.max(x, rowEdge(s, o)); }
+    return isFinite(x) ? x : frontEdge(s);
+  }
+  // 点打在玩家车上的哪一块（侧挂层优先），没打在车上返回 null
+  function playerAt(x, y) {
+    const cell = cellAt(B.p, x, y);
+    return cell ? modAt(B.p, 'side', cell.r, cell.c) || modAt(B.p, 'body', cell.r, cell.c) : null;
+  }
+  // 离这一点最近的活模块挨 dmg（爬车咬车头、硬撞炮车磕到车头）
+  function hurtNear(x, y, dmg) {
+    let best = null, bd = Infinity;
+    SA.V.each(B.p.v, (cell, r, c, layer) => { if (!alive(cell)) return; const [mx, my] = modCenter(B.p, layer, r, c), d = Math.hypot(mx - x, my - y); if (d < bd) { bd = d; best = { layer, r, c }; } });
+    return best ? damage(B.p, null, best, dmg) : 0;
+  }
+  // 爆炸：一共 dmg，按距离（近的多）分给范围里的模块；范围里没有模块但车就在边上时，算到最近的那一块
+  function hurtArea(x, y, r, dmg) {
+    const hits = [];
+    let best = null, bd = Infinity;
+    SA.V.each(B.p.v, (cell, rr, c, layer) => { if (!alive(cell)) return; const [mx, my] = modCenter(B.p, layer, rr, c), d = Math.hypot(mx - x, my - y); if (d <= r) hits.push({ layer, r: rr, c, w: 1 - 0.7 * d / r }); if (d < bd) { bd = d; best = { layer, r: rr, c, w: 1 }; } });
+    if (!hits.length && best && bd <= r + 2 * C) hits.push(best);
+    const total = hits.reduce((a, h) => a + h.w, 0);
+    let dealt = 0;
+    for (const h of hits) dealt += damage(B.p, null, h, dmg * h.w / total);
+    return dealt;
+  }
+  // 机械开枪瞄哪：车头那几块活模块里随便一块
+  function mobTarget() {
+    const pts = [];
+    SA.V.each(B.p.v, (cell, r, c, layer) => { if (layer === 'body' && alive(cell)) pts.push(modCenter(B.p, layer, r, c)); });
+    pts.sort((a, b) => b[0] - a[0]);
+    const k = pts.slice(0, 4);
+    return k.length ? k[Math.floor(random() * k.length)] : [frontEdge(B.p), groundAt(frontEdge(B.p)) - 40];
+  }
+  // 被炮车顶住：车头退回到 edge，车速压到很慢
+  function mobBlock(s, edge) {
+    const d = lowFront(s, 30) - edge;
+    if (d > 0) { s.x -= d; if (s.vx > 0) s.vx = Math.min(s.vx, 10); }
+  }
+  const mobCtx = { groundAt, frontEdge, lowFront, playerAt, hurtNear, hurtArea, target: mobTarget, block: mobBlock, emit,
+    hurt: (imp, dmg) => damage(B.p, null, imp, dmg), playerVx: () => B.p.vx, random: () => random(), rnd: (a, b) => rnd(a, b) };
+
   /** 从车辆副本建立一趟完整旅程；遭遇只替换敌车，玩家损伤、热量、水和装填始终连续。 */
   function startRouteState(opts) {
     if (!opts.headless) SA.go('battle');
@@ -1903,6 +2004,8 @@ SA.Battle = (() => {
     B.p.homeX = B.p.goalX = B.p.x;
     B.e = null;
     B.route.coal = B.route.coalMax = B.p.supply * def.fuel.capacityPerKw;
+    B.route.metal = 0; B.route.broken = 0;
+    if ((def.mobs || []).length && SA.RouteMobs) SA.RouteMobs.init(B, def, mobCtx);
     settle(B.p, 0);
     camera(1);
     advanceRoute();
@@ -1953,7 +2056,7 @@ SA.Battle = (() => {
     const resources = { coal: B.route.coal, coalMax: B.route.coalMax, coalBurned: B.route.coalBurned, coalPicked: B.route.coalPicked,
       water: B.p.water, waterMax: B.p.waterMax, waterPicked: B.route.waterPicked, temperature: SA.Phys.temp(B.p.heat, B.p.heatCapacity) };
     B.result = { mode: 'route', route: B.route.id, runId: B.route.runId, how, cause, resources, dist: B.route.x,
-      cargo: [], lost: [], refugees: 0, relic: null, money: 0,
+      cargo: [], lost: [], refugees: 0, relic: null, money: 0, metal: B.route.metal || 0, broken: B.route.broken || 0,
       playerVehicle: shiftVeh(SA.V.clone(B.p.v), -B.pShift), time: B.t };
     if (cause === 'coal') { routeEvent('coal-empty', '煤炭耗尽', { kind: 'coal', amount: 0 }); emit('coal', { level: 'empty' }); }
     routeEvent('route-end', '出征结束：' + cause, { how, cause });

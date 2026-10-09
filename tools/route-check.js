@@ -298,7 +298,8 @@ function run() {
   assert.strictEqual(SA.Route.result().how, 'wrecked', '无敌时过热未正常结束');
   assert.strictEqual(JSON.stringify(SA.S.d), saved, '出征修改了正式存档');
   assert.strictEqual(rt.writes(), 0, '出征写入 localStorage');
-  assert.strictEqual(SA.Route.settle, undefined, 'R1 不应声明虚构结算');
+  // 出征本身不写档（上面两条）；回院子的清点黑板调用 SA.Route.settle 才入档，下面单独检查
+  assert.strictEqual(typeof SA.Route.settle, 'function');
 
   const keep = B;
   const sample = { route: route(), vehicle: player, seed: 42, maxTime: 4 };
@@ -332,6 +333,16 @@ function run() {
   const resources = resourceChecks(rt, player), speeds = speedChecks(rt);
   const duel = SA.Battle.simulate({ p: player, e: weak, terrain: 'flat', seed: 42 });
   assert(['p', 'e', 'draw'].includes(duel.winner)); finite(duel);
+  // 结算（docs/expedition-fun.md §5）：金属 × 单价 + 到站时终点物资；被打爆只留一半金属；记最远距离；同一趟只结一次
+  const eco = SA.Route.getConfig().economy, money0 = SA.S.d.money;
+  const paid = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-1', how: 'depot', dist: 7400, metal: 7 });
+  assert.strictEqual(paid.money, 7 * eco.metal + SA.ROUTES.r1.end.bonus * eco.supply);
+  assert.strictEqual(SA.S.d.money, money0 + paid.money);
+  SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-1', how: 'depot', dist: 7400, metal: 7 });
+  assert.strictEqual(SA.S.d.money, money0 + paid.money, '同一趟结算了两次');
+  const wrecked = SA.Route.settle({ mode: 'route', route: 'r1', runId: 'check-2', how: 'wrecked', dist: 3000, metal: 7 });
+  assert.strictEqual(wrecked.metalKept, 3); assert.strictEqual(wrecked.bonus, 0);
+  assert.strictEqual(SA.Route.best('r1'), 7400, '最远距离被较短的一趟覆盖');
   return { longTerrain: true, emptyEnemyFire: true, encounters: 3, exits: 4, seeds: 20, outcomes, resources, speeds,
     simulationBudget: true, noSaveWrites: true, arenaWinner: duel.winner };
 }

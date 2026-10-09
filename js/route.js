@@ -126,9 +126,35 @@ SA.Route = (() => {
     return SA.Battle.route.simulate({ routeData: prepare(route), vehicle, seed, maxTime });
   }
 
+  /**
+   * 出征回来入档（玩法见 docs/expedition-fun.md §5）：金属和终点站台的物资换成钱（被打爆只捡回一半金属），
+   * 记下每条路线走到的最远处（下次路上插「上次到这」的旗子）。车由院子的伙计免费修好，出征不带回战损。
+   * 同一趟（runId）只结一次；返回补上 money / metalKept / bonus / bestBefore / best 的结果，清点黑板照着画。
+   */
+  const settledRuns = new Set();
+  function settle(r) {
+    const d = SA.S.d;
+    if (!r || r.mode !== 'route' || !d || !r.runId || settledRuns.has(r.runId)) return r;
+    settledRuns.add(r.runId);
+    const eco = config.economy || { metal: 5, supply: 40 }, def = SA.ROUTES[r.route];
+    const metalKept = r.how === 'wrecked' ? Math.floor((r.metal || 0) / 2) : r.metal || 0;
+    const bonus = r.how === 'depot' && def && def.end ? (def.end.bonus || 0) * eco.supply : 0;
+    const money = metalKept * eco.metal + bonus;
+    const rec = d.route || (d.route = { best: {}, runs: 0, metal: 0 });
+    rec.best = rec.best || {};
+    const bestBefore = rec.best[r.route] || 0;
+    rec.best[r.route] = Math.max(bestBefore, Math.round(r.dist || 0));
+    rec.runs = (rec.runs || 0) + 1; rec.metal = (rec.metal || 0) + metalKept;
+    d.money += money;
+    SA.S.save();
+    return Object.assign(r, { money, metalKept, bonus, bestBefore, best: rec.best[r.route], settled: true });
+  }
+  /** 这条路线以前走到的最远处（px），没走过是 0 */
+  const best = (id) => (SA.S.d && SA.S.d.route && SA.S.d.route.best && SA.S.d.route.best[id]) || 0;
+
   const initial = validateConfig(config);
   if (!initial.ok) throw new Error('出征配置非法：' + initial.errors.join('；'));
   // 本轮只落地煤水补给，完整货物与正式收益结算仍由后续阶段实现。
-  return { list, start, simulate, plan, getConfig: () => copy(config), validateConfig, configure,
+  return { list, start, simulate, plan, settle, best, getConfig: () => copy(config), validateConfig, configure,
     recall: () => SA.Battle.route.recall(), result: () => SA.Battle.route.result() };
 })();

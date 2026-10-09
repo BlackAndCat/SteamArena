@@ -70,3 +70,4 @@ SA.BUILD_SYS += '+release-through-ch2-05'; // 正式发布开放到第二章第�
 SA.BUILD_SYS += '+route-r1'; // 持续出征局、长地形、接力遭遇与隔离无画面模拟；资源和结算待 R2。
 SA.BUILD_SYS += '+route-fuel-monitor-speed2'; // 基础底盘双倍速度、正式路线配置、实际煤水补给与热煤终止及节奏监控。
 SA.BUILD_SYS += '+route-tuner'; // 正式后台可编辑出征节奏，预览节点时间并监控真实模拟，保存时校验路线数据。
+SA.BUILD_SYS += '+route-r2-mobs'; // 出征起伏地形、小机械规则、下坡超速与上坡掉速、金属结算与最远纪录（用户授权 Opus 改，docs/expedition-fun.md §9）。
