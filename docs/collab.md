@@ -130,6 +130,7 @@ git push origin main
 | `docs/biped-plan.md` | 双足路线强化实施计划：速度档次、下蹲、跳跃、双足骑士（机甲套件）、腿型分化与软超载；分阶段写清 astra / Opus 各做什么 | 用户定方向，Claude 记录；astra、Opus 按其中 §8 实现 |
 | `docs/expedition-plan.md` | 出征（卷轴路线）计划：核心循环、煤炭、货箱、路线物件、样板路线 1、范例敌人、接口约定；分阶段写清 astra / Opus 各做什么 | 用户定方向，Claude 记录；astra、Opus 按其中 §9 实现 |
 | `docs/expedition-fun.md` | 出征怎么变好玩：诊断、方案、黑乡路线 r2 的节拍、小机械、结算、打击感档位实验、可调的数 | 用户授权 Claude 自由发挥；Opus 实现（含规则） |
+| `docs/expedition-difficulty.md` | 出征难度曲线与节奏方案：跨趟预算、AI 导演式趟内节奏、按目标胜率挑决斗车、轻度动态调整、模拟验收 | 用户要求，Claude 出方案；astra 定数值并实现 |
 | `docs/feel-audio-plan.md` | 打击感与音效计划：画面反馈（闪白、晃车、顿帧、震屏、材质粒子）、出征撞击反馈、CC0 音效清单、混音规则、需要的战斗事件 | 用户定方向，Claude 记录；Opus 实现，事件由 astra 加 |
 | `docs/board-astra.md` / `docs/board-opus.md` | 后台 / 视觉进度、待定项和交接事项 | 各自维护，保留历史记录 |
 | `README.md` | 玩法速览和代码结构 | 谁改了功能谁更新 |
