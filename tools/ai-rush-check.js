@@ -67,6 +67,7 @@ function repeat(rt, side) {
   const shift = p.x1 - e.x0;
   B.e.x += shift; B.e.pivX += shift;
   s.charge = true; s.moveT = 1;
+  s.vx = side === 'p' ? 60 : -60; // 首撞必须有真实来速，静止贴身不再产生伤害。
   rt.api.step(1 / 60);
   assert(B.contact, `${side} 夹具没有发生真实接触`);
   const firstHits = s.events.ram, firstDamage = target.taken;
@@ -84,7 +85,7 @@ function repeat(rt, side) {
   }
   assert(resumed, `${side} 短撤步后没有再次前压`);
   for (let i = 0; i < 480 && !B.done && s.events.ram < firstHits + 1; i++) rt.api.step(1 / 60);
-  assert(s.events.ram > firstHits && target.taken > firstDamage, `${side} 再次前压没有造成第二次真实撞击伤害`);
+  assert(s.events.ram > firstHits && target.taken > firstDamage, `${side} 再次前压没有造成第二次真实撞击伤害：${JSON.stringify({ t: B.t, ram: s.events.ram, vx: s.vx, targetVx: target.vx, charge: s.charge, x: s.x, targetX: target.x, contact: B.contact, ramContact: B.ramContact, cooldown: B.ramCd, done: B.done, dead: s.dead, reason: s.reason, targetDead: target.dead, targetReason: target.reason, rams: s.rams })}`);
   return { firstHits, totalHits: s.events.ram, damage: target.taken };
 }
 
@@ -95,6 +96,7 @@ function mixed(rt, side) {
   const shift = p.x1 - e.x0;
   B.e.x += shift; B.e.pivX += shift;
   s.charge = true; s.moveT = 1;
+  s.vx = side === 'p' ? 60 : -60; // 混合武装同样以真实冲撞开始火力段。
   rt.api.step(1 / 60);
   assert(B.contact && s.events.ram > 0 && target.taken > 0, `${side} 混合武装没有首轮真实撞击`);
   const firstHits = s.events.ram, firstFire = s.events.fire;
@@ -142,9 +144,18 @@ function otherStyles(rt) {
   return true;
 }
 
+/** 有动力但双方都没有炮和近战件时，仍使用默认门限快速判平，不能无限拖战。 */
+function noAttackDraw(rt) {
+  const B = scene(rt, 'p');
+  for (const side of ['p', 'e']) rt.SA.Battle.debug.damage(side, 8, 14, 'body', 100000);
+  for (let i = 0; i < 180 && !B.draw; i++) rt.api.step(1 / 60);
+  assert(B.draw && B.t < rt.SA.K.BATTLE.DRAW_HOLD_TIME + 0.1, '双方彻底失去攻击能力后没有默认快速判平');
+  return { t: B.t, hold: rt.SA.K.BATTLE.DRAW_HOLD_TIME };
+}
+
 function run() {
   const rt = runtime();
-  return { left: { approach: approach(rt, 'p'), repeat: repeat(rt, 'p'), mixed: mixed(rt, 'p'), losesGun: losesGun(rt, 'p') }, right: { approach: approach(rt, 'e'), repeat: repeat(rt, 'e'), mixed: mixed(rt, 'e'), losesGun: losesGun(rt, 'e') }, otherStyles: otherStyles(rt) };
+  return { left: { approach: approach(rt, 'p'), repeat: repeat(rt, 'p'), mixed: mixed(rt, 'p'), losesGun: losesGun(rt, 'p') }, right: { approach: approach(rt, 'e'), repeat: repeat(rt, 'e'), mixed: mixed(rt, 'e'), losesGun: losesGun(rt, 'e') }, otherStyles: otherStyles(rt), noAttackDraw: noAttackDraw(rt) };
 }
 
 module.exports = { run };

@@ -643,12 +643,12 @@ SA.V = (() => {
     return out;
   }
 
-  // 武器组只决定瞄准和自动开火归属；装填由全部存活驾驶员共用，每人同时负责一门炮。
+  // 武器组只决定瞄准和自动开火归属；驾驶员先逐门装填，富余人员辅助同门时最多提速 50%。
   function crewPlan(weapons, drivers, selected) {
     const groups = GROUP_ORDER.filter(id => weapons.some(w => w.cell.id === id));
     const sel = groups.includes(selected) ? selected : groups[0] || null;
     const autoGroups = groups.filter(id => id !== sel).slice(0, Math.max(0, drivers - 1));
-    return { groups, selected: sel, autoGroups, loaders: Math.max(0, drivers) };
+    return { groups, selected: sel, autoGroups, loaders: Math.max(0, drivers), assistRate: 0.5 };
   }
 
   function overheatTime(weaponKw, coolRate, water, dryCool, waterSave, capacity, shaftKw, heatKw, thermalInput = {}) {
@@ -774,9 +774,10 @@ SA.V = (() => {
     const util = s.supply ? Math.min(1, s.demand / s.supply) : 0;
     const weapons = [];
     each(v, (cell, r, c, layer) => { if (alive(cell) && SA.mod(cell).dmg) weapons.push({ cell, r, c, layer }); });
-    // 纸面持续产出按可并发装填人数折算；这只是总产出估算，单门炮实际始终按原速装填。
+    // 纸面持续产出与战斗共用逐门并行、富余人员辅助的口径；单门装填速率最多 1.5 倍。
     const crew = crewPlan(weapons, s.drivers, null);
-    const crewRate = weapons.length ? Math.min(crew.loaders, weapons.length) / weapons.length : 0;
+    const crewRate = weapons.length ? (Math.min(crew.loaders, weapons.length)
+      + crew.assistRate * Math.min(Math.max(0, crew.loaders - weapons.length), weapons.length)) / weapons.length : 0;
     let weaponHeat = 0;
     each(v, (cell, r, c, layer) => {
       const m = SA.modForVehicle(cell, v);

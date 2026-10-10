@@ -1,10 +1,11 @@
-/* 近战残骸与持续推压回归：在正式战斗逐帧碰撞中检查命中、分摊和门槛。 */
+/* 近战单次撞击与局部反震回归：在正式战斗逐帧碰撞中检查命中、分摊和门槛。 */
 'use strict';
 
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 const { loadGame } = require('./evolve');
 
 /** 截取正式画面接口，所有伤害仍走 battle.js 的逐帧更新。 */
@@ -12,7 +13,7 @@ function runtime() {
   const { SA, context } = loadGame();
   let api;
   SA.BattleView = { create(value) { api = value; return null; } };
-  const source = fs.readFileSync(path.join(__dirname, '../js/battle.js'), 'utf8');
+  const source = process.argv.includes('--baseline') ? execFileSync('git', ['show', 'HEAD:js/battle.js'], { encoding: 'utf8' }) : fs.readFileSync(path.join(__dirname, '../js/battle.js'), 'utf8');
   const testSource = source.replace('  // 弹开概率：', '  window.__testRecoil = recoilDamage;\n  // 弹开概率：');
   assert.notStrictEqual(testSource, source, '反震测试入口失效');
   vm.runInContext(testSource, context);
@@ -66,39 +67,36 @@ function scene(rt, { dead = false, target = 'armor', ram = 'bucket', disabled = 
   return B;
 }
 
-/** 残骸挡在前沿时，每轮伤害总量不膨胀，且近模块承受多于远模块。 */
+/** 残骸挡在前沿时，真实撞击只结算一次，且近模块承受多于远模块。 */
 function wreck(rt) {
   const { SA, api } = rt;
   const B = scene(rt, { dead: true, disabled: true });
   const near = locate(SA, B.e, 'armor').cell, far = locate(SA, B.e, 'boiler').cell;
   const hpN = near.hp, hpF = far.hp, taken = B.e.taken;
-  const budget = SA.mod(B.p.v.body[8][14]).ram * SA.K.BATTLE.RAM_SPEED_THRESHOLD / SA.K.BATTLE.RAM_CLOSING_REFERENCE * SA.ramMul(B.p.mass * 1000) * 1.25;
+  B.p.vx = 200;
   api.step(1 / 60);
-  assert.strictEqual(B.p.events.ram, 1, '残骸接触未触发首轮推压');
   const first = B.e.taken - taken;
-  assert(Math.abs(first - budget) < 1e-6, `全车分摊预算不守恒：${first} / ${budget}`);
-  assert(hpN - near.hp > hpF - far.hp, '靠近撞击点的模块未承受更多伤害');
-  for (let i = 0; i < 80; i++) api.step(1 / 60);
-  assert(B.p.events.ram >= 3 && B.e.taken > taken + first, '毁履带后推压没有持续多轮');
-  return { first, budget, rounds: B.p.events.ram };
+  assert(B.p.events.ram === 1 && first > 0, '撞入残骸未结算真实撞击');
+  assert(hpN - near.hp > hpF - far.hp, '残骸撞点附近未承受更多伤害');
+  // 每帧恢复接触与高闭合速度，专门覆盖持续推压和数值分离抖动。
+  for (let i = 0; i < 180; i++) { align(rt, B, 'armor'); B.p.vx = 30; B.e.vx = 0; api.step(1 / 60); }
+  assert.strictEqual(B.p.events.ram, 1, '连续贴身重新结算撞击');
+  assert.strictEqual(B.e.taken, taken + first, '持续推压仍伤害敌方全身');
+  // 真实脱离后再撞，不能被连续接触锁永久禁止。
+  B.e.x += 100; B.e.pivX += 100; B.p.vx = B.e.vx = 0; api.step(1 / 60);
+  align(rt, B, 'armor'); B.p.vx = 200; api.step(1 / 60);
+  assert.strictEqual(B.p.events.ram, 2, '脱离后的再次撞击没有伤害');
+  return { first, rounds: B.p.events.ram };
 }
 
-/** 普通活件只承受本体伤害；有动力但停车的目标不吃瘫痪加成。 */
+/** 双方静止贴身并持续推进时，普通近战不再周期性扣除接触部件耐久。 */
 function intact(rt) {
-  const { SA, api } = rt;
-  const B = scene(rt);
-  const target = locate(SA, B.e, 'armor', true).cell, other = locate(SA, B.e, 'armor').cell;
-  const hp = target.hp, otherHp = other.hp;
-  const ownRam = locate(SA, B.p, 'bucket').cell, ownArmor = locate(SA, B.p, 'armor').cell;
-  const ramHp = ownRam.hp, armorHp = ownArmor.hp;
-  B.e.vx = 0; // 停车不是失去驱动能力，不能把底盘能力清零来伪造停车。
-  api.step(1 / 60);
-  const budget = SA.mod(B.p.v.body[8][14]).ram * SA.K.BATTLE.RAM_SPEED_THRESHOLD / SA.K.BATTLE.RAM_CLOSING_REFERENCE * SA.ramMul(B.p.mass * 1000);
-  assert(Math.abs(hp - target.hp - budget) < 1e-6, `正常停车误吃瘫痪加成或直接伤害不符：${hp - target.hp} / ${budget}，ram=${B.p.events.ram}，drive=${JSON.stringify({ speed: B.e.speed, supply: B.e.supply, equip: B.e.equip, store: B.e.store, factor: B.e.armorSpeedFactor })}`);
-  assert.strictEqual(other.hp, otherHp, '正常部件被命中却错误分摊全车');
-  assert(ramHp - ownRam.hp >= budget * SA.K.RAM_MELEE_SELF_MIN - 1e-8 && ramHp - ownRam.hp <= budget * SA.K.RAM_MELEE_SELF_MAX + 1e-8, '持续推压反震未落在接触近战件的 5%–10% 区间');
-  assert.strictEqual(ownArmor.hp, armorHp, '有近战件时反震误伤己方装甲');
-  return hp - target.hp;
+  const { SA, api } = rt, B = scene(rt);
+  const target = locate(SA, B.e, 'armor', true).cell;
+  const before = target.hp;
+  for (let i = 0; i < 90; i++) { align(rt, B, 'armor'); B.p.vx = B.e.vx = 0; api.step(1 / 60); }
+  assert.strictEqual(target.hp, before, '静止贴身仍造成推压伤害');
+  return before - target.hp;
 }
 
 /** 没接触、没推进意图、反向、失去驱动或撞击件毁坏，都不能凭静止车身刷伤害。 */
@@ -136,52 +134,21 @@ function fastImpact(rt) {
   return B.p.events.ram;
 }
 
-/** 长模块上下撞点选择不同近战件；接触件优先、毁坏封顶与无近战分摊共用真实伤害入口。 */
+/** 真实接触件承受反震，附近近战件不代受，毁坏时不溢出全车。 */
 function recoilRouting(rt) {
-  const { SA, recoil } = rt;
-  const p = car(SA, 'armor'), e = car(SA, 'armor');
-  p.body[8][14] = SA.newCell('bucket', 6);
-  p.body[2][14] = SA.newCell('bucket', 6);
-  p.body[4][8] = SA.newCell('cannon_giant', 6);
-  SA.S.d.vehicle = p;
-  const B = SA.Battle.startState({ mode: 'friendly', enemyVehicle: e, terrain: 'flat', boss: true });
-  B.headless = true;
-  const upper = B.p.v.body[2][14], lower = B.p.v.body[8][14];
-  const upperHp = upper.hp, lowerHp = lower.hp;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 4, hitC: 10 }, null, 100);
-  assert(upper.hp < upperHp && lower.hp === lowerHp, '长模块上端撞击未选择上方近战件');
-  const afterUpper = upper.hp;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 7, hitC: 10 }, null, 100);
-  assert(lower.hp < lowerHp && upper.hp === afterUpper, '长模块下端撞击未选择下方近战件');
-  const afterLower = lower.hp;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 7, hitC: 10 }, { cell: upper, layer: 'body', r: 2, c: 14 }, 100);
-  assert(upper.hp < afterUpper && lower.hp === afterLower, '本次接触的近战件没有优先承受反震');
-  upper.hp = 0;
-  lower.hp = 2;
+  const { SA, recoil } = rt, B = scene(rt);
+  const contact = locate(SA, B.p, 'armor'), ram = locate(SA, B.p, 'bucket');
+  const hp = contact.cell.hp, ramHp = ram.cell.hp;
+  recoil(B.p, { layer: 'body', r: contact.r, c: contact.c }, { ...contact, layer: 'body' }, 100);
+  assert(Math.abs(hp - contact.cell.hp - 100 * SA.K.RAM_SELF) < 1e-6, '车体反震未落在真实接触件');
+  assert.strictEqual(ram.cell.hp, ramHp, '车体接触却把反震转给邻近近战件');
+  const before = ram.cell.hp;
+  recoil(B.p, { layer: 'body', r: ram.r, c: ram.c }, { ...ram, layer: 'body' }, 100);
+  assert(before - ram.cell.hp >= 100 * SA.K.RAM_MELEE_SELF_MIN && before - ram.cell.hp <= 100 * SA.K.RAM_MELEE_SELF_MAX, '近战接触反震超出既有倍率');
+  ram.cell.hp = 2;
   const taken = B.p.taken;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 7, hitC: 10 }, { cell: upper, layer: 'body', r: 2, c: 14 }, 100);
-  assert(lower.hp === 0 && Math.abs(B.p.taken - taken - 2) < 1e-8, '已毁近战件仍被选中或反震溢出车体');
-  const beforeAll = B.p.taken;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 7, hitC: 10 }, null, 100);
-  assert(Math.abs(B.p.taken - beforeAll - 50) < 1e-6, '无近战件时未按普通反震比例分摊全车');
-  const beforeTether = B.p.taken;
-  recoil(B.p, { layer: 'body', r: 4, c: 8, hitR: 7, hitC: 10 }, null, 100, true);
-  assert(Math.abs(B.p.taken - beforeTether - 25) < 1e-6, '无近战件时未保留鱼叉反震比例');
-  const biped = SA.V.create('无近战反震分摊');
-  biped.body[SA.V.chassisRow('biped')][6] = SA.newCell('biped', 6);
-  biped.body[8][4] = SA.newCell('boiler', 6);
-  biped.body[7][4] = SA.newCell('helmet', 6);
-  biped.side[6][10] = SA.newCell('side_cannon', 6);
-  SA.S.d.vehicle = biped;
-  const zones = SA.Battle.startState({ mode: 'friendly', enemyVehicle: e, terrain: 'flat', boss: true });
-  zones.headless = true;
-  let side;
-  SA.V.each(zones.p.v, (cell, r, c, layer) => { if (layer === 'side' && cell.id === 'side_cannon') side = cell; });
-  assert(side, '双足侧层反震夹具缺少侧炮');
-  const sideHp = side.hp, legHp = zones.p.bipedLegHp, hipHp = zones.p.bipedHipHp, zoneTaken = zones.p.taken;
-  recoil(zones.p, { layer: 'body', r: 8, c: 6, hitR: 11, hitC: 6 }, null, 100);
-  assert(side.hp < sideHp && zones.p.bipedLegHp < legHp, `全车反震漏掉侧层或双足腿区：${JSON.stringify({ side: [sideHp, side.hp], leg: [legHp, zones.p.bipedLegHp], hip: [hipHp, zones.p.bipedHipHp] })}`);
-  assert(Math.abs(zones.p.taken - zoneTaken - 50) < 1e-6, '跨侧层与双足分区的反震预算不守恒');
+  recoil(B.p, { layer: 'body', r: ram.r, c: ram.c }, { ...ram, layer: 'body' }, 100);
+  assert(ram.cell.hp === 0 && B.p.taken - taken === 2, '接触部件毁坏后的反震溢出全车');
   return true;
 }
 
@@ -199,7 +166,7 @@ function mirrored(rt) {
   const pb = api.modBox(B.p, target.r, target.c, target.cell.id), eb = api.modBox(B.e, ram.r, ram.c, ram.cell.id);
   const shift = pb.x1 - eb.x0;
   B.e.x += shift; B.e.pivX += shift;
-  B.e.vx = B.p.vx = 0;
+  B.e.vx = -200; B.p.vx = 0;
   B.e.charge = true; B.e.moveT = 100;
   const taken = B.p.taken;
   api.step(1 / 60);
@@ -225,6 +192,7 @@ function bipedZone(rt) {
   const shift = pb.x1 - eb.x0;
   B.e.x += shift; B.e.pivX += shift;
   B.keys.right = true;
+  B.p.vx = 200;
   const hip = B.e.bipedHipHp, before = B.e.bipedLegHp;
   api.step(1 / 60);
   assert(B.p.events.ram === 1 && B.e.bipedLegHp < before && B.e.bipedHipHp === hip, '撞击腿区却扣到髋区');
@@ -235,14 +203,15 @@ function bipedZone(rt) {
   leg.cell.bipedZones = { hip: B.e.bipedHipHp, leg: 0, max: SA.V.maxHp(leg.cell) };
   B.e.speed = 0;
   B.ramCd = 0;
-  B.p.vx = B.e.vx = 0;
+  B.e.x += 100; B.e.pivX += 100; B.p.vx = B.e.vx = 0; api.step(1 / 60);
+  B.e.x -= 100; B.e.pivX -= 100; B.p.vx = 200;
   const hipLeft = B.e.bipedHipHp, boiler = locate(SA, B.e, 'boiler').cell, boilerHp = boiler.hp;
   api.step(1 / 60);
   assert(B.e.bipedLegHp === 0 && B.e.bipedHipHp < hipLeft && boiler.hp < boilerHp, '毁腿后的分摊写入死腿或漏掉其他模块');
   return { directLeg, dispersedHip: hipLeft - B.e.bipedHipHp };
 }
 
-/** 蒸汽撞锤按原 punchT 周期敲残骸，独立于车身持续推压。 */
+/** 蒸汽撞锤按原 punchT 周期敲残骸，独立于车身单次撞击门禁。 */
 function piston(rt) {
   const { SA, api } = rt, B = scene(rt, { dead: true, disabled: true, ram: 'piston' });
   B.keys.right = false;
@@ -285,13 +254,13 @@ function noRemoteKick(rt) {
   B.e.x += shift; B.e.pivX += shift;
   B.keys.right = true;
   api.step(1 / 60);
-  assert(B.contact && B.p.events.ram === 1 && B.p.events.kick === 0, '残骸接触把远处正常行误当双足踢击目标');
+  assert(B.contact && B.p.events.ram === 0 && B.p.events.kick === 0, '残骸接触把远处正常行误当双足踢击目标');
   return B.p.events.kick;
 }
 
 function run() {
   const rt = runtime();
-  return { wreck: wreck(rt), intact: intact(rt), gates: gates(rt), fastImpact: fastImpact(rt), recoilRouting: recoilRouting(rt), mirrored: mirrored(rt), bipedZone: bipedZone(rt), piston: piston(rt), noRemoteKick: noRemoteKick(rt) };
+  return { intact: intact(rt), wreck: wreck(rt), gates: gates(rt), fastImpact: fastImpact(rt), recoilRouting: recoilRouting(rt), mirrored: mirrored(rt), bipedZone: bipedZone(rt), piston: piston(rt), noRemoteKick: noRemoteKick(rt) };
 }
 
 module.exports = { run };

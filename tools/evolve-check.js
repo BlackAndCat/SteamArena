@@ -55,6 +55,7 @@ const sideMount = require('./side-mount-check');
 const cockpitPip = require('./cockpit-pip-check');
 const mortarSpread = require('./mortar-spread-check');
 const meleeRules = require('./melee-rules-check');
+const battleRepair = require('./battle-repair-check');
 const auditBattle = require('./battle-audit-check');
 const auditShare = require('./share-audit-check');
 const auditVisual = require('./visual-audit-check');
@@ -196,6 +197,7 @@ function lockedStageCheck() {
 
 async function main() {
   gpuHeatBounds.run();
+  const repairedBattle = battleRepair.run();
   // 先跑精确边界，数值错误或坏分享码不能被后面的批量模拟“正常结束”掩盖。
   const audit = { battle: auditBattle.run(), share: auditShare.run(), visual: auditVisual.run() };
   const budgetRanking = evolveBudgetRanking.run();
@@ -278,6 +280,7 @@ async function main() {
   result.cockpitPip = cockpitPip.run();
   result.mortarSpread = mortarSpread.run();
   result.meleeRules = meleeRules.run();
+  result.battleRepair = repairedBattle;
   result.audit = audit;
   result.aiRush = aiRush.run();
   result.route = routeCheck.run();

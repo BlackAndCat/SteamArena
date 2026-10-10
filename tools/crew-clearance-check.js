@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 const { loadGame } = require('./evolve');
 function run() {
 // 战斗脚本加载时捕获随机函数；测试可固定并列进度的抽签结果。
@@ -16,6 +17,12 @@ try {
   game = loadGame();
 } finally { Math.random = nativeRandom; }
 const { SA, context } = game;
+if (process.argv.includes('--baseline')) {
+  try {
+    Math.random = () => forcedRandom == null ? nativeRandom() : forcedRandom;
+    for (const file of ['vehicle', 'battle']) vm.runInContext(execFileSync('git', ['show', `HEAD:js/${file}.js`], { encoding: 'utf8' }), context);
+  } finally { Math.random = nativeRandom; }
+}
 // 仅在测试 VM 中开放两个画面层局部函数，验证沙漏与组装填条读到的同一状态。
 const viewSource = fs.readFileSync(path.join(__dirname, '../js/battle-view.js'), 'utf8');
 const testViewSource = viewSource.replace(/  return \{\r?\n    supportsSurrenderAnimation:/, '  return { reloadFrac, groupReload,\n    supportsSurrenderAnimation:');
@@ -57,7 +64,9 @@ const five = rates(1, Array(5).fill('mortar_s'));
 five.rates.forEach((w, i) => near(w.rate, i === 0 ? 1 : 0));
 rates(2, ['mortar_s', 'mortar_s', 'mortar_s']).rates.forEach((w, i) => near(w.rate, i < 2 ? 1 : 0));
 rates(4, Array(5).fill('mortar_s')).rates.forEach((w, i) => near(w.rate, i < 4 ? 1 : 0));
-near(rates(4, ['mortar_s']).rates[0].rate, 1);
+near(rates(2, ['mortar_s']).rates[0].rate, 1.5);
+near(rates(4, ['mortar_s']).rates[0].rate, 1.5);
+rates(4, ['mortar_s', 'mortar_s']).rates.forEach(w => near(w.rate, 1.5));
 const dual = rates(2, ['mortar_s', 'mg']);
 near(dual.rates.find(w => w.id === 'mortar_s').rate, 1);
 near(dual.rates.find(w => w.id === 'mg').rate, 1);
@@ -160,7 +169,7 @@ function tickRates() {
   SA.Battle.debug.step(1 / 60);
   return state.p.weapons.map(w => ({ id: w.cell.id, rate: (10 - state.p.timers[w.key]) * 60 / state.p.power }));
 }
-tickRates().forEach(w => near(w.rate, 1));
+tickRates().map(w => w.rate).sort((a, b) => a - b).forEach((rate, i) => near(rate, i === 2 ? 1.5 : 1));
 let lostCockpit;
 SA.V.each(state.p.v, (cell, r, c, layer) => { if (layer === 'body' && cell.id === 'cockpit_pair' && r === 5) lostCockpit = { r, c }; });
 assert(lostCockpit);
@@ -181,8 +190,8 @@ const two = SA.V.stats(vehicle(1, ['mortar_s', 'mortar_s']));
 const four = SA.V.stats(vehicle(4, ['mortar_s']));
 near(two.salvoDps / two.power, one.salvoDps / one.power);
 near(two.heatDps / two.power, one.heatDps / one.power);
-near(four.salvoDps / four.power, one.salvoDps / one.power);
-near(four.heatDps / four.power, one.heatDps / one.power);
+near(four.salvoDps / four.power, 1.5 * one.salvoDps / one.power);
+near(four.heatDps / four.power, 1.5 * one.heatDps / one.power);
 for (const s of [one, two, four]) near(s.heatGen - s.boilerHeat, s.heatDps);
 const mixStats = SA.V.stats(mixed);
 const mortar = SA.mod('mortar_s', 6), mg = SA.mod('mg', 6);

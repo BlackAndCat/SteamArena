@@ -88,3 +88,4 @@ SA.BUILD_SYS += '+i18n-flag-picker'; // 显示当前语言国旗，展开后明�
 SA.BUILD_SYS += '+fast-yard-return+route-material-crafting';
 // 共享温控水冷：低温停水、中温开阀、高温衰减，预测与认证 GPU 同步。
 SA.BUILD_SYS += '+thermostatic-water-v1';
+SA.BUILD_SYS += '+ai-jet-tension-impact-crew-v1'; // 可用选炮、近距喷射、真实受拉断绳、单次撞击与多人装填上限。

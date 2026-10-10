@@ -2,7 +2,7 @@
 // 视觉事件类型：part、text、particles、boom、ricochet、shatter、surrender-start、surrender。
 window.SA = window.SA || {};
 // 规则指纹的手工版本；战斗规则改动时必须递增，进化候选会因此被标记为需要复核。
-SA.RULES_VERSION = '2026-10-09-route-director-opening-v1';
+SA.RULES_VERSION = '2026-10-10-ai-tension-impact-crew-v1';
 
 SA.Battle = (() => {
   const h = SA.h, K = SA.K, T = K.BATTLE, M = SA.MODULES, P = SA.PAL, C = K.CELL, PADX = SA.SPR.PADX;
@@ -437,10 +437,18 @@ SA.Battle = (() => {
   // 间接火力必须有可达目标，并能在本帧完成转炮才开火；齐射与副驾驶共用此条件。
   // 直射武器保留原来的提前松手射击规则，巨炮等慢转高抛炮不会横着浪费首发。
   function indirectReady(s, w, pt, dt) {
+    if (s.isAI && isHeatJet(w) && !heatJetReach(s, w, pt)) return false;
     if (!w.m.indirect) return true;
     if (!pt) return false;
     const aim = aimAngle(s, w, pt[0], pt[1]);
     return aim.reach && !aim.over && !aim.behind && Math.abs(aim.a - barrel(s, w)) <= w.m.slew * dt;
+  }
+  // 连续升温喷射按真实炮口到目标的距离判断，不能用车头距离替代实际有效射程。
+  const isHeatJet = w => !!(w.m.heatToEnemy && w.m.heatPerSec && w.m.range);
+  function heatJetReach(s, w, pt) {
+    if (!pt) return false;
+    const aim = aimAngle(s, w, pt[0], pt[1]), [x, y] = muzzle(s, w, aim.a);
+    return aim.reach && !aim.over && !aim.behind && Math.hypot(pt[0] - x, pt[1] - y) <= w.m.range;
   }
   function launch(s, w, deg, jitter) {
     const [x0, y0] = muzzle(s, w, deg);
@@ -620,7 +628,7 @@ SA.Battle = (() => {
     return distributeDamage(def, att, imp, budget);
   }
 
-  // 全车分摊既用于命中残骸后的继续伤害，也用于没有近战件时的车体反震。
+  // 撞击打中残骸时，把该次撞击预算按撞点距离分给存活部件。
   const impactPoint = (s, imp) => toWorld(s, cellX(s, imp.hitC == null ? imp.c : imp.hitC) + HALF, cellY(imp.hitR == null ? imp.r : imp.hitR, s) + HALF);
   function distributeDamage(def, att, imp, budget) {
     const [hx, hy] = impactPoint(def, imp);
@@ -648,22 +656,12 @@ SA.Battle = (() => {
     return dealt;
   }
 
-  // 有存活近战件时，反震只落在本次接触件或距撞点最近的一件；没有时才分摊全车。
+  // 反震只落在本次真实接触部件；近战沿用 5%–10%，普通车体沿用原反震倍率。
   function recoilDamage(s, imp, contact, directLoss, tethered = false) {
     if (!(directLoss > 0)) return 0;
-    let chosen = contact && alive(contact.cell) && SA.isRam(contact.cell.id) ? contact : null;
-    if (!chosen) {
-      const [hx, hy] = impactPoint(s, imp);
-      let nearest = Infinity;
-      SA.V.each(s.v, (cell, r, c, layer) => {
-        if (!alive(cell) || !SA.isRam(cell.id)) return;
-        const [x, y] = modCenter(s, layer, r, c);
-        const distance = Math.hypot(x - hx, y - hy);
-        if (distance < nearest) { nearest = distance; chosen = { cell, layer, r, c }; }
-      });
-    }
-    if (chosen) return damage(s, null, { layer: chosen.layer, r: chosen.r, c: chosen.c }, directLoss * rnd(K.RAM_MELEE_SELF_MIN, K.RAM_MELEE_SELF_MAX));
-    return distributeDamage(s, null, imp, directLoss * (tethered ? K.RAM_TETHER_SELF : K.RAM_SELF));
+    if (!contact || !alive(contact.cell)) return 0;
+    const ratio = SA.isRam(contact.cell.id) ? rnd(K.RAM_MELEE_SELF_MIN, K.RAM_MELEE_SELF_MAX) : tethered ? K.RAM_TETHER_SELF : K.RAM_SELF;
+    return damage(s, null, { ...imp, layer: contact.layer, r: contact.r, c: contact.c }, directLoss * ratio);
   }
 
   // 弹开概率：装甲厚度（材料放大后的 armor）对武器穿深。抽成纯函数，车间用它给出穿深对照（SA.Battle.ricochetChance）
@@ -790,6 +788,8 @@ SA.Battle = (() => {
     }
     if (s.airDuration > 0) s.vx += clamp(dir * s.speed * 0.25 - s.vx, -25 * dt, 25 * dt);
     else s.vx += clamp(top - s.vx, -acc * dt, acc * dt);
+    // 留下未叠加收绳的自由速度和驾驶目标，用于区分相对牵拉与两车共同平移。
+    s.freeDriveVx = s.vx; s.driveTargetVx = top;
     // 收绳速度沿原加速尺度平滑建立；自主驱动和牵引各自推进，最后合成同一实际速度。
     const pullAcc = K.ACCEL * k;
     s.appliedTetherVx = pull ? previousPull + clamp(pull - previousPull, -pullAcc * dt, pullAcc * dt) : 0;
@@ -890,7 +890,7 @@ SA.Battle = (() => {
 
   // 已毁底盘（履带、轮、腿）不再像存活模块那样把撞击件弹回去，但仍是一大块铁：
   // 撞击件顶进残骸时限速、艰涩地往里挤，按节拍给一次比正常撞击轻的反震，并让两车震动。
-  // 只限速和反推，不阻止深入或重叠；伤害仍走下方原有的近战结算。
+  // 只限速和反推，不阻止深入或重叠；伤害只在下方真实再次撞击时结算。
   function grindWreck(melee, dt) {
     for (const s of [B.p, B.e]) { s.grind = Math.max(0, (s.grind || 0) - dt * T.WRECK_GRIND_FADE); s.grindT = Math.max(0, (s.grindT || 0) - dt); }
     const done = new Set();
@@ -937,7 +937,10 @@ SA.Battle = (() => {
       if (overlap > 0) { p.x -= overlap * e.mass / (p.mass + e.mass); e.x += overlap * p.mass / (p.mass + e.mass); }
     }
     const { gap, rows, dr } = rowContact(p, e);
-    const melee = meleeContact(p, e, dr).filter(x => x.g <= T.CONTACT_GAP);
+    const nearMelee = meleeContact(p, e, dr);
+    const melee = nearMelee.filter(x => x.g <= T.CONTACT_GAP);
+    // 连续接触只结算一次撞击；多留 2px 脱离余量，避免分离修正与浮点抖动重新触发。
+    if (gap > T.CONTACT_GAP + 2 && nearMelee.every(x => x.g > T.CONTACT_GAP + 2)) B.ramContact = false;
     grindWreck(melee, dt);
     B.contactRows = gap <= T.CONTACT_GAP ? rows.map(x => x.r) : [];
     B.contactRowsE = gap <= T.CONTACT_GAP ? rows.map(x => x.re) : [];
@@ -963,23 +966,28 @@ SA.Battle = (() => {
       }
     }
     const closing = p.vx - e.vx;
-    // 已顶住时继续出力的近战件按原撞击公式每 0.35 秒打一轮；高速碰撞仍走下方原物理。
-    if (closing <= T.RAM_SPEED_THRESHOLD && B.ramCd <= 0) {
-      const used = [];
-      for (const x of melee) {
-        if (x.g > 0 || !canDrive(x.a) || x.a.dir !== (x.a === p ? 1 : -1) || used.some(q => q.a === x.a && q.am.cell === x.am.cell && q.dm.cell === x.dm.cell)) continue;
-        used.push(x);
-        const speed = Math.max((x.a === p ? 1 : -1) * (x.a.vx - x.d.vx), T.RAM_SPEED_THRESHOLD);
-        const dmg = (SA.mod(x.am.cell).ram || T.RAM_DEFAULT_DAMAGE) * speed / T.RAM_CLOSING_REFERENCE * SA.ramMul(x.a.mass * 1000);
-        x.a.events.ram++;
-        const directLoss = meleeDamage(x.d, x.a, { layer: 'body', r: x.dm.r, c: x.dm.c, hitR: x.tr }, SA.isRam(x.dm.cell.id) ? dmg * T.RAM_TARGET_DAMAGE : dmg);
-        recoilDamage(x.a, { layer: 'body', r: x.am.r, c: x.am.c, hitR: x.r }, { ...x.am, layer: 'body' }, directLoss);
+    // 残骸前沿不参加正常车体分离，但真实高速撞入仍结算一次；贴身继续推进不再补伤害。
+    if (gap > 0 && melee.some(x => x.g <= 0) && !B.ramContact) {
+      B.ramContact = true;
+      if (closing > T.RAM_SPEED_THRESHOLD && B.ramCd <= 0) {
+        B.ramCd = T.RAM_COOLDOWN;
+        const used = [];
+        for (const x of melee) {
+          if (x.g > 0 || used.some(q => q.a === x.a && q.am.cell === x.am.cell && q.dm.cell === x.dm.cell)) continue;
+          used.push(x);
+          const speed = Math.max(0, (x.a === p ? 1 : -1) * (x.a.vx - x.d.vx));
+          const dmg = (SA.mod(x.am.cell).ram || T.RAM_DEFAULT_DAMAGE) * speed / T.RAM_CLOSING_REFERENCE * SA.ramMul(x.a.mass * 1000);
+          x.a.events.ram++;
+          const directLoss = meleeDamage(x.d, x.a, { layer: 'body', r: x.dm.r, c: x.dm.c, hitR: x.tr }, SA.isRam(x.dm.cell.id) ? dmg * T.RAM_TARGET_DAMAGE : dmg);
+          recoilDamage(x.a, { layer: 'body', r: x.am.r, c: x.am.c, hitR: x.r }, { ...x.am, layer: 'body' }, directLoss);
+        }
       }
-      if (used.length) B.ramCd = T.RAM_COOLDOWN;
     }
     if (gap > 0) return;
     const cx = (rowEdge(p, rows[0].pc) + rowEdge(e, rows[0].ec)) / 2;
-    if (closing > T.RAM_SPEED_THRESHOLD && B.ramCd <= 0) {
+    const newImpact = !B.ramContact;
+    B.ramContact = true;
+    if (newImpact && closing > T.RAM_SPEED_THRESHOLD && B.ramCd <= 0) {
       B.ramCd = T.RAM_COOLDOWN;
       // 双足提速只改变运动，不放大其自身撞击伤害；其他底盘仍使用真实速度。
       const damageV = q => q.chassisId === 'biped' ? clamp(q.vx, -97.5, 97.5) : q.vx;
@@ -1061,7 +1069,7 @@ SA.Battle = (() => {
     }
   }
 
-  // 绳索抗拉上限按鱼叉实体的材料放大；负荷只取向外驾驶的当帧富余动力（kW）。
+  // 先确认自由驾驶确实试图拉开缆绳，再取向外驾驶的当帧富余动力（kW）。
   // 超限比例按时间累计危险度，首次超载才抽指数阈值；未超载不改变随机序列。
   function overloadTether(s, o, dt) {
     const t = s.tether;
@@ -1069,6 +1077,11 @@ SA.Battle = (() => {
     if (!tetherState(s)) { s.tether = null; return; }
     const dir = Math.sign(o.x - s.x);
     if (Math.abs(o.x - s.x) <= T.TETHER_PULL_DISTANCE) return;
+    const separating = dir * (o.vx - s.vx) > 1e-6;
+    const freeSeparating = dir * (o.freeDriveVx - s.freeDriveVx) > 1e-6;
+    // 同向同速的共同平移不产生拉力；扣除历史收绳速度产生的假分離不能累计危险。
+    const sharedMotion = s.dir === o.dir && Math.abs(s.driveTargetVx - o.driveTargetVx) <= 1e-6;
+    if (!separating && (!freeSeparating || sharedMotion)) return;
     const outward = (side, away) => side.dir === away && side.speed > 0 && side.power > 0
       ? Math.max(0, side.driveAvailableKw - side.driveKw) : 0;
     const load = outward(s, -dir) + outward(o, dir);
@@ -1193,14 +1206,15 @@ SA.Battle = (() => {
     updateBiped(s, dt);
     drive(s, dt);
     const waterBeforeCooling = s.water;
-    const result = SA.Phys.thermalStep(s.heat, s.water, dt, {
+    s.thermalIdleInput = {
       shaftKw: Math.min(baseSupply, Math.max(0, s.demand - release) + chargeKw),
       // 野外持续驱动的传动废热回流锅炉：按真实轴功率产热，仍经过统一散热、水耗与热容量计算。
       heatKw: s.heatRate * s.heatMul * Math.max(T.UTIL_MIN, util)
         + (B.route && isP(s) && s.dir && Math.abs(s.vx) > 1 ? Math.min(B.opts.routeData.difficulty?.driveWasteHeatCap || Infinity,
           Math.min(baseSupply, s.driveKw * s.speedMul) * (B.opts.routeData.difficulty?.driveWasteHeat || 0)) : 0), weaponKw: 0,
       cool: s.cool, dryCool: s.dryCool, waterSave: s.waterSave, capacity: s.heatCapacity,
-    });
+    };
+    const result = SA.Phys.thermalStep(s.heat, s.water, dt, s.thermalIdleInput);
     s.heat = result.heat; s.water = result.water;
     // 由实际耗水反推相同冷却量的无冷凝耗水；高温效率已包含在实际热循环中。
     const saved = (waterBeforeCooling - result.water) * Math.max(0, 1 / s.waterSave - 1);
@@ -1236,8 +1250,9 @@ SA.Battle = (() => {
     // 出征路上没有敌车时，副驾驶自己挑最近的小机械打（js/route-mobs.js）
     const coPt = s.coGroups.length && s.power > 0 && !s.hold ? (o ? (!o.dead ? copilotAim(s, o, dt) : null) : B.mobs && isP(s) ? SA.RouteMobs.aimPoint(B, frontEdge(s)) : null) : null;
     const coAt = coPt && o ? targetAt(o, coPt[0], coPt[1]) : null;
-    // 每名驾驶员只装一门；优先接近完成的炮，同进度随机挑选以免实体顺序固定优先权。
+    // 先每门分配一名驾驶员，再用富余人员辅助；同门最多加速 50%，保留多炮并行。
     const waiting = s.weapons.filter(w => s.timers[w.key] > 0);
+    const loading = [];
     for (let i = 0; i < crew.loaders && waiting.length; i++) {
       let best = -1, chosen = -1, ties = 0;
       for (let j = 0; j < waiting.length; j++) {
@@ -1247,7 +1262,9 @@ SA.Battle = (() => {
       }
       const [w] = waiting.splice(chosen, 1);
       s.timers[w.key] -= dt * s.power;
+      loading.push(w);
     }
+    for (let i = 0; i < Math.min(crew.loaders - loading.length, loading.length); i++) s.timers[loading[i].key] -= dt * s.power * crew.assistRate;
     const again = rnd(T.SALVO_FACTOR_MIN, T.SALVO_FACTOR_MAX);
     for (const w of s.weapons) {
       if (w.blocked) continue;
@@ -1323,7 +1340,7 @@ SA.Battle = (() => {
       const pt = modCenter(o, layer, r, c);
       if (w) {
         const a = aimAngle(s, w, pt[0], pt[1]);
-        if (a.behind || !a.reach || a.over) score = 0;
+        if (a.behind || !a.reach || a.over || isHeatJet(w) && !heatJetReach(s, w, pt)) score = 0;
         else {
           const hit = predict(s, o, w, a.a, layer === 'side').hit;
           if (!hit || hit.layer !== layer || hit.r !== r || hit.c !== c) {
@@ -1372,8 +1389,24 @@ SA.Battle = (() => {
     const profile = s.aiProfile || {};
     const heatHigh = Number.isFinite(profile.heatHoldHigh) ? profile.heatHoldHigh / 100 : T.AI_HEAT_HIGH;
     const heatLow = Number.isFinite(profile.heatHoldLow) ? profile.heatHoldLow / 100 : T.AI_HEAT_LOW;
-    if (s.heat / s.heatMax > heatHigh) s.hold = true; else if (s.heat / s.heatMax < heatLow) s.hold = false;
+    if (s.heat / s.heatMax > heatHigh) s.hold = true;
+    if (s.hold && s.thermalIdleInput && heatLow >= 0 && heatHigh > heatLow && B.t >= (s.heatResumeAt || 0)) {
+      s.heatResumeAt = B.t + 1;
+      s.heatResumeLow = heatLow;
+      // 只试算，不扣真实水量或发射热。锅炉不停产热时，原恢复线可能低于水冷平衡点。
+      const warming = ratio => SA.Phys.thermalStep(ratio * s.heatMax, s.water, dt, s.thermalIdleInput).heat > ratio * s.heatMax;
+      if (warming(heatLow) && !warming(heatHigh - 0.01)) {
+        let lo = heatLow, hi = heatHigh;
+        for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (warming(mid)) lo = mid; else hi = mid; }
+        // 为渐近平衡留下约 1℃ 的恢复余量；平衡已接近停火线时继续安全保持，避免抖动开火。
+        s.heatResumeLow = Math.min(heatHigh - 0.01, hi + 0.01);
+      }
+    }
+    if (s.heat / s.heatMax < (s.hold ? s.heatResumeLow ?? heatLow : heatLow)) { s.hold = false; s.heatResumeAt = 0; }
     s.retarget -= dt;
+    // 主控武器损毁或喷射目标拉出射程时立即重新分配，不能继续占用单驾驶员的火力位。
+    const current = s.weapons.find(w => w.cell.id === s.sel && !w.blocked && alive(w.cell));
+    if (!current || isHeatJet(current) && !heatJetReach(s, current, aiAimPoint(s, o))) s.retarget = 0;
     // 鱼叉发射后立即让出单驾驶员的主控位；连接期间不等待鱼叉装填再换炮。
     if (s.sel === 'harpoon' && (s.tether || !s.weapons.some(w => w.cell.id === 'harpoon' && !w.blocked && alive(w.cell) && !(s.timers[w.key] > 0)))) s.retarget = 0;
     const style = normalizeAiStyle(s.style);
@@ -1381,7 +1414,9 @@ SA.Battle = (() => {
     const tAlive = s.target && alive(o.v[s.target.layer]?.[s.target.r]?.[s.target.c]);
     if (!tAlive || s.retarget <= 0) {
       const precise = ['sniper', 'assassin', 'disruptor'].includes(style);
-      const available = s.weapons.filter(w => !w.blocked && alive(w.cell) && (w.cell.id !== 'harpoon' || (!s.tether && !(s.timers[w.key] > 0))));
+      const usable = s.weapons.filter(w => !w.blocked && alive(w.cell) && (w.cell.id !== 'harpoon' || (!s.tether && !(s.timers[w.key] > 0))));
+      const jets = usable.filter(isHeatJet).map(w => ({ w, target: priorityTarget(s, o, style, w) })).filter(q => q.target.score > 0);
+      const available = usable.filter(w => !isHeatJet(w) || jets.some(q => q.w === w));
       const ranked = precise ? available.filter(w => w.cell.id !== 'harpoon').sort((a, b) => (b.m.dmg || 0) / Math.max(0.4, b.m.reload || 1) - (a.m.dmg || 0) / Math.max(0.4, a.m.reload || 1)) : [];
       let best = ranked[0], choice = precise ? priorityTarget(s, o, style, best) : null;
       // 首选炮没有有效射线时，再试其他已存活武器；始终以实际选中的炮评估目标。
@@ -1409,12 +1444,15 @@ SA.Battle = (() => {
       s.retarget = (['sniper', 'assassin', 'disruptor'].includes(style) ? 1.3 : rnd(T.AI_RETARGET_MIN, T.AI_RETARGET_MAX)) * (Number.isFinite(profile.retargetFactor) ? profile.retargetFactor : 1);
       // 选武器组：直射打得到就直射，否则换高抛
       const groups = s.groups.filter(id => id !== 'harpoon' && available.some(w => w.cell.id === id));
-      s.sel = best?.cell.id || groups[Math.floor(random() * groups.length)] || null;
-      if (s.sel !== 'harpoon' && s.target && s.target.layer === 'body' && s.groups.some(id => s.weapons.some(x => x.cell.id === id && x.m.indirect))) {
+      // 喷射器只在真实可达近点接管；远处优先其他武器，只剩喷射器则保持选中并迫近。
+      if (!best && jets.length) { best = jets[0].w; s.target = jets[0].target.target; }
+      s.sel = best?.cell.id || groups[Math.floor(random() * groups.length)] || usable.find(isHeatJet)?.cell.id || null;
+      // 高抛兜底必须确实有可用炮；被遮挡的高抛组不能把正常机枪主控位改成 undefined。
+      if (s.sel !== 'harpoon' && s.target && s.target.layer === 'body' && available.some(w => w.m.indirect)) {
         const w = s.weapons.find(x => !x.blocked && !x.m.indirect && (x.cell.id === 'cannon' || x.cell.id === 'cannon_m' || x.cell.id === 'cannon_s' || x.cell.id === 'cannon_heavy'));
         const pt = aiAimPoint(s, o);
         const pr = w && predict(s, o, w, aimAngle(s, w, pt[0], pt[1]).a, false);
-        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = s.groups.find(id => s.weapons.some(x => x.cell.id === id && x.m.indirect && !x.blocked));
+        if (!pr || !pr.hit || pr.hit.c !== s.target.c || pr.hit.r !== s.target.r) s.sel = available.find(w => w.m.indirect).cell.id;
       }
     }
     if (style === 'rookie') {
@@ -1572,6 +1610,8 @@ SA.Battle = (() => {
       }
       if (!s.hesitant.acting) { s.dir = 0; s.fireHeld = false; }
     }
+    // 仅剩短程升温武器时，各性格必须回到可用射程；远点不开火，近点仍保留性格节奏。
+    if (selected && isHeatJet(selected) && !heatJetReach(s, selected, aiAimPoint(s, o))) { s.dir = fwd; s.fireHeld = false; }
     if (s.chassisId === 'biped') {
       if (style === 'turtle' && !s.dir) s.crouchHeld = true;
       if (style === 'rush' && gap > 100 && gap < 350 && s.dir === fwd && canJump(s)) s.jumpHeld = true;
@@ -1878,8 +1918,9 @@ SA.Battle = (() => {
       // 自测时两边都是 AI，这条规则对称生效
       const p = B.p;
       if (p.isAI && !p.dead && !e.dead && p.armed && !p.weapons.length && p.water <= 0 && !canMelee(p)) kill(p, SA.Config.text("battle_605a242d802d"));
-      // 平手：双方都没了动力或没有能开火的武器，且场上没有飞行中的炮弹，持续 T.DRAW_HOLD_TIME 秒
-      const both = !B.p.dead && !B.e.dead && crippled(B.p) && crippled(B.e) && !B.shots.length;
+      // 快速平手：双方彻底失能，既无可用火炮也不能以有动力近战继续攻击，且无飞行中的炮弹。
+      // 持续 T.DRAW_HOLD_TIME 秒后判平；有动力的近战车仍可撤步再撞。
+      const both = !B.p.dead && !B.e.dead && helpless(B.p) && helpless(B.e) && !B.shots.length;
       B.drawT = both ? (B.drawT || 0) + dt : 0;
       if (B.drawT >= T.DRAW_HOLD_TIME) {
         B.draw = SA.Config.text("battle_2a9b09a1ef95", `${crippled(B.p) === crippled(B.e) ? crippled(B.p) : SA.Config.text("battle_43162559f8f3")}`);
