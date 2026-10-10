@@ -1985,7 +1985,8 @@ SA.SPR = (() => {
         });
         pin(x + 18, y + 13); gauge(x + 5, y + 19, 2.6, o.on ? 0.3 : 0.75);
       },
-      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); steamJet(mx, my, o.a, 30, o.t, o.on); if (o.on) { const [m2, n2] = at(x + 18, y + 13, o.a, 31, -3); steamJet(m2, n2, o.a + 10, 24, o.t + 30, true); const [m3, n3] = at(x + 18, y + 13, o.a, 31, 3); steamJet(m3, n3, o.a - 10, 24, o.t + 60, true); } } },
+      // 战斗里喷射中的蒸汽锥由 js/battle-view.js 按射程画（这里只留管口一小团翻滚的汽）；不喷时管口漏一点汽
+      fx(x, y, o) { const [mx, my] = at(x + 18, y + 13, o.a, 31, 0); steamJet(mx, my, o.a, o.game ? 8 : 30, o.t, o.on); if (o.on && !o.game) { const [m2, n2] = at(x + 18, y + 13, o.a, 31, -3); steamJet(m2, n2, o.a + 10, 24, o.t + 30, true); const [m3, n3] = at(x + 18, y + 13, o.a, 31, 3); steamJet(m3, n3, o.a - 10, 24, o.t + 60, true); } } },
   ];
   const bed2 = (x, y) => { box(x + 10, y + 38, 28, 10, IRON); R(x + 11, y + 38, 26, 1, P.iron[3]); for (const u of [15, 29]) R(x + u, y + 24, 4, 14, P.iron[1]); };
   const ROCKET = [
@@ -3724,7 +3725,7 @@ SA.SPR = (() => {
     if (id === 'piston') BIG.ramFx(g, id, x, y, { mt: SA.stageOf('piston', mo.mt || 1) >= 2 ? 5 : 1, c: pistonCharge(mo.punch || 0), hit: pistonHit(mo.punch || 0), t: T });
     else if (id === 'boss_core' || id === 'boss_lens') BIG.bossFx(g, id, x, y, { t: T });
     else if (id === 'pressure_tank' || id === 'rangefinder') BIG.auxFx(g, id, x, y, { t: T, lv: mo.store == null ? 0.6 : mo.store });
-    else if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0 });
+    else if (id === 'steamjet') BIG.steamjetFx(g, x, y, { a, t: T, on: mo.flash > 0, game: true });
     else if (id === 'flamer') BIG.flamerFx(g, x, y, { a, t: T, on: mo.flash > 0 });
     else if (id === 'rocket_rack') BIG.rocketFx(g, x, y, { a: mo.a == null ? 20 : mo.a, t: T, n: mo.rn == null ? 4 : mo.rn, s: mo.rs || 0 }, SA.stageOf('rocket_rack', mo.mt || 1));
     else return;

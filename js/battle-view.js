@@ -46,7 +46,12 @@ SA.BattleView.create = function createBattleView(api) {
     if (!B || B.headless) return;
     if (BA) BA.event(type, data);   // 只放声音，不拦截
     if (RV && RV.event(type, data)) return;
-    if (type === 'part') B.parts.push({ ...data, max: data.life });
+    if (type === 'part') {
+      // 蒸汽喷射器开火时战斗那边也撒黄色枪口火光，画面上不要（蒸汽类只喷蒸汽）
+      const last = data.type === 'flash' && B.shots[B.shots.length - 1];
+      if (last && last.weapon && last.weapon.proj === 'steam' && Math.abs(last.originX - data.x) < 16 && Math.abs(last.originY - data.y) < 16) return;
+      B.parts.push({ ...data, max: data.life });
+    }
     else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
     else if (type === 'particles') for (const p of data.items || []) B.parts.push({ ...p, max: p.life });
     else if (type === 'texts') for (const t of data.items || []) { if (DMG_RE.test(t.str)) addDmg(t); else B.texts.push({ ...t, life: t.life == null ? 0.9 : t.life }); }
@@ -219,6 +224,59 @@ SA.BattleView.create = function createBattleView(api) {
     dg.drawImage(src, 0, 0, vw * n, vh * n, dx, dy, vw * Z, vh * Z);
   }
 
+  // 蒸汽喷射器：战斗里它照常一发发打「蒸汽弹」（每 0.1 秒一发，飞到射程尽头就没了），画面上不画弹头，
+  // 而是按这些弹画一道从管口到最远那一发的连续蒸汽锥——最远处就是射程尽头或打中的车，所以绝不会超过射程；
+  // 停止喷射后，蒸汽团跟着最后几发离开管口、飞到射程尽头散掉
+  const JETS = new Map();
+  function jetDisc(x, y, r) {
+    x = Math.round(x); y = Math.round(y); r = Math.max(1, Math.round(r));
+    for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); g.fillRect(x - w, y + dy, w * 2 + 1, 1); }
+  }
+  function steamJets(t) {
+    const now = new Map();
+    for (const sh of B.shots) {
+      if (!sh.weapon || sh.weapon.proj !== 'steam' || sh.delay > 0 || sh.done) continue;
+      const key = sh.weaponCell || sh.weapon, d = Math.hypot(sh.x - sh.originX, sh.y - sh.originY);
+      let n = now.get(key);
+      if (!n) now.set(key, n = { min: 1e9, max: 0, newest: null, range: sh.range || sh.weapon.range || 170, cone: sh.weapon.cone || 10 });
+      if (d < n.min) { n.min = d; n.newest = sh; }
+      n.max = Math.max(n.max, d);
+    }
+    for (const [key, n] of now) {
+      let j = JETS.get(key);
+      if (!j) JETS.set(key, j = { hist: [] });
+      const sh = n.newest;
+      j.ox = sh.originX; j.oy = sh.originY; j.a = Math.atan2(sh.vy, sh.vx); j.range = n.range; j.cone = n.cone; j.min = n.min; j.seen = t;
+      j.hist.push([t, Math.min(n.range, n.max)]);
+    }
+    for (const [key, j] of JETS) {
+      // 远端：最近 0.15 秒里蒸汽弹到过的最远处（打中车时就停在车上，不会穿过去）
+      j.hist = j.hist.filter(h => t - h[0] < 0.15);
+      if (!now.has(key)) { if (t - j.seen > 0.1 || !j.hist.length) { JETS.delete(key); continue; } }
+      const far = Math.min(j.range, Math.max(...j.hist.map(h => h[1]))), near = now.has(key) ? Math.max(0, j.min - 60) : far;
+      if (far - near < 2) continue;
+      drawJet(j, near, far, t);
+    }
+  }
+  function drawJet(j, near, far, t) {
+    const cx = Math.cos(j.a), cy = Math.sin(j.a), half = Math.tan(j.cone * Math.PI / 180), R = j.range;
+    // 蒸汽团沿喷射方向往外流（比蒸汽弹慢一点，看着是一股气而不是一串点），越远越大、越淡，到射程尽头正好散完
+    // 三层：上沿、中心、下沿，铺满 ±cone° 的锥面；每团各自轻轻摆动，看着是一股翻滚的气，不是一串珠子
+    const step = 6, flow = (t * 300) % step;
+    for (const k of [0, 2, 1]) for (let s = near + ((flow + k * step / 3) % step); s <= far; s += step) {
+      const q = s / R, seed = Math.round((s - flow - k * step / 3) / step) * 7 + k * 13;
+      const side = ((k - 1) * 0.55 + Math.sin(seed * 1.7 + t * 5) * 0.4) * half * s, r = 1.2 + q * 6 + Math.sin(seed * 2.3) * q * 1.5;
+      const x = j.ox + cx * s - cy * side, y = j.oy + cy * s + cx * side - q * q * 6;   // 末端略往上飘
+      g.globalAlpha = Math.max(0, (k === 1 ? 0.85 : 0.55) * (1 - q * q));
+      g.fillStyle = q < 0.2 ? P.white : q < 0.55 ? P.steam[2] : P.steam[1];
+      jetDisc(x, y, r);
+    }
+    // 管口一小截实心的白汽
+    g.globalAlpha = 0.9; g.fillStyle = P.white;
+    for (let s = near; s < Math.min(far, near + 14); s += 3) jetDisc(j.ox + cx * s, j.oy + cy * s, 1 + s * 0.08);
+    g.globalAlpha = 1;
+  }
+
   function draw() {
     const t = B.t;
     g = wc.getContext('2d');
@@ -272,7 +330,9 @@ SA.BattleView.create = function createBattleView(api) {
       SA.SPR.useCtx(g);
       SA.SPR.line(...tether.from.map(Math.round), ...tether.to.map(Math.round), 2, P.leather[1]);
     }
+    steamJets(t);
     for (const sh of B.shots) {
+      if (sh.weapon && sh.weapon.proj === 'steam') continue;   // 蒸汽喷射器不画「子弹」，由 steamJets 画成一道连续的蒸汽锥
       const tr = sh.trail || [];
       if (sh.big) {
         for (let i = 0; i < tr.length - 1; i++) { g.fillStyle = i < tr.length - 3 ? P.steam[0] : P.steam[1]; g.fillRect(Math.round(tr[i][0]) - 2, Math.round(tr[i][1]) - 2, 3, 3); }
@@ -1906,6 +1966,7 @@ SA.BattleView.create = function createBattleView(api) {
     B = api.getState();
     BD = SA.Scenes.pick(opts);
     RV = isRoute() && SA.RouteView ? SA.RouteView.make({ getB: () => B, groundAt, frontEdge, GROUND, W, H }) : null;
+    JETS.clear();
     if (BA) BA.stop();
     BA = SA.BattleAudio && SA.Audio ? SA.BattleAudio.make({ getB: () => B }) : null;
 
