@@ -121,10 +121,8 @@ SA.UI = (() => {
     const bar = $('#side');
     bar.innerHTML = '';
     const cur = SA.current, has = SA.Camp.has;
-    const fix = SA.V.stats(d.vehicle).problems.length;
     const st = SA.Camp.current(), ch = SA.CAMPAIGN[SA.Camp.chIndex()];
     const where = st || SA.Camp.pending() ? ch.name : SA.Config.text("ui_977e74339430", `${d.round + 1}`);
-    const nav = (key, label, extra) => UI.btn(label, { kind: cur === key ? 'pri' : 'sec', gear: cur === key, onclick: () => SA.nav(key), title: extra || null });
     const ingots = Object.entries(d.ingots || {}).filter(([, n]) => n > 0).map(([k, n]) => [k === 'aether' ? 'aether' : 'wootz', n]);
     const counter = UI.counter({ money: d.money, rep: d.rep, ingotList: ingots, onclick: has('bank') });
     if (has('bank')) { counter.title = SA.Config.text("home_285c90f90398"); counter.addEventListener('click', openBank); }
@@ -152,10 +150,20 @@ SA.UI = (() => {
       if (!SA.restartGame()) toast(SA.Config.text("ui_200b105318dc"));
     } }]) }]);
   }
+  // 操作一览：车间和战斗的键鼠操作，随时可查（车间「?」、设置、战斗暂停都能打开），代替散在各处的常驻操作说明
+  function controls() {
+    const rows = (pre, n) => h('table', { class: 'controls-tb' }, Array.from({ length: n }, (_, i) =>
+      h('tr', {}, h('th', {}, SA.Config.text(`${pre}${i + 1}_k`)), h('td', {}, SA.Config.text(`${pre}${i + 1}_v`)))));
+    openModal(SA.Config.text('controls_title'), h('div', { class: 'controls' },
+      h('h3', {}, SA.Config.text('controls_garage')), rows('controls_g', 6),
+      h('h3', {}, SA.Config.text('controls_battle')), rows('controls_b', 7)));
+  }
   // 设置：发行包只显示玩家可用的选项；设计模式不能删除正式进度。
   function settings() {
     const editing = SA.Text && SA.Text.isEditing();
-    dialog(SA.Config.text("home_df3d58c7d84b"), [h('p', { style: 'margin-top:0' }, SA.RELEASE ? SA.Config.text("ui_d70b4921fdf5") : SA.Config.text("ui_bb50197fd247"))], [
+    dialog(SA.Config.text("home_df3d58c7d84b"), [], [
+      { label: SA.Config.text('controls_title'), onClick: controls },
+      ...(SA.I18n?.locales?.() || []).filter(l => !l.current).map(l => ({ label: l.label, onClick: () => SA.I18n.setLocale(l.id) })),
       !SA.RELEASE ? { label: SA.Config.text("ui_38084d301e3f"), onClick: () => SA.Camp.dev.panel() } : null,
       SA.Scenes ? { label: SA.Config.text("ui_ca3bf7a57916", `${SA.Scenes.fxOn() ? SA.Config.text("ui_39eae64cfc41") : SA.Config.text("ui_5d0ae622f61f")}`), onClick: () => { SA.Scenes.setFx(!SA.Scenes.fxOn()); SA.toast && SA.toast(SA.Config.text("ui_0729b8049e2d", `${SA.Scenes.fxOn() ? SA.Config.text("ui_c771248e511f") : SA.Config.text("ui_3fd47edce45b")}`)); } } : null,
       // 横屏模式（js/orient.js）：手机浏览器转不过来时把整个游戏转 90° 显示；只给手机 / 平板看
@@ -180,14 +188,6 @@ SA.UI = (() => {
       { k: 'heat', name: SA.Config.text("ui_941ba5f9ea73"), pct: heatOf(x), val: `${Math.round(heatOf(x) * 100)}%`, bad: heatOf(x) >= 1, note: SA.Config.text("ui_0388ca91105f", `${SA.Phys.fmtKw(x.heatGen + SA.K.IDLE_HEAT)}`, `${SA.Phys.fmtKw(x.cool)}`, `${x.dryCool ? SA.Config.text("ui_b8e0c575c812", `${SA.Phys.fmtKw(x.dryCool)}`) : ''}`, `${x.overheat === Infinity ? SA.Config.text("ui_e7c64cf199f7") : SA.Config.text("ui_43b4be7f8c73", `${Math.round(x.overheat)}`)}`) },
       { k: 'water', name: SA.Config.text("battle_327b54d04f71"), pct: effW(x) / wScale, val: SA.Phys.fmtWater(x.water), note: SA.Config.text("ui_c6dd24aef1cf", `${x.tanks}`, `${SA.Phys.fmtWater(x.water)}`, `${x.waterSave < 1 ? SA.Config.text("ui_079442820900", `${f1(x.waterSave)}`) : ''}`) },
     ];
-    // 悬浮说明：这一项是什么、怎么算的、为什么要紧（性能单上只留条和数字）
-    const ABOUT = {
-      power: SA.Config.text("ui_0ac18e8cdf23"),
-      weight: SA.Config.text("ui_dc694e0dae8a"),
-      speed: SA.Config.text("ui_1e9ede8a5d71"),
-      heat: SA.Config.text("ui_00d6c4f22457"),
-      water: SA.Config.text("ui_a7db2d4d6877"),
-    };
     const now = rows(s), nxt = preview ? rows(preview) : null;
     const lim = { power: s.supply / Math.max(s.supply, s.demand, 1e-6), weight: s.load / Math.max(s.load, s.weight, 1e-6) };
     return h('div', { class: 'px-stats' },
@@ -196,10 +196,8 @@ SA.UI = (() => {
         const el = UI.meter({ ...g, pct: Math.min(1, g.pct), delta: Math.abs(d2) > 0.004 ? d2 : 0 }, { w: 50, lim: lim[g.k] });
         if (el.dataset) el.dataset.stat = g.k;   // 车间教程按这个指着讲（js/tutorial.js）
         return UI.tip(el, () => [h('div', { class: 'tp-nm' }, g.name, ' ', h('span', { class: 'tp-val' }, g.val)),
-          h('div', { class: 'tp-ks' }, g.note.split(' · ').map(t => h('div', {}, t))),
-          h('div', { class: 'tp-note' }, ABOUT[g.k])]);
+          h('div', { class: 'tp-ks' }, g.note.split(' · ').map(t => h('div', {}, t)))]);
       }),
-      preview ? h('div', { class: 'px-small' }, SA.Config.text("ui_aceac13c2467")) : null,
       s.problems.map(p => h('div', { class: 'px-hand px-prob' }, p)),
       s.warnings.map(w => h('div', { class: 'px-small px-warn' }, w)));
   }
@@ -501,6 +499,6 @@ SA.UI = (() => {
     return row;
   }
 
-  return { toast, openModal, closeModal, dialog, pay, topbar, settings, pxStats, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
+  return { toast, openModal, closeModal, dialog, pay, topbar, settings, controls, pxStats, refresh, openBank, statBars, statLine, vehiclePreview, afterBattle, money,
     repairTier, repairFull, repairPips, repairChip, repairList, repairBrief, penTable, newAttrInfo, statsWith: SA.V.statsWith, uniqueBadge, feedbackRow };
 })();

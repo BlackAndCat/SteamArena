@@ -165,7 +165,8 @@
       if (event.key === 'Escape' && !menu.hidden) { event.stopImmediatePropagation(); close(); button.focus(); return; }
       if (picker.contains(event.target) && ['Enter', ' '].includes(event.key)) event.stopImmediatePropagation();
     }, true);
-    const update = () => { button.disabled = SA.current === 'battle'; if (button.disabled) close(); };
+    // 旗帜只在标题页常驻；进了游戏以后改到设置弹窗里换语言（UI 精简：免得压住车间顶栏）
+    const update = () => { button.disabled = SA.current === 'battle'; picker.hidden = !!SA.current; if (button.disabled || picker.hidden) close(); };
     update();
     new MutationObserver(update).observe(document.getElementById('screen') || document.body, { childList: true, subtree: true });
     picker.append(button, menu);
@@ -179,6 +180,7 @@
     translate,
     sourceText: key => read('ui').messages[key], // 旧数据协议仍使用源语言标签，显示文案独立翻译。
     setLocale,
+    locales: () => languages.map(({ id, label }) => ({ id, label, current: id === language.id })),
     toggle: () => setLocale(languages[(languages.indexOf(language) + 1) % languages.length].id),
     saveDocuments,
   };

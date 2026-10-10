@@ -22,7 +22,7 @@ SA.Editor = (() => {
     up: false, shift: false, flash: null };
   // 商店分组的折叠状态记在本机
   // 模块清单的纸页签：一次只看一类（界面重建 v3，替换原来的折叠条）；记住上次看的是哪一类
-  function loadCat() { try { return localStorage.getItem('steam_arena_cat_v1') || null; } catch (e) { return null; } }
+  function loadCat() { try { return localStorage.getItem('steam_arena_cat_v1') || 'all'; } catch (e) { return 'all'; } }
   // 关卡车工作台共用编辑器，但其分类选择不写入普通游戏车间的偏好。
   const stageWorkbench = () => !!document.querySelector('#assembly-screen > #screen');
   function saveCat() { if (stageWorkbench()) return; try { localStorage.setItem('steam_arena_cat_v1', st.cat || ''); } catch (e) { /* ignore */ } }
@@ -82,7 +82,7 @@ SA.Editor = (() => {
     viewEl = h('div', { class: 'ed-view' });
     leverEl = h('div', { class: 'ed-lever' });
     stage = h('div', { class: 'ed-stage' }, cv, viewEl, tipEl,
-      h('button', { class: 'ed-help', title: `${SA.Config.text("editor_a21fcfac4591")} · ${SA.Config.text('editor_whole_move_hint')}`, 'aria-label': SA.Config.text("editor_a21fcfac4591"), onclick: openHelp }, '?'));
+      h('button', { class: 'ed-help', title: SA.Config.text('controls_title'), 'aria-label': SA.Config.text('controls_title'), onclick: () => SA.UI.controls() }, '?'));
     // 中间：画布 + 下方操作栏；右边：模块清单 / 蓝图库（拖出车外的模块丢到这里就回库存）
     ctxEl = h('div', { class: 'dock-ctx' });
     toolsEl = h('div', { class: 'panel-tools' });
@@ -622,7 +622,6 @@ SA.Editor = (() => {
     let preview = null;
     if (st.sel) { try { preview = SA.V.statsWith(sheetVehicle, kid(st.sel), kmt(st.sel)); } catch (e) { preview = null; } }
     plateEl.append(...[
-      h('div', { class: 'ed-sheet-t px-h2' }, SA.Config.text("editor_2ae16e5d3bc6")),
       nameIn,
       diagnosis?.summary,
       h('div', { class: 'ed-sheet-row' }, h('span', {}, SA.Config.text("editor_9566c6f70a0d"), UI.num(s.rating)), s.problems.length ? UI.hand(SA.Config.text("editor_1e9ad60f3353", `${s.problems.length}`), 15) : h('span', { class: 'px-small' }, SA.Config.text("editor_4163fd6a7d4d"))),
@@ -631,7 +630,7 @@ SA.Editor = (() => {
     // 车间的出口（拉闸只留给黑板上真正开打那一下）：放在改装台下面那条工单的右端——回院子 / 出战（也是回院子，再把出战黑板拉下来）
     leverEl.innerHTML = '';
     leverEl.append(UI.btn(SA.Config.text("arena_702c1bd28416"), { sm: true, onclick: () => SA.nav('home') }),
-      UI.btn(SA.Config.text("editor_b6a22acb6784"), { kind: 'pri', sm: true, title: s.canDeploy ? SA.Config.text("editor_3bdaf5a7cc79") : SA.Config.text("editor_fc6544f217d6", `${s.problems.join('\n')}`), onclick: () => SA.nav('arena') }),
+      UI.btn(SA.Config.text("editor_b6a22acb6784"), { kind: 'pri', sm: true, title: SA.Config.text("editor_3bdaf5a7cc79"), onclick: () => SA.nav('arena') }),
       ...(s.canDeploy ? [] : [h('div', { class: 'px-hand px-prob ed-exit-warn', title: s.problems.join('\n') }, SA.Config.text("editor_c196582c3cc5", `${s.problems.length}`))]));
   }
 
@@ -660,7 +659,7 @@ SA.Editor = (() => {
         h('div', { class: 'info' },
           h('div', {}, h('b', {}, m.name), ' ', SA.UI.uniqueBadge(id), ' ', SA.Camp.matChip(mt), ' ', SA.UI.repairChip({ id, mt }), ' ',
             n ? h('span', { class: 'chip' }, SA.Config.text("editor_990f4dd8bc60", `${n}`)) : canBuy ? h('span', { class: 'chip buy' }, routeMode() ? SA.Config.text('route_craft_cost', SA.S.craftPrice(id)) : SA.Config.text("editor_9916d8c2dbd0", `${money(SA.buyPrice(id))}`)) : h('span', { class: 'chip no' }, SA.isUnique(id) ? SA.Config.text("editor_d0de8bf9232c") : SA.Config.text("editor_c7f346912802"))),
-          h('div', { class: 'sub' }, SA.isUnique(id) ? SA.Config.text("editor_304cfa37aa08") : canBuy ? (routeMode() ? SA.Config.text('route_craft_hint') : SA.Config.text("editor_1e43b7128f91")) : n ? SA.Config.text("editor_445832485e78") : SA.Config.text("editor_d951caeadf68"))),
+          ''),
         h('div', { class: 'acts' },
           canBuy ? h('button', { class: 'btn small', onclick: () => buyOne(id) }, buyLabel(id)) : null,
           n ? h('button', { class: 'btn small', onclick: () => sellOne(key) }, SA.Config.text("editor_822dd009ddaf", `${money(SA.cellValue({ id, mt }) * 0.5)}`)) : null,
@@ -692,7 +691,7 @@ SA.Editor = (() => {
             h('span', { class: 'muted' }, `${SA.tons(SA.weightOf(pk))} · ${where(r, c)}`)),
           // 改造等级和代价在低高度窗口也必须可见，不能被通用 sub 样式隐藏。
           refitInfo ? h('div', { 'data-page-key': 'knight-refit-state' }, `${refitInfo.name} ${refitInfo.level}/${K.UP_MAX} · ${refitInfo.text}`) : SA.isBipedOnly(pk) ? h('div', {}, '双足专属') : null,
-          iss ? h('div', { class: 'sub err' }, iss.reason) : h('div', { class: 'sub' }, SA.Config.text("editor_49c3123bf418")),
+          iss ? h('div', { class: 'sub err' }, iss.reason) : null,
           ''),
         h('div', { class: 'acts' },
           has('upgrade') && pk.hp > 0 && lv < SA.K.UP_MAX ? h('button', { class: 'btn small', title: SA.Config.text("editor_d4928db19a49", `${Math.round(SA.upHp(pk.id) * 100)}`, `${SA.K.UP_KG}`), onclick: () => upgrade(pk) },
@@ -708,14 +707,10 @@ SA.Editor = (() => {
     }
     st.pick = null;
     if (st.dock === 'bps') { bpCtx(); return; }
-    // 什么都没选：告诉玩家现在该做什么
-    const s = st.stats;
-    ctxEl.append(h('div', { class: 'info' },
-      s.problems.length ? h('div', { class: 'err' }, s.problems[0]) : h('div', {}, h('b', {}, sheetDiagnosis ? '编辑范围内车已就绪；进化资格见性能单' : SA.Config.text("editor_4a8a8b3676e1")), s.warnings.length ? h('span', { class: 'muted' }, ` · ${s.warnings[0]}`) : null),
+    // 什么都没选：底栏留空（问题列在性能单和出战旁）；关卡车工作台另显示进化资格摘要
+    if (sheetDiagnosis) ctxEl.append(h('div', { class: 'info' },
       // 资格摘要是关键状态，不能使用横屏低高度时会被全局样式隐藏的 sub 类。
-      sheetDiagnosis ? h('div', { class: `garage-deploy-summary ${sheetDiagnosis.grid && sheetDiagnosis.stats.canDeploy ? '' : 'err'}`, 'data-page-key': 'evolution-deploy-summary' }, sheetDiagnosis.compactText) : null,
-      h('div', { class: 'sub' }, SA.Config.text("editor_4b7b7942d0e0"))),
-    '');
+      h('div', { class: `garage-deploy-summary ${sheetDiagnosis.grid && sheetDiagnosis.stats.canDeploy ? '' : 'err'}`, 'data-page-key': 'evolution-deploy-summary' }, sheetDiagnosis.compactText)));
   }
 
   // ---------- 右侧面板：页签 + 「商店」开关 / 蓝图筛选 ----------
@@ -733,13 +728,12 @@ SA.Editor = (() => {
     const owned = Object.values(d().inv).reduce((a, n) => a + n, 0);
     toolsEl.append(title(SA.Config.text("editor_7d9c9bca7baf"), h('span', { class: 'muted' }, SA.Config.text("editor_a96bcf971039", `${owned}`))),
       has('shop') ? h('div', { class: 'panel-row' },
-        h('span', { class: 'muted' }, routeMode() ? SA.Config.text('route_craft_wallet', d().route.materials || 0) : st.shop ? SA.Config.text("editor_ef91a815f304") : SA.Config.text("editor_e9b1471ac85a")),
+        routeMode() ? h('span', { class: 'muted' }, SA.Config.text('route_craft_wallet', d().route.materials || 0)) : h('span'),
         h('label', { class: `switch ${st.shop ? 'on' : ''}`, title: SA.Config.text("editor_66a163f614e7") },
           h('input', { type: 'checkbox', checked: st.shop, onchange: (e) => { st.shop = e.target.checked; renderTools(); renderInv(); } }),
-          h('span', { class: 'knob' }), SA.Config.text("editor_61f96c6aac6a"))) : h('div', { class: 'panel-row' }, h('span', { class: 'muted' }, SA.Config.text("editor_9ac7a3e16717"))));
+          h('span', { class: 'knob' }), SA.Config.text("editor_61f96c6aac6a"))) : '');
   }
 
-    // 模块最关键的两三项数值，做成小标签；跨模块规则从 SA.K 读取。
   // 清单里的模块图：按整数倍放大（高不超过 96、宽不超过 120 像素）
   function bigPic(id, mt) {
     const c1 = SA.PX.trim(SA.SPR.moduleCanvas(id, 1, mt)), s = Math.max(1, Math.min(3, Math.floor(Math.min(96 / c1.height, 120 / c1.width))));
@@ -754,24 +748,6 @@ SA.Editor = (() => {
       h('div', { class: 'tp-note' }, h('b', {}, SA.Config.text("editor_4262c45dc797")), h('br'), m.desc || '—'),
       m.lore ? h('div', { class: 'tp-note' }, h('b', {}, SA.Config.text("editor_f4b669c55756")), h('br'), m.lore) : null];
   }
-  function keyStats(id, mt = 1) {
-    const m = SA.mod(id, mt), out = [];
-    if (m.layer === 'chassis') out.push(SA.Config.text("editor_ecdf2eb87dc1", `${SA.tons(m.load)}`), SA.kmh(m.speed), m.brake >= 1.5 ? SA.Config.text("editor_51b057f5db0a") : m.brake < 0.8 ? SA.Config.text("editor_876d3fddff3c") : SA.Config.text("editor_3f63f756b226"), m.sway < 0.6 ? SA.Config.text("editor_1c0a9d014c6c") : m.sway > 1.2 ? SA.Config.text("editor_b54a9458fe2b") : SA.Config.text("editor_16da6e433377"));
-    else if (m.dmg) out.push(SA.Config.text("editor_0effa98e724c", `${m.dmg}`), SA.Config.text("editor_4c4721f23bca", `${m.reload}`), m.indirect ? SA.Config.text("editor_3d6aa623d93d") : SA.Config.text("editor_a9d49428b47e", `${m.spread}`), m.penetration >= 99 ? SA.Config.text("editor_d06576d004d2") : SA.Config.text("editor_c2472685b8ec", `${m.penetration}`));
-    else if (m.supply) out.push(SA.Config.text("editor_8006daa27c17", `${SA.Phys.fmtPower(m.supply)}`), SA.Config.text("editor_9795e140f483", `${SA.Phys.fmtKw(m.heatRate)}`));
-    else if (m.store) out.push(SA.Config.text("editor_397947920edb", `${SA.Phys.fmtHeat(m.store)}`), SA.Config.text("editor_874a90bfc512", `${SA.Phys.fmtKw(SA.K.BATTLE.STORE_RELEASE_PER_SEC)}`));
-    else if (m.water) out.push(SA.Config.text("editor_c7661f3af3be", `${SA.Phys.fmtKw(m.cool)}`), SA.Config.text("editor_985f298991a8", `${SA.Phys.fmtWater(m.water)}`));
-    else if (m.dryCool) out.push(SA.Config.text("editor_6fd4db5f7540", `${SA.Phys.fmtKw(m.dryCool)}`));
-    else if (m.waterSave) out.push(SA.Config.text("editor_c6279ed14eea", `${Math.round((1 - m.waterSave) * 100)}`), SA.Config.text("editor_c7661f3af3be", `${SA.Phys.fmtKw(m.cool)}`));
-    else if (m.ram) out.push(SA.Config.text("editor_e877ffddb028", `${m.ram}`), m.punch ? SA.Config.text("editor_14cb15367e18", `${m.punch}`) : SA.Config.text("editor_ae508f51291d", `${m.hp}`));
-    else out.push(SA.Config.text("editor_ae508f51291d", `${m.hp}`));
-    if (m.tether) out.push(SA.Config.text("editor_c83dfc2b7d1f"));
-    if (m.armor && !m.load) out.push(SA.Config.text("editor_987666ef16f4", `${Math.round(m.armor * 10) / 10}`));
-    if (m.power) out.push(SA.Config.text("editor_7e866effc5db", `${SA.Phys.fmtKw(m.power)}`));
-    out.push(SA.tons(SA.weightOf({ id })));
-    return out;
-  }
-
   const CAT_ORDER = ['mobility', 'control', 'energy', 'cooling', 'structure', 'firepower', 'ram'];
   function renderInv() {
     const keep = invEl.scrollTop;
@@ -786,35 +762,33 @@ SA.Editor = (() => {
       // 工作台以正式注册表兜底补齐排序表遗漏的模块；普通车间沿用既有清单。
       const ids = stageWorkbench() ? [...new Set([...SA.MODULE_ORDER, ...Object.keys(M)])] : SA.MODULE_ORDER;
       for (const id of ids) {
-        if (!M[id] || M[id].retired || M[id].cat !== cat) continue;
+        if (!M[id] || M[id].retired || (cat ? M[id].cat !== cat : CAT_ORDER.includes(M[id].cat))) continue;
         for (let mt = SA.MAT_MAX; mt >= 1; mt--) { const k = SA.invKey(id, mt); if (inv[k] > 0 || (mt === SA.buyMt(id) && shop && buyable(id))) keys.push(k); }
       }
       return keys;
     };
-    const cats = CAT_ORDER.map(cat => ({ cat, keys: keysOf(cat) }));
-    if (st.cat !== 'all' || !stageWorkbench()) {
-      if (!cats.some(c => c.cat === st.cat && c.keys.length)) { const first = cats.find(c => c.keys.length); st.cat = first ? first.cat : CAT_ORDER[0]; }
-    }
-    // 右边一列纸页签：类别色条 + 名字 + 件数；空的类别变淡
+    // 类别表之外的 cat（数据里新加、还没进类别表的）归到「其他」，只在「全部」里列出，免得模块凭空消失
+    const cats = [...CAT_ORDER.map(cat => ({ cat, keys: keysOf(cat) })), { cat: 'other', keys: keysOf(null) }];
+    const catName = (cat) => cat === 'other' ? SA.Config.text('editor_cat_other') : SA.CAT[cat].name;
+    const catColor = (cat) => cat === 'other' ? 'var(--brass2)' : SA.CAT[cat].plate;
+    const catCount = (keys) => shop ? SA.Config.text("editor_a067a474e68e", `${keys.length}`) : SA.Config.text("editor_1e57c27d2795", `${keys.reduce((a, k) => a + (inv[k] || 0), 0)}`);
+    if (st.cat !== 'all' && !cats.some(c => c.cat === st.cat && c.cat !== 'other' && c.keys.length)) st.cat = 'all';
+    // 右边一列纸页签：最上面「全部」，下面类别色条 + 名字 + 件数
     tabsEl.innerHTML = '';
-    if (stageWorkbench()) tabsEl.append(h('button', { class: `ed-tab ${st.cat === 'all' ? 'on' : ''}`, title: SA.Config.text("editor_8cf2d1e66c01"),
-      onclick: () => { st.cat = 'all'; renderInv(); invEl.scrollTop = 0; } }, h('span', { class: 'nm' }, SA.Config.text("editor_5c55a67935af"))));
+    tabsEl.append(h('button', { class: `ed-tab ${st.cat === 'all' ? 'on' : ''}`, title: SA.Config.text("editor_8cf2d1e66c01"),
+      onclick: () => { st.cat = 'all'; saveCat(); renderInv(); invEl.scrollTop = 0; } }, h('span', { class: 'nm' }, SA.Config.text("editor_5c55a67935af"))));
     for (const { cat, keys } of cats) {
-      if (!keys.length) continue;   // 没有库存（商店模式下没有可买）的大类不显示页签
+      if (!keys.length || cat === 'other') continue;   // 没有库存（商店模式下没有可买）的大类不显示页签
       const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
-      tabsEl.append(h('button', { class: `ed-tab ${st.cat === cat ? 'on' : ''} ${keys.length ? '' : 'none'}`, style: `--c:${SA.CAT[cat].plate}`, title: keys.length ? `${SA.CAT[cat].name}：${shop ? SA.Config.text("editor_a067a474e68e", `${keys.length}`) : SA.Config.text("editor_1e57c27d2795", `${have}`)}` : SA.Config.text("editor_c8103f8422c4", `${SA.CAT[cat].name}`),
-        onclick: () => { if (!keys.length) return; st.cat = cat; saveCat(); renderInv(); invEl.scrollTop = 0; } },
-        h('i', {}), h('span', { class: 'nm' }, SA.CAT[cat].name), keys.length ? h('b', {}, shop ? keys.length : have) : null));
+      tabsEl.append(h('button', { class: `ed-tab ${st.cat === cat ? 'on' : ''}`, style: `--c:${SA.CAT[cat].plate}`, title: `${SA.CAT[cat].name}：${catCount(keys)}`,
+        onclick: () => { st.cat = cat; saveCat(); renderInv(); invEl.scrollTop = 0; } },
+        h('i', {}), h('span', { class: 'nm' }, SA.CAT[cat].name), h('b', {}, shop ? keys.length : have)));
     }
-    const curCat = st.cat === 'all' && stageWorkbench()
-      ? { cat: 'all', keys: cats.flatMap(c => c.keys) } : cats.find(c => c.cat === st.cat);
-    if (curCat && curCat.keys.length) {
-      const cat = curCat.cat, keys = curCat.keys;
-      const have = keys.reduce((a, k) => a + (inv[k] || 0), 0);
-      const distinct = new Set(keys.map(kid)).size;
-      invEl.append(h('div', { class: 'cat-head', style: `--c:${cat === 'all' ? 'var(--brass2)' : SA.CAT[cat].plate}` },
-        h('span', { class: 'px-h2' }, cat === 'all' ? SA.Config.text("editor_8cf2d1e66c01") : SA.CAT[cat].name),
-        h('span', { class: 'px-small' }, cat === 'all' ? SA.Config.text("editor_a067a474e68e", `${distinct}`) : shop ? SA.Config.text("editor_a067a474e68e", `${keys.length}`) : SA.Config.text("editor_1e57c27d2795", `${have}`))));
+    // 「全部」按类分组，每组前一条细分隔；单类页签不再重复页签名
+    const groups = st.cat === 'all' ? cats.filter(c => c.keys.length) : cats.filter(c => c.cat === st.cat);
+    for (const { cat, keys } of groups) {
+      if (st.cat === 'all') invEl.append(h('div', { class: 'cat-head', style: `--c:${catColor(cat)}` },
+        h('span', { class: 'px-h2' }, catName(cat)), h('span', { class: 'px-small' }, catCount(keys))));
       for (const key of keys) {
         shown++;
         const id = kid(key), mt = kmt(key), m = M[id], n = inv[key] || 0;
@@ -837,7 +811,6 @@ SA.Editor = (() => {
       h('b', {}, SA.Config.text("editor_934c41f01b3a")),
       h('span', { class: 'muted' }, has('shop') ? SA.Config.text("editor_8f7abe76989b") : SA.Config.text("editor_f7a79c7f5b47")),
       has('shop') ? h('button', { class: 'btn primary', onclick: () => { st.shop = true; renderTools(); renderInv(); } }, SA.Config.text("editor_e3e0b1d93238")) : null));
-    else if (shop) invEl.prepend(h('div', { class: 'shop-note' }, routeMode() ? SA.Config.text('route_craft_hint') : SA.Config.text("editor_fae9f709ca12")));
     invEl.scrollTop = keep;
   }
 
@@ -966,15 +939,6 @@ SA.Editor = (() => {
     if (!d().inv[key]) st.sel = null;
     say(SA.Config.text("editor_3beffd1d7455", `${fullName(id, mt)}`, `${money(x)}`));
     changed();
-  }
-
-  // 「?」只保留新手此刻要做的三步，详细模块数据仍在选中卡片里。
-  function openHelp() {
-    SA.UI.openModal(SA.Config.text("editor_a21fcfac4591"), h('div', { class: 'help' },
-      h('p', {}, SA.Config.text("editor_6be0c3108d82")),
-      h('p', {}, SA.Config.text("editor_8fed129fc96c")),
-      h('p', {}, SA.Config.text("editor_997f250d05a7")),
-    ));
   }
 
   // ---------- 绘制 ----------

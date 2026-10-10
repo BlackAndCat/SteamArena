@@ -272,6 +272,12 @@ body[data-screen=garage] #screen { min-height: 0; }
 .help p { margin: 0 0 6px; }
 .help-h { margin: 14px 0 6px; font-size: 13px; color: var(--brass2); letter-spacing: 1px; }
 .help-h:first-child { margin-top: 0; }
+.controls { min-width: min(460px, 80vw); }
+.controls h3 { margin: 10px 0 4px; font: 900 15px "Microsoft YaHei", sans-serif; letter-spacing: .15em; color: var(--brass2); }
+.controls h3:first-child { margin-top: 0; }
+.controls-tb { border-collapse: collapse; width: 100%; font: 14px SimSun, serif; }
+.controls-tb th { text-align: left; white-space: nowrap; padding: 3px 14px 3px 0; color: var(--brass2); font-weight: bold; vertical-align: top; }
+.controls-tb td { padding: 3px 0; }
 .help-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .help-cat { padding: 6px 8px; background: var(--dark1); border-left: 4px solid var(--iron3); }
 .help-cat b { display: inline-flex; gap: 6px; align-items: center; }

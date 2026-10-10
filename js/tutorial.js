@@ -102,16 +102,15 @@ SA.Guide = (() => {
     }, 250);
   }
 
-  // ---------- 出战黑板：第一次（第二关开打前）讲黑板和拉杆，最后让玩家自己推一次拉杆 ----------
+  // ---------- 出战黑板：第一次（第二关开打前）指一下拉杆，让玩家自己出战一次 ----------
   function arena() {
     if (!SA.Camp.has('garage') || seen('arena')) return;
     whenFree('arena', () => {
       if (!document.querySelector('.ar-go')) return;
-      say(lines('arena'), ['.ar-chalk', '.ar-mid', '.ar-go', '.ar-garage .px-hot'], () => {
-        mark('arena');
-        const tip = lines('arena.lever')[0];
-        hint(tip && tip.text, '.ar-go .px-thr', () => SA.current !== 'arena', () => {}, 'arena');
-      });
+      // UI 精简：黑板布局一眼能看懂，不再逐块讲；只指一下出战拉杆
+      mark('arena');
+      const tip = lines('arena.lever')[0];
+      hint(tip && tip.text, '.ar-go .px-thr', () => SA.current !== 'arena', () => {}, 'arena');
     });
   }
 
