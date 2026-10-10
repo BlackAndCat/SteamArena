@@ -118,16 +118,17 @@ function run() {
   const shotsBefore = battle.p.events.fire;
   for (let i = 0; i < 160 && battle.p.events.fire === shotsBefore && !battle.done; i++) nextFrame();
   assert(battle.p.events.fire > shotsBefore, '第一关恢复后按开火键没有发射弹丸');
-  const editor = source('editor.js'), help = editor.slice(editor.indexOf('function openHelp() {'), editor.indexOf('// ---------- 绘制 ----------'));
-  assert.strictEqual((help.match(/h\('p',/g) || []).length, 3, '车间帮助不是三条');
-  // 帮助内容以正式 UI 配置为准，编辑器只保留键引用。
+  // 车间「?」打开操作一览（SA.UI.controls，2026-10-10 UI 精简替换了原来三条帮助）：车间 6 行、战斗 7 行，文字以正式 UI 配置为准。
+  const editor = source('editor.js'), uiJs = source('ui.js');
+  assert(/class: 'ed-help'[^\n]*SA\.UI\.controls\(\)/.test(editor), '车间「?」没有打开操作一览');
+  assert(/rows\('controls_g', 6\)/.test(uiJs) && /rows\('controls_b', 7\)/.test(uiJs), '操作一览行数不对');
   const ui = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/ui.json'), 'utf8')).messages;
-  const helpLines = ['editor_6be0c3108d82', 'editor_8fed129fc96c', 'editor_997f250d05a7'].map(key => {
-    assert(help.includes(key), `车间帮助未引用 ${key}`);
-    return ui[key];
+  const helpLines = [...Array.from({ length: 6 }, (_, i) => `controls_g${i + 1}`), ...Array.from({ length: 7 }, (_, i) => `controls_b${i + 1}`)].map(key => {
+    assert(typeof ui[`${key}_k`] === 'string' && typeof ui[`${key}_v`] === 'string', `操作一览缺少 ${key}`);
+    return `${ui[`${key}_k`]} ${ui[`${key}_v`]}`;
   }).join('\n');
-  assert(/左键/.test(helpLines) && /右键/.test(helpLines) && /出战/.test(helpLines) && /按住左键稳住准星/.test(helpLines));
-  return { firstReward: SA.S.d.inv.tank_s, legacyBackfillOnce: true, tutorialParts: parts.length, firstStageFired: true, helpItems: 3 };
+  assert(/左键/.test(helpLines) && /右键/.test(helpLines) && /按住左键稳住准星/.test(helpLines));
+  return { firstReward: SA.S.d.inv.tank_s, legacyBackfillOnce: true, tutorialParts: parts.length, firstStageFired: true, helpItems: 13 };
 }
 
 if (require.main === module) console.log(JSON.stringify(run()));

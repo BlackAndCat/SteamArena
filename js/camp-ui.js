@@ -39,7 +39,7 @@ SA.CampUI = (() => {
     const ch = SA.Camp.takeIntro();
     if (!ch) return false;
     SA.UI.dialog(ch.name, [
-      h('p', { style: 'margin-top:0' }, ch.blurb),
+      ch.blurb ? h('p', { style: 'margin-top:0' }, ch.blurb) : null,
       h('div', { class: 'unlocks' }, ch.stages.map((s, i) => s.unfinished ? null : h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' },
         h('b', {}, SA.Config.text("camp_ui_0f586f7648f7", `${i + 1}`, `${s.name}`)), s.boss ? ' 【Boss】' : '', h('span', { class: 'muted' }, ` · ${s.pilot}`)))),
     ], [{ label: SA.Config.text("camp_ui_efdc22fca1c6"), primary: true, onClick: () => {} }], false);

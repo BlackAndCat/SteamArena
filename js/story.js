@@ -559,9 +559,11 @@ SA.Story = (() => {
     if (name !== 'home' && name !== 'arena') return false;
     if (pipStoryActive) { if (SA.current !== 'home') SA.Home.open(); return true; }
     if (!pipInVehicle() || seen('pip_pair')) return false;
+    const rows = lines('feat.pip_pair', SA.STORY.feat.pip_pair);
+    if (!rows.length) { mark('pip_pair'); return false; }   // 作者清空了这段：不拦导航，照常去要去的页面
     pipStoryActive = true;
     SA.Home.open();
-    SA.Story.talk(lines('feat.pip_pair', SA.STORY.feat.pip_pair), { cls: 'vn-hint', onDone: () => {
+    SA.Story.talk(rows, { cls: 'vn-hint', onDone: () => {
       mark('pip_pair'); pipStoryActive = false;
     } });
     return true;

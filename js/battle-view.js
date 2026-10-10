@@ -1326,9 +1326,7 @@ SA.BattleView.create = function createBattleView(api) {
     if (gunDead || blocked) set('gun', 1, SA.Config.text('battle_view_lamp_weapon_warn', gunDead, blocked));
     return L;
   }
-  // 操作提示属于教程：目前只在序章第一关出现
-  const tutorialHint = () => B.opts.mode === 'campaign' && B.opts.storyKey === '0,0';
-  // 纸条（UI 精简）：只报能马上处理的瞄准问题 > 教程提示 > 命中率。过热 / 缺水 / 动力 / 底盘 / 没武器由五盏灯报，不再重复；
+  // 纸条（UI 精简）：只报能马上处理的瞄准问题 > 命中率（序章的操作教学走剧情配置里作者写的旁白，纸条不再另写）。过热 / 缺水 / 动力 / 底盘 / 没武器由五盏灯报，不再重复；
   // 「换高抛试试」「用 A / D 冲撞」这类教学腔只留在序章教程里
   function noteOf() {
     const p = B.p;
@@ -1342,7 +1340,6 @@ SA.BattleView.create = function createBattleView(api) {
     if (aimT && pi && pi.cover && !pi.hit) return ['warn', pi.cover === 'crate' ? SA.Config.text('battle_view_crate_short') : SA.Config.text('battle_view_hill_cover', '')];
     if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) return ['warn', SA.Config.text('battle_view_hit_other_short', M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name)];
     if (p.spooling) return ['warn', SA.Config.text('battle_view_spooling')];
-    if (tutorialHint()) return ['tut', SA.Config.text(touchUI ? 'battle_view_tutorial_hint_touch' : 'battle_view_tutorial_hint', p.groups.length > 1 ? SA.Config.text(touchUI ? 'battle_view_weapon_keys_touch' : 'battle_view_weapon_keys') : '')];
     if (!aimT) return ['info', ''];
     // 打谁看模块高亮，稳没稳看准星；纸条只写命中率（高抛写是否保留散布）
     if (pi && pi.chance != null) return ['info', SA.Config.text('battle_view_hit_chance', pi.chance)];
@@ -2212,7 +2209,7 @@ SA.BattleView.create = function createBattleView(api) {
         else {
           api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
           // 暂停牌、撤退 / 返航确认等弹窗开着时战斗不推进（画面照画）
-          const paused = !document.querySelector('#modal').hidden;
+          const modal = document.querySelector('#modal'), paused = !!modal && modal.hidden === false;
           if (!B.frozen && !paused && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
         }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
         draw();

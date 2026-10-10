@@ -231,8 +231,10 @@ SA.Home = (() => {
       }
     };
     // 点击读取最新页面文案；dialog 用文本节点显示，编辑的台词不会被当作 HTML 执行。
+    // 提示是空的（作者清空了）就不弹空对话框
     for (const k of present) who[k].box.addEventListener('click', () => {
-      SA.UI.dialog(NAME[k], SA.YardChat.clickTips()[k]);
+      const tip = SA.YardChat.clickTips()[k];
+      if (tip) SA.UI.dialog(NAME[k], tip);
     });
     if (timer) clearInterval(timer);
     timer = setInterval(step, 100);
