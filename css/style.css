@@ -888,6 +888,7 @@ html, body { background: var(--px-desk, none) 0 0 / 256px 64px, #2e1b0f; }
 .panel-head { background: none; border: 8px solid transparent; border-image: var(--sk-brass) 4 fill / 8px repeat; box-shadow: none; padding: 2px 8px; margin: -4px 0 6px; }
 .panel-head h2 { color: #2a1a05; text-shadow: 1px 1px 0 #f5d77a; font: bold 17px SimSun, serif; letter-spacing: .2em; }
 .panel-body { border: 12px solid transparent; border-image: var(--sk-paper) 6 fill / 12px repeat; padding: 2px 8px; color: #2a1a05; font: 14px/1.6 SimSun, NSimSun, serif; }
+.dialog .panel-body:empty { display: none; }   /* 只有按钮的小牌子（暂停、设置）不留一条空纸 */
 .panel-body .muted, .panel-body .sub, .panel-body small { color: #7a6448; }
 .panel-body .gold, .panel-body b.gold { color: #9a3a14; }
 .panel-body .warn { background: none; border: 0; border-left: 3px solid #b8391b; color: #2a1a05; padding: 2px 8px; }

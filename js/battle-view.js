@@ -33,6 +33,10 @@ SA.BattleView.create = function createBattleView(api) {
     vpart('glance', x, y, back * Math.cos(a) * sp, -Math.sin(a) * sp, 0.3);
     for (let i = 0; i < 2; i++) { const b = vr(0.2, 1.3), v = vr(220, 360); vpart('glance', x, y, back * Math.cos(b) * v * (i ? 1 : -0.6), -Math.sin(b) * v, 0.16); }
     for (let i = 0; i < 9; i++) vpart('spark', x, y, back * vr(20, 190), vr(-220, -20), vr(0.12, 0.3), i % 3 ? P.white : P.brass[3]);
+    // 「弹开」字牌只给自己打出去的那一发（弹点离敌车更近），并且 1.2 秒最多一块，免得快枪刷屏；敌人打我弹开只有星芒和声音
+    const mid = (car) => (car ? car.x + VW / 2 : Infinity), now = performance.now();
+    if (!B.e || Math.abs(x - mid(B.e)) > Math.abs(x - mid(B.p)) || now - (B.ricTextAt || 0) < 1200) return;
+    B.ricTextAt = now;
     B.texts.push({ str: SA.Config.text('battle_view_ricochet'), x: x + vr(-6, 6), y: y - 34, life: 1, max: 1, col: P.iron[4], plaque: P.glass[2] });
   }
   function shatterFx(x, y, cell) {
@@ -41,6 +45,8 @@ SA.BattleView.create = function createBattleView(api) {
     for (let i = 0; i < SHARDS[cell.id]; i++) vpart('shard', x + vr(-10, 10), y + vr(-10, 10), vr(-170, 170), vr(-280, -80), vr(1.1, 1.8), cols[i % 3]);
     vpart('ping', x, y, 0, 0, 0.18);
   }
+  // 画面已经说过的不再冒字：侧炮连带掉落的「!」（有碎片）、「投降」（有白旗、电报和对话框）
+  const quietText = (str) => str === '!' || str === SA.Config.text('battle_08f61250ec4d');
   function emit(type, data = {}) {
     sync();
     if (!B || B.headless) return;
@@ -52,7 +58,7 @@ SA.BattleView.create = function createBattleView(api) {
       if (last && last.weapon && last.weapon.proj === 'steam' && Math.abs(last.originX - data.x) < 16 && Math.abs(last.originY - data.y) < 16) return;
       B.parts.push({ ...data, max: data.life });
     }
-    else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
+    else if (type === 'text') { if (DMG_RE.test(data.str)) addDmg(data); else if (!quietText(data.str)) B.texts.push({ ...data, life: data.life == null ? 0.9 : data.life }); }
     else if (type === 'particles') for (const p of data.items || []) B.parts.push({ ...p, max: p.life });
     else if (type === 'texts') for (const t of data.items || []) { if (DMG_RE.test(t.str)) addDmg(t); else B.texts.push({ ...t, life: t.life == null ? 0.9 : t.life }); }
     else if (type === 'ricochet') ricochetFx(data.x, data.y, data.back);
@@ -66,7 +72,8 @@ SA.BattleView.create = function createBattleView(api) {
     }
     else if (type === 'pickup' || type === 'spill') {
       const y = data.y != null ? data.y : groundAt(data.x), key = type === 'spill' ? 'route_spill' : `route_pickup_${data.kind}`;
-      const msg = SA.Config.get('ui').messages[key] ? SA.Config.text(key) : '';
+      // 捡到的东西飞上车、货位和计数会变，不再冒字；只有「货掉了」写出来（损失不显眼）
+      const msg = type === 'spill' && SA.Config.get('ui').messages[key] ? SA.Config.text(key) : '';
       if (msg) B.texts.push({ str: msg, x: data.x, y: y - 40, col: type === 'spill' ? P.fire[2] : data.kind === 'relic' ? '#7fd8cc' : P.brass[3], life: 1.2 });
       for (let i = 0; i < 10; i++) vpart(data.kind === 'coal' ? 'debris' : 'dust', data.x + vr(-14, 14), y - 6, vr(-60, 60), vr(-160, -60), vr(0.4, 0.8), data.kind === 'coal' ? '#323844' : undefined);
     }
@@ -1242,7 +1249,7 @@ SA.BattleView.create = function createBattleView(api) {
     hud.note = h('div', { class: 'dash-note px-sk px-sk-paper' });
     hud.keys = h('div', { class: 'dash-keys' });
     hud.keySig = null;
-    hud.vent = PXI().btn(SA.Config.text('battle_view_vent'), { kind: 'dng', title: SA.Config.text('battle_view_vent_title'), onclick: () => { if (api.vent()) { if (BA) BA.vent(); hud.vent.disabled = true; hud.vent.className = 'px-btn off'; } } });
+    hud.vent = PXI().btn(touchUI ? SA.Config.text('battle_view_vent') : `${SA.Config.text('battle_view_vent')} · Q`, { kind: 'dng', title: SA.Config.text('battle_view_vent_title'), onclick: () => { if (api.vent()) { if (BA) BA.vent(); hud.vent.disabled = true; hud.vent.className = 'px-btn off'; } } });
     const car = h('div', { class: 'dash-car' },
       hud.gaugeFig = fig(hud.gauge, SA.Config.text('battle_view_boiler')), hud.tubeFig = fig(hud.tube, SA.Config.text('battle_view_water')),
       h('div', { class: 'dash-hull' },
@@ -1258,8 +1265,9 @@ SA.BattleView.create = function createBattleView(api) {
     // 出征的返航：拉汽笛，救援车把车拖回院子，货全带回（SA.Route.recall）；竞技场照旧是撤退
     const recall = () => SA.UI.dialog(SA.Config.text('route_recall'), h('p', {}, SA.Config.text('route_recall_confirm')),
       [{ label: SA.Config.text('route_recall'), primary: true, onClick: () => { if (SA.Route && SA.Route.recall) SA.Route.recall(); else api.retreat(); } }], SA.Config.text('battle_view_continue'));
+    hud.leave = route ? () => { if (SA.Route && SA.Route.recall) SA.Route.recall(); else api.retreat(); } : () => { endIntro(); api.retreat(); };
     const act = h('div', { class: 'dash-act' },
-      h('div', { class: 'dash-vent' }, hud.vent, h('span', { class: 'px-cap' }, SA.Config.text('battle_view_once'))),
+      h('div', { class: 'dash-vent' }, hud.vent),
       route ? PXI().btn(SA.Config.text('route_recall'), { title: SA.Config.text('route_recall_title'), icon: PXI().img(SA.RouteArt ? SA.RouteArt.whistle() : document.createElement('canvas'), 2), onclick: () => { if (!B.p.dead) recall(); } })
         : PXI().btn(SA.Config.text('battle_view_retreat'), { title: SA.Config.text('battle_view_retreat_title'), onclick: () => { if (!B.p.dead) SA.UI.dialog(SA.Config.text('battle_view_retreat_title_short'), h('p', {}, SA.Config.text('battle_view_retreat_confirm')), [{ label: SA.Config.text('battle_view_retreat'), primary: true, onClick: () => { endIntro(); api.retreat(); } }], SA.Config.text('battle_view_continue')); } }),
       !SA.RELEASE ? speedSlider() : null);
@@ -1320,28 +1328,26 @@ SA.BattleView.create = function createBattleView(api) {
   }
   // 操作提示属于教程：目前只在序章第一关出现
   const tutorialHint = () => B.opts.mode === 'campaign' && B.opts.storyKey === '0,0';
-  // 纸条：警报（红）> 瞄准出了问题（墨）> 教程提示 > 瞄准的目标和命中率（淡墨）
+  // 纸条（UI 精简）：只报能马上处理的瞄准问题 > 教程提示 > 命中率。过热 / 缺水 / 动力 / 底盘 / 没武器由五盏灯报，不再重复；
+  // 「换高抛试试」「用 A / D 冲撞」这类教学腔只留在序章教程里
   function noteOf() {
     const p = B.p;
     if (p.dead) return ['alert', p.reason || SA.Config.text('battle_view_disabled')];
-    const al = alertsOf(p);
-    if (al.length) return ['alert', [...new Set(al.map(a => a[1]))].join(' · ')];
-    if (!p.sel) return ['warn', SA.Config.text(touchUI ? 'battle_view_no_weapon_touch' : 'battle_view_no_weapon')];
+    if (!p.sel) return ['info', ''];
     const pi = B.previewInfo, aimT = B.aim && B.e ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const alt = p.groups.includes('mortar') && p.sel !== 'mortar' ? SA.Config.text('battle_view_try_mortar') : '';
+    const alt = '';
     if (pi && pi.blocked) return ['warn', SA.Config.text('battle_view_blocked')];
     if (pi && pi.over) return ['warn', pi.over === 'high' ? SA.Config.text('battle_view_too_high', M[p.sel].elev[1], alt) : SA.Config.text('battle_view_too_low')];
     if (pi && !pi.reach) return ['warn', SA.Config.text('battle_view_out_of_range')];
-    if (aimT && pi && pi.cover && !pi.hit) return ['warn', pi.cover === 'crate' ? SA.Config.text('battle_view_crate_cover') : SA.Config.text('battle_view_hill_cover', alt || SA.Config.text('battle_view_try_mortar_alt'))];
-    if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) return ['warn', SA.Config.text('battle_view_hit_other', M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name, alt)];
+    if (aimT && pi && pi.cover && !pi.hit) return ['warn', pi.cover === 'crate' ? SA.Config.text('battle_view_crate_short') : SA.Config.text('battle_view_hill_cover', '')];
+    if (aimT && pi && pi.hit && !sameCell(pi.hit, aimT)) return ['warn', SA.Config.text('battle_view_hit_other_short', M[B.e.v[pi.hit.layer][pi.hit.r][pi.hit.c].id].name)];
     if (p.spooling) return ['warn', SA.Config.text('battle_view_spooling')];
     if (tutorialHint()) return ['tut', SA.Config.text(touchUI ? 'battle_view_tutorial_hint_touch' : 'battle_view_tutorial_hint', p.groups.length > 1 ? SA.Config.text(touchUI ? 'battle_view_weapon_keys_touch' : 'battle_view_weapon_keys') : '')];
     if (!aimT) return ['info', ''];
-    const parts = [aimT.layer === 'side' ? SA.Config.text('battle_view_aim_side_cannon') : SA.Config.text('battle_view_aim_enemy', M[B.e.v[aimT.layer][aimT.r][aimT.c].id].name)];
-    if (pi && pi.chance != null) parts.push(SA.Config.text('battle_view_hit_chance', pi.chance));
-    else if (pi && M[p.sel].indirect) parts.push(M[p.sel].spread ? SA.Config.text('battle_view_indirect_spread') : SA.Config.text('battle_view_indirect_exact'));
-    if (p.fireHeld) parts.push(p.focus >= 1 ? SA.Config.text('battle_view_focus_ready') : SA.Config.text('battle_view_focus_progress', Math.round(p.focus * 100)));
-    return ['info', parts.join(' · ')];
+    // 打谁看模块高亮，稳没稳看准星；纸条只写命中率（高抛写是否保留散布）
+    if (pi && pi.chance != null) return ['info', SA.Config.text('battle_view_hit_chance', pi.chance)];
+    if (pi && M[p.sel].indirect) return ['info', M[p.sel].spread ? SA.Config.text('battle_view_indirect_spread') : SA.Config.text('battle_view_indirect_exact')];
+    return ['info', ''];
   }
   function updDash() {
     if (!hud.dash) return;
@@ -1468,6 +1474,7 @@ SA.BattleView.create = function createBattleView(api) {
       if (e.type === 'keydown' && /^(Space|Enter|NumpadEnter|Escape)$/.test(e.code)) { e.preventDefault(); api.skipSurrenderAnimation(); }
       return;
     }
+    if (e.code === 'KeyQ' && e.type === 'keydown' && !e.repeat) { if (hud.vent && !hud.vent.disabled && !B.p.dead) hud.vent.click(); return; }
     const k = KEYMAP[e.code];
     if (k) { B.keys[k] = e.type === 'keydown'; e.preventDefault(); }
     const m = /^(Digit|Numpad)([0-9])$/.exec(e.code);
@@ -1475,6 +1482,19 @@ SA.BattleView.create = function createBattleView(api) {
       const id = B.p.groups[m[2] === '0' ? 9 : +m[2] - 1];
       if (id) B.p.sel = id;
     }
+  }
+
+  // Esc 暂停：弹一块小铁牌（继续 / 撤退或返航 / 操作一览）。弹窗开着时战斗不推进（见 loop）。
+  // 挂在 window 的捕获阶段并截住事件：全局的「Esc 关弹窗」在 document 上，不截的话刚弹出就被它关掉
+  function onPauseKey(e) {
+    if (e.key !== 'Escape' || !B || B.done || SA.current !== 'battle' || B.intro || (B.surrender && B.surrender !== 'refused') || B.p.dead) return;
+    if (!document.querySelector('#modal').hidden) return;
+    e.preventDefault(); e.stopPropagation();
+    for (const key of Object.keys(B.keys)) B.keys[key] = false;
+    SA.UI.dialog(SA.Config.text('battle_view_paused'), [], [
+      { label: SA.Config.text(isRoute() ? 'route_recall' : 'battle_view_retreat'), onClick: () => { if (hud.leave) hud.leave(); } },
+      { label: SA.Config.text('controls_title'), onClick: () => SA.UI.controls() },
+    ], SA.Config.text('battle_view_continue'));
   }
 
   // 整场战斗共用正式模块配置中的速度；发行版不提供调速入口，也不读取旧浏览器偏好。
@@ -2175,6 +2195,7 @@ SA.BattleView.create = function createBattleView(api) {
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
+    window.addEventListener('keydown', onPauseKey, true);
     window.addEventListener('resize', fit);
     fit();
     camera(1);
@@ -2190,7 +2211,9 @@ SA.BattleView.create = function createBattleView(api) {
         if (B.intro) introStep(dt);
         else {
           api.advanceSurrender(dt);   // 升白旗按真实秒数推进（冻结时也推），不乘游戏倍速
-          if (!B.frozen && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
+          // 暂停牌、撤退 / 返航确认等弹窗开着时战斗不推进（画面照画）
+          const paused = !document.querySelector('#modal').hidden;
+          if (!B.frozen && !paused && !(RV && RV.hold(dt))) step(dt * B.speed);   // RV.hold：撞碎东西时顿一下帧（世界停住，画面照画）
         }   // frozen：调试 / 测试时暂停实时推进，只用 debug.step 手动推
         draw();
         introDraw();
@@ -2244,6 +2267,6 @@ SA.BattleView.create = function createBattleView(api) {
     // 出征结束由 route-end 事件接到清点黑板（js/expedition-ui.js）；这里留一个直接调用的口子
     presentRouteResult: (result) => { if (SA.ExpeditionUI) SA.ExpeditionUI.afterRoute(result); else SA.nav('home'); },
     skipIntro: () => { sync(); if (B && B.intro) endIntro(); },
-    teardown: () => { if (BA) BA.stop(); if (typeof window !== 'undefined') { window.removeEventListener('resize', fit); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); } },
+    teardown: () => { if (BA) BA.stop(); if (typeof window !== 'undefined') { window.removeEventListener('resize', fit); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); window.removeEventListener('keydown', onPauseKey, true); } },
   };
 };
