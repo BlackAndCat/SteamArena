@@ -8,8 +8,10 @@ window.SA = window.SA || {};
 SA.Audio = (() => {
   // 名字 → 变体数 n（文件 audio/<名字里的点换成横线>-<序号>.wav）、基础音量、音高随机幅度、同时最多几个
   const BANK = {
-    'crush.wood': { n: 4, vol: 0.8, pitch: 0.06, limit: 4 },     // 撞碎木箱
-    'crush.machine': { n: 4, vol: 0.75, pitch: 0.08, limit: 5 },  // 小机械散架
+    'crush.wood': { n: 4, vol: 0.8, pitch: 0.06, limit: 4 },     // 撞碎木箱（碎裂声）
+    'crush.splinter': { n: 1, vol: 0.5, pitch: 0.12, limit: 3 }, // 木箱碎时叠的劈木头脆响
+    'crush.machine': { n: 4, vol: 0.75, pitch: 0.08, limit: 5 },  // 小机械散架（碎裂声）
+    'crush.plate': { n: 4, vol: 0.45, pitch: 0.1, limit: 4 },    // 小机械散架时叠的薄铁皮哗啦
     'crush.rock': { n: 3, vol: 0.8, pitch: 0.05, limit: 3 },      // 砖石、煤渣、遗迹门
     'hit.plate': { n: 4, vol: 0.85, pitch: 0.05, limit: 4 },      // 铁皮、路障、装甲挨重击
     'hit.metal.light': { n: 4, vol: 0.55, pitch: 0.1, limit: 6 }, // 机枪打铁、小碎件
@@ -26,7 +28,9 @@ SA.Audio = (() => {
     'gun.heavy': { n: 3, vol: 0.6, pitch: 0.05, limit: 4 },       // 重机枪单发
     'engine.idle': { n: 1, vol: 0.2, pitch: 0, limit: 2 },        // 发动机怠速（循环）：退到背景里，压低、过低通
     'engine.run': { n: 1, vol: 0.3, pitch: 0, limit: 2 },         // 蒸汽机行驶喷吐（循环，速度跟车速）
-    'track.clank': { n: 3, vol: 0.3, pitch: 0.12, limit: 6 },    // 履带：每过一节履带板响一下
+    'track.clank': { n: 3, vol: 0.3, pitch: 0.12, limit: 6 },    // 履带：每过一节履带板响一下（金属边）
+    'track.thunk': { n: 4, vol: 0.6, pitch: 0.08, limit: 6 },    // 履带：低沉的「咚」（身子）
+    'track.roll': { n: 1, vol: 0.13, pitch: 0, limit: 2 },        // 履带滚动的低频循环（速度跟车速）
     'hit.thud': { n: 4, vol: 0.7, pitch: 0.08, limit: 5 },        // 中弹的闷响层
     'hit.ping': { n: 2, vol: 0.45, pitch: 0.15, limit: 4 },       // 中弹的金属「嘣」层（很短）
     'hit.shell': { n: 3, vol: 0.85, pitch: 0.06, limit: 3 },      // 炮弹打在车上

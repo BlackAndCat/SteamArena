@@ -14,8 +14,12 @@ SA.AudioPrep = (() => {
   const cut = (f, at, len) => ({ f, at, len });
   // 名字（和 js/audio.js 的 BANK 一一对应）→ 原始文件（按变体顺序）
   const MAP = {
-    'crush.wood': [...seq(KI + 'impactWood_heavy_', 0, 3), KI + 'impactPlank_medium_000.ogg'],
-    'crush.machine': seq(KI + 'impactTin_medium_', 0, 4),
+    // 撞碎（2026-10-09 改）：原来的敲木头 / 敲锡罐是单一音高、40 ms 就没了的「咚」，听着像敲门；
+    // 换成碎裂声——Kenney 爆炸碎裂声只取开头 0.35～0.4 s（宽频、一连串小瞬态），木箱再叠一下劈木头的脆响，小机械叠一层薄铁皮哗啦
+    'crush.wood': [cut(KS + 'explosionCrunch_002.ogg', 0.12, 0.35), cut(KS + 'explosionCrunch_001.ogg', 0, 0.35), cut(KS + 'explosionCrunch_003.ogg', 0, 0.35), cut(KS + 'explosionCrunch_004.ogg', 0.3, 0.35)],
+    'crush.splinter': [KR + 'chop.ogg'],
+    'crush.machine': [cut(KS + 'explosionCrunch_002.ogg', 0, 0.4), cut(KS + 'explosionCrunch_004.ogg', 0.02, 0.4), cut(KS + 'explosionCrunch_001.ogg', 0, 0.4), cut(KS + 'explosionCrunch_002.ogg', 0.3, 0.4)],
+    'crush.plate': seq(KI + 'impactPlate_light_', 1, 4),
     'crush.rock': seq(KI + 'impactMining_', 0, 3),
     'hit.plate': seq(KI + 'impactPlate_heavy_', 0, 4),
     'hit.metal.light': seq(KI + 'impactMetal_light_', 0, 4),
@@ -26,7 +30,7 @@ SA.AudioPrep = (() => {
     'hit.ping': [cut(MK(2765), 0.03, 0.16), cut(MK(2795), 0.06, 0.2)],
     'hit.shell': [cut(MK(1687), 0, 1.1), cut(MK(3046), 1.45, 1.0), cut(MK(2795), 0.06, 0.5)],
     'hit.ricochet': [cut(FS(30932), 0, 0.6), cut(FS(30932), 0.95, 0.6), cut(FS(30932), 1.58, 0.75)],
-    'ram.thud': seq(KI + 'impactPunch_heavy_', 0, 4),
+    'ram.thud': [cut(KS + 'explosionCrunch_000.ogg', 0, 0.35), cut(KS + 'explosionCrunch_003.ogg', 0, 0.35), cut(KS + 'explosionCrunch_001.ogg', 0.05, 0.35)],   // 车头撞上：低沉的碎裂闷响（原来的拳击声也像敲门）
     'scrap.pickup': [KR + 'handleCoins.ogg', KR + 'handleCoins2.ogg'],
     // 爆炸、炮声、枪声（第二批，游戏音效）
     'boom': [MK(2809), MK(2800), MK(1694), MK(1687)],
@@ -41,7 +45,10 @@ SA.AudioPrep = (() => {
     'engine.idle': [{ f: MK(2753), at: 0.6, len: 4, loop: true }],
     'engine.run': [{ f: MK(1628), at: 37.55, len: 1.9, loop: true }],
     // 履带：每过一节履带板响一下金属咔哒（齿轮锁、换挡的金属声切短）
-    'track.clank': [cut(MK(2858), 0.06, 0.13), cut(MK(2858), 0.2, 0.18), cut(MK(2857), 0.07, 0.18)],   // 播放时压低音高，听着是钝的「咚」
+    'track.clank': [cut(MK(2858), 0.06, 0.13), cut(MK(2858), 0.2, 0.18), cut(MK(2857), 0.07, 0.18)],   // 播放时压低音高，只留一点金属边
+    // 履带的「浑厚」：每节履带板一下低沉的「咚」（坦克换挡的低频身子、碎裂声里的低频哗啦）+ 一条随车速的低频滚动循环
+    'track.thunk': [cut(KS + 'explosionCrunch_004.ogg', 0.75, 0.2), cut(MK(2757), 0.17, 0.22), cut(KS + 'explosionCrunch_004.ogg', 0.05, 0.2), cut(KS + 'explosionCrunch_004.ogg', 0.4, 0.2)],
+    'track.roll': [{ f: KS + 'explosionCrunch_004.ogg', at: 0.1, len: 1.1, loop: true }],
     'steam.hiss': [1, 2, 3].map(i => `steam_hisses/steam hisses - Marker #${i}.wav`),
     'chain': [KR + 'metalLatch.ogg', KR + 'metalClick.ogg'],
     'ui.click': [1, 2, 3].map(i => `${KU}click${i}.ogg`),

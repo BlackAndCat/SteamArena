@@ -1,5 +1,5 @@
 // 战斗音效（所有战斗：竞技场、支线、出征；docs/feel-audio-plan.md §3）：开火按武器分声音、炮弹落地、爆炸、模块挨打、跳弹，
-// 发动机（怠速轰鸣 + 行驶时的蒸汽喷吐，喷吐的快慢和音高跟着车速走）、履带（每过一节履带板咔哒一下）、腿式底盘的脚步。
+// 发动机（怠速轰鸣 + 行驶时的蒸汽喷吐，喷吐的快慢和音高跟着车速走）、履带（每过一节履带板低沉地咚一下，底下垫一条滚动循环）、腿式底盘的脚步。
 // 声音素材和播放引擎在 js/audio.js（SA.Audio）；出征特有的声音（小机械、拾取、撞碎）在 js/route-view.js。
 // js/battle-view.js 每场 make() 一份，挂在视觉事件、tick 和 teardown 上；只读战斗状态，不改规则。
 window.SA = window.SA || {};
@@ -77,10 +77,14 @@ SA.BattleAudio = (() => {
         // 敌车的履带 / 脚步只在离你近时响
         const far = !mine && b.p && Math.abs((s.pivX || 0) - (b.p.pivX || 0)) > 650;
         if (s.chassisId === 'track') {
-          // 履带：低、钝的「咚」（压低音高），间隔放稀并随机漏掉三成，听着不机械；车越快越轻地融进去（音量封顶）
-          if (st.dist[key] >= TRACK_STEP) { st.dist[key] %= TRACK_STEP; if (!far && Math.random() > 0.3) snd('track.clank', x, (mine ? 0.34 : 0.16) * Math.min(1, 0.35 + v / 160), 0, 0.68 + Math.random() * 0.1, 650); }
+          // 履带：每节履带板一下低沉的「咚」（身子）+ 很轻的金属边，间隔放稀并随机漏掉三成，听着不机械；车越快越轻地融进去（音量封顶）。
+          // 底下还垫着一条低频滚动循环（见下面自己车的发动机那段）——只有金属咔哒过低通时只剩沙沙声，像风
+          if (st.dist[key] >= TRACK_STEP) {
+            st.dist[key] %= TRACK_STEP;
+            if (!far && Math.random() > 0.3) { const k = (mine ? 1 : 0.5) * Math.min(1, 0.35 + v / 160); snd('track.thunk', x, 0.4 * k, 0, 0.78 + Math.random() * 0.12, 900); snd('track.clank', x, 0.12 * k, 0, 0.7 + Math.random() * 0.1, 1100); }
+          }
         } else if (s.chassisId === 'quad' || s.chassisId === 'biped') {
-          if (st.dist[key] >= LEG_STEP) { st.dist[key] %= LEG_STEP; if (!far) snd('track.clank', x, mine ? 0.34 : 0.16, 0, 0.55, 550); }
+          if (st.dist[key] >= LEG_STEP) { st.dist[key] %= LEG_STEP; if (!far) { const k = mine ? 1 : 0.5; snd('track.thunk', x, 0.5 * k, 0, 0.68, 700); snd('track.clank', x, 0.1 * k, 0, 0.55, 900); } }
         }
       }
       const p = b.p;
@@ -90,6 +94,8 @@ SA.BattleAudio = (() => {
       // 音量随车速的平方上去、封顶 0.8，松油门减半——听得见车在使劲，但不盖过枪炮
       SA.Audio.loop('engine.idle', 'bt-eng-idle', { vol: 0.65 + 0.2 * k, rate: 0.85 + 0.2 * k, x, lp: 420 + 280 * k });
       SA.Audio.loop('engine.run', 'bt-eng-run', { vol: Math.min(0.75, 0.9 * k * k) * gas, rate: 0.6 + 0.65 * k, x, lp: 500 + 500 * k });
+      // 履带滚动：低频的哗啦隆隆声垫在底下，停车时没有，车越快越响、越密（过 300～550 Hz 低通，只留厚的部分）
+      if (p.chassisId === 'track') SA.Audio.loop('track.roll', 'bt-trk-roll', { vol: Math.min(0.8, 1.1 * k), rate: 0.75 + 0.35 * k, x, lp: 300 + 250 * k });
       st.on = true;
       // 看门狗：战斗画面突然不跑了（切走页面、跳出战斗），半秒内把发动机声收掉
       if (!st.dog) st.dog = setInterval(() => { if (performance.now() - st.last > 500) stop(); }, 250);
@@ -98,7 +104,7 @@ SA.BattleAudio = (() => {
       if (st.dog) { clearInterval(st.dog); st.dog = 0; }
       if (!st.on || !SA.Audio) return;
       st.on = false;
-      SA.Audio.stop('bt-eng-idle'); SA.Audio.stop('bt-eng-run');
+      SA.Audio.stop('bt-eng-idle'); SA.Audio.stop('bt-eng-run'); SA.Audio.stop('bt-trk-roll');
     }
     // 泄压按钮：一大股蒸汽
     const vent = () => snd('steam.hiss', B() && B().p ? B().p.pivX : null, 1, 0, 0.85);

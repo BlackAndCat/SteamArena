@@ -6,9 +6,9 @@
 
 | 来源 | 作者 | 下载 | 用到的文件 → 本目录 |
 |---|---|---|---|
-| Impact Sounds 1.0 | Kenney（kenney.nl） | https://kenney.nl/assets/impact-sounds | `impactWood_heavy`、`impactPlank_medium`、`impactTin_medium`、`impactMining`、`impactPlate_heavy`、`impactMetal_light / medium / heavy`、`impactPunch_heavy` → `crush-*`、`hit-*`、`ram-thud-*` |
-| Sci-fi Sounds | Kenney | https://kenney.nl/assets/sci-fi-sounds | `explosionCrunch`、`lowFrequency_explosion` → `boom-*`、`boom-big-*` |
-| RPG Audio | Kenney | https://kenney.nl/assets/rpg-audio | `handleCoins`、`handleCoins2`、`metalLatch`、`metalClick` → `scrap-pickup-*`、`chain-*` |
+| Impact Sounds 1.0 | Kenney（kenney.nl） | https://kenney.nl/assets/impact-sounds | `impactMining`、`impactPlate_heavy`、`impactPlate_light_001～004`、`impactMetal_light / medium / heavy` → `crush-rock-*`、`crush-plate-*`、`hit-*`（以前的 `impactWood_heavy`、`impactPlank_medium`、`impactTin_medium`、`impactPunch_heavy` 已不用） |
+| Sci-fi Sounds | Kenney | https://kenney.nl/assets/sci-fi-sounds | `explosionCrunch_000～004`（只取开头一小段）→ `crush-wood-*`、`crush-machine-*`、`ram-thud-*`、`track-thunk-0 / 2 / 3`、`track-roll-0`；`lowFrequency_explosion` 已不用 |
+| RPG Audio | Kenney | https://kenney.nl/assets/rpg-audio | `handleCoins`、`handleCoins2`、`metalLatch`、`metalClick`、`chop` → `scrap-pickup-*`、`chain-*`、`crush-splinter-0` |
 | UI Audio | Kenney | https://kenney.nl/assets/ui-audio | `click1～3`、`switch2 / 3 / 7` → `ui-click-*`、`ui-switch-*` |
 | Interface Sounds | Kenney | https://kenney.nl/assets/interface-sounds | `confirmation_001`、`error_001` → `ui-confirm-0`、`ui-error-0` |
 | Cannon fire | Thimras（OpenGameArt） | https://opengameart.org/content/cannon-fire | `cannon_fire_0.ogg` → `cannon-fire-0` |
@@ -35,7 +35,7 @@
 | Freesound（CC0） | 396324 HeavyMachineGun（SuperPhat），切三发单发 | https://freesound.org/s/396324/ | `gun-heavy-0～2` |
 | Mixkit | 2753 Tank engine working（0.6 s 起 4 s 做成循环） | https://mixkit.co/free-sound-effects/engine/ | `engine-idle-0` |
 | Mixkit | 1628 Old train departure（37.55 s 起 1.9 s，10 下蒸汽喷吐做成循环） | https://mixkit.co/free-sound-effects/train/ | `engine-run-0` |
-| Mixkit | 2858 Gear metallic lock sound、2857 Gear fast lock tap、2757 Metal tank gear shift（切短） | https://mixkit.co/free-sound-effects/metal/、/engine/ | `track-clank-0～3` |
+| Mixkit | 2858 Gear metallic lock sound、2857 Gear fast lock tap、2757 Metal tank gear shift（切短） | https://mixkit.co/free-sound-effects/metal/、/engine/ | `track-clank-0～2`、`track-thunk-1` |
 | Mixkit + Kenney | Mixkit 2980 Factory metal hard hit、833 Metal hammer hit、783 Submarine metal impact；Kenney impactMetal_heavy_000 | https://mixkit.co/free-sound-effects/metal/ | `hit-metal-heavy-0～3` |
 
 ### 第三批：中弹声（2026-10-09 经用户同意下载）
@@ -52,3 +52,5 @@
 第一批里被第二批替换掉的（`boom`、`cannon-fire`、`cannon-hit`、`gun-shot`、`hit-metal-heavy` 的旧素材）不再使用，上表第一批对应的行只作历史记录。
 
 名字和文件的对应以 `tools/audio-prep.js` 的 `MAP` 为准；游戏里按名字播放（`js/audio.js` 的 `BANK`）。
+
+2026-10-09 改：撞碎小东西原来用敲木头 / 敲锡罐 / 拳击声，听着像敲门；换成 Kenney 爆炸碎裂声的开头（上表 Sci-fi Sounds 那行），履带加了低沉的「咚」和滚动循环。没有新下载。

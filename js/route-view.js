@@ -154,7 +154,10 @@ SA.RouteView = (() => {
       const n = feel ? d.metal || 0 : 0;
       for (let i = 0; i < n; i++) st.bits.push({ x: d.x, y: d.y - 6, t: 0, dur: 0.5 + i * 0.07 + vr(0, 0.08), h: vr(50, 110), delay: 0.06 * i, last: i === n - 1 ? n : 0 });
       if (d.kind === 'barrel') return;   // 炸药桶的声音在爆炸里
-      snd('crush.machine', d.x, d.kind === 'soldier' ? 0.6 : 0.9);
+      // 散架 = 碎裂声 + 一层薄铁皮哗啦（小兵更轻更脆）
+      const small = d.kind === 'soldier';
+      snd('crush.machine', d.x, small ? 0.6 : 0.9, 0, small ? 1.2 : 1);
+      snd('crush.plate', d.x, small ? 0.3 : 0.45, 0, small ? 1.15 : 0.95);
       if (ram) snd('ram.thud', d.x, 0.35 + 0.5 * w);
       if (d.kind === 'sentry') snd('hit.metal.heavy', d.x, 0.8);
     }
@@ -178,7 +181,7 @@ SA.RouteView = (() => {
         snd('ui.confirm', d.x, 0.55); snd('chain', d.x, 0.35);
       } else if (d.kind === 'supply' || d.kind === 'spoils') {
         for (let i = 0; i < (d.encounter != null ? 3 : 2); i++) st.flyers.push({ img: crate(), x: d.x + vr(-10, 10), y: y - 8, t: 0, dur: 0.45 + i * 0.07, h: vr(50, 80), delay: 0.06 * i, w: 12 });
-        snd('crush.wood', d.x, 0.45); snd('scrap.pickup', d.x, 0.5);
+        snd('crush.wood', d.x, 0.3, 0, 1.25); snd('scrap.pickup', d.x, 0.5);
       } else if (d.kind === 'relic') {
         st.flyers.push({ img: relic(), x: d.x, y: y - 10, t: 0, dur: 0.7, h: 110, delay: 0, w: 14, glow: true });
         snd('ui.confirm', d.x, 0.7); stop(0.05);
@@ -202,8 +205,8 @@ SA.RouteView = (() => {
         case 'mob-shot-ground': for (let i = 0; i < (d.kind === 'sentry' ? 8 : 2); i++) part('dust', d.x, d.y - 2, vr(-60, 60), vr(-90, -20), vr(0.3, 0.6)); if (d.kind === 'sentry') snd('cannon.hit', d.x, 0.35); return true;
         case 'fire': case 'impact': return true;   // 开火、落地的声音在 js/battle-audio.js（所有战斗共用）
         case 'prop':
-          if (d.state === 'break') { if (d.kind === 'crate') { snd('crush.wood', d.x, 1); stop(0.03); kick(4); } else if (d.kind === 'barricade') { snd('hit.plate', d.x); snd('crush.wood', d.x, 0.8); stop(0.05); kick(7); } else snd('crush.rock', d.x); }
-          else snd(d.kind === 'crate' ? 'crush.wood' : 'hit.plate', d.x, 0.35, 0.14);
+          if (d.state === 'break') { if (d.kind === 'crate') { snd('crush.wood', d.x, 1); snd('crush.splinter', d.x, 0.6); stop(0.03); kick(4); } else if (d.kind === 'barricade') { snd('hit.plate', d.x); snd('crush.wood', d.x, 0.8); stop(0.05); kick(7); } else snd('crush.rock', d.x); }
+          else snd(d.kind === 'crate' ? 'crush.wood' : 'hit.plate', d.x, 0.35, 0.14, d.kind === 'crate' ? 1.2 : undefined);
           return false;
         case 'pickup': if (d.kind === 'coal' || d.kind === 'water') snd(d.kind === 'water' ? 'steam.hiss' : 'crush.rock', d.x, 0.6); else pickupFx(d); return false;
         case 'encounter': snd('chain', null, 0.6); return false;
