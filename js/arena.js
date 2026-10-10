@@ -1,6 +1,6 @@
 // 出战（界面重建 v3）：不单独跳页——院子暗下来，拉下一块黑板（js/home.js 的 board()），内容画在黑板上：
-// 左边粉笔写赛程（战役 / 街头赛 / 终局锦标赛，后两项随战役解锁），中间钉一张对决海报、下面贴便签（场地、情报、缴获），
-// 右边号外、对手档案、下注凭单、出战前要处理的事和调速杆。所有「要打的比赛」和「能赚钱的事」都在这块黑板上，选好就走。
+// 左边粉笔写赛程（战役 / 街头赛 / 终局锦标赛，后两项随战役解锁），中间钉一张对决海报、下面贴缴获便签，
+// 右边下注凭单、出战前要处理的事和调速杆。所有「要打的比赛」和「能赚钱的事」都在这块黑板上，选好就走。
 window.SA = window.SA || {};
 
 SA.Arena = (() => {
@@ -252,31 +252,17 @@ SA.Arena = (() => {
         why ? h('div', { class: 'px-cap' }, why) : null),
     ];
   }
-  // 便签（贴在海报下面）：场地剖面、线人情报、能缴获的唯一件
+  // 便签（贴在海报下面）：能缴获的唯一件
   function notes(e) {
     if (!e) return [];
-    const UI = SA.PX.ui, X = SA.PX, t = e.terrain && SA.TERRAINS[e.terrain], rs = rewardsOf(e);
+    const UI = SA.PX.ui, X = SA.PX, rs = rewardsOf(e);
     const note = (title, ...body) => h('div', { class: 'ar-stick px-sk px-sk-note px-drop' }, UI.img(X.tape(24), 2, 'position:absolute;left:50%;top:-14px;margin-left:-24px'), h('div', { class: 'nt' }, title), ...body);
     return [
-      t ? note(SA.Config.text("arena_ef520ff326a4", `${t.name}`), UI.img(sketch(t, '#4a3a18', 76), 2), h('div', { class: 'nb', title: t.desc }, t.desc.split(/[。；]/)[0])) : null,
-      e.blurb ? note(SA.Config.text("arena_0499bfda46ca"), h('div', { class: 'nb', title: e.blurb }, UI.hand(SA.Config.text("arena_741522735269", `${e.blurb}`), 14, 'white-space:normal'))) : null,
+      // 场地、情报便签去掉（2026-10-10 用户），只留能缴获的唯一件
       rs.length ? note(SA.Config.text("arena_c51834a41645"), ...rs.map(r => h('div', { class: 'nu' }, SA.SPR.moduleCanvas(r.id, 0.5, r.mt),
         h('div', {}, h('b', {}, r.name || `${r.mt > 1 ? SA.MATS[r.mt].name : ''}${M[r.id].name}`), h('div', { class: 'px-small' }, r.claimed ? SA.Config.text("arena_260e1d99c461") : e.replay ? SA.Config.text("arena_8c9eaa468201") : SA.Config.text("arena_1c589341288b")))))) : null,
     ];
   }
-  // 场地剖面（便签上用墨线画）：地面一条线，土坡是鼓包，货箱是方块（带一道斜撑），泥地是点点
-  function sketch(t, c = SA.PX.CHALK, W = 130) {
-    const f = W / 130, X = SA.PX, k = X.C(W, Math.round(36 * f)), sx = (x) => Math.round(x / 1280 * (W - 2)) + 1, G = Math.round(32 * f);
-    const hills = t.hills || [];
-    const yAt = (x) => { let y = G; for (const hl of hills) { const d0 = Math.abs(x - sx(hl.x)), hw = hl.w / 1280 * 64 * f; if (d0 < hw) y = Math.min(y, G - Math.round(Math.cos(d0 / hw * Math.PI / 2) * hl.h / 4 * f)); } return y; };
-    for (let x = 0; x < W; x++) if (X.hash(x, 1, 41) > 0.1) k.p(x, yAt(x), c);
-    for (const [a, b] of t.mud || []) for (let x = sx(a); x < sx(b); x += 3) k.p(x, G + 2, c === X.CHALK ? '#9fb7a2' : '#7a6a3a');
-    for (const cr of t.crates || []) { const w = Math.max(3, Math.round(cr.w / 10 * f)), hh = Math.max(3, Math.round(cr.h / 10 * f)), x0 = sx(cr.x) - (w >> 1), y1 = yAt(sx(cr.x));
-      X.line(k, x0, y1 - hh, x0 + w, y1 - hh, c, 0.1); X.line(k, x0, y1 - hh, x0, y1, c, 0.1); X.line(k, x0 + w, y1 - hh, x0 + w, y1, c, 0.1); X.line(k, x0, y1 - hh, x0 + w, y1, c, 0.3); }
-    for (const x of [Math.round(8 * f), W - Math.round(10 * f)]) { const y = yAt(x), r = Math.max(3, Math.round(5 * f)); X.line(k, x - r, y - r + 1, x + r, y - r + 1, c); X.line(k, x - r, y - r + 1, x - r, y, c); X.line(k, x + r, y - r + 1, x + r, y, c); }
-    return k.c;
-  }
-
   // ---------- 中：对决海报 ----------
   const oval = (name) => {
     const X = SA.PX, UI = X.ui, k = X.C(52, 62), INK = X.INK;
@@ -336,15 +322,7 @@ SA.Arena = (() => {
   function side(e, s) {
     const D = d(), UI = SA.PX.ui, X = SA.PX;
     if (!e) return [];
-    const fs = SA.V.stats(e.v);
-    let chassis = '';
-    SA.V.each(e.v, (cell) => { if (!chassis && M[cell.id] && M[cell.id].layer === 'chassis') chassis = M[cell.id].name; });
-    const field = (k, ...v) => h('div', { class: 'f' }, h('span', { class: 'k' }, k), h('span', {}, ...v));
-    const dossier = h('div', { class: 'ar-dossier px-sk px-sk-kraft px-drop' }, UI.sk('paper', [
-      h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, SA.Config.text("arena_9ceddf319a3e")), e.boss ? UI.underline(UI.hand('Boss！', 20), 26, 6) : null),
-      // 车名、车手、评分都在海报上；档案只写海报上没有的：底盘、速度对比
-      chassis ? field(SA.Config.text("arena_d55ac43b9ae9"), chassis) : null,
-      field(SA.Config.text("arena_0e14d148b46b"), SA.kmh(fs.topSpeed), h('span', { class: 'px-small' }, fs.topSpeed > s.topSpeed * 1.2 ? SA.Config.text("arena_96be43b63aef") : fs.topSpeed < s.topSpeed * 0.8 ? SA.Config.text("arena_94d82552037a") : SA.Config.text("arena_2a57cb0e602a")))]));
+    // 对手档案整张去掉（2026-10-10 用户：评分、底盘、速度都删；Boss 海报上有印章）
     const why = e.lock || (!s.canDeploy ? SA.Config.text("arena_ea58e9813630") : null);
     const label = st.mode === 'camp' || st.mode === 'side' ? (e.replay ? SA.Config.text("arena_c0db7b4d07f1") : SA.Config.text("arena_a7caf88fcaa9")) : st.mode === 'tour' ? SA.Config.text("arena_a7caf88fcaa9") : SA.Config.text("arena_38c6f68eba39");
     const go = () => {
@@ -356,7 +334,6 @@ SA.Arena = (() => {
       SA.StoryDev.before({ key: st.mode === 'camp' ? e.key : 'current', replay: e.replay }, () => e.start());
     };
     return [
-      dossier,
       betSlip(e),
       ...readiness(s),
       // 拉杆在正中：往左扳到底回院子（车间解锁后才有院子可回），往右推到底出战
