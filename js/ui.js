@@ -346,7 +346,6 @@ SA.UI = (() => {
       dialog(res.draw ? SA.Config.text("ui_ca6350e432ac") : res.win ? SA.Config.text("ui_8c5653c2e9ca") : SA.Config.text("ui_7841c5ca8f04"), [
         h('p', { style: 'font-size:16px;margin-top:0' }, h('b', {}, res.reason)),
         h('p', { class: 'muted' }, SA.Config.text("ui_0cf010dd881d", `${Math.round(res.dealt)}`, `${Math.round(res.taken)}`, `${Math.round(res.time)}`)),
-        h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, SA.Config.text("ui_5d0f059166f2")),
         repairFree ? h('div', { class: 'warn repair-free-note', style: 'border-left-color:var(--brass2)' }, SA.Config.text('ui_repair_free_done')) : null,
         feedbackRow(res.humanId),
       ], [], SA.Config.text("ui_7c9691192f1b"), () => { refresh(); inserted(() => SA.Camp.introIfNew()); });

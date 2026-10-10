@@ -13,7 +13,11 @@ SA.Arena = (() => {
   const MODES = [['camp', SA.Config.text("arena_7ae0219da3ae"), null], ['side', SA.Config.text('arena_side_tab'), 'sideLine'], ['street', SA.Config.text("arena_dc638f0b9759"), 'street'], ['tour', SA.Config.text("arena_d152ba4020fe"), 'season'], ['route', SA.Config.text('route_tab'), 'route']];
   const modes = () => MODES.filter(([, , f]) => !f || (f === 'sideLine' ? !!SA.Side?.anyOpen() : f === 'route' ? !!(!SA.RELEASE && SA.Route && SA.Route.start) : SA.Camp.has(f)));
   // openCh：战役列表展开了哪几章（默认只展开当前这一章和选中的那一场所在的章）
-  const st = { mode: 'camp', pick: { camp: null, side: null, tour: null, street: null, friendly: null, route: null }, bet: null, openCh: null };
+  // 上次看的页签记在本机（界面偏好，不进存档）：街头赛 / 锦标赛 / 支线回来不用再点一次
+  // 出征不记在这里：它跟着存档里的玩法（SA.S.isRouteMode）恢复，免得一刷新就把钱包切到出征
+  const loadMode = () => { try { const m = localStorage.getItem('steam_arena_board_mode_v1'); return m && m !== 'route' ? m : 'camp'; } catch (e) { return 'camp'; } };
+  const saveMode = () => { try { localStorage.setItem('steam_arena_board_mode_v1', st.mode); } catch (e) { /* ignore */ } };
+  const st = { mode: loadMode(), pick: { camp: null, side: null, tour: null, street: null, friendly: null, route: null }, bet: null, openCh: null };
   let root = null;
 
   // 用户选择的玩法影响车间钱包，只有切换时落盘，重绘和再次打开不重复保存。
@@ -38,6 +42,13 @@ SA.Arena = (() => {
     if (!quiet && SA.Guide) SA.Guide.arena();   // 第一次正式进出战黑板（第二关）：讲黑板和拉杆
   }
   function unmount() { root = null; }
+  // 回车 = 推杆出战（和点「出战 →」一样，杆自己推到底）
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.repeat || SA.current !== 'arena' || !root || !root.isConnected || !document.querySelector('#modal').hidden) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, button, .vn, #sa-text-manager')) return;
+    const thr = root.querySelector('.ar-go .px-thr');
+    if (thr && thr.pull) { e.preventDefault(); thr.pull('r'); }
+  });
 
   // 这一场赢了能拿到的唯一件；claimed = 这个存档已经拿过。
   function rewardsOf(e) {
@@ -80,7 +91,7 @@ SA.Arena = (() => {
   // ---------- 左：黑板（打过的划掉，要打的圈起来，选中的框起来；底下粉笔画场地）----------
   function tabsEl() {
     const D = d(), ms = modes();
-    return ms.length > 1 ? h('div', { class: 'ch-tabs' }, ms.map(([k, n]) => h('button', { class: `ch-tab ${st.mode === k ? 'on' : ''}`, onclick: () => { st.mode = k; selectPlayMode(k); render(); } }, n, k === 'tour' ? ` · ${D.round + 1}` : ''))) : null;
+    return ms.length > 1 ? h('div', { class: 'ch-tabs' }, ms.map(([k, n]) => h('button', { class: `ch-tab ${st.mode === k ? 'on' : ''}`, onclick: () => { st.mode = k; saveMode(); selectPlayMode(k); render(); } }, n, k === 'tour' ? ` · ${D.round + 1}` : ''))) : null;
   }
   function board(list, cur) {
     const D = d(), UI = SA.PX.ui, X = SA.PX;
@@ -107,9 +118,6 @@ SA.Arena = (() => {
         const open = st.openCh.has(ci);
         rows.push(h('button', { class: `ch-head ${open ? 'open' : ''}`, 'data-page-key': `chapter:${ci}`, onclick: () => { if (open) st.openCh.delete(ci); else st.openCh.add(ci); render(); } }, open ? '▾ ' : '▸ ', SA.CAMPAIGN[ci].name));
         if (open) rows.push(...rs.map(line));
-        // 这一章还没做完：已有的关下面写一行「还有几关 · 制作中」
-        const chapter = SA.CAMPAIGN[ci], left = SA.Camp.plannedStages(chapter) - chapter.stages.filter(x => !x.unfinished).length;
-        if (open && left > 0) rows.push(h('div', { class: 'ch-row lock' }, h('span', { class: 'ck' }, '…'), h('span', { class: 'nm' }, SA.Config.text('arena_stages_wip', left))));
       }
       const nextCh = SA.CAMPAIGN[SA.Camp.chIndex() + 1];
       if (nextCh && !SA.Camp.done()) rows.push(h('div', { class: 'ch-row lock' }, h('span', { class: 'ck' }, '?'), h('span', { class: 'nm' }, SA.Config.text("arena_b3dca196e267", `${nextCh.name.split(' · ').pop()}`))));
@@ -127,9 +135,8 @@ SA.Arena = (() => {
         }
       }
     } else rows = list.map(line);
-    const foot = st.mode === 'side' ? h('div', { class: 'ch-foot' }, SA.Config.text('arena_side_foot'))
-      : st.mode === 'street' ? h('button', { class: 'ch-tab', onclick: () => { SA.Street.offers(true); render(); } }, SA.Config.text("arena_b111553da074"))
-      : st.mode === 'camp' ? h('div', { class: 'ch-foot' }, SA.Config.text("arena_76babf5f99db")) : null;
+    // 列表底下不再写规则说明（重打不奖不罚写在海报上）；街头赛留「换一批对手」
+    const foot = st.mode === 'street' ? h('button', { class: 'ch-tab', onclick: () => { SA.Street.offers(true); render(); } }, SA.Config.text("arena_b111553da074")) : null;
     // 黑板左下角钉一块朝左的木路牌：直接回车间改车（和右下角的出战拉杆左右对着）
     return [tabs, h('div', { class: 'ch-list' }, rows), foot, garageSign()];
   }
@@ -161,7 +168,7 @@ SA.Arena = (() => {
         h('span', { class: 'nm' }, name, !done ? UI.img(X.ellipse(w + 10, 17, SA.PAL.fire[3], 0.06), 2, 'position:absolute;left:-14px;top:-4px') : null),
         h('span', { class: 'who' }, SA.Route.best && SA.Route.best(r.id) ? `${meters(SA.Route.best(r.id))} m` : ''));   // 这条路线走到过的最远处
     });
-    return [tabsEl(), h('div', { class: 'ch-list' }, rows), h('div', { class: 'ch-foot' }, SA.Config.text('route_list_foot')), garageSign()];
+    return [tabsEl(), h('div', { class: 'ch-list' }, rows), garageSign()];
   }
   // 路线剖面（海报上用墨线画，原生像素、放大 2 倍）：地面线、土坡鼓包、泥地点点、木箱方块、路障叉、遭遇红圈、难民小人、遗迹齿轮、终点小旗
   function routeSketch(r, W = 236) {
@@ -211,7 +218,7 @@ SA.Arena = (() => {
     return [
       terr.length ? note(SA.Config.text('route_note_terrain'), ...terr.map(line)) : null,
       note(SA.Config.text('route_note_find'), h('div', { class: 'nb' }, SA.Config.text('route_find', (r.encounters || []).length, count('refugee'), count('relic')))),
-      note(SA.Config.text('route_note_home'), ...['route_home_depot', 'route_home_recall', 'route_home_stranded', 'route_home_wrecked'].map(line)),
+      note(SA.Config.text('route_note_home'), line('route_home_short')),
     ];
   }
   function routeSide(r, s) {
@@ -225,9 +232,7 @@ SA.Arena = (() => {
       h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, SA.Config.text('route_load_title'))),
       field(SA.Config.text('arena_58045ad11948'), D.vehicle.name), chassis ? field(SA.Config.text('arena_d55ac43b9ae9'), chassis) : null,
       field(SA.Config.text('arena_0e14d148b46b'), SA.kmh(s.topSpeed)),
-      h('div', { class: 'px-small' }, SA.Config.text('route_load_coal')),
-      cap && cap.cargo != null ? h('div', { class: 'px-small' }, SA.Config.text('route_load_cargo', cap.cargo)) : null,
-      h('div', { class: 'px-small' }, SA.Config.text('route_load_slow'))]));
+      cap && cap.cargo != null ? h('div', { class: 'px-small' }, SA.Config.text('route_load_cargo', cap.cargo)) : null]));
     // 按当前实际选中的路线预热；同输入复用已有任务，不改变黑板或拉杆的画面。
     SA.Route.preload(r.id);
     const why = !s.canDeploy ? SA.Config.text('arena_ea58e9813630') : null;
@@ -301,11 +306,11 @@ SA.Arena = (() => {
         ? h('div', { class: 'ar-title boss' }, UI.img(X.brush(SA.Config.text("arena_c56a1dfb49ec"), 34, X.RED, X.INK, 5), 2), UI.stamp('Boss', 'position:absolute;right:6px;top:10px'))
         : h('div', { class: 'ar-title' }, UI.img(X.brush(e.v?.name || e.name, 22, X.INK, '#b59c6c', 3), 2)),
       h('div', { class: 'ar-vs' },
-        h('div', { class: 'who' }, oval(SA.Config.text("arena_a0c7716669b5")), h('div', { class: 'nm' }, h('b', {}, D.vehicle.name), h('span', { class: 'px-small' }, SA.Config.text("arena_b9905636ed01")), UI.num(s.rating))),
+        h('div', { class: 'who' }, oval(SA.Config.text("arena_a0c7716669b5")), h('div', { class: 'nm' }, h('span', { class: 'px-small' }, SA.Config.text("arena_b9905636ed01")), UI.num(s.rating))),
         h('div', { class: 'mid' }, UI.loop(h('span', { class: 'dui' }, SA.Config.text("arena_74570c72706a")), 42, 38, 7)),
-        h('div', { class: 'who' }, oval(e.pilot), h('div', { class: 'nm' }, h('b', {}, e.v?.name || e.name), h('span', { class: 'px-small' }, SA.Config.text("arena_b9905636ed01")), UI.num(e.rating)))),
+        h('div', { class: 'who' }, oval(e.pilot), h('div', { class: 'nm' }, h('span', { class: 'px-small' }, SA.Config.text("arena_b9905636ed01")), UI.num(e.rating)))),
       h('div', { class: 'ar-cars' }, engraved(D.vehicle, false), engraved(e.v, true)),
-      h('div', { class: 'ar-prize' }, e.replay ? UI.hand(SA.Config.text("arena_fc63d3ddb80e"), 14, 'white-space:normal')
+      h('div', { class: 'ar-prize' }, e.replay ? UI.hand(SA.Config.text('arena_replay_short'), 14, 'white-space:normal')
         : e.prize ? [SA.Config.text("arena_f7bb3f29fe85"), UI.underline(UI.num(money(e.prize)), 30, 4), SA.Config.text("arena_dc4c740e190f")] : SA.Config.text("arena_aa2838275625")),
     ];
     return out;
@@ -337,9 +342,8 @@ SA.Arena = (() => {
     const field = (k, ...v) => h('div', { class: 'f' }, h('span', { class: 'k' }, k), h('span', {}, ...v));
     const dossier = h('div', { class: 'ar-dossier px-sk px-sk-kraft px-drop' }, UI.sk('paper', [
       h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, SA.Config.text("arena_9ceddf319a3e")), e.boss ? UI.underline(UI.hand('Boss！', 20), 26, 6) : null),
-      // 对手档案展示车辆铭牌；关卡标题仍由赛程和海报单独使用。
-      field(SA.Config.text("arena_0d0dc4e4231d"), e.pilot || '—'), field(SA.Config.text("arena_58045ad11948"), e.v?.name || e.name), chassis ? field(SA.Config.text("arena_d55ac43b9ae9"), chassis) : null,
-      field(SA.Config.text("arena_96fff2e26c8d"), UI.num(e.rating), h('span', { class: 'px-small' }, SA.Config.text("arena_9418357cc52f")), UI.num(s.rating)),
+      // 车名、车手、评分都在海报上；档案只写海报上没有的：底盘、速度对比
+      chassis ? field(SA.Config.text("arena_d55ac43b9ae9"), chassis) : null,
       field(SA.Config.text("arena_0e14d148b46b"), SA.kmh(fs.topSpeed), h('span', { class: 'px-small' }, fs.topSpeed > s.topSpeed * 1.2 ? SA.Config.text("arena_96be43b63aef") : fs.topSpeed < s.topSpeed * 0.8 ? SA.Config.text("arena_94d82552037a") : SA.Config.text("arena_2a57cb0e602a")))]));
     const why = e.lock || (!s.canDeploy ? SA.Config.text("arena_ea58e9813630") : null);
     const label = st.mode === 'camp' || st.mode === 'side' ? (e.replay ? SA.Config.text("arena_c0db7b4d07f1") : SA.Config.text("arena_a7caf88fcaa9")) : st.mode === 'tour' ? SA.Config.text("arena_a7caf88fcaa9") : SA.Config.text("arena_38c6f68eba39");
@@ -352,7 +356,6 @@ SA.Arena = (() => {
       SA.StoryDev.before({ key: st.mode === 'camp' ? e.key : 'current', replay: e.replay }, () => e.start());
     };
     return [
-      D.news ? UI.sk('paper', [UI.stamp(SA.Config.text("arena_01b255a26588")), ' ', D.news], 'padding:0 6px;font-size:13px', 'px-drop') : null,
       dossier,
       betSlip(e),
       ...readiness(s),
@@ -360,8 +363,7 @@ SA.Arena = (() => {
       h('div', { class: 'ar-go' }, UI.throttle({ title: why || `${label} · ${e.name}`,
         left: SA.Camp.has('garage') ? { label: SA.Config.text("arena_702c1bd28416"), go: () => SA.Home.closeBoard() } : null,
         right: { label: `${label} →`, go, disabled: why } }),
-        why ? h('div', { class: 'px-cap' }, why) : null,
-        h('div', { class: 'px-cap' }, SA.Config.text("arena_e807569d1ac3"))),
+        why ? h('div', { class: 'px-cap' }, why) : null),
     ];
   }
   // 下注凭单：印好的金额，押哪个就用红笔圈哪个；已押的圈着、可以撤回

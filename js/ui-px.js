@@ -559,7 +559,8 @@ SA.PX.ui = (() => {
     return el;
   }
   // 双向拉杆（出战黑板右下）：杆起始立在正中。按住往左扳到底 = left.go（回院子），往右推到底 = right.go（出战）；
-  // 没扳到底就松手，杆弹回中间。两端各一行小字说明，杆快到哪头，哪头的字就亮起来。没有按钮。
+  // 没扳到底就松手，杆弹回中间。两端各一行小字说明，杆快到哪头，哪头的字就亮起来。
+  // 点两端的字（或 box.pull('r' / 'l')，出战黑板的回车键用它）= 杆自己扳到底再执行，不用拖。
   // o.left / o.right = { label, go, disabled（不能走时的原因，推到底只提示不执行）}；没有 left 时杆只能往右推
   function throttle(o = {}) {
     const N = 40, cache = new Map();
@@ -588,6 +589,26 @@ SA.PX.ui = (() => {
     };
     // 只点了一下没拖：杆往右轻轻晃一下再回来，提示它是拖的
     const nudge = () => { pos = 0.62; draw(); settle(0.62); };
+    // 自动扳到底：约 0.18 秒走完，到头再执行（不能走时只提示原因）
+    let pulling = false;
+    const pull = (dir) => {
+      const act = dir === 'l' ? o.left : o.right;
+      if (!act || pulling || drag) return;
+      if (act.disabled) { if (SA.UI && SA.UI.toast) SA.UI.toast(act.disabled); nudge(); return; }
+      cancelAnimationFrame(raf); pulling = true;
+      const from = pos, to = dir === 'l' ? 0 : 1, t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / 180);
+        pos = from + (to - from) * k * k; draw();
+        if (k < 1 && lv.isConnected) { raf = requestAnimationFrame(step); return; }
+        pulling = false;
+        if (!lv.isConnected) return;
+        act.go(); setTimeout(() => { if (lv.isConnected) settle(); }, 700);
+      };
+      raf = requestAnimationFrame(step);
+    };
+    for (const [el, dir] of [[L, 'l'], [R, 'r']]) if (dir === 'l' ? o.left : o.right) { el.style.cursor = 'pointer'; el.addEventListener('click', () => pull(dir)); }
+    box.pull = pull;
     lv.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       e.preventDefault(); cancelAnimationFrame(raf);

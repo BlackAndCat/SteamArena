@@ -841,6 +841,8 @@ textarea.code-out { font-family: Consolas, "Courier New", monospace; font-size: 
 .px-thr { display: flex; align-items: flex-end; gap: 6px; user-select: none; }
 .px-thr-t { min-width: 64px; padding-bottom: 14px; font: bold 13px SimSun, serif; color: #b9b4a6; text-shadow: 2px 2px 0 #0b0e15; white-space: nowrap; transition: color .12s; }
 .px-thr-t.l { text-align: right; }
+.px-thr-t[style*=pointer]:hover { color: #ffd36b; }
+.px-thr-t.r[style*=pointer]:hover { color: #ff8a5c; }
 .px-thr-t.hot { color: #ffd36b; }
 .px-thr-t.r.hot { color: #ff8a5c; }
 .px-thr-t.off { color: #6f6a60; text-decoration: line-through; }

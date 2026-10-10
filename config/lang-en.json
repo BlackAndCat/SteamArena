@@ -561,6 +561,8 @@
     "editor_876d3fddff3c": "Slow braking",
     "editor_8c84a6bd7f9e": "Purchased {{0}}; inventory: {{1}}",
     "editor_8cf2d1e66c01": "All Modules",
+    "arena_replay_short": "↺ Rematch · no rewards, no losses",
+    "route_home_short": "Depot or whistle: keep all cargo; wrecked: lose half",
     "editor_cat_other": "Other",
     "controls_title": "Controls",
     "controls_garage": "Workshop",
