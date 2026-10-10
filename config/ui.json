@@ -782,6 +782,7 @@
     "battle_view_paused": "暂停",
     "battle_view_crate_short": "弹道被货箱挡住",
     "battle_view_hit_other_short": "会先打到「{{0}}」",
+    "route_tally_car": "车况",
     "editor_cat_other": "其他",
     "controls_title": "操作一览",
     "controls_garage": "车间",

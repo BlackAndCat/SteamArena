@@ -118,15 +118,13 @@ SA.RouteView = (() => {
       drawYard(g, cam);
       if (SA.RouteRuins) SA.RouteRuins.draw(g, ruins, groundAt, (x, w) => x + w > cam.x - 8 && x - w < cam.x + cam.w + 8);
     }
-    // 院子的动效：烟囱冒烟；开局那一下：泄压的蒸汽 +「出发！」
+    // 院子的动效：烟囱冒烟；开局那一下：泄压的蒸汽（不再冒「出发！」字牌，送行的人和汽声已经说了）
     function yardTick(dt) {
       const b = B();
       if (!b || !b.p) return;
       if (!st.departed) {
         st.departed = true;
-        const f = o.frontEdge(b.p);
-        b.texts.push({ str: SA.Config.text('route_depart'), x: f - 60, y: groundAt(f) - 170, col: '#efe6cf', plaque: P.brass[2], life: 1.8, max: 1.8 });
-        snd('steam.hiss', f, 0.7, 0, 0.9);
+        snd('steam.hiss', o.frontEdge(b.p), 0.7, 0, 0.9);
       }
       st.smokeT -= dt;
       if (st.smokeT <= 0 && b.cam.x < YARD.gate + 200) {
@@ -234,7 +232,7 @@ SA.RouteView = (() => {
         q.t += dt;
         if (q.t >= q.dur && !q.done) {
           q.done = true;
-          if (q.last) { const [cx, cy] = carSpot(); b.texts.push({ str: `+${q.last} ${SA.Config.text('route_metal')}`, x: cx, y: cy - 30, col: P.iron[4], plaque: P.brass[2], life: 1, max: 1 }); }
+          // 金属片飞进车、计数徽章会涨，不再冒「+N 金属」
           snd('scrap.pickup', q.x, 0.6, 0.05);
         }
       }

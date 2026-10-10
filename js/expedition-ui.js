@@ -52,8 +52,7 @@ SA.ExpeditionUI = (() => {
         r.settled ? line(bestLine(r), r.best > r.bestBefore ? 'color:#ffd36b' : '') : null,
         r.broken || r.metal ? line(SA.Config.text(r.how === 'wrecked' ? 'route_tally_metal_half' : 'route_tally_metal', r.metalKept != null ? r.metalKept : r.metal || 0, r.broken || 0)) : null,
         refugees ? line(SA.Config.text('route_tally_refugees', refugees)) : null,
-        r.relic ? line(SA.Config.text('route_tally_relic')) : null,
-        r.settled ? line(SA.Config.text('route_tally_fixed'), 'opacity:.75') : null),
+        r.relic ? line(SA.Config.text('route_tally_relic')) : null),
       !SA.Route || !SA.Route.settle ? h('div', { class: 'ch-foot' }, SA.Config.text('route_tally_unsaved')) : null);
     const slots = (items) => (A && items.length ? UI.img(A.cargoSlots(items, items.length), 2) : null);
     const mid = h('section', { class: 'ar-mid', 'data-page-key': 'route-tally-mid' },
@@ -65,14 +64,15 @@ SA.ExpeditionUI = (() => {
           slots(cargo) || (r.metalKept || r.bonus || r.materials || (r.items || r.rewards?.items || []).length ? null : h('div', { class: 'px-small' }, SA.Config.text('route_tally_none'))),
           r.metalKept ? h('div', { class: 'ar-metal' }, UI.img(SA.RouteView ? SA.RouteView.metalBadge(r.metalKept) : document.createElement('canvas'), 2)) : null,
           r.bonus ? h('div', {}, SA.Config.text('route_tally_depot_bonus')) : null,
-          h('div', {}, SA.Config.text('route_tally_materials', r.materials || 0, SA.S.d.route.materials || 0)),
+          r.materials ? h('div', {}, SA.Config.text('route_tally_materials', r.materials, SA.S.d.route.materials || 0)) : null,
           ...(r.items || r.rewards?.items || []).map(item => h('div', {}, SA.Config.text('route_craft_reward', SA.MODULES[item.id].name, item.n))),
           lost.length ? [h('div', { class: 'nt' }, SA.Config.text('route_tally_lost')), h('div', { class: 'ar-lost' }, slots(lost))] : null),
         r.playerVehicle ? h('div', { class: 'ar-cars' }, carPrint(r.playerVehicle)) : null));
     const side = h('section', { class: 'ar-side', 'data-page-key': 'route-tally-side' },
       h('div', { class: 'ar-dossier px-sk px-sk-kraft px-drop' }, UI.sk('paper', [
-        h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, SA.Config.text('route_load_title'))),
-        h('div', {}, hurt ? SA.Config.text('route_tally_damage', hurt) : SA.Config.text('route_tally_intact'))])),
+        // 车况只写一处：入了档的已经修好（院子的伙计修，不扣钱），没入档才写路上受损几处
+        h('div', { class: 'ar-dt' }, h('span', { class: 'px-h2' }, SA.Config.text('route_tally_car'))),
+        h('div', {}, !hurt ? SA.Config.text('route_tally_intact') : r.settled ? SA.Config.text('route_tally_fixed') : SA.Config.text('route_tally_damage', hurt))])),
       h('div', { class: 'ar-tally-go' },
         SA.Camp.has('garage') ? UI.btn(SA.Config.text('route_to_garage'), { onclick: () => SA.nav('garage') }) : null,
         UI.btn(SA.Config.text('route_again'), { kind: 'pri', onclick: () => SA.Arena.open('route', true) }),

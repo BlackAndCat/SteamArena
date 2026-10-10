@@ -567,6 +567,7 @@
     "battle_view_paused": "Paused",
     "battle_view_crate_short": "Shot blocked by a crate",
     "battle_view_hit_other_short": "Will hit \"{{0}}\" first",
+    "route_tally_car": "Vehicle",
     "editor_cat_other": "Other",
     "controls_title": "Controls",
     "controls_garage": "Workshop",
