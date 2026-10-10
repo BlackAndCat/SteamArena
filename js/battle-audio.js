@@ -109,7 +109,14 @@ SA.BattleAudio = (() => {
     // 泄压按钮：一大股蒸汽
     const vent = () => snd('steam.hiss', B() && B().p ? B().p.pivX : null, 1, 0, 0.85);
 
-    return { event, tick, stop, vent };
+    // 鱼叉（js/battle-view.js 的铁链动画调用）：咬上 = 铁链哗啦 + 金属一撞；绷断 = 低沉的链子声 + 短促的「嘣」；收链 = 轻一点的链子声
+    function harpoon(kind, x) {
+      if (kind === 'attach') { snd('chain', x, 0.9, 0, 0.8); snd('hit.plate', x, 0.45, 0, 1.15); }
+      else if (kind === 'snap') { snd('chain', x, 0.85, 0, 0.6); snd('hit.ping', x, 0.6, 0, 0.75); }
+      else snd('chain', x, 0.5, 0.15, 1.15);
+    }
+
+    return { event, tick, stop, vent, harpoon };
   }
 
   return { make };

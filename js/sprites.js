@@ -2042,7 +2042,7 @@ SA.SPR = (() => {
         // 缆绳：从绞盘顶上出来，拴到炮口的一小段铁链（射出时绷直伸出去）
         const [rx, ry] = at(x + 18, y + 13, o.a, 21, -1);
         // 模块精灵只画绞盘到炮口，炮口到对手的长缆绳由战斗画面按实时目标点绘制。
-        if (o.out) { line(cx, cy - 10.5, rx, ry, 1, ROPE[1]); const [ex, ey] = at(x + 18, y + 13, o.a, 34, 0); const n = Math.round(Math.hypot(ex - rx, ey - ry) / 2); for (let i = 0; i <= n; i++) { const k = i / n; px(rx + (ex - rx) * k, ry + (ey - ry) * k, i < 6 ? (i % 2 ? P.iron[4] : P.iron[1]) : ROPE[i % 3 ? 1 : 2]); } }
+        if (o.out) { line(cx, cy - 10.5, rx, ry, 2, P.iron[0]); line(cx, cy - 11, rx, ry - 0.5, 1, P.iron[3]); const [ex, ey] = at(x + 18, y + 13, o.a, 34, 0); line(rx, ry, ex, ey, 3, P.iron[0]); const n = Math.round(Math.hypot(ex - rx, ey - ry) / 3); for (let i = 0; i <= n; i++) { const k = i / n; px(rx + (ex - rx) * k, ry + (ey - ry) * k - 0.5, i % 2 ? P.iron[4] : P.iron[2]); } }   // 射出后：绞盘放出的粗铁链从炮口伸出去（外面的长链由战斗画面画）
         else rope(cx + 2, cy - 10.5, rx, ry, 2);
       } },
   ];

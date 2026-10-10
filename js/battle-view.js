@@ -224,6 +224,168 @@ SA.BattleView.create = function createBattleView(api) {
     dg.drawImage(src, 0, 0, vw * n, vh * n, dx, dy, vw * Z, vh * Z);
   }
 
+  // ---------- 鱼叉（docs/board-astra.md 2026-10-10 交接）：粗铁链 + 抓钩 ----------
+  // 只读战斗状态：飞行中的鱼叉弹（B.shots 里 weapon.tether）、连上后的 api.tetherState(s)（两端实时世界坐标）、
+  // s.tether.overload（受拉超载累计，用来画链子绷紧发抖）。不改任何规则状态。
+  const HOOK = { p: null, e: null }, HFLY = new Map();   // HOOK[side]：连着时的画面状态；HFLY：飞行中的鱼叉弹 → 上一帧位置
+  let HFX = [];                                         // 收链 / 断链动画
+  const isHarpoon = (sh) => !!(sh.weapon && sh.weapon.tether);
+  const sideKey = (s) => s === B.p ? 'p' : 'e';
+  // 绞盘那一端：鱼叉飞出去之后车还在动，按发射时炮口相对车身的偏移跟着车走
+  const muzzleNow = (s, ox, oy, x0) => [ox + (s.x - x0), oy];
+  // 车上的鱼叉模块：链子在外面时（飞行、连着、收链动画里）炮口不再画抓钩，绞盘转
+  function harpoonOut(s) {
+    if (s.tether) return s.tether.cell;
+    for (const [sh] of HFLY) if (sh.from === s) return sh.weaponCell;
+    for (const f of HFX) if (f.s === s) return f.cell;
+    return null;
+  }
+  // 链子的形状：A（炮口）→ H（抓钩尾环），往下垂 sag 像素，外加横向抖动 wob(u)（u：0 = 炮口，1 = 抓钩）
+  function chainCurve(A, H, sag, wob) {
+    const dx = H[0] - A[0], dy = H[1] - A[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, pts = [];
+    const N = Math.max(4, Math.min(48, Math.round(L / 6)));
+    for (let i = 0; i <= N; i++) { const u = i / N, w = wob ? wob(u) : 0; pts.push([A[0] + dx * u + nx * w, A[1] + dy * u + ny * w + sag * 4 * u * (1 - u)]); }
+    const acc = [0];
+    for (let i = 1; i < pts.length; i++) acc.push(acc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { pts, acc, len: acc[acc.length - 1] };
+  }
+  // 按弧长取点（从抓钩端量起）：[x, y, 切线 x, 切线 y]
+  function chainAt(c, d) {
+    const s = Math.max(0, Math.min(c.len, c.len - d));
+    let i = 1;
+    while (i < c.acc.length - 1 && c.acc[i] < s) i++;
+    const a = c.pts[i - 1], b = c.pts[i], seg = (c.acc[i] - c.acc[i - 1]) || 1, k = (s - c.acc[i - 1]) / seg;
+    return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, (b[0] - a[0]) / seg, (b[1] - a[1]) / seg];
+  }
+  // 铁链：正面环（6 px 粗、中间一个黑孔）和侧面环（3 px 的扁条）交替，从抓钩端往回一节节排——
+  // 链子跟着抓钩走，收绳时靠炮口那头的链环一节节钻进去
+  function drawChain(c, o = {}) {
+    const pitch = o.pitch || 7, line = SA.SPR.line;
+    SA.SPR.useCtx(g);
+    if (o.alpha != null) g.globalAlpha = o.alpha;
+    for (let i = 0, d = 0; d < c.len; i++, d += pitch) {
+      const [x, y, tx, ty] = chainAt(c, d + pitch / 2), h = pitch * 0.62;
+      if (i % 2 === 0) {
+        const ax = Math.round(x - tx * h), ay = Math.round(y - ty * h), bx = Math.round(x + tx * h), by = Math.round(y + ty * h);
+        line(ax, ay, bx, by, 6, P.iron[0]);
+        line(ax, ay, bx, by, 4, o.hot ? P.iron[4] : P.iron[2]);
+        line(ax, ay - 1, bx, by - 1, 2, o.hot ? P.white : P.iron[3]);   // 上半圈受光
+        line(Math.round(x - tx * 1.5), Math.round(y - ty * 1.5), Math.round(x + tx * 1.5), Math.round(y + ty * 1.5), 2, P.iron[0]);   // 环中间的孔
+        g.fillStyle = P.iron[4]; g.fillRect(Math.round(x - tx * 2), Math.round(y - 2), 1, 1);   // 一点高光
+      } else {
+        const ex = Math.round(x - tx * (h + 1.5)), ey = Math.round(y - ty * (h + 1.5)), fx = Math.round(x + tx * (h + 1.5)), fy = Math.round(y + ty * (h + 1.5));
+        line(ex, ey, fx, fy, 3, P.iron[0]);
+        line(ex, ey - 1, fx, fy - 1, 1, o.hot ? P.white : P.iron[3]);
+      }
+    }
+    g.globalAlpha = 1;
+  }
+  // 抓钩：铁杆 + 带倒刺的矛头 + 两只抓爪 + 尾部拴链的黄铜环。a：朝向（弧度）；bite：0 收拢（飞行）～ 1 张开咬住。返回尾环位置
+  function hookHead(x, y, a, bite = 0, draw = true) {
+    const line = SA.SPR.line, cx = Math.cos(a), cy = Math.sin(a), nx = -cy, ny = cx;
+    const Q = (along, side) => [Math.round(x + (cx * along + nx * side) * 1.4), Math.round(y + (cy * along + ny * side) * 1.4)];   // 整体放大 1.4 倍
+    if (!draw) return Q(-14, 0);
+    SA.SPR.useCtx(g);
+    line(...Q(-13, 0), ...Q(0, 0), 4, P.iron[0]); line(...Q(-12, -0.4), ...Q(-1, -0.4), 2, P.iron[3]);   // 杆
+    for (const sd of [-1, 1]) { line(...Q(4, 0), ...Q(-2, sd * 3.5), 2, P.iron[1]); line(...Q(-2, sd * 3.5), ...Q(0, sd), 1, P.iron[4]); }   // 矛头两侧倒刺
+    line(...Q(0, 0), ...Q(5, 0), 2, P.iron[4]);   // 矛尖
+    const open = 2.5 + bite * 3.5;   // 抓爪：飞行时贴着杆，咬住时张开往回勾
+    for (const sd of [-1, 1]) { line(...Q(-6, 0), ...Q(-9 + bite * 2, sd * open), 2, P.iron[1]); line(...Q(-9 + bite * 2, sd * open), ...Q(-6 + bite, sd * (open + 1.5)), 1, P.iron[3]); }
+    const [rx, ry] = Q(-14, 0); SA.SPR.disc(rx, ry, 3, P.brass[0]); SA.SPR.disc(rx, ry, 1.8, P.brass[2]); SA.SPR.disc(rx - 1, ry - 1, 0.8, P.brass[3]);   // 尾环
+    return [rx, ry];
+  }
+  function hookSparks(x, y, n, col) { for (let i = 0; i < n; i++) B.parts.push({ type: 'spark', x, y, vx: vr(-140, 140), vy: vr(-180, -30), life: vr(0.12, 0.3), max: 0.3, col }); }
+
+  function harpoons(t) {
+    const dtF = Math.max(0, Math.min(0.05, t - (HOOK.t || t))); HOOK.t = t;
+    // 1. 飞行中的鱼叉：抓钩朝着飞行方向，身后拖着放出去的铁链（微微下垂、尾段甩动）
+    const alive = new Set();
+    for (const sh of B.shots) {
+      if (!isHarpoon(sh) || sh.done) continue;
+      alive.add(sh);
+      let f = HFLY.get(sh);
+      if (!f) HFLY.set(sh, f = { x0: sh.from.x, ox: sh.originX, oy: sh.originY });
+      f.x = sh.x; f.y = sh.y; f.a = Math.atan2(sh.vy, sh.vx);
+      if (sh.delay > 0) continue;
+      const A = muzzleNow(sh.from, f.ox, f.oy, f.x0), L = Math.hypot(sh.x - A[0], sh.y - A[1]);
+      drawChain(chainCurve(A, hookHead(sh.x, sh.y, f.a, 0, false), Math.min(14, L * 0.07), (u) => Math.sin(u * 9 - t * 30) * 1.5 * u));
+      hookHead(sh.x, sh.y, f.a, 0);
+    }
+    // 飞行的鱼叉没了：连上了 → 第 2 步接手；没连上（落地、打空、飞出射程）→ 收链把抓钩拽回炮口
+    for (const [sh, f] of HFLY) {
+      if (alive.has(sh)) continue;
+      HFLY.delete(sh);
+      if (sh.from.tether && sh.from.tether.cell === sh.weaponCell) continue;
+      if (f.x == null) continue;
+      HFX.push({ kind: 'reel', s: sh.from, cell: sh.weaponCell, x0: f.x0, ox: f.ox, oy: f.oy, hx: f.x, hy: f.y, t: 0, dur: 0.45 });
+      if (BA && BA.harpoon) BA.harpoon('reel', f.x);
+    }
+    // 2. 连着的鱼叉
+    for (const s of [B.p, B.e].filter(Boolean)) {
+      const k = sideKey(s), ts = api.tetherState(s), h = HOOK[k];
+      if (!ts) {
+        if (h) {   // 刚断开：时间到了 = 松钩收链；没到时间 = 绷断（超载、超距、模块被打坏）
+          HOOK[k] = null;
+          const A = h.from, H = h.to;
+          if (h.remaining < 0.1 || s.dead) { if (!s.dead) { HFX.push({ kind: 'reel', s, cell: h.cell, x0: s.x, ox: A[0], oy: A[1], hx: H[0], hy: H[1], t: 0, dur: 0.4 }); if (BA && BA.harpoon) BA.harpoon('reel', H[0]); } }
+          else {
+            const kb = vr(0.35, 0.65), bx = A[0] + (H[0] - A[0]) * kb, by = A[1] + (H[1] - A[1]) * kb + h.sag * 4 * kb * (1 - kb);
+            HFX.push({ kind: 'snap', s, cell: h.cell, x0: s.x, ox: A[0], oy: A[1], hx: H[0], hy: H[1], bx, by, a: h.a, t: 0, dur: 0.75 });
+            hookSparks(bx, by, 12, P.brass[3]);
+            for (let i = 0; i < 4; i++) B.parts.push({ type: 'debris', x: bx, y: by, vx: vr(-160, 160), vy: vr(-240, -80), life: vr(0.6, 1), max: 1, col: P.iron[1] });   // 崩飞的链环
+            B.shake = Math.max(B.shake, 3);
+            if (BA && BA.harpoon) BA.harpoon('snap', bx);
+          }
+        }
+        continue;
+      }
+      const A = ts.from, H = ts.to, a = Math.atan2(H[1] - A[1], H[0] - A[0]);
+      if (!h) {   // 刚咬上：火星 + 一道波沿链子传回绞盘
+        HOOK[k] = { t0: t, sag: 2, strain: 0, ov: s.tether.overload || 0 };
+        hookSparks(H[0], H[1], 8, P.white);
+        B.shake = Math.max(B.shake, 2);
+        if (BA && BA.harpoon) BA.harpoon('attach', H[0]);
+      }
+      const hk = HOOK[k];
+      hk.from = A; hk.to = H; hk.remaining = ts.remaining; hk.cell = ts.cell; hk.a = a;
+      // 绷紧：两车离得比收绳距离远时链子在拉（几乎拉直）；贴在一起不拉时链子松垂
+      const o = s.tether.target, pulling = o && Math.abs(o.x - s.x) > 18, L = Math.hypot(H[0] - A[0], H[1] - A[1]);
+      hk.sag += ((pulling ? 1.5 : Math.min(18, L * 0.14)) - hk.sag) * Math.min(1, dtF * 8);
+      // 超载：overload 在涨 = 正往外硬拽，链子发抖、一闪一闪发亮、冒火星
+      const ov = s.tether.overload || 0;
+      hk.strain = ov > hk.ov + 1e-9 ? 1 : hk.strain * Math.pow(0.02, dtF);
+      hk.ov = ov;
+      const age = t - hk.t0, wave = age < 0.45 ? 1 - age / 0.45 : 0, uc = 1 - age / 0.45;
+      const wob = (u) => hk.strain * 1.4 * Math.sin(u * 40 + t * 70) * Math.sin(Math.PI * u) + (wave ? 6 * wave * Math.exp(-(((u - uc) / 0.1) ** 2)) : 0);
+      // 抓钩咬在被拴的模块上：矛尖正好扎到模块中心（不穿出车背），抓爪张开
+      const tx = H[0] - Math.cos(a) * 7, ty = H[1] - Math.sin(a) * 7;
+      drawChain(chainCurve(A, hookHead(tx, ty, a, 1, false), hk.sag, wob), { pitch: 5 + hk.strain * 0.6, hot: hk.strain > 0.6 && Math.sin(t * 50) > 0 });
+      hookHead(tx, ty, a, 1);
+      if (hk.strain > 0.3 && Math.random() < dtF * 14 * hk.strain) { const end = Math.random() < 0.5 ? A : H; hookSparks(end[0], end[1], 2, P.brass[3]); }
+    }
+    // 3. 收链 / 断链
+    for (const f of HFX) f.t += dtF;
+    HFX = HFX.filter(f => f.t < f.dur && !f.s.dead);
+    for (const f of HFX) {
+      const q = f.t / f.dur, A = muzzleNow(f.s, f.ox, f.oy, f.x0);
+      if (f.kind === 'reel') {
+        // 抓钩被绞盘拽回来：先快后慢，链子越收越短
+        const e = 1 - Math.pow(1 - q, 2.2), hx = f.hx + (A[0] - f.hx) * e, hy = f.hy + (A[1] - f.hy) * e, a = Math.atan2(hy - A[1], hx - A[0]);
+        if (Math.hypot(hx - A[0], hy - A[1]) < 12) continue;
+        drawChain(chainCurve(A, hookHead(hx, hy, a, 0, false), Math.min(10, Math.hypot(hx - A[0], hy - A[1]) * 0.1) * (1 - q), (u) => Math.sin(u * 12 + t * 40) * 2 * (1 - q)));
+        hookHead(hx, hy, a, 0.3 * (1 - q));
+      } else {
+        // 绷断：靠炮口的一截甩着弹回去；另一截挂在抓钩上往下垂落，最后淡出
+        const e = Math.min(1, f.t / 0.3), rx = f.bx + (A[0] - f.bx) * e, ry = f.by + (A[1] - f.by) * e;
+        if (e < 1 && Math.hypot(rx - A[0], ry - A[1]) > 4) drawChain(chainCurve(A, [rx, ry], 0, (u) => Math.sin(u * 14 - t * 50) * 4 * (1 - e) * u));
+        const fall = 0.5 * 700 * f.t * f.t, gy = groundAt(f.bx) - 3, ex = f.bx + (f.hx - f.bx) * 0.35 * Math.min(1, f.t * 3), ey = Math.min(gy, f.by + fall);
+        const alpha = q > 0.7 ? 1 - (q - 0.7) / 0.3 : 1, hx = f.hx - Math.cos(f.a) * 7, hy = f.hy - Math.sin(f.a) * 7;
+        drawChain(chainCurve([ex, ey], hookHead(hx, hy, f.a, 1 - q, false), Math.min(16, fall * 0.3)), { alpha });
+        g.globalAlpha = alpha; hookHead(hx, hy, f.a, 1 - q); g.globalAlpha = 1;
+      }
+    }
+  }
+
   // 蒸汽喷射器：战斗里它照常一发发打「蒸汽弹」（每 0.1 秒一发，飞到射程尽头就没了），画面上不画弹头，
   // 而是按这些弹画一道从管口到最远那一发的连续蒸汽锥——最远处就是射程尽头或打中的车，所以绝不会超过射程；
   // 停止喷射后，蒸汽团跟着最后几发离开管口、飞到射程尽头散掉
@@ -307,7 +469,7 @@ SA.BattleView.create = function createBattleView(api) {
     // 所以车直接画在设备分辨率上：车身画布先整数倍最近邻放大，再带着旋转双线性画上去 —— 像素块大小一致，斜边平滑不抖
     const Z = cam.z * DPX;
     const aimT = B.aim && B.e && !B.e.dead ? targetAt(B.e, B.aim[0], B.aim[1]) : null;
-    const opts = (s, key, extra) => ({ key, t, heat: s.heat / s.heatMax, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: s.tether ? s.tether.cell : null, store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, crouch: s.crouch || 0, air: (s.airDuration || 0) > 0, tuck: s.tuck || 0, ...extra });
+    const opts = (s, key, extra) => ({ key, t, heat: s.heat / s.heatMax, water: s.water / Math.max(1, s.waterMax), dyn: s.anim, elev: s.elev, punch: s.punch, tetherCell: harpoonOut(s), store: s.storeMax > 0 ? s.store / s.storeMax : 0, moving: s.moving, speed: Math.abs(s.vx), gnd: s.gnd, crouch: s.crouch || 0, air: (s.airDuration || 0) > 0, tuck: s.tuck || 0, ...extra });
     const pc = SA.SPR.renderVehicle(B.p.v, opts(B.p, 'bp', introCar(B.p)));
     const sur = api.surrenderState();
     const ec = B.e ? SA.SPR.renderVehicle(B.e.v, opts(B.e, 'be', { ...(sur ? { crewExpr: sur.crewExpression } : null), ...introCar(B.e) })) : null;
@@ -323,16 +485,12 @@ SA.BattleView.create = function createBattleView(api) {
     g.save();
     g.translate(shx - ox, shy - oy);
 
-    // 战斗侧给出两端世界坐标，缆绳随双方移动和倾斜，失效后同帧停止绘制。
-    for (const s of [B.p, B.e].filter(Boolean)) {
-      const tether = api.tetherState(s);
-      if (!tether) continue;
-      SA.SPR.useCtx(g);
-      SA.SPR.line(...tether.from.map(Math.round), ...tether.to.map(Math.round), 2, P.leather[1]);
-    }
+    // 鱼叉：飞行中的抓钩拖着铁链、连上后的粗铁链（两端用战斗给的实时世界坐标）、收链 / 断链
+    harpoons(t);
     steamJets(t);
     for (const sh of B.shots) {
       if (sh.weapon && sh.weapon.proj === 'steam') continue;   // 蒸汽喷射器不画「子弹」，由 steamJets 画成一道连续的蒸汽锥
+      if (isHarpoon(sh)) continue;                             // 鱼叉弹由 harpoons 画成抓钩 + 铁链
       const tr = sh.trail || [];
       if (sh.big) {
         for (let i = 0; i < tr.length - 1; i++) { g.fillStyle = i < tr.length - 3 ? P.steam[0] : P.steam[1]; g.fillRect(Math.round(tr[i][0]) - 2, Math.round(tr[i][1]) - 2, 3, 3); }
@@ -1966,7 +2124,7 @@ SA.BattleView.create = function createBattleView(api) {
     B = api.getState();
     BD = SA.Scenes.pick(opts);
     RV = isRoute() && SA.RouteView ? SA.RouteView.make({ getB: () => B, groundAt, frontEdge, GROUND, W, H }) : null;
-    JETS.clear();
+    JETS.clear(); HOOK.p = HOOK.e = null; HFLY.clear(); HFX = [];
     if (BA) BA.stop();
     BA = SA.BattleAudio && SA.Audio ? SA.BattleAudio.make({ getB: () => B }) : null;
 
