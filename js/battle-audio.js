@@ -1,4 +1,4 @@
-// 战斗音效（所有战斗：竞技场、支线、出征；docs/feel-audio-plan.md §3）：开火按武器分声音、炮弹落地、爆炸、模块挨打、跳弹，
+// 战斗音效（所有战斗：竞技场、支线、出征；docs/feel-audio-plan.md §3）：开火按武器分声音、炮弹落地、爆炸、模块挨打、跳弹、撞击（按重量、速度、撞击件种类），
 // 发动机（怠速轰鸣 + 行驶时的蒸汽喷吐，喷吐的快慢和音高跟着车速走）、履带（每过一节履带板低沉地咚一下，底下垫一条滚动循环）、腿式底盘的脚步。
 // 声音素材和播放引擎在 js/audio.js（SA.Audio）；出征特有的声音（小机械、拾取、撞碎）在 js/route-view.js。
 // js/battle-view.js 每场 make() 一份，挂在视觉事件、tick 和 teardown 上；只读战斗状态，不改规则。
@@ -25,10 +25,10 @@ SA.BattleAudio = (() => {
     // 出征里按 F 切到「灰盒」时，战斗声也一起关掉（js/route-view.js 的打击感实验）
     const muted = () => !SA.Audio || (isRoute() && SA.RouteView && SA.RouteView.feel && SA.RouteView.feel() === 0);
     const pan = (x) => { const c = B() && B().cam; return c && x != null ? Math.max(0, Math.min(1, (x - c.x) / Math.max(1, c.w))) : 0.5; };
-    function snd(name, x, vol = 1, gap = 0, pitch, lp) {
+    function snd(name, x, vol = 1, gap = 0, pitch, lp, v) {
       if (muted()) return;
       if (gap) { const now = performance.now() / 1000; if (now - (st.sndT[name] || 0) < gap) return; st.sndT[name] = now; }
-      SA.Audio.play(name, { x: pan(x), vol, pitch, lp });
+      SA.Audio.play(name, { x: pan(x), vol, pitch, lp, v });
     }
     if (SA.Audio) SA.Audio.load();
 
@@ -43,6 +43,7 @@ SA.BattleAudio = (() => {
           break;
         }
         case 'impact': impact(d); break;
+        case 'ram': ram(d); break;
         case 'particles': if (d.boom) snd(d.boom.n >= 24 ? 'boom.big' : 'boom', d.boom.x, 0.9); break;
         case 'ricochet': st.rico = performance.now(); snd('hit.ricochet', d.x, 0.55, 0.06); break;
         case 'shatter': snd('hit.plate', d.x, 0.7, 0.05); break;
@@ -63,6 +64,28 @@ SA.BattleAudio = (() => {
         else { snd('hit.thud', d.x, 0.45 * near, 0.03, 1.15); if (!rico) snd('hit.ping', d.x, 0.3 * near, 0.05, 1.05 + Math.random() * 0.3); }
       } else if (d.crate) snd('crush.wood', d.x, d.big ? 0.8 : 0.4, 0.05);
       else if (d.big && !d.mob) snd('cannon.hit', d.x, 0.7);
+    }
+
+    // 撞击（battle.js 只通知的 ram 事件）：响度按撞击能量走——两车约化质量 × 相对速度²，以两辆 6 吨的车 60 px/s 对撞为 1；
+    // 音高按两车平均重量走，越重越低沉。底下一层碎裂闷响（重量），上面一层按撞上去的东西换：
+    // 车身对车身 = 钢板相撞的「哐」；铲斗 = 大铁板拍上去的低「哐」+ 刮擦的铁响；撞角 = 金属被撕开的尖锐撕裂声 + 碎裂；
+    // 寡妇液压撞头 = 沉重的夯击 + 泄压；蒸汽撞锤 = 铁板一击 + 喷汽；骑士剑 = 一声脆、锤 = 低沉一夯、拳 / 盾 = 闷拳 + 铁板。特别重的一撞再垫一层重击
+    function ram(d) {
+      const ma = d.ma || 6, mb = d.mb || 6, mu = ma * mb / (ma + mb), avg = (ma + mb) / 2;
+      const e = d.punch ? 1 : (mu / 3) * Math.pow((d.speed || 0) / 60, 2), k = Math.max(0.12, Math.min(2.2, Math.sqrt(e)));
+      const vol = Math.min(1, 0.28 + 0.42 * k), pitch = Math.max(0.68, Math.min(1.2, 1.18 - (avg - 4) * 0.035)) * (0.95 + Math.random() * 0.1), x = d.x;
+      const kinds = d.kinds || [], has = (id) => kinds.includes(id), knight = kinds.some(id => /^knight/.test(id) || /arm/.test(id));
+      if (d.soft) { snd('ram.thud', x, 0.16 + 0.1 * Math.min(1, k), 0.1, pitch * 0.85, 900); return; }   // 轻轻碰上：只有一下闷的
+      snd('ram.thud', x, vol, 0.04, pitch * 0.9);
+      if (has('spike')) { snd('hit.shell', x, vol * 0.75, 0, pitch * 1.05, 0, 2); snd('crush.machine', x, vol * 0.55, 0, pitch, 0, 0); }
+      else if (has('bucket')) { snd('hit.plate', x, vol * 0.85, 0, pitch * 0.8); snd('hit.metal.heavy', x, vol * 0.35, 0, pitch * 0.85, 2600, 0); }
+      else if (has('boss_ram')) { snd('hit.shell', x, vol * 0.8, 0, pitch * 0.85, 0, 1); snd('steam.hiss', x, 0.45, 0.3, 1.1); }
+      else if (has('piston')) { snd('hit.plate', x, vol * 0.8, 0, pitch * 1.05); snd('steam.hiss', x, 0.4, 0.25, 1.25); }
+      else if (has('knight_sword')) { snd('hit.thud', x, vol * 0.6, 0, pitch); snd('hit.ping', x, vol * 0.5, 0, pitch * 0.9); }   // 剑：砍在铁上的一声脆
+      else if (has('knight_hammer')) { snd('hit.plate', x, vol * 0.9, 0, pitch * 0.75); }                                      // 锤：低沉的一夯
+      else if (d.punch && knight) { snd('hit.thud', x, vol * 0.8, 0, pitch * 0.85); snd('hit.plate', x, vol * 0.5, 0, pitch * 1.1); }   // 拳、盾
+      else snd('hit.plate', x, vol * 0.75, 0, pitch * 0.9);   // 车身对车身
+      if (k > 1.1) snd('hit.shell', x, Math.min(0.7, 0.35 * (k - 1.1) + 0.2), 0, pitch * 0.8, 0, 1);   // 特别重的一撞：再垫一层低沉的重击
     }
 
     // 每帧：履带咔哒、腿的脚步按走过的距离触发；自己车的发动机两条循环按车速调音量和快慢

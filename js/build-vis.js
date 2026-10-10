@@ -83,3 +83,4 @@ SA.BUILD_VIS += '+soft-tracks-lowpass'; // 履带 / 脚步过 550～650 Hz 低�
 SA.BUILD_VIS += '+crunch-crush-thick-tracks'; // 撞碎小东西从敲木头 / 敲锡罐（像敲门）换成碎裂声 + 铁皮哗啦 / 劈木头；履带加低沉的「咚」和随车速的低频滚动循环。
 SA.BUILD_VIS += '+steamjet-cone-range'; // 蒸汽喷射器不再画黄色弹点和枪口火光，改成从管口到最远一发（射程尽头或打中的车）的连续蒸汽锥。
 SA.BUILD_VIS += '+harpoon-chain-anim'; // 鱼叉：飞行的抓钩拖粗铁链、咬上的火星和链波、绷紧 / 松垂 / 超载发抖、收链和绷断动画。
+SA.BUILD_VIS += '+ram-sounds-no-grind-shudder'; // 撞击声按重量 / 速度 / 撞击件种类（车身、铲斗、撞角、撞头、撞锤、骑士臂）；挤残骸不再持续震颤。

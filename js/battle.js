@@ -919,12 +919,15 @@ SA.Battle = (() => {
       const k = fresh ? Math.min(T.WRECK_IMPACT_MAX, 1 + Math.max(0, rel - T.WRECK_GRIND_SPEED_MAX) / T.RAM_CLOSING_REFERENCE) : 1;
       const back = T.WRECK_GRIND_RECOIL * k;
       a.vx -= dir * back; d.vx += dir * back * share;
-      SA.Dyn.kick(a.anim.body, -T.WRECK_GRIND_ANIM * k);
-      SA.Dyn.kick(d.anim.body, T.WRECK_GRIND_ANIM * 0.5 * k);
-      for (let i = 0; i < (fresh ? 10 : 4); i++) emit('part', { type: 'spark', x: ex, y: ey + rnd(-8, 8), vx: -dir * rnd(20, 160), vy: rnd(-180, -20), life: rnd(0.12, 0.3), col: undefined });
-      for (let i = 0; i < (fresh ? 5 : 2); i++) emit('part', { type: 'debris', x: ex, y: ey, vx: rnd(-80, 80), vy: rnd(-160, -40), life: rnd(0.5, 1), col: i % 2 ? P.dark[2] : P.iron[2] });
-      emit('part', { type: 'dust', x: ex, y: groundAt(ex) - 2, vx: dir * rnd(10, 50), vy: rnd(-50, -15), life: rnd(0.3, 0.5), col: undefined });
-      B.shake = Math.max(B.shake, fresh ? 3 + 2 * k : 2);
+      // 画面（用户 2026-10-10）：挤残骸已不再扣血，持续往里挤时不再一下下震颤；只有刚顶上那一下有火花和晃动
+      if (fresh) {
+        SA.Dyn.kick(a.anim.body, -T.WRECK_GRIND_ANIM * k);
+        SA.Dyn.kick(d.anim.body, T.WRECK_GRIND_ANIM * 0.5 * k);
+        for (let i = 0; i < 10; i++) emit('part', { type: 'spark', x: ex, y: ey + rnd(-8, 8), vx: -dir * rnd(20, 160), vy: rnd(-180, -20), life: rnd(0.12, 0.3), col: undefined });
+        for (let i = 0; i < 5; i++) emit('part', { type: 'debris', x: ex, y: ey, vx: rnd(-80, 80), vy: rnd(-160, -40), life: rnd(0.5, 1), col: i % 2 ? P.dark[2] : P.iron[2] });
+        emit('part', { type: 'dust', x: ex, y: groundAt(ex) - 2, vx: dir * rnd(10, 50), vy: rnd(-50, -15), life: rnd(0.3, 0.5), col: undefined });
+        B.shake = Math.max(B.shake, 3 + 2 * k);
+      }
     }
     for (const s of [B.p, B.e]) s.grinding = done.has(s);
   }
@@ -980,6 +983,8 @@ SA.Battle = (() => {
           x.a.events.ram++;
           const directLoss = meleeDamage(x.d, x.a, { layer: 'body', r: x.dm.r, c: x.dm.c, hitR: x.tr }, SA.isRam(x.dm.cell.id) ? dmg * T.RAM_TARGET_DAMAGE : dmg);
           recoilDamage(x.a, { layer: 'body', r: x.am.r, c: x.am.c, hitR: x.r }, { ...x.am, layer: 'body' }, directLoss);
+          // 只通知画面（撞击声）：两车质量、相对速度、撞上去的撞击件
+          emit('ram', { x: rowEdge(x.a, x.am), y: cellY(x.r, x.a) + HALF, speed, ma: x.a.mass, mb: x.d.mass, kinds: [x.am.cell.id], p: x.a === p || x.d === p });
         }
       }
     }
@@ -1016,6 +1021,8 @@ SA.Battle = (() => {
       }
       for (let i = 0; i < 16; i++) emit('part', { type: 'spark', x: cx, y: cellY(rows[0].r, p) + HALF + rnd(-30, 30), vx: rnd(-300, 300), vy: rnd(-300, 0), life: rnd(0.2, 0.4), col: undefined });
       B.shake = Math.max(B.shake, 5 + f * 4);
+      // 只通知画面（撞击声）：两车质量、相对速度、顶在前面的模块（有铲斗 / 撞角就是它们）
+      emit('ram', { x: cx, y: cellY(rows[0].r, p) + HALF, speed: closing, ma: p.mass, mb: e.mass, kinds: pairs.flatMap(x => [x.pc.cell.id, x.ec.cell.id]).filter(id => SA.isRam(id)), p: true });
       // 一维碰撞：恢复系数由战斗常量控制，铲斗额外击退
       const mp = p.mass, me = e.mass, vp = p.vx, ve = e.vx;
       const vcm = (mp * vp + me * ve) / (mp + me);
@@ -1025,6 +1032,7 @@ SA.Battle = (() => {
       if (knockE) shove(p, e, knockE * T.BIPED_KICK_SHOVE * f);
       if (knockP) shove(e, p, knockP * T.BIPED_KICK_SHOVE * f);
     } else if (closing > 0) {
+      if (newImpact && closing > 6) emit('ram', { x: cx, y: cellY(rows[0].r, p) + HALF, speed: closing, ma: p.mass, mb: e.mass, kinds: [], soft: true, p: true });   // 只通知画面：轻轻碰上
       // 顶牛：按质量合成速度
       const v = (p.mass * p.vx + e.mass * e.vx) / (p.mass + e.mass);
       p.vx = v; e.vx = v;
@@ -1124,6 +1132,7 @@ SA.Battle = (() => {
       const x = frontEdge(s), y = cellY(row, s) + HALF;
       for (let i = 0; i < 10; i++) emit('part', { type: 'steam', x: x, y: y, vx: rnd(-90, 90), vy: rnd(-120, -15), life: rnd(0.4, 0.8), col: undefined });
       B.shake = Math.max(B.shake, 4);
+      emit('ram', { x, y, speed: 0, ma: s.mass, mb: o.mass, kinds: [pc.cell.id], punch: true, p: true });   // 只通知画面（撞锤 / 骑士臂的打击声）
     }
   }
 
