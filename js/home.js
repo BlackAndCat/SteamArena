@@ -100,7 +100,6 @@ SA.Home = (() => {
     const br = UI.brackets(cw + 24, chh + 24); br.classList.add('home-br');
     const carEl = h('div', { class: 'ab home-car', style: `left:${cx - 12}px;top:${cy - 12}px;width:${cw + 24}px;height:${chh + 24}px;padding:12px`, title: SA.Config.text("home_eb748b3c9f79"), onclick: () => SA.nav('garage') },
       carCv, br,
-      h('div', { class: 'home-hint' }, UI.tag(h('span', {}, SA.Config.text("home_a9aec0ff1676")))),
       probs.length ? h('div', { style: 'position:absolute;left:0;top:-22px', title: probs.join('\n') }, UI.stamp(SA.Config.text("home_8b8b24c3d896", `${probs.length}`), 'background:#efe4c6')) : null);
     const cshadow = HS.carShadow(firstCar, WX);
     const carShadow = ab(cx + pad + cshadow.ox * cs, cy + pad + cshadow.oy * cs, UI.img(cshadow.c, cs));

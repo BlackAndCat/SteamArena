@@ -305,7 +305,7 @@ SA.UI = (() => {
     const d = S();
     const act = (label, ok, fn, primary) => h('button', { class: `btn ${primary ? 'primary' : ''}`, disabled: !ok, onclick: () => { fn(); SA.S.save(); topbar(); openBank(); } }, label);
     openModal(SA.Config.text("ui_4569315e5df3"), [
-      h('p', { class: 'muted', style: 'margin-top:0' }, SA.Config.text("ui_cf02cbe7b2dc", `${money(SA.S.LOAN_CAP)}`, `${SA.RULES.economy.interestRate * 100}%`)),
+      h('p', { class: 'muted', style: 'margin-top:0' }, SA.Config.text('ui_bank_short', `${SA.RULES.economy.interestRate * 100}%`, `${money(SA.S.LOAN_CAP)}`)),
       h('div', { class: 'bank' },
         h('div', {}, h('span', { class: 'k' }, SA.Config.text("home_4cd1c821039a")), h('b', { class: 'gold' }, money(d.money))),
         h('div', {}, h('span', { class: 'k' }, SA.Config.text("ui_095b45ce7df5")), h('b', { style: 'color:var(--fire2)' }, money(d.debt)))),
@@ -369,7 +369,7 @@ SA.UI = (() => {
         lines.map(l => h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' }, l)),
         repairFree ? h('div', { class: 'warn repair-free-note', style: 'border-left-color:var(--brass2)' }, SA.Config.text('ui_repair_free_done')) : null,
         !repairFree && hurt.length ? h('div', { class: 'rp-sum' },
-          h('div', { class: 'rp-head' }, h('b', {}, SA.Config.text("ui_2837356f3ad9", `${freeRepair ? SA.Config.text("ui_b41b7071ad0a") : SA.Config.text("ui_18a30ed66d7a")}`, `${hurt.length}`)), h('span', { class: 'muted' }, freeRepair ? SA.Config.text("ui_19790ec76561") : SA.Config.text("ui_99d1acadca51"))),
+          h('div', { class: 'rp-head' }, h('b', {}, SA.Config.text("ui_2837356f3ad9", `${freeRepair ? SA.Config.text("ui_b41b7071ad0a") : SA.Config.text("ui_18a30ed66d7a")}`, `${hurt.length}`)), freeRepair ? h('span', { class: 'muted' }, SA.Config.text("ui_19790ec76561")) : null),
           repairList(hurt, 5, freeRepair),
           gain > 0 || freeRepair ? h('div', { class: `rp-net ${net < 0 ? 'bad' : ''}` },
             SA.Config.text("ui_a491f0181535", `${money(gain)}`, `${freeRepair ? SA.Config.text("ui_649a0fc7237e") : money(cost)}`), h('b', {}, `${net < 0 ? SA.Config.text("ui_1ccb728430fa") : SA.Config.text("ui_75fb0e9d94fa")} ${money(Math.abs(net))}`)) : null) : null,

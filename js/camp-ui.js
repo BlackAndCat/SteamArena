@@ -12,7 +12,6 @@ SA.CampUI = (() => {
     if (!opts.length) { next(); return; }
     const name = (x) => (x.mt > 1 ? `${SA.MATS[x.mt].name}${M[x.id].name}` : M[x.id].name);
     SA.UI.dialog(SA.Config.text("camp_ui_5cbdfd1def9d"), [
-      h('p', { style: 'margin-top:0' }, SA.Config.text("camp_ui_18e94f859d05")),
       // 唯一件单独一张金边卡片排在最前：只能在这里拿到，而且每个存档只有一次
       h('div', { class: 'salvage' }, opts.slice().sort((a, b) => !!b.unique - !!a.unique).map(x => h('div', { class: `dlg-item ${x.unique ? 'uniq-card' : ''}` }, SA.SPR.moduleCanvas(x.id, 1, x.mt),
         h('div', {}, x.unique ? h('span', { class: 'chip uniq big' }, SA.Config.text("camp_ui_b98b7fd2b55b")) : null, x.unique ? ' ' : null, h('b', {}, name(x)), ' ', matChip(x.mt),
@@ -43,7 +42,6 @@ SA.CampUI = (() => {
       h('p', { style: 'margin-top:0' }, ch.blurb),
       h('div', { class: 'unlocks' }, ch.stages.map((s, i) => s.unfinished ? null : h('div', { class: 'warn', style: 'border-left-color:var(--brass2)' },
         h('b', {}, SA.Config.text("camp_ui_0f586f7648f7", `${i + 1}`, `${s.name}`)), s.boss ? ' 【Boss】' : '', h('span', { class: 'muted' }, ` · ${s.pilot}`)))),
-      h('p', { class: 'muted' }, SA.Config.text("camp_ui_d4b04a2fc66d")),
     ], [{ label: SA.Config.text("camp_ui_efdc22fca1c6"), primary: true, onClick: () => {} }], false);
     return true;
   }
